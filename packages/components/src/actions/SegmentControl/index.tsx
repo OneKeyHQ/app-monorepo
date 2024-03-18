@@ -40,6 +40,7 @@ function SegmentControlItem({
       flex={1}
       onPress={handleChange}
       borderRadius="$2"
+      userSelect="none"
       focusable={!disabled}
       focusStyle={{
         outlineWidth: 2,

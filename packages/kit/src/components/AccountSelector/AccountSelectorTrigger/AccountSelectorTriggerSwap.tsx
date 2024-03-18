@@ -1,51 +1,41 @@
-import {
-  useAccountSelectorContextData,
-  useSelectedAccount,
-} from '../../../states/jotai/contexts/accountSelector';
-import { DeriveTypeSelectorTrigger } from '../DeriveTypeSelectorTrigger';
-import { NetworkSelectorTriggerLegacy } from '../NetworkSelectorTrigger';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 
-import { AccountSelectorTriggerBase } from './AccountSelectorTriggerBase';
+import { AccountAvatar } from '../../AccountAvatar';
+import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
 
-function AccountSelectorTriggerSwapNetworkSelector({ num }: { num: number }) {
-  const contextData = useAccountSelectorContextData();
+export function AccountSelectorTriggerSwap({ num }: { num: number }) {
   const {
-    selectedAccount: { networkId },
-  } = useSelectedAccount({ num });
-
-  const { config } = contextData;
-
+    activeAccount: { account, accountName },
+    showAccountSelector,
+  } = useAccountSelectorTrigger({ num });
   return (
-    <>
-      <NetworkSelectorTriggerLegacy
-        key={`NetworkSelectorTrigger-${networkId || ''}-${num}-${
-          config?.sceneName || ''
-        }`}
-        num={num}
-      />
-      <DeriveTypeSelectorTrigger
-        key={`DeriveTypeSelectorTrigger-${networkId || ''}-${num}-${
-          config?.sceneName || ''
-        }`}
-        num={num}
-      />
-    </>
-  );
-}
+    <XStack
+      role="button"
+      alignItems="center"
+      p="$1.5"
+      mx="$-1.5"
+      borderRadius="$2"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      onPress={() => showAccountSelector()}
+      maxWidth="$40"
+    >
+      <AccountAvatar size="$6" borderRadius="$1" account={account} />
 
-export function AccountSelectorTriggerSwap({
-  num,
-  showNetworkSelector,
-}: {
-  num: number;
-  showNetworkSelector?: boolean;
-}) {
-  return (
-    <>
-      <AccountSelectorTriggerBase num={num} linkNetwork />
-      {showNetworkSelector ? (
-        <AccountSelectorTriggerSwapNetworkSelector num={num} />
-      ) : null}
-    </>
+      <SizableText
+        flex={1}
+        size="$bodyMdMedium"
+        pl="$2"
+        pr="$1"
+        numberOfLines={1}
+      >
+        {accountName}
+      </SizableText>
+      <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
+    </XStack>
   );
 }

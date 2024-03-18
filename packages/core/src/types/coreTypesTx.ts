@@ -1,5 +1,6 @@
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
@@ -87,6 +88,7 @@ export type IUnsignedTx = {
 export type IUnsignedTxPro = IUnsignedTx & {
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
+  swapInfo?: ISwapTxInfo | undefined;
   txSize?: number;
   transfersInfo?: ITransferInfo[];
   rawTxUnsigned?: string;
@@ -110,6 +112,7 @@ export type ISignedTxResult = ISignedTx & {
   // for lightning network
   nonce?: number;
   randomSeed?: number;
+  swapInfo?: ISwapTxInfo;
 };
 export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
