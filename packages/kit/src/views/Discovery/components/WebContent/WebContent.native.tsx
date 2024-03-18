@@ -263,7 +263,7 @@ function WebContent({
       >
         {webview}
       </ScrollView>
-      {showBlockAccessView && blockAccessView}
+      {showBlockAccessView ? blockAccessView : null}
     </>
   );
 }

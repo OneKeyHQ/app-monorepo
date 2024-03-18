@@ -72,7 +72,7 @@ export function WalletListItem({
       onPress={onPress}
     >
       {walletAvatarProps ? <WalletAvatar {...walletAvatarProps} /> : null}
-      {media.gtMd && (
+      {media.gtMd ? (
         <SizableText
           flex={1}
           numberOfLines={1}
@@ -82,7 +82,7 @@ export function WalletListItem({
         >
           {walletName}
         </SizableText>
-      )}
+      ) : null}
     </Stack>
   );
 

@@ -99,7 +99,7 @@ function AvatarStackTrigger({
           />
         </Stack>
       ))}
-      {accountsInfo.length > 2 && (
+      {accountsInfo.length > 2 ? (
         <XStack
           w="$6"
           h="$6"
@@ -113,7 +113,7 @@ function AvatarStackTrigger({
             +{accountsInfo.length - 2}
           </SizableText>
         </XStack>
-      )}
+      ) : null}
     </XStack>
   );
 }

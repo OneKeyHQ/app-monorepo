@@ -27,7 +27,7 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
 
   return (
     <AnimatePresence onExitComplete={onExit}>
-      {showLoading && (
+      {showLoading ? (
         <Stack
           bg="$bgApp"
           key="splash-view"
@@ -59,7 +59,7 @@ export function SplashView({ onExit, ready }: ISplashViewProps) {
             </Stack>
           </Stack>
         </Stack>
-      )}
+      ) : null}
     </AnimatePresence>
   );
 }

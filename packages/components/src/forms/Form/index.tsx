@@ -108,23 +108,23 @@ function Field({
       rules={rules}
       render={({ field }) => (
         <Fieldset p="$0" m="$0" borderWidth={0}>
-          {label && (
+          {label ? (
             <XStack mb="$1.5">
               <Label htmlFor={name}>{label}</Label>
-              {optional && (
+              {optional ? (
                 <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
                   (Optional)
                 </SizableText>
-              )}
+              ) : null}
             </XStack>
-          )}
+          ) : null}
           {Children.map(children as ReactChildren, (child) =>
             isValidElement(child)
               ? cloneElement(child, getChildProps(child, field, error))
               : child,
           )}
           <HeightTransition>
-            {error?.message && (
+            {error?.message ? (
               <SizableText
                 testID={`${testID}-message`}
                 key={error?.message}
@@ -143,7 +143,7 @@ function Field({
               >
                 {error.message}
               </SizableText>
-            )}
+            ) : null}
           </HeightTransition>
           {typeof description === 'string' ? (
             <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">

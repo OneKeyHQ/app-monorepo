@@ -33,7 +33,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
     <View style={{ flex: 1 }}>
       {showChildren ? children : null}
       <AnimatePresence>
-        {showLoading && (
+        {showLoading ? (
           <Stack
             position="absolute"
             top={0}
@@ -49,7 +49,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
           >
             <Loading />
           </Stack>
-        )}
+        ) : null}
       </AnimatePresence>
     </View>
   );
