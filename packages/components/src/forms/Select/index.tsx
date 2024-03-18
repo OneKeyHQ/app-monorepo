@@ -125,11 +125,11 @@ function SelectItem({
           >
             {label}
           </SizableText>
-          {description && (
+          {description ? (
             <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
               {description}
             </SizableText>
-          )}
+          ) : null}
         </Stack>
         {selectedValue === value ? (
           <Icon
