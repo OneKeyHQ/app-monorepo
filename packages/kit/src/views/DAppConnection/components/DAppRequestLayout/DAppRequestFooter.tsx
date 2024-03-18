@@ -47,13 +47,13 @@ function DAppRequestFooter({
         w: media.md ? '100%' : 'auto',
       }}
     >
-      {showContinueOperateCheckbox && (
+      {showContinueOperateCheckbox ? (
         <Checkbox
           label="Proceed at my own risk"
           value={continueOperate}
           onChange={setContinueOperate}
         />
-      )}
+      ) : null}
     </Page.FooterActions>
   );
 }

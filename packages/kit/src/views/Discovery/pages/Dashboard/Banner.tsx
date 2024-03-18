@@ -82,9 +82,9 @@ export function Banner({
       gotToPrevIndex,
     }: IRenderPaginationParams) => (
       <>
-        {media.gtMd && (
+        {media.gtMd ? (
           <>
-            {currentIndex !== 0 && (
+            {currentIndex !== 0 ? (
               <IconButton
                 position="absolute"
                 left="$10"
@@ -100,9 +100,9 @@ export function Banner({
                 }}
                 onPress={gotToPrevIndex}
               />
-            )}
+            ) : null}
 
-            {currentIndex !== banners.length - 1 && (
+            {currentIndex !== banners.length - 1 ? (
               <IconButton
                 icon="ChevronRightOutline"
                 variant="tertiary"
@@ -119,10 +119,10 @@ export function Banner({
                 onPress={goToNextIndex}
                 disabled={currentIndex === banners.length - 1}
               />
-            )}
+            ) : null}
           </>
-        )}
-        {banners.length > 1 && (
+        ) : null}
+        {banners.length > 1 ? (
           <XStack space="$1" position="absolute" right="$10" bottom="$10">
             {banners.map((_, index) => (
               <Stack
@@ -138,7 +138,7 @@ export function Banner({
               />
             ))}
           </XStack>
-        )}
+        ) : null}
       </>
     ),
     [media.gtMd, banners],

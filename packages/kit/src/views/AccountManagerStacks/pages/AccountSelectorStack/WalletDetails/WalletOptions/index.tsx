@@ -136,7 +136,7 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
   return (
     <HeightTransition>
       <AnimatePresence>
-        {editMode && (
+        {editMode ? (
           <Stack
             testID="wallet-edit-options"
             animation="quick"
@@ -157,7 +157,7 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
               <Divider mt="auto" />
             </Stack>
           </Stack>
-        )}
+        ) : null}
       </AnimatePresence>
     </HeightTransition>
   );

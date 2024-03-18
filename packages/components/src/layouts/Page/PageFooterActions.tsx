@@ -1,4 +1,4 @@
-import type { ComponentType, PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
