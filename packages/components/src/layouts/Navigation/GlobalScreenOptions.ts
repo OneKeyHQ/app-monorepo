@@ -49,7 +49,7 @@ export function makeModalOpenAnimationOptions(info: {
   isVerticalLayout?: boolean;
   optionsInfo: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
-  if (platformEnv.isExtensionUiPopup) {
+  if (platformEnv.isExtension) {
     return {
       animationEnabled: true,
       ...extAnimConfig.transition,
