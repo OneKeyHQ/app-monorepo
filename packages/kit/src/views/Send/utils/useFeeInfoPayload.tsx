@@ -185,13 +185,15 @@ export function useFeeInfoPayload({
               price1559,
             };
           } else if (gasPrice) {
+            info.eip1559 = false;
             const price = new BigNumber(gasPrice ?? 0)
               .shiftedBy(-(feeDecimals ?? 0))
               .toFixed();
             info.limit = limit || info.limit;
             info.prices = [price];
             info.tx = {
-              limit,
+              eip1559: false,
+              limit: limit || info.limit,
               price,
             };
           } else if (limit) {
