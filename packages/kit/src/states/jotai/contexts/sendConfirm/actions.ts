@@ -6,6 +6,7 @@ import type {
   EFeeType,
   ESendFeeStatus,
   IFeeInfoUnit,
+  ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -41,14 +42,7 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   });
 
   updateSendSelectedFeeInfo = contextAtomMethod(
-    (
-      get,
-      set,
-      feeInfo: {
-        totalNative: string;
-        feeInfo: IFeeInfoUnit;
-      },
-    ) => {
+    (get, set, feeInfo: ISendSelectedFeeInfo) => {
       set(sendSelectedFeeInfoAtom(), feeInfo);
     },
   );

@@ -12,6 +12,7 @@ import type { IModalReceiveParamList } from './receive';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
+import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
 
 export enum EModalRoutes {
@@ -19,6 +20,7 @@ export enum EModalRoutes {
   DiscoveryModal = 'DiscoveryModal',
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
+  SwapModal = 'SwapModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
   AssetSelectorModal = 'AssetSelectorModal',
@@ -37,6 +39,7 @@ export type IModalParamList = {
   [EModalRoutes.TestModal]: ITestModalPagesParam;
   [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
   [EModalRoutes.SettingModal]: IModalSettingParamList;
+  [EModalRoutes.SwapModal]: IModalSwapParamList;
   [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
   [EModalRoutes.AssetSelectorModal]: IAssetSelectorParamList;

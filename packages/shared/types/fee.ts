@@ -52,6 +52,15 @@ export type IFeeInfoUnit = {
   feeUTXO?: IFeeUTXO;
 };
 
+export type ISendSelectedFeeInfo = {
+  feeInfo: IFeeInfoUnit;
+  total: string;
+  totalNative: string;
+  totalFiat: string;
+  totalNativeForDisplay: string;
+  totalFiatForDisplay: string;
+};
+
 export type IEstimateGasResp = {
   isEIP1559: true;
   feeDecimals: number;
