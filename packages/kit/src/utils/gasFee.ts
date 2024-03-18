@@ -158,6 +158,9 @@ export function calculateFeeForSend({
     feeInfo,
     displayDecimal: nativeDisplayDecimal,
   });
+  const totalFiat = new BigNumber(totalNative)
+    .multipliedBy(nativeTokenPrice)
+    .toFixed(fiatDisplayDecimal);
   const totalFiatForDisplay = new BigNumber(totalNativeForDisplay)
     .multipliedBy(nativeTokenPrice)
     .toFixed(fiatDisplayDecimal);
@@ -166,6 +169,7 @@ export function calculateFeeForSend({
     total,
     totalForDisplay,
     totalNative,
+    totalFiat,
     totalNativeForDisplay,
     totalFiatForDisplay,
     feeRange,

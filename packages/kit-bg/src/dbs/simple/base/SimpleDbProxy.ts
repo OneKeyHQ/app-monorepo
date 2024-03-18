@@ -11,6 +11,8 @@ import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappC
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
+import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -49,6 +51,14 @@ export class SimpleDbProxy
   accountSelector = this._createProxyService(
     'accountSelector',
   ) as SimpleDbEntityAccountSelector;
+
+  swapNetworksSort = this._createProxyService(
+    'swapNetworksSort',
+  ) as SimpleDbEntitySwapNetworksSort;
+
+  swapHistory = this._createProxyService(
+    'swapHistory',
+  ) as SimpleDbEntitySwapHistory;
 
   localTokens = this._createProxyService(
     'localTokens',
