@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
@@ -18,12 +17,14 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 type IProps = {
   accountId: string;
   networkId: string;
-  onSuccess?: (txs: ISignedTxPro[]) => void;
+  onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
+  onCancel?: () => void;
   tableLayout?: boolean;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
@@ -35,6 +36,7 @@ function SendConfirmActionsContainer(props: IProps) {
     networkId,
     onSuccess,
     onFail,
+    onCancel,
     tableLayout,
     sourceInfo,
     signOnly,
@@ -60,12 +62,12 @@ function SendConfirmActionsContainer(props: IProps) {
     setIsSubmitting(true);
 
     try {
-      const signedTxs =
+      const result =
         await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
           accountId,
           networkId,
           unsignedTxs,
-          feeInfo: sendSelectedFeeInfo?.feeInfo,
+          feeInfo: sendSelectedFeeInfo,
           nativeAmountInfo: nativeTokenTransferAmountToUpdate.isMaxSend
             ? {
                 maxSendAmount: nativeTokenTransferAmountToUpdate.amountToUpdate,
@@ -74,7 +76,7 @@ function SendConfirmActionsContainer(props: IProps) {
           signOnly,
         });
 
-      onSuccess?.(signedTxs);
+      onSuccess?.(result);
       setIsSubmitting(false);
       Toast.success({
         title: intl.formatMessage({ id: 'msg__transaction_submitted' }),
@@ -100,17 +102,21 @@ function SendConfirmActionsContainer(props: IProps) {
     networkId,
     onFail,
     onSuccess,
-    sendSelectedFeeInfo?.feeInfo,
+    sendSelectedFeeInfo,
     signOnly,
     unsignedTxs,
   ]);
 
-  const handleOnCancel = useCallback(() => {
-    dappApprove.reject();
-    if (!sourceInfo) {
-      navigation.popStack();
-    }
-  }, [dappApprove, navigation, sourceInfo]);
+  const handleOnCancel = useCallback(
+    (close: () => void, closePageStack: () => void) => {
+      dappApprove.reject();
+      if (!sourceInfo) {
+        closePageStack();
+      }
+      onCancel?.();
+    },
+    [dappApprove, onCancel, sourceInfo],
+  );
 
   const isSubmitDisabled = useMemo(() => {
     if (isSubmitting) return true;

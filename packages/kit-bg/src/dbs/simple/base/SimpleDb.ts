@@ -7,6 +7,8 @@ import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnec
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
+import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 
 export class SimpleDb {
   browserTabs = new SimpleDbEntityBrowserTabs();
@@ -18,6 +20,10 @@ export class SimpleDb {
   browserHistory = new SimpleDbEntityBrowserHistory();
 
   accountSelector = new SimpleDbEntityAccountSelector();
+
+  swapNetworksSort = new SimpleDbEntitySwapNetworksSort();
+
+  swapHistory = new SimpleDbEntitySwapHistory();
 
   localTokens = new SimpleDbEntityLocalTokens();
 
