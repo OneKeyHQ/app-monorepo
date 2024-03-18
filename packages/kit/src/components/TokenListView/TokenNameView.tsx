@@ -17,7 +17,7 @@ function TokenNameView(props: IProps) {
         <SizableText numberOfLines={1} {...rest}>
           {name}
         </SizableText>
-        {isNative && (
+        {isNative ? (
           <Tooltip
             renderContent="This is the cryptocurrency used to pay for network fees"
             renderTrigger={
@@ -29,7 +29,7 @@ function TokenNameView(props: IProps) {
               />
             }
           />
-        )}
+        ) : null}
       </XStack>
     ),
     [rest, name, isNative],
