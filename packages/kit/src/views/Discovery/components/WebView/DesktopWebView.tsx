@@ -318,7 +318,7 @@ const DesktopWebView = forwardRef(
 
     return (
       <>
-        {isDev && (
+        {isDev ? (
           <button
             type="button"
             style={{
@@ -336,7 +336,7 @@ const DesktopWebView = forwardRef(
           >
             DevTools
           </button>
-        )}
+        ) : null}
         <webview
           ref={initWebviewByRef}
           preload={preloadJsUrl}
@@ -356,7 +356,7 @@ const DesktopWebView = forwardRef(
           // useragent="Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
           {...props}
         />
-        {desktopLoadError && (
+        {desktopLoadError ? (
           <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
             <ErrorView
               onRefresh={() => {
@@ -364,7 +364,7 @@ const DesktopWebView = forwardRef(
               }}
             />
           </Stack>
-        )}
+        ) : null}
       </>
     );
   },

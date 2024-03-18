@@ -229,7 +229,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       onPress={onPress}
       onLongPress={onLongPress}
     >
-      {icon && !loading && (
+      {icon && !loading ? (
         <ButtonIcon
           name={icon}
           variant={variant}
@@ -237,17 +237,17 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
           mr="$2"
           color={outerIconColor || iconColor}
         />
-      )}
-      {loading && (
+      ) : null}
+      {loading ? (
         <Spinner size="small" mr="$2" color={outerIconColor || iconColor} />
-      )}
+      ) : null}
       <SizableText
         size={textVariant as FontSizeTokens}
         color={outerColor || color}
       >
         {children}
       </SizableText>
-      {iconAfter && (
+      {iconAfter ? (
         <ButtonIcon
           name={iconAfter}
           variant={variant}
@@ -255,7 +255,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
           ml="$2"
           color={outerIconColor || iconColor}
         />
-      )}
+      ) : null}
     </ButtonFrame>
   );
 });
