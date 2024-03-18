@@ -70,12 +70,7 @@ export function AccountSelectorTriggerHome({
       >
         {accountName}
       </SizableText>
-      <Icon
-        flexShrink={0} // Prevents the icon from shrinking when the text is too long
-        name="ChevronGrabberVerOutline"
-        size="$5"
-        color="$iconSubdued"
-      />
+      <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
     </XStack>
   );
 }
