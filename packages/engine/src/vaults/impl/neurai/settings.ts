@@ -14,10 +14,10 @@ const settings: IVaultSettings = Object.freeze({
   tokenEnabled: false,
   txCanBeReplaced: false,
 
-  importedAccountEnabled: true,
+  importedAccountEnabled: false,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
-  watchingAccountEnabled: true,
+  watchingAccountEnabled: false,
 
   minTransferAmount: '0.00000546',
 
