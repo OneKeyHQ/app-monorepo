@@ -61,7 +61,7 @@ function createBackgroundMethodDecorator({
       );
     }
 
-    if (devOnly && platformEnv.isProduction) {
+    if (devOnly && platformEnv.isProduction && !platformEnv.isE2E) {
       throwCrossError(
         '@backgroundMethodForDev() / providerApiMethod only available in development.',
         methodName,
