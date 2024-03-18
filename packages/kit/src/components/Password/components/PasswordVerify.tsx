@@ -113,7 +113,7 @@ const PasswordVerify = ({
       void onBiologyAuth();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEnable, manualLocking, status.value]);
+  }, [isEnable, manualLocking]);
 
   // Perform biology verification upon returning to the backend after a 1-second interval.
   const onActive = useCallback(() => {
