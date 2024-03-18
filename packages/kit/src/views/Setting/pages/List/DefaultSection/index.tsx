@@ -86,7 +86,7 @@ export const DefaultSection = () => {
         drillIn
         onPress={() => {}}
       />
-      {platformEnv.isNative && (
+      {platformEnv.isNative ? (
         <ListItem
           icon="OnekeyLiteOutline"
           title="OneKey Lite"
@@ -97,7 +97,7 @@ export const DefaultSection = () => {
             });
           }}
         />
-      )}
+      ) : null}
       <ListItem
         icon="OnekeyKeytagOutline"
         title="OneKey KeyTag"

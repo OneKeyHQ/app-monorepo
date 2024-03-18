@@ -373,7 +373,7 @@ function BasicPhaseInput(
       placement="bottom-start"
       usingSheet={false}
       onOpenChange={handleOpenChange}
-      open={!!openStatusRef.current && selectInputIndex === index}
+      open={openStatusRef.current ? selectInputIndex === index : undefined}
       renderContent={
         <KeyDownView onKeyDown={handleSelectSuggestionByNumber}>
           <SuggestionList
@@ -492,7 +492,7 @@ export function PhaseInputArea({
   return (
     <>
       <Page.Body>
-        {(showPhraseLengthSelector || showClearAllButton) && (
+        {showPhraseLengthSelector || showClearAllButton ? (
           <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
             {showPhraseLengthSelector ? (
               <Select
@@ -525,7 +525,7 @@ export function PhaseInputArea({
               </Button>
             ) : null}
           </XStack>
-        )}
+        ) : null}
 
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">
@@ -585,22 +585,22 @@ export function PhaseInputArea({
         ) : null}
 
         <HeightTransition>
-          {invalidWordsLength > 0 && (
+          {invalidWordsLength > 0 ? (
             <XStack pt="$1.5" px="$5" key="invalidWord">
               <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
               <SizableText size="$bodyMd" color="$textCritical" pl="$2">
                 {invalidWordsMessage(invalidWordsLength)}
               </SizableText>
             </XStack>
-          )}
-          {invalidPhrase && (
+          ) : null}
+          {invalidPhrase ? (
             <XStack pt="$1.5" px="$5" key="invalidPhrase">
               <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
               <SizableText size="$bodyMd" color="$textCritical" pl="$2">
                 Invalid recovery phrase
               </SizableText>
             </XStack>
-          )}
+          ) : null}
         </HeightTransition>
         <Tutorials px="$5" list={tutorials} />
       </Page.Body>

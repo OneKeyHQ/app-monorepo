@@ -156,7 +156,7 @@ const PasswordVerify = ({
           testID="enter-password"
         />
       </Form.Field>
-      {isEnable && <AppStatusActiveListener onActive={onActive} />}
+      {isEnable ? <AppStatusActiveListener onActive={onActive} /> : null}
     </Form>
   );
 };

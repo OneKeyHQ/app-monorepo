@@ -131,7 +131,7 @@ function SearchModal() {
         }}
       />
       <Page.Body pt="$2" pb="$5">
-        {displaySearchList && (
+        {displaySearchList ? (
           <Stack pb="$5">
             {searchList.map((item, index) => (
               <ListItem
@@ -169,9 +169,9 @@ function SearchModal() {
               />
             ))}
           </Stack>
-        )}
+        ) : null}
 
-        {displayBookmarkList && (
+        {displayBookmarkList ? (
           <Stack>
             <DappSearchModalSectionHeader
               title="Bookmarks"
@@ -227,8 +227,8 @@ function SearchModal() {
               ))}
             </XStack>
           </Stack>
-        )}
-        {displayHistoryList && (
+        ) : null}
+        {displayHistoryList ? (
           <Stack pt="$5">
             <DappSearchModalSectionHeader
               title="History"
@@ -265,7 +265,7 @@ function SearchModal() {
               />
             ))}
           </Stack>
-        )}
+        ) : null}
       </Page.Body>
     </Page>
   );
