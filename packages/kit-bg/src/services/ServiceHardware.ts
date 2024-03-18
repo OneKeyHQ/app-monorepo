@@ -383,7 +383,11 @@ class ServiceHardware extends ServiceBase {
         const result = resp.data;
         // result.message = 'false';
 
-        const verified = result.code === 0 && result.data === connectId;
+        // result.data = 'CLA45F0024'; // server return SN
+        // SearchDevice.connectId (web sdk return SN, but ble sdk return uuid)
+        const verified = result.code === 0;
+
+        console.log('firmwareAuthenticate result: ', result, connectId);
 
         return {
           verified,
