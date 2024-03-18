@@ -80,7 +80,7 @@ export function ActionListItem({
       onPress={handlePress}
       testID={testID}
     >
-      {icon && (
+      {icon ? (
         <Icon
           name={icon}
           size="$5"
@@ -89,7 +89,7 @@ export function ActionListItem({
           color={destructive ? '$iconCritical' : '$icon'}
           {...iconProps}
         />
-      )}
+      ) : null}
       <SizableText
         size="$bodyMd"
         $md={{ size: '$bodyLg' }}
@@ -173,8 +173,8 @@ function BasicActionList({
 
           {sections?.map((section, sectionIdx) => (
             <YStack key={sectionIdx}>
-              {sectionIdx > 0 && <Divider mx="$2" my="$1" />}
-              {section.title && (
+              {sectionIdx > 0 ? <Divider mx="$2" my="$1" /> : null}
+              {section.title ? (
                 <Heading
                   size="$headingXs"
                   $md={{ size: '$headingSm', paddingVertical: '$2.5' }}
@@ -184,7 +184,7 @@ function BasicActionList({
                 >
                   {section.title}
                 </Heading>
-              )}
+              ) : null}
               {section.items.map(renderActionListItem)}
             </YStack>
           ))}
