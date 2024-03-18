@@ -10,6 +10,7 @@ import { Section } from '../Section';
 
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
+import { StartTimePanel } from './StartTimePanel';
 
 const { GITHUB_SHA } = process.env;
 export const DevSettingsSection = () => {
@@ -39,14 +40,14 @@ export const DevSettingsSection = () => {
         title="Disable the dev mode"
         onPress={handleDevModeOnChange}
       />
-      {GITHUB_SHA && (
+      {GITHUB_SHA ? (
         <SectionPressItem
           title={`BuildHash: ${GITHUB_SHA}`}
           onPress={() => {
             copyText(GITHUB_SHA);
           }}
         />
-      )}
+      ) : null}
       <SectionFieldItem
         name="enableTestEndpoint"
         title={intl.formatMessage({ id: 'action__test_onekey_service' })}
@@ -94,6 +95,15 @@ export const DevSettingsSection = () => {
                 />
               </YStack>
             ),
+          });
+        }}
+      />
+      <SectionPressItem
+        title="Startup Time"
+        onPress={() => {
+          Dialog.cancel({
+            title: 'Startup Time(ms)',
+            renderContent: <StartTimePanel />,
           });
         }}
       />

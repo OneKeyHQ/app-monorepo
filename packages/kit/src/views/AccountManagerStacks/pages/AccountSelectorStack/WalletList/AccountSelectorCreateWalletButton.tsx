@@ -35,7 +35,7 @@ export function AccountSelectorCreateWalletButton() {
   }, [navigation]);
 
   return (
-    <Stack p="$1" alignItems="center" mt="$3">
+    <Stack p="$1" my="$2" alignItems="center">
       <ActionList
         placement="right-start"
         renderTrigger={
@@ -45,29 +45,37 @@ export function AccountSelectorCreateWalletButton() {
           />
         }
         title="Add wallet"
-        items={[
+        sections={[
           {
-            label: 'Connect Hardware Wallet',
-            icon: platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline',
-            onPress: handleConnectHardwareWalletPress,
+            items: [
+              {
+                label: 'Connect Hardware Wallet',
+                icon: platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline',
+                onPress: handleConnectHardwareWalletPress,
+              },
+            ],
           },
           {
-            label: 'Create Recovery Phrase',
-            icon: 'PlusCircleOutline',
-            onPress: handleCreateWalletPress,
-          },
-          {
-            label: 'Import Recovery Phrase',
-            icon: 'ArrowBottomCircleOutline',
-            onPress: handleImportWalletPress,
+            items: [
+              {
+                label: 'Create Recovery Phrase',
+                icon: 'PlusCircleOutline',
+                onPress: handleCreateWalletPress,
+              },
+              {
+                label: 'Import Recovery Phrase',
+                icon: 'ArrowBottomCircleOutline',
+                onPress: handleImportWalletPress,
+              },
+            ],
           },
         ]}
       />
-      {media.gtMd && (
+      {media.gtMd ? (
         <SizableText size="$bodySm" color="$textSubdued" mt="$1">
           Add wallet
         </SizableText>
-      )}
+      ) : null}
     </Stack>
   );
 }

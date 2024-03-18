@@ -49,7 +49,6 @@ import type {
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
   IBuildHistoryTxParams,
-  IBuildTxHelperParams,
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
@@ -142,9 +141,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   abstract buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx>;
 
-  abstract buildDecodedTx(
-    params: IBuildDecodedTxParams & IBuildTxHelperParams,
-  ): Promise<IDecodedTx>;
+  abstract buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx>;
 
   abstract buildUnsignedTx(
     params: IBuildUnsignedTxParams,
@@ -456,7 +453,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       networkId: this.networkId,
     });
 
-    const address = addressDetail?.address || account.address;
+    // always use addressDetail.address as account.address, which is normalized and validated
+    const address = addressDetail?.address || '';
+
+    if (!address || !addressDetail.isValid) {
+      throw new Error('VaultBase.getAccount ERROR: address is invalid');
+    }
     return {
       ...account,
       addressDetail,

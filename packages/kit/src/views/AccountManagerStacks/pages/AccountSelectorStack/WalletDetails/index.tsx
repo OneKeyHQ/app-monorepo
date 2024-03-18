@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
+import type { ISectionListRef } from '@onekeyhq/components';
 import {
   ActionList,
-  AnimatePresence,
-  Button,
   Icon,
   IconButton,
   SectionList,
   SizableText,
   Stack,
   useSafeAreaInsets,
+  useSafelyScrollToLocation,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
@@ -41,13 +41,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import type {
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -64,7 +65,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
-
+  const listRef = useRef<ISectionListRef<any> | null>(null);
   const route =
     useRoute<
       RouteProp<
@@ -103,21 +104,27 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           walletId: selectedAccount?.focusedWallet,
         });
         if (isHd || isHw) {
-          const wallet = await serviceAccount.getWallet({
-            walletId: selectedAccount?.focusedWallet,
-          });
-
-          let device: IDBDevice | undefined;
-          if (isHw) {
-            device = await serviceAccount.getWalletDevice({
+          try {
+            const wallet = await serviceAccount.getWallet({
               walletId: selectedAccount?.focusedWallet,
             });
-          }
 
-          return {
-            wallet,
-            device,
-          };
+            let device: IDBDevice | undefined;
+            if (isHw) {
+              device = await serviceAccount.getWalletDevice({
+                walletId: selectedAccount?.focusedWallet,
+              });
+            }
+
+            return {
+              wallet,
+              device,
+            };
+          } catch (error) {
+            // wallet may be removed
+            console.error(error);
+            return undefined;
+          }
         }
       },
       [selectedAccount?.focusedWallet, serviceAccount],
@@ -169,10 +176,36 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       await reloadAccounts();
     };
     appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
+    appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
+      appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
     };
   }, [reloadAccounts]);
+
+  const { scrollToLocation, onLayout } = useSafelyScrollToLocation(listRef);
+  // scroll into selected account
+  useEffect(() => {
+    if (sectionData?.[0]?.data) {
+      const itemIndex = sectionData[0].data?.findIndex(({ id }) =>
+        isOthers
+          ? selectedAccount.othersWalletAccountId === id
+          : selectedAccount.indexedAccountId === id,
+      );
+      console.log('itemIndex----', itemIndex);
+      scrollToLocation({
+        animated: true,
+        sectionIndex: 0,
+        itemIndex: Math.max(itemIndex, 0),
+      });
+    }
+  }, [
+    isOthers,
+    scrollToLocation,
+    sectionData,
+    selectedAccount.indexedAccountId,
+    selectedAccount.othersWalletAccountId,
+  ]);
 
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
@@ -232,7 +265,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   //   return count <= 0;
   // }, [sectionData]);
 
-  const shouldShowEditButton = useMemo(() => {
+  const editable = useMemo(() => {
     if (selectedAccount.focusedWallet === '$$others') {
       if (
         sectionData?.some((section) => {
@@ -254,28 +287,24 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
   return (
     <Stack flex={1} pb={bottom}>
-      <ListItem
-        mt="$1.5"
-        title={isOthers ? 'Others' : focusedWalletInfo?.wallet?.name}
+      <WalletDetailsHeader
+        wallet={focusedWalletInfo?.wallet}
         titleProps={{
-          animation: 'quick',
-          opacity: editMode && shouldShowEditButton ? 0 : 1, // hide when edit mode
+          opacity: editMode && editable ? 0 : 1,
         }}
-      >
-        {shouldShowEditButton ? (
-          <Button
-            testID="AccountSelectorModal-EditButton"
-            variant="tertiary"
-            onPress={() => {
-              setEditMode((v) => !v);
-            }}
-          >
-            {editMode ? 'Done' : 'Edit'}
-          </Button>
-        ) : null}
-      </ListItem>
+        editMode={editMode}
+        editable={editable}
+        onEditButtonPress={() => {
+          setEditMode((v) => !v);
+        }}
+        {...(!editMode && {
+          title: isOthers ? 'Others' : focusedWalletInfo?.wallet?.name,
+        })}
+      />
 
       <SectionList
+        ref={listRef}
+        onLayout={onLayout}
         ListEmptyComponent={
           <Stack p="$3">
             <SizableText>No Wallets</SizableText>
@@ -301,9 +330,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           <>
             {/* If better performance is needed,  */
             /*  a header component should be extracted and data updates should be subscribed to through context" */}
-            {section.title && (
+            {section.title ? (
               <SectionList.SectionHeader title={section.title}>
-                {section.isHiddenWalletData && editMode && (
+                {section.isHiddenWalletData && editMode ? (
                   <ActionList
                     title={section.title}
                     renderTrigger={
@@ -347,17 +376,17 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                       },
                     ]}
                   />
-                )}
+                ) : null}
               </SectionList.SectionHeader>
-            )}
-            {section.data.length === 0 && section.emptyText && (
+            ) : null}
+            {section.data.length === 0 && section.emptyText ? (
               <ListItem
                 title={section.emptyText}
                 titleProps={{
                   size: '$bodyLg',
                 }}
               />
-            )}
+            ) : null}
           </>
         )}
         renderItem={({
@@ -410,20 +439,18 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   : selectedAccount.indexedAccountId === item.id,
               })}
             >
-              <AnimatePresence>
-                {editMode && (
-                  <>
-                    <AccountEditButton
-                      account={account}
-                      indexedAccount={indexedAccount}
-                    />
-                    {/* <AccountRemoveButton
+              {editMode ? (
+                <>
+                  <AccountEditButton
+                    account={account}
+                    indexedAccount={indexedAccount}
+                  />
+                  {/* <AccountRemoveButton
                       account={account}
                       indexedAccount={indexedAccount}
                     /> */}
-                  </>
-                )}
-              </AnimatePresence>
+                </>
+              ) : null}
             </ListItem>
           );
         }}
@@ -475,9 +502,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             {/* Add account */}
             <ListItem.Text
               userSelect="none"
-              primary="Add account"
+              primary="Add Account"
               primaryTextProps={{
-                size: '$bodyLg',
+                color: '$textSubdued',
               }}
             />
           </ListItem>

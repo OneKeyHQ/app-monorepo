@@ -46,7 +46,7 @@ export function VerifyRecoveryPhrase({
       });
     } else {
       Toast.error({
-        title: 'not equal',
+        title: 'Invalid Phrases',
       });
     }
   };

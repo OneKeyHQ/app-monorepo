@@ -66,7 +66,7 @@ function getTxStatusTextProps(status: EDecodedTxStatus): {
   };
 }
 
-function InfoItemGroup({ children, ...rest }: IXStackProps) {
+export function InfoItemGroup({ children, ...rest }: IXStackProps) {
   return (
     <XStack p="$2.5" flexWrap="wrap" {...rest}>
       {children}
@@ -74,7 +74,7 @@ function InfoItemGroup({ children, ...rest }: IXStackProps) {
   );
 }
 
-function InfoItem({
+export function InfoItem({
   label,
   renderContent,
   compact = false,
@@ -109,7 +109,7 @@ function InfoItem({
   );
 }
 
-function AssetItem({
+export function AssetItem({
   asset,
   index,
   direction,
@@ -294,7 +294,7 @@ function HistoryDetails() {
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {historyTx.decodedTx.status === EDecodedTxStatus.Pending && (
+        {historyTx.decodedTx.status === EDecodedTxStatus.Pending ? (
           <XStack ml="$5">
             <Button size="small" variant="primary">
               Speed Up
@@ -303,7 +303,7 @@ function HistoryDetails() {
               Cancel
             </Button>
           </XStack>
-        )}
+        ) : null}
       </XStack>
     );
   }, [historyTx.decodedTx.status, intl]);
@@ -464,23 +464,23 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
-            {!isNil(txInfo.nonce) && (
+            {!isNil(txInfo.nonce) ? (
               <InfoItem
                 label="Nonce"
                 renderContent={String(txInfo.nonce)}
                 compact
               />
-            )}
-            {!isNil(txInfo.confirmations) && (
+            ) : null}
+            {!isNil(txInfo.confirmations) ? (
               <InfoItem
                 label="Confirmations"
                 renderContent={String(txInfo.confirmations)}
                 compact
               />
-            )}
+            ) : null}
           </InfoItemGroup>
           {/* Tertiary */}
-          {txInfo.swapInfo && (
+          {txInfo.swapInfo ? (
             <>
               <Divider mx="$5" />
               <InfoItemGroup>
@@ -517,7 +517,7 @@ function HistoryDetails() {
                 />
               </InfoItemGroup>
             </>
-          )}
+          ) : null}
         </Stack>
       </>
     );

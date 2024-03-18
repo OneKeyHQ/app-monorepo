@@ -27,6 +27,7 @@ export enum EAppEventBusNames {
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
   ShowToast = 'ShowToast',
+  RealmInit = 'RealmInit',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -72,6 +73,7 @@ export interface IAppEventBusPayload {
     message?: string;
     duration?: number;
   };
+  [EAppEventBusNames.RealmInit]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -9,6 +9,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
@@ -38,6 +39,37 @@ function ErrorToastContainer() {
   return null;
 }
 
+function FlipperPluginsContainer() {
+  console.log('FlipperPluginsContainer render');
+  const [realmReady, setRealmReady] = useState(false);
+  useEffect(() => {
+    const fn = () => {
+      console.log('FlipperPluginsContainer realm ready');
+      setRealmReady(true);
+    };
+    if (global.$$realm) {
+      fn();
+    }
+    appEventBus.on(EAppEventBusNames.RealmInit, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RealmInit, fn);
+    };
+  }, []);
+  const realmPlugin = useMemo(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      if (realmReady && global.$$realm && platformEnv.isNative) {
+        console.log('FlipperPluginsContainer render realm plugin');
+        const RealmFlipperPlugin = (
+          require('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device') as typeof import('@onekeyhq/shared/src/modules3rdParty/realm-flipper-plugin-device')
+        ).default;
+        return <RealmFlipperPlugin realms={[global.$$realm]} />;
+      }
+    }
+    return null;
+  }, [realmReady]);
+  return <>{realmPlugin}</>;
+}
+
 export function Container() {
   return (
     <RootSiblingParent>
@@ -50,6 +82,11 @@ export function Container() {
           <PortalBodyContainer />
           <PageTrackerContainer />
           <ErrorToastContainer />
+          {process.env.NODE_ENV !== 'production' ? (
+            <>
+              <FlipperPluginsContainer />
+            </>
+          ) : null}
         </NavigationContainer>
       </AppStateLockContainer>
     </RootSiblingParent>

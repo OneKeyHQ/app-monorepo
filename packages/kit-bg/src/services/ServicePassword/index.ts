@@ -238,7 +238,6 @@ export default class ServicePassword extends ServiceBase {
     }
   }
 
-  // passwordSet check is only done the app open
   @backgroundMethod()
   async checkPasswordSet(): Promise<boolean> {
     const checkPasswordSet = await localDb.isPasswordSet();
@@ -422,7 +421,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async rejectPasswordPromptDialog(
     promiseId: number,
-    error?: { message?: string },
+    error: { message: string },
   ) {
     void this.backgroundApi.servicePromise.rejectCallback({
       id: promiseId,

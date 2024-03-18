@@ -12,9 +12,10 @@ const jsRules = {
   'import/extensions': 'off',
   'react/function-component-definition': 'off',
   'react/jsx-props-no-spreading': 'off',
+  'react/jsx-no-leaked-render': ['error', { 'validStrategies': ['ternary'] }],
   'react/no-unused-prop-types': 'off',
   'react/no-unstable-nested-components': 'warn',
-  'react/jsx-no-useless-fragment': ['error', { allowExpressions: true }],
+  'react/jsx-no-useless-fragment': 'off',
   'use-effect-no-deps/use-effect-no-deps': 'error',
   'react-hooks/exhaustive-deps': [
     'warn',

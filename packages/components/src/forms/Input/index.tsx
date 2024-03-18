@@ -7,17 +7,23 @@ import {
 } from 'react';
 import type { ForwardedRef, RefObject } from 'react';
 
-import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
+import {
+  Group,
+  Input as TMInput,
+  getFontSize,
+  useProps,
+  useThemeName,
+} from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../hooks';
+import { useSelectionColor } from '../../hooks';
 import { Icon } from '../../primitives';
 
 import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { IKeyOfIcons } from '../../primitives';
+import type { IGroupProps, IKeyOfIcons } from '../../primitives';
 import type {
   HostComponent,
   MeasureLayoutOnSuccessCallback,
@@ -35,7 +41,7 @@ export type IInputProps = {
   error?: boolean;
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
-  containerProps?: GetProps<typeof Group>;
+  containerProps?: IGroupProps;
   onChangeText?: ((text: string) => string | void) | undefined;
 } & Omit<ITMInputProps, 'size' | 'onChangeText'>;
 
@@ -96,8 +102,8 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
   return shouldReloadAutoFocus ? false : autoFocus;
 };
 
-function BaseInput(
-  {
+function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
+  const {
     size = 'medium',
     leftAddOnProps,
     leftIconName,
@@ -109,9 +115,7 @@ function BaseInput(
     readonly,
     autoFocus,
     ...props
-  }: IInputProps,
-  ref: ForwardedRef<IInputRef>,
-) {
+  } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({
@@ -145,7 +149,8 @@ function BaseInput(
       inputRef.current?.measure(callback),
   }));
 
-  const selectionColor = useThemeValue('bgPrimary');
+  const selectionColor = useSelectionColor();
+
   return (
     <Group
       orientation="horizontal"
@@ -160,7 +165,7 @@ function BaseInput(
       {...containerProps}
     >
       {/* left addon */}
-      {leftAddOnProps && (
+      {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
             size={size}
@@ -173,7 +178,7 @@ function BaseInput(
             testID={leftAddOnProps.testID}
           />
         </Group.Item>
-      )}
+      ) : null}
 
       {/* input */}
       <Group.Item>
@@ -209,7 +214,7 @@ function BaseInput(
       </Group.Item>
 
       {/* left icon */}
-      {leftIconName && (
+      {leftIconName ? (
         <Icon
           position="absolute"
           name={leftIconName}
@@ -220,10 +225,10 @@ function BaseInput(
           color={disabled ? '$iconDisabled' : '$iconSubdued'}
           pointerEvents="none"
         />
-      )}
+      ) : null}
 
       {/* right elements */}
-      {addOns?.length && (
+      {addOns?.length ? (
         <Group.Item>
           <Group
             borderRadius={sharedStyles.borderRadius}
@@ -265,7 +270,7 @@ function BaseInput(
             )}
           </Group>
         </Group.Item>
-      )}
+      ) : null}
     </Group>
   );
 }

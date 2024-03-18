@@ -157,16 +157,18 @@ const FirmwareAuthenticationDialogContent = ({
                 color: '$textCaution',
               })}
             >
-              {result === 'unknown' && 'Verifying official firmware'}
-              {result === 'official' &&
-                'Your device is running official firmware'}
-              {result === 'unofficial' && 'Unofficial firmware detected!'}
-              {result === 'error' &&
-                'Unable to verify firmware: internet connection required'}
+              {result === 'unknown' ? 'Verifying official firmware' : null}
+              {result === 'official'
+                ? 'Your device is running official firmware'
+                : null}
+              {result === 'unofficial' ? 'Unofficial firmware detected!' : null}
+              {result === 'error'
+                ? 'Unable to verify firmware: internet connection required'
+                : null}
             </SizableText>
           </Stack>
         </Stack>
-        {result !== 'unknown' && (
+        {result !== 'unknown' ? (
           <Stack pt="$5">
             <Button
               $md={
@@ -194,13 +196,13 @@ const FirmwareAuthenticationDialogContent = ({
                 },
               })}
             >
-              {result === 'official' && 'Continue'}
-              {result === 'unofficial' && 'Contact OneKey Support'}
-              {result === 'error' && 'Retry'}
+              {result === 'official' ? 'Continue' : null}
+              {result === 'unofficial' ? 'Contact OneKey Support' : null}
+              {result === 'error' ? 'Retry' : null}
             </Button>
           </Stack>
-        )}
-        {result === 'error' && (
+        ) : null}
+        {result === 'error' ? (
           <Stack pt="$3">
             <Button
               variant="tertiary"
@@ -210,7 +212,7 @@ const FirmwareAuthenticationDialogContent = ({
               Continue Anyway
             </Button>
           </Stack>
-        )}
+        ) : null}
       </HeightTransition>
     </Stack>
   );
@@ -365,16 +367,25 @@ export function ConnectYourDevicePage() {
     }) => {
       navigation.push(EOnboardingPages.FinalizeWalletSetup);
       try {
+        console.log('ConnectYourDevice -> createHwWallet', device);
+        let { features } = device as KnownDevice;
+        if (!features) {
+          features = await backgroundApiProxy.serviceHardware.getFeatures(
+            device.connectId || '',
+          );
+        }
         await Promise.all([
           await actions.current.createHWWalletWithHidden({
             device,
+            hideCheckingDeviceLoading: true, // device checking loading is not need for onboarding
             skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
-            features: (device as KnownDevice).features,
+            features,
             isFirmwareVerified,
           }),
         ]);
       } catch (error) {
         navigation.pop();
+        throw error;
       } finally {
         await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog({
           connectId: device.connectId || '',
@@ -486,36 +497,40 @@ export function ConnectYourDevicePage() {
         onPress: () => handleHwWalletCreateFlow({ device: item }),
         opacity: 1,
       })),
-      {
-        title: 'OneKey Classic(Checking)',
-        src: HwWalletAvatarImages.classic,
-        onPress: handleCheckingDevice,
-      },
-      {
-        title: 'OneKey Classic(Firmware Verify)',
-        src: HwWalletAvatarImages.classic,
-        onPress: handleFirmwareAuthenticationDemo,
-      },
-      {
-        title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
-        src: HwWalletAvatarImages.classic1s,
-        onPress: handleNotActivatedDevicePress,
-      },
-      {
-        title: 'OneKey Pro(Activate Your Device)',
-        src: HwWalletAvatarImages.pro,
-        onPress: handleSetupNewWalletPress,
-      },
-      {
-        title: 'OneKey Touch(Finalize Wallet Setup)',
-        src: HwWalletAvatarImages.touch,
-        onPress: handleWalletItemPress,
-      },
-      {
-        title: 'OneKey Touch2(buy)',
-        src: HwWalletAvatarImages.touch,
-        onPress: handleHeaderRightPress,
-      },
+      ...(process.env.NODE_ENV !== 'production'
+        ? [
+            {
+              title: 'OneKey Classic(Checking)',
+              src: HwWalletAvatarImages.classic,
+              onPress: handleCheckingDevice,
+            },
+            {
+              title: 'OneKey Classic(Firmware Verify)',
+              src: HwWalletAvatarImages.classic,
+              onPress: handleFirmwareAuthenticationDemo,
+            },
+            {
+              title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
+              src: HwWalletAvatarImages.classic1s,
+              onPress: handleNotActivatedDevicePress,
+            },
+            {
+              title: 'OneKey Pro(Activate Your Device)',
+              src: HwWalletAvatarImages.pro,
+              onPress: handleSetupNewWalletPress,
+            },
+            {
+              title: 'OneKey Touch(Finalize Wallet Setup)',
+              src: HwWalletAvatarImages.touch,
+              onPress: handleWalletItemPress,
+            },
+            {
+              title: 'OneKey Touch2(buy)',
+              src: HwWalletAvatarImages.touch,
+              onPress: handleHeaderRightPress,
+            },
+          ]
+        : []),
     ],
     [
       handleCheckingDevice,

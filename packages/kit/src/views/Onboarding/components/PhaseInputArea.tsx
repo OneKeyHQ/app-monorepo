@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import type { ComponentType, PropsWithChildren, RefObject } from 'react';
 import {
   forwardRef,
   useCallback,
@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import { compact } from 'lodash';
-import { Dimensions } from 'react-native';
+import { Dimensions, View } from 'react-native';
 
 import type {
   IButtonProps,
@@ -45,6 +45,16 @@ import { Tutorials } from './Tutorials';
 import type { ITutorialsListItemProps } from './Tutorials';
 import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
 
+const KeyDownView = View as unknown as ComponentType<
+  PropsWithChildren<{
+    onKeyDown: (e: {
+      keyCode: number;
+      preventDefault: () => void;
+      stopPropagation: () => void;
+    }) => void;
+  }>
+>;
+
 const phraseLengthOptions = [
   { label: '12 words', value: '12' },
   { label: '15 words', value: '15' },
@@ -72,30 +82,33 @@ function WordItem({
     onPress(word);
   }, [onPress, word]);
   return (
-    <Button
-      size="small"
-      ref={buttonRef}
-      onPress={handlePress}
-      focusable
-      tabIndex={tabIndex}
-      {...rest}
-    >
-      {word}
-      {!platformEnv.isNative && (
-        <SizableText
-          position="absolute"
-          size="$bodySmMedium"
-          right="$-2"
-          top="$-1.5"
-          bg="$bg"
-          color="$textSubdued"
-          px="$1"
-          borderRadius="$full"
-        >
+    <Stack position="relative">
+      <Button
+        size="small"
+        ref={buttonRef}
+        onPress={handlePress}
+        focusable
+        tabIndex={tabIndex}
+        {...rest}
+      >
+        {word}
+      </Button>
+      <Stack
+        bg="$bg"
+        position="absolute"
+        right="$px"
+        top="$0"
+        height="$4"
+        width="$4"
+        justifyContent="center"
+        alignItems="center"
+        borderRadius="$full"
+      >
+        <SizableText size="$bodySmMedium" color="$textSubdued">
           {number}
         </SizableText>
-      )}
-    </Button>
+      </Stack>
+    </Stack>
   );
 }
 
@@ -159,19 +172,19 @@ function PageFooter({
   const isShow = useIsKeyboardShown();
   return (
     <Page.Footer>
+      <Page.FooterActions onConfirm={onConfirm} />
       {isShow ? (
         <SuggestionList
           suggestions={suggestions}
           onPressItem={updateInputValue}
         />
       ) : null}
-      <Page.FooterActions onConfirm={onConfirm} />
     </Page.Footer>
   );
 }
 
 const { height: windowHeight } = Dimensions.get('window');
-const visibleHeight = windowHeight / 3;
+const visibleHeight = windowHeight / 5;
 
 function BasicPhaseInput(
   {
@@ -234,12 +247,15 @@ function BasicPhaseInput(
           pageX: number,
           pageY: number,
         ) => {
-          console.log(x, y, pageX, pageY, getContentOffset());
+          const contentOffset = getContentOffset();
+          console.log(x, y, pageX, pageY, contentOffset);
           if (pageY > visibleHeight) {
-            pageRef.scrollTo({
-              x: 0,
-              y: getContentOffset().y + pageY - visibleHeight,
-              animated: true,
+            setTimeout(() => {
+              pageRef.scrollTo({
+                x: 0,
+                y: contentOffset.y + pageY - visibleHeight,
+                animated: true,
+              });
             });
           }
         },
@@ -268,6 +284,22 @@ function BasicPhaseInput(
     [closePopover],
   );
 
+  const handleSelectSuggestionByNumber = useCallback(
+    (e: {
+      keyCode: number;
+      preventDefault: () => void;
+      stopPropagation: () => void;
+    }) => {
+      if (suggestionsRef.current && e.keyCode > 48 && e.keyCode < 58) {
+        const suggestionIndex = e.keyCode - 48;
+        updateInputValue(suggestionsRef.current[suggestionIndex - 1]);
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    [suggestionsRef, updateInputValue],
+  );
+
   const handleKeyPress = useCallback(
     (e: {
       keyCode: number;
@@ -281,14 +313,11 @@ function BasicPhaseInput(
           e.preventDefault();
           e.stopPropagation();
         }
-      } else if (e.keyCode > 48 && e.keyCode < 58) {
-        const suggestionIndex = e.keyCode - 48;
-        updateInputValue((suggestionsRef.current ?? [])[suggestionIndex - 1]);
-        e.preventDefault();
-        e.stopPropagation();
+      } else {
+        handleSelectSuggestionByNumber(e);
       }
     },
-    [openStatusRef, suggestionsRef, updateInputValue],
+    [handleSelectSuggestionByNumber, openStatusRef],
   ) as unknown as IInputProps['onKeyPress'];
 
   const handleSubmitEnding = useCallback(() => {
@@ -319,6 +348,8 @@ function BasicPhaseInput(
     onBlur: handleInputBlur,
     returnKeyLabel: keyLabel.toUpperCase(),
     returnKeyType: keyLabel,
+    // auto focus on the first input when entering the page.
+    autoFocus: index === 0,
   };
   if (platformEnv.isNative) {
     return (
@@ -338,14 +369,16 @@ function BasicPhaseInput(
       placement="bottom-start"
       usingSheet={false}
       onOpenChange={handleOpenChange}
-      open={!!openStatusRef.current && selectInputIndex === index}
+      open={openStatusRef.current ? selectInputIndex === index : undefined}
       renderContent={
-        <SuggestionList
-          firstButtonRef={firstButtonRef}
-          suggestions={suggestions}
-          onPressItem={updateInputValue}
-          isFocusable={tabFocusable}
-        />
+        <KeyDownView onKeyDown={handleSelectSuggestionByNumber}>
+          <SuggestionList
+            firstButtonRef={firstButtonRef}
+            suggestions={suggestions}
+            onPressItem={updateInputValue}
+            isFocusable={tabFocusable}
+          />
+        </KeyDownView>
       }
       renderTrigger={
         <Stack>
@@ -450,7 +483,7 @@ export function PhaseInputArea({
   return (
     <>
       <Page.Body>
-        {(showPhraseLengthSelector || showClearAllButton) && (
+        {showPhraseLengthSelector || showClearAllButton ? (
           <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
             {showPhraseLengthSelector ? (
               <Select
@@ -481,7 +514,7 @@ export function PhaseInputArea({
               </Button>
             ) : null}
           </XStack>
-        )}
+        ) : null}
 
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">
@@ -540,22 +573,22 @@ export function PhaseInputArea({
         ) : null}
 
         <HeightTransition>
-          {invalidWordsLength > 0 && (
+          {invalidWordsLength > 0 ? (
             <XStack pt="$1.5" px="$5" key="invalidWord">
               <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
               <SizableText size="$bodyMd" color="$textCritical" pl="$2">
                 {invalidWordsMessage(invalidWordsLength)}
               </SizableText>
             </XStack>
-          )}
-          {invalidPhrase && (
+          ) : null}
+          {invalidPhrase ? (
             <XStack pt="$1.5" px="$5" key="invalidPhrase">
               <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
               <SizableText size="$bodyMd" color="$textCritical" pl="$2">
                 Invalid recovery phrase
               </SizableText>
             </XStack>
-          )}
+          ) : null}
         </HeightTransition>
         <Tutorials px="$5" list={tutorials} />
       </Page.Body>

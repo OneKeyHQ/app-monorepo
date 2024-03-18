@@ -64,7 +64,7 @@ const PasswordVerify = ({
         iconName:
           authType && authType.includes(AuthenticationType.FACIAL_RECOGNITION)
             ? 'FaceArcSolid'
-            : 'FinderOutline',
+            : 'TouchId2Outline',
         onPress: onBiologyAuth,
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
       });
@@ -113,7 +113,7 @@ const PasswordVerify = ({
       void onBiologyAuth();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEnable, manualLocking, status.value]);
+  }, [isEnable, manualLocking]);
 
   // Perform biology verification upon returning to the backend after a 1-second interval.
   const onActive = useCallback(() => {
@@ -154,7 +154,7 @@ const PasswordVerify = ({
           addOns={rightActions}
         />
       </Form.Field>
-      {isEnable && <AppStatusActiveListener onActive={onActive} />}
+      {isEnable ? <AppStatusActiveListener onActive={onActive} /> : null}
     </Form>
   );
 };

@@ -185,6 +185,8 @@ export class KeyringHardware extends KeyringHardwareBase {
           },
         });
 
+        console.log('evm-buildAddressesInfo', publicKeys);
+
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];

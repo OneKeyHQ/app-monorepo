@@ -10,14 +10,18 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IFeeInfoUnit,
+  ISendSelectedFeeInfo,
+} from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
-import type { ENFTType, IAccountNFT } from '@onekeyhq/shared/types/nft';
+import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type {
@@ -62,20 +66,14 @@ export interface IAccountDeriveInfo {
 
   labelKey?: MessageDescriptor['id'];
   label?: string;
-  // label?:
-  //   | {
-  //       // LocaleIds
-  //       id: MessageDescriptor['id'];
-  //     }
-  //   | string;
-  desc?:
-    | {
-        // LocaleIds
-        id: MessageDescriptor['id'];
-        placeholder?: any;
-      }
-    | string;
-  // subDesc?: string;
+
+  descI18n?: {
+    id: MessageDescriptor['id'];
+    data: Record<string | number, string>;
+  };
+  desc?: string;
+  subDesc?: string;
+
   // recommended?: boolean;
   // notRecommended?: boolean;
   enableConditions?: {
@@ -243,6 +241,7 @@ export type IApproveInfo = {
   owner: string;
   spender: string;
   amount: string;
+  isMax?: boolean;
   tokenInfo?: IToken;
 };
 
@@ -274,24 +273,6 @@ export type INativeAmountInfo = {
 };
 
 // Send ------------
-export interface IBuildTxHelperParams {
-  getToken: ({
-    networkId,
-    tokenIdOnNetwork,
-  }: {
-    networkId: string;
-    tokenIdOnNetwork: string;
-  }) => Promise<IToken | undefined>;
-  getNFT: ({
-    networkId,
-    nftId,
-    collectionAddress,
-  }: {
-    networkId: string;
-    collectionAddress: string;
-    nftId: string;
-  }) => Promise<IAccountNFT | undefined>;
-}
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
@@ -300,6 +281,7 @@ export interface IBuildEncodedTxParams {
 }
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
+  feeInfo?: ISendSelectedFeeInfo;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
@@ -307,6 +289,7 @@ export interface IBuildUnsignedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
+  swapInfo?: ISwapTxInfo;
   specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {
@@ -334,7 +317,7 @@ export type ISignTransactionParams = ISignTransactionParamsBase & {
 
 export interface IBatchSignTransactionParamsBase {
   unsignedTxs: IUnsignedTxPro[];
-  feeInfo?: IFeeInfoUnit;
+  feeInfo?: ISendSelectedFeeInfo;
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
 }

@@ -32,8 +32,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
-  const { onNavigation,  validateWebviewSrc } =
-    useBrowserAction().current;
+  const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
 
   useEffect(() => {
     const isValidate = validateWebviewSrc(url);
@@ -187,7 +186,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   return (
     <>
       {webview}
-      {showBlockAccessView && blockAccessView}
+      {showBlockAccessView ? blockAccessView : null}
     </>
   );
 }

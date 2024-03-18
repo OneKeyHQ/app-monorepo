@@ -4,7 +4,7 @@ import type {
   PropsWithChildren,
   ReactElement,
 } from 'react';
-import { isValidElement } from 'react';
+import { isValidElement, useCallback } from 'react';
 
 import {
   AnimatePresence,
@@ -104,8 +104,12 @@ const ListItemAvatar = (props: IListItemAvatarProps) => {
   return (
     <Stack>
       {avatar || <AccountAvatar {...restProps} />}
-      {cornerIconProps && <ListItemAvatarCornerIcon {...cornerIconProps} />}
-      {cornerImageProps && <ListItemAvatarCornerImage {...cornerImageProps} />}
+      {cornerIconProps ? (
+        <ListItemAvatarCornerIcon {...cornerIconProps} />
+      ) : null}
+      {cornerImageProps ? (
+        <ListItemAvatarCornerImage {...cornerImageProps} />
+      ) : null}
       {children}
     </Stack>
   );
@@ -140,34 +144,44 @@ const ListItemText = (props: IListItemTextProps) => {
     return 'flex-end';
   };
 
+  const renderPrimary = useCallback(
+    () =>
+      isValidElement(primary) ? (
+        primary
+      ) : (
+        <SizableText
+          textAlign={align}
+          size="$bodyLgMedium"
+          {...primaryTextProps}
+        >
+          {primary}
+        </SizableText>
+      ),
+    [align, primary, primaryTextProps],
+  );
+
+  const renderSecondary = useCallback(
+    () =>
+      isValidElement(secondary) ? (
+        secondary
+      ) : (
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          textAlign={align}
+          {...secondaryTextProps}
+        >
+          {secondary}
+        </SizableText>
+      ),
+    [align, secondary, secondaryTextProps],
+  );
+
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
       <>
-        {primary &&
-          (isValidElement(primary) ? (
-            primary
-          ) : (
-            <SizableText
-              textAlign={align}
-              size="$bodyLgMedium"
-              {...primaryTextProps}
-            >
-              {primary}
-            </SizableText>
-          ))}
-        {secondary &&
-          (isValidElement(secondary) ? (
-            secondary
-          ) : (
-            <SizableText
-              size="$bodyMd"
-              color="$textSubdued"
-              textAlign={align}
-              {...secondaryTextProps}
-            >
-              {secondary}
-            </SizableText>
-          ))}
+        {primary ? renderPrimary() : null}
+        {secondary ? renderSecondary() : null}
       </>
     </Stack>
   );
@@ -184,10 +198,6 @@ const ListItemCheckMark = (props: IStackProps) => (
     key="checkMarkIndicator"
     animation="quick"
     enterStyle={{
-      opacity: 0,
-      scale: 0,
-    }}
-    exitStyle={{
       opacity: 0,
       scale: 0,
     }}
@@ -333,10 +343,10 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
         renderItemText,
       )}
       {children}
-      {drillIn && <ListItemDrillIn />}
+      {drillIn ? <ListItemDrillIn /> : null}
       <Unspaced>
         <AnimatePresence>
-          {checkMark && <ListItemCheckMark key="checkmark" />}
+          {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
         </AnimatePresence>
       </Unspaced>
     </Stack>

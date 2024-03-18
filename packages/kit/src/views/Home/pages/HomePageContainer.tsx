@@ -143,7 +143,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         {/* <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
 
         <HeaderIconButton
-          title="Scan"
+          title="Settings"
           icon="SettingsOutline"
           onPress={openSettingPage}
         />
@@ -164,12 +164,17 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
             headerRight={renderHeaderRight}
           />
           <Page.Body>
-            {platformEnv.isNative && (
-              <XStack justifyContent="space-between" px="$4" pt={top}>
+            {platformEnv.isNative ? (
+              <XStack
+                justifyContent="space-between"
+                px="$4"
+                pt={top}
+                mt={platformEnv.isNativeAndroid ? '$3' : undefined}
+              >
                 <Stack flex={1}>{headerLeft()}</Stack>
                 {renderHeaderRight()}
               </XStack>
-            )}
+            ) : null}
             {/* {process.env.NODE_ENV !== 'production' ? (
               <Button
                 onPress={async () => {

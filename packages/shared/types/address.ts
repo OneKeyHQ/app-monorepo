@@ -42,9 +42,15 @@ export type IXpubValidation = {
 };
 
 export type INetworkAccountAddressDetail = {
+  isValid: boolean;
   networkId: string;
   address: string; // real address at certain subnetwork, alias for displayAddress
   baseAddress: string; // base address shared with all subnetworks
   normalizedAddress: string; // lowercase address saved to db in EVM
   displayAddress: string; // checksum address in EVM
 };
+
+export type IAddressInteractionStatus =
+  | 'interacted'
+  | 'not-interacted'
+  | 'unknown';
