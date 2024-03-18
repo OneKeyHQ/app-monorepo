@@ -380,7 +380,6 @@ function MobileTabListModal() {
         onLayout={onLayout}
       >
         <ListView
-          bg="red"
           width={listViewWidth}
           contentContainerStyle={{
             p: '$1',
