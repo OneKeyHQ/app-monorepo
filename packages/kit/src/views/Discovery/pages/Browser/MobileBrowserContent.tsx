@@ -60,7 +60,7 @@ function MobileBrowserContent({
           <Stack
             ref={initCaptureViewRef}
             flex={1}
-            pt="$3"
+            mt="$3"
             // https://github.com/gre/react-native-view-shot/issues/7
             collapsable={platformEnv.isNativeAndroid ? false : undefined}
             bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}
