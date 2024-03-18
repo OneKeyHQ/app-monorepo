@@ -64,7 +64,7 @@ const PasswordVerify = ({
         iconName:
           authType && authType.includes(AuthenticationType.FACIAL_RECOGNITION)
             ? 'FaceArcSolid'
-            : 'FinderOutline',
+            : 'TouchId2Outline',
         onPress: onBiologyAuth,
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
       });
