@@ -44,6 +44,14 @@ export function getTxActionFunctionCallInfo(props: ITxActionCardProps) {
   };
 }
 
+function secureFetchArg(arg: any) {
+  try {
+    return JSON.stringify(arg);
+  } catch (error) {
+    return 'unknown data';
+  }
+}
+
 export function TxActionFunctionCall(props: ITxActionCardProps) {
   const { meta, decodedTx } = props;
   const intl = useIntl();
@@ -80,7 +88,7 @@ export function TxActionFunctionCall(props: ITxActionCardProps) {
               flex={1}
               overflowWrap="anywhere"
             >
-              {arg}
+              {secureFetchArg(arg)}
             </Text>
           ))}
         </Box>
