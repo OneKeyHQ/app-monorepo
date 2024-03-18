@@ -108,6 +108,7 @@ jobs:
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
           echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> .env.expo
+          echo "NO_FLIPPER=1" >> .env.expo
 
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
