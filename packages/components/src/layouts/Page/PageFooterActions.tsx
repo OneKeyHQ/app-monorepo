@@ -76,7 +76,7 @@ export function FooterActions({
     >
       {children}
       <XStack justifyContent="flex-end" space="$2.5" {...buttonContainerProps}>
-        {(!!cancelButtonProps || !!onCancel) && (
+        {!!cancelButtonProps || !!onCancel ? (
           <Button
             $md={
               {
@@ -89,8 +89,8 @@ export function FooterActions({
           >
             {onCancelText || 'Cancel'}
           </Button>
-        )}
-        {(!!confirmButtonProps || !!onConfirm) && (
+        ) : null}
+        {!!confirmButtonProps || !!onConfirm ? (
           <Button
             $md={
               {
@@ -104,7 +104,7 @@ export function FooterActions({
           >
             {onConfirmText || 'Confirm'}
           </Button>
-        )}
+        ) : null}
       </XStack>
     </Stack>
   );

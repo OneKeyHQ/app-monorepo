@@ -72,13 +72,13 @@ const DescriptionListItemValue = ({
     })}
     {...rest}
   >
-    {icon && <Icon mr="$1" color="$iconSubdued" name={icon} size="$4" />}
+    {icon ? <Icon mr="$1" color="$iconSubdued" name={icon} size="$4" /> : null}
     <SizableText size="$bodyMdMedium" textAlign="right" {...textProps}>
       {children}
     </SizableText>
-    {iconAfter && (
+    {iconAfter ? (
       <Icon ml="$1" color="$iconSubdued" name={iconAfter} size="$4" />
-    )}
+    ) : null}
   </XStack>
 );
 

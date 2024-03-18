@@ -20,7 +20,7 @@ function ListToolToolBar({ searchProps, headerRight }: IProps) {
   return (
     <YStack px="$5" py="$2" space="$5">
       <XStack alignItems="center" justifyContent="space-between">
-        {searchProps && (
+        {searchProps ? (
           <SearchBar
             placeholder="Search..."
             containerProps={{
@@ -34,13 +34,13 @@ function ListToolToolBar({ searchProps, headerRight }: IProps) {
             })}
             {...searchProps}
           />
-        )}
+        ) : null}
 
-        {headerRight && (
+        {headerRight ? (
           <XStack flex={1} justifyContent="flex-end">
             {headerRight}
           </XStack>
-        )}
+        ) : null}
       </XStack>
       {searchProps?.searchResultCount && searchProps?.searchResultCount > 0 ? (
         <SizableText

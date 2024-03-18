@@ -89,7 +89,7 @@ function BaseInput(props: IBaseInputProps) {
           {...rest}
         />
       </Group.Item>
-      {extension && (
+      {extension ? (
         <Group.Item>
           <Stack
             px={sharedStyles.px}
@@ -102,7 +102,7 @@ function BaseInput(props: IBaseInputProps) {
             {extension}
           </Stack>
         </Group.Item>
-      )}
+      ) : null}
     </Group>
   );
 }

@@ -108,13 +108,13 @@ export function WalletList({ num }: IWalletListProps) {
       borderRightColor="$neutral3"
     >
       {/* Close action */}
-      {(platformEnv.isExtension || platformEnv.isNativeAndroid) && (
+      {platformEnv.isExtension || platformEnv.isNativeAndroid ? (
         <XStack py="$4" justifyContent="center">
           <Page.Close>
             <HeaderIconButton icon="CrossedLargeOutline" />
           </Page.Close>
         </XStack>
-      )}
+      ) : null}
       {/* Primary wallets */}
       <ListView
         p="$2"
