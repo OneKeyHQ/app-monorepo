@@ -230,7 +230,7 @@ function RawPopover({
         <TMPopover.ScrollView>{content}</TMPopover.ScrollView>
       </TMPopover.Content>
       {/* sheet */}
-      {usingSheet && (
+      {usingSheet ? (
         <TMPopover.Adapt when="md">
           <TMPopover.Sheet
             dismissOnSnapToBottom
@@ -299,7 +299,7 @@ function RawPopover({
             </TMPopover.Sheet.Frame>
           </TMPopover.Sheet>
         </TMPopover.Adapt>
-      )}
+      ) : null}
     </TMPopover>
   );
 }

@@ -73,7 +73,7 @@ function RawCheckbox({
           size="$4"
         />
       </YStack>
-      {label && (
+      {label ? (
         <Label
           pointerEvents="none"
           variant="$bodyLgMedium"
@@ -84,7 +84,7 @@ function RawCheckbox({
         >
           {label}
         </Label>
-      )}
+      ) : null}
     </XStack>
   );
 }

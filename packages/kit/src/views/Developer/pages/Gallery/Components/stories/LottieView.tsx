@@ -27,7 +27,7 @@ const LottieDemo = () => {
   return (
     <YStack space="$5">
       <XStack h={100}>
-        {!!show && (
+        {show ? (
           <LottieView
             ref={ref}
             width="100%"
@@ -36,7 +36,7 @@ const LottieDemo = () => {
             loop={loop}
             source={require('@onekeyhq/kit/assets/animations/lottie_send_success_feedback.json')}
           />
-        )}
+        ) : null}
       </XStack>
       <XStack space="$5" alignItems="center">
         <SizableText>loop: </SizableText>

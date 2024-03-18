@@ -330,9 +330,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           <>
             {/* If better performance is needed,  */
             /*  a header component should be extracted and data updates should be subscribed to through context" */}
-            {section.title && (
+            {section.title ? (
               <SectionList.SectionHeader title={section.title}>
-                {section.isHiddenWalletData && editMode && (
+                {section.isHiddenWalletData && editMode ? (
                   <ActionList
                     title={section.title}
                     renderTrigger={
@@ -376,17 +376,17 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                       },
                     ]}
                   />
-                )}
+                ) : null}
               </SectionList.SectionHeader>
-            )}
-            {section.data.length === 0 && section.emptyText && (
+            ) : null}
+            {section.data.length === 0 && section.emptyText ? (
               <ListItem
                 title={section.emptyText}
                 titleProps={{
                   size: '$bodyLg',
                 }}
               />
-            )}
+            ) : null}
           </>
         )}
         renderItem={({
@@ -439,7 +439,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   : selectedAccount.indexedAccountId === item.id,
               })}
             >
-              {editMode && (
+              {editMode ? (
                 <>
                   <AccountEditButton
                     account={account}
@@ -450,7 +450,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                       indexedAccount={indexedAccount}
                     /> */}
                 </>
-              )}
+              ) : null}
             </ListItem>
           );
         }}
