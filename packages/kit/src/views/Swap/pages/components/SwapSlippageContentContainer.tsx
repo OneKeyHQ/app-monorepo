@@ -4,6 +4,7 @@ import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IInputProps } from '@onekeyhq/components';
 import {
   Input,
   SegmentControl,
@@ -102,12 +103,14 @@ const SwapsSlippageContentContainer = () => {
         />
 
         <Input
-          $gtMd={{
-            size: 'small',
-            containerProps: {
-              w: '$40',
-            },
-          }}
+          $gtMd={
+            {
+              size: 'small',
+              containerProps: {
+                w: '$40',
+              },
+            } as IInputProps['$gtMd']
+          }
           value={inputValue}
           autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
           addOns={[{ label: '%' }]}
