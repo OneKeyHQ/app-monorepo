@@ -37,6 +37,7 @@ function SendConfirmContainer() {
     unsignedTxs,
     onSuccess,
     onFail,
+    onCancel,
     sourceInfo,
     signOnly,
   } = route.params;
@@ -88,7 +89,10 @@ function SendConfirmContainer() {
                 justifyContent: 'space-between',
               }}
             >
-              <TxSimulationContainer tableLayout={tableLayout} />
+              <TxSimulationContainer
+                networkId={networkId}
+                tableLayout={tableLayout}
+              />
             </Container.Box>
             <YStack flex={1} justifyContent="space-between" mr="$-5">
               <TxActionsContainer
@@ -109,6 +113,7 @@ function SendConfirmContainer() {
                   networkId={networkId}
                   onSuccess={onSuccess}
                   onFail={onFail}
+                  onCancel={onCancel}
                   tableLayout={tableLayout}
                 />
               </YStack>
@@ -123,7 +128,7 @@ function SendConfirmContainer() {
         <Page.Body px="$5">
           <TxActionsContainer accountId={accountId} networkId={networkId} />
           <TxFeeContainer accountId={accountId} networkId={networkId} />
-          <TxSimulationContainer />
+          <TxSimulationContainer networkId={networkId} />
         </Page.Body>
         <SendConfirmActionsContainer
           sourceInfo={sourceInfo}
@@ -132,6 +137,7 @@ function SendConfirmContainer() {
           networkId={networkId}
           onSuccess={onSuccess}
           onFail={onFail}
+          onCancel={onCancel}
         />
       </>
     );
@@ -140,6 +146,7 @@ function SendConfirmContainer() {
     networkId,
     onFail,
     onSuccess,
+    onCancel,
     signOnly,
     sourceInfo,
     tableLayout,

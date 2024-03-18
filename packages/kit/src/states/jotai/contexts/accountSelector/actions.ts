@@ -625,10 +625,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   reloadSwapToAccountFromHome = contextAtomMethod(async (get, set) => {
-    const swapMap =
-      await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccountsMap({
-        sceneName: EAccountSelectorSceneName.swap,
-      });
+    // const swapMap =
+    //   await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccountsMap({
+    //     sceneName: EAccountSelectorSceneName.swap,
+    //   });
+    const swapMap = get(selectedAccountsAtom());
     const newMap =
       await backgroundApiProxy.serviceAccountSelector.mergeHomeDataToSwapMap({
         swapMap,

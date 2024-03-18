@@ -5,8 +5,11 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IApproveInfo,
   ITransferInfo,
+  IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -22,8 +25,11 @@ type IBuildUnsignedTxParams = {
   unsignedTx?: IUnsignedTxPro;
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
-  onSuccess?: (txs: IEncodedTx[]) => void;
+  wrappedInfo?: IWrappedInfo;
+  swapInfo?: ISwapTxInfo;
+  onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
+  onCancel?: () => void;
   sameModal?: boolean;
 };
 
@@ -34,28 +40,42 @@ function useSendConfirm(params: IParams) {
 
   const navigationToSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      const { sameModal, ...rest } = params;
-      const unsignedTx =
-        await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-          networkId,
-          accountId,
-          ...rest,
-        });
-      if (sameModal) {
-        navigation.push(EModalSendRoutes.SendConfirm, {
-          accountId,
-          networkId,
-          unsignedTxs: [unsignedTx],
-        });
-      } else {
-        navigation.pushModal(EModalRoutes.SendModal, {
-          screen: EModalSendRoutes.SendConfirm,
-          params: {
+      const { sameModal, onSuccess, onFail, onCancel, ...rest } = params;
+      try {
+        const unsignedTx =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+            networkId,
+            accountId,
+            ...rest,
+          });
+        if (sameModal) {
+          navigation.push(EModalSendRoutes.SendConfirm, {
             accountId,
             networkId,
             unsignedTxs: [unsignedTx],
-          },
-        });
+            onSuccess,
+            onFail,
+            onCancel,
+          });
+        } else {
+          navigation.pushModal(EModalRoutes.SendModal, {
+            screen: EModalSendRoutes.SendConfirm,
+            params: {
+              accountId,
+              networkId,
+              unsignedTxs: [unsignedTx],
+              onSuccess,
+              onFail,
+              onCancel,
+            },
+          });
+        }
+      } catch (e: any) {
+        if (onFail) {
+          onFail(e);
+        } else {
+          throw e;
+        }
       }
     },
     [accountId, navigation, networkId],

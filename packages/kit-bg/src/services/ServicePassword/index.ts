@@ -238,7 +238,6 @@ export default class ServicePassword extends ServiceBase {
     }
   }
 
-  // passwordSet check is only done the app open
   @backgroundMethod()
   async checkPasswordSet(): Promise<boolean> {
     const checkPasswordSet = await localDb.isPasswordSet();

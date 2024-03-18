@@ -1,4 +1,4 @@
-import { Stack, Tooltip } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { showWalletAvatarEditDialog } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletAvatarEdit';

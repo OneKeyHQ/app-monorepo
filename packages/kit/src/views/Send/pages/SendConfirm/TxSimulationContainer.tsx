@@ -1,35 +1,33 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import BigNumber from 'bignumber.js';
+
+import {
+  Icon,
+  Image,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import {
+  useSendSelectedFeeInfoAtom,
+  useUnsignedTxsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 
 export type ITxSimulationItem = {
   label: string;
   icon: string;
+  symbol: string;
   isNFT?: boolean;
 };
 
-// for now just UI demo
-const mockSimulationDataIn: ITxSimulationItem[] = [
-  {
-    label: '+2,355.355 MATIC',
-    icon: 'https://assets.coingecko.com/coins/images/4713/standard/polygon.png?1698233745',
-  },
-];
-const mockSimulationDataOut: ITxSimulationItem[] = [
-  {
-    label: '-0.877395 ETH',
-    icon: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
-  },
-  {
-    label: '360 USDC',
-    icon: 'https://assets.coingecko.com/coins/images/6319/standard/usdc.png?1696506694',
-  },
-];
-
 function SimulationItem(item: ITxSimulationItem) {
-  const { label, icon, isNFT } = item;
+  const { label, icon, isNFT, symbol } = item;
+
   return (
     <XStack alignItems="center" space="$1">
       <ListItem.Avatar
@@ -48,12 +46,74 @@ function SimulationItem(item: ITxSimulationItem) {
           ),
         }}
       />
-      <SizableText size="$bodyMdMedium">{label}</SizableText>
+      <NumberSizeableText
+        formatter="balance"
+        formatterOptions={{ showPlusMinusSigns: true, tokenSymbol: symbol }}
+        size="$bodyMdMedium"
+      >
+        {label}
+      </NumberSizeableText>
     </XStack>
   );
 }
 
-function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
+function TxSimulationContainer({
+  networkId,
+  tableLayout,
+}: {
+  tableLayout?: boolean;
+  networkId: string;
+}) {
+  const [unsignedTxs] = useUnsignedTxsAtom();
+  const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
+  const { network } = useAccountData({ networkId });
+
+  const swapInfo = unsignedTxs[0]?.swapInfo;
+
+  const simulationDataIn = useMemo(() => {
+    if (!swapInfo) return [];
+    return [
+      {
+        label: `+${swapInfo.receiver.amount}`,
+        icon: swapInfo.receiver.token.logoURI ?? '',
+        symbol: swapInfo.receiver.token.symbol,
+      },
+    ];
+  }, [swapInfo]);
+  const simulationDataOut = useMemo(() => {
+    if (!swapInfo) return [];
+
+    if (swapInfo.sender.token.isNative) {
+      return [
+        {
+          label: `-${new BigNumber(swapInfo.sender.amount)
+            .plus(sendSelectedFeeInfo?.totalNativeForDisplay ?? 0)
+            .toFixed()}`,
+          icon: swapInfo.sender.token.logoURI ?? '',
+          symbol: swapInfo.sender.token.symbol,
+        },
+      ];
+    }
+
+    return [
+      {
+        label: `-${swapInfo.sender.amount}`,
+        icon: swapInfo.sender.token.logoURI ?? '',
+        symbol: swapInfo.sender.token.symbol,
+      },
+      {
+        label: `-${sendSelectedFeeInfo?.totalNativeForDisplay ?? '0'}`,
+        icon: network?.logoURI ?? '',
+        symbol: sendSelectedFeeInfo?.feeInfo.common.nativeSymbol ?? '',
+      },
+    ];
+  }, [
+    network?.logoURI,
+    sendSelectedFeeInfo?.feeInfo.common.nativeSymbol,
+    sendSelectedFeeInfo?.totalNativeForDisplay,
+    swapInfo,
+  ]);
+
   const renderTxSimulation = useCallback(
     (simulation: ITxSimulationItem[]) => (
       <YStack space="$1">
@@ -65,6 +125,9 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
     [],
   );
 
+  // for now just internal swap info
+  if (!swapInfo) return null;
+
   return (
     <Container.Box
       contentProps={{
@@ -74,11 +137,11 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
       <Container.Item
         title="Total out"
         subtitle="Include fee"
-        content={renderTxSimulation(mockSimulationDataOut)}
+        content={renderTxSimulation(simulationDataOut)}
       />
       <Container.Item
         title="Total in"
-        content={renderTxSimulation(mockSimulationDataIn)}
+        content={renderTxSimulation(simulationDataIn)}
       />
       <Container.Item
         content={

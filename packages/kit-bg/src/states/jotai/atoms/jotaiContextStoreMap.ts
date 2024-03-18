@@ -10,6 +10,7 @@ export enum EJotaiContextStoreNames {
   accountSelector = 'accountSelector',
   homeTokenList = 'homeTokenList',
   discoveryBrowser = 'discoveryBrowser',
+  swap = 'swap',
 }
 export type IJotaiContextStoreData = {
   storeName: EJotaiContextStoreNames;

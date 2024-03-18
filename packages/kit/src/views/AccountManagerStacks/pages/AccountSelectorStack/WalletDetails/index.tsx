@@ -5,8 +5,6 @@ import { useRoute } from '@react-navigation/core';
 import type { ISectionListRef } from '@onekeyhq/components';
 import {
   ActionList,
-  AnimatePresence,
-  Button,
   Icon,
   IconButton,
   SectionList,

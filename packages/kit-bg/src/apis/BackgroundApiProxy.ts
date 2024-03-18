@@ -30,6 +30,7 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
+import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
@@ -67,6 +68,8 @@ class BackgroundApiProxy
   serviceApp = this._createProxyService('serviceApp') as ServiceApp;
 
   serviceSend = this._createProxyService('serviceSend') as ServiceSend;
+
+  serviceSwap = this._createProxyService('serviceSwap') as ServiceSwap;
 
   serviceToken = this._createProxyService('serviceToken') as ServiceToken;
 

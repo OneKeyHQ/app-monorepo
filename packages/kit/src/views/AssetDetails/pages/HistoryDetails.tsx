@@ -66,7 +66,7 @@ function getTxStatusTextProps(status: EDecodedTxStatus): {
   };
 }
 
-function InfoItemGroup({ children, ...rest }: IXStackProps) {
+export function InfoItemGroup({ children, ...rest }: IXStackProps) {
   return (
     <XStack p="$2.5" flexWrap="wrap" {...rest}>
       {children}
@@ -74,7 +74,7 @@ function InfoItemGroup({ children, ...rest }: IXStackProps) {
   );
 }
 
-function InfoItem({
+export function InfoItem({
   label,
   renderContent,
   compact = false,
@@ -109,7 +109,7 @@ function InfoItem({
   );
 }
 
-function AssetItem({
+export function AssetItem({
   asset,
   index,
   direction,

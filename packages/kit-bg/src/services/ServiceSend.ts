@@ -1,6 +1,6 @@
 import { isNil, random } from 'lodash';
 
-import type { ISignedTxPro, IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -13,8 +13,11 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
-  type IDecodedTx,
-  type ISendTxBaseParams,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  ISendTxBaseParams,
+  ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
@@ -177,13 +180,20 @@ class ServiceSend extends ServiceBase {
   async buildDecodedTx(
     params: ISendTxBaseParams & IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { networkId, accountId, unsignedTx } = params;
+    const { networkId, accountId, unsignedTx, feeInfo } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const buildTxHelper = await this.getBuildTxHelper();
-    return vault.buildDecodedTx({
+    const decodedTx = await vault.buildDecodedTx({
       unsignedTx,
       ...buildTxHelper,
     });
+
+    if (feeInfo) {
+      decodedTx.totalFeeInNative = feeInfo.totalNative;
+      decodedTx.totalFeeFiatValue = feeInfo.totalFiat;
+    }
+
+    return decodedTx;
   }
 
   @backgroundMethod()
@@ -290,10 +300,10 @@ class ServiceSend extends ServiceBase {
     });
     const txid = await this.broadcastTransaction({
       networkId,
-      accountAddress: account.address,
       signedTx,
+      accountAddress: account.address,
     });
-    return { ...signedTx, txid };
+    return { ...signedTx, txid, swapInfo: unsignedTx.swapInfo };
   }
 
   @backgroundMethod()
@@ -304,7 +314,7 @@ class ServiceSend extends ServiceBase {
       networkId,
       accountId,
       unsignedTxs,
-      feeInfo,
+      feeInfo: sendSelectedFeeInfo,
       nativeAmountInfo,
       signOnly,
     } = params;
@@ -316,14 +326,14 @@ class ServiceSend extends ServiceBase {
         accountId,
         networkId,
         unsignedTx,
-        feeInfo,
+        feeInfo: sendSelectedFeeInfo?.feeInfo,
         nativeAmountInfo,
       });
 
       newUnsignedTxs.push(newUnsignedTx);
     }
 
-    const signedTxs: ISignedTxPro[] = [];
+    const result: ISendTxOnSuccessData[] = [];
 
     for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
       const unsignedTx = newUnsignedTxs[i];
@@ -335,8 +345,25 @@ class ServiceSend extends ServiceBase {
             accountId,
           });
 
-      signedTxs.push(signedTx);
+      const decodedTx = await this.buildDecodedTx({
+        networkId,
+        accountId,
+        unsignedTx,
+        feeInfo: sendSelectedFeeInfo,
+      });
+      await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+        networkId,
+        accountId,
+        data: {
+          signedTx,
+          decodedTx,
+        },
+      });
 
+      result.push({
+        signedTx,
+        decodedTx,
+      });
       if (signedTx && !signOnly) {
         await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
           networkId,
@@ -353,7 +380,7 @@ class ServiceSend extends ServiceBase {
       }
     }
 
-    return signedTxs;
+    return result;
   }
 
   @backgroundMethod()
@@ -442,6 +469,7 @@ class ServiceSend extends ServiceBase {
       approveInfo,
       transfersInfo,
       wrappedInfo,
+      swapInfo,
       specifiedFeeRate,
     } = params;
 
@@ -462,6 +490,10 @@ class ServiceSend extends ServiceBase {
         wrappedInfo,
         specifiedFeeRate,
       });
+    }
+
+    if (swapInfo) {
+      newUnsignedTx.swapInfo = swapInfo;
     }
 
     const isNonceRequired = (
