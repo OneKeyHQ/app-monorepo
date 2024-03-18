@@ -38,7 +38,7 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
           >
             <WalletAvatar size="$12" img={img} wallet={undefined} />
             <AnimatePresence>
-              {selectedAvatar === img && (
+              {selectedAvatar === img ? (
                 <Stack
                   position="absolute"
                   zIndex="$1"
@@ -58,7 +58,7 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
                 >
                   <Icon size="$5" color="$iconActive" name="CheckRadioSolid" />
                 </Stack>
-              )}
+              ) : null}
             </AnimatePresence>
           </Stack>
         ))}

@@ -100,7 +100,7 @@ export function Layout({
               Dark Theme
             </Button>
           </XStack>
-          {description && (
+          {description ? (
             <Stack space="$2">
               <Stack>
                 <SizableText size="$headingXl">使用说明</SizableText>
@@ -109,23 +109,23 @@ export function Layout({
                 <FormattedText text={description} />
               </Stack>
             </Stack>
-          )}
-          {suggestions && (
+          ) : null}
+          {suggestions ? (
             <Stack space="$2">
               <Stack>
                 <SizableText size="$headingXl">使用建议</SizableText>
               </Stack>
               <FormattedText text={suggestions} />
             </Stack>
-          )}
-          {boundaryConditions?.length > 0 && (
+          ) : null}
+          {boundaryConditions?.length > 0 ? (
             <Stack space="$2">
               <Stack>
                 <SizableText size="$headingXl">注意事项</SizableText>
               </Stack>
               <FormattedText text={boundaryConditions} />
             </Stack>
-          )}
+          ) : null}
           <Stack space="$2">
             <Stack>
               <SizableText size="$headingXl">组件案例</SizableText>
@@ -142,11 +142,11 @@ export function Layout({
                 >
                   <Stack flexDirection="column">
                     <SizableText size="$headingLg">{item.title}</SizableText>
-                    {item.description && (
+                    {item.description ? (
                       <Stack paddingTop={1}>
                         <SizableText>{item.description}。</SizableText>
                       </Stack>
-                    )}
+                    ) : null}
                   </Stack>
                   <Stack>
                     {typeof item.element === 'function' ? (
@@ -158,7 +158,9 @@ export function Layout({
                 </Stack>
               ))}
             </Stack>
-            <Stack>{children && <Stack space="$3">{children}</Stack>}</Stack>
+            <Stack>
+              {children ? <Stack space="$3">{children}</Stack> : null}
+            </Stack>
           </Stack>
         </Stack>
       </ScrollView>
