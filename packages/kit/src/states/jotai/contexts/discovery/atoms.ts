@@ -6,6 +6,7 @@ import type {
   IWebTab,
   IWebTabsAtom,
 } from '@onekeyhq/kit/src/views/Discovery/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const {
   Provider: ProviderJotaiContextDiscovery,
@@ -38,7 +39,10 @@ export const {
   use: useDisabledAddedNewTabAtom,
 } = contextAtomComputed((get) => {
   const { tabs } = get(webTabsAtom());
-  return tabs.length >= MaximumNumberOfTabs;
+  if (platformEnv.isNative) {
+    return tabs.length >= MaximumNumberOfTabs;
+  }
+  return false;
 });
 
 export const { atom: phishingLruCacheAtom, use: usePhishingLruCacheAtom } =

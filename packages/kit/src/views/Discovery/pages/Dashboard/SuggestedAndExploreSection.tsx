@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
+import { isNil } from 'lodash';
+
 import type {
   IBadgeType,
   IScrollViewProps,
@@ -15,8 +17,10 @@ import {
   ScrollView,
   Select,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
+  YStack,
   useMedia,
 } from '@onekeyhq/components';
 import { ImageSource } from '@onekeyhq/components/src/primitives/Image/ImageSource';
@@ -59,9 +63,11 @@ function ItemsContainer({
 export function SuggestedAndExploreSection({
   suggestedData,
   handleOpenWebSite,
+  isLoading,
 }: {
   suggestedData: ICategory[];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
+  isLoading: boolean | undefined;
 }) {
   const [isExploreView, setIsExploreView] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -104,6 +110,81 @@ export function SuggestedAndExploreSection({
         dataChunks: chunkArray(i.dapps, chunkSize),
       })),
     [suggestedData, chunkSize],
+  );
+
+  const renderSkeletonView = useCallback(
+    () => (
+      <Stack space="$5">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <Stack space="$3" key={index}>
+            <Skeleton w="$14" h="$6" />
+
+            <ItemsContainer key="skeleton-view" mx="$-5">
+              <XStack
+                px="$2"
+                $gtMd={{
+                  flexDirection: 'column',
+                }}
+              >
+                {[
+                  Array.from({ length: 3 }),
+                  Array.from({ length: 3 }),
+                  Array.from({ length: 3 }),
+                ].map((chunk, chunkIndex) => (
+                  <Stack
+                    key={chunkIndex}
+                    $md={{
+                      w: '$96',
+                    }}
+                    $gtMd={{
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {chunk.map((_chunkItem, chunkItemIndex) => (
+                      <XStack
+                        key={`${chunkIndex}-${chunkItemIndex}`}
+                        p="$3"
+                        space="$3"
+                        alignItems="center"
+                        $gtMd={{
+                          flexBasis: '50%',
+                        }}
+                        $gtLg={{
+                          flexBasis: '33.3333%',
+                        }}
+                      >
+                        <XStack space="$3">
+                          <Skeleton w="$14" h="$14" />
+                          <YStack space="$1">
+                            <Skeleton w="$10" h="$4" />
+                            <Skeleton
+                              w={216}
+                              h="$4"
+                              $md={{
+                                w: 186,
+                              }}
+                            />
+                            <Skeleton
+                              w={216}
+                              h="$4"
+                              $md={{
+                                w: 186,
+                              }}
+                            />
+                          </YStack>
+                        </XStack>
+                      </XStack>
+                    ))}
+                  </Stack>
+                ))}
+              </XStack>
+            </ItemsContainer>
+          </Stack>
+        ))}
+      </Stack>
+    ),
+    [],
   );
 
   const renderChunkItemView = useCallback(
@@ -344,6 +425,22 @@ export function SuggestedAndExploreSection({
     renderChunkItemView,
   ]);
 
+  const renderContent = useCallback(() => {
+    if (isNil(isLoading) || isLoading) {
+      return renderSkeletonView();
+    }
+    if (isExploreView) {
+      return exploreView;
+    }
+    return suggestedView;
+  }, [
+    isExploreView,
+    isLoading,
+    renderSkeletonView,
+    exploreView,
+    suggestedView,
+  ]);
+
   return (
     <Stack
       p="$5"
@@ -368,7 +465,7 @@ export function SuggestedAndExploreSection({
           Explore
         </DashboardSectionHeader.Heading>
       </DashboardSectionHeader>
-      {isExploreView ? exploreView : suggestedView}
+      {renderContent()}
     </Stack>
   );
 }

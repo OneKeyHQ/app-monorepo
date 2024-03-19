@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -14,6 +14,8 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
+
 import { Banner } from './Banner';
 import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
 import { SuggestedAndExploreSection } from './SuggestedAndExploreSection';
@@ -26,33 +28,53 @@ function DashboardContent({
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const navigation = useAppNavigation();
+  const { displayHomePage } = useDisplayHomePageFlag();
   const { handleOpenWebSite } = useBrowserAction().current;
-  const {
-    result: [bookmarksData, historiesData, homePageData] = [],
-    run: refreshBrowserData,
-  } = usePromiseResult(async () => {
-    const bookmarks = backgroundApiProxy.serviceDiscovery.getBookmarkData({
-      generateIcon: true,
-      sliceCount: 8,
-    });
-    const histories = backgroundApiProxy.serviceDiscovery.getHistoryData({
-      generateIcon: true,
-      sliceCount: 8,
-    });
-    const homePageResponse =
-      await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
+  const { result: [bookmarksData, historiesData] = [], run: refreshLocalData } =
+    usePromiseResult(
+      async () => {
+        const bookmarks = backgroundApiProxy.serviceDiscovery.getBookmarkData({
+          generateIcon: true,
+          sliceCount: 8,
+        });
+        const histories = backgroundApiProxy.serviceDiscovery.getHistoryData({
+          generateIcon: true,
+          sliceCount: 8,
+        });
+        return Promise.all([bookmarks, histories]);
+      },
+      [],
+      {
+        watchLoading: true,
+      },
+    );
 
-    return Promise.all([bookmarks, histories, homePageResponse]);
-  }, []);
+  const { result: homePageData, isLoading } = usePromiseResult(
+    async () => {
+      const homePageResponse =
+        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
+      return homePageResponse;
+    },
+    [],
+    {
+      watchLoading: true,
+    },
+  );
 
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     if (isFocus) {
       // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
       setTimeout(() => {
-        void refreshBrowserData();
+        void refreshLocalData();
       });
     }
   });
+
+  useEffect(() => {
+    if (displayHomePage && platformEnv.isNative) {
+      void refreshLocalData();
+    }
+  }, [displayHomePage, refreshLocalData]);
 
   const onPressMore = useCallback(
     (isHistoriesView: boolean) => {
@@ -84,6 +106,7 @@ function DashboardContent({
               });
             }
           }}
+          isLoading={isLoading}
         />
         <BookmarksAndHistoriesSection
           key="BookmarksAndHistoriesSection"
@@ -112,6 +135,7 @@ function DashboardContent({
               shouldPopNavigation: false,
             })
           }
+          isLoading={isLoading}
         />
       </>
     ),
@@ -122,6 +146,7 @@ function DashboardContent({
       handleOpenWebSite,
       navigation,
       homePageData,
+      isLoading,
     ],
   );
 
@@ -136,4 +161,4 @@ function DashboardContent({
   return <Stack>{content}</Stack>;
 }
 
-export default DashboardContent;
+export default memo(DashboardContent);
