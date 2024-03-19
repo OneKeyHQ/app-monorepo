@@ -44,18 +44,15 @@ const SwapInputContainer = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const swapActionState = useSwapActionState();
   const amountPrice = useMemo(() => {
-    const currencySymbol = settingsPersistAtom.currencyInfo.symbol;
-    if (!token?.price) return `${currencySymbol}0.0`;
+    if (!token?.price) return '0.0';
     const tokenPriceBN = new BigNumber(token.price ?? 0);
     const tokenFiatValueBN = new BigNumber(amountValue ?? 0).multipliedBy(
       tokenPriceBN,
     );
     return tokenFiatValueBN.isNaN()
-      ? `${currencySymbol}0.0`
-      : `${currencySymbol}${tokenFiatValueBN
-          .decimalPlaces(6, BigNumber.ROUND_DOWN)
-          .toFixed()}`;
-  }, [amountValue, settingsPersistAtom.currencyInfo.symbol, token?.price]);
+      ? '0.0'
+      : `${tokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed()}`;
+  }, [amountValue, token?.price]);
 
   const fromInputHasError = useMemo(
     () =>
@@ -66,7 +63,6 @@ const SwapInputContainer = ({
 
   return (
     <YStack>
-      {/* {token ? <SwapAccountAddressContainer type={direction} /> : null} */}
       <SwapAccountAddressContainer type={direction} />
       <AmountInput
         onChange={onAmountChange}
@@ -77,7 +73,11 @@ const SwapInputContainer = ({
           onPress: onBalanceMaxPress,
           loading: token && isLoading,
         }}
-        valueProps={{ value: amountPrice, loading: inputLoading }}
+        valueProps={{
+          value: amountPrice,
+          loading: inputLoading,
+          currency: settingsPersistAtom.currencyInfo.symbol,
+        }}
         inputProps={{
           loading: inputLoading,
           placeholder: '0.0',
