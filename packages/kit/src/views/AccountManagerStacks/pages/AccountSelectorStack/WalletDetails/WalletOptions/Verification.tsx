@@ -2,7 +2,11 @@ import { useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  IIconProps,
+  IKeyOfIcons,
+} from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -32,9 +36,11 @@ function Content({ loading }: { loading?: boolean }) {
       ) : (
         <Stack space="$4">
           <Button
-            $md={{
-              size: 'large',
-            }}
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
             variant="primary"
           >
             Continue (or Contact us)
@@ -42,9 +48,11 @@ function Content({ loading }: { loading?: boolean }) {
           {!isShowingRiskWarning ? (
             <Button
               key="continue-anyway"
-              $md={{
-                size: 'large',
-              }}
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
               variant="tertiary"
               mx="$0"
               onPress={() => setIsShowingRiskWarning(true)}
@@ -67,9 +75,11 @@ function Content({ loading }: { loading?: boolean }) {
                 pose security risks.
               </SizableText>
               <Button
-                $md={{
-                  size: 'large',
-                }}
+                $md={
+                  {
+                    size: 'large',
+                  } as IButtonProps
+                }
               >
                 I Understand
               </Button>
