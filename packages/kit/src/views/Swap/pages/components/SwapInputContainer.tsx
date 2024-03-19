@@ -8,6 +8,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapActionState } from '../../hooks/useSwapState';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
@@ -41,6 +42,7 @@ const SwapInputContainer = ({
     type: direction,
   });
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const swapActionState = useSwapActionState();
   const amountPrice = useMemo(() => {
     if (!token?.price) return '0.0';
     const tokenPriceBN = new BigNumber(token.price ?? 0);
@@ -52,12 +54,20 @@ const SwapInputContainer = ({
       : `${tokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed()}`;
   }, [amountValue, token?.price]);
 
+  const fromInputHasError = useMemo(
+    () =>
+      swapActionState.alerts?.some((item) => item.inputShowError) &&
+      direction === ESwapDirectionType.FROM,
+    [direction, swapActionState.alerts],
+  );
+
   return (
     <YStack>
       <SwapAccountAddressContainer type={direction} />
       <AmountInput
         onChange={onAmountChange}
         value={amountValue}
+        hasError={fromInputHasError}
         balanceProps={{
           value: balance,
           onPress: onBalanceMaxPress,
