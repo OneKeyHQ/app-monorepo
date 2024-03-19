@@ -1,8 +1,16 @@
 import { useState } from 'react';
 
-import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
+
+import type {
+  IButtonProps,
+  IIconProps,
+  IKeyOfIcons,
+} from '@onekeyhq/components';
 import {
+  Button,
   Dialog,
+  HeightTransition,
   SizableText,
   Spinner,
   Stack,
@@ -10,6 +18,78 @@ import {
 } from '@onekeyhq/components';
 
 import { WalletOptionItem } from './WalletOptionItem';
+
+function Content({ loading }: { loading?: boolean }) {
+  const [isShowingRiskWarning, setIsShowingRiskWarning] = useState(false);
+
+  return (
+    <Stack space="$5">
+      {loading ? (
+        <Stack
+          p="$5"
+          bg="$bgSubdued"
+          borderRadius="$3"
+          borderCurve="continuous"
+        >
+          <Spinner size="large" />
+        </Stack>
+      ) : (
+        <Stack space="$4">
+          <Button
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
+            variant="primary"
+          >
+            Continue (or Contact us)
+          </Button>
+          {!isShowingRiskWarning ? (
+            <Button
+              key="continue-anyway"
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="tertiary"
+              mx="$0"
+              onPress={() => setIsShowingRiskWarning(true)}
+            >
+              Continue Anyway
+            </Button>
+          ) : (
+            <Stack
+              key="risk-warning"
+              p="$5"
+              space="$5"
+              bg="$bgCautionSubdued"
+              borderRadius="$3"
+              borderCurve="continuous"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderCautionSubdued"
+            >
+              <SizableText>
+                We're currently unable to verify your device. Continuing may
+                pose security risks.
+              </SizableText>
+              <Button
+                $md={
+                  {
+                    size: 'large',
+                  } as IButtonProps
+                }
+              >
+                I Understand
+              </Button>
+            </Stack>
+          )}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
 
 export function Verification() {
   const [verified, setVerified] = useState(false);
@@ -61,31 +141,28 @@ export function Verification() {
     <WalletOptionItem
       icon={iconName}
       iconColor={iconColor}
-      label="Verification"
+      label="Device Authentication"
       onPress={() => {
         const dialog = Dialog.show({
-          title: 'Verification',
-          renderContent: (
-            <Stack borderRadius="$3" bg="$bgSubdued" p="$5">
-              <Spinner size="large" />
-              <SizableText textAlign="center" mb="$2" mt="$5">
-                Confirming if the firmware is officially released by OneKey
-              </SizableText>
-            </Stack>
-          ),
+          tone: 'success',
+          icon: 'DocumentSearch2Outline',
+          title: 'Device Authentication',
+          description:
+            'Confirm on your device to verify its authenticity and secure your connection.',
+          renderContent: <Content />,
           showFooter: false,
         });
 
-        setTimeout(async () => {
-          // TODO: dialog.close().then(() => doDomeThing())
-          await dialog.close();
+        // setTimeout(async () => {
+        //   // TODO: dialog.close().then(() => doDomeThing())
+        //   await dialog.close();
 
-          // if official
-          returnVerified();
+        //   // if official
+        //   returnVerified();
 
-          // if unofficial
-          // returnUnofficial();
-        }, 1500);
+        //   // if unofficial
+        //   // returnUnofficial();
+        // }, 1500);
       }}
     />
   );

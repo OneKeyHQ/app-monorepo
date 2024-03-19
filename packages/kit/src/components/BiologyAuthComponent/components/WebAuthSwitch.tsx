@@ -13,6 +13,8 @@ const WebAuthSwitch = ({
   isWebAuthEnable,
   onChange,
 }: IWebAuthSwitchProps) =>
-  isSupport ? <Switch value={isWebAuthEnable} onChange={onChange} /> : null;
+  isSupport ? (
+    <Switch size="small" value={isWebAuthEnable} onChange={onChange} />
+  ) : null;
 
 export default memo(WebAuthSwitch);

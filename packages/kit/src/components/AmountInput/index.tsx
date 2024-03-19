@@ -251,9 +251,7 @@ export function AmountInput({
       borderWidth={sharedStyles.borderWidth}
       borderColor={sharedStyles.borderColor}
       overflow="hidden"
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       {...rest}
     >
       <XStack>

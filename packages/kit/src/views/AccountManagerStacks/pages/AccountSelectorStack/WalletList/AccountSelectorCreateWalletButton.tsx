@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   ActionList,
   IconButton,
@@ -42,6 +43,9 @@ export function AccountSelectorCreateWalletButton() {
           <IconButton icon="PlusSmallOutline" testID="add-wallet" />
         }
         title="Add wallet"
+        floatingPanelProps={{
+          w: '$64',
+        }}
         sections={[
           {
             items: [
@@ -61,11 +65,29 @@ export function AccountSelectorCreateWalletButton() {
                 onPress: handleCreateWalletPress,
                 testID: 'create-wallet',
               },
+            ],
+          },
+          {
+            items: [
               {
-                label: 'Import Recovery Phrase',
-                icon: 'ArrowBottomCircleOutline',
+                label: 'Enter Recovery Phrase',
+                icon: 'Document2Outline',
                 onPress: handleImportWalletPress,
                 testID: 'import-wallet',
+              },
+              ...(platformEnv.isNative
+                ? [
+                    {
+                      label: 'Import with OneKey Lite',
+                      icon: 'OnekeyLiteOutline' as IKeyOfIcons,
+                      onPress: () => console.log('clicked'),
+                    },
+                  ]
+                : []),
+              {
+                label: 'Import with OneKey KeyTag',
+                icon: 'OnekeyKeytagOutline',
+                onPress: () => console.log('clicked'),
               },
             ],
           },

@@ -54,10 +54,12 @@ const PasswordSetup = ({
       >
         <Input
           size="large"
+          $gtMd={{
+            size: 'medium',
+          }}
           placeholder="Create a strong password"
           disabled={loading}
           autoFocus
-          flex={1}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
           onChangeText={(text) => text.replace(PasswordRegex, '')}
           secureTextEntry={secureEntry}
@@ -94,9 +96,11 @@ const PasswordSetup = ({
       >
         <Input
           size="large"
+          $gtMd={{
+            size: 'medium',
+          }}
           placeholder="Re-enter your password"
           disabled={loading}
-          flex={1}
           keyboardType={getPasswordKeyboardType(!secureReentry)}
           onChangeText={(text) => text.replace(PasswordRegex, '')}
           secureTextEntry={secureReentry}

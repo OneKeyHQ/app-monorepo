@@ -170,9 +170,7 @@ export function ActivateDevice() {
                     }}
                     bg="$bgSubdued"
                     borderRadius="$3"
-                    style={{
-                      borderCurve: 'continuous',
-                    }}
+                    borderCurve="continuous"
                   >
                     <Image
                       width="100%"

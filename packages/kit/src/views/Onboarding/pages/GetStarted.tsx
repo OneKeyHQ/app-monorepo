@@ -61,9 +61,7 @@ function ActionsGroup({ items }: IActionsProp) {
             }}
             focusable
             userSelect="none"
-            style={{
-              borderCurve: 'continuous',
-            }}
+            borderCurve="continuous"
             onPress={item.onPress}
             testID={item.testID}
           >

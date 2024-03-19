@@ -25,9 +25,7 @@ const BadgeFrame = styled(XStack, {
   paddingHorizontal: '$2',
   paddingVertical: '$0.5',
   borderRadius: '$1',
-  style: {
-    borderCurve: 'continuous',
-  },
+  borderCurve: 'continuous',
   variants: {
     badgeType: {
       success: {

@@ -60,9 +60,7 @@ export function BeforeShowRecoveryPhrase() {
               p="$2"
               borderRadius="$3"
               bg={item.iconContainerColor}
-              style={{
-                borderCurve: 'continuous',
-              }}
+              borderCurve="continuous"
             >
               <Icon name={item.icon} color={item.iconColor} />
             </Stack>

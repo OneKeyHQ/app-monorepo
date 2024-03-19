@@ -25,9 +25,7 @@ export function NetworksFilterItem({
       bg={isSelected ? '$bgPrimary' : '$bgStrong'}
       borderRadius="$2"
       userSelect="none"
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       {...(!isSelected &&
         !disabled && {
           focusable: true,

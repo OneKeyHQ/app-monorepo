@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { appLocale } from '../locale/appLocale';
+import platformEnv from '../platformEnv';
 
 import hexUtils from './hexUtils';
 
@@ -294,6 +295,11 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   const startsNumberIndex = isNegativeNumber ? 1 : 0;
 
   if (invalid) {
+    if (platformEnv.isDev) {
+      console.error(
+        `fail to format invalid number: ${rawValue}, please check it again`,
+      );
+    }
     return formattedValue;
   }
   const strings = [];

@@ -97,9 +97,7 @@ export function OneKeyHardwareWallet() {
                 pressStyle={{
                   bg: '$whiteA5',
                 }}
-                style={{
-                  borderCurve: 'continuous',
-                }}
+                borderCurve="continuous"
                 focusStyle={{
                   outlineColor: '$whiteA6',
                   outlineStyle: 'solid',

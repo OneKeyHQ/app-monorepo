@@ -208,9 +208,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       py={variant === 'tertiary' ? '$1' : py}
       px={variant === 'tertiary' ? '$2' : px}
       borderRadius={borderRadius}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       disabled={disabled || loading}
       {...sharedFrameStyles}
       hoverStyle={{

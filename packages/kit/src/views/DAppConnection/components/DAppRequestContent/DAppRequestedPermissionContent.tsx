@@ -17,9 +17,7 @@ function DAppRequestedPermissionContent() {
         borderRadius="$3"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
-        style={{
-          borderCurve: 'continuous',
-        }}
+        borderCurve="continuous"
       >
         {['View your balance and activity', 'Send approval requests'].map(
           (text) => (

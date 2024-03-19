@@ -68,7 +68,7 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
               encodePassword,
             );
           onSetupRes(setUpPasswordRes);
-          Toast.success({ title: 'password set success' });
+          Toast.success({ title: 'Password Set' });
         } catch (e) {
           console.log('e.stack', (e as Error)?.stack);
           console.error(e);
