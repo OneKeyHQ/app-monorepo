@@ -34,10 +34,11 @@ export function WalletDetailsHeader({
           borderRightWidth={StyleSheet.hairlineWidth}
           borderRightColor="$borderSubdued"
         >
-          <WalletRemoveButton wallet={wallet} />
-          {accountUtils.isHwWallet({ walletId: wallet?.id }) ? (
+          {accountUtils.isHwWallet({ walletId: wallet?.id }) &&
+          !accountUtils.isHwHiddenWallet({ wallet }) ? (
             <AboutDevice />
           ) : null}
+          <WalletRemoveButton wallet={wallet} />
         </XStack>
       ) : null}
       {editable ? (
