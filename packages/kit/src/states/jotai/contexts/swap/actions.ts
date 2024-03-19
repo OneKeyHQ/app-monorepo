@@ -11,10 +11,14 @@ import {
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
+  ESwapFetchCancelCause,
   ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
-  type ISwapToken,
-  type ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchTokensParams,
+  ISwapToken,
+  ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -31,6 +35,7 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSlippagePercentageAtom,
+  swapTokenFetchingAtom,
   swapTokenMapAtom,
   swapTxHistoryAtom,
   swapTxHistoryStatusChangeAtom,
@@ -193,6 +198,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     await this.syncSwapHistorySimpleDb.call(set);
   });
 
+  tokenListFetchAction = contextAtomMethod(
+    async (get, set, params: IFetchTokensParams) => {
+      try {
+        set(swapTokenFetchingAtom(), true);
+        const { result } = await backgroundApiProxy.serviceSwap.fetchSwapTokens(
+          params,
+        );
+        if (result.length > 0) {
+          await this.catchSwapTokensMap.call(
+            set,
+            JSON.stringify(params),
+            result,
+          );
+        }
+        set(swapTokenFetchingAtom(), false);
+      } catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
+          set(swapTokenFetchingAtom(), false);
+        }
+      }
+    },
+  );
+
   runQuote = contextAtomMethod(
     async (
       get,
@@ -216,7 +245,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteFetchingAtom(), false);
       } catch (e: any) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e?.message !== 'cancel') {
+        if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
           set(swapQuoteFetchingAtom(), false);
         }
       }
@@ -347,6 +376,7 @@ export const useSwapActions = () => {
     actions.approvingStateAction.use(),
     100,
   );
+  const tokenListFetchAction = actions.tokenListFetchAction.use();
   const { cleanQuoteInterval, cleanApprovingInterval } = actions;
 
   return useRef({
@@ -362,5 +392,6 @@ export const useSwapActions = () => {
     cleanQuoteInterval,
     cleanApprovingInterval,
     approvingStateAction,
+    tokenListFetchAction,
   });
 };

@@ -157,6 +157,11 @@ export enum ESwapApproveAllowanceType {
   PRECISION = 'precision',
 }
 
+export enum ESwapFetchCancelCause {
+  SWAP_TOKENS_CANCEL = 'SWAP_TOKENS_CANCEL',
+  SWAP_QUOTE_CANCEL = 'SWAP_QUOTE_CANCEL',
+}
+
 // swap action&alert state
 export interface ISwapState {
   label: string;
