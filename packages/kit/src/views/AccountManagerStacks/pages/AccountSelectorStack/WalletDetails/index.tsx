@@ -539,9 +539,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               bg="$bgStrong"
               borderRadius="$2"
               p="$2"
-              style={{
-                borderCurve: 'continuous',
-              }}
+              borderCurve="continuous"
             >
               <Icon name="PlusSmallOutline" />
             </Stack>
