@@ -66,7 +66,7 @@ function DAppSiteMark({
           bg: '$bgCautionSubdued',
           borderColor: '$borderCaution',
           textColor: '$textCaution',
-          iconName: 'InfoSquareSolid',
+          iconName: 'ErrorSolid',
           iconColor: '$iconCaution',
         };
       }
@@ -100,6 +100,7 @@ function DAppSiteMark({
       </SizableText>
       {riskyStyle.iconName && riskyStyle.iconColor ? (
         <Icon
+          pt="$0.5"
           name={riskyStyle.iconName}
           color={riskyStyle.iconColor}
           size="$5"
