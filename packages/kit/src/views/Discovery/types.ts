@@ -93,6 +93,8 @@ export interface IMobileBottomOptionsProps {
   onBrowserOpen: () => void;
   onGoBackHomePage: () => void;
   onCloseTab: () => void;
+  displayDisconnectOption: boolean;
+  onDisconnect: () => void;
 }
 
 export interface IMobileTabListOptionsProps {
