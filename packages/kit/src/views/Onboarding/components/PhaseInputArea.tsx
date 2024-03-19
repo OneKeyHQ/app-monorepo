@@ -462,7 +462,7 @@ export function PhaseInputArea({
     selectInputIndex,
     closePopover,
     focusNextInput,
-  } = useSuggestion(form);
+  } = useSuggestion(form, Number(phraseLength));
 
   const handleReturnKeyPressed = useCallback(
     (index: number) => {
