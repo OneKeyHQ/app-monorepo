@@ -46,9 +46,7 @@ function BaseTextArea(
       disabled={disabled}
       selectionColor={selectionColor}
       cursor={sharedStyles.cursor}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       {...props}
     />
   );

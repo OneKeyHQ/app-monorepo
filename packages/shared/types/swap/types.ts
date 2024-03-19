@@ -183,6 +183,7 @@ export enum ESwapAlertLevel {
 export interface ISwapAlertState {
   message?: string;
   alertLevel?: ESwapAlertLevel;
+  inputShowError?: boolean;
   cb?: () => void;
   cbLabel?: string;
 }
