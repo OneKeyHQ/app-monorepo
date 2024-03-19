@@ -5,6 +5,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   WalletConnectStartAccountSelectorNumber,
@@ -32,7 +33,7 @@ class ServiceWalletConnect extends ServiceBase {
     super({ backgroundApi });
   }
 
-  // chainId: eip155:1, eip155:137
+  // walletConnectChainIdChainId: eip155:1, eip155:137
   @backgroundMethod()
   async getChainData(
     walletConnectChainId?: string,
@@ -44,6 +45,13 @@ class ServiceWalletConnect extends ServiceBase {
     return allChainsData.find(
       (chain) => chain.chainId === reference && chain.namespace === namespace,
     );
+  }
+
+  @backgroundMethod()
+  async getChainDataByNetworkId(networkId: string) {
+    if (!networkId) return;
+    const allChainsData = await this.getAllChains();
+    return allChainsData.find((chain) => chain.networkId === networkId);
   }
 
   @backgroundMethod()
@@ -136,23 +144,41 @@ class ServiceWalletConnect extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAvailableNetworkIdsForNamespace(
+    requiredNamespaces: Record<string, { chains?: string[] }>,
+    optionalNamespaces: Record<string, { chains?: string[] }> = {},
+    namespace: string,
+  ) {
+    const { chains } = requiredNamespaces[namespace] || {};
+    const { chains: optionalChains } = optionalNamespaces[namespace] || {};
+    const networkIds = (
+      await Promise.all(
+        [...(chains ?? []), ...(optionalChains ?? [])].map(
+          async (walletConnectChainId) =>
+            this.getChainData(walletConnectChainId),
+        ),
+      )
+    )
+      .map((n) => n?.networkId)
+      .filter(Boolean);
+    return Array.from(new Set(networkIds));
+  }
+
+  @backgroundMethod()
   async getSessionApprovalAccountInfo(
     proposal: Web3WalletTypes.SessionProposal,
   ) {
-    const { requiredNamespaces } = proposal.params;
+    const { requiredNamespaces, optionalNamespaces } = proposal.params;
     const promises = Object.keys(requiredNamespaces).map(
       async (namespace, index) => {
-        const { chains } = requiredNamespaces[namespace];
-        const networkIds = (
-          await Promise.all(
-            (chains ?? []).map(async (walletConnectChainId) =>
-              this.getChainData(walletConnectChainId),
-            ),
-          )
-        ).map((n) => n?.networkId);
+        const networkIds = await this.getAvailableNetworkIdsForNamespace(
+          requiredNamespaces,
+          optionalNamespaces,
+          namespace,
+        );
         return {
           accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
-          networkIds: networkIds.filter(Boolean),
+          networkIds,
         };
       },
     );
@@ -257,6 +283,27 @@ class ServiceWalletConnect extends ServiceBase {
         }
       }
       await this.updateSession(topic, updatedNamespaces);
+
+      // Push the first address change of each namespace to the dApp
+      for (const value of Object.values(updatedNamespaces)) {
+        const address = value.accounts?.[0]?.split(':')[2];
+        const chainId = value.chains?.[0];
+        if (address && chainId) {
+          setTimeout(() => {
+            void this.emitAccountsChangedEvent({
+              topic,
+              chainId,
+              address,
+            });
+          }, 500);
+        }
+      }
+
+      // Push network change of each namespace to the dApp
+      void this.batchEmitNetworkChangedEvent({
+        topic,
+        accountsInfo,
+      });
     }
   }
 
@@ -267,6 +314,75 @@ class ServiceWalletConnect extends ServiceBase {
       topic,
       namespaces,
     });
+  }
+
+  @backgroundMethod()
+  async emitAccountsChangedEvent({
+    topic,
+    chainId,
+    address,
+  }: {
+    topic: string;
+    chainId: string;
+    address: string;
+  }) {
+    return this.backgroundApi.walletConnect.web3Wallet?.emitSessionEvent({
+      topic,
+      event: {
+        name: 'accountsChanged',
+        data: [address],
+      },
+      chainId,
+    });
+  }
+
+  @backgroundMethod()
+  async emitNetworkChangedEvent({
+    topic,
+    walletConnectChainId,
+    chainId,
+  }: {
+    topic: string;
+    chainId: string;
+    walletConnectChainId: string;
+  }) {
+    return this.backgroundApi.walletConnect.web3Wallet?.emitSessionEvent({
+      topic,
+      event: {
+        name: 'chainChanged',
+        data: chainId,
+      },
+      chainId: walletConnectChainId,
+    });
+  }
+
+  @backgroundMethod()
+  async batchEmitNetworkChangedEvent({
+    topic,
+    accountsInfo,
+  }: {
+    topic: string;
+    accountsInfo: IConnectionAccountInfo[];
+  }) {
+    if (!topic || !accountsInfo.length) {
+      return;
+    }
+    for (const accountInfo of accountsInfo) {
+      if (accountInfo.networkId) {
+        const chainData = await this.getChainDataByNetworkId(
+          accountInfo.networkId,
+        );
+        if (chainData?.chainId && chainData?.namespace) {
+          void this.emitNetworkChangedEvent({
+            topic,
+            walletConnectChainId: `${chainData?.namespace}:${chainData?.chainId}`,
+            chainId: networkUtils.getNetworkChainId({
+              networkId: accountInfo.networkId,
+            }),
+          });
+        }
+      }
+    }
   }
 
   @backgroundMethod()
