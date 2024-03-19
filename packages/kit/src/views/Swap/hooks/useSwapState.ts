@@ -2,16 +2,12 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import {
   ESwapAlertLevel,
   ESwapDirectionType,
@@ -21,7 +17,6 @@ import type {
   ISwapState,
 } from '@onekeyhq/shared/types/swap/types';
 
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
@@ -36,20 +31,13 @@ import {
 import { useSwapAddressInfo } from './uswSwapAccount';
 
 function useSwapWarningCheck() {
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-
   const [fromToken] = useSwapSelectFromTokenAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
-  const openProviderList = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapProviderSelect,
-    });
-  }, [navigation]);
+  const [swapSelectFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
 
   const checkSwapWarning = useCallback(() => {
     let alerts: ISwapAlertState[] = [];
@@ -158,8 +146,6 @@ function useSwapWarningCheck() {
           message:
             'The current provider does not offer the best rate for this trade.',
           alertLevel: ESwapAlertLevel.WARNING,
-          cb: openProviderList,
-          cbLabel: 'Change',
         },
       ];
     }
@@ -224,6 +210,7 @@ function useSwapWarningCheck() {
               fromToken?.symbol ?? 'unknown'
             }`,
             alertLevel: ESwapAlertLevel.ERROR,
+            inputShowError: true,
           },
         ];
       }
@@ -234,24 +221,38 @@ function useSwapWarningCheck() {
         alerts = [
           ...alerts,
           {
-            message: `The Maximum amount for this swap is ${maxAmountBN.toFixed()} ${
+            message: `The maximum amount for this swap is ${maxAmountBN.toFixed()} ${
               fromToken?.symbol ?? 'unknown'
             }`,
             alertLevel: ESwapAlertLevel.ERROR,
+            inputShowError: true,
           },
         ];
       }
     }
-
+    if (
+      fromToken?.isNative &&
+      fromTokenAmountBN.isEqualTo(
+        new BigNumber(swapSelectFromTokenBalance ?? 0),
+      )
+    ) {
+      alerts = [
+        ...alerts,
+        {
+          message: `${fromToken.symbol} is required for the network fee, and the cost will be automatically deducted from amount in the next step.`,
+          alertLevel: ESwapAlertLevel.INFO,
+        },
+      ];
+    }
     return alerts;
   }, [
     fromToken,
     fromTokenAmount,
-    openProviderList,
     quoteResult,
     swapFromAddressInfo.accountInfo,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
+    swapSelectFromTokenBalance,
     swapToAddressInfo.accountInfo?.accountName,
     swapToAddressInfo.accountInfo?.network?.name,
     swapToAddressInfo.accountInfo?.wallet?.name,
