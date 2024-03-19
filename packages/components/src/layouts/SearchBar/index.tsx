@@ -3,12 +3,21 @@ import { useCallback, useState } from 'react';
 import { Input } from '../../forms/Input';
 
 import type { IInputProps } from '../../forms/Input';
+import type {
+  NativeSyntheticEvent,
+  TextInputTextInputEventData,
+} from 'react-native';
 
-export type ISearchBarProps = IInputProps;
+export type ISearchBarProps = IInputProps & {
+  onSearchTextChange?: (text: string) => void;
+};
+
+const COMPOSITION_SPACE = String.fromCharCode(8198);
 
 export function SearchBar({
   value: defaultValue,
   onChangeText,
+  onSearchTextChange,
   ...rest
 }: ISearchBarProps) {
   const [value, setValue] = useState(defaultValue ?? '');
@@ -17,8 +26,10 @@ export function SearchBar({
     (text: string) => {
       setValue(text);
       onChangeText?.(text);
+      // support iOS input composition
+      onSearchTextChange?.(text.replaceAll(COMPOSITION_SPACE, ''));
     },
-    [onChangeText],
+    [onChangeText, onSearchTextChange],
   );
 
   const handleClearValue = useCallback(() => {
@@ -39,6 +50,8 @@ export function SearchBar({
           },
         ],
       })}
+      returnKeyType="search"
+      returnKeyLabel="Search"
       {...rest}
     />
   );

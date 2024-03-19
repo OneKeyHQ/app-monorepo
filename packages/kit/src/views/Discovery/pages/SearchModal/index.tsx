@@ -5,6 +5,8 @@ import { useFocusEffect, useRoute } from '@react-navigation/core';
 import {
   Image,
   Page,
+  ScrollView,
+  SearchBar,
   SizableText,
   Skeleton,
   Stack,
@@ -105,93 +107,146 @@ function SearchModal() {
   const displayHistoryList = (localData?.historyData ?? []).length > 0;
 
   return (
-    <Page skipLoading safeAreaEnabled scrollEnabled>
-      <Page.Header
-        headerTitle="Search"
-        headerSearchBarOptions={{
-          autoFocus: true,
-          placeholder: 'Search',
-          inputType: 'text',
-          hideNavigationBar: true,
-          hideWhenScrolling: false,
-          onChangeText: ({ nativeEvent }) => {
-            setSearchValue(nativeEvent.text);
-          },
-          onSearchButtonPress: () => {
-            handleOpenWebSite({
-              navigation,
-              useCurrentWindow,
-              tabId,
-              webSite: {
-                url: searchValue,
-                title: searchValue,
-              },
-            });
-          },
-        }}
-      />
-      <Page.Body pt="$2" pb="$5">
-        {displaySearchList ? (
-          <Stack pb="$5">
-            {searchList.map((item, index) => (
-              <ListItem
-                key={index}
-                avatarProps={{
-                  src: item.logo || item.originLogo,
-                  fallbackProps: {
-                    children: <Skeleton w="$10" h="$10" />,
-                  },
-                }}
-                title={item.name}
-                subtitleProps={{
-                  numberOfLines: 1,
-                }}
-                onPress={() => {
-                  if (item.dappId === SEARCH_ITEM_ID) {
-                    handleOpenWebSite({
-                      navigation,
-                      useCurrentWindow,
-                      tabId,
-                      webSite: {
-                        url: searchValue,
-                        title: searchValue,
-                      },
-                    });
-                  } else {
-                    handleOpenWebSite({
-                      navigation,
-                      useCurrentWindow,
-                      tabId,
-                      dApp: item,
-                    });
-                  }
+    <Page safeAreaEnabled>
+      <Page.Header headerTitle="Search" />
+      <Page.Body>
+        <Stack mx="$4">
+          <SearchBar
+            onSearchTextChange={setSearchValue}
+            onSubmitEditing={() => {
+              handleOpenWebSite({
+                navigation,
+                useCurrentWindow,
+                tabId,
+                webSite: {
+                  url: searchValue,
+                  title: searchValue,
+                },
+              });
+            }}
+          />
+        </Stack>
+        <ScrollView pt="$2" pb="$5" keyboardDismissMode="on-drag">
+          {displaySearchList ? (
+            <Stack pb="$5">
+              {searchList.map((item, index) => (
+                <ListItem
+                  key={index}
+                  avatarProps={{
+                    src: item.logo || item.originLogo,
+                    fallbackProps: {
+                      children: <Skeleton w="$10" h="$10" />,
+                    },
+                  }}
+                  title={item.name}
+                  subtitleProps={{
+                    numberOfLines: 1,
+                  }}
+                  onPress={() => {
+                    if (item.dappId === SEARCH_ITEM_ID) {
+                      handleOpenWebSite({
+                        navigation,
+                        useCurrentWindow,
+                        tabId,
+                        webSite: {
+                          url: searchValue,
+                          title: searchValue,
+                        },
+                      });
+                    } else {
+                      handleOpenWebSite({
+                        navigation,
+                        useCurrentWindow,
+                        tabId,
+                        dApp: item,
+                      });
+                    }
+                  }}
+                />
+              ))}
+            </Stack>
+          ) : null}
+
+          {displayBookmarkList ? (
+            <Stack>
+              <DappSearchModalSectionHeader
+                title="Bookmarks"
+                onMorePress={() => {
+                  jumpPageRef.current = true;
+                  navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                    screen: EDiscoveryModalRoutes.BookmarkListModal,
+                  });
                 }}
               />
-            ))}
-          </Stack>
-        ) : null}
-
-        {displayBookmarkList ? (
-          <Stack>
-            <DappSearchModalSectionHeader
-              title="Bookmarks"
-              onMorePress={() => {
-                jumpPageRef.current = true;
-                navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                  screen: EDiscoveryModalRoutes.BookmarkListModal,
-                });
-              }}
-            />
-            <XStack>
-              {localData?.bookmarkData?.map((item, index) => (
-                <Stack
+              <XStack>
+                {localData?.bookmarkData?.map((item, index) => (
+                  <Stack
+                    key={index}
+                    flexBasis="25%"
+                    alignItems="center"
+                    py="$2"
+                    $gtMd={{
+                      flexBasis: '16.66666667%',
+                    }}
+                    onPress={() => {
+                      handleOpenWebSite({
+                        navigation,
+                        useCurrentWindow,
+                        tabId,
+                        webSite: {
+                          url: item.url,
+                          title: item.title,
+                        },
+                      });
+                    }}
+                  >
+                    <Image w="$14" h="$14" borderRadius="$3">
+                      <Image.Source
+                        source={{
+                          uri: item.logo,
+                        }}
+                      />
+                    </Image>
+                    <SizableText
+                      mt="$2"
+                      px="$2"
+                      size="$bodyLgMedium"
+                      textAlign="center"
+                      $gtMd={{
+                        size: '$bodyMdMedium',
+                      }}
+                      numberOfLines={1}
+                    >
+                      {item.title}
+                    </SizableText>
+                  </Stack>
+                ))}
+              </XStack>
+            </Stack>
+          ) : null}
+          {displayHistoryList ? (
+            <Stack pt="$5">
+              <DappSearchModalSectionHeader
+                title="History"
+                onMorePress={() => {
+                  jumpPageRef.current = true;
+                  navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                    screen: EDiscoveryModalRoutes.HistoryListModal,
+                  });
+                }}
+              />
+              {localData?.historyData?.map((item, index) => (
+                <ListItem
                   key={index}
-                  flexBasis="25%"
-                  alignItems="center"
-                  py="$2"
-                  $gtMd={{
-                    flexBasis: '16.66666667%',
+                  avatarProps={{
+                    src: item.logo,
                   }}
+                  title={item.title}
+                  subtitle={item.url}
+                  subtitleProps={{
+                    numberOfLines: 1,
+                  }}
+                  testID={`search-modal-${item.title.toLowerCase()}`}
                   onPress={() => {
                     handleOpenWebSite({
                       navigation,
@@ -203,69 +258,11 @@ function SearchModal() {
                       },
                     });
                   }}
-                >
-                  <Image w="$14" h="$14" borderRadius="$3">
-                    <Image.Source
-                      source={{
-                        uri: item.logo,
-                      }}
-                    />
-                  </Image>
-                  <SizableText
-                    mt="$2"
-                    px="$2"
-                    size="$bodyLgMedium"
-                    textAlign="center"
-                    $gtMd={{
-                      size: '$bodyMdMedium',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {item.title}
-                  </SizableText>
-                </Stack>
+                />
               ))}
-            </XStack>
-          </Stack>
-        ) : null}
-        {displayHistoryList ? (
-          <Stack pt="$5">
-            <DappSearchModalSectionHeader
-              title="History"
-              onMorePress={() => {
-                jumpPageRef.current = true;
-                navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                  screen: EDiscoveryModalRoutes.HistoryListModal,
-                });
-              }}
-            />
-            {localData?.historyData?.map((item, index) => (
-              <ListItem
-                key={index}
-                avatarProps={{
-                  src: item.logo,
-                }}
-                title={item.title}
-                subtitle={item.url}
-                subtitleProps={{
-                  numberOfLines: 1,
-                }}
-                testID={`search-modal-${item.title.toLowerCase()}`}
-                onPress={() => {
-                  handleOpenWebSite({
-                    navigation,
-                    useCurrentWindow,
-                    tabId,
-                    webSite: {
-                      url: item.url,
-                      title: item.title,
-                    },
-                  });
-                }}
-              />
-            ))}
-          </Stack>
-        ) : null}
+            </Stack>
+          ) : null}
+        </ScrollView>
       </Page.Body>
     </Page>
   );
