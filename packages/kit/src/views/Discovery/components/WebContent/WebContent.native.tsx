@@ -63,8 +63,7 @@ function WebContent({
   }, [id]);
   const [phishingCache] = usePhishingLruCacheAtom();
   const phishingUrlRef = useRef<string>('');
-  const { onNavigation, gotoSite, addUrlToPhishingCache } =
-    useBrowserAction().current;
+  const { onNavigation, gotoSite } = useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
 
