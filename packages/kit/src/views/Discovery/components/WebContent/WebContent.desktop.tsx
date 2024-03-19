@@ -6,6 +6,7 @@ import {
   useBrowserAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
@@ -30,13 +31,15 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
+  const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
   const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
 
   useEffect(() => {
-    const isValidate = validateWebviewSrc(url);
-    setShowBlockAccessView(!isValidate);
+    const validateState = validateWebviewSrc(url);
+    setUrlValidateState(validateState);
+    setShowBlockAccessView(validateState !== EValidateUrlEnum.Valid);
   }, [url, validateWebviewSrc]);
 
   const getNavStatusInfo = useCallback(() => {
@@ -167,6 +170,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const blockAccessView = useMemo(
     () => (
       <BlockAccessView
+        urlValidateState={urlValidateState}
         onCloseTab={() => {
           closeWebTab(id);
           setCurrentWebTab(null);
@@ -178,7 +182,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
         // }}
       />
     ),
-    [closeWebTab, setCurrentWebTab, id, navigation],
+    [closeWebTab, setCurrentWebTab, id, navigation, urlValidateState],
   );
 
   return (

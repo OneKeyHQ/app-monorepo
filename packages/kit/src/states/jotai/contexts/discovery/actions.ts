@@ -29,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import {
   activeTabIdAtom,
@@ -694,19 +695,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
-    if (!url) return false;
+    if (!url) return EValidateUrlEnum.InvalidUrl;
     const cache = get(phishingLruCacheAtom());
     const { action } = uriUtils.parseDappRedirect(
       url,
       Array.from(cache.keys()),
     );
     if (action === uriUtils.EDAppOpenActionEnum.DENY) {
-      return false;
+      return EValidateUrlEnum.NotSupportProtocol;
+    }
+    if (uriUtils.containsPunycode(url)) {
+      return EValidateUrlEnum.InvalidPunycode;
     }
     if (uriUtils.isValidDeepLink(url)) {
-      return true;
+      return EValidateUrlEnum.Valid;
     }
-    return true;
+    return EValidateUrlEnum.Valid;
   });
 }
 
