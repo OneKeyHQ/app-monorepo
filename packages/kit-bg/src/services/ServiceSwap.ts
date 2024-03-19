@@ -20,6 +20,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapFetchCancelCause,
   ESwapProviders,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -109,7 +110,9 @@ export default class ServiceSwap extends ServiceBase {
       return { result: data?.data?.data ?? [], next: data?.data?.next };
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new Error('cancel');
+        throw new Error('swap fetch tokens cancel', {
+          cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
+        });
       } else {
         const error = e as { message: string };
         Toast.error({ title: 'error', message: error?.message });
@@ -201,7 +204,9 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new Error('cancel');
+        throw new Error('swap fetch quote cancel', {
+          cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
+        });
       } else {
         const error = e as { message: string };
         Toast.error({ title: 'error', message: error?.message });

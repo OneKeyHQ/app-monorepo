@@ -11,6 +11,7 @@ import {
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
+  ESwapFetchCancelCause,
   ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -214,7 +215,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapTokenFetchingAtom(), false);
       } catch (e: any) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e?.message !== 'cancel') {
+        if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
           set(swapTokenFetchingAtom(), false);
         }
       }
@@ -244,7 +245,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteFetchingAtom(), false);
       } catch (e: any) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e?.message !== 'cancel') {
+        if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
           set(swapQuoteFetchingAtom(), false);
         }
       }
