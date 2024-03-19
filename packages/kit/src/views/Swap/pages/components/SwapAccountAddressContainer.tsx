@@ -71,28 +71,28 @@ function AddressButton({
         >
           {empty ? 'No Addreses' : address}
         </SizableText>
-        {edited && (
+        {edited ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             (Edited)
           </SizableText>
-        )}
+        ) : null}
       </XStack>
-      {onPress && empty && (
+      {onPress && empty ? (
         <Icon
           name="PlusCircleOutline"
           size="$4.5"
           color="$iconSubdued"
           mr="$-0.5"
         />
-      )}
-      {onPress && !empty && (
+      ) : null}
+      {onPress && !empty ? (
         <Icon
           name="PencilOutline"
           size="$4.5"
           color="$iconSubdued"
           mr="$-0.5"
         />
-      )}
+      ) : null}
     </XStack>
   );
 }

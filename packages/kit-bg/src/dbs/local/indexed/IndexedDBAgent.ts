@@ -40,6 +40,13 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     this.indexed = indexed;
   }
 
+  clearRecords({ name }: { name: ELocalDBStoreNames }): Promise<void> {
+    return this.withTransaction(async (tx) => {
+      const store = this._getObjectStoreFromTx(tx, name);
+      await store.clear();
+    });
+  }
+
   indexed: IDBPDatabase<IIndexedDBSchemaMap>;
 
   txPair:

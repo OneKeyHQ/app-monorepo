@@ -16,6 +16,7 @@ import type {
   IElement,
   IInputProps,
   IPageFooterProps,
+  IPropsWithTestId,
 } from '@onekeyhq/components';
 import {
   Button,
@@ -134,6 +135,7 @@ function SuggestionList({
         word={word}
         onPress={onPressItem}
         m="$1.5"
+        testID={`suggest-${word}`}
       />
     ));
 
@@ -201,7 +203,8 @@ function BasicPhaseInput(
     closePopover,
     onReturnKeyPressed,
     getReturnKeyLabel,
-  }: {
+    testID = '',
+  }: IPropsWithTestId<{
     value?: string;
     index: number;
     onInputChange: (value: string) => string;
@@ -215,7 +218,7 @@ function BasicPhaseInput(
     closePopover: () => void;
     onReturnKeyPressed: (index: number) => void;
     getReturnKeyLabel: (index: number) => ReturnKeyTypeOptions;
-  },
+  }>,
   ref: any,
 ) {
   const inputRef: RefObject<TextInput> | null = useRef(null);
@@ -360,6 +363,7 @@ function BasicPhaseInput(
           platformEnv.isNativeAndroid ? 'visible-password' : 'ascii-capable'
         }
         onSubmitEditing={handleSubmitEnding}
+        testID={testID}
       />
     );
   }
@@ -382,7 +386,12 @@ function BasicPhaseInput(
       }
       renderTrigger={
         <Stack>
-          <Input {...inputProps} onKeyPress={handleKeyPress} data-1p-ignore />
+          <Input
+            {...inputProps}
+            onKeyPress={handleKeyPress}
+            data-1p-ignore
+            testID={testID}
+          />
         </Stack>
       }
     />
@@ -497,6 +506,7 @@ export function PhaseInputArea({
                     iconAfter="ChevronDownSmallOutline"
                     size="small"
                     variant="tertiary"
+                    testID="phrase-length"
                   >
                     {value} words
                   </Button>
@@ -509,6 +519,7 @@ export function PhaseInputArea({
                 size="small"
                 variant="tertiary"
                 onPress={handleClear}
+                testID="clear-all"
               >
                 Clear
               </Button>
@@ -540,6 +551,7 @@ export function PhaseInputArea({
                     closePopover={closePopover}
                     onReturnKeyPressed={handleReturnKeyPressed}
                     getReturnKeyLabel={getReturnKeyLabel}
+                    testID={`phrase-input-index${index}`}
                   />
                 </Form.Field>
               </Stack>

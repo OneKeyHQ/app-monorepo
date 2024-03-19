@@ -171,6 +171,11 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   // ---------------------------------------------- base
   abstract reset(): Promise<void>;
 
+  async clearRecords(params: { name: ELocalDBStoreNames }) {
+    const db = await this.readyDb;
+    return db.clearRecords(params);
+  }
+
   confirmHDWalletBackuped(walletId: string): Promise<IDBWallet> {
     throw new Error('Method not implemented.');
   }
@@ -218,6 +223,20 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       ids: [DB_MAIN_CONTEXT_ID],
       tx,
       updater,
+    });
+  }
+
+  async resetContext() {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater(item) {
+          item.nextHD = 1;
+          item.nextWalletNo = 1;
+          return item;
+        },
+      });
     });
   }
 
@@ -283,6 +302,19 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       return true;
     }
     return false;
+  }
+
+  async resetPasswordSet(): Promise<void> {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater: (record) => {
+          record.verifyString = DEFAULT_VERIFY_STRING;
+          return record;
+        },
+      });
+    });
   }
 
   async txUpdateAllCredentialsPassword({

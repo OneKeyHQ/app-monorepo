@@ -1,6 +1,7 @@
 import { Children, cloneElement, useCallback } from 'react';
 import type { PropsWithChildren, ReactElement } from 'react';
 
+import type { IPropsWithTestId } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -18,7 +19,8 @@ export function SectionFieldItem({
   title,
   children,
   titleProps = { color: '$textCritical' },
-}: ISectionFieldItem) {
+  testID = '',
+}: IPropsWithTestId<ISectionFieldItem>) {
   const [devSetting] = useDevSettingsPersistAtom();
   const child = Children.only(children) as ReactElement;
   const value = name ? devSetting?.settings?.[name] : '';
@@ -38,7 +40,7 @@ export function SectionFieldItem({
       })
     : null;
   return (
-    <ListItem title={title} titleProps={titleProps}>
+    <ListItem title={title} titleProps={titleProps} testID={testID}>
       {field}
     </ListItem>
   );

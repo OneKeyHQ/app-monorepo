@@ -13,5 +13,5 @@
     "primitives/**",
     "types/**",
     "utils/**"
-   ]
+  ]
 }

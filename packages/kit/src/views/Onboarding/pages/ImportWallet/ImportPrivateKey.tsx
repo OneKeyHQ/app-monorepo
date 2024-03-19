@@ -33,6 +33,7 @@ export function ImportPrivateKey() {
               secureTextEntry
               placeholder="Enter your private key"
               size={media.gtMd ? 'medium' : 'large'}
+              testID="private-key"
               addOns={[
                 {
                   iconName: 'ScanOutline',

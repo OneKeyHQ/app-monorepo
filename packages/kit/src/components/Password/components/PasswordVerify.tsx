@@ -10,7 +10,7 @@ import {
 
 import { AuthenticationType } from 'expo-local-authentication';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
@@ -54,11 +54,11 @@ const PasswordVerify = ({
   const [{ manualLocking }] = usePasswordPersistAtom();
 
   const rightActions = useMemo(() => {
-    const actions: {
+    const actions: IPropsWithTestId<{
       iconName?: IKeyOfIcons;
       onPress?: () => void;
       loading?: boolean;
-    }[] = [];
+    }>[] = [];
     if (isEnable && !passwordInput) {
       actions.push({
         iconName:
@@ -79,6 +79,7 @@ const PasswordVerify = ({
         iconName: 'ArrowRightOutline',
         onPress: form.handleSubmit(onInputPasswordAuth),
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
+        testID: 'verifying-password',
       });
     }
 
@@ -152,6 +153,7 @@ const PasswordVerify = ({
           secureTextEntry={secureEntry}
           onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
           addOns={rightActions}
+          testID="enter-password"
         />
       </Form.Field>
       {isEnable ? <AppStatusActiveListener onActive={onActive} /> : null}

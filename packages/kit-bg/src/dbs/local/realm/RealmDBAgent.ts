@@ -37,6 +37,17 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     this.realm = realm;
   }
 
+  async clearRecords({ name }: { name: ELocalDBStoreNames }): Promise<void> {
+    await this.withTransaction(async (tx) => {
+      const { recordPairs } = await this.txGetAllRecords({ name, tx });
+      await this.txRemoveRecords({
+        tx,
+        name,
+        recordPairs,
+      });
+    });
+  }
+
   realm: Realm;
 
   _getObjectRecordById<T extends ELocalDBStoreNames>(

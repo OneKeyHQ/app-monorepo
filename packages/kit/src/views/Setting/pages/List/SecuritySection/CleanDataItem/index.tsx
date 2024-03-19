@@ -54,7 +54,11 @@ export const CleanDataItem = () => {
     <ActionList
       title="Clear Data"
       renderTrigger={
-        <ListItem title="Clear Data" icon="FolderDeleteOutline">
+        <ListItem
+          title="Clear Data"
+          icon="FolderDeleteOutline"
+          testID="setting-clear-data"
+        >
           <ListItem.DrillIn name="ChevronDownSmallOutline" />
         </ListItem>
       }
@@ -127,6 +131,7 @@ export const CleanDataItem = () => {
           label: 'Reset App',
           destructive: true,
           onPress: resetApp,
+          testID: 'setting-erase-data',
         },
       ]}
     />

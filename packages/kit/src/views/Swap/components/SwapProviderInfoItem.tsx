@@ -63,11 +63,11 @@ const SwapProviderInfoItem = ({
           }}
           onPress={onPress}
         >
-          {showBest && (
+          {showBest ? (
             <Badge badgeType="success" badgeSize="sm" mr="$1">
               Best
             </Badge>
-          )}
+          ) : null}
           <Image
             source={{ uri: providerIcon }}
             w="$5"
@@ -77,17 +77,17 @@ const SwapProviderInfoItem = ({
           <SizableText size="$bodyMdMedium" pl="$1">
             {rate ? rateContent : providerName}
           </SizableText>
-          {showLock && (
+          {showLock ? (
             <Icon name="LockOutline" color="$iconSubdued" ml="$1" size="$5" />
-          )}
-          {onPress && (
+          ) : null}
+          {onPress ? (
             <Icon
               name="ChevronRightSmallOutline"
               size="$5"
               color="$iconSubdued"
               mr="$-1"
             />
-          )}
+          ) : null}
         </XStack>
       )}
     </XStack>

@@ -42,6 +42,8 @@ export type IPlatformEnv = {
   isDev?: boolean;
   /** production mode */
   isProduction?: boolean;
+  /** e2e mode */
+  isE2E?: boolean;
 
   /** running in the browsers */
   isWeb?: boolean;
@@ -117,6 +119,7 @@ const {
   isExtChrome,
   isExtFirefox,
   isExtEdge,
+  isE2E,
 }: {
   isJest: boolean;
   isDev: boolean;
@@ -129,6 +132,7 @@ const {
   isExtChrome: boolean;
   isExtFirefox: boolean;
   isExtEdge: boolean;
+  isE2E: boolean;
 } = require('./buildTimeEnv.js');
 
 const isDesktopMac = isDesktop && window?.desktopApi?.platform === 'darwin';
@@ -311,6 +315,7 @@ const platformEnv: IPlatformEnv = {
 
   isDev,
   isProduction,
+  isE2E,
 
   isWeb,
   isWebTouchable,
