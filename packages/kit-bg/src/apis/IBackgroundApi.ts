@@ -31,6 +31,7 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
+import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
@@ -89,6 +90,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
+  serviceSwap: ServiceSwap;
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;
   serviceAccount: ServiceAccount;

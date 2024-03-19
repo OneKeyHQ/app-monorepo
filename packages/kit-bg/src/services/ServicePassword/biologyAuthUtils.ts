@@ -27,7 +27,7 @@ class BiologyAuthUtils implements IBiologyAuth {
     const settings = await settingsPersistAtom.get();
     text = encodeSensitiveText({
       text,
-      key: `${encodeKeyPrefix}${settings.instanceId}`,
+      key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
     });
     await secureStorage.setSecureItem('password', text);
   };
@@ -38,7 +38,7 @@ class BiologyAuthUtils implements IBiologyAuth {
       const settings = await settingsPersistAtom.get();
       text = decodeSensitiveText({
         encodedText: text,
-        key: `${encodeKeyPrefix}${settings.instanceId}`,
+        key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
       });
       text = encodeSensitiveText({ text });
       return text;

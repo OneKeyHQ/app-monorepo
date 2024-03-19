@@ -92,6 +92,7 @@ android {
         versionName "1.0.0"
 
         buildConfigField("boolean", "REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS", (findProperty("reactNative.unstable_useRuntimeSchedulerAlways") ?: true).toString())
+        buildConfigField("boolean", "NO_FLIPPER", (System.getenv('NO_FLIPPER') == '1').toString())
     }
     signingConfigs {
         debug {
@@ -158,6 +159,7 @@ dependencies {
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
     def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";
     def frescoVersion = rootProject.ext.frescoVersion
+    def noFlipper = System.getenv('NO_FLIPPER') == '1'
 
     // If your app supports Android versions before Ice Cream Sandwich (API level 14)
     if (isGifEnabled || isWebpEnabled) {
@@ -179,7 +181,9 @@ dependencies {
         }
     }
 
-    implementation("com.facebook.react:flipper-integration")
+    if (!noFlipper) {
+        implementation("com.facebook.react:flipper-integration")
+    }
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
