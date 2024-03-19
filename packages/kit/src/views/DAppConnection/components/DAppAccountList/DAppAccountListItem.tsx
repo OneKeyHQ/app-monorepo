@@ -212,11 +212,14 @@ function WalletConnectAccountTriggerList({
         >
           <YStack space="$2">
             {sessionAccountsInfo.map((i) => (
-              <AccountListItem
-                key={i.accountSelectorNum}
-                num={i.accountSelectorNum}
-                handleAccountChanged={handleAccountChanged}
-              />
+              <>
+                <DAppAccountListSyncFromHome num={i.accountSelectorNum} />
+                <AccountListItem
+                  key={i.accountSelectorNum}
+                  num={i.accountSelectorNum}
+                  handleAccountChanged={handleAccountChanged}
+                />
+              </>
             ))}
           </YStack>
         </AccountSelectorProviderMirror>

@@ -169,19 +169,22 @@ class ServiceWalletConnect extends ServiceBase {
     proposal: Web3WalletTypes.SessionProposal,
   ) {
     const { requiredNamespaces, optionalNamespaces } = proposal.params;
-    const promises = Object.keys(requiredNamespaces).map(
-      async (namespace, index) => {
-        const networkIds = await this.getAvailableNetworkIdsForNamespace(
-          requiredNamespaces,
-          optionalNamespaces,
-          namespace,
-        );
-        return {
-          accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
-          networkIds,
-        };
-      },
-    );
+    let namespaces = requiredNamespaces;
+    // If there are no required namespaces, use optional namespaces
+    if (!Object.keys(requiredNamespaces).length) {
+      namespaces = optionalNamespaces;
+    }
+    const promises = Object.keys(namespaces).map(async (namespace, index) => {
+      const networkIds = await this.getAvailableNetworkIdsForNamespace(
+        requiredNamespaces,
+        optionalNamespaces,
+        namespace,
+      );
+      return {
+        accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
+        networkIds,
+      };
+    });
     return Promise.all(promises);
   }
 
@@ -225,11 +228,15 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Process optional namespaces, considering unsupported chains
     if (proposal.params.optionalNamespaces) {
-      const filteredOptionalNamespaces = Object.fromEntries(
-        Object.entries(proposal.params.optionalNamespaces).filter(
-          ([key]) => key in proposal.params.requiredNamespaces,
-        ),
-      );
+      const isEmptyRequiredNamespace =
+        Object.keys(proposal.params.requiredNamespaces).length <= 0;
+      const filteredOptionalNamespaces = isEmptyRequiredNamespace
+        ? proposal.params.optionalNamespaces
+        : Object.fromEntries(
+            Object.entries(proposal.params.optionalNamespaces).filter(
+              ([key]) => key in proposal.params.requiredNamespaces,
+            ),
+          );
       await processNamespaces(filteredOptionalNamespaces, notSupportedChains);
     }
 
