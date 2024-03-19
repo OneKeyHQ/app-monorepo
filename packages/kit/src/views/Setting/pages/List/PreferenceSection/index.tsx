@@ -83,6 +83,7 @@ const LanguageListItem = () => {
       value={locale}
       onChange={onChange}
       placement="bottom-end"
+      floatingPanelProps={{ maxHeight: 300 }}
       renderTrigger={({ label }) => (
         <ListItem
           icon="GlobusOutline"

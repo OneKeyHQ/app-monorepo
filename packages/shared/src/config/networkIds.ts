@@ -20,7 +20,8 @@ type INetworkShortCode =
   | 'injective'
   | 'polygon'
   | 'tlightning'
-  | 'lightning';
+  | 'lightning'
+  | 'ltc';
 // TODO generate getNetworkIdsMap in build time
 export const getNetworkIdsMap = memoFn(() => {
   const networks = getPresetNetworks();
