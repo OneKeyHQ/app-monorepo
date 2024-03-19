@@ -57,9 +57,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
               outlineStyle: 'solid',
             }
       }
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       disabled={disabled}
       {...rest}
     >

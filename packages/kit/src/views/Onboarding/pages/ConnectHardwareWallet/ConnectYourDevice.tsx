@@ -121,7 +121,7 @@ const FirmwareAuthenticationDialogContent = ({
             bg: '$bgCautionSubdued',
             borderColor: '$borderCautionSubdued',
           })}
-          style={{ borderCurve: 'continuous' }}
+          borderCurve="continuous"
         >
           <Stack>
             <Stack justifyContent="center" alignItems="center">
@@ -453,7 +453,7 @@ export function ConnectYourDevicePage() {
           borderRadius="$3"
           p="$5"
           bg="$bgSubdued"
-          style={{ borderCurve: 'continuous' }}
+          borderCurve="continuous"
         >
           <Spinner size="large" />
         </Stack>

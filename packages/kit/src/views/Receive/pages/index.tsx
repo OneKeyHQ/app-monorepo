@@ -106,9 +106,7 @@ export function Receive() {
             borderColor="$borderSubdued"
             borderRadius="$6"
             overflow="hidden"
-            style={{
-              borderCurve: 'continuous',
-            }}
+            borderCurve="continuous"
           >
             <QRCode
               value="https://onekey.so/"
@@ -162,9 +160,7 @@ export function Receive() {
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
               borderRadius="$3"
-              style={{
-                borderCurve: 'continuous',
-              }}
+              borderCurve="continuous"
             >
               <SizableText
                 textAlign="center"
