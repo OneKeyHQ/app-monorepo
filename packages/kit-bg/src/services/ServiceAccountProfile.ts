@@ -101,16 +101,18 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     accountId: string;
     toAddress: string;
-  }): Promise<IAddressInteractionStatus> {
+  }): Promise<IAddressInteractionStatus | undefined> {
     const acc = await this.backgroundApi.serviceAccount.getAccount({
       networkId,
       accountId,
     });
-    return this.getAddressInteractionStatus({
-      networkId,
-      fromAddress: acc.address,
-      toAddress,
-    });
+    if (acc.address.toLowerCase() !== toAddress.toLowerCase()) {
+      return this.getAddressInteractionStatus({
+        networkId,
+        fromAddress: acc.address,
+        toAddress,
+      });
+    }
   }
 
   @backgroundMethod()

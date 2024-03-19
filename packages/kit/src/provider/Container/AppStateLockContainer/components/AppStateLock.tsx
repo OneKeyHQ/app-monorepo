@@ -11,6 +11,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
+import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 
 import type { View as IView } from 'react-native';
 
@@ -25,6 +26,7 @@ const AppStateLock = ({
   ...props
 }: IAppStateLockProps) => {
   const { bottom } = useSafeAreaInsets();
+  const resetApp = useResetApp();
 
   return (
     <ThemeableStack
@@ -59,7 +61,7 @@ const AppStateLock = ({
         </Stack>
       </Stack>
       <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
-        <Button size="small" variant="tertiary">
+        <Button size="small" variant="tertiary" onPress={resetApp}>
           Forgot Password?
         </Button>
       </Stack>

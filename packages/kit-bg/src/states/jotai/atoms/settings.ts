@@ -14,6 +14,7 @@ export type ISettingsPersistAtom = {
   version: string;
   buildNumber?: string;
   instanceId: string;
+  sensitiveEncodeKey: string;
   isBiologyAuthSwitchOn: boolean;
   protectCreateTransaction: boolean;
   protectCreateOrRemoveWallet: boolean;
@@ -37,6 +38,7 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       version: process.env.VERSION ?? '1.0.0',
       buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
       instanceId: generateUUID(),
+      sensitiveEncodeKey: generateUUID(),
       swapToAnotherAccountSwitchOn: false,
       isBiologyAuthSwitchOn: false,
       protectCreateTransaction: false,
