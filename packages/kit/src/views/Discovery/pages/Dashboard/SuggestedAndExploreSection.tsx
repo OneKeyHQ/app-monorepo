@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
+import { isNil } from 'lodash';
+
 import type {
   IBadgeType,
   IScrollViewProps,
@@ -423,6 +425,22 @@ export function SuggestedAndExploreSection({
     renderChunkItemView,
   ]);
 
+  const renderContent = useCallback(() => {
+    if (isNil(isLoading) || isLoading) {
+      return renderSkeletonView();
+    }
+    if (isExploreView) {
+      return exploreView;
+    }
+    return suggestedView;
+  }, [
+    isExploreView,
+    isLoading,
+    renderSkeletonView,
+    exploreView,
+    suggestedView,
+  ]);
+
   return (
     <Stack
       p="$5"
@@ -447,12 +465,7 @@ export function SuggestedAndExploreSection({
           Explore
         </DashboardSectionHeader.Heading>
       </DashboardSectionHeader>
-      {/* eslint-disable-next-line no-nested-ternary */}
-      {isLoading
-        ? renderSkeletonView()
-        : isExploreView
-        ? exploreView
-        : suggestedView}
+      {renderContent()}
     </Stack>
   );
 }
