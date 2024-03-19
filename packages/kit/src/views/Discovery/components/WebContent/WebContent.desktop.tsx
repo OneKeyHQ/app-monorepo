@@ -39,7 +39,10 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   useEffect(() => {
     const validateState = validateWebviewSrc(url);
     setUrlValidateState(validateState);
-    setShowBlockAccessView(validateState !== EValidateUrlEnum.Valid);
+    setShowBlockAccessView(
+      validateState !== EValidateUrlEnum.Valid &&
+        validateState !== EValidateUrlEnum.ValidDeeplink,
+    );
   }, [url, validateWebviewSrc]);
 
   const getNavStatusInfo = useCallback(() => {

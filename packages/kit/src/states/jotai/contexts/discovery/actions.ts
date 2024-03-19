@@ -696,6 +696,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
     if (!url) return EValidateUrlEnum.InvalidUrl;
+    if (url === BLANK_PAGE_URL) return EValidateUrlEnum.Valid;
     const cache = get(phishingLruCacheAtom());
     const { action } = uriUtils.parseDappRedirect(
       url,
@@ -708,7 +709,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       return EValidateUrlEnum.InvalidPunycode;
     }
     if (uriUtils.isValidDeepLink(url)) {
-      return EValidateUrlEnum.Valid;
+      return EValidateUrlEnum.ValidDeeplink;
     }
     return EValidateUrlEnum.Valid;
   });
