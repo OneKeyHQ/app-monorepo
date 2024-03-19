@@ -181,7 +181,7 @@ export function useFeeInfoPayload({
             info.prices = [price1559];
             info.tx = {
               eip1559: true,
-              limit,
+              limit: limit || info.limit,
               price1559,
             };
           } else if (gasPrice) {
