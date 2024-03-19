@@ -7,7 +7,11 @@ import { PageClose } from './PageClose';
 import { PageContainer } from './PageContainer';
 import { PageContext } from './PageContext';
 import { PageFooter } from './PageFooter';
-import { FooterActions } from './PageFooterActions';
+import {
+  FooterActions,
+  FooterCancelButton,
+  FooterConfirmButton,
+} from './PageFooterActions';
 import { PageHeader } from './PageHeader';
 
 import type { IPageFooterRef } from './PageContext';
@@ -53,6 +57,8 @@ export const Page = withStaticProperties(PageProvider, {
   Body: PageBody,
   Footer: PageFooter,
   FooterActions,
+  CancelButton: FooterCancelButton,
+  ConfirmButton: FooterConfirmButton,
   Close: PageClose,
 });
 

@@ -16,6 +16,31 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import type { ITabHomeParamList } from '../../Home/router';
 
+function CustomConfirmButton() {
+  return (
+    <Page.ConfirmButton
+      onConfirm={(close) => {
+        alert('confirm');
+        close();
+      }}
+    >
+      custom confirm button
+    </Page.ConfirmButton>
+  );
+}
+
+function CustomCancelButton() {
+  return (
+    <Page.CancelButton
+      onCancel={() => {
+        console.log('cancel');
+      }}
+    >
+      custom cancel button
+    </Page.CancelButton>
+  );
+}
+
 export function TestSimpleModal() {
   const headerRightCall = useCallback(
     () => <HeaderIconButton icon="AnonymousHidden2Outline" />,
@@ -23,6 +48,8 @@ export function TestSimpleModal() {
   );
   const [showHeader, changeHeaderStatus] = useState(true);
   const [showFooter, changeFooterStatus] = useState(true);
+  const [showConfirmAndCancelButton, changeConfirmAndCancelButtonStatus] =
+    useState(false);
   const [showCustomFooter, changeCustomFooterStatus] = useState(false);
   const [showNewHeader, changeNewHeaderStatus] = useState(false);
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
@@ -57,6 +84,17 @@ export function TestSimpleModal() {
           <Switch value={showFooter} onChange={changeFooterStatus} />
           <SizableText>
             {showFooter ? 'Show Footer' : 'Hide Fotter'}
+          </SizableText>
+        </XStack>
+        <XStack>
+          <Switch
+            value={showConfirmAndCancelButton}
+            onChange={changeConfirmAndCancelButtonStatus}
+          />
+          <SizableText>
+            {showConfirmAndCancelButton
+              ? 'Show ConfirmAndCancelButton'
+              : 'Hide ConfirmAndCancelButton'}
           </SizableText>
         </XStack>
         <XStack>
@@ -120,6 +158,12 @@ export function TestSimpleModal() {
             alert('confirmed');
             close();
           }}
+          confirmButton={
+            showConfirmAndCancelButton ? <CustomConfirmButton /> : undefined
+          }
+          cancelButton={
+            showConfirmAndCancelButton ? <CustomCancelButton /> : undefined
+          }
           onConfirmText="YES"
           confirmButtonProps={{
             w: '$40',
