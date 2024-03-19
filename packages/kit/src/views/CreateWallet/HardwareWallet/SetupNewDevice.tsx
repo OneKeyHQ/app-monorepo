@@ -36,6 +36,7 @@ const getSetupNewDeviceIcon = (type: IDeviceType): any => {
     case 'mini':
       return MiniSetupNewDevicePng;
     case 'touch':
+    case 'pro':
       return TouchSetupNewDevicePng;
     default:
       return undefined;
@@ -50,6 +51,7 @@ const getRestoreDeviceIcon = (type: IDeviceType): any => {
     case 'mini':
       return MiniRestoreDevicePng;
     case 'touch':
+    case 'pro':
       return TouchRestoreDevicePng;
     default:
       return undefined;

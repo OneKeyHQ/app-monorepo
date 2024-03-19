@@ -27,6 +27,7 @@ const getConfirmAnimation = (type: string) => {
     case 'mini':
       return ConfirmOnMini;
     case 'touch':
+    case 'pro':
       return ConfirmOnTouch;
     default:
       return ConfirmOnClassic;
@@ -38,6 +39,7 @@ const getEnterPinCodeAnimation = (type: string) => {
     case 'mini':
       return EnterPinCodeOnMini;
     case 'touch':
+    case 'pro':
       return EnterPinCodeOnTouch;
     default:
       return EnterPinCodeOnClassic;

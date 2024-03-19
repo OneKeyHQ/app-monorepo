@@ -96,7 +96,7 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
     if (hwWalletType === 'mini') {
       imgSource = MiniIcon;
     }
-    if (hwWalletType === 'touch') {
+    if (hwWalletType === 'touch' || hwWalletType === 'pro') {
       imgSource = TouchIcon;
     }
 

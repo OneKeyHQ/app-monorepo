@@ -78,6 +78,7 @@ const getDeviceIcon = (
     case 'mini':
       return MiniDeviceIcon as number;
     case 'touch':
+    case 'pro':
       return TouchDeviceIcon as number;
     default:
       return undefined;
