@@ -91,6 +91,7 @@ export function ActionListItem({
         />
       ) : null}
       <SizableText
+        textAlign="left"
         size="$bodyMd"
         $md={{ size: '$bodyLg' }}
         color={destructive ? '$textCritical' : '$text'}

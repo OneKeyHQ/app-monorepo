@@ -4,6 +4,7 @@ import { Button, XStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AboutDevice } from './AboutDevice';
 
@@ -34,7 +35,9 @@ export function WalletDetailsHeader({
           borderRightColor="$borderSubdued"
         >
           <WalletRemoveButton wallet={wallet} />
-          <AboutDevice />
+          {accountUtils.isHwWallet({ walletId: wallet?.id }) ? (
+            <AboutDevice />
+          ) : null}
         </XStack>
       ) : null}
       {editable ? (

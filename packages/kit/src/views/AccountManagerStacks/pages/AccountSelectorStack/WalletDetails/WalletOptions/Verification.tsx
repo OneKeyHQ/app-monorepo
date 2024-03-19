@@ -11,6 +11,14 @@ import {
 
 import { WalletOptionItem } from './WalletOptionItem';
 
+function Content() {
+  <Stack space="$5">
+    <Stack borderRadius="$3" bg="$bgSubdued" borderCurve="continuous">
+      <Spinner size="large" />
+    </Stack>
+  </Stack>;
+}
+
 export function Verification() {
   const [verified, setVerified] = useState(false);
   // const [unUnofficial, setUnofficial] = useState(false);
@@ -61,10 +69,14 @@ export function Verification() {
     <WalletOptionItem
       icon={iconName}
       iconColor={iconColor}
-      label="Verification"
+      label="Device Authentication"
       onPress={() => {
         const dialog = Dialog.show({
-          title: 'Verification',
+          tone: 'success',
+          icon: 'DocumentSearch2Outline',
+          title: 'Device Authentication',
+          description:
+            'Confirm on your device to verify its authenticity and secure your connection.',
           renderContent: (
             <Stack borderRadius="$3" bg="$bgSubdued" p="$5">
               <Spinner size="large" />
@@ -76,16 +88,16 @@ export function Verification() {
           showFooter: false,
         });
 
-        setTimeout(async () => {
-          // TODO: dialog.close().then(() => doDomeThing())
-          await dialog.close();
+        // setTimeout(async () => {
+        //   // TODO: dialog.close().then(() => doDomeThing())
+        //   await dialog.close();
 
-          // if official
-          returnVerified();
+        //   // if official
+        //   returnVerified();
 
-          // if unofficial
-          // returnUnofficial();
-        }, 1500);
+        //   // if unofficial
+        //   // returnUnofficial();
+        // }, 1500);
       }}
     />
   );

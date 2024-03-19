@@ -13,6 +13,8 @@ const BiologyAuthSwitch = ({
   isBiologyAuthEnable,
   onChange,
 }: IBiologyAuthSwitchProps) =>
-  isSupport ? <Switch value={isBiologyAuthEnable} onChange={onChange} /> : null;
+  isSupport ? (
+    <Switch size="small" value={isBiologyAuthEnable} onChange={onChange} />
+  ) : null;
 
 export default memo(BiologyAuthSwitch);
