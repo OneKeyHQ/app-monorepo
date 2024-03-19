@@ -37,6 +37,21 @@ const ToastGallery = () => (
             <AccountAvatar account={account} networkId="tbtc--0" />
             <AccountAvatar size="small" networkId="tbtc--0" />
             <AccountAvatar size="small" account={account} networkId="tbtc--0" />
+            {/* always loading */}
+            <AccountAvatar
+              size="small"
+              src="
+                  https://onekey-asset.com/assets/btc/btc.pn"
+            />
+            <AccountAvatar
+              size="small"
+              src="
+                  https://onekey-asset.com/assets/btc/btc.png"
+            />
+            <AccountAvatar
+              src="
+                  https://onekey-asset.com/assets/btc/btc.png"
+            />
           </YStack>
         ),
       },
