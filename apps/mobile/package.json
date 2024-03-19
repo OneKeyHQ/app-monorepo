@@ -25,7 +25,6 @@
     "rimraf": "^3"
   },
   "dependencies": {
-    "@expo/video": "^0.0.1-canary-20240308-6715875",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
@@ -87,6 +86,7 @@
     "react-native-spotlight-tour": "^3.0.1",
     "react-native-svg": "^13.9.0",
     "react-native-tcp-socket": "^6.0.6",
+    "react-native-video": "6.0.0-beta.6",
     "react-native-view-shot": "3.1.2",
     "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115",
     "react-native-zip-archive": "^6.0.9",

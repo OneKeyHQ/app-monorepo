@@ -4,7 +4,7 @@ export * from './LinearGradient';
 export * from './BlurView';
 export * from './Empty';
 export * from './LottieView';
-export * from './VideoView';
+export * from './Video';
 export * from './NumberSizeableText';
 export * from './Progress';
 export * from './QRCode';
