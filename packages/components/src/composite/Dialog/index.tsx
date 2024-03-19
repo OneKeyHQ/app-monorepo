@@ -243,9 +243,7 @@ function DialogFrame({
           borderTopRightRadius="$6"
           bg="$bg"
           paddingBottom={keyboardHeight}
-          style={{
-            borderCurve: 'continuous',
-          }}
+          borderCurve="continuous"
         >
           {!disableDrag ? <SheetGrabber /> : null}
           {renderDialogContent}

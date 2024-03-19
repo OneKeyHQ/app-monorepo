@@ -113,9 +113,7 @@ function CommonAssetContent(props: IProps) {
                 m="$1"
                 bg="$bgStrong"
                 borderRadius="$2"
-                style={{
-                  borderCurve: 'continuous',
-                }}
+                borderCurve="continuous"
               >
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {traitType}
