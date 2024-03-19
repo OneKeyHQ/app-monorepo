@@ -46,9 +46,7 @@ export function WalletListItem({
       alignItems="center"
       p="$1"
       borderRadius="$3"
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       userSelect="none"
       {...(selected
         ? {
@@ -94,9 +92,7 @@ export function WalletListItem({
         borderWidth={1}
         borderColor="$borderSubdued"
         space="$3"
-        style={{
-          borderCurve: 'continuous',
-        }}
+        borderCurve="continuous"
       >
         {walletElement}
         {hiddenWallets.map((hiddenWallet, index) => (
