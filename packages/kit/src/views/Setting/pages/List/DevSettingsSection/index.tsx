@@ -57,6 +57,7 @@ export const DevSettingsSection = () => {
       <SectionFieldItem
         name="showDevOverlayWindow"
         title="show dev overlay window"
+        testID="show-dev-overlay"
       >
         <Switch size="small" />
       </SectionFieldItem>
@@ -68,6 +69,7 @@ export const DevSettingsSection = () => {
       </SectionFieldItem>
       <SectionPressItem
         title="Clear App Data"
+        testID="clear-data-menu"
         onPress={() => {
           const dialog = Dialog.cancel({
             title: 'Clear App Data',
@@ -75,21 +77,33 @@ export const DevSettingsSection = () => {
               <YStack>
                 <SectionPressItem
                   title="Clear Dapp Data"
+                  testID="clear-dapp-data"
                   onPress={async () => {
-                    await backgroundApiProxy.serviceDiscovery.clearDiscoveryPageData();
+                    await backgroundApiProxy.serviceE2E.clearDiscoveryPageData();
                     await dialog.close();
                   }}
                 />
                 <SectionPressItem
-                  title="Clear Contracts Data"
+                  title="Clear Contacts Data"
+                  testID="clear-contacts-data"
                   onPress={async () => {
-                    await backgroundApiProxy.serviceAddressBook.dangerClearDataForE2E();
+                    await backgroundApiProxy.serviceE2E.dangerClearDataForE2E();
                     await dialog.close();
                   }}
                 />
                 <SectionPressItem
                   title="Clear Wallets Data"
+                  testID="clear-wallets-data"
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceE2E.clearWalletsAndAccounts();
+                    await dialog.close();
+                  }}
+                />
+                <SectionPressItem
+                  title="Clear Password"
+                  testID="clear-password"
                   onPress={() => {
+                    void backgroundApiProxy.serviceE2E.resetPasswordSetStatus();
                     void dialog.close();
                   }}
                 />
