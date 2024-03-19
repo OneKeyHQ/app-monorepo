@@ -179,7 +179,7 @@ export function BookmarksAndHistoriesSection({
           borderCurve="continuous"
         >
           {isNilDataSource ? (
-            <Skeleton w="100%" h="100%" />
+            <Skeleton w="100%" h="$6" />
           ) : (
             <SizableText
               size="$bodyLg"
