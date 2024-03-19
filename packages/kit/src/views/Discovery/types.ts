@@ -92,6 +92,7 @@ export interface IMobileBottomOptionsProps {
   onPinnedPress: (pinned: boolean) => void;
   onBrowserOpen: () => void;
   onGoBackHomePage: () => void;
+  onCloseTab: () => void;
 }
 
 export interface IMobileTabListOptionsProps {

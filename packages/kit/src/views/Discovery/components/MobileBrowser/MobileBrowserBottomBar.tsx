@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -47,8 +47,14 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const { tab } = useWebTabDataById(id);
   const { tabs } = useWebTabs();
 
+  useEffect(() => {
+    if (tab?.url) {
+      console.log('tab.url: ===>: ', tab.url);
+    }
+  }, [tab?.url]);
+
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setWebTabData, setPinnedTab, setCurrentWebTab } =
+  const { setWebTabData, setPinnedTab, setCurrentWebTab, closeWebTab } =
     useBrowserTabActions().current;
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =
@@ -149,6 +155,11 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     },
     [setPinnedTab, id, intl],
   );
+
+  const handleCloseTab = useCallback(async () => {
+    closeWebTab(id);
+    setCurrentWebTab(null);
+  }, [closeWebTab, setCurrentWebTab, id]);
 
   const handleGoBackHome = useCallback(async () => {
     try {
@@ -255,6 +266,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             }
           }}
           onGoBackHomePage={handleGoBackHome}
+          onCloseTab={handleCloseTab}
         >
           <IconButton
             variant="tertiary"

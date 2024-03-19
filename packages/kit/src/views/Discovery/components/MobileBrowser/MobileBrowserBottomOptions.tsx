@@ -15,6 +15,7 @@ function MobileBrowserBottomOptions({
   isPinned,
   onPinnedPress,
   onBrowserOpen,
+  onCloseTab,
   onGoBackHomePage,
 }: PropsWithChildren<IMobileBottomOptionsProps>) {
   const intl = useIntl();
@@ -62,6 +63,12 @@ function MobileBrowserBottomOptions({
               icon: 'CompassCircleOutline',
               onPress: () => onBrowserOpen(),
               testID: 'action-list-item-open-in-browser',
+            },
+            {
+              label: intl.formatMessage({ id: 'form__close_tab' }),
+              icon: 'CrossedLargeOutline',
+              onPress: () => onCloseTab(),
+              testID: 'action-list-item-close-tab-in-browser',
             },
           ],
         },
