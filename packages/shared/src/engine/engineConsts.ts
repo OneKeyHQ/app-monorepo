@@ -83,6 +83,12 @@ const COINTYPE_LIGHTNING_TESTNET = '81297820149140';
 const IMPL_NOSTR = 'nostr';
 const COINTYPE_NOSTR = '1237';
 
+const IMPL_NERVOS = 'nervos';
+const COINTYPE_NERVOS = '309';
+
+const IMPL_NEURAI = 'neurai';
+const COINTYPE_NEURAI = '1900';
+
 const IMPL_ALLNETWORKS = 'all';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -91,7 +97,8 @@ export type IBtcForkImpls =
   | typeof IMPL_TBTC
   | typeof IMPL_LTC
   | typeof IMPL_BCH
-  | typeof IMPL_DOGE;
+  | typeof IMPL_DOGE
+  | typeof IMPL_NEURAI;
 
 const SUPPORTED_IMPLS = new Set([
   IMPL_EVM,
@@ -118,6 +125,8 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_NEXA,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
+  IMPL_NERVOS,
+  IMPL_NEURAI,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -146,6 +155,8 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_NEXA,
+  IMPL_NERVOS,
+  IMPL_NEURAI,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -213,6 +224,8 @@ export {
   COINTYPE_XMR,
   COINTYPE_XRP,
   COINTYPE_NOSTR,
+  COINTYPE_NERVOS,
+  COINTYPE_NEURAI,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -239,6 +252,8 @@ export {
   IMPL_XMR,
   IMPL_XRP,
   IMPL_NOSTR,
+  IMPL_NERVOS,
+  IMPL_NEURAI,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,

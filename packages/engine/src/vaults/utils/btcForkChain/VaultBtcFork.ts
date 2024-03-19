@@ -27,7 +27,9 @@ import type { SendConfirmPayloadInfo } from '@onekeyhq/kit/src/views/Send/types'
 import { fetchData } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   COINTYPE_BTC,
+  COINTYPE_NEURAI,
   IMPL_BTC,
+  IMPL_NEURAI,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { checkIsUnListOrderPsbt } from '@onekeyhq/shared/src/providerApis/ProviderApiBtc/ProviderApiBtc.utils';

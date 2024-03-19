@@ -458,6 +458,17 @@ export class MinimumTransferBalanceRequiredForSendingAssetError extends OneKeyEr
   }
 }
 
+export class ChangeLessThanMinInputCapacityError extends OneKeyError {
+  override key = 'msg__the_balance_after_the_tx_must_not_be_less_than_str';
+
+  constructor(amount: string) {
+    super(`The change cannot be less than that ${amount}`, {
+      '0': amount,
+    });
+    this.key = 'msg__the_balance_after_the_tx_must_not_be_less_than_str';
+  }
+}
+
 // all networks ----------------------------------------------
 export class AllNetworksMinAccountsError extends OneKeyError {
   override key = 'msg__you_need_str_accounts_on_any_network_to_create';

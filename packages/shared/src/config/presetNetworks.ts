@@ -4382,6 +4382,100 @@ const serverPresetNetworks = [
     'createdAt': '2023-08-10T00:29:24.951Z',
     'updatedAt': '2023-08-10T00:29:24.951Z',
   },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': 'nervos',
+    'code': 'nervos',
+    'decimals': 8,
+    'id': 'nervos--mainnet',
+    'impl': 'nervos',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/nervos/nervos.png',
+    'name': 'Nervos',
+    'rpcURLs': [
+      {
+        'url': 'https://mainnet.ckb.dev/rpc',
+      },
+    ],
+    'shortcode': 'ckb',
+    'shortname': 'CKB',
+    'symbol': 'CKB',
+    'feeMeta': {
+      'code': 'ckb',
+      'decimals': 8,
+      'symbol': 'CKB',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'nervos-network',
+      },
+    ],
+    'extensions': {
+      'providerOptions': {
+        'indexer': [
+          {
+            'rpcUrl': 'https://mainnet.ckb.dev/rpc',
+            'indexerUrl': 'https://mainnet.ckb.dev/indexer',
+          },
+        ],
+      },
+    },
+    'explorers': [
+      {
+        'address': 'https://explorer.nervos.org/address/{address}',
+        'block': 'https://explorer.nervos.org/block/{block}',
+        'name': 'https://explorer.nervos.org',
+        'transaction': 'https://explorer.nervos.org/transaction/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-03-05T00:00:00.002Z',
+    'updatedAt': '2024-03-05T00:00:00.002Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'neurai',
+    'decimals': 8,
+    'id': 'neurai--0',
+    'impl': 'neurai',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/neurai/neurai.png',
+    'name': 'Neurai',
+    'rpcURLs': [
+      {
+        'url': 'https://blockbook-new-01.neurai.org/',
+      },
+    ],
+    'shortcode': 'xna',
+    'shortname': 'XNA',
+    'symbol': 'XNA',
+    'feeMeta': {
+      'code': 'xna',
+      'decimals': 8,
+      'symbol': 'XNA',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'neurai',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://neuraiexplorer.com/address/{address}',
+        'block': 'https://neuraiexplorer.com/block/{block}',
+        'name': 'https://neuraiexplorer.com',
+        'transaction': 'https://neuraiexplorer.com/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-03-10T00:00:00.001Z',
+    'updatedAt': '2024-03-10T00:00:00.001Z',
+  },
 ] as unknown as IServerNetwork[];
 
 serverPresetNetworks.unshift(FAKE_ALL_NETWORK);
