@@ -69,7 +69,7 @@ const SwapTokenSelectPage = () => {
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [onlySupportSingleNetWork] = useSwapOnlySupportSingleChainAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
-  const { updateSelectedAccount } = useAccountSelectorActions().current;
+  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
   >(() =>
@@ -104,15 +104,15 @@ const SwapTokenSelectPage = () => {
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
       if (type === ESwapDirectionType.FROM && network.networkId !== 'all') {
-        void updateSelectedAccount({
+        void updateSelectedAccountNetwork({
           num: 0,
-          builder: (v) => ({ ...v, networkId: network.networkId }),
+          networkId: network.networkId,
         });
       }
       setSearchKeyword('');
       setCurrentSelectNetwork(network);
     },
-    [type, updateSelectedAccount],
+    [type, updateSelectedAccountNetwork],
   );
 
   const renderItem = useCallback(
