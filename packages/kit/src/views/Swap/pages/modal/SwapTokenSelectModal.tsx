@@ -126,8 +126,11 @@ const SwapTokenSelectPage = () => {
         }),
         networkImageSrc: item.networkLogoURI,
         balance: item.balanceParsed,
-        value: item.fiatValue
-          ? `${settingsPersistAtom.currencyInfo.symbol}${item.fiatValue}`
+        valueProps: item.fiatValue
+          ? {
+              value: item.fiatValue,
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }
           : undefined,
         onPress: () => onSelectToken(item),
       };
