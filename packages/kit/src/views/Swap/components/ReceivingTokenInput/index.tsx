@@ -1,14 +1,17 @@
 import type { ComponentProps, FC, ReactElement } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet, View } from 'react-native';
+import { SvgUri } from 'react-native-svg';
 
 import {
   Box,
   CustomSkeleton,
   Icon,
+  Image,
   NumberInput,
   Pressable,
   Switch,
@@ -16,6 +19,7 @@ import {
   useThemeValue,
 } from '@onekeyhq/components';
 import { shortenAddress } from '@onekeyhq/components/src/utils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { FormatCurrency } from '../../../../components/Format';
@@ -25,6 +29,7 @@ import {
   setAllowAnotherRecipientAddress,
   setRecipient,
 } from '../../../../store/reducers/swap';
+import { isSVG } from '../../../../utils/uriUtils';
 import { useSwapRecipient } from '../../hooks/useSwap';
 import { useTokenBalance, useTokenPrice } from '../../hooks/useSwapTokenUtils';
 import { SwapRoutes } from '../../typings';
@@ -36,6 +41,8 @@ import {
 } from '../../utils';
 import { TokenDisplay } from '../TokenDisplay';
 
+import type { IQouterExtraData } from '../../quoter/socket';
+
 type TokenInputProps = {
   type: 'INPUT' | 'OUTPUT';
   label?: string;
@@ -44,6 +51,7 @@ type TokenInputProps = {
   onChange?: (text: string) => void;
   containerProps?: ComponentProps<typeof Box>;
   isDisabled?: boolean;
+  extraData?: IQouterExtraData;
 };
 
 const TokenInputReceivingAddress: FC = () => {
@@ -389,6 +397,7 @@ const TokenInput: FC<TokenInputProps> = ({
   onPress,
   onChange,
   containerProps,
+  extraData,
   isDisabled,
 }) => {
   const intl = useIntl();
@@ -396,7 +405,46 @@ const TokenInput: FC<TokenInputProps> = ({
   const price = useTokenPrice(token);
   const loading = useAppSelector((s) => s.swap.loading);
   const independentField = useAppSelector((s) => s.swap.independentField);
-
+  const extraDataContent = useMemo(() => {
+    if (!extraData?.socketBridgeExtraData?.arbRebateData) return null;
+    const { arbRebateData } = extraData.socketBridgeExtraData;
+    const {
+      amountInUsd,
+      amount,
+      asset: { decimals, logoURI },
+    } = arbRebateData;
+    const amountParsed = new BigNumber(amount)
+      .shiftedBy(-decimals)
+      .decimalPlaces(2, BigNumber.ROUND_DOWN)
+      .toFixed();
+    const isSvg = isSVG(logoURI);
+    return (
+      <>
+        <Typography.Body2
+          textAlign="left"
+          bold
+        >{`+${amountParsed}`}</Typography.Body2>
+        <Box
+          justifyContent="center"
+          alignItems="center"
+          size={3}
+          mx="1px"
+          borderRadius="full"
+        >
+          {isSvg && platformEnv.isNative ? (
+            <SvgUri width="12" height="12" uri={logoURI} />
+          ) : (
+            <Image source={{ uri: logoURI }} size={3} />
+          )}
+        </Box>
+        <Typography.Body2 textAlign="left">{`($${amountInUsd.toFixed(
+          2,
+        )})${intl.formatMessage({
+          id: 'title__reward',
+        })}`}</Typography.Body2>
+      </>
+    );
+  }, [extraData?.socketBridgeExtraData, intl]);
   return (
     <Box {...containerProps} position="relative">
       <Box position="relative">
@@ -452,9 +500,10 @@ const TokenInput: FC<TokenInputProps> = ({
             ) : (
               <Box position="absolute" w="full" top="0" right="0">
                 <Box w="full" position="relative">
-                  <Box position="absolute" bottom="26px" right={2}>
+                  <Box position="absolute" bottom="12px" right={2}>
                     <Box pointerEvents="none">
                       <Typography.Body2 color="text-subdued" numberOfLines={2}>
+                        {extraDataContent}
                         <FormatCurrency
                           numbers={[price ?? 0, inputValue ?? 0]}
                           render={(ele) => (

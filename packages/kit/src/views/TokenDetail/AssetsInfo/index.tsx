@@ -21,7 +21,7 @@ import {
 } from '@onekeyhq/components';
 import { Tabs } from '@onekeyhq/components/src/CollapsibleTabView';
 import { isAllNetworks } from '@onekeyhq/engine/src/managers/network';
-import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeAllNetwork';
+import { FAKE_ALL_NETWORK } from '@onekeyhq/shared/src/config/fakeNetwork';
 import { freezedEmptyObject } from '@onekeyhq/shared/src/consts/sharedConsts';
 
 import dappColourPNG from '../../../../assets/dapp_colour.png';

@@ -76,7 +76,11 @@ import type {
   RuntimeVersion,
 } from './sdk/polkadotSdkTypes';
 import type { DotImplOptions, IEncodedTxDot } from './types';
-import type { BaseTxInfo, TypeRegistry } from '@substrate/txwrapper-polkadot';
+import type {
+  Args,
+  BaseTxInfo,
+  TypeRegistry,
+} from '@substrate/txwrapper-polkadot';
 
 const {
   encodeAddress,
@@ -425,6 +429,19 @@ export default class Vault extends VaultBase {
     );
   }
 
+  async getAddressByTxArgs(args: Args): Promise<string> {
+    const chainId = await this.getNetworkChainId();
+    let {
+      // @ts-expect-error
+      dest: { id: address },
+    } = args;
+    if (chainId === 'joystream') {
+      address = args.dest;
+    }
+
+    return Promise.resolve(address as string);
+  }
+
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxDot> {
@@ -534,8 +551,17 @@ export default class Vault extends VaultBase {
           info,
           option,
         );
-      } else {
+      } else if (chainId === 'joystream') {
         unsigned = methods.balances.transfer(
+          {
+            value: amountValue,
+            dest: toAccount,
+          },
+          info,
+          option,
+        );
+      } else {
+        unsigned = methods.balances.transferAllowDeath(
           {
             value: amountValue,
             dest: toAccount,
@@ -595,13 +621,9 @@ export default class Vault extends VaultBase {
       let amount = '';
 
       if (isToken) {
-        const {
-          // @ts-expect-error
-          dest: { id: toAddress },
-          amount: tokenAmount,
-        } = decodeUnsignedTx.method.args;
+        const { amount: tokenAmount } = decodeUnsignedTx.method.args;
+        to = await this.getAddressByTxArgs(decodeUnsignedTx.method.args);
 
-        to = toAddress;
         amount = tokenAmount?.toString() ?? '0';
 
         actionKey = 'tokenTransfer';
@@ -626,13 +648,8 @@ export default class Vault extends VaultBase {
           }
         }
       } else {
-        const {
-          // @ts-expect-error
-          dest: { id: toAddress },
-          value: tokenAmount,
-        } = decodeUnsignedTx.method.args;
-
-        to = toAddress;
+        const { value: tokenAmount } = decodeUnsignedTx.method.args;
+        to = await this.getAddressByTxArgs(decodeUnsignedTx.method.args);
         amount = tokenAmount?.toString() ?? '0';
       }
 
@@ -798,11 +815,10 @@ export default class Vault extends VaultBase {
     const actionType = getTransactionTypeFromTxInfo(decodeUnsignedTx);
 
     if (actionType === IDecodedTxActionType.NATIVE_TRANSFER) {
-      const {
-        // @ts-expect-error
-        dest: { id: toAddress },
-        value: tokenAmount,
-      } = decodeUnsignedTx.method.args;
+      const { value: tokenAmount } = decodeUnsignedTx.method.args;
+      const toAddress = await this.getAddressByTxArgs(
+        decodeUnsignedTx.method.args,
+      );
       if (toAddress === encodedTx.address)
         return Promise.resolve({ success: true });
 

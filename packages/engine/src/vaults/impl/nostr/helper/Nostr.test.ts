@@ -1,10 +1,13 @@
 import { bytesToHex } from '@noble/hashes/utils';
 import * as bip39 from 'bip39';
 
-import { revealableSeedFromMnemonic } from '../../../secret';
-import { getBitcoinBip32 } from '../btcForkChain/utils';
+import { getBitcoinBip32 } from '../../../utils/btcForkChain/utils';
 
-import { NOSTR_ADDRESS_INDEX, NOSTR_DERIVATION_PATH, Nostr } from './nostr';
+import {
+  NOSTR_ADDRESS_INDEX,
+  getNip19EncodedPubkey,
+  getNostrPath,
+} from './NostrSDK';
 
 const fixtures = [
   {
@@ -35,13 +38,14 @@ describe('test Nostr', () => {
     fixtures.forEach((fixture) => {
       const seed = bip39.mnemonicToSeedSync(fixture.mnemonic, fixture.password);
       const root = getBitcoinBip32().fromSeed(seed);
-      const node = root.derivePath(
-        `${NOSTR_DERIVATION_PATH}/${NOSTR_ADDRESS_INDEX}`,
-      );
+      const node = root.derivePath(`${getNostrPath(0)}/${NOSTR_ADDRESS_INDEX}`);
       expect(bytesToHex(node.privateKey ?? Buffer.from(''))).toEqual(
         fixture.privateKey,
       );
       expect(bytesToHex(node.publicKey.slice(1, 33))).toEqual(fixture.pubkey);
+      expect(
+        getNip19EncodedPubkey(bytesToHex(node.publicKey.slice(1, 33))),
+      ).toEqual(fixture.npub);
     });
   });
 

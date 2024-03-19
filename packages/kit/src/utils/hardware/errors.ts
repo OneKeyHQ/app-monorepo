@@ -29,6 +29,12 @@ export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_not_opened_passphrase';
 }
 
+export class DeviceDataOverload extends OneKeyHardwareError {
+  override code = HardwareErrorCode.DataOverload;
+
+  override key: LocaleIds = 'msg__hardware_params_bytes_overload';
+}
+
 export class DeviceOpenedPassphrase extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceOpenedPassphrase;
 

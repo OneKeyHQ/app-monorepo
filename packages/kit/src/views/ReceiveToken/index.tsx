@@ -29,6 +29,8 @@ import { deviceUtils } from '@onekeyhq/kit/src/utils/hardware';
 import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import OrdinalsSVG from '../../components/SVG/OrdinalsSVG';
+
 import type { IActiveWalletAccount } from '../../hooks';
 import type {
   ReceiveTokenModalRoutes,
@@ -155,7 +157,7 @@ const ReceiveToken = () => {
       <Alert
         dismiss={false}
         alertType="warn"
-        containerProps={{ mb: 6 }}
+        containerProps={{ width: '100%', mb: 6 }}
         title={intl.formatMessage({
           id: isTaprootAddress(shownAddress)
             ? 'msg__donot_send_ordinal_inscriptions_or_brc20_tokens_to_this_address'
@@ -275,16 +277,24 @@ const ReceiveToken = () => {
       header={intl.formatMessage({ id: 'action__receive' })}
       headerDescription={
         <Box flexDirection="row" alignItems="center" mt={0.5}>
-          <Token
-            size={4}
-            mr={2}
-            token={{
-              logoURI: network?.logoURI,
-              name: network?.shortName,
-            }}
-          />
-          <Text textAlign="center" typography="Caption" color="text-subdued">
-            {network?.name}
+          {receiveInscription ? (
+            <OrdinalsSVG width={16} height={16} />
+          ) : (
+            <Token
+              size={4}
+              token={{
+                logoURI: network?.logoURI,
+                name: network?.name,
+              }}
+            />
+          )}
+          <Text
+            textAlign="center"
+            typography="Caption"
+            color="text-subdued"
+            ml={2}
+          >
+            {receiveInscription ? 'Ordinals' : network?.name}
           </Text>
         </Box>
       }

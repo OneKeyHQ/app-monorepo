@@ -1294,31 +1294,6 @@ export default class Vault extends VaultBase {
       prices?.length && prices?.every((price) => typeof price === 'object'),
     );
 
-    const gasLimitInTx = new BigNumber(
-      encodedTx.gas ?? encodedTx.gasLimit ?? 0,
-    ).toFixed();
-    // NOTE: gasPrice deleted in removeFeeInfoInTx() if encodedTx build by DAPP
-    let gasPriceInTx: string | EIP1559Fee | undefined = encodedTx.gasPrice
-      ? this._toNormalAmount(encodedTx.gasPrice, network.feeDecimals)
-      : undefined;
-    if (eip1559) {
-      gasPriceInTx = merge(
-        {
-          ...(prices[0] as EIP1559Fee),
-        },
-        {
-          maxPriorityFeePerGas: encodedTx.maxPriorityFeePerGas
-            ? this._toNormalAmount(
-                encodedTx.maxPriorityFeePerGas,
-                network.feeDecimals,
-              )
-            : undefined,
-          maxFeePerGas: encodedTx.maxFeePerGas
-            ? this._toNormalAmount(encodedTx.maxFeePerGas, network.feeDecimals)
-            : undefined,
-        },
-      ) as EIP1559Fee;
-    }
     // [{baseFee: '928.361757873', maxPriorityFeePerGas: '11.36366', maxFeePerGas: '939.725417873'}]
     // [10]
     const limit = BigNumber.max(
@@ -1343,14 +1318,6 @@ export default class Vault extends VaultBase {
       prices,
       defaultPresetIndex: '1',
 
-      // feeInfo in original tx
-      tx: {
-        eip1559,
-        limit: gasLimitInTx,
-        ...(eip1559
-          ? { price1559: gasPriceInTx as EIP1559Fee }
-          : { price: gasPriceInTx as string }),
-      },
       baseFeeValue,
       extraInfo: {
         networkCongestion,

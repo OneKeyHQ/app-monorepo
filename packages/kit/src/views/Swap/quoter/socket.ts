@@ -13,7 +13,7 @@ import type {
 } from '../typings';
 import type { Axios } from 'axios';
 
-interface SocketAsset {
+export interface SocketAsset {
   address: string;
   chainId: number;
   decimals: number;
@@ -21,6 +21,20 @@ interface SocketAsset {
   logoURI: string;
   name: string;
   symbol: string;
+}
+
+export interface ISocketArbRebateData {
+  amount: string;
+  amountInUsd: number;
+  asset: SocketAsset;
+}
+
+interface ISocketExtraData {
+  arbRebateData: ISocketArbRebateData;
+}
+
+export interface IQouterExtraData {
+  socketBridgeExtraData?: ISocketExtraData;
 }
 
 interface SocketUserTxs {
@@ -48,6 +62,7 @@ export interface SocketRoute {
   usedDexName?: string;
   isOnlySwapRoute?: boolean;
   userTxs?: SocketUserTxs[];
+  extraData?: ISocketExtraData;
 }
 
 export type SocketRouteStatus =

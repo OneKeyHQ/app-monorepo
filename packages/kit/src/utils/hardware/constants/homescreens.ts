@@ -71,6 +71,7 @@ export const homescreenTouch = [
 export const getHomescreenKeys = (type: IOneKeyDeviceType) => {
   switch (type) {
     case 'classic':
+    case 'classic1s':
     case 'mini':
       return homescreensT1;
     case 'touch':
@@ -91,6 +92,7 @@ export type HomescreenMap = Record<string, HomescreenItem>;
 
 export const getHomescreenData = (type: IOneKeyDeviceType) => {
   switch (type) {
+    case 'classic1s':
     case 'classic':
     case 'mini':
       return getHomescreenKeys(type).reduce<HomescreenMap>(

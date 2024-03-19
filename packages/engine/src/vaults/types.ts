@@ -47,7 +47,9 @@ import type {
   IEncodedTxNear,
   INativeTxNear,
 } from './impl/near/types';
+import type { IEncodedTxNervos } from './impl/nervos/types/IEncodedTx';
 import type { IEncodedTxNexa } from './impl/nexa/types';
+import type { IEncodedTxNostr } from './impl/nostr/helper/types';
 import type { IEncodedTxSol, INativeTxSol } from './impl/sol/types';
 import type { IEncodedTxSTC } from './impl/stc/types';
 import type { IEncodedTxSUI } from './impl/sui/types';
@@ -277,7 +279,9 @@ export type IEncodedTx =
   | IEncodedTxKaspa
   | IEncodedTxNexa
   | IEncodedTxStacks
-  | IEncodedTxLightning;
+  | IEncodedTxLightning
+  | IEncodedTxNostr
+  | IEncodedTxNervos;
 
 export type INativeTx =
   | INativeTxEvm
@@ -315,6 +319,7 @@ export enum IEncodedTxUpdateType {
   cancel = 'cancel',
   advancedSettings = 'advancedSettings',
   customData = 'customData',
+  priorityFees = 'priorityFees',
 }
 
 export type IEncodedTxUpdateOptions = {

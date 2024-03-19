@@ -86,7 +86,6 @@ export class KeyringImported extends KeyringImportedBtcFork {
     }).derivePath(firstAddressRelPath);
 
     pub = node.publicKey.toString('hex');
-
     return Promise.resolve([
       {
         id: `imported--${COIN_TYPE}--${xpub}--${
@@ -101,6 +100,7 @@ export class KeyringImported extends KeyringImportedBtcFork {
         xpubSegwit,
         address,
         addresses: { [firstAddressRelPath]: address },
+        template,
       },
     ]);
   }

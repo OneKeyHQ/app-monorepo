@@ -1,4 +1,4 @@
-import { FAKE_ALL_NETWORK } from './fakeAllNetwork';
+import { FAKE_ALL_NETWORK, FAKE_NOSTR_NETWORK } from './fakeNetwork';
 
 import type { IServerNetwork } from '../../types';
 
@@ -858,13 +858,13 @@ const serverPresetNetworks = [
         'url': 'https://lcd-celestia.keplr.app/',
       },
       {
-        'url': 'https://celestia-mainnet-grpc.autostake.com',
+        'url': 'https://public-celestia-lcd.numia.xyz',
       },
       {
-        'url': 'https://celestia-grpc.lavenderfive.com',
+        'url': 'https://celestia-rest.publicnode.com',
       },
       {
-        'url': 'https://grpc.celestia.nodestake.top',
+        'url': 'https://api.celestia.nodestake.top',
       },
     ],
     'shortcode': 'celestia',
@@ -1070,6 +1070,58 @@ const serverPresetNetworks = [
     'status': 'LISTED',
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': 'bbn-test-3',
+    'code': 'babylontestnet',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'bbn',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'min': '0.007',
+          'high': '0.01',
+          'low': '0.007',
+          'normal': '0.007',
+        },
+        'mainCoinDenom': 'ubbn',
+      },
+    },
+    'id': 'cosmos--bbn-test-3',
+    'impl': 'cosmos',
+    'isTestnet': true,
+    'logoURI':
+      'https://onekey-asset.com/assets/babylontestnet/babylontestnet.png',
+    'name': 'Babylon Testnet',
+    'rpcURLs': [
+      {
+        'url': 'https://lcd.testnet3.babylonchain.io',
+      },
+    ],
+    'shortcode': 'tbbn',
+    'shortname': 'TBBN',
+    'symbol': 'TBBN',
+    'feeMeta': {
+      'code': 'tbbn',
+      'decimals': 6,
+      'symbol': 'TBBN',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://babylon.explorers.guru/account/{address}',
+        'block': 'https://babylon.explorers.guru/block/{block}',
+        'name': 'https://babylon.explorers.guru/',
+        'transaction':
+          'https://babylon.explorers.guru/transaction/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-02-28T01:00:00.000Z',
+    'updatedAt': '2024-02-28T01:00:00.000Z',
   },
   {
     'balance2FeeDecimals': 0,
@@ -1356,6 +1408,49 @@ const serverPresetNetworks = [
     'status': 'LISTED',
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 18,
+    'chainId': 'manta',
+    'code': 'dot-manta',
+    'decimals': 18,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 77,
+        'addressRegex': '^df[a-cW-Z][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--manta',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/manta/manta.png',
+    'name': 'Manta Atlantic',
+    'rpcURLs': [
+      {
+        'url': 'wss://ws.manta.systems',
+      },
+    ],
+    'shortcode': 'manta',
+    'shortname': 'MANTA',
+    'symbol': 'MANTA',
+    'feeMeta': {
+      'code': 'manta',
+      'decimals': 18,
+      'symbol': 'MANTA',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://manta.subscan.io/account/{address}',
+        'block': 'https://manta.subscan.io/block/{block}',
+        'name': 'https://manta.subscan.io/',
+        'transaction': 'https://manta.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-01-20T00:30:24.951Z',
+    'updatedAt': '2024-01-20T00:30:24.951Z',
   },
   {
     'balance2FeeDecimals': 10,
@@ -3731,6 +3826,43 @@ const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'sbtc',
+    'decimals': 8,
+    'id': 'tbtc--1',
+    'impl': 'tbtc',
+    'isTestnet': true,
+    'logoURI': 'https://onekey-asset.com/assets/sbtc/sbtc.png',
+    'name': 'Bitcoin Signet',
+    'rpcURLs': [
+      {
+        'url': 'https://node.onekey.so/sbtc',
+      },
+    ],
+    'shortcode': 'sbtc',
+    'shortname': 'SBTC',
+    'symbol': 'SBTC',
+    'feeMeta': {
+      'code': 'sbtc',
+      'decimals': 8,
+      'symbol': 'SBTC',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://mempool.space/signet/address/{address}',
+        'block': 'https://mempool.space/signet/block/{block}',
+        'name': 'https://mempool.space/signet/',
+        'transaction': 'https://mempool.space/signet/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-02-28T00:29:24.951Z',
+    'updatedAt': '2024-02-28T00:29:24.951Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
     'chainId': '0x2b6653dc',
     'clientApi': {
       'tronscan': 'https://apilist.tronscanapi.com',
@@ -4250,9 +4382,104 @@ const serverPresetNetworks = [
     'createdAt': '2023-08-10T00:29:24.951Z',
     'updatedAt': '2023-08-10T00:29:24.951Z',
   },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': 'nervos',
+    'code': 'nervos',
+    'decimals': 8,
+    'id': 'nervos--mainnet',
+    'impl': 'nervos',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/nervos/nervos.png',
+    'name': 'Nervos',
+    'rpcURLs': [
+      {
+        'url': 'https://mainnet.ckb.dev/rpc',
+      },
+    ],
+    'shortcode': 'ckb',
+    'shortname': 'CKB',
+    'symbol': 'CKB',
+    'feeMeta': {
+      'code': 'ckb',
+      'decimals': 8,
+      'symbol': 'CKB',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'nervos-network',
+      },
+    ],
+    'extensions': {
+      'providerOptions': {
+        'indexer': [
+          {
+            'rpcUrl': 'https://mainnet.ckb.dev/rpc',
+            'indexerUrl': 'https://mainnet.ckb.dev/indexer',
+          },
+        ],
+      },
+    },
+    'explorers': [
+      {
+        'address': 'https://explorer.nervos.org/address/{address}',
+        'block': 'https://explorer.nervos.org/block/{block}',
+        'name': 'https://explorer.nervos.org',
+        'transaction': 'https://explorer.nervos.org/transaction/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-03-05T00:00:00.002Z',
+    'updatedAt': '2024-03-05T00:00:00.002Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'neurai',
+    'decimals': 8,
+    'id': 'neurai--0',
+    'impl': 'neurai',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/neurai/neurai.png',
+    'name': 'Neurai',
+    'rpcURLs': [
+      {
+        'url': 'https://blockbook-new-01.neurai.org/',
+      },
+    ],
+    'shortcode': 'xna',
+    'shortname': 'XNA',
+    'symbol': 'XNA',
+    'feeMeta': {
+      'code': 'xna',
+      'decimals': 8,
+      'symbol': 'XNA',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'neurai',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://neuraiexplorer.com/address/{address}',
+        'block': 'https://neuraiexplorer.com/block/{block}',
+        'name': 'https://neuraiexplorer.com',
+        'transaction': 'https://neuraiexplorer.com/tx/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-03-10T00:00:00.001Z',
+    'updatedAt': '2024-03-10T00:00:00.001Z',
+  },
 ] as unknown as IServerNetwork[];
 
 serverPresetNetworks.unshift(FAKE_ALL_NETWORK);
+serverPresetNetworks.push(FAKE_NOSTR_NETWORK);
 
 export { serverPresetNetworks };
 

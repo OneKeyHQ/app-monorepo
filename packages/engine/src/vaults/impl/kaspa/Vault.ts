@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/engine/src/vaults/types';
 import type {
   IDecodedTx,
+  IDecodedTxAction,
   IDecodedTxActionNativeTransfer,
   IDecodedTxLegacy,
   IEncodedTxUpdateOptions,
@@ -44,6 +45,7 @@ import {
   CONFIRMATION_COUNT,
   DUST_AMOUNT,
   MAX_BLOCK_SIZE,
+  MAX_ORPHAN_TX_MASS,
   MAX_SOMPI,
   MINIMUM_RELAY_TRANSACTION_FEE,
   RestAPIClient,
@@ -54,8 +56,17 @@ import {
   selectUTXOs,
 } from './sdk';
 import { toTransaction } from './sdk/transaction';
+import {
+  calculateTxFee,
+  convertInputUtxos,
+  convertOutputUtxos,
+  determineFromAddress,
+  determineToAddresses,
+} from './sdk/transactionUtils';
 import settings from './settings';
 
+import type { Network } from '../../../types/network';
+import type { UnspentOutputInfo } from './sdk';
 import type { IEncodedTxKaspa } from './types';
 
 // @ts-ignore
@@ -129,36 +140,21 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async buildEncodedTxFromTransfer(
-    transferInfo: ITransferInfo,
-    specifiedFeeLimit?: string,
-  ): Promise<IEncodedTxKaspa> {
-    if (!transferInfo.to) {
-      throw new Error('Invalid transferInfo.to params');
-    }
-    const { to, amount, token: tokenAddress } = transferInfo;
-    if (tokenAddress)
-      throw new OneKeyInternalError('Kaspa does not support token transfer');
-
-    const client = await this.getClient();
-    const { address: from } = await this.getDbAccount();
-
-    const network = await this.getNetwork();
-    const amountValue = new BigNumber(amount)
-      .shiftedBy(network.decimals)
-      .toFixed();
-
-    if (new BigNumber(amountValue).isLessThan(DUST_AMOUNT)) {
-      throw new OneKeyInternalError('Amount is too small');
-    }
-
-    const feeRate = convertFeeValueToGwei({ value: '1', network });
-
-    const confirmUtxos = await queryConfirmUTXOs(client, from);
-
+  selectUTXOs({
+    confirmUtxos,
+    amountValue,
+    prioritys,
+    specifiedFeeLimit,
+  }: {
+    confirmUtxos: UnspentOutputInfo[];
+    amountValue: string;
+    prioritys?: { satoshis: boolean };
+    specifiedFeeLimit?: string;
+  }) {
     let { utxoIds, utxos, mass } = selectUTXOs(
       confirmUtxos,
       parseInt(amountValue),
+      prioritys,
     );
 
     const limit = specifiedFeeLimit ?? mass.toString();
@@ -167,16 +163,14 @@ export default class Vault extends VaultBase {
     if (utxos.length === confirmUtxos.length) {
       hasMaxSend = utxos
         .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
-        .shiftedBy(-network.decimals)
-        .lte(amount);
+        .lte(amountValue);
     }
 
     if (
       !hasMaxSend &&
       utxos
         .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
-        .shiftedBy(-network.decimals)
-        .lte(amount)
+        .lte(amountValue)
     ) {
       const newSelectUtxo = selectUTXOs(
         confirmUtxos,
@@ -186,6 +180,48 @@ export default class Vault extends VaultBase {
       utxos = newSelectUtxo.utxos;
       mass = newSelectUtxo.mass;
     }
+
+    return {
+      utxoIds,
+      utxos,
+      mass,
+      limit,
+      hasMaxSend,
+    };
+  }
+
+  async prepareAndBuildTx({
+    network,
+    confirmUtxos,
+    transferInfo,
+    specifiedFeeLimit,
+    prioritys,
+  }: {
+    network: Network;
+    confirmUtxos: UnspentOutputInfo[];
+    transferInfo: ITransferInfo;
+    specifiedFeeLimit?: string;
+    prioritys?: { satoshis: boolean };
+  }) {
+    const { to, amount } = transferInfo;
+    const amountValue = new BigNumber(amount)
+      .shiftedBy(network.decimals)
+      .toFixed();
+
+    if (new BigNumber(amountValue).isLessThan(DUST_AMOUNT)) {
+      throw new OneKeyInternalError(
+        'Amount is too small',
+        'msg__amount_too_small',
+      );
+    }
+
+    const { utxoIds, utxos, limit, hasMaxSend } = this.selectUTXOs({
+      confirmUtxos,
+      amountValue,
+      specifiedFeeLimit,
+      prioritys,
+    });
+    const feeRate = convertFeeValueToGwei({ value: '1', network });
 
     return {
       utxoIds,
@@ -203,6 +239,58 @@ export default class Vault extends VaultBase {
       hasMaxSend,
       mass: parseInt(limit),
     };
+  }
+
+  override async buildEncodedTxFromTransfer(
+    transferInfo: ITransferInfo,
+    specifiedFeeLimit?: string,
+  ): Promise<IEncodedTxKaspa> {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
+    const { token: tokenAddress } = transferInfo;
+    if (tokenAddress)
+      throw new OneKeyInternalError('Kaspa does not support token transfer');
+
+    const client = await this.getClient();
+    const { address: from } = await this.getDbAccount();
+
+    const network = await this.getNetwork();
+
+    const confirmUtxos = await queryConfirmUTXOs(client, from);
+
+    let encodedTx = await this.prepareAndBuildTx({
+      network,
+      confirmUtxos,
+      transferInfo,
+      specifiedFeeLimit,
+    });
+
+    // validate tx size
+    let txn = toTransaction(encodedTx);
+    const { mass, txSize } = txn.getMassAndSize();
+
+    if (mass > MAX_ORPHAN_TX_MASS || txSize > MAX_BLOCK_SIZE) {
+      encodedTx = await this.prepareAndBuildTx({
+        network,
+        confirmUtxos,
+        transferInfo,
+        specifiedFeeLimit,
+        prioritys: { satoshis: true },
+      });
+      txn = toTransaction(encodedTx);
+      const massAndSize = txn.getMassAndSize();
+      if (
+        massAndSize.mass > MAX_ORPHAN_TX_MASS ||
+        massAndSize.txSize > MAX_BLOCK_SIZE
+      ) {
+        throw new OneKeyInternalError(
+          'Transaction size is too large',
+          'msg__broadcast_kaspa_tx_max_allowed_size',
+        );
+      }
+    }
+    return encodedTx;
   }
 
   override async buildUnsignedTxFromEncodedTx(
@@ -362,7 +450,10 @@ export default class Vault extends VaultBase {
     const dataFee = this.minimumRequiredTransactionRelayFee(mass);
 
     if (txSize > MAX_BLOCK_SIZE) {
-      throw new Error('Transaction size is too large');
+      throw new OneKeyInternalError(
+        'Transaction size is too large',
+        'msg__broadcast_kaspa_tx_max_allowed_size',
+      );
     }
 
     const price = convertFeeValueToGwei({ value: '1', network });
@@ -489,111 +580,69 @@ export default class Vault extends VaultBase {
         return Promise.resolve(null);
       }
 
+      const mineAddress = dbAccount.address;
       try {
         const { inputs, outputs } = tx;
-        const actions = [];
 
-        const senderExistsInput = inputs.find(
-          (input) => input.previous_outpoint_address === dbAccount.address,
+        const actions: IDecodedTxAction[] = [];
+
+        const hasSenderIncludeMine = inputs?.some(
+          (input) => input.previous_outpoint_address === mineAddress,
         );
-        const receiverExistsOutput = outputs.find(
-          (output) => output.script_public_key_address === dbAccount.address,
-        );
-
-        let from = '';
-        let to = '';
-        if (receiverExistsOutput && !senderExistsInput) {
-          // receive
-          try {
-            from = inputs[0].previous_outpoint_address;
-          } catch (e) {
-            // mint miner
-            from = 'kaspa:00000000';
-          }
-
-          to = dbAccount.address;
-        } else if (senderExistsInput && receiverExistsOutput) {
-          // send and send self
-          from = dbAccount.address;
-
-          const filterOutputs = outputs.filter(
-            (output) => output.script_public_key_address !== dbAccount.address,
-          );
-
-          if (filterOutputs.length > 0) {
-            to = filterOutputs[0].script_public_key_address;
-          } else {
-            to = dbAccount.address;
-          }
-        } else {
-          // continue;
-          return await Promise.resolve(null);
-        }
-
-        const currentOutput = outputs.find(
-          (output) => output.script_public_key_address === to,
+        const hasReceiverIncludeMine = outputs?.some(
+          (output) => output.script_public_key_address === mineAddress,
         );
 
-        if (!currentOutput) {
-          return await Promise.resolve(null);
-        }
+        const utxoFrom = convertInputUtxos(inputs, mineAddress, token);
+        const utxoTo = convertOutputUtxos(outputs, mineAddress, token);
 
-        const nativeTransfer: IDecodedTxActionNativeTransfer = {
-          tokenInfo: token,
-          utxoFrom: inputs.map((input) => ({
-            address: input.previous_outpoint_address,
-            balance: new BigNumber(input.previous_outpoint_amount.toString())
-              .shiftedBy(-decimals)
-              .toFixed(),
-            balanceValue: input.previous_outpoint_amount?.toString() ?? '0',
-            symbol,
-            isMine: true,
-          })),
-          utxoTo: outputs.map((output) => ({
-            address: output.script_public_key_address,
-            balance: new BigNumber(output.amount.toString())
-              .shiftedBy(-decimals)
-              .toFixed(),
-            balanceValue: output.amount.toString(),
-            symbol,
-            isMine: output.script_public_key_address === dbAccount.address,
-          })),
-          from,
-          to,
-          amount: new BigNumber(currentOutput.amount.toString())
-            .shiftedBy(-decimals)
-            .toFixed(),
-          amountValue: currentOutput.amount.toString(),
-          extraInfo: null,
-        };
-        actions.push({
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
-          nativeTransfer,
+        const from = determineFromAddress(
+          mineAddress,
+          hasSenderIncludeMine,
+          hasReceiverIncludeMine,
+          inputs,
+        );
+        const toAddresses = determineToAddresses(
+          mineAddress,
+          hasSenderIncludeMine,
+          hasReceiverIncludeMine,
+          outputs,
+          inputs,
+        );
+
+        toAddresses.forEach((to) => {
+          const totalAmountValue = utxoTo
+            .filter((utxo) => utxo.address === to)
+            .reduce(
+              (sum, utxo) => sum.plus(new BigNumber(utxo.balanceValue)),
+              new BigNumber(0),
+            );
+          const calculateAmount = totalAmountValue
+            .shiftedBy(-token.decimals)
+            .toFixed();
+          const calculateAmountValue = totalAmountValue.toString();
+
+          actions.push({
+            type: IDecodedTxActionType.NATIVE_TRANSFER,
+            nativeTransfer: {
+              tokenInfo: token,
+              utxoFrom,
+              utxoTo,
+              from,
+              to,
+              amount: calculateAmount,
+              amountValue: calculateAmountValue,
+              extraInfo: null,
+            },
+          });
         });
 
-        let nativeFee = '';
-        try {
-          const inputAmount = tx.inputs.reduce(
-            (acc, input) => acc.plus(input.previous_outpoint_amount.toString()),
-            new BigNumber(0),
-          );
-
-          const outputAmount = tx.outputs.reduce(
-            (acc, output) => acc.plus(output.amount.toString()),
-            new BigNumber(0),
-          );
-
-          if (inputAmount.isLessThanOrEqualTo(0)) {
-            nativeFee = '0';
-          } else {
-            nativeFee = inputAmount
-              .minus(outputAmount)
-              .shiftedBy(-decimals)
-              .toFixed();
-          }
-        } catch {
-          nativeFee = new BigNumber(tx.mass).shiftedBy(-decimals).toFixed();
-        }
+        const nativeFee = calculateTxFee({
+          mass: tx.mass,
+          inputs,
+          outputs,
+          decimals: token.decimals,
+        });
 
         const decodedTx: IDecodedTx = {
           txid: tx.transaction_id,

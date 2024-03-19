@@ -90,7 +90,7 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
     }
 
     let imgSource = ClassicIcon;
-    if (hwWalletType === 'classic') {
+    if (hwWalletType === 'classic' || hwWalletType === 'classic1s') {
       imgSource = ClassicIcon;
     }
     if (hwWalletType === 'mini') {

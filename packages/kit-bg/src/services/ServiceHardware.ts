@@ -486,7 +486,7 @@ class ServiceHardware extends ServiceBase {
             },
           });
         }
-        const res = await hardwareSDK.deviceUpdateBootloader(connectId);
+        const res = await hardwareSDK.deviceUpdateBootloader(connectId, {});
         if (!res.success) {
           if (
             res.payload.error.indexOf(DISCONNECT_ERROR) > -1 &&

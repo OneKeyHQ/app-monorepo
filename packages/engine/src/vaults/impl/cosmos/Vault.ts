@@ -72,7 +72,6 @@ import { TxAminoBuilder } from './sdk/amino/TxAminoBuilder';
 import { defaultAminoMsgOpts } from './sdk/amino/types';
 import { MessageType } from './sdk/message';
 import { queryRegistry } from './sdk/query/IQuery';
-import { Type } from './sdk/query/mintScanTypes';
 import { OneKeyQuery } from './sdk/query/OneKeyQuery';
 import { serializeSignedTx } from './sdk/txBuilder';
 import { TxMsgBuilder } from './sdk/txMsgBuilder';
@@ -157,7 +156,7 @@ export default class Vault extends VaultBase {
   ): Promise<{ responseTime: number; latestBlock: number }> {
     const client = this.getNodeClient(url);
     const start = performance.now();
-    const { height } = await client.fetchBlockHeader();
+    const { height } = await client.fetchBlockHeaderV1beta1();
     const latestBlock = parseInt(height);
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }

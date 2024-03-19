@@ -1,4 +1,6 @@
+import { builder } from '@mysten/sui.js';
 import BigNumber from 'bignumber.js';
+import { get } from 'lodash';
 
 import { OneKeyError } from '@onekeyhq/engine/src/errors';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
@@ -107,7 +109,21 @@ export async function decodeActionWithTransferObjects(
 
   let to = '';
   if (transaction.address.kind === 'Input') {
-    to = transaction.address.value;
+    const argValue = get(transaction.address.value, 'Pure', undefined);
+    if (argValue) {
+      try {
+        to = builder.de('vector<u8>', argValue);
+      } catch (e) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          to = argValue.toString();
+        } catch (error) {
+          // ignore
+        }
+      }
+    } else {
+      to = transaction.address.value;
+    }
   }
 
   const isNative = coinType === SUI_NATIVE_COIN;

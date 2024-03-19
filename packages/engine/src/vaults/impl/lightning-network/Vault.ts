@@ -38,6 +38,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
+import { LNURLDetails } from './types/lnurl';
 import { PaymentStatusEnum } from './types/payments';
 
 import type { ExportedSeedCredential } from '../../../dbs/base';
@@ -64,6 +65,7 @@ import type {
   IInvoiceDecodedResponse,
   InvoiceStatusEnum,
 } from './types/invoice';
+import type { LNURLAuthServiceResponse } from './types/lnurl';
 import type { AxiosError } from 'axios';
 
 export default class Vault extends VaultBase {
@@ -741,5 +743,18 @@ export default class Vault extends VaultBase {
   async batchGetLnurl(addresses: string[]) {
     const client = await this.getClient();
     return client.batchGetLnurl(addresses);
+  }
+
+  async getLnurlAuthUrl({
+    lnurlDetail,
+    password,
+  }: {
+    lnurlDetail: LNURLAuthServiceResponse;
+    password: string;
+  }) {
+    return (this.keyring as KeyringHd).lnurlAuth({
+      lnurlDetail,
+      password,
+    });
   }
 }

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Box,
   Button,
+  CheckBox,
   Modal,
   Text,
   ToastManager,
@@ -16,8 +17,10 @@ import {
   EventKind,
   type NostrEvent,
   i18nSupportEventKinds,
-} from '@onekeyhq/engine/src/vaults/utils/nostr/types';
+} from '@onekeyhq/engine/src/vaults/impl/nostr/helper/types';
 import { TxInteractInfo } from '@onekeyhq/kit/src/views/TxDetail/components/TxInteractInfo';
+import { isHdWallet as isHdWalletFn } from '@onekeyhq/shared/src/engine/engineUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../hooks';
@@ -37,7 +40,7 @@ const NostrSignEventModal = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { sourceInfo, walletId } = useDappParams();
+  const { sourceInfo, walletId, networkId, accountId } = useDappParams();
   let sigHash: string | undefined;
   let event: NostrEvent | undefined;
   let pubkey: string | undefined;
@@ -60,8 +63,10 @@ const NostrSignEventModal = () => {
     closeWindowAfterResolved: true,
   });
 
+  const isHdWallet = isHdWalletFn({ walletId: walletId ?? '' });
   const interactInfo = useInteractWithInfo({ sourceInfo });
 
+  const [autoSign, setAutoSign] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [displayDetails, setDisplayDetails] = useState(false);
   const signType = useMemo<ESignType | undefined>(() => {
@@ -92,12 +97,22 @@ const NostrSignEventModal = () => {
         if (signType === ESignType.signEvent) {
           result = await backgroundApiProxy.serviceNostr.signEvent({
             walletId,
+            networkId: networkId ?? '',
+            accountId: accountId ?? '',
             password,
             event: event ?? ({} as NostrEvent),
+            options: isHdWallet
+              ? {
+                  host: sourceInfo?.hostname ?? '',
+                  autoSign,
+                }
+              : undefined,
           });
         } else if (signType === ESignType.encrypt) {
           result = await backgroundApiProxy.serviceNostr.encrypt({
             walletId,
+            networkId: networkId ?? '',
+            accountId: accountId ?? '',
             password,
             pubkey: pubkey ?? '',
             plaintext: plaintext ?? '',
@@ -105,6 +120,8 @@ const NostrSignEventModal = () => {
         } else if (signType === ESignType.decrypt) {
           result = await backgroundApiProxy.serviceNostr.decrypt({
             walletId,
+            networkId: networkId ?? '',
+            accountId: accountId ?? '',
             password,
             pubkey: pubkey ?? '',
             ciphertext: ciphertext ?? '',
@@ -112,6 +129,8 @@ const NostrSignEventModal = () => {
         } else if (signType === ESignType.signSchnorr) {
           result = await backgroundApiProxy.serviceNostr.signSchnorr({
             walletId,
+            networkId: networkId ?? '',
+            accountId: accountId ?? '',
             password,
             sigHash: sigHash ?? '',
           });
@@ -150,6 +169,8 @@ const NostrSignEventModal = () => {
     },
     [
       walletId,
+      networkId,
+      accountId,
       closeModal,
       intl,
       dappApprove,
@@ -159,6 +180,9 @@ const NostrSignEventModal = () => {
       ciphertext,
       sigHash,
       signType,
+      autoSign,
+      sourceInfo?.hostname,
+      isHdWallet,
     ],
   );
 
@@ -166,9 +190,11 @@ const NostrSignEventModal = () => {
     () =>
       navigation.navigate(NostrModalRoutes.NostrAuthentication, {
         walletId: walletId ?? '',
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
         onDone,
       }),
-    [walletId, navigation, onDone],
+    [walletId, networkId, accountId, navigation, onDone],
   );
 
   const renderEventDetails = useMemo(
@@ -323,36 +349,51 @@ const NostrSignEventModal = () => {
       height={isDMEvent ? '580px' : '500px'}
       scrollViewProps={{
         contentContainerStyle: {
-          flex: 1,
           paddingVertical: isVerticalLayout ? 16 : 24,
+          flex: platformEnv.isNative ? undefined : 1,
         },
         children: (
-          <Box>
-            <TxInteractInfo
-              origin={interactInfo?.url ?? ''}
-              name={interactInfo?.name}
-              icon={interactInfo?.icons[0]}
-              networkId=""
-              mb={0}
-            />
-            <Box
-              bg="surface-default"
-              borderColor="border-default"
-              borderWidth={1}
-              borderRadius={12}
-              paddingX={4}
-              paddingY={3}
-              my={4}
-            >
-              <Text mb={2} typography="Heading">
-                {signText}
-              </Text>
-              <Text typography="Body2" color="text-subdued">
-                {content}
-              </Text>
+          <Box h="full" flexDirection="column" justifyContent="space-between">
+            <Box>
+              <TxInteractInfo
+                origin={interactInfo?.url ?? ''}
+                name={interactInfo?.name}
+                icon={interactInfo?.icons[0]}
+                networkId=""
+                mb={0}
+              />
+              <Box
+                bg="surface-default"
+                borderColor="border-default"
+                borderWidth={1}
+                borderRadius={12}
+                paddingX={4}
+                paddingY={3}
+                my={4}
+              >
+                <Text mb={2} typography="Heading">
+                  {signText}
+                </Text>
+                <Text typography="Body2" color="text-subdued">
+                  {content}
+                </Text>
+              </Box>
+              {renderEncryptSignEventPlaintext}
+              {signType === ESignType.signEvent && renderEventDetails}
             </Box>
-            {renderEncryptSignEventPlaintext}
-            {signType === 'signEvent' && renderEventDetails}
+
+            {signType === ESignType.signEvent && isHdWallet && (
+              <Box py={3}>
+                <CheckBox
+                  containerStyle={{ mr: 2 }}
+                  isChecked={autoSign}
+                  onChange={setAutoSign}
+                  title={intl.formatMessage({
+                    id: 'content__remember_my_choice_and_dont_ask_again',
+                  })}
+                />
+              </Box>
+            )}
           </Box>
         ),
       }}

@@ -27,6 +27,7 @@ export const getTransactionType = (module: string, func: string) => {
     module === 'balances' &&
     (formatFunc === 'transfer' ||
       formatFunc === 'transferkeepalive' ||
+      formatFunc === 'transferallowdeath' ||
       formatFunc === 'transferall')
   ) {
     return IDecodedTxActionType.NATIVE_TRANSFER;

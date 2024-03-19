@@ -391,6 +391,7 @@ export enum InscribeModalRoutes {
   CreateOrder = 'CreateOrder',
   OrderList = 'OrderList',
   OrderDetail = 'OrderDetail',
+  InscribeTransferFromDapp = 'InscribeTransferFromDapp',
 }
 
 export enum WeblnModalRoutes {

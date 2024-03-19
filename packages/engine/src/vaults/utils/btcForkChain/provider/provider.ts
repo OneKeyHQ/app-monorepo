@@ -384,13 +384,21 @@ class Provider {
   getHistory(
     params: GetAccountParams,
     network: string,
+    networkId: string,
     address: string,
     symbol: string,
     decimals: number,
   ) {
     const usedXpub = this.getEncodingXpub({ params, safeGet: true });
     return this.blockbook.then((client) =>
-      client.getHistory(network, address, usedXpub, symbol, decimals),
+      client.getHistory(
+        network,
+        networkId,
+        address,
+        usedXpub,
+        symbol,
+        decimals,
+      ),
     );
   }
 

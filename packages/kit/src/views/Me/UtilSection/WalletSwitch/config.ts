@@ -50,7 +50,7 @@ export const CWalletSwitchDefaultConfig: Record<string, WalletSwitchItem> = {
   'APTOS-Petra': {
     logo: AptosPetraLogo,
     title: 'Petra',
-    propertyKeys: ['aptos'],
+    propertyKeys: ['aptos', 'petra'],
     enable: true,
   },
   'APTOS-Martian': {

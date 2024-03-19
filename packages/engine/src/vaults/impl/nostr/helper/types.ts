@@ -45,3 +45,7 @@ export enum ESignType {
 export type INostrRelays = {
   [url: string]: { read: boolean; write: boolean };
 };
+
+export interface IEncodedTxNostr {
+  event: NostrEvent;
+}

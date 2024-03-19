@@ -10,10 +10,12 @@ import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { buildModalRouteParams } from '@onekeyhq/kit/src/hooks/useAutoNavigateOnMount';
 import type {
   IDappConnectionParams,
+  IDappInscribeTransferParams,
   IDappSignAndSendParams,
 } from '@onekeyhq/kit/src/hooks/useDappParams';
 import {
   DappConnectionModalRoutes,
+  InscribeModalRoutes,
   ManageNetworkModalRoutes,
   ManageTokenModalRoutes,
   ModalRoutes,
@@ -214,7 +216,7 @@ class ServiceDapp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancellConnectedSite(payload: DappSiteConnection): Promise<void> {
+  async cancelConnectedSite(payload: DappSiteConnection): Promise<void> {
     // check walletConnect
     if (
       this.backgroundApi.walletConnect.connector &&
@@ -345,6 +347,21 @@ class ServiceDapp extends ServiceBase {
         ManageNetworkModalRoutes.SwitchNetwork,
       ],
       params,
+    });
+  }
+
+  openInscribeTransferModal(
+    request: IJsBridgeMessagePayload,
+    params: IDappInscribeTransferParams,
+  ) {
+    return this.openModal({
+      request,
+      screens: [
+        ModalRoutes.Inscribe,
+        InscribeModalRoutes.InscribeTransferFromDapp,
+      ],
+      params,
+      isAuthorizedRequired: true,
     });
   }
 

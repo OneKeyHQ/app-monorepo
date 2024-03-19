@@ -17,7 +17,10 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NERVOS,
+  IMPL_NEURAI,
   IMPL_NEXA,
+  IMPL_NOSTR,
   IMPL_SOL,
   IMPL_STACKS,
   IMPL_STC,
@@ -124,6 +127,15 @@ export function createVaultSettings(options: {
   }
   if (impl === IMPL_ALLNETWORKS) {
     return require('./impl/allnetworks/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_NOSTR) {
+    return require('./impl/nostr/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_NERVOS) {
+    return require('./impl/nervos/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_NEURAI) {
+    return require('./impl/neurai/settings').default as IVaultSettings;
   }
   throw new OneKeyInternalError(
     `VaultSettings not found for: networkId=${options.networkId ?? ''}, impl=${

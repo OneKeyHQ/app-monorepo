@@ -19,7 +19,6 @@ import {
 } from '@onekeyhq/components';
 import useModalClose from '@onekeyhq/components/src/Modal/Container/useModalClose';
 import type { LNURLAuthServiceResponse } from '@onekeyhq/engine/src/vaults/impl/lightning-network/types/lnurl';
-import { isHardwareWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccount, useNavigation } from '../../../hooks';
@@ -62,7 +61,6 @@ const LNURLAuth = () => {
   const lnurlDetails = isSendFlow
     ? routeLnurlDetails
     : (dAppLnurlDetails as LNURLAuthServiceResponse);
-  const isHwWallet = isHardwareWallet({ walletId: walletId ?? '' });
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -208,6 +206,7 @@ const LNURLAuth = () => {
         await backgroundApiProxy.serviceLightningNetwork.lnurlAuth({
           password,
           walletId,
+          networkId: networkId ?? '',
           lnurlDetail: lnurlDetails,
         });
         ToastManager.show({
@@ -255,6 +254,7 @@ const LNURLAuth = () => {
     [
       lnurlDetails,
       walletId,
+      networkId,
       closeModal,
       messages.successText,
       intl,
@@ -278,7 +278,7 @@ const LNURLAuth = () => {
       headerDescription={<LNModalDescription networkId={networkId} />}
       primaryActionTranslationId={messages.actionI18nId as any}
       primaryActionProps={{
-        isDisabled: isHwWallet || isLoading,
+        isDisabled: isLoading,
         isLoading,
       }}
       onPrimaryActionPress={() => onConfirmWithAuth()}
@@ -341,19 +341,6 @@ const LNURLAuth = () => {
                 Account
               </Text>
               <Text typography="Body2Strong">{account?.name}</Text>
-            </HStack>
-            <HStack alignItems="center" justifyContent="flex-end">
-              {isHwWallet && (
-                <Text typography="Body2Strong" color="text-critical">
-                  {intl.formatMessage(
-                    {
-                      id: 'content__hardware_wallet_does_not_support_str_yet',
-                    },
-                    // @ts-expect-error
-                    { 0: intl.formatMessage({ id: messages.actionI18nId }) },
-                  )}
-                </Text>
-              )}
             </HStack>
           </Box>
         ),

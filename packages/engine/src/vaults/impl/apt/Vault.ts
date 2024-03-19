@@ -638,7 +638,7 @@ export default class Vault extends VaultBase {
     }
 
     const [gasPrice, unsignedTx] = await Promise.all([
-      client.client.transactions.estimateGasPrice(),
+      client.estimateGasPrice(),
       this.buildUnsignedTxFromEncodedTx(encodedTxWithFakePriceAndNonce),
     ]);
 

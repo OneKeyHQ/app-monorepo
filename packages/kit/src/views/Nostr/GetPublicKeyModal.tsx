@@ -22,6 +22,7 @@ import useDappApproveAction from '../../hooks/useDappApproveAction';
 import useDappParams from '../../hooks/useDappParams';
 import { useInteractWithInfo } from '../../hooks/useDecodedTx';
 
+import { useExistNostrAccount } from './hooks/useExistNostrAccount';
 import { NostrModalRoutes } from './types';
 
 import type { NostrRoutesParams } from '../../routes';
@@ -34,7 +35,7 @@ const NostrGetPublicKeyModal = () => {
   const isVerticalLayout = useIsVerticalLayout();
   const navigation = useNavigation<NavigationProps['navigation']>();
 
-  const { sourceInfo, walletId } = useDappParams();
+  const { sourceInfo, walletId, networkId, accountId } = useDappParams();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -44,6 +45,12 @@ const NostrGetPublicKeyModal = () => {
   const interactInfo = useInteractWithInfo({ sourceInfo });
 
   const [isLoading, setIsLoading] = useState(false);
+
+  const { existNostrAccount } = useExistNostrAccount({
+    walletId: walletId ?? '',
+    currentAccountId: accountId ?? '',
+    currentNetworkId: networkId ?? '',
+  });
 
   const closeModal = useModalClose();
 
@@ -56,6 +63,8 @@ const NostrGetPublicKeyModal = () => {
         setIsLoading(true);
         const pubkey = await backgroundApiProxy.serviceNostr.getPublicKeyHex({
           walletId,
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
           password,
         });
         setTimeout(() => {
@@ -89,17 +98,22 @@ const NostrGetPublicKeyModal = () => {
         setIsLoading(false);
       }
     },
-    [walletId, closeModal, intl, dappApprove],
+    [walletId, networkId, accountId, closeModal, intl, dappApprove],
   );
 
-  const onConfirmWithAuth = useCallback(
-    () =>
-      navigation.navigate(NostrModalRoutes.NostrAuthentication, {
-        walletId: walletId ?? '',
-        onDone,
-      }),
-    [walletId, navigation, onDone],
-  );
+  const onConfirmWithAuth = useCallback(() => {
+    if (existNostrAccount) {
+      onDone('');
+      return;
+    }
+
+    navigation.navigate(NostrModalRoutes.NostrAuthentication, {
+      walletId: walletId ?? '',
+      networkId: networkId ?? '',
+      accountId: accountId ?? '',
+      onDone,
+    });
+  }, [walletId, networkId, accountId, navigation, onDone, existNostrAccount]);
 
   return (
     <Modal

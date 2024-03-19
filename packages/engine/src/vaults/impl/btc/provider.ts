@@ -59,6 +59,8 @@ export default class Provider extends BaseProvider {
         client.getUTXOsFromBackendApi({
           xpub,
           impl: this.chainInfo.impl,
+          // in bitcoin, feeCode is same to networkId
+          networkId: this.chainInfo.feeCode,
           options,
         }),
       ),

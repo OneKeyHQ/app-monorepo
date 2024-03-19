@@ -33,6 +33,7 @@ import {
   IMPL_BTC,
   IMPL_DOGE,
   IMPL_LTC,
+  IMPL_NEURAI,
   IMPL_TBTC,
   SEPERATOR,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -76,7 +77,7 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
 
   let code = dbNetwork.id;
   if (
-    [IMPL_BTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH, IMPL_TBTC].includes(
+    [IMPL_BTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH, IMPL_TBTC, IMPL_NEURAI].includes(
       dbNetwork.impl,
     )
   ) {
