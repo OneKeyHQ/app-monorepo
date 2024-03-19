@@ -87,9 +87,7 @@ export function AccountSelectorActiveAccountLegacy({ num }: { num: number }) {
 }
 
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
-  const { serviceAccount } = backgroundApiProxy;
   const { activeAccount } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
   const { copyText } = useClipboard();
   const { account } = activeAccount;
 
