@@ -13,8 +13,16 @@ import {
   useSafeAreaInsets,
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -25,13 +33,6 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { AccountEditButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/AccountEdit';
-import type {
-  IDBAccount,
-  IDBDevice,
-  IDBIndexedAccount,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   WALLET_TYPE_IMPORTED,
@@ -74,6 +75,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       >
     >();
   const linkNetwork = route.params?.linkNetwork;
+  const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
 
   const navigation = useAppNavigation();
 
@@ -154,13 +156,13 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
 
       return serviceAccount.getAccountSelectorAccountsListSectionData({
         focusedWallet: selectedAccount?.focusedWallet,
-        linkedNetworkId: linkNetwork ? selectedAccount?.networkId : undefined,
+        linkedNetworkId,
         deriveType: selectedAccount.deriveType,
         othersNetworkId: selectedAccount?.networkId,
       });
     },
     [
-      linkNetwork,
+      linkedNetworkId,
       selectedAccount.deriveType,
       selectedAccount?.focusedWallet,
       selectedAccount?.networkId,
@@ -237,7 +239,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     return console.log('clicked');
   };
 
-  const renderSubTitle = useCallback(
+  const buildSubTitleInfo = useCallback(
     (item: IDBAccount | IDBIndexedAccount) => {
       let address: string | undefined;
       if (isOthers) {
@@ -248,13 +250,20 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         address = indexedAccount?.associateAccount?.address;
       }
       if (!address && !isOthers && linkNetwork) {
-        return '--';
+        // TODO custom style
+        return {
+          address: `No ${activeAccount?.network?.shortname || ''} address`,
+          isEmptyAddress: true,
+        };
       }
-      return accountUtils.shortenAddress({
-        address,
-      });
+      return {
+        address: accountUtils.shortenAddress({
+          address,
+        }),
+        isEmptyAddress: false,
+      };
     },
-    [isOthers, linkNetwork],
+    [activeAccount?.network?.shortname, isOthers, linkNetwork],
   );
 
   // const isEmptyData = useMemo(() => {
@@ -400,6 +409,41 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             ? undefined
             : (item as IDBIndexedAccount);
 
+          const subTitleInfo = buildSubTitleInfo(item);
+          const shouldShowCreateAddressButton =
+            linkNetwork && subTitleInfo.isEmptyAddress;
+
+          const actionButton = (() => {
+            if (editMode) {
+              return (
+                <>
+                  {/* TODO rename to AccountEditTrigger */}
+                  <AccountEditButton
+                    account={account}
+                    indexedAccount={indexedAccount}
+                  />
+                </>
+              );
+            }
+            if (shouldShowCreateAddressButton) {
+              return (
+                <AccountSelectorCreateAddressButton
+                  num={num}
+                  selectAfterCreate
+                  account={{
+                    walletId: focusedWalletInfo?.wallet?.id,
+                    networkId: linkedNetworkId,
+                    indexedAccountId: indexedAccount?.id,
+                    deriveType: selectedAccount.deriveType,
+                  }}
+                >
+                  <Icon name="PlusSmallOutline" />
+                </AccountSelectorCreateAddressButton>
+              );
+            }
+            return null;
+          })();
+
           return (
             <ListItem
               key={item.id}
@@ -414,9 +458,16 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               titleProps={{
                 numberOfLines: 1,
               }}
-              subtitle={renderSubTitle(item)}
+              subtitle={subTitleInfo.address}
+              subtitleProps={{
+                color: subTitleInfo.isEmptyAddress ? '$textCaution' : undefined,
+              }}
               {...(!editMode && {
                 onPress: async () => {
+                  // show CreateAddress Button here, disabled confirmAccountSelect()
+                  if (shouldShowCreateAddressButton) {
+                    return;
+                  }
                   if (isOthers) {
                     await actions.current.confirmAccountSelect({
                       num,
@@ -434,23 +485,18 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   }
                   navigation.popStack();
                 },
-                checkMark: isOthers
-                  ? selectedAccount.othersWalletAccountId === item.id
-                  : selectedAccount.indexedAccountId === item.id,
+                checkMark: (() => {
+                  // show CreateAddress Button here, hide checkMark
+                  if (shouldShowCreateAddressButton) {
+                    return undefined;
+                  }
+                  return isOthers
+                    ? selectedAccount.othersWalletAccountId === item.id
+                    : selectedAccount.indexedAccountId === item.id;
+                })(),
               })}
             >
-              {editMode ? (
-                <>
-                  <AccountEditButton
-                    account={account}
-                    indexedAccount={indexedAccount}
-                  />
-                  {/* <AccountRemoveButton
-                      account={account}
-                      indexedAccount={indexedAccount}
-                    /> */}
-                </>
-              ) : null}
+              {actionButton}
             </ListItem>
           );
         }}
