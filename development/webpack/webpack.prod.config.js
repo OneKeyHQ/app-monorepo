@@ -10,7 +10,8 @@ module.exports = {
     minimizer: [
       new TerserPlugin({
         terserOptions: {
-          keep_fnames: /^forModalPresentationIOS$/,
+          keep_classnames: true,
+          keep_fnames: true,
         },
       }),
     ],
