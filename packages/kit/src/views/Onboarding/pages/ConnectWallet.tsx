@@ -115,9 +115,7 @@ export function ConnectWallet() {
                     borderWidth={StyleSheet.hairlineWidth}
                     borderColor="$borderSubdued"
                     borderRadius="$3"
-                    style={{
-                      borderCurve: 'continuous',
-                    }}
+                    borderCurve="continuous"
                     p="$4"
                     hoverStyle={{
                       bg: '$bgHover',

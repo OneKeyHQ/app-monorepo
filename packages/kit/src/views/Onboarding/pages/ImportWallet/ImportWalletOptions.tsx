@@ -159,7 +159,7 @@ export function ImportWalletOptions() {
                   bg="$bgStrong"
                   p="$2"
                   borderRadius="$2"
-                  style={{ borderCurve: 'continuous' }}
+                  borderCurve="continuous"
                 >
                   <Icon
                     name={icon}

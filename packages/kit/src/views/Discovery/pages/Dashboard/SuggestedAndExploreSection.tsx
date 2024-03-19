@@ -260,9 +260,7 @@ export function SuggestedAndExploreSection({
                 bg="$bgStrong"
                 borderRadius="$3"
                 userSelect="none"
-                style={{
-                  borderCurve: 'continuous',
-                }}
+                borderCurve="continuous"
                 hoverStyle={{
                   bg: '$bgStrongHover',
                 }}
@@ -293,9 +291,7 @@ export function SuggestedAndExploreSection({
                 bg="$bgStrong"
                 borderRadius="$3"
                 userSelect="none"
-                style={{
-                  borderCurve: 'continuous',
-                }}
+                borderCurve="continuous"
                 hoverStyle={{
                   bg: '$bgStrongHover',
                 }}
