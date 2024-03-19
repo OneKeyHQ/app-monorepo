@@ -123,6 +123,9 @@ function BasicAccountAvatar({
     if (account) {
       return <MemoHashImageSource id={account.address} />;
     }
+    if (source || src) {
+      return <Image.Source src={src} source={source} />;
+    }
     return (
       <Stack
         flex={1}
@@ -133,9 +136,9 @@ function BasicAccountAvatar({
         <Icon name="CrossedSmallSolid" size="$6" />
       </Stack>
     );
-  }, [account, address, indexedAccount]);
+  }, [account, address, indexedAccount, source, src]);
   const renderFallback = useMemo(() => {
-    if (address || indexedAccount || account) {
+    if (address || indexedAccount || account || source || src) {
       return (
         fallback ||
         (fallbackProps ? (
@@ -153,6 +156,8 @@ function BasicAccountAvatar({
     fallback,
     fallbackProps,
     indexedAccount,
+    source,
+    src,
   ]);
   return (
     <Stack
