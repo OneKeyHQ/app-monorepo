@@ -111,20 +111,24 @@ export function SuggestedAndExploreSection({
   );
 
   const renderSkeletonView = useCallback(
-    () =>
-      Array.from({ length: 2 }).map((_, index) => (
-        <Stack space="$3" key={index}>
-          <Skeleton w="$14" h="$6" />
+    () => (
+      <Stack space="$5">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <Stack space="$3" key={index}>
+            <Skeleton w="$14" h="$6" />
 
-          <ItemsContainer key="skeleton-view" mx="$-5">
-            <XStack
-              px="$2"
-              $gtMd={{
-                flexDirection: 'column',
-              }}
-            >
-              {[Array.from({ length: 3 }), Array.from({ length: 3 })].map(
-                (chunk, chunkIndex) => (
+            <ItemsContainer key="skeleton-view" mx="$-5">
+              <XStack
+                px="$2"
+                $gtMd={{
+                  flexDirection: 'column',
+                }}
+              >
+                {[
+                  Array.from({ length: 3 }),
+                  Array.from({ length: 3 }),
+                  Array.from({ length: 3 }),
+                ].map((chunk, chunkIndex) => (
                   <Stack
                     key={chunkIndex}
                     $md={{
@@ -171,23 +175,13 @@ export function SuggestedAndExploreSection({
                       </XStack>
                     ))}
                   </Stack>
-                ),
-              )}
-            </XStack>
-            {/* <Stack space="$3">
-            <Skeleton w="$14" h="$6" />
-            <XStack space="$3">
-              <Skeleton w="$14" h="$14" />
-              <YStack space="$1">
-                <Skeleton w="$10" h="$4" />
-                <Skeleton w="$64" h="$4" />
-                <Skeleton w="$64" h="$4" />
-              </YStack>
-            </XStack>
-          </Stack> */}
-          </ItemsContainer>
-        </Stack>
-      )),
+                ))}
+              </XStack>
+            </ItemsContainer>
+          </Stack>
+        ))}
+      </Stack>
+    ),
     [],
   );
 
