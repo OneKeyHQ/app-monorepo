@@ -226,7 +226,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
           headerRight={renderHeaderRight}
         />
         <Page.Body>
-          {platformEnv.isNative && (
+          {platformEnv.isNative ? (
             <XStack
               justifyContent="space-between"
               px="$4"
@@ -235,7 +235,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
               <Stack flex={1} />
               {renderHeaderRight()}
             </XStack>
-          )}
+          ) : null}
           <Stack h="100%" justifyContent="center">
             <EmptyWallet />
           </Stack>
