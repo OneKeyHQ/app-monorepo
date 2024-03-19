@@ -99,7 +99,7 @@ function MobileBrowser() {
   const { top } = useSafeAreaInsets();
 
   return (
-    <Page>
+    <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header headerShown={false} />
       <XStack
         pt={top}
@@ -117,9 +117,7 @@ function MobileBrowser() {
               <DashboardContent onScroll={handleScroll} />
             </Stack>
           ) : null}
-          <Stack pt="$3">
-            <Freeze freeze={displayHomePage}>{content}</Freeze>
-          </Stack>
+          <Freeze freeze={displayHomePage}>{content}</Freeze>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
               style={[
