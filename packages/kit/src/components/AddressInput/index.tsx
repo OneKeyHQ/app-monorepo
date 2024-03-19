@@ -177,10 +177,10 @@ const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
       </Badge>
     );
   }
-  if (status === 'unknown') {
+  if (status === 'interacted') {
     return (
-      <Badge badgeType="warning" badgeSize="sm">
-        Unknown
+      <Badge badgeType="success" badgeSize="sm">
+        Transferred
       </Badge>
     );
   }
