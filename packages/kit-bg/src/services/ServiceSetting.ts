@@ -168,6 +168,7 @@ class ServiceSetting extends ServiceBase {
     const networkIds = networks.networks.map((n) => n.id);
     const btc = networks.networks.find((n) => n.id === getNetworkIdsMap().btc);
     const eth = networks.networks.find((n) => n.id === getNetworkIdsMap().eth);
+    const ltc = networks.networks.find((n) => n.id === getNetworkIdsMap().ltc);
     const tbtc = networks.networks.find(
       (n) => n.id === getNetworkIdsMap().tbtc,
     );
@@ -185,6 +186,13 @@ class ServiceSetting extends ServiceBase {
         icon: eth?.logoURI,
         networkIds,
         defaultNetworkId: getNetworkIdsMap().eth,
+      },
+      {
+        num: 2,
+        title: 'Litecoin',
+        icon: ltc?.logoURI,
+        networkIds,
+        defaultNetworkId: getNetworkIdsMap().ltc,
       },
     ];
     if (platformEnv.isDev) {
