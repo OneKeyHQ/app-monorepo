@@ -4,13 +4,21 @@ import { Buffer } from 'buffer';
 import { isNil, max } from 'lodash';
 import natsort from 'natsort';
 
+import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 import {
   decrypt,
+  decryptImportedCredential,
+  decryptRevealableSeed,
   encrypt,
+  encryptImportedCredential,
+  encryptRevealableSeed,
   ensureSensitiveTextEncoded,
   sha256,
 } from '@onekeyhq/core/src/secret';
-import type { ICoreImportedCredentialEncryptHex } from '@onekeyhq/core/src/types';
+import type {
+  ICoreImportedCredential,
+  ICoreImportedCredentialEncryptHex,
+} from '@onekeyhq/core/src/types';
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
@@ -57,8 +65,6 @@ import type {
   IDBSetAccountNameParams,
   IDBSetAccountTemplateParams,
   IDBSetWalletNameAndAvatarParams,
-  IDBStoredPrivateKeyCredential,
-  IDBStoredSeedCredential,
   IDBWallet,
   IDBWalletId,
   IDBWalletIdSingleton,
@@ -343,30 +349,23 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       name: ELocalDBStoreNames.Credential,
       updater: (credential) => {
         if (credential.id.startsWith('imported')) {
-          const privateKeyCredentialJSON: IDBStoredPrivateKeyCredential =
-            JSON.parse(credential.credential);
-          credential.credential = JSON.stringify({
-            privateKey: encrypt(
-              newPassword,
-              decrypt(
-                oldPassword,
-                Buffer.from(privateKeyCredentialJSON.privateKey, 'hex'),
-              ),
-            ).toString('hex'),
+          const importedCredential: ICoreImportedCredential =
+            decryptImportedCredential({
+              credential: credential.credential,
+              password: oldPassword,
+            });
+          credential.credential = encryptImportedCredential({
+            credential: importedCredential,
+            password: newPassword,
           });
         } else {
-          const credentialJSON: IDBStoredSeedCredential = JSON.parse(
-            credential.credential,
-          );
-          credential.credential = JSON.stringify({
-            entropy: encrypt(
-              newPassword,
-              decrypt(oldPassword, Buffer.from(credentialJSON.entropy, 'hex')),
-            ).toString('hex'),
-            seed: encrypt(
-              newPassword,
-              decrypt(oldPassword, Buffer.from(credentialJSON.seed, 'hex')),
-            ).toString('hex'),
+          const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
+            rs: credential.credential,
+            password: oldPassword,
+          });
+          credential.credential = encryptRevealableSeed({
+            rs: revealableSeed,
+            password: newPassword,
           });
         }
 

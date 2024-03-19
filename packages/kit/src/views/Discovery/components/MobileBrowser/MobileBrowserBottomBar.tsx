@@ -255,6 +255,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             }
           }}
           onGoBackHomePage={handleGoBackHome}
+          disabled={displayHomePage}
         >
           <IconButton
             variant="tertiary"

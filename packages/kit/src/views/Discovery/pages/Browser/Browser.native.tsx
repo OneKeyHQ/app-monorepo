@@ -112,11 +112,9 @@ function MobileBrowser() {
       <Page.Body>
         <Stack flex={1} zIndex={3}>
           <HandleRebuildBrowserData />
-          {displayHomePage ? (
-            <Stack flex={1}>
-              <DashboardContent onScroll={handleScroll} />
-            </Stack>
-          ) : null}
+          <Stack flex={1} display={displayHomePage ? 'flex' : 'none'}>
+            <DashboardContent onScroll={handleScroll} />
+          </Stack>
           <Freeze freeze={displayHomePage}>{content}</Freeze>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
