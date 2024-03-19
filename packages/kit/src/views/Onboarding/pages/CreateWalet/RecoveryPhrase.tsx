@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import type { IPropsWithTestId } from '@onekeyhq/components';
 import {
   Button,
   Input,
@@ -18,7 +19,11 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { Tutorials } from '../../components';
 import { useShowCopyPasteButton } from '../../components/hooks';
 
-function FocusDisplayInput({ text, index }: { text: string; index: number }) {
+function FocusDisplayInput({
+  text,
+  index,
+  testID = '',
+}: IPropsWithTestId<{ text: string; index: number }>) {
   const media = useMedia();
   // Show the first word when entering the page
   const [isFocused, setIsFocused] = useState(index === 0);
@@ -44,6 +49,7 @@ function FocusDisplayInput({ text, index }: { text: string; index: number }) {
         minWidth: '$10',
         justifyContent: 'center',
       }}
+      testID={testID}
     />
   );
 }
@@ -93,7 +99,11 @@ export function RecoveryPhrase() {
               flexBasis="33.33%"
               p="$1"
             >
-              <FocusDisplayInput text={phrase} index={index} />
+              <FocusDisplayInput
+                text={phrase}
+                index={index}
+                testID={`phrase-index${index}`}
+              />
             </Stack>
           ))}
         </XStack>
@@ -128,6 +138,7 @@ export function RecoveryPhrase() {
       <Page.Footer
         onConfirmText="I've Saved the Phrase"
         onConfirm={handleConfirmPress}
+        confirmButtonProps={{ testID: 'saved-the-phrase' }}
       />
     </Page>
   );
