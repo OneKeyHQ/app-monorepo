@@ -6,9 +6,9 @@ const projectContent = fs.readFileSync(
   'utf-8',
 );
 
-if (projectContent.includes('-Wl -ld_classic')) {
+if (projectContent.includes('-Wl') || projectContent.includes('-ld_classic')) {
   console.log(
-    'Check xcodeproj failed, please remove `-Wl -ld_classic` from project.pbxproj',
+    'Check xcodeproj failed, please remove `"-Wl" "-ld_classic"` from project.pbxproj',
   );
   exit(1);
 }
