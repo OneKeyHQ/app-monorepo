@@ -38,7 +38,7 @@ const GalleryLayout = () => (
                 onPress: () => {
                   alert('onSwitchPress');
                 },
-                currency = '$',
+                currency: '$',
               }}
               balanceProps={{
                 value: '0.5',
