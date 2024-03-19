@@ -217,9 +217,6 @@ export default function useNFC() {
           children: (
             <XStack
               p="$3"
-              $md={{
-                maxWidth: '$80',
-              }}
               bg="$bgSubdued"
               alignItems="center"
               borderRadius="$2.5"
