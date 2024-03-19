@@ -64,6 +64,7 @@ const SocialButtonGroup = () => (
         selectable={false}
         color="$textSubdued"
         onPress={handleOpenDevMode}
+        testID="setting-version"
       >
         Version: {platformEnv.version ?? 'Unknown'}
       </SizableText>

@@ -411,6 +411,7 @@ export type ILocalDBGetAllRecordsParams<T extends ELocalDBStoreNames> = {
 } & ILocalDBGetRecordsQuery;
 export interface ILocalDBGetAllRecordsResult<T extends ELocalDBStoreNames> {
   records: ILocalDBRecord<T>[];
+  // recordPairs is only available of txGetAllRecords()
 }
 
 // UpdateRecords
@@ -463,6 +464,8 @@ export interface ILocalDBAgent {
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T>;
+
+  clearRecords(params: { name: ELocalDBStoreNames }): Promise<void>;
 
   getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,

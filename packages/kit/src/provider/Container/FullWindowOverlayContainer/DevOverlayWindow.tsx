@@ -5,6 +5,7 @@ import { Button, Dialog, Stack, YStack } from '@onekeyhq/components';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { ETabRoutes } from '../../../routes/Tab/type';
 
 import type { ITabMeParamList } from '../../../routes/Tab/Me/type';
 
@@ -32,8 +33,18 @@ function DevOverlayWindow() {
               });
               void dialog.close();
             }}
+            testID="open-settings-page"
           >
             Open Settings page
+          </Button>
+          <Button
+            onPress={() => {
+              navigation.switchTab(ETabRoutes.Home);
+              void dialog.close();
+            }}
+            testID="open-home-page"
+          >
+            Open home page
           </Button>
           <Button
             onPress={() => {
@@ -96,6 +107,7 @@ function DevOverlayWindow() {
         alignContent="center"
         justifyContent="center"
         onPress={handlePress}
+        testID="dev-button"
       />
     </Stack>
   );

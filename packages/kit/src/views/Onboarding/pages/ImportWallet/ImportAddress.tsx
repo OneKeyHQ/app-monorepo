@@ -38,6 +38,7 @@ function ImportAddress() {
                   onPress: () => console.log('scan'),
                 },
               ]}
+              testID="address"
             />
           </Form.Field>
         </Form>
