@@ -39,6 +39,9 @@ export const { atom: swapTokenMapAtom, use: useSwapTokenMapAtom } =
     updatedAt: 0,
   });
 
+export const { atom: swapTokenFetchingAtom, use: useSwapTokenFetchingAtom } =
+  contextAtom<boolean>(false);
+
 // swap account
 export const {
   atom: swapToAnotherAccountAddressAtom,
