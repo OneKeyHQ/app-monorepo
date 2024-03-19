@@ -159,9 +159,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
       bg={sharedStyles.backgroundColor}
       borderRadius={sharedStyles.borderRadius}
       disabled={disabled}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       {...containerProps}
     >
       {/* left addon */}

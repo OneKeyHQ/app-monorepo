@@ -38,9 +38,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
       alignItems="center"
       px={size === 'large' ? '$2.5' : '$2'}
       onPress={onPress}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       {...(onPress &&
         !disabled &&
         !loading && {

@@ -62,9 +62,7 @@ export function ActionListItem({
         py: '$2.5',
         borderRadius: '$3',
       }}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
       {...(!disabled && {

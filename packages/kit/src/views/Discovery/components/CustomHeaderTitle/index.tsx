@@ -40,9 +40,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         bg: '$bgActive',
       }}
       onPress={handleSearchBarPress}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
     >
       <Icon
         name={displayUrl ? 'LockOutline' : 'SearchOutline'}

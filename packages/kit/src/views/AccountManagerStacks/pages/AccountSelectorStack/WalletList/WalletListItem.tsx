@@ -46,9 +46,7 @@ export function WalletListItem({
       alignItems="center"
       p="$1"
       borderRadius="$3"
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       userSelect="none"
       {...(selected
         ? {
