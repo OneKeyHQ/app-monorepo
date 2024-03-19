@@ -22,7 +22,6 @@ import {
   crossWebviewLoadUrl,
   injectToPauseWebsocket,
   injectToResumeWebsocket,
-  validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -396,7 +395,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       const tab = this.getWebTabById.call(set, id ?? '');
       if (url) {
-        const validatedUrl = validateUrl(url);
+        const validatedUrl = uriUtils.validateUrl(url);
         if (!validatedUrl) {
           return;
         }
