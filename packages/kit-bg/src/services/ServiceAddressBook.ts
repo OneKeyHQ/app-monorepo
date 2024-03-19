@@ -156,17 +156,6 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
-  async dangerClearDataForE2E() {
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify();
-    await this.setItems([], password);
-    await addressBookPersistAtom.set((prev) => ({
-      ...prev,
-      updateTimestamp: undefined,
-    }));
-  }
-
-  @backgroundMethod()
   async resetItems() {
     const verifyResult = await this.verifyHash(true);
     if (verifyResult) {

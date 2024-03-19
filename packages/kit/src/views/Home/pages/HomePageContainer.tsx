@@ -145,6 +145,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         <HeaderIconButton
           title="Settings"
           icon="SettingsOutline"
+          testID="setting"
           onPress={openSettingPage}
         />
       </HeaderButtonGroup>
@@ -219,17 +220,34 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     }
 
     return (
-      <Page.Body>
-        <Stack h="100%" justifyContent="center">
-          <EmptyWallet />
-        </Stack>
-      </Page.Body>
+      <>
+        <Page.Header
+          headerShown={!platformEnv.isNative}
+          headerRight={renderHeaderRight}
+        />
+        <Page.Body>
+          {platformEnv.isNative ? (
+            <XStack
+              justifyContent="space-between"
+              px="$4"
+              pt={platformEnv.isNativeIOS ? '$20' : 0}
+            >
+              <Stack flex={1} />
+              {renderHeaderRight()}
+            </XStack>
+          ) : null}
+          <Stack h="100%" justifyContent="center">
+            <EmptyWallet />
+          </Stack>
+        </Page.Body>
+      </>
     );
   }, [
     ready,
     wallet,
     headerLeft,
     renderHeaderRight,
+    top,
     account,
     tabs,
     screenWidth,
@@ -240,7 +258,10 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     intl,
   ]);
 
-  return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
+  return useMemo(
+    () => <Page skipLoading={platformEnv.isNativeIOS}>{renderHomePage()}</Page>,
+    [renderHomePage],
+  );
 }
 
 function HomePageContainer() {

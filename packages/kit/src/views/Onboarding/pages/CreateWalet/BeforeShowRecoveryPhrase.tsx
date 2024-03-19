@@ -77,6 +77,7 @@ export function BeforeShowRecoveryPhrase() {
       <Page.Footer
         onConfirmText="Show Recovery Phrase"
         onConfirm={handleShowRecoveryPhrasePress}
+        confirmButtonProps={{ testID: 'show-recovery-phrase' }}
       />
     </Page>
   );

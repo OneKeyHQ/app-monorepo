@@ -167,6 +167,7 @@ export function ControlledNetworkSelectorTrigger({
   const items = useNetworkSelectorItems();
   return (
     <Select
+      testID="network-selector"
       title="Network"
       items={items}
       value={value}

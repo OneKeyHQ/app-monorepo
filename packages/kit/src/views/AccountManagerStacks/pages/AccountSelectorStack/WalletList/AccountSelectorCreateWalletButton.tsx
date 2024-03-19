@@ -40,10 +40,7 @@ export function AccountSelectorCreateWalletButton() {
       <ActionList
         placement="right-start"
         renderTrigger={
-          <IconButton
-            testID="AccountSelectorCreateWalletButton"
-            icon="PlusSmallOutline"
-          />
+          <IconButton icon="PlusSmallOutline" testID="add-wallet" />
         }
         title="Add wallet"
         floatingPanelProps={{
@@ -56,6 +53,7 @@ export function AccountSelectorCreateWalletButton() {
                 label: 'Connect Hardware Wallet',
                 icon: platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline',
                 onPress: handleConnectHardwareWalletPress,
+                testID: 'hardware-wallet',
               },
             ],
           },
@@ -65,6 +63,7 @@ export function AccountSelectorCreateWalletButton() {
                 label: 'Create Recovery Phrase',
                 icon: 'PlusCircleOutline',
                 onPress: handleCreateWalletPress,
+                testID: 'create-wallet',
               },
             ],
           },
@@ -74,6 +73,7 @@ export function AccountSelectorCreateWalletButton() {
                 label: 'Enter Recovery Phrase',
                 icon: 'Document2Outline',
                 onPress: handleImportWalletPress,
+                testID: 'import-wallet',
               },
               ...(platformEnv.isNative
                 ? [

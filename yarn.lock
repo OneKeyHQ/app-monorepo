@@ -3141,15 +3141,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@expo/video@npm:^0.0.1-canary-20240308-6715875":
-  version: 0.0.1-canary-20240308-6715875
-  resolution: "@expo/video@npm:0.0.1-canary-20240308-6715875"
-  peerDependencies:
-    expo: "*"
-  checksum: 1a75c56e8d382b51710dd3d56b229f4636600c66a0da7ae717751868a443c3aad2444e73e5108e560bb5eefaeeb38c96d4630a05477f3921eeb2e94c4a6e6cff
-  languageName: node
-  linkType: hard
-
 "@expo/webpack-config@npm:~19.0.1":
   version: 19.0.1
   resolution: "@expo/webpack-config@npm:19.0.1"
@@ -4915,6 +4906,7 @@ __metadata:
     react-native: "npm:0.73.2"
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.1"
+    react-native-flipper: "npm:0.201.0"
     react-native-reanimated: "npm:3.6.1"
     react-native-web: "npm:0.18.12"
     react-refresh: "npm:^0.14.0"
@@ -5111,7 +5103,6 @@ __metadata:
   resolution: "@onekeyhq/mobile@workspace:apps/mobile"
   dependencies:
     "@babel/core": "npm:^7.20.0"
-    "@expo/video": "npm:^0.0.1-canary-20240308-6715875"
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
@@ -5175,6 +5166,7 @@ __metadata:
     react-native-spotlight-tour: "npm:^3.0.1"
     react-native-svg: "npm:^13.9.0"
     react-native-tcp-socket: "npm:^6.0.6"
+    react-native-video: "npm:6.0.0-beta.6"
     react-native-view-shot: "npm:3.1.2"
     react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
     react-native-zip-archive: "npm:^6.0.9"
@@ -25150,6 +25142,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-flipper@npm:0.201.0":
+  version: 0.201.0
+  resolution: "react-native-flipper@npm:0.201.0"
+  peerDependencies:
+    react: ^16.8.0 || ^17.0.0 || ^18.0.0
+    react-native: ">0.62.0"
+  checksum: f2a8b8fda50d31d6e94f7cccafc18784c5c0f405552c34b872024fb70efa5274c550954230cc0bf2bfd217503a4aa22f6298953ca553c7b5c5e737b529d4c19e
+  languageName: node
+  linkType: hard
+
 "react-native-fs@npm:^2.20.0":
   version: 2.20.0
   resolution: "react-native-fs@npm:2.20.0"
@@ -25488,6 +25490,16 @@ __metadata:
   version: 2.0.1
   resolution: "react-native-uuid@npm:2.0.1"
   checksum: 05158a8e24fd3f8cb35d16dcef1eea1bf3b68b8196e58ffd6b89bfe6378141438380c5d4857496f30debf9e10e7cc13caf5943e8604d1b5e903a575a0326dc35
+  languageName: node
+  linkType: hard
+
+"react-native-video@npm:6.0.0-beta.6":
+  version: 6.0.0-beta.6
+  resolution: "react-native-video@npm:6.0.0-beta.6"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: f8a53a428907b00f8ca74e7f81988b5603a6383943a9b5883c642d99845f04e5340f2254aa573dbde630e5668ac7cee8345bf0f37812de7d7e3a4db925216cd1
   languageName: node
   linkType: hard
 

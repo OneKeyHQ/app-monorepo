@@ -143,6 +143,7 @@ export function AmountInput({
           maxWidth: '$48',
         })}
         {...(tokenSelectorTriggerProps?.onPress && {
+          role: 'button',
           hoverStyle: {
             bg: '$bgHover',
           },

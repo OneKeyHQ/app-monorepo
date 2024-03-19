@@ -286,7 +286,7 @@ function SelectContent() {
       onOpenChange={handleOpenChange}
       keepChildrenMounted
       sheetProps={{
-        dismissOnSnapToBottom: false,
+        dismissOnSnapToBottom: true,
         snapPointsMode: 'fit',
         ...sheetProps,
       }}
