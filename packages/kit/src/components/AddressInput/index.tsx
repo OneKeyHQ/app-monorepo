@@ -13,6 +13,7 @@ import { useIntl } from 'react-intl';
 
 import type { TextArea } from '@onekeyhq/components';
 import {
+  ActionList,
   Badge,
   Icon,
   IconButton,
@@ -24,6 +25,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
@@ -31,6 +36,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { BaseInput } from '../BaseInput';
 
 type IAddressPluginsOptions = {
@@ -92,12 +98,21 @@ const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange }) => (
 type IContactsPluginProps = IAddressPluginProps & {
   networkId?: string;
 };
+
 const ContactsPlugin: FC<IContactsPluginProps> = ({
   onChange,
   networkId,
   testID,
 }) => {
+  const ref = useRef<boolean>(false);
   const pick = useAddressBookPick();
+  const navigation = useAppNavigation();
+  const actions = useAccountSelectorActions();
+  const {
+    activeAccount: { wallet, account },
+  } = useActiveAccount({
+    num: 0,
+  });
   const onPress = useCallback(() => {
     void pick({
       networkId,
@@ -106,13 +121,42 @@ const ContactsPlugin: FC<IContactsPluginProps> = ({
       },
     });
   }, [onChange, pick, networkId]);
+  useEffect(() => {
+    if (account?.address && ref.current) {
+      onChange?.(account?.address);
+    }
+  }, [account?.address, onChange]);
   return (
-    <IconButton
-      title="Contacts"
-      onPress={onPress}
-      variant="tertiary"
-      icon="BookOpenOutline"
-      testID={testID}
+    <ActionList
+      title="Select"
+      items={[
+        {
+          icon: 'WalletCryptoOutline',
+          label: 'My Accounts',
+          onPress: () => {
+            ref.current = true;
+            void actions.current.showAccountSelector({
+              activeWallet: wallet,
+              num: 0,
+              navigation,
+              sceneName: EAccountSelectorSceneName.addressInput,
+            });
+          },
+        },
+        {
+          icon: 'ContactsOutline',
+          label: 'Address Book',
+          onPress,
+        },
+      ]}
+      renderTrigger={
+        <IconButton
+          title="Paste"
+          variant="tertiary"
+          icon="DotVerOutline"
+          testID={testID}
+        />
+      }
     />
   );
 };
@@ -383,11 +427,22 @@ function AddressInput(props: IAddressInputProps) {
             />
           ) : null}
           {plugins.contacts ? (
-            <ContactsPlugin
-              onChange={onChangeText}
-              networkId={networkId}
-              testID={`${rest.testID ?? ''}-contacts`}
-            />
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.addressInput,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+              availableNetworksMap={{
+                0: { networkIds: [networkId], defaultNetworkId: networkId },
+              }}
+            >
+              <ContactsPlugin
+                onChange={onChangeText}
+                networkId={networkId}
+                testID={`${rest.testID ?? ''}-contacts`}
+              />
+            </AccountSelectorProviderMirror>
           ) : null}
         </XStack>
       </XStack>
