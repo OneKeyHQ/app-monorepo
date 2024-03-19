@@ -59,8 +59,6 @@ PODS:
     - ReactCommon/turbomodule/core
   - ExpoSecureStore (12.5.0):
     - ExpoModulesCore
-  - ExpoVideo (0.0.1-canary-20240308-6715875):
-    - ExpoModulesCore
   - EXSplashScreen (0.26.4):
     - ExpoModulesCore
     - glog
@@ -146,6 +144,9 @@ PODS:
   - MMKVCore (1.3.1)
   - MultiplatformBleAdapter (0.1.9)
   - OpenSSL-Universal (1.1.1100)
+  - PromisesObjC (2.3.1)
+  - PromisesSwift (2.3.1):
+    - PromisesObjC (= 2.3.1)
   - RCT-Folly (2022.05.16.00):
     - boost
     - DoubleConversion
@@ -1054,6 +1055,12 @@ PODS:
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
     - React-Core
+  - react-native-video (6.0.0-beta.6):
+    - React-Core
+    - react-native-video/Video (= 6.0.0-beta.6)
+  - react-native-video/Video (6.0.0-beta.6):
+    - PromisesSwift
+    - React-Core
   - react-native-view-shot (3.1.2):
     - React
   - react-native-webview (11.24.0):
@@ -1303,7 +1310,6 @@ DEPENDENCIES:
   - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
-  - "ExpoVideo (from `../../../node_modules/@expo/video/ios`)"
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
   - FBReactNativeSpec (from `../../../node_modules/react-native/React/FBReactNativeSpec`)
@@ -1370,6 +1376,7 @@ DEPENDENCIES:
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
   - "react-native-tab-page-view (from `../../../node_modules/@onekeyfe/react-native-tab-page-view`)"
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
+  - react-native-video (from `../../../node_modules/react-native-video`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
   - React-nativeconfig (from `../../../node_modules/react-native/ReactCommon`)
@@ -1428,6 +1435,8 @@ SPEC REPOS:
     - MMKVCore
     - MultiplatformBleAdapter
     - OpenSSL-Universal
+    - PromisesObjC
+    - PromisesSwift
     - SocketRocket
     - SPAlert
     - SPIndicator
@@ -1481,8 +1490,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-modules-core"
   ExpoSecureStore:
     :path: "../../../node_modules/expo-secure-store/ios"
-  ExpoVideo:
-    :path: "../../../node_modules/@expo/video/ios"
   EXSplashScreen:
     :path: "../../../node_modules/expo-splash-screen/ios"
   FBLazyVector:
@@ -1566,6 +1573,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-tab-page-view"
   react-native-tcp-socket:
     :path: "../../../node_modules/react-native-tcp-socket"
+  react-native-video:
+    :path: "../../../node_modules/react-native-video"
   react-native-view-shot:
     :path: "../../../node_modules/react-native-view-shot"
   react-native-webview:
@@ -1667,7 +1676,6 @@ SPEC CHECKSUMS:
   ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
   ExpoModulesCore: 96d1751929ad10622773bb729ab28a8423f0dd0c
   ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
-  ExpoVideo: 7d5c176eae539c89cd64b9cc58cb9c83e4cf3fe0
   EXSplashScreen: 39244885abfb1b12765aae89edb90f8c88db6bbd
   FBLazyVector: fbc4957d9aa695250b55d879c1d86f79d7e69ab4
   FBReactNativeSpec: 396bb4b383339b01795f676aa0192bd394ef6589
@@ -1690,6 +1698,8 @@ SPEC CHECKSUMS:
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   OpenSSL-Universal: ebc357f1e6bc71fa463ccb2fe676756aff50e88c
+  PromisesObjC: c50d2056b5253dadbd6c2bea79b0674bd5a52fa4
+  PromisesSwift: 28dca69a9c40779916ac2d6985a0192a5cb4a265
   RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
   RCTRequired: 9b1e7e262745fb671e33c51c1078d093bd30e322
   RCTTypeSafety: a759e3b086eccf3e2cbf2493d22f28e082f958e6
@@ -1725,6 +1735,7 @@ SPEC CHECKSUMS:
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
   react-native-tab-page-view: fb10f165399f853e9d59e4613fd07f98c8e758bc
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
+  react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
   react-native-webview: 6408bc328e65042d240d0ebd62baa76ffd23b1aa
   React-nativeconfig: d753fbbc8cecc8ae413d615599ac378bbf6999bb

@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
 import {
+  Icon,
   Image,
   Skeleton,
   Stack,
@@ -110,7 +111,7 @@ function BasicAccountAvatar({
           ...VARIANT_SIZE.default,
           containerSize: size || VARIANT_SIZE.default.containerSize,
         };
-  const content = useMemo(() => {
+  const renderContent = useMemo(() => {
     if (address) {
       return <MemoHashImageSource id={address} />;
     }
@@ -122,8 +123,42 @@ function BasicAccountAvatar({
     if (account) {
       return <MemoHashImageSource id={account.address} />;
     }
-    return <Image.Source src={src} source={source} />;
+    if (source || src) {
+      return <Image.Source src={src} source={source} />;
+    }
+    return (
+      <Stack
+        flex={1}
+        bg="$bgStrong"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name="CrossedSmallSolid" size="$6" />
+      </Stack>
+    );
   }, [account, address, indexedAccount, source, src]);
+  const renderFallback = useMemo(() => {
+    if (address || indexedAccount || account || source || src) {
+      return (
+        fallback ||
+        (fallbackProps ? (
+          <Image.Fallback {...fallbackProps} />
+        ) : (
+          <Fallback w={containerSize} h={containerSize} />
+        ))
+      );
+    }
+    return null;
+  }, [
+    account,
+    address,
+    containerSize,
+    fallback,
+    fallbackProps,
+    indexedAccount,
+    source,
+    src,
+  ]);
   return (
     <Stack
       w={containerSize}
@@ -141,13 +176,8 @@ function BasicAccountAvatar({
         borderRadius={size === 'small' ? '$1' : '$2'}
         {...restProps}
       >
-        {content}
-        {fallback ||
-          (fallbackProps ? (
-            <Image.Fallback {...fallbackProps} />
-          ) : (
-            <Fallback w={containerSize} h={containerSize} />
-          ))}
+        {renderContent}
+        {renderFallback}
       </Image>
 
       {networkId ? (

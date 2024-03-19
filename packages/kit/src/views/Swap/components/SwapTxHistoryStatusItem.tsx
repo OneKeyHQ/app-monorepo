@@ -49,12 +49,12 @@ const SwapTxHistoryStatusItem = ({
         />
         <YStack>
           <SizableText>{statusTitle}</SizableText>
-          {usedTime && <SizableText>{usedTime}</SizableText>}
+          {usedTime ? <SizableText>{usedTime}</SizableText> : null}
         </YStack>
       </XStack>
-      {status !== ESwapTxHistoryStatus.PENDING && (
+      {status !== ESwapTxHistoryStatus.PENDING ? (
         <Button onPress={onSwapAgain}>Swap Again</Button>
-      )}
+      ) : null}
     </XStack>
   );
 };
