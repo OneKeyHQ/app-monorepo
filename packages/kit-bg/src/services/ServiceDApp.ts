@@ -29,7 +29,6 @@ import {
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IConnectionAccountInfo,
-  IConnectionAccountInfoWithNum,
   IConnectionItem,
   IConnectionItemWithStorageType,
   IConnectionStorageType,
