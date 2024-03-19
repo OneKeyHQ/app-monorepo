@@ -295,6 +295,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions
+          disabled={displayHomePage}
           isBookmark={tab?.isBookmark ?? false}
           onBookmarkPress={handleBookmarkPress}
           onRefresh={() => {

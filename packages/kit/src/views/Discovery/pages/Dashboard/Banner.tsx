@@ -1,10 +1,13 @@
 import { useCallback } from 'react';
 
+import { isNil } from 'lodash';
+
 import type { IRenderPaginationParams } from '@onekeyhq/components';
 import {
   IconButton,
   Image,
   SizableText,
+  Skeleton,
   Stack,
   Swiper,
   XStack,
@@ -17,6 +20,7 @@ import type { IMatchDAppItemType } from '../../types';
 export function Banner({
   banners,
   handleOpenWebSite,
+  isLoading,
 }: {
   banners: IDiscoveryBanner[];
   handleOpenWebSite: ({
@@ -24,6 +28,7 @@ export function Banner({
     webSite,
     useSystemBrowser,
   }: IMatchDAppItemType & { useSystemBrowser: boolean }) => void;
+  isLoading: boolean | undefined;
 }) {
   const media = useMedia();
   const renderItem = useCallback(
@@ -148,6 +153,23 @@ export function Banner({
     (item: IDiscoveryBanner) => item.bannerId,
     [],
   );
+
+  if (isNil(isLoading) || isLoading) {
+    return (
+      <Stack p="$5">
+        <Skeleton
+          h={188}
+          w="100%"
+          $gtMd={{
+            height: 268,
+          }}
+          $gtLg={{
+            height: 364,
+          }}
+        />
+      </Stack>
+    );
+  }
 
   return (
     <Swiper

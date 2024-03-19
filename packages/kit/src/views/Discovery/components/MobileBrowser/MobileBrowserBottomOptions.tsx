@@ -9,6 +9,7 @@ import type { IMobileBottomOptionsProps } from '../../types';
 
 function MobileBrowserBottomOptions({
   children,
+  disabled,
   isBookmark,
   onBookmarkPress,
   onRefresh,
@@ -92,6 +93,7 @@ function MobileBrowserBottomOptions({
     <ActionList
       title={intl.formatMessage({ id: 'select__options' })}
       renderTrigger={children}
+      disabled={disabled}
       sections={[
         {
           items: buildSectionItems(),

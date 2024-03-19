@@ -84,6 +84,7 @@ export interface IWebTabsAtom {
 }
 
 export interface IMobileBottomOptionsProps {
+  disabled: boolean;
   isBookmark: boolean;
   onBookmarkPress: (bookmark: boolean) => void;
   onRefresh: () => void;
