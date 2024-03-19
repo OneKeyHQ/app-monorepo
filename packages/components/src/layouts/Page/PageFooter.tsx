@@ -70,6 +70,12 @@ function PageFooterContext(props: IPageFooterProps) {
   useEffect(() => {
     footerRef.current.props = props;
     footerRef.current.notifyUpdate?.();
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      footerRef.current.props = undefined;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      footerRef.current.notifyUpdate?.();
+    };
   }, [footerRef, props]);
   return null;
 }
@@ -78,11 +84,16 @@ export function BasicPageFooter() {
   const { footerRef } = useContext(PageContext);
   const [, setCount] = useState(0);
   const { props: footerProps } = footerRef.current;
-  useMemo(() => {
+  useEffect(() => {
     footerRef.current.notifyUpdate = () => {
       setCount((i) => i + 1);
     };
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      footerRef.current.notifyUpdate = undefined;
+    };
   }, [footerRef]);
+
   return footerProps ? (
     <PageFooterContainer>
       {footerProps.children ? (

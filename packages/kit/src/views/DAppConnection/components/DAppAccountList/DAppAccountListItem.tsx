@@ -216,7 +216,6 @@ function WalletConnectAccountTriggerList({
                 key={i.accountSelectorNum}
                 num={i.accountSelectorNum}
                 handleAccountChanged={handleAccountChanged}
-                networkReadonly
               />
             ))}
           </YStack>
