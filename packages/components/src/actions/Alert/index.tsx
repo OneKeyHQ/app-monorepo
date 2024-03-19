@@ -59,9 +59,7 @@ const AlertFrame = styled(XStack, {
   borderColor: '$borderSubdued',
   borderRadius: '$3',
   borderWidth: StyleSheet.hairlineWidth,
-  style: {
-    borderCurve: 'continuous',
-  },
+  borderCurve: 'continuous',
   variants: {
     type: {
       info: {

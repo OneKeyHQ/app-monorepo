@@ -202,9 +202,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
           selectionColor={selectionColor}
           cursor={sharedStyles.cursor}
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
-          style={{
-            borderCurve: 'continuous',
-          }}
+          borderCurve="continuous"
           autoFocus={reloadAutoFocus}
           {...readOnlyStyle}
           {...props}

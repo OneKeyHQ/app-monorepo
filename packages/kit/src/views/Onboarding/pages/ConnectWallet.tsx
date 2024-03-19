@@ -137,9 +137,7 @@ export function ConnectWallet() {
                       borderRadius="$2"
                       borderWidth={StyleSheet.hairlineWidth}
                       borderColor="$borderSubdued"
-                      style={{
-                        borderCurve: 'continuous',
-                      }}
+                      borderCurve="continuous"
                       overflow="hidden"
                     >
                       <Image w="100%" h="100%" source={logo} />

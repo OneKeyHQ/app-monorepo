@@ -184,9 +184,7 @@ export function ControlledNetworkSelectorTrigger({
             borderRadius: '$2',
             py: '$2',
           }}
-          style={{
-            borderCurve: 'continuous',
-          }}
+          borderCurve="continuous"
         >
           <Token size="sm" />
           <SizableText size="$bodyLg" flex={1} px="$3">
