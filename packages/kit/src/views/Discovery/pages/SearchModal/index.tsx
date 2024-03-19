@@ -47,21 +47,21 @@ function SearchModal() {
         generateIcon: true,
         sliceCount: 8,
       });
+      const historyData = await serviceDiscovery.getHistoryData({
+        generateIcon: true,
+        sliceCount: 8,
+        keyword: searchValue ?? undefined,
+      });
       return {
         bookmarkData,
+        historyData,
       };
-    }, [serviceDiscovery]);
+    }, [serviceDiscovery, searchValue]);
 
   const { result: searchResult } = usePromiseResult(async () => {
     const res = await serviceDiscovery.searchDApp(searchValue);
-    const historyData = await serviceDiscovery.getHistoryData({
-      generateIcon: true,
-      sliceCount: 8,
-      keyword: searchValue ?? undefined,
-    });
     return {
       remoteData: res,
-      historyData,
     };
   }, [searchValue, serviceDiscovery]);
 
@@ -102,7 +102,7 @@ function SearchModal() {
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
   const displayBookmarkList =
     (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
-  const displayHistoryList = (searchResult?.historyData ?? []).length > 0;
+  const displayHistoryList = (localData?.historyData ?? []).length > 0;
 
   return (
     <Page skipLoading safeAreaEnabled scrollEnabled>
@@ -239,7 +239,7 @@ function SearchModal() {
                 });
               }}
             />
-            {searchResult?.historyData?.map((item, index) => (
+            {localData?.historyData?.map((item, index) => (
               <ListItem
                 key={index}
                 avatarProps={{
