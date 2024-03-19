@@ -20,6 +20,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapFetchCancelCause,
   ESwapProviders,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -30,11 +31,22 @@ import ServiceBase from './ServiceBase';
 export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
 
+  private _tokenListAbortController?: AbortController;
+
   // --------------------- fetch
   @backgroundMethod()
   async cancelFetchQuotes() {
     if (this._quoteAbortController) {
       this._quoteAbortController.abort();
+      this._quoteAbortController = undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async cancelFetchTokenList() {
+    if (this._tokenListAbortController) {
+      this._tokenListAbortController.abort();
+      this._tokenListAbortController = undefined;
     }
   }
 
@@ -64,6 +76,7 @@ export default class ServiceSwap extends ServiceBase {
     accountNetworkId,
     accountXpub,
   }: IFetchTokensParams): Promise<{ result: ISwapToken[]; next?: string }> {
+    await this.cancelFetchTokenList();
     const providersArr = fromToken?.providers.split(',');
     const params = {
       fromTokenNetworkId: fromToken?.networkId,
@@ -84,13 +97,28 @@ export default class ServiceSwap extends ServiceBase {
       accountNetworkId,
       accountXpub,
     };
+    this._tokenListAbortController = new AbortController();
     const client = await this.getClient();
-    const { data } = await client.get<
-      IFetchResponse<{ next?: string; data: ISwapToken[] }>
-    >('/swap/v1/tokens', {
-      params,
-    });
-    return { result: data?.data?.data ?? [], next: data?.data?.next };
+    try {
+      const { data } = await client.get<
+        IFetchResponse<{ next?: string; data: ISwapToken[] }>
+      >('/swap/v1/tokens', {
+        params,
+        signal: this._tokenListAbortController.signal,
+      });
+      this._tokenListAbortController = undefined;
+      return { result: data?.data?.data ?? [], next: data?.data?.next };
+    } catch (e) {
+      if (axios.isCancel(e)) {
+        throw new Error('swap fetch tokens cancel', {
+          cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
+        });
+      } else {
+        const error = e as { message: string };
+        Toast.error({ title: 'error', message: error?.message });
+        return { result: [], next: undefined };
+      }
+    }
   }
 
   @backgroundMethod()
@@ -133,9 +161,7 @@ export default class ServiceSwap extends ServiceBase {
     userAddress?: string;
     slippagePercentage: number;
   }): Promise<IFetchQuoteResult[]> {
-    if (this._quoteAbortController) {
-      this._quoteAbortController.abort();
-    }
+    await this.cancelFetchQuotes();
     const fromProvidersArr = fromToken.providers.split(',');
     const toProvidersArr = toToken.providers.split(',');
     let supportedProviders = fromProvidersArr.filter((item) =>
@@ -178,7 +204,9 @@ export default class ServiceSwap extends ServiceBase {
       return data?.data ?? [];
     } catch (e) {
       if (axios.isCancel(e)) {
-        throw new Error('cancel');
+        throw new Error('swap fetch quote cancel', {
+          cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
+        });
       } else {
         const error = e as { message: string };
         Toast.error({ title: 'error', message: error?.message });
