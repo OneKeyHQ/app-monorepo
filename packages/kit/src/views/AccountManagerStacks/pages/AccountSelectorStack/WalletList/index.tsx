@@ -127,6 +127,7 @@ export function WalletList({ num }: IWalletListProps) {
             wallet={item}
             focusedWallet={selectedAccount.focusedWallet}
             onWalletPress={onWalletPress}
+            testID={`wallet-${item.id}`}
           />
         )}
         ItemSeparatorComponent={ListItemSeparator}

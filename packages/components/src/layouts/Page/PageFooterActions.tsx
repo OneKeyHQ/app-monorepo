@@ -71,6 +71,7 @@ export function FooterCancelButton({
         } as IButtonProps
       }
       onPress={handleCancel}
+      testID="page-footer-cancel"
       {...props}
     >
       {children || 'Cancel'}
@@ -100,6 +101,7 @@ export function FooterConfirmButton({
       }
       variant="primary"
       onPress={handleConfirm}
+      testID="page-footer-confirm"
       {...props}
     >
       {children || 'Confirm'}
