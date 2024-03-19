@@ -349,11 +349,11 @@ export const NUMBER_FORMATTER = {
 export interface INumberFormatProps {
   formatter?: keyof typeof NUMBER_FORMATTER;
   formatterOptions?: IFormatterOptions;
-  value?: string | number | undefined;
 }
 
 export const numberFormat = (
-  { value, formatter, formatterOptions }: INumberFormatProps,
+  value: string,
+  { formatter, formatterOptions }: INumberFormatProps,
   isRaw = false,
 ) => {
   const result =

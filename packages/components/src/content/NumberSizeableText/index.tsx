@@ -8,7 +8,7 @@ import { SizableText } from '../../primitives';
 import type { ISizableTextProps } from '../../primitives';
 
 export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> &
-  Omit<INumberFormatProps, 'value'> & {
+  INumberFormatProps & {
     subTextStyle?: Omit<ISizableTextProps, 'children'>;
     children: string | number | undefined;
   };
@@ -31,7 +31,7 @@ export function NumberSizeableText({
   const result = useMemo(
     () =>
       ['string', 'number'].includes(typeof children)
-        ? numberFormat({ formatter, formatterOptions, value: children }, true)
+        ? numberFormat(String(children), { formatter, formatterOptions }, true)
         : '',
     [formatter, formatterOptions, children],
   );
