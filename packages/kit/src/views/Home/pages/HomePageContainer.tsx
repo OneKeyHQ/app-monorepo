@@ -247,6 +247,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     wallet,
     headerLeft,
     renderHeaderRight,
+    top,
     account,
     tabs,
     screenWidth,
@@ -257,7 +258,10 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     intl,
   ]);
 
-  return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
+  return useMemo(
+    () => <Page skipLoading={platformEnv.isNativeIOS}>{renderHomePage()}</Page>,
+    [renderHomePage],
+  );
 }
 
 function HomePageContainer() {

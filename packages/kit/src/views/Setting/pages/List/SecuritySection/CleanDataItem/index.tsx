@@ -2,12 +2,12 @@ import {
   ActionList,
   Checkbox,
   Dialog,
-  Input,
   Stack,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
@@ -49,6 +49,7 @@ const ClearCacheOnAppContent = () => (
 
 export const CleanDataItem = () => {
   const { copyText } = useClipboard();
+  const resetApp = useResetApp();
   return (
     <ActionList
       title="Clear Data"
@@ -129,41 +130,8 @@ export const CleanDataItem = () => {
         {
           label: 'Reset App',
           destructive: true,
+          onPress: resetApp,
           testID: 'setting-erase-data',
-          onPress: () => {
-            Dialog.show({
-              title: 'Erase all data',
-              icon: 'ErrorOutline',
-              tone: 'destructive',
-              description:
-                'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "ERASE" to reset the App',
-              renderContent: (
-                <Dialog.Form
-                  formProps={{
-                    defaultValues: { text: '' },
-                  }}
-                >
-                  <Dialog.FormField name="text">
-                    <Input autoFocus flex={1} testID="erase-data-input" />
-                  </Dialog.FormField>
-                </Dialog.Form>
-              ),
-              confirmButtonProps: {
-                disabledOn: ({ getForm }) => {
-                  const { getValues } = getForm() || {};
-                  if (getValues) {
-                    const { text } = getValues();
-                    return text !== 'ERASE';
-                  }
-                  return true;
-                },
-                testID: 'erase-data-confirm',
-              },
-              onConfirm() {
-                void backgroundApiProxy.serviceApp.resetApp();
-              },
-            });
-          },
         },
       ]}
     />
