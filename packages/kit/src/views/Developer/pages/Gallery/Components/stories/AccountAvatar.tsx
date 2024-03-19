@@ -40,18 +40,13 @@ const ToastGallery = () => (
             {/* always loading */}
             <AccountAvatar
               size="small"
-              src="
-                  https://onekey-asset.com/assets/btc/btc.pn"
+              src="https://onekey-asset.com/assets/btc/btc.pn"
             />
             <AccountAvatar
               size="small"
-              src="
-                  https://onekey-asset.com/assets/btc/btc.png"
+              src="https://onekey-asset.com/assets/btc/btc.png"
             />
-            <AccountAvatar
-              src="
-                  https://onekey-asset.com/assets/btc/btc.png"
-            />
+            <AccountAvatar src="https://onekey-asset.com/assets/btc/btc.png" />
           </YStack>
         ),
       },

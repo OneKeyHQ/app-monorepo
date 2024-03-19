@@ -156,6 +156,8 @@ function BasicAccountAvatar({
     fallback,
     fallbackProps,
     indexedAccount,
+    source,
+    src,
   ]);
   return (
     <Stack
