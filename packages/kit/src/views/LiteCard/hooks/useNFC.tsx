@@ -74,13 +74,19 @@ export default function useNFC() {
     await willCloseIOSDialogInstance?.current?.close?.();
   }, [willCloseIOSDialogInstance]);
   const handlerLiteCardError = useCallback(
-    (
-      error?: CallbackError,
-      data?: any,
-      cardInfo?: CardInfo,
-      lastCardInfo?: CardInfo,
-      retryAction?: () => void,
-    ) =>
+    ({
+      error,
+      cardInfo,
+      lastCardInfo,
+      retryNFCAction,
+      retryPINAction,
+    }: {
+      error?: CallbackError;
+      cardInfo?: CardInfo;
+      lastCardInfo?: CardInfo;
+      retryNFCAction?: () => Promise<void>;
+      retryPINAction?: () => Promise<void>;
+    }) =>
       new Promise<void>((resolve, reject) => {
         void hideNFCConnectDialog();
         if (error) {
@@ -107,7 +113,7 @@ export default function useNFC() {
                 title: 'Recovery Interrupted',
                 description: `Make sure the device is close to the phone's NFC module, then try again.`,
                 onConfirmText: 'Retry',
-                onConfirm: retryAction,
+                onConfirm: retryNFCAction,
               });
               break;
             case CardErrors.NotInitializedError:
@@ -118,7 +124,7 @@ export default function useNFC() {
                 description:
                   'No backup in this OneKey Lite. Replace with another OneKey Lite and retry.',
                 onConfirmText: 'Retry',
-                onConfirm: retryAction,
+                onConfirm: retryNFCAction,
               });
               break;
             case CardErrors.PasswordWrong:
@@ -137,7 +143,11 @@ export default function useNFC() {
                   </SizableText>
                 ),
                 onConfirmText: 'Retry',
-                onConfirm: retryAction,
+                onConfirm: async (dialogInstance) => {
+                  void dialogInstance.close();
+                  await retryPINAction?.();
+                  await retryNFCAction?.();
+                },
               });
               break;
             case CardErrors.UpperErrorAutoReset:
@@ -157,7 +167,7 @@ export default function useNFC() {
                 title: 'Connect Failed',
                 description: `Make sure the device is close to the phone's NFC module, then try again.`,
                 onConfirmText: 'Retry',
-                onConfirm: retryAction,
+                onConfirm: retryNFCAction,
               });
               break;
           }

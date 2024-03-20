@@ -1,9 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
-const {
-  serviceLiteCardMnemonic: { encodeMnemonic, decodeMnemonic },
-} = backgroundApiProxy;
+import { decodeMnemonic, encodeMnemonic } from './utils/liteCardMnemonic';
 
 describe('liteCardMnemonicEncodeDecode', () => {
   it('should encode v01 correctly', async () => {
