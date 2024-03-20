@@ -26,10 +26,16 @@ type IAddressFormValues = {
 const pluginsOptions = { 'clipboard': true, 'contacts': true, 'scan': true };
 
 type IAddressInputTestComponentProps = {
+  networkId: string;
   plugins?: ComponentProps<typeof AddressInput>['plugins'];
+  num?: number;
 };
 
-const TestComponent: FC<IAddressInputTestComponentProps> = ({ plugins }) => {
+const TestComponent: FC<IAddressInputTestComponentProps> = ({
+  plugins,
+  networkId,
+  num = 0,
+}) => {
   const intl = useIntl();
   const form = useForm<IAddressFormValues>({
     defaultValues: { name: '', address: { raw: '', resolved: undefined } },
@@ -60,9 +66,10 @@ const TestComponent: FC<IAddressInputTestComponentProps> = ({ plugins }) => {
           }}
         >
           <AddressInput
-            networkId="evm--1"
+            networkId={networkId}
             enableAddressBook
             enableWalletName
+            num={num}
             plugins={plugins}
           />
         </Form.Field>
@@ -95,18 +102,34 @@ const AddressInputGallery = () => (
         title: 'AddressInput',
         element: (
           <Stack space="$4">
-            <TestComponent />
+            <TestComponent networkId="evm--1" />
           </Stack>
         ),
       },
       {
-        title: 'AddressInput With AddressBook',
+        title: 'AddressInput With AddressBook (ETH)',
         element: (
           <Stack space="$4">
-            <TestComponent plugins={pluginsOptions} />
+            <TestComponent
+              networkId="evm--1"
+              num={0}
+              plugins={pluginsOptions}
+            />
           </Stack>
         ),
       },
+      // {
+      //   title: 'AddressInput With AddressBook (BTC)',
+      //   element: (
+      //     <Stack space="$4">
+      //       <TestComponent
+      //         networkId="btc--0"
+      //         num={1}
+      //         plugins={pluginsOptions}
+      //       />
+      //     </Stack>
+      //   ),
+      // },
     ]}
   />
 );

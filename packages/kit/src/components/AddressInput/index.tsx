@@ -24,11 +24,8 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/accountSelector/hooks/useAccountSelectorTrigger';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
@@ -36,7 +33,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
 import { BaseInput } from '../BaseInput';
 
 type IAddressPluginsOptions = {
@@ -97,23 +93,29 @@ const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange }) => (
 
 type IContactsPluginProps = IAddressPluginProps & {
   networkId?: string;
+  num: number;
 };
 
 const ContactsPlugin: FC<IContactsPluginProps> = ({
   onChange,
   networkId,
   testID,
+  num,
 }) => {
-  const ref = useRef<boolean>(false);
+  const accountSelectorOpen = useRef<boolean>(false);
   const pick = useAddressBookPick();
-  const navigation = useAppNavigation();
-  const actions = useAccountSelectorActions();
   const {
-    activeAccount: { wallet, account },
-  } = useActiveAccount({
-    num: 0,
-  });
-  const onPress = useCallback(() => {
+    activeAccount: { account },
+    showAccountSelector,
+  } = useAccountSelectorTrigger({ num, linkNetwork: true });
+
+  useEffect(() => {
+    if (account?.address && accountSelectorOpen.current) {
+      onChange?.(account?.address);
+    }
+  }, [account, onChange]);
+
+  const onPickContacts = useCallback(() => {
     void pick({
       networkId,
       onPick: (item: IAddressItem) => {
@@ -121,11 +123,6 @@ const ContactsPlugin: FC<IContactsPluginProps> = ({
       },
     });
   }, [onChange, pick, networkId]);
-  useEffect(() => {
-    if (account?.address && ref.current) {
-      onChange?.(account?.address);
-    }
-  }, [account?.address, onChange]);
   return (
     <ActionList
       title="Select"
@@ -134,19 +131,14 @@ const ContactsPlugin: FC<IContactsPluginProps> = ({
           icon: 'WalletCryptoOutline',
           label: 'My Accounts',
           onPress: () => {
-            ref.current = true;
-            void actions.current.showAccountSelector({
-              activeWallet: wallet,
-              num: 0,
-              navigation,
-              sceneName: EAccountSelectorSceneName.addressInput,
-            });
+            accountSelectorOpen.current = true;
+            showAccountSelector();
           },
         },
         {
           icon: 'ContactsOutline',
           label: 'Address Book',
-          onPress,
+          onPress: onPickContacts,
         },
       ]}
       renderTrigger={
@@ -253,6 +245,7 @@ type IAddressInputProps = Omit<
   enableWalletName?: boolean;
   //
   accountId?: string;
+  num?: number;
   enableAddressInteractionStatus?: boolean;
 };
 
@@ -291,6 +284,7 @@ function AddressInput(props: IAddressInputProps) {
     enableAddressBook,
     enableWalletName,
     accountId,
+    num = 0,
     enableAddressInteractionStatus,
     ...rest
   } = props;
@@ -440,6 +434,7 @@ function AddressInput(props: IAddressInputProps) {
               <ContactsPlugin
                 onChange={onChangeText}
                 networkId={networkId}
+                num={num}
                 testID={`${rest.testID ?? ''}-contacts`}
               />
             </AccountSelectorProviderMirror>
@@ -461,6 +456,7 @@ function AddressInput(props: IAddressInputProps) {
       setResolveAddress,
       networkId,
       rest.testID,
+      num,
     ],
   );
 
