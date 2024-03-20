@@ -3,6 +3,7 @@ import { getSdkError } from '@walletconnect/utils';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -19,11 +20,19 @@ import type {
   ICaipsInfo,
   IChainInfo,
   INamespaceUnion,
+  IWalletConnectAddressString,
+  IWalletConnectChainString,
+  IWalletConnectOptionalNamespaces,
+  IWalletConnectRequiredNamespaces,
+  IWcChainAddress,
 } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 
 import ServiceBase from '../ServiceBase';
 
+import { WalletConnectDappSide } from './WalletConnectDappSide';
+
+import type { IDBExternalAccount } from '../../dbs/local/types';
 import type { ProposalTypes, SessionTypes } from '@walletconnect/types';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
@@ -34,24 +43,63 @@ class ServiceWalletConnect extends ServiceBase {
   }
 
   // walletConnectChainIdChainId: eip155:1, eip155:137
+  dappSide = new WalletConnectDappSide({
+    backgroundApi: this.backgroundApi,
+  });
+
   @backgroundMethod()
-  async getChainData(
-    walletConnectChainId?: string,
-  ): Promise<IChainInfo | undefined> {
-    if (!walletConnectChainId) return;
-    if (!walletConnectChainId.includes(':')) return;
-    const [namespace, reference] = walletConnectChainId.split(':');
-    const allChainsData = await this.getAllChains();
-    return allChainsData.find(
-      (chain) => chain.chainId === reference && chain.namespace === namespace,
-    );
+  @toastIfError()
+  connectToWallet() {
+    return this.dappSide.connectToWallet();
   }
 
   @backgroundMethod()
-  async getChainDataByNetworkId(networkId: string) {
-    if (!networkId) return;
+  async activateSession({ topic }: { topic: string }) {
+    await this.dappSide.activateSession({ topic });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async testExternalAccountPersonalSign({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const chainData = await this.getChainDataByNetworkId({
+      networkId,
+    });
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+
+    return this.dappSide.testExternalAccountPersonalSign({
+      address: account.address,
+      wcChain: chainData?.wcChain || '',
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      topic: (account as IDBExternalAccount).wcTopic!,
+      account: account as IDBExternalAccount,
+    });
+  }
+
+  // chainId: eip155:1, eip155:137
+  @backgroundMethod()
+  async getChainData(
+    walletConnectChainId?: IWalletConnectChainString,
+  ): Promise<IChainInfo | undefined> {
+    if (!walletConnectChainId || !walletConnectChainId.includes(':')) {
+      throw new Error(
+        `WalletConnect ChainId not valid: ${walletConnectChainId || ''}`,
+      );
+    }
+    const [namespace, reference] = walletConnectChainId.split(':');
     const allChainsData = await this.getAllChains();
-    return allChainsData.find((chain) => chain.networkId === networkId);
+    const result = allChainsData.find(
+      (chain) => chain.chainId === reference && chain.wcNamespace === namespace,
+    );
+    return result;
   }
 
   @backgroundMethod()
@@ -76,11 +124,13 @@ class ServiceWalletConnect extends ServiceBase {
           if (caipsItem) {
             caipsInfo = caipsItem.find((caips) => caips.networkId === n.id);
           }
+          const chainId = caipsInfo?.caipsChainId || n.chainId;
           return {
-            chainId: caipsInfo?.caipsChainId || n.chainId,
+            chainId,
             networkId: caipsInfo?.networkId || n.id,
-            namespace,
-            name: n.name,
+            wcNamespace: namespace,
+            networkName: n.name,
+            wcChain: `${namespace}:${chainId}`,
           };
         });
         chainInfos = chainInfos.concat(infos);
@@ -94,17 +144,31 @@ class ServiceWalletConnect extends ServiceBase {
   );
 
   @backgroundMethod()
+  async getNetworkImplByNamespace(namespace: INamespaceUnion) {
+    return Promise.resolve(namespaceToImplsMap[namespace]);
+  }
+
+  @backgroundMethod()
+  async getChainDataByNetworkId({ networkId }: { networkId: string }) {
+    const allChains = await this.getAllChains();
+    return allChains.find((chain) => chain.networkId === networkId);
+  }
+
+  // ----------------------------------------------
+
+  @backgroundMethod()
   async getNotSupportedChains(
-    proposal: Web3WalletTypes.SessionProposal,
-    isOptionalNamespace?: boolean,
+    namespaces:
+      | IWalletConnectRequiredNamespaces
+      | IWalletConnectOptionalNamespaces,
   ): Promise<string[]> {
     // Find the supported chains must
     const required = new Set<string>(); // [eip155:5]
     // Array to collect chains that are not supported
     const notSupportedChains: string[] = [];
-    const namespaces = isOptionalNamespace
-      ? proposal.params.optionalNamespaces
-      : proposal.params.requiredNamespaces;
+    // const namespaces = isOptionalNamespace
+    //   ? proposal.params.optionalNamespaces
+    //   : proposal.params.requiredNamespaces;
     for (const [key, values] of Object.entries(namespaces)) {
       if (key.includes(':')) {
         required.add(key);
@@ -129,11 +193,6 @@ class ServiceWalletConnect extends ServiceBase {
     }
 
     return notSupportedChains;
-  }
-
-  @backgroundMethod()
-  async getNetworkImplByNamespace(namespace: INamespaceUnion) {
-    return Promise.resolve(namespaceToImplsMap[namespace]);
   }
 
   @backgroundMethod()
@@ -220,8 +279,10 @@ class ServiceWalletConnect extends ServiceBase {
     // Process required namespaces
     await processNamespaces(proposal.params.requiredNamespaces);
 
-    // Retrieve list of unsupported chains
-    const notSupportedChains = await this.getNotSupportedChains(proposal, true);
+    // Retrieve list of unsupported optional chains
+    const notSupportedChains = await this.getNotSupportedChains(
+      proposal.params.optionalNamespaces,
+    );
 
     // Process optional namespaces, considering unsupported chains
     if (proposal.params.optionalNamespaces) {
@@ -246,12 +307,13 @@ class ServiceWalletConnect extends ServiceBase {
   async disconnectAllSessions() {
     const activeSessions = await this.getActiveSessions();
     for (const session of Object.values(activeSessions ?? {})) {
-      await this.walletConnectDisconnect(session.topic);
+      void this.walletConnectDisconnect(session.topic);
     }
   }
 
   @backgroundMethod()
   async walletConnectDisconnect(topic: string) {
+    // emit `session_delete` event to dapp
     return this.backgroundApi.walletConnect.web3Wallet?.disconnectSession({
       topic,
       reason: getSdkError('USER_DISCONNECTED'),
@@ -310,6 +372,7 @@ class ServiceWalletConnect extends ServiceBase {
   @backgroundMethod()
   async updateSession(topic: string, namespaces: SessionTypes.Namespaces) {
     console.log('WalletConnect Update Session: ', namespaces);
+    // emit `session_update` event to dapp
     return this.backgroundApi.walletConnect.web3Wallet?.updateSession({
       topic,
       namespaces,
@@ -369,13 +432,13 @@ class ServiceWalletConnect extends ServiceBase {
     }
     for (const accountInfo of accountsInfo) {
       if (accountInfo.networkId) {
-        const chainData = await this.getChainDataByNetworkId(
-          accountInfo.networkId,
-        );
-        if (chainData?.chainId && chainData?.namespace) {
+        const chainData = await this.getChainDataByNetworkId({
+          networkId: accountInfo.networkId,
+        });
+        if (chainData?.chainId && chainData?.wcNamespace) {
           void this.emitNetworkChangedEvent({
             topic,
-            walletConnectChainId: `${chainData?.namespace}:${chainData?.chainId}`,
+            walletConnectChainId: `${chainData?.wcNamespace}:${chainData?.chainId}`,
             chainId: networkUtils.getNetworkChainId({
               networkId: accountInfo.networkId,
             }),
@@ -392,13 +455,92 @@ class ServiceWalletConnect extends ServiceBase {
     if (rawData?.data?.walletConnect) {
       for (const [key, value] of Object.entries(rawData.data.walletConnect)) {
         if (value.walletConnectTopic === topic) {
-          await this.backgroundApi.serviceDApp.disconnectWebsite({
+          void this.backgroundApi.serviceDApp.disconnectWebsite({
             origin: key,
             storageType: 'walletConnect',
           });
         }
       }
     }
+  }
+
+  // dapp side methods ----------------------------------------------
+
+  parseWalletConnectFullAddress({
+    wcAddress,
+  }: {
+    wcAddress: IWalletConnectAddressString;
+  }) {
+    const [namespace, chainId, address] = wcAddress.split(':');
+
+    const wcChain: IWalletConnectChainString = `${namespace}:${chainId}`;
+    return {
+      namespace,
+      chainId,
+      address,
+      wcAddress,
+      wcChain,
+    };
+  }
+
+  @backgroundMethod()
+  async parseWalletSessionNamespace({
+    namespaces,
+  }: {
+    namespaces: SessionTypes.Namespaces;
+  }): Promise<{
+    accountsMap: {
+      [networkId: string]: IWcChainAddress[];
+    };
+    addressMap: {
+      [networkId: string]: string; // join(',')
+    };
+    networkIds: string[];
+  }> {
+    const accountsMap: {
+      [networkId: string]: IWcChainAddress[];
+    } = {};
+    const addressMap: {
+      [networkId: string]: string; // join(',')
+    } = {};
+    const entries = Object.entries(namespaces);
+    for (const [, value] of entries) {
+      const accounts = value?.accounts || [];
+      for (const fullAddress of accounts) {
+        const { address, wcChain } = this.parseWalletConnectFullAddress({
+          wcAddress: fullAddress,
+        });
+        const chainInfo = await this.getChainData(wcChain);
+        if (chainInfo) {
+          accountsMap[chainInfo.networkId] =
+            accountsMap[chainInfo.networkId] || [];
+          addressMap[chainInfo.networkId] =
+            addressMap[chainInfo.networkId] || '';
+          if (
+            !accountsMap[chainInfo.networkId].find(
+              (item) => item.address === address,
+            )
+          ) {
+            accountsMap[chainInfo.networkId].push({
+              ...chainInfo,
+              address,
+              wcAddress: fullAddress,
+            });
+            if (address) {
+              const currentAddress = addressMap[chainInfo.networkId];
+              addressMap[chainInfo.networkId] = `${currentAddress || ''}${
+                currentAddress ? ',' : ''
+              }${address}`;
+            }
+          }
+        }
+      }
+    }
+    return {
+      accountsMap,
+      addressMap,
+      networkIds: Object.keys(accountsMap),
+    };
   }
 }
 

@@ -64,7 +64,9 @@
     "@tamagui/toast": "1.79.7",
     "@ungap/structured-clone": "^1.2.0",
     "@vespaiach/axios-fetch-adapter": "^0.3.1",
-    "@walletconnect/web3wallet": "1.10.0",
+    "@walletconnect/modal": "2.6.2",
+    "@walletconnect/universal-provider": "2.11.2",
+    "@walletconnect/web3wallet": "1.10.2",
     "bignumber.js": "9.1.2",
     "browserify-zlib": "^0.2.0",
     "crypto-browserify": "^3.12.0",
@@ -177,6 +179,8 @@
     "@babel/highlight": "7.23.4",
     "@babel/types": "7.23.5",
     "@babel/parser": "7.23.5",
+    "@walletconnect/universal-provider": "2.11.2",
+    "@walletconnect/core": "2.11.2",
     "fs": "npm:@favware/skip-dependency@1.2.1"
   }
 }

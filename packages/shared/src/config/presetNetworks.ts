@@ -6,7 +6,7 @@ import { ENetworkStatus } from '@onekeyhq/shared/types';
 
 import platformEnv from '../platformEnv';
 
-export const NETWORK_ID_ETC = 'evm--61';
+// export const NETWORK_ID_ETC = 'evm--61'; // move to networkIds
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   // shortcode
