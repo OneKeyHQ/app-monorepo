@@ -66,13 +66,17 @@ function useAppNavigation<
       },
     ) => {
       const navigationInstance = navigationRef.current;
-      const rootNavigation = navigationInstance?.getParent()?.getParent();
+
+      let rootNavigation = navigationInstance;
+      while (rootNavigation?.getParent()) {
+        rootNavigation = rootNavigation.getParent();
+      }
+
       const existPageIndex = rootNavigation?.getState?.()?.routes?.findIndex(
-        // @ts-expect-error
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         (rootRoute) => params?.screen === rootRoute?.params?.params?.screen,
       );
-      if (existPageIndex !== -1) {
+      if ((existPageIndex ?? -1) !== -1) {
         return;
       }
 
