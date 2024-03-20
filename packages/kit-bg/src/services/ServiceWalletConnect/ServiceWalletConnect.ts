@@ -169,23 +169,56 @@ class ServiceWalletConnect extends ServiceBase {
     proposal: Web3WalletTypes.SessionProposal,
   ) {
     const { requiredNamespaces, optionalNamespaces } = proposal.params;
-    let namespaces = requiredNamespaces;
-    // If there are no required namespaces, use optional namespaces
-    if (!Object.keys(requiredNamespaces).length) {
-      namespaces = optionalNamespaces;
-    }
-    const promises = Object.keys(namespaces).map(async (namespace, index) => {
+    const supported: Array<{
+      accountSelectorNum: number;
+      networkIds: string[];
+      impl: string;
+    }> = [];
+    let index = 0;
+    // Filter supported chains from requiredNamespace
+    for (const namespace of Object.keys(requiredNamespaces)) {
+      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      if (!impl) {
+        throw new Error('Namespace not supported');
+      }
+      // Generate networkIds by merging supported networks from both required and optional namespaces
       const networkIds = await this.getAvailableNetworkIdsForNamespace(
         requiredNamespaces,
         optionalNamespaces,
         namespace,
       );
-      return {
+      supported.push({
+        impl,
         accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
         networkIds,
-      };
-    });
-    return Promise.all(promises);
+      });
+      index += 1;
+    }
+
+    // Filter supported chains from optionalNamespace
+    for (const namespace of Object.keys(optionalNamespaces)) {
+      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      // Skip namespaces not supported by the wallet
+      if (impl) {
+        const existImpl = supported.find((s) => s.impl === impl);
+        // Skip the current namespace if it has already been processed in the required list
+        if (!existImpl) {
+          const networkIds = await this.getAvailableNetworkIdsForNamespace(
+            requiredNamespaces,
+            optionalNamespaces,
+            namespace,
+          );
+          supported.push({
+            impl,
+            accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
+            networkIds,
+          });
+          index += 1;
+        }
+      }
+    }
+
+    return supported;
   }
 
   @backgroundMethod()
