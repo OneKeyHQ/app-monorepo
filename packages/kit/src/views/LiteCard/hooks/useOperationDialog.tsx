@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { Checkbox, Dialog, Input } from '@onekeyhq/components';
 
-export default function useCardPreCheck() {
+export default function useOperationDialog() {
   const showBackupOverwrittenDialog = useCallback(
     () =>
       new Promise<void>((resolve) => {
@@ -59,7 +59,7 @@ export default function useCardPreCheck() {
             variant: 'destructive',
             disabledOn: (params) => {
               const value = params.getForm()?.getValues().reset;
-              return value !== 'RESET';
+              return !/^RESET$/i.test(value);
             },
           },
           onConfirm: () => resolve(),
@@ -67,8 +67,62 @@ export default function useCardPreCheck() {
       }),
     [],
   );
+  const showBackupSuccessDialog = useCallback(() => {
+    Dialog.confirm({
+      icon: 'CheckRadioOutline',
+      tone: 'success',
+      title: 'Backup Completed!',
+      description:
+        'You can recover your wallet using this card and PIN at all times. Remember this PIN as it cannot be recovered if lost, as we do not store any user information.',
+      onConfirmText: 'I Got It',
+    });
+  }, []);
+  const showChangePINOnNewCardDialog = useCallback(() => {
+    Dialog.show({
+      icon: 'ErrorOutline',
+      tone: 'destructive',
+      title: 'PIN Change Failed',
+      description:
+        'No need to change the PIN code on this new OneKey Lite card.',
+      onConfirmText: 'I Got it',
+    });
+  }, []);
+  const showChangePINSuccessDialog = useCallback(() => {
+    Dialog.confirm({
+      icon: 'CheckRadioOutline',
+      tone: 'success',
+      title: 'OneKey Lite PIN Changed!',
+      description:
+        "This OneKey Lite's PIN has been changed. Remember this PIN as it cannot be recovered if lost, as we do not store any user information.",
+      onConfirmText: 'I Got it',
+    });
+  }, []);
+  const showResetSuccessDialog = useCallback(() => {
+    Dialog.confirm({
+      icon: 'CheckRadioOutline',
+      tone: 'success',
+      title: 'OneKey Lite has been Reset!',
+      description:
+        'The data on this OneKey Lite has been completely erased, and you can use it as a new OneKey Lite.',
+      onConfirmText: 'I Got it',
+    });
+  }, []);
   return useMemo(
-    () => ({ showBackupOverwrittenDialog, showResetWarningDialog }),
-    [showBackupOverwrittenDialog, showResetWarningDialog],
+    () => ({
+      showBackupOverwrittenDialog,
+      showResetWarningDialog,
+      showBackupSuccessDialog,
+      showChangePINOnNewCardDialog,
+      showChangePINSuccessDialog,
+      showResetSuccessDialog,
+    }),
+    [
+      showBackupOverwrittenDialog,
+      showResetWarningDialog,
+      showBackupSuccessDialog,
+      showChangePINOnNewCardDialog,
+      showChangePINSuccessDialog,
+      showResetSuccessDialog,
+    ],
   );
 }

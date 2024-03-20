@@ -8,7 +8,7 @@ import type { LinearGradientProps } from 'expo-linear-gradient';
 import type { ViewStyle } from 'react-native';
 
 export type ILinearGradientProps = Omit<LinearGradientProps, 'colors'> &
-  IStackProps & {
+  Omit<IStackProps, 'start' | 'end'> & {
     colors: string[] | IThemeColorKeys[];
   };
 
@@ -21,6 +21,8 @@ export function LinearGradient({ colors, ...props }: ILinearGradientProps) {
     <NativeLinearGradient
       style={style as ViewStyle}
       colors={resolvedColors}
+      start={props.start}
+      end={props.end}
       {...(restProps as any)}
     />
   );

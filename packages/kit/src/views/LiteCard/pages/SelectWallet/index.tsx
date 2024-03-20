@@ -1,6 +1,6 @@
 import { useRoute } from '@react-navigation/core';
 
-import { ListView, Page, SizableText } from '@onekeyhq/components';
+import { ListView, Page, SizableText, Empty } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
@@ -39,12 +39,21 @@ export default function SelectWallet() {
             onPress={() => onPick?.(item)}
           />
         )}
+        ListEmptyComponent={
+          <Empty
+            icon="SearchOutline"
+            title="No Available Wallet"
+            description="There is no app wallet available for backup"
+          />
+        }
         estimatedItemSize="$10"
         ListFooterComponent={
-          <SizableText size="$bodySm" color="$textSubdued" px="$5" mt="$5">
-            Hardware wallets do not currently support backup to Lite, only App
-            wallets will appear here.
-          </SizableText>
+          walletList?.length ? (
+            <SizableText size="$bodySm" color="$textSubdued" px="$5" mt="$5">
+              Hardware wallets do not currently support backup to Lite, only App
+              wallets will appear here.
+            </SizableText>
+          ) : null
         }
       />
     </Page>
