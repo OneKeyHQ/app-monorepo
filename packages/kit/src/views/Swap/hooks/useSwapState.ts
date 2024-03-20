@@ -53,6 +53,7 @@ function useSwapWarningCheck() {
     }
 
     if (
+      fromToken &&
       !swapFromAddressInfo.address &&
       swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED
     ) {
@@ -68,6 +69,7 @@ function useSwapWarningCheck() {
     }
 
     if (
+      toToken &&
       !swapToAddressInfo.address &&
       swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED
     ) {
@@ -83,6 +85,7 @@ function useSwapWarningCheck() {
     }
 
     if (
+      fromToken &&
       !swapFromAddressInfo.address &&
       swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_WATCHING
     ) {
@@ -98,6 +101,7 @@ function useSwapWarningCheck() {
     }
 
     if (
+      fromToken &&
       !swapFromAddressInfo.address &&
       (swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HD ||
         swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW)
@@ -118,6 +122,7 @@ function useSwapWarningCheck() {
     }
 
     if (
+      toToken &&
       !swapToAddressInfo.address &&
       (swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HD ||
         swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW) &&
@@ -139,7 +144,7 @@ function useSwapWarningCheck() {
     }
 
     // provider toAmount check
-    if (!quoteResult?.toAmount) {
+    if (quoteResult && !quoteResult?.toAmount) {
       alerts = [
         ...alerts,
         {
