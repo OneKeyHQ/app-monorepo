@@ -5,7 +5,6 @@ import { Web3Wallet } from '@walletconnect/web3wallet';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_V2_PROJECT_ID,

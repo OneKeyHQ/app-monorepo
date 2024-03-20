@@ -17,6 +17,7 @@ import {
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
+import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 import { AccountSelectorSyncButton } from './AccountSelectorSyncButton';
 
 export function AccountSelectorActiveAccountLegacy({ num }: { num: number }) {
@@ -86,9 +87,7 @@ export function AccountSelectorActiveAccountLegacy({ num }: { num: number }) {
 }
 
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
-  const { serviceAccount } = backgroundApiProxy;
   const { activeAccount } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
   const { copyText } = useClipboard();
   const { account } = activeAccount;
 
@@ -155,30 +154,6 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   // show create button if account not exists
   return (
-    <Button
-      size="small"
-      borderWidth={0}
-      variant="tertiary"
-      onPress={async () => {
-        console.log({
-          selectedAccount,
-          activeAccount,
-        });
-        if (!selectedAccount) {
-          return;
-        }
-        const c = await serviceAccount.addHDOrHWAccounts({
-          walletId: selectedAccount?.walletId,
-          networkId: selectedAccount?.networkId,
-          indexedAccountId: selectedAccount?.indexedAccountId,
-          deriveType: selectedAccount?.deriveType,
-        });
-        console.log(c);
-        // await refreshCurrentAccount();
-        actions.current.refresh({ num });
-      }}
-    >
-      Create Address
-    </Button>
+    <AccountSelectorCreateAddressButton num={num} account={selectedAccount} />
   );
 }

@@ -79,7 +79,7 @@ export function CommonDeviceLoading({
       borderRadius="$3"
       p="$5"
       bg={bg ?? '$bgSubdued'}
-      style={{ borderCurve: 'continuous' }}
+      borderCurve="continuous"
     >
       <Spinner size="large" />
       {children}
@@ -127,9 +127,7 @@ export function EnterPin({
         borderColor="$borderSubdued"
         borderRadius="$2"
         overflow="hidden"
-        style={{
-          borderCurve: 'continuous',
-        }}
+        borderCurve="continuous"
       >
         <XStack
           h="$12"
