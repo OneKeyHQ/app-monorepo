@@ -195,6 +195,7 @@ export function SuggestedAndExploreSection({
           $gtMd={{
             flexDirection: 'column',
           }}
+          testID={`dapp-cat-${categoryId}`}
         >
           {dataChunks.map((chunk, chunkIndex) => (
             <Stack
@@ -227,6 +228,7 @@ export function SuggestedAndExploreSection({
                       },
                     });
                   }}
+                  testID={`dapp-${categoryId}-${item.dappId}`}
                 >
                   <Image w="$14" h="$14" borderRadius="$3">
                     <Image.Source
