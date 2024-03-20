@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import LiteCard from '@onekeyfe/react-native-lite-card';
 import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
@@ -14,6 +14,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
@@ -22,10 +23,11 @@ import type {
 } from '@onekeyfe/react-native-lite-card/src/types';
 
 export default function useNFC() {
+  const willCloseIOSDialogInstance = useRef<IDialogInstance>();
   const checkNFCEnabledPermission = useCallback(
     () =>
       new Promise<void>((resolve, reject) => {
-        LiteCard.checkNFCPermission((error) => {
+        void LiteCard.checkNFCPermission().then(({ error }) => {
           if (!error) {
             resolve();
             return;
@@ -68,14 +70,19 @@ export default function useNFC() {
       }),
     [],
   );
+  const hideNFCConnectDialog = useCallback(async () => {
+    await willCloseIOSDialogInstance?.current?.close?.();
+  }, [willCloseIOSDialogInstance]);
   const handlerLiteCardError = useCallback(
     (
       error?: CallbackError,
       data?: any,
       cardInfo?: CardInfo,
       lastCardInfo?: CardInfo,
+      retryAction?: () => void,
     ) =>
       new Promise<void>((resolve, reject) => {
+        void hideNFCConnectDialog();
         if (error) {
           if (
             lastCardInfo &&
@@ -100,6 +107,7 @@ export default function useNFC() {
                 title: 'Recovery Interrupted',
                 description: `Make sure the device is close to the phone's NFC module, then try again.`,
                 onConfirmText: 'Retry',
+                onConfirm: retryAction,
               });
               break;
             case CardErrors.NotInitializedError:
@@ -110,6 +118,7 @@ export default function useNFC() {
                 description:
                   'No backup in this OneKey Lite. Replace with another OneKey Lite and retry.',
                 onConfirmText: 'Retry',
+                onConfirm: retryAction,
               });
               break;
             case CardErrors.PasswordWrong:
@@ -128,6 +137,7 @@ export default function useNFC() {
                   </SizableText>
                 ),
                 onConfirmText: 'Retry',
+                onConfirm: retryAction,
               });
               break;
             case CardErrors.UpperErrorAutoReset:
@@ -147,6 +157,7 @@ export default function useNFC() {
                 title: 'Connect Failed',
                 description: `Make sure the device is close to the phone's NFC module, then try again.`,
                 onConfirmText: 'Retry',
+                onConfirm: retryAction,
               });
               break;
           }
@@ -155,7 +166,7 @@ export default function useNFC() {
           resolve();
         }
       }),
-    [],
+    [hideNFCConnectDialog],
   );
   const showNFCConnectDialog = useCallback(
     () =>
@@ -206,9 +217,6 @@ export default function useNFC() {
           children: (
             <XStack
               p="$3"
-              $md={{
-                maxWidth: '$80',
-              }}
               bg="$bgSubdued"
               alignItems="center"
               borderRadius="$2.5"
@@ -217,7 +225,7 @@ export default function useNFC() {
               <Image
                 source={require('@onekeyhq/kit/assets/litecard/onekey-lite.png')}
                 width={60}
-                height={50}
+                resizeMode="contain"
               />
               <Divider vertical h={72} />
               <SizableText flex={1} size="$bodyLg">
@@ -229,7 +237,7 @@ export default function useNFC() {
             </XStack>
           ),
         });
-        Dialog.confirm({
+        willCloseIOSDialogInstance.current = Dialog.confirm({
           title: 'Place OneKey Lite Close to the Phone',
           description:
             'Place the Lite and phone as shown in the figure below, then click "connect.”',
@@ -241,20 +249,33 @@ export default function useNFC() {
           ),
           onClose: toast.close,
           onConfirmText: 'Connect',
-          onConfirm: () => {
-            void toast.close();
+          onConfirm: ({ preventClose }) => {
+            preventClose();
             resolve();
           },
         });
       }),
     [],
   );
+  const createNFCConnection = useCallback(
+    (callback: () => void) => async () => {
+      await showNFCConnectDialog();
+      callback();
+    },
+    [showNFCConnectDialog],
+  );
   return useMemo(
     () => ({
       checkNFCEnabledPermission,
       handlerLiteCardError,
-      showNFCConnectDialog,
+      createNFCConnection,
+      hideNFCConnectDialog,
     }),
-    [checkNFCEnabledPermission, handlerLiteCardError, showNFCConnectDialog],
+    [
+      checkNFCEnabledPermission,
+      handlerLiteCardError,
+      createNFCConnection,
+      hideNFCConnectDialog,
+    ],
   );
 }
