@@ -6,16 +6,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Input } from '../../forms/Input';
 
 import type { IInputProps } from '../../forms/Input';
-import type {
-  NativeSyntheticEvent,
-  TextInputTextInputEventData,
-} from 'react-native';
 
 export type ISearchBarProps = IInputProps & {
   onSearchTextChange?: (text: string) => void;
 };
 
-const COMPOSITION_SPACE = String.fromCharCode(8198);
+const NATIVE_COMPOSITION_SPACE = String.fromCharCode(8198);
 
 export function SearchBar({
   value: defaultValue,
@@ -33,7 +29,7 @@ export function SearchBar({
       onChangeText?.(text);
       // This is a simple solution to support pinyin composition on iOS.
       if (platformEnv.isNative) {
-        onSearchTextChange?.(text.replaceAll(COMPOSITION_SPACE, ''));
+        onSearchTextChange?.(text.replaceAll(NATIVE_COMPOSITION_SPACE, ''));
       } else {
         // on Web
         if (compositionLockRef.current) {
