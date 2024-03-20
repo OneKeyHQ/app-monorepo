@@ -77,9 +77,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
                 outlineStyle: 'solid',
               }
         }
-        style={{
-          borderCurve: 'continuous',
-        }}
+        borderCurve="continuous"
         onPress={handlePress}
         disabled={disabled}
         {...rest}
