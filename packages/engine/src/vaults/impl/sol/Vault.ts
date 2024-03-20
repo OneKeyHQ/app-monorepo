@@ -434,8 +434,7 @@ export default class Vault extends VaultBase {
       if (
         PublicKey.isOnCurve(address) ||
         PublicKey.isOnCurve(publicKey.encode()) ||
-        ((address.length === 43 || address.length === 44) &&
-          bs58.decode(address))
+        bs58.decode(address).length === 32
       ) {
         return Promise.resolve(address);
       }
