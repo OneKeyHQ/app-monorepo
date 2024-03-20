@@ -522,11 +522,13 @@ function AddressInput(props: IAddressInputProps) {
 interface IAddressInputAccountSelectorProviderMirrorProps
   extends PropsWithChildren {
   networkId: string;
+  num?: number;
 }
 
 function AddressInputAccountSelectorProviderMirror({
   networkId,
   children,
+  num = 0,
 }: IAddressInputAccountSelectorProviderMirrorProps) {
   return (
     <AccountSelectorProviderMirror
@@ -534,9 +536,9 @@ function AddressInputAccountSelectorProviderMirror({
         sceneName: EAccountSelectorSceneName.addressInput,
         sceneUrl: '',
       }}
-      enabledNum={[0]}
+      enabledNum={[num]}
       availableNetworksMap={{
-        0: { networkIds: [networkId], defaultNetworkId: networkId },
+        [num]: { networkIds: [networkId], defaultNetworkId: networkId },
       }}
     >
       {children}

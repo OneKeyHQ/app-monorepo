@@ -10,13 +10,11 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   AddressInput,
   AddressInputAccountSelectorProviderMirror,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Layout } from './utils/Layout';
 
@@ -81,7 +79,7 @@ const Demo1 = () => {
   );
 };
 
-const Demo2 = () => {
+const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
   const intl = useIntl();
   const form = useForm<IAddressFormValues>({
     defaultValues: { name: '', address: { raw: '', resolved: undefined } },
@@ -111,13 +109,13 @@ const Demo2 = () => {
             },
           }}
         >
-          <AddressInputAccountSelectorProviderMirror networkId="evm--1">
+          <AddressInputAccountSelectorProviderMirror networkId={networkId}>
             <AddressInput
-              networkId="evm--1"
+              networkId={networkId}
               enableAddressBook
               enableWalletName
               contacts
-              accountSelector={{ num: 0 }}
+              accountSelector={{ num }}
             />
           </AddressInputAccountSelectorProviderMirror>
         </Form.Field>
@@ -144,10 +142,10 @@ const AddressInputGallery = () => (
         ),
       },
       {
-        title: 'AddressInput With AccountSelector/Contact',
+        title: 'AddressInput With AccountSelector/Contact EVM',
         element: (
           <Stack space="$4">
-            <Demo2 />
+            <Demo2 networkId="evm--1" num={0} />
           </Stack>
         ),
       },
