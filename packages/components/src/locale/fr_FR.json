@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "LE PRIX",
   "form__price_volatility": "Volatilité des prix",
   "form__price_volatility_desc": "Recevez une notification de volatilité des prix pour vos jetons",
+  "form__prioritization_fee_sol": "Frais de priorisation",
   "form__priority_fee": "Frais de priorité",
   "form__priority_fee_booster": "🚀 Booster de frais de priorité",
   "form__priority_fee_gwei": "Frais de priorité (Gwei)",

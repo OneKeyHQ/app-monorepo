@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "GIÁ BÁN",
   "form__price_volatility": "Biến động giá",
   "form__price_volatility_desc": "Nhận thông báo biến động giá cho các mã thông báo của bạn",
+  "form__prioritization_fee_sol": "Phí ưu tiên",
   "form__priority_fee": "Phí ưu tiên",
   "form__priority_fee_booster": "🚀 Tăng phí ưu tiên",
   "form__priority_fee_gwei": "Phí ưu tiên (Gwei)",

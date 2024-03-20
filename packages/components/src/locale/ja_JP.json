@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "価格",
   "form__price_volatility": "価格変動性",
   "form__price_volatility_desc": "トークンの価格ボラティリティ通知を受け取る",
+  "form__prioritization_fee_sol": "優先料",
   "form__priority_fee": "優先料金",
   "form__priority_fee_booster": "🚀 優先料金ブースター",
   "form__priority_fee_gwei": "優先料金 (Gwei)",

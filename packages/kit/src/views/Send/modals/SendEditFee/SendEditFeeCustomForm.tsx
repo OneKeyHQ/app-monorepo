@@ -318,7 +318,9 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       return (
         <Form mt={4}>
           <Form.Item
-            label="Compute Unit Price (microLamports)"
+            label={`${intl.formatMessage({
+              id: 'form__prioritization_fee_sol',
+            })} microLamports`}
             control={control}
             name="computeUnitPrice"
             rules={{

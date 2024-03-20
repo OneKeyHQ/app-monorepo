@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "PREZZO",
   "form__price_volatility": "Volatilità del prezzo",
   "form__price_volatility_desc": "Ricevi una notifica sulla volatilità dei prezzi per i tuoi token",
+  "form__prioritization_fee_sol": "Commissione di priorità",
   "form__priority_fee": "Commissione prioritaria",
   "form__priority_fee_booster": "🚀 Amplificatore tariffa prioritaria",
   "form__priority_fee_gwei": "Commissione prioritaria (Gwei)",

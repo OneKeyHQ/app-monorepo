@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "HARGA",
   "form__price_volatility": "Volatilitas Harga",
   "form__price_volatility_desc": "Terima pemberitahuan volatilitas harga untuk token Anda",
+  "form__prioritization_fee_sol": "Biaya Prioritas",
   "form__priority_fee": "Biaya Prioritas",
   "form__priority_fee_booster": "🚀 Penguat Biaya Prioritas",
   "form__priority_fee_gwei": "Biaya Prioritas (Gwei)",
