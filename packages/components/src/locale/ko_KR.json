@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "가격",
   "form__price_volatility": "가격 변동성",
   "form__price_volatility_desc": "토큰에 대한 가격 변동성 알림 수신",
+  "form__prioritization_fee_sol": "우선 수수료",
   "form__priority_fee": "우선 수수료",
   "form__priority_fee_booster": "🚀 우선 수수료 부스터",
   "form__priority_fee_gwei": "우선 수수료(Gwei)",

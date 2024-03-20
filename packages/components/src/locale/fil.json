@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "PRICE",
   "form__price_volatility": "Pagkasumpungin ng Presyo",
   "form__price_volatility_desc": "Makatanggap ng abiso sa pagbabago ng presyo para sa iyong mga token",
+  "form__prioritization_fee_sol": "Bayarin sa Priyoridad",
   "form__priority_fee": "Priority Fee",
   "form__priority_fee_booster": "🚀 Priority Fee Booster",
   "form__priority_fee_gwei": "Priority Fee (Gwei)",

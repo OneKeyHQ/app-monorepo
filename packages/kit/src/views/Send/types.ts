@@ -354,6 +354,7 @@ export type ISendEditFeeValues = {
   baseFee: string;
   totalFee: string;
   feeRate: string;
+  computeUnitPrice: string;
 };
 
 export type BatchSendConfirmPayloadInfo = {

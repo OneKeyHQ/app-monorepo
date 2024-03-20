@@ -22,6 +22,7 @@ import {
   calculateTotalFeeRange,
   getSelectedFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -117,7 +118,10 @@ export function useFeeInfoPayload({
       let shouldFetch =
         !ignoreFetchFeeCalling &&
         (!feeInfoSelected || feeInfoSelected?.type === 'preset');
-      if (fetchAnyway && !ignoreFetchFeeCalling) {
+      if (
+        (fetchAnyway && !ignoreFetchFeeCalling) ||
+        network?.impl === IMPL_SOL
+      ) {
         shouldFetch = true;
       }
 
@@ -181,17 +185,19 @@ export function useFeeInfoPayload({
             info.prices = [price1559];
             info.tx = {
               eip1559: true,
-              limit,
+              limit: limit || info.limit,
               price1559,
             };
           } else if (gasPrice) {
+            info.eip1559 = false;
             const price = new BigNumber(gasPrice ?? 0)
               .shiftedBy(-(feeDecimals ?? 0))
               .toFixed();
             info.limit = limit || info.limit;
             info.prices = [price];
             info.tx = {
-              limit,
+              eip1559: false,
+              limit: limit || info.limit,
               price,
             };
           } else if (limit) {

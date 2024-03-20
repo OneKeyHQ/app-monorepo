@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "PREÇO",
   "form__price_volatility": "Volatilidade dos preços",
   "form__price_volatility_desc": "Receba notificações de volatilidade de preços para seus tokens",
+  "form__prioritization_fee_sol": "Taxa de priorização",
   "form__priority_fee": "Taxa prioritária",
   "form__priority_fee_booster": "🚀 Reforço de taxa prioritária",
   "form__priority_fee_gwei": "Taxa prioritária (Gwei)",

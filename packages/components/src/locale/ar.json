@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "سعر",
   "form__price_volatility": "تقلب الأسعار",
   "form__price_volatility_desc": "تلقي إخطار تقلب أسعار الرموز الخاصة بك",
+  "form__prioritization_fee_sol": "رسوم الأولوية",
   "form__priority_fee": "رسوم الأولوية",
   "form__priority_fee_booster": "🚀 أولوية دفع الرسوم",
   "form__priority_fee_gwei": "رسوم الأولوية (Gwei)",

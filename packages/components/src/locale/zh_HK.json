@@ -1686,6 +1686,7 @@
   "form__price_uppercase": "價格",
   "form__price_volatility": "價格波動",
   "form__price_volatility_desc": "接收代幣價格波動通知",
+  "form__prioritization_fee_sol": "優先費用",
   "form__priority_fee": "礦工小費",
   "form__priority_fee_booster": "🚀 礦工費推進器",
   "form__priority_fee_gwei": "礦工小費（Gwei）",
