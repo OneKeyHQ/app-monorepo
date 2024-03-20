@@ -68,8 +68,9 @@ const SetupNewDeviceModal: FC = () => {
   const route = useRoute<RouteProps>();
   const { device, type } = route?.params || {};
 
-  const miniActivateHelp = useHelpLink({ path: 'articles/4408289773455' });
-  const classicActivateHelp = useHelpLink({ path: 'articles/360004487195' });
+  const miniActivateHelp = useHelpLink({ path: 'articles/8934154578831' });
+  const classicActivateHelp = useHelpLink({ path: 'articles/8871438458767' });
+  const touchActivateHelp = useHelpLink({ path: 'articles/8944522379023' });
 
   const activateHelpUrl = useMemo(() => {
     if (!device) return null;
@@ -77,14 +78,15 @@ const SetupNewDeviceModal: FC = () => {
       case 'classic':
       case 'classic1s':
         return classicActivateHelp;
-
       case 'mini':
         return miniActivateHelp;
+      case 'touch':
+        return touchActivateHelp;
 
       default:
         return null;
     }
-  }, [classicActivateHelp, device, miniActivateHelp]);
+  }, [classicActivateHelp, device, miniActivateHelp, touchActivateHelp]);
 
   const numberedList = useMemo(() => {
     const hintList = [
