@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
+import { Keyboard } from 'react-native';
 
 import {
   Image,
@@ -126,7 +127,13 @@ function SearchModal() {
             }}
           />
         </Stack>
-        <ScrollView pt="$2" pb="$5" keyboardDismissMode="on-drag">
+        <ScrollView
+          pt="$2"
+          pb="$5"
+          keyboardDismissMode="none"
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={Keyboard.dismiss}
+        >
           {displaySearchList ? (
             <Stack pb="$5">
               {searchList.map((item, index) => (
