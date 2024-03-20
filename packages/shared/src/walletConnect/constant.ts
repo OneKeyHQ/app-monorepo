@@ -123,6 +123,22 @@ export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
   ],
 };
 
+// https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L60
+// https://github.com/WalletConnect/web-examples/blob/main/advanced/wallets/react-wallet-v2/src/data/EIP155Data.ts#L126
+export const WC_DAPP_SIDE_METHODS_EVM = [
+  'eth_sendTransaction',
+  'eth_sendRawTransaction',
+  'eth_signTransaction',
+  'eth_sign',
+  'personal_sign',
+  'eth_signTypedData',
+  'eth_signTypedData_v3',
+  'eth_signTypedData_v4',
+  // 'eth_signTypedData_v1',
+];
+// https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L72
+export const WC_DAPP_SIDE_EVENTS_EVM = ['chainChanged', 'accountsChanged'];
+
 /**
  * eip155
  */

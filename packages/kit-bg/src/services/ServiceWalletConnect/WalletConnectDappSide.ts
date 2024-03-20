@@ -11,6 +11,8 @@ import {
   DAPP_SIDE_SINGLE_WALLET_MODE,
   WALLET_CONNECT_CLIENT_META,
   WALLET_CONNECT_LOGGER_LEVEL,
+  WC_DAPP_SIDE_EVENTS_EVM,
+  WC_DAPP_SIDE_METHODS_EVM,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
   IWalletConnectChainString,
@@ -24,8 +26,8 @@ import {
   EWalletConnectSessionEvents,
 } from '@onekeyhq/shared/src/walletConnect/types';
 
-import walletConnectClient from './walletConnectClient';
 import { WalletConnectDappProvider } from './WalletConnectDappProvider';
+import walletConnectClient from './walletConnectClient';
 import walletConnectStorage from './walletConnectStorage';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -143,6 +145,7 @@ export class WalletConnectDappSide {
       console.error(error);
     }
 
+    // remove provider cache
     delete this.providers[topic];
   }
 
@@ -329,21 +332,8 @@ export class WalletConnectDappSide {
       .filter((item) => item.wcNamespace === EWalletConnectNamespaceType.evm)
       .map((item) => item.wcChain);
 
-    // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L60
-    // https://github.com/WalletConnect/web-examples/blob/main/advanced/wallets/react-wallet-v2/src/data/EIP155Data.ts#L126
-    const evmMethods = [
-      'eth_sendTransaction',
-      'eth_sendRawTransaction',
-      'eth_signTransaction',
-      'eth_sign',
-      'personal_sign',
-      'eth_signTypedData',
-      'eth_signTypedData_v3',
-      'eth_signTypedData_v4',
-      // 'eth_signTypedData_v1',
-    ];
-    // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L72
-    const evmEvents = ['chainChanged', 'accountsChanged'];
+    const evmMethods = WC_DAPP_SIDE_METHODS_EVM;
+    const evmEvents = WC_DAPP_SIDE_EVENTS_EVM;
 
     const createNewProvider = async () =>
       this.getOrCreateProvider({
@@ -368,10 +358,10 @@ export class WalletConnectDappSide {
         });
       } catch (error) {
         console.error(error);
+      } finally {
+        provider = await createNewProvider();
       }
     }
-
-    provider = await createNewProvider();
 
     const displayUriHandler = async (uri: string) => {
       console.log('uri', uri);
