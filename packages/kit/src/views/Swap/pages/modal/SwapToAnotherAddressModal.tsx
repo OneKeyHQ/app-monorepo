@@ -67,13 +67,16 @@ const SwapToAnotherAddressPage = () => {
       ...v,
       swapToAnotherAccountSwitchOn: true,
     }));
-    void actions.current.showAccountSelector({
-      activeWallet: accountInfo?.wallet,
-      num: 1,
-      navigation,
-      sceneName: EAccountSelectorSceneName.swap,
-    });
-  }, [accountInfo?.wallet, actions, navigation, setSettings]);
+    // void actions.current.showAccountSelector({
+    //   activeWallet: accountInfo?.wallet,
+    //   num: 1,
+    //   navigation,
+    //   sceneName: EAccountSelectorSceneName.swap,
+    // });
+  }, [
+    // accountInfo?.wallet, actions, navigation,
+    setSettings,
+  ]);
 
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
     (data) => {
@@ -97,13 +100,6 @@ const SwapToAnotherAddressPage = () => {
   return accountInfo && accountInfo?.network?.id ? (
     <Page>
       <Page.Body px="$5" space="$4">
-        <Button
-          mt="$4"
-          onPress={handleOnOpenAccountSelector}
-          variant="tertiary"
-        >
-          Select Another Account
-        </Button>
         <Form form={form}>
           <Form.Field
             label="Enter a address"
@@ -125,6 +121,12 @@ const SwapToAnotherAddressPage = () => {
             <AddressInput
               networkId={accountInfo?.network?.id}
               enableAddressBook
+              enableWalletName
+              contacts
+              accountSelector={{
+                num: 1,
+                onBeforeAccountSelectorOpen: handleOnOpenAccountSelector,
+              }}
             />
           </Form.Field>
         </Form>

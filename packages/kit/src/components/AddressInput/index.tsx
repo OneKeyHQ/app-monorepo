@@ -89,6 +89,7 @@ const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange, testID }) => (
 type IContactsPluginProps = IAddressPluginProps & {
   networkId?: string;
   num?: number;
+  onBeforeAccountSelectorOpen?: () => void;
 };
 
 const AddressBookPlugin: FC<IContactsPluginProps> = ({
@@ -133,6 +134,7 @@ const AccountSelectorAddressBookPlugin: FC<IContactsPluginProps> = ({
   networkId,
   testID,
   num,
+  onBeforeAccountSelectorOpen,
 }) => {
   const accountSelectorOpen = useRef<boolean>(false);
   const pick = useAddressBookPick();
@@ -165,6 +167,7 @@ const AccountSelectorAddressBookPlugin: FC<IContactsPluginProps> = ({
           label: 'My Accounts',
           onPress: () => {
             accountSelectorOpen.current = true;
+            onBeforeAccountSelectorOpen?.();
             showAccountSelector();
           },
         },
@@ -191,6 +194,7 @@ const ContactsPlugin: FC<IContactsPluginProps> = ({
   networkId,
   testID,
   num,
+  onBeforeAccountSelectorOpen,
 }) => {
   if (num !== undefined) {
     return (
@@ -198,6 +202,7 @@ const ContactsPlugin: FC<IContactsPluginProps> = ({
         onChange={onChange}
         num={num}
         networkId={networkId}
+        onBeforeAccountSelectorOpen={onBeforeAccountSelectorOpen}
         testID={testID}
       />
     );
@@ -302,7 +307,7 @@ type IAddressInputProps = Omit<
   clipboard?: boolean;
   scan?: boolean;
   contacts?: boolean;
-  accountSelector?: { num: number };
+  accountSelector?: { num: number; onBeforeAccountSelectorOpen?: () => void };
 
   // query options for control query behavior
   enableNameResolve?: boolean;
@@ -480,6 +485,9 @@ function AddressInput(props: IAddressInputProps) {
               onChange={onChangeText}
               networkId={networkId}
               num={accountSelector?.num}
+              onBeforeAccountSelectorOpen={
+                accountSelector?.onBeforeAccountSelectorOpen
+              }
               testID={`${rest.testID ?? ''}-contacts`}
             />
           ) : null}
