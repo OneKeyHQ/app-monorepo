@@ -1,15 +1,3 @@
-export const allowedDomains = [
-  'localhost',
-  '127.0.0.1',
-  'api.github.com',
-  'o554666.ingest.sentry.io',
-  'onekey.so',
-  'swap.onekey.so',
-  'portfolio.onekey.so',
-  'discover.onekey.so',
-  '243096.com',
-  'onekey-asset.com',
-];
 
 export const cspRules = [
   // Default to only own resources
