@@ -13,9 +13,7 @@ function ShortCutKey(props: ISizableTextProps) {
       borderRadius="$1"
       minWidth="$4"
       bg="$bgStrong"
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
     >
       <SizableText
         size="$headingXs"

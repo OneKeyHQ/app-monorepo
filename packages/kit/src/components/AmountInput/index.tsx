@@ -26,11 +26,11 @@ type IAmountInputFormItemProps = IFormFieldProps<
       loading?: boolean;
     };
     enableMaxAmount?: boolean;
-    currency?: string;
     valueProps?: {
       value?: string;
       onPress?: () => void;
       loading?: boolean;
+      currency?: string;
     };
     balanceProps?: {
       value?: string;
@@ -58,7 +58,6 @@ export function AmountInput({
   hasError,
   valueProps,
   balanceProps,
-  currency = '$',
   ...rest
 }: IAmountInputFormItemProps) {
   const sharedStyles = getSharedInputStyles({
@@ -107,8 +106,8 @@ export function AmountInput({
     return (
       <>
         <NumberSizeableText
-          formatter="price"
-          formatterOptions={{ currency }}
+          formatter="value"
+          formatterOptions={{ currency: valueProps.currency ?? '$' }}
           size="$bodyMd"
           color="$textSubdued"
           pr="$1.5"
@@ -120,7 +119,7 @@ export function AmountInput({
         ) : null}
       </>
     );
-  }, [valueProps, currency, reversible]);
+  }, [valueProps, reversible]);
 
   const TokenSelectorTrigger = useMemo(() => {
     if (tokenSelectorTriggerProps?.loading) {
@@ -252,9 +251,7 @@ export function AmountInput({
       borderWidth={sharedStyles.borderWidth}
       borderColor={sharedStyles.borderColor}
       overflow="hidden"
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       {...rest}
     >
       <XStack>

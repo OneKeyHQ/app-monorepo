@@ -1,12 +1,9 @@
-import { useCallback, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type {
-  IFetchTokensParams,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -17,6 +14,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
+  useSwapTokenFetchingAtom,
   useSwapTokenMapAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -64,8 +62,9 @@ export function useSwapTokenList(
   keywords?: string,
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
-  const { catchSwapTokensMap } = useSwapActions().current;
+  const { tokenListFetchAction } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
+  const [swapTokenFetching] = useSwapTokenFetchingAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const tokenFetchParams = useMemo(
     () => ({
@@ -100,28 +99,12 @@ export function useSwapTokenList(
   const currentTokens =
     tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [];
 
-  const fetchTokens = useCallback(
-    async (params: IFetchTokensParams) => {
-      const mapKey = JSON.stringify(params);
-      const { result } = await backgroundApiProxy.serviceSwap.fetchSwapTokens(
-        params,
-      );
-      if (result.length > 0) {
-        await catchSwapTokensMap(mapKey, result);
-      }
-    },
-    [catchSwapTokensMap],
-  );
-  const { isLoading } = usePromiseResult(
-    async () => {
-      await fetchTokens(tokenFetchParams);
-    },
-    [fetchTokens, tokenFetchParams],
-    { watchLoading: true, debounced: 500 },
-  );
+  useEffect(() => {
+    void tokenListFetchAction(tokenFetchParams);
+  }, [tokenFetchParams, tokenListFetchAction]);
 
   return {
-    fetchLoading: isLoading && currentTokens.length === 0,
+    fetchLoading: swapTokenFetching && currentTokens.length === 0,
     currentTokens,
   };
 }

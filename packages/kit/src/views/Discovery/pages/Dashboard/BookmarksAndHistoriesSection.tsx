@@ -176,12 +176,10 @@ export function BookmarksAndHistoriesSection({
           bg="$bgSubdued"
           py="$6"
           borderRadius="$3"
-          style={{
-            borderCurve: 'continuous',
-          }}
+          borderCurve="continuous"
         >
           {isNilDataSource ? (
-            <Skeleton w="100%" h="100%" />
+            <Skeleton w="100%" h="$6" />
           ) : (
             <SizableText
               size="$bodyLg"

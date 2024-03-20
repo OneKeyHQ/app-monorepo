@@ -2,6 +2,7 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
@@ -28,6 +29,7 @@ import {
   ETrackEventNames,
   trackEvent,
 } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -36,6 +38,7 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
   activeTabIdAtom,
   contextAtomMethod,
+  disabledAddedNewTabAtom,
   displayHomePageAtom,
   phishingLruCacheAtom,
   webTabsAtom,
@@ -506,7 +509,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   handleOpenWebSite = contextAtomMethod(
     (
-      _,
+      get,
       set,
       {
         useCurrentWindow,
@@ -525,6 +528,19 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       },
     ) => {
       const isNewWindow = !useCurrentWindow;
+
+      if (!useCurrentWindow) {
+        const disabledAddedNewTab = get(disabledAddedNewTabAtom());
+        if (disabledAddedNewTab) {
+          Toast.message({
+            title: appLocale.intl.formatMessage(
+              { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
+              { 0: '20' },
+            ),
+          });
+          return;
+        }
+      }
       this.setDisplayHomePage.call(set, false);
       void this.openMatchDApp.call(set, {
         webSite,

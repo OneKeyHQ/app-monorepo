@@ -59,7 +59,10 @@ export const useSearchWords = () => {
   };
 };
 
-export const useSuggestion = (form: ReturnType<typeof useForm>) => {
+export const useSuggestion = (
+  form: ReturnType<typeof useForm>,
+  phraseLength = 12,
+) => {
   const {
     fetchSuggestions,
     suggestions,
@@ -84,7 +87,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     const key = `phrase${selectInputIndex + 2}`;
     await new Promise<void>((resolve) => {
       setTimeout(() => {
-        if (platformEnv.isNative && selectInputIndex === 11) {
+        if (platformEnv.isNative && selectInputIndex === phraseLength - 1) {
           Keyboard.dismiss();
         } else {
           form.setFocus(key);

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   ActionList,
   IconButton,
@@ -39,12 +40,12 @@ export function AccountSelectorCreateWalletButton() {
       <ActionList
         placement="right-start"
         renderTrigger={
-          <IconButton
-            testID="AccountSelectorCreateWalletButton"
-            icon="PlusSmallOutline"
-          />
+          <IconButton icon="PlusSmallOutline" testID="add-wallet" />
         }
         title="Add wallet"
+        floatingPanelProps={{
+          w: '$64',
+        }}
         sections={[
           {
             items: [
@@ -52,6 +53,7 @@ export function AccountSelectorCreateWalletButton() {
                 label: 'Connect Hardware Wallet',
                 icon: platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline',
                 onPress: handleConnectHardwareWalletPress,
+                testID: 'hardware-wallet',
               },
             ],
           },
@@ -61,11 +63,31 @@ export function AccountSelectorCreateWalletButton() {
                 label: 'Create Recovery Phrase',
                 icon: 'PlusCircleOutline',
                 onPress: handleCreateWalletPress,
+                testID: 'create-wallet',
               },
+            ],
+          },
+          {
+            items: [
               {
-                label: 'Import Recovery Phrase',
-                icon: 'ArrowBottomCircleOutline',
+                label: 'Enter Recovery Phrase',
+                icon: 'Document2Outline',
                 onPress: handleImportWalletPress,
+                testID: 'import-wallet',
+              },
+              ...(platformEnv.isNative
+                ? [
+                    {
+                      label: 'Import with OneKey Lite',
+                      icon: 'OnekeyLiteOutline' as IKeyOfIcons,
+                      onPress: () => console.log('clicked'),
+                    },
+                  ]
+                : []),
+              {
+                label: 'Import with OneKey KeyTag',
+                icon: 'OnekeyKeytagOutline',
+                onPress: () => console.log('clicked'),
               },
             ],
           },

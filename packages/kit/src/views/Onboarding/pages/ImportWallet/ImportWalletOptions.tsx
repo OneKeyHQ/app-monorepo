@@ -1,4 +1,4 @@
-import type { IIconProps } from '@onekeyhq/components';
+import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -15,13 +15,13 @@ import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
-type IOptionItem = {
+type IOptionItem = IPropsWithTestId<{
   title?: string;
   description?: string;
   icon: IIconProps['name'];
   iconColor?: IIconProps['color'];
   onPress?: IListItemProps['onPress'];
-};
+}>;
 
 type IOptionSection = {
   sectionTitle?: string;
@@ -74,6 +74,7 @@ export function ImportWalletOptions() {
                       await dialog.close();
                       await handleImportRecoveryPhrasePress();
                     }}
+                    testID="acknowledged"
                   >
                     Acknowledged
                   </Button>
@@ -85,6 +86,7 @@ export function ImportWalletOptions() {
                       await dialog.close();
                       await handleConnectHardwareWalletPress();
                     }}
+                    testID="hardware-wallet"
                   >
                     Connect Hardware Wallet
                   </Button>
@@ -93,6 +95,7 @@ export function ImportWalletOptions() {
               showFooter: false,
             });
           },
+          testID: 'import-recovery-phrase',
         },
         ...(platformEnv.isNative
           ? [
@@ -120,12 +123,14 @@ export function ImportWalletOptions() {
           icon: 'KeyOutline',
           description: 'Import private key to generate a single-chain account.',
           onPress: handleImportPrivateKeyPress,
+          testID: 'import-private-key',
         },
         {
           title: 'Address',
           icon: 'EyeOutline',
           description: 'Import address to monitor a single-chain account.',
           onPress: handleImportAddressPress,
+          testID: 'import-address',
         },
       ],
     },
@@ -153,30 +158,32 @@ export function ImportWalletOptions() {
             {...(index === options.length - 1 && { pb: '$5' })}
           >
             <SectionList.SectionHeader title={sectionTitle} />
-            {data.map(({ title, icon, description, iconColor, onPress }) => (
-              <ListItem key={title} onPress={onPress} drillIn>
-                <Stack
-                  bg="$bgStrong"
-                  p="$2"
-                  borderRadius="$2"
-                  style={{ borderCurve: 'continuous' }}
-                >
-                  <Icon
-                    name={icon}
-                    flexShrink={0}
-                    {...(iconColor && {
-                      color: iconColor,
-                    })}
+            {data.map(
+              ({ title, icon, description, iconColor, onPress, testID }) => (
+                <ListItem key={title} onPress={onPress} drillIn testID={testID}>
+                  <Stack
+                    bg="$bgStrong"
+                    p="$2"
+                    borderRadius="$2"
+                    borderCurve="continuous"
+                  >
+                    <Icon
+                      name={icon}
+                      flexShrink={0}
+                      {...(iconColor && {
+                        color: iconColor,
+                      })}
+                    />
+                  </Stack>
+                  <ListItem.Text
+                    userSelect="none"
+                    flex={1}
+                    primary={title}
+                    secondary={description}
                   />
-                </Stack>
-                <ListItem.Text
-                  userSelect="none"
-                  flex={1}
-                  primary={title}
-                  secondary={description}
-                />
-              </ListItem>
-            ))}
+                </ListItem>
+              ),
+            )}
           </Stack>
         ))}
       </Page.Body>

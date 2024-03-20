@@ -344,6 +344,7 @@ class ServiceAccount extends ServiceBase {
         return {
           networkId,
           walletId,
+          indexedAccountId,
           accounts,
           indexes,
           deriveType,

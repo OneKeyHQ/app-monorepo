@@ -60,9 +60,7 @@ export function BeforeShowRecoveryPhrase() {
               p="$2"
               borderRadius="$3"
               bg={item.iconContainerColor}
-              style={{
-                borderCurve: 'continuous',
-              }}
+              borderCurve="continuous"
             >
               <Icon name={item.icon} color={item.iconColor} />
             </Stack>
@@ -79,6 +77,7 @@ export function BeforeShowRecoveryPhrase() {
       <Page.Footer
         onConfirmText="Show Recovery Phrase"
         onConfirm={handleShowRecoveryPhrasePress}
+        confirmButtonProps={{ testID: 'show-recovery-phrase' }}
       />
     </Page>
   );

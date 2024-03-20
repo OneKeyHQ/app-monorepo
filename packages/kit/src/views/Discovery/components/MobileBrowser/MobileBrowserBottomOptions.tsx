@@ -16,12 +16,14 @@ function MobileBrowserBottomOptions({
   onPinnedPress,
   onBrowserOpen,
   onGoBackHomePage,
+  disabled,
 }: PropsWithChildren<IMobileBottomOptionsProps>) {
   const intl = useIntl();
   return (
     <ActionList
       title={intl.formatMessage({ id: 'select__options' })}
       renderTrigger={children}
+      disabled={disabled}
       sections={[
         {
           items: [

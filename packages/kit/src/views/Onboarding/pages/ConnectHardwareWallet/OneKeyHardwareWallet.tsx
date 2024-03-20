@@ -9,7 +9,7 @@ import {
   Page,
   SizableText,
   Stack,
-  VideoView,
+  Video,
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -35,7 +35,15 @@ export function OneKeyHardwareWallet() {
     <Page safeAreaEnabled={false}>
       <Page.Header title="OneKey Hardware Wallet" headerTransparent />
       <Page.Body>
-        <VideoView source={source} />
+        <Video
+          muted
+          repeat
+          source={source}
+          flex={1}
+          resizeMode="cover"
+          controls={false}
+          playInBackground={false}
+        />
         <Stack
           position="absolute"
           left={0}
@@ -89,9 +97,7 @@ export function OneKeyHardwareWallet() {
                 pressStyle={{
                   bg: '$whiteA5',
                 }}
-                style={{
-                  borderCurve: 'continuous',
-                }}
+                borderCurve="continuous"
                 focusStyle={{
                   outlineColor: '$whiteA6',
                   outlineStyle: 'solid',

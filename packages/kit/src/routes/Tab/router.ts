@@ -64,18 +64,16 @@ export const tabRouter: ITabNavigatorConfig<ETabRoutes>[] = [
     exact: true,
     children: homeRouters,
   },
-  platformEnv.isDev
-    ? {
-        name: ETabRoutes.Swap,
-        tabBarIcon: (focused?: boolean) =>
-          focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
-        translationId: 'title__swap',
-        freezeOnBlur: true,
-        rewrite: '/swap',
-        exact: true,
-        children: swapRouters,
-      }
-    : undefined,
+  {
+    name: ETabRoutes.Swap,
+    tabBarIcon: (focused?: boolean) =>
+      focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
+    translationId: 'title__swap',
+    freezeOnBlur: true,
+    rewrite: '/swap',
+    exact: true,
+    children: swapRouters,
+  },
   !platformEnv.isDesktop ? discoverRouterConfig : undefined,
   platformEnv.isDev
     ? {

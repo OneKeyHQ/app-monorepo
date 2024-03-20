@@ -85,9 +85,7 @@ function DAppSiteMark({
       borderRadius="$2"
       alignItems="center"
       alignSelf="flex-start"
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
     >
       <Image w="$6" h="$6" bg="$bgSubdued" borderRadius="$1">
         <Image.Source source={{ uri: favicon || faviconUri }} />

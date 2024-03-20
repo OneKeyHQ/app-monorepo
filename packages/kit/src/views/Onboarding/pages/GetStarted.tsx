@@ -61,10 +61,9 @@ function ActionsGroup({ items }: IActionsProp) {
             }}
             focusable
             userSelect="none"
-            style={{
-              borderCurve: 'continuous',
-            }}
+            borderCurve="continuous"
             onPress={item.onPress}
+            testID={item.testID}
           >
             <Icon
               name={item.iconName}
@@ -166,6 +165,7 @@ export function GetStarted() {
                 label: 'Connect Hardware Wallet',
                 primary: true,
                 onPress: handleConnectHardwareWallet,
+                testID: 'hardware-wallet',
               },
             ]}
           />
@@ -175,11 +175,13 @@ export function GetStarted() {
                 iconName: 'PlusCircleOutline',
                 label: 'Create Wallet',
                 onPress: handleCreateWalletPress,
+                testID: 'create-wallet',
               },
               {
                 iconName: 'ArrowBottomCircleOutline',
                 label: 'Import Wallet',
                 onPress: handleImportWalletPress,
+                testID: 'import-wallet',
               },
             ]}
           />
@@ -189,6 +191,7 @@ export function GetStarted() {
                 iconName: 'LinkOutline',
                 label: 'Link External Wallet',
                 onPress: handleConnectWalletPress,
+                testID: '3rd-party-wallet',
               },
             ]}
           />

@@ -72,6 +72,7 @@ function normalizeConfig({ platform, config }) {
   const {
     isJest,
     isDev,
+    isE2E,
     isProduction,
     isWeb,
     isWebEmbed,
@@ -104,6 +105,7 @@ function normalizeConfig({ platform, config }) {
         // so it can do more tree shaking
         'platformEnv.isJest': isJest,
         'platformEnv.isDev': isDev,
+        'platformEnv.isE2E': isE2E,
         'platformEnv.isProduction': isProduction,
         'platformEnv.isWeb': isWeb,
         'platformEnv.isWebEmbed': isWebEmbed,
