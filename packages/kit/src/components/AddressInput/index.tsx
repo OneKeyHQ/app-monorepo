@@ -1,7 +1,6 @@
 import {
   type ComponentProps,
   type FC,
-  type PropsWithChildren,
   useCallback,
   useEffect,
   useMemo,
@@ -527,31 +526,4 @@ function AddressInput(props: IAddressInputProps) {
   );
 }
 
-interface IAddressInputAccountSelectorProviderMirrorProps
-  extends PropsWithChildren {
-  networkId: string;
-  num?: number;
-}
-
-function AddressInputAccountSelectorProviderMirror({
-  networkId,
-  children,
-  num = 0,
-}: IAddressInputAccountSelectorProviderMirrorProps) {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.addressInput,
-        sceneUrl: '',
-      }}
-      enabledNum={[num]}
-      availableNetworksMap={{
-        [num]: { networkIds: [networkId], defaultNetworkId: networkId },
-      }}
-    >
-      {children}
-    </AccountSelectorProviderMirror>
-  );
-}
-
-export { AddressInputAccountSelectorProviderMirror, AddressInput };
+export { AddressInput };

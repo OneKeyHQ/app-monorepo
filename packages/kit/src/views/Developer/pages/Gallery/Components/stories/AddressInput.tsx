@@ -10,11 +10,12 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   AddressInput,
-  AddressInputAccountSelectorProviderMirror,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Layout } from './utils/Layout';
 
@@ -109,7 +110,16 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
             },
           }}
         >
-          <AddressInputAccountSelectorProviderMirror networkId={networkId}>
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName: EAccountSelectorSceneName.addressInput,
+              sceneUrl: '',
+            }}
+            enabledNum={[num]}
+            availableNetworksMap={{
+              [num]: { networkIds: [networkId], defaultNetworkId: networkId },
+            }}
+          >
             <AddressInput
               networkId={networkId}
               enableAddressBook
@@ -117,7 +127,7 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
               contacts
               accountSelector={{ num }}
             />
-          </AddressInputAccountSelectorProviderMirror>
+          </AccountSelectorProviderMirror>
         </Form.Field>
       </Form>
       <Button mt="$4" onPress={() => handleSubmit(handleConfirm)()}>

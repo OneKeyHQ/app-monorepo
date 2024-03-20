@@ -9,7 +9,6 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSwapToAnotherAccountAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -44,7 +43,6 @@ const SwapToAnotherAddressPage = () => {
 
   const [, setSettings] = useSettingsPersistAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
-  const actions = useAccountSelectorActions();
   const intl = useIntl();
   const form = useForm({
     defaultValues: {
@@ -67,16 +65,7 @@ const SwapToAnotherAddressPage = () => {
       ...v,
       swapToAnotherAccountSwitchOn: true,
     }));
-    // void actions.current.showAccountSelector({
-    //   activeWallet: accountInfo?.wallet,
-    //   num: 1,
-    //   navigation,
-    //   sceneName: EAccountSelectorSceneName.swap,
-    // });
-  }, [
-    // accountInfo?.wallet, actions, navigation,
-    setSettings,
-  ]);
+  }, [setSettings]);
 
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
     (data) => {
