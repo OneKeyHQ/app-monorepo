@@ -29,7 +29,6 @@ import {
 import {
   ComputeBudgetInstruction,
   ComputeBudgetProgram,
-  MessageAccountKeys,
   PublicKey,
   SYSVAR_INSTRUCTIONS_PUBKEY,
   SystemInstruction,
@@ -489,12 +488,45 @@ export default class Vault extends VaultBase {
   }
 
   // Account related methods
-
-  override attachFeeInfoToEncodedTx(params: {
+  override async attachFeeInfoToEncodedTx(params: {
     encodedTx: IEncodedTx;
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTx> {
-    return Promise.resolve(params.encodedTx);
+    const { encodedTx, feeInfoValue } = params;
+    const { computeUnitPrice } = feeInfoValue;
+
+    if (isNil(computeUnitPrice)) {
+      return Promise.resolve(encodedTx);
+    }
+
+    let isComputeUnitPriceExist = false;
+    const nativeTx: Transaction = await this.helper.parseToNativeTx(encodedTx);
+    const prioritizationFeeInstruction =
+      ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: Number(computeUnitPrice),
+      });
+
+    for (let i = 0; i < nativeTx.instructions.length; i += 1) {
+      const instruction = nativeTx.instructions[i];
+      if (
+        instruction.programId.toString() ===
+        ComputeBudgetProgram.programId.toString()
+      ) {
+        const { microLamports } =
+          ComputeBudgetInstruction.decodeSetComputeUnitPrice(instruction);
+        if (!isNil(microLamports)) {
+          nativeTx.instructions[i] = prioritizationFeeInstruction;
+          isComputeUnitPriceExist = true;
+          break;
+        }
+      }
+    }
+
+    if (!isComputeUnitPriceExist) {
+      nativeTx.add(prioritizationFeeInstruction);
+    }
+
+    return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
   }
 
   override async decodeTx(
@@ -1044,65 +1076,6 @@ export default class Vault extends VaultBase {
 
     const nativeTx = await this.helper.parseToNativeTx(encodedTx);
 
-    // add priority fees to DApp tx by default
-    try {
-      if (options.type === IEncodedTxUpdateType.priorityFees) {
-        const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
-        let instructions: TransactionInstruction[] = [];
-        let unitPrice;
-        let transactionMessage;
-        if (isVersionedTransaction) {
-          transactionMessage = TransactionMessage.decompile(nativeTx.message);
-          instructions = transactionMessage.instructions;
-        } else {
-          instructions = nativeTx.instructions;
-        }
-
-        // try to find if the transaction has already set the compute unit price(priority fee)
-        try {
-          for (const instruction of instructions) {
-            unitPrice =
-              ComputeBudgetInstruction.decodeSetComputeUnitPrice(instruction);
-          }
-        } catch {
-          // pass
-        }
-
-        // if not set, add the compute unit price(priority fee) to the transaction
-        if (isNil(unitPrice)) {
-          const client = await this.getClient();
-          const accountAddress = await this.getAccountAddress();
-          const prioritizationFee = await client.getRecentMaxPrioritizationFees(
-            [accountAddress],
-          );
-
-          const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
-            microLamports: Math.max(MIN_PRIORITY_FEE, prioritizationFee),
-          });
-
-          if (isVersionedTransaction) {
-            transactionMessage?.instructions.push(addPriorityFee);
-          } else {
-            (nativeTx as Transaction).add(addPriorityFee);
-          }
-        }
-
-        if (isVersionedTransaction) {
-          return bs58.encode(
-            new VersionedTransaction(
-              (transactionMessage as TransactionMessage).compileToV0Message(),
-            ).serialize(),
-          );
-        }
-
-        return bs58.encode(
-          (nativeTx as Transaction).serialize({ requireAllSignatures: false }),
-        );
-      }
-    } catch (e) {
-      return encodedTx;
-    }
-
     const nativeTxForUpdateTransfer = nativeTx as Transaction;
     const [instruction] = nativeTxForUpdateTransfer.instructions;
     // max native token transfer update
@@ -1260,7 +1233,6 @@ export default class Vault extends VaultBase {
     const nativeTx = (await this.helper.parseToNativeTx(
       encodedTx,
     )) as Transaction;
-    const client = await this.getClient();
 
     return {
       inputs: [],
@@ -1319,19 +1291,59 @@ export default class Vault extends VaultBase {
     return client.getFeePricePerUnit();
   }
 
-  override async fetchFeeInfo(encodedTx: IEncodedTxSol): Promise<IFeeInfo> {
+  override async fetchFeeInfo(
+    encodedTx: IEncodedTxSol,
+    _: boolean | undefined,
+    specifiedFeeRate: string,
+  ): Promise<IFeeInfo> {
     const client = await this.getClient();
-    const nativeTx = await this.helper.parseToNativeTx(encodedTx);
+    let nativeTx: INativeTxSol = await this.helper.parseToNativeTx(encodedTx);
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
     let message = '';
-    if (isVersionedTransaction) {
-      message = Buffer.from(nativeTx.message.serialize()).toString('base64');
+    let instructions: TransactionInstruction[] = [];
+    let transactionMessage;
+    let computeUnitPrice = '0';
+
+    if (specifiedFeeRate) {
+      const encodedTxWithFee = await this.attachFeeInfoToEncodedTx({
+        encodedTx,
+        feeInfoValue: { computeUnitPrice: specifiedFeeRate },
+      });
+      nativeTx = (await this.helper.parseToNativeTx(
+        encodedTxWithFee,
+      )) as Transaction;
+      message = nativeTx.compileMessage().serialize().toString('base64');
     } else {
-      message = (nativeTx as Transaction)
-        .compileMessage()
-        .serialize()
-        .toString('base64');
+      try {
+        if (isVersionedTransaction) {
+          nativeTx = nativeTx as VersionedTransaction;
+          message = Buffer.from(nativeTx.message.serialize()).toString(
+            'base64',
+          );
+          transactionMessage = TransactionMessage.decompile(nativeTx.message);
+          instructions = transactionMessage.instructions;
+        } else {
+          nativeTx = nativeTx as Transaction;
+          message = nativeTx.compileMessage().serialize().toString('base64');
+          instructions = nativeTx.instructions;
+        }
+
+        for (const instruction of instructions) {
+          if (
+            instruction.programId.toString() ===
+            ComputeBudgetProgram.programId.toString()
+          ) {
+            const { microLamports } =
+              ComputeBudgetInstruction.decodeSetComputeUnitPrice(instruction);
+            computeUnitPrice = microLamports.toString();
+            break;
+          }
+        }
+      } catch {
+        // pass
+      }
     }
+
     const [network, feePerSig] = await Promise.all([
       this.getNetwork(),
       client.getFeesForMessage(message),
@@ -1342,6 +1354,7 @@ export default class Vault extends VaultBase {
     ];
 
     return {
+      isSolChain: true,
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
       feeSymbol: network.feeSymbol,
@@ -1351,7 +1364,7 @@ export default class Vault extends VaultBase {
       limit: (nativeTx as Transaction).signatures.length.toString(),
       prices,
       defaultPresetIndex: '0',
-
+      computeUnitPrice,
       tx: null, // Must be null if network not support feeInTx
     };
   }

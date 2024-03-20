@@ -318,7 +318,7 @@ export enum IEncodedTxUpdateType {
   cancel = 'cancel',
   advancedSettings = 'advancedSettings',
   customData = 'customData',
-  priorityFees = 'priorityFees',
+  prioritizationFee = 'prioritizationFee',
 }
 
 export type IEncodedTxUpdateOptions = {
@@ -349,6 +349,9 @@ export type IFeeInfoUnit = {
   isBtcForkChain?: boolean;
   btcFee?: number;
   feeRate?: string;
+  // sol prioritization fees
+  computeUnitPrice?: string;
+  isSolChain?: boolean;
 };
 // TODO rename to IFeeInfoMeta
 export type IFeeInfo = {
@@ -378,6 +381,9 @@ export type IFeeInfo = {
   } | null;
   isBtcForkChain?: boolean;
   feeList?: number[];
+  // for sol prioritization fees
+  isSolChain?: boolean;
+  computeUnitPrice?: string;
 };
 export type IFeeInfoSelectedType = 'preset' | 'custom';
 export type IFeeInfoSelected = {

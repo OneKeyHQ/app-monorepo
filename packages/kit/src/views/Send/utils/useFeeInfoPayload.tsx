@@ -22,6 +22,7 @@ import {
   calculateTotalFeeRange,
   getSelectedFeeInfoUnit,
 } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -117,7 +118,10 @@ export function useFeeInfoPayload({
       let shouldFetch =
         !ignoreFetchFeeCalling &&
         (!feeInfoSelected || feeInfoSelected?.type === 'preset');
-      if (fetchAnyway && !ignoreFetchFeeCalling) {
+      if (
+        (fetchAnyway && !ignoreFetchFeeCalling) ||
+        network?.impl === IMPL_SOL
+      ) {
         shouldFetch = true;
       }
 

@@ -51,6 +51,7 @@ import {
   useBtcCustomFee,
   useBtcCustomFeeForm,
 } from '../../utils/useBtcCustomFee';
+import { useSolCustomFee } from '../../utils/useSolCustomFee';
 
 import type { ISendEditFeeValues } from '../../types';
 import type { UseFormReturn } from 'react-hook-form';
@@ -121,6 +122,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
   const nativeSymbol = feeInfoPayload?.info?.nativeSymbol || '';
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
   const isBtcForkChain = feeInfoPayload?.info.isBtcForkChain;
+  const isSolChain = feeInfoPayload?.info.isSolChain;
   const isSmallScreen = useIsVerticalLayout();
 
   const [lastPresetFeeInfo, setLastPresetFeeInfo] = useState(
@@ -165,6 +167,13 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     feeRate: watchFeeRate,
     feeType: 'custom',
   });
+  const { solLimit, solPrice } = useSolCustomFee({
+    networkId,
+    accountId,
+    computeUnitPrice: watch('computeUnitPrice'),
+    feeType: 'custom',
+    encodedTx,
+  });
 
   const handleBoosterOnChange = useCallback(
     (value) => {
@@ -192,7 +201,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
 
   const customFeeOverview = useMemo(() => {
     if (!formValues) return null;
-    const limit = formValues.gasLimit;
+    let limit = formValues.gasLimit;
     let price = null;
     if (isEIP1559Fee) {
       price = {
@@ -200,6 +209,9 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
         maxFeePerGas: formValues?.maxFeePerGas,
         maxPriorityFeePerGas: formValues?.maxPriorityFeePerGas,
       };
+    } else if (isSolChain && solPrice && solLimit) {
+      price = solPrice;
+      limit = solLimit;
     } else {
       price = formValues?.gasPrice;
     }
@@ -214,11 +226,14 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
       />
     );
   }, [
-    accountId,
-    feeInfoPayload?.info,
     formValues,
     isEIP1559Fee,
+    isSolChain,
+    solPrice,
+    solLimit,
+    accountId,
     networkId,
+    feeInfoPayload?.info,
     btcTxFee,
   ]);
 
@@ -291,6 +306,24 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
             name="feeRate"
             rules={{
               validate: async (value) => feeRateFormValidator({ value }),
+            }}
+          >
+            <Form.NumberInput size={isSmallScreen ? 'xl' : 'lg'} />
+          </Form.Item>
+        </Form>
+      );
+    }
+
+    if (isSolChain) {
+      return (
+        <Form mt={4}>
+          <Form.Item
+            label="Compute Unit Price (microLamports)"
+            control={control}
+            name="computeUnitPrice"
+            rules={{
+              min: 0,
+              required: true,
             }}
           >
             <Form.NumberInput size={isSmallScreen ? 'xl' : 'lg'} />
@@ -676,6 +709,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
     feeInfoPayload?.info.feeDecimals,
     feeInfoPayload?.info?.limit,
     isBtcForkChain,
+    isSolChain,
     isEIP1559Fee,
     feeSymbol,
     control,

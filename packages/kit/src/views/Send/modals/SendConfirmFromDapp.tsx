@@ -4,10 +4,8 @@ import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
 
 import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
-import { IEncodedTxUpdateType } from '@onekeyhq/engine/src/vaults/types';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '../../../hooks';
 import useDappParams from '../../../hooks/useDappParams';
 import { useReduxReady } from '../../../hooks/useReduxReady';
@@ -39,7 +37,7 @@ export function SendConfirmFromDapp() {
     networkId: dappNetworkId,
   } = useDappParams();
 
-  const navigateToSendConfirm = useCallback(async () => {
+  const navigateToSendConfirm = useCallback(() => {
     let action: any;
     // TODO get network and account from dapp connections
     const { networkId, accountId, networkImpl } = getActiveWalletAccount();
@@ -47,27 +45,14 @@ export function SendConfirmFromDapp() {
     // alert(JSON.stringify({ networkId, accountId, isReady }));
     // TODO providerName
     if (encodedTx) {
-      let newEncodedTx = encodedTx;
-      const isPsbt = (newEncodedTx as IEncodedTxBtc).psbtHex;
-
-      if (networkImpl === IMPL_SOL) {
-        newEncodedTx = await backgroundApiProxy.engine.updateEncodedTx({
-          accountId,
-          networkId,
-          encodedTx,
-          payload: {},
-          options: {
-            type: IEncodedTxUpdateType.priorityFees,
-          },
-        });
-      }
+      const isPsbt = (encodedTx as IEncodedTxBtc).psbtHex;
 
       const params: SendConfirmParams = {
         networkId: dappNetworkId ?? networkId,
         accountId,
         sourceInfo,
-        encodedTx: newEncodedTx,
-        feeInfoEditable: !isPsbt,
+        encodedTx,
+        feeInfoEditable: !(isPsbt || networkImpl === IMPL_SOL),
         feeInfoUseFeeInTx: true,
         ignoreFetchFeeCalling: !!isPsbt,
         signOnly,
