@@ -37,6 +37,7 @@ function useSwapWarningCheck() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [swapSelectFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
 
   const checkSwapWarning = useCallback(() => {
     let alerts: ISwapAlertState[] = [];
@@ -220,6 +221,7 @@ function useSwapWarningCheck() {
               fromToken?.symbol ?? 'unknown'
             }`,
             alertLevel: ESwapAlertLevel.ERROR,
+            inputShowError: true,
           },
         ];
       }
@@ -234,11 +236,25 @@ function useSwapWarningCheck() {
               fromToken?.symbol ?? 'unknown'
             }`,
             alertLevel: ESwapAlertLevel.ERROR,
+            inputShowError: true,
           },
         ];
       }
     }
-
+    if (
+      fromToken?.isNative &&
+      fromTokenAmountBN.isEqualTo(
+        new BigNumber(swapSelectFromTokenBalance ?? 0),
+      )
+    ) {
+      alerts = [
+        ...alerts,
+        {
+          message: `${fromToken.symbol} is required for the network fee, and the cost will be automatically deducted from amount in the next step.`,
+          alertLevel: ESwapAlertLevel.INFO,
+        },
+      ];
+    }
     return alerts;
   }, [
     fromToken,
@@ -247,6 +263,7 @@ function useSwapWarningCheck() {
     swapFromAddressInfo.accountInfo,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
+    swapSelectFromTokenBalance,
     swapToAddressInfo.accountInfo?.accountName,
     swapToAddressInfo.accountInfo?.network?.name,
     swapToAddressInfo.accountInfo?.wallet?.name,

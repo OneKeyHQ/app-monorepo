@@ -256,9 +256,7 @@ function RawPopover({
                 paddingVertical="$4"
                 justifyContent="space-between"
                 alignItems="center"
-                style={{
-                  borderCurve: 'continuous',
-                }}
+                borderCurve="continuous"
               >
                 <SizableText size="$headingXl" color="$text">
                   {title}
@@ -290,9 +288,7 @@ function RawPopover({
                 showsVerticalScrollIndicator={false}
                 marginHorizontal="$5"
                 marginBottom={bottom || '$5'}
-                style={{
-                  borderCurve: 'continuous',
-                }}
+                borderCurve="continuous"
               >
                 <TMPopover.Adapt.Contents />
               </TMPopover.Sheet.ScrollView>

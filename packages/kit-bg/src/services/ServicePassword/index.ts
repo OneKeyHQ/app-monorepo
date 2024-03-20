@@ -156,15 +156,21 @@ export default class ServicePassword extends ServiceBase {
   async getBiologyAuthPassword(): Promise<string> {
     const isSupport = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
+      await this.setBiologyAuthEnable(false);
       throw new Error('biologyAuth not support');
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
       throw new OneKeyError.BiologyAuthFailed();
     }
-    const pwd = await biologyAuthUtils.getPassword();
-    ensureSensitiveTextEncoded(pwd);
-    return pwd;
+    try {
+      const pwd = await biologyAuthUtils.getPassword();
+      ensureSensitiveTextEncoded(pwd);
+      return pwd;
+    } catch (e) {
+      await this.setBiologyAuthEnable(false);
+      throw new OneKeyError.BiologyAuthFailed();
+    }
   }
 
   @backgroundMethod()
