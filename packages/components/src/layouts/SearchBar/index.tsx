@@ -26,7 +26,8 @@ export function SearchBar({
     (text: string) => {
       setValue(text);
       onChangeText?.(text);
-      // support iOS input composition
+      // This is a simple solution to support pinyin composition on iOS.
+      // on Web should support CompositionStart event.
       onSearchTextChange?.(text.replaceAll(COMPOSITION_SPACE, ''));
     },
     [onChangeText, onSearchTextChange],
