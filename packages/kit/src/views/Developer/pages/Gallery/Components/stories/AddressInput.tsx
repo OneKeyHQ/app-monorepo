@@ -1,4 +1,3 @@
-import type { ComponentProps, FC } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -11,10 +10,13 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   AddressInput,
+  AddressInputAccountSelectorProviderMirror,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Layout } from './utils/Layout';
 
@@ -23,19 +25,7 @@ type IAddressFormValues = {
   address: IAddressInputValue;
 };
 
-const pluginsOptions = { 'clipboard': true, 'contacts': true, 'scan': true };
-
-type IAddressInputTestComponentProps = {
-  networkId: string;
-  plugins?: ComponentProps<typeof AddressInput>['plugins'];
-  num?: number;
-};
-
-const TestComponent: FC<IAddressInputTestComponentProps> = ({
-  plugins,
-  networkId,
-  num = 0,
-}) => {
+const Demo1 = () => {
   const intl = useIntl();
   const form = useForm<IAddressFormValues>({
     defaultValues: { name: '', address: { raw: '', resolved: undefined } },
@@ -66,11 +56,10 @@ const TestComponent: FC<IAddressInputTestComponentProps> = ({
           }}
         >
           <AddressInput
-            networkId={networkId}
+            networkId="evm--1"
             enableAddressBook
             enableWalletName
-            num={num}
-            plugins={plugins}
+            contacts
           />
         </Form.Field>
       </Form>
@@ -92,6 +81,54 @@ const TestComponent: FC<IAddressInputTestComponentProps> = ({
   );
 };
 
+const Demo2 = () => {
+  const intl = useIntl();
+  const form = useForm<IAddressFormValues>({
+    defaultValues: { name: '', address: { raw: '', resolved: undefined } },
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
+  });
+  const { handleSubmit } = form;
+  const handleConfirm = useCallback((value: IAddressFormValues) => {
+    Toast.message({ title: 'Address', message: value.address.resolved ?? '' });
+  }, []);
+
+  return (
+    <YStack>
+      <Form form={form}>
+        <Form.Field
+          name="address"
+          rules={{
+            required: 'required',
+            validate: (value: IAddressInputValue) => {
+              if (value.pending) {
+                return;
+              }
+              if (!value.resolved) {
+                return intl.formatMessage({ id: 'form__address_invalid' });
+              }
+              return undefined;
+            },
+          }}
+        >
+          <AddressInputAccountSelectorProviderMirror networkId="evm--1">
+            <AddressInput
+              networkId="evm--1"
+              enableAddressBook
+              enableWalletName
+              contacts
+              accountSelector={{ num: 0 }}
+            />
+          </AddressInputAccountSelectorProviderMirror>
+        </Form.Field>
+      </Form>
+      <Button mt="$4" onPress={() => handleSubmit(handleConfirm)()}>
+        Submit
+      </Button>
+    </YStack>
+  );
+};
+
 const AddressInputGallery = () => (
   <Layout
     description=".."
@@ -102,34 +139,18 @@ const AddressInputGallery = () => (
         title: 'AddressInput',
         element: (
           <Stack space="$4">
-            <TestComponent networkId="evm--1" />
+            <Demo1 />
           </Stack>
         ),
       },
       {
-        title: 'AddressInput With AddressBook (ETH)',
+        title: 'AddressInput With AccountSelector/Contact',
         element: (
           <Stack space="$4">
-            <TestComponent
-              networkId="evm--1"
-              num={0}
-              plugins={pluginsOptions}
-            />
+            <Demo2 />
           </Stack>
         ),
       },
-      // {
-      //   title: 'AddressInput With AddressBook (BTC)',
-      //   element: (
-      //     <Stack space="$4">
-      //       <TestComponent
-      //         networkId="btc--0"
-      //         num={1}
-      //         plugins={pluginsOptions}
-      //       />
-      //     </Stack>
-      //   ),
-      // },
     ]}
   />
 );

@@ -1,6 +1,7 @@
 import {
   type ComponentProps,
   type FC,
+  type PropsWithChildren,
   useCallback,
   useEffect,
   useMemo,
@@ -34,12 +35,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 
 import { BaseInput } from '../BaseInput';
-
-type IAddressPluginsOptions = {
-  clipboard?: boolean;
-  scan?: boolean;
-  contacts?: boolean;
-};
 
 type IAddressPluginProps = {
   onChange?: (text: string) => void;
@@ -80,23 +75,60 @@ const ScanPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   );
 };
 
-const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange }) => (
+const ScanPluginContainer: FC<IAddressPluginProps> = ({ onChange, testID }) => (
   <AccountSelectorProviderMirror
     config={{
       sceneName: EAccountSelectorSceneName.home,
     }}
     enabledNum={[0]}
   >
-    <ScanPlugin onChange={onChange} />
+    <ScanPlugin onChange={onChange} testID={testID} />
   </AccountSelectorProviderMirror>
 );
 
 type IContactsPluginProps = IAddressPluginProps & {
   networkId?: string;
-  num: number;
+  num?: number;
 };
 
-const ContactsPlugin: FC<IContactsPluginProps> = ({
+const AddressBookPlugin: FC<IContactsPluginProps> = ({
+  onChange,
+  networkId,
+  testID,
+}) => {
+  const pick = useAddressBookPick();
+  const onPickContacts = useCallback(() => {
+    void pick({
+      networkId,
+      onPick: (item: IAddressItem) => {
+        onChange?.(item.address);
+      },
+    });
+  }, [onChange, pick, networkId]);
+
+  return (
+    <ActionList
+      title="Select Address"
+      items={[
+        {
+          icon: 'ContactsOutline' as const,
+          label: 'Address Book',
+          onPress: onPickContacts,
+        },
+      ]}
+      renderTrigger={
+        <IconButton
+          title="Paste"
+          variant="tertiary"
+          icon="DotVerOutline"
+          testID={testID}
+        />
+      }
+    />
+  );
+};
+
+const AccountSelectorAddressBookPlugin: FC<IContactsPluginProps> = ({
   onChange,
   networkId,
   testID,
@@ -107,7 +139,7 @@ const ContactsPlugin: FC<IContactsPluginProps> = ({
   const {
     activeAccount: { account },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num, linkNetwork: true });
+  } = useAccountSelectorTrigger({ num: num ?? 0, linkNetwork: true });
 
   useEffect(() => {
     if (account?.address && accountSelectorOpen.current) {
@@ -123,12 +155,13 @@ const ContactsPlugin: FC<IContactsPluginProps> = ({
       },
     });
   }, [onChange, pick, networkId]);
+
   return (
     <ActionList
       title="Select"
       items={[
         {
-          icon: 'WalletCryptoOutline',
+          icon: 'WalletCryptoOutline' as const,
           label: 'My Accounts',
           onPress: () => {
             accountSelectorOpen.current = true;
@@ -136,7 +169,7 @@ const ContactsPlugin: FC<IContactsPluginProps> = ({
           },
         },
         {
-          icon: 'ContactsOutline',
+          icon: 'ContactsOutline' as const,
           label: 'Address Book',
           onPress: onPickContacts,
         },
@@ -149,6 +182,31 @@ const ContactsPlugin: FC<IContactsPluginProps> = ({
           testID={testID}
         />
       }
+    />
+  );
+};
+
+const ContactsPlugin: FC<IContactsPluginProps> = ({
+  onChange,
+  networkId,
+  testID,
+  num,
+}) => {
+  if (num !== undefined) {
+    return (
+      <AccountSelectorAddressBookPlugin
+        onChange={onChange}
+        num={num}
+        networkId={networkId}
+        testID={testID}
+      />
+    );
+  }
+  return (
+    <AddressBookPlugin
+      onChange={onChange}
+      networkId={networkId}
+      testID={testID}
     />
   );
 };
@@ -239,13 +297,19 @@ type IAddressInputProps = Omit<
   placeholder?: string;
   name?: string;
   autoError?: boolean;
-  plugins?: IAddressPluginsOptions;
-  enableNameResolve?: boolean; //
+
+  // plugins options for control button display
+  clipboard?: boolean;
+  scan?: boolean;
+  contacts?: boolean;
+  accountSelector?: { num: number };
+
+  // query options for control query behavior
+  enableNameResolve?: boolean;
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
-  //
-  accountId?: string;
-  num?: number;
+
+  accountId?: string; // for check address interaction
   enableAddressInteractionStatus?: boolean;
 };
 
@@ -259,17 +323,6 @@ export type IAddressQueryResult = {
   addressInteractionStatus?: IAddressInteractionStatus;
 };
 
-const defaultAddressInputPlugins: IAddressPluginsOptions = {
-  clipboard: true,
-  scan: true,
-};
-
-const allAddressInputPlugins: IAddressPluginsOptions = {
-  clipboard: true,
-  scan: true,
-  contacts: true,
-};
-
 function AddressInput(props: IAddressInputProps) {
   const {
     name = '',
@@ -279,12 +332,14 @@ function AddressInput(props: IAddressInputProps) {
     placeholder,
     autoError = true,
     onBlur,
-    plugins = defaultAddressInputPlugins,
+    clipboard = true,
+    scan = true,
+    contacts,
+    accountSelector,
     enableNameResolve = true,
     enableAddressBook,
     enableWalletName,
     accountId,
-    num = 0,
     enableAddressInteractionStatus,
     ...rest
   } = props;
@@ -408,36 +463,25 @@ function AddressInput(props: IAddressInputProps) {
           )}
         </XStack>
         <XStack space="$6">
-          {plugins.clipboard ? (
+          {clipboard ? (
             <ClipboardPlugin
               onChange={onChangeText}
               testID={`${rest.testID ?? ''}-clip`}
             />
           ) : null}
-          {plugins.scan ? (
+          {scan ? (
             <ScanPluginContainer
               onChange={onChangeText}
               testID={`${rest.testID ?? ''}-scan`}
             />
           ) : null}
-          {plugins.contacts ? (
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.addressInput,
-                sceneUrl: '',
-              }}
-              enabledNum={[0]}
-              availableNetworksMap={{
-                0: { networkIds: [networkId], defaultNetworkId: networkId },
-              }}
-            >
-              <ContactsPlugin
-                onChange={onChangeText}
-                networkId={networkId}
-                num={num}
-                testID={`${rest.testID ?? ''}-contacts`}
-              />
-            </AccountSelectorProviderMirror>
+          {contacts || accountSelector ? (
+            <ContactsPlugin
+              onChange={onChangeText}
+              networkId={networkId}
+              num={accountSelector?.num}
+              testID={`${rest.testID ?? ''}-contacts`}
+            />
           ) : null}
         </XStack>
       </XStack>
@@ -445,9 +489,10 @@ function AddressInput(props: IAddressInputProps) {
     [
       loading,
       onChangeText,
-      plugins.clipboard,
-      plugins.contacts,
-      plugins.scan,
+      clipboard,
+      scan,
+      contacts,
+      accountSelector,
       queryResult.addressInteractionStatus,
       queryResult.resolveAddress,
       queryResult.resolveOptions,
@@ -456,7 +501,6 @@ function AddressInput(props: IAddressInputProps) {
       setResolveAddress,
       networkId,
       rest.testID,
-      num,
     ],
   );
 
@@ -475,4 +519,29 @@ function AddressInput(props: IAddressInputProps) {
   );
 }
 
-export { AddressInput, allAddressInputPlugins };
+interface IAddressInputAccountSelectorProviderMirrorProps
+  extends PropsWithChildren {
+  networkId: string;
+}
+
+function AddressInputAccountSelectorProviderMirror({
+  networkId,
+  children,
+}: IAddressInputAccountSelectorProviderMirrorProps) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.addressInput,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+      availableNetworksMap={{
+        0: { networkIds: [networkId], defaultNetworkId: networkId },
+      }}
+    >
+      {children}
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export { AddressInputAccountSelectorProviderMirror, AddressInput };

@@ -10,8 +10,8 @@ import { Form, Input, Page, SizableText, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AddressInput,
+  AddressInputAccountSelectorProviderMirror,
   type IAddressInputValue,
-  allAddressInputPlugins,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -461,14 +461,17 @@ function SendDataInputContainer() {
               },
             }}
           >
-            <AddressInput
-              accountId={accountId}
-              networkId={networkId}
-              enableAddressBook
-              enableWalletName
-              enableAddressInteractionStatus
-              plugins={allAddressInputPlugins}
-            />
+            <AddressInputAccountSelectorProviderMirror networkId={networkId}>
+              <AddressInput
+                accountId={accountId}
+                networkId={networkId}
+                enableAddressBook
+                enableWalletName
+                enableAddressInteractionStatus
+                contacts
+                accountSelector={{ num: 0 }}
+              />
+            </AddressInputAccountSelectorProviderMirror>
           </Form.Field>
           {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
         </Form>
