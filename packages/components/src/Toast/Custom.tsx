@@ -8,9 +8,11 @@ import Toast from 'react-native-toast-message';
 
 import ConfirmOnClassic from '@onekeyhq/kit/assets/animations/confirm-on-onekey-classic.json';
 import ConfirmOnMini from '@onekeyhq/kit/assets/animations/confirm-on-onekey-mini.json';
+import ConfirmOnPro from '@onekeyhq/kit/assets/animations/confirm-on-onekey-pro.json';
 import ConfirmOnTouch from '@onekeyhq/kit/assets/animations/confirm-on-onekey-touch.json';
 import EnterPinCodeOnClassic from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-classic.json';
 import EnterPinCodeOnMini from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-mini.json';
+import EnterPinCodeOnPro from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-pro.json';
 import EnterPinCodeOnTouch from '@onekeyhq/kit/assets/animations/enter-pin-code-on-onekey-touch.json';
 
 import Box from '../Box';
@@ -27,8 +29,9 @@ const getConfirmAnimation = (type: string) => {
     case 'mini':
       return ConfirmOnMini;
     case 'touch':
-    case 'pro':
       return ConfirmOnTouch;
+    case 'pro':
+      return ConfirmOnPro;
     default:
       return ConfirmOnClassic;
   }
@@ -39,8 +42,9 @@ const getEnterPinCodeAnimation = (type: string) => {
     case 'mini':
       return EnterPinCodeOnMini;
     case 'touch':
-    case 'pro':
       return EnterPinCodeOnTouch;
+    case 'pro':
+      return EnterPinCodeOnPro;
     default:
       return EnterPinCodeOnClassic;
   }

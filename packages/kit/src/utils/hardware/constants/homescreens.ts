@@ -75,8 +75,8 @@ export const getHomescreenKeys = (type: IOneKeyDeviceType) => {
     case 'mini':
       return homescreensT1;
     case 'touch':
-    case 'pro':
       return homescreenTouch;
+    case 'pro':
     default:
       return [];
   }

@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
+import ProSetupNewAndImportDevicePng from '@onekeyhq/kit/assets/wallet/create-or-import-pro-device.png';
 import ClassicRestoreDevicePng from '@onekeyhq/kit/assets/wallet/restore-classic-device.png';
 import MiniRestoreDevicePng from '@onekeyhq/kit/assets/wallet/restore-mini-device.png';
 import TouchRestoreDevicePng from '@onekeyhq/kit/assets/wallet/restore-touch-device.png';
@@ -36,8 +37,9 @@ const getSetupNewDeviceIcon = (type: IDeviceType): any => {
     case 'mini':
       return MiniSetupNewDevicePng;
     case 'touch':
-    case 'pro':
       return TouchSetupNewDevicePng;
+    case 'pro':
+      return ProSetupNewAndImportDevicePng;
     default:
       return undefined;
   }
@@ -51,8 +53,9 @@ const getRestoreDeviceIcon = (type: IDeviceType): any => {
     case 'mini':
       return MiniRestoreDevicePng;
     case 'touch':
-    case 'pro':
       return TouchRestoreDevicePng;
+    case 'pro':
+      return ProSetupNewAndImportDevicePng;
     default:
       return undefined;
   }
