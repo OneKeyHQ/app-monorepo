@@ -26,8 +26,8 @@ import {
   EWalletConnectSessionEvents,
 } from '@onekeyhq/shared/src/walletConnect/types';
 
-import { WalletConnectDappProvider } from './WalletConnectDappProvider';
 import walletConnectClient from './walletConnectClient';
+import { WalletConnectDappProvider } from './WalletConnectDappProvider';
 import walletConnectStorage from './walletConnectStorage';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';

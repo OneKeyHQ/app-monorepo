@@ -1,4 +1,3 @@
-
 export const cspRules = [
   // Default to only own resources
   "default-src 'self' 'unsafe-inline' onekey.243096.com dev.243096.com onekey-asset.com",

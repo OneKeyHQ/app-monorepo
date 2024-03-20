@@ -182,4 +182,4 @@ export const supportEventsMap: Record<INamespaceUnion, string[]> = {
   tron: [],
 };
 
-export const WalletConnectStartAccountSelectorNumber = 1000;
+export const WalletConnectAccountSelectorNumStartAt = 1000;

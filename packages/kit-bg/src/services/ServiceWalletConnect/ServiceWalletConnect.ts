@@ -9,7 +9,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
-  WalletConnectStartAccountSelectorNumber,
+  WalletConnectAccountSelectorNumStartAt,
   caipsToNetworkMap,
   implToNamespaceMap,
   namespaceToImplsMap,
@@ -236,7 +236,7 @@ class ServiceWalletConnect extends ServiceBase {
           namespace,
         );
         return {
-          accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
+          accountSelectorNum: index + WalletConnectAccountSelectorNumStartAt,
           networkIds,
         };
       },
