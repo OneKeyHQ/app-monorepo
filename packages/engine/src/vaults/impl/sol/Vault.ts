@@ -1303,17 +1303,7 @@ export default class Vault extends VaultBase {
     let instructions: TransactionInstruction[] = [];
     let transactionMessage;
     let computeUnitPrice = '0';
-
-    if (specifiedFeeRate) {
-      const encodedTxWithFee = await this.attachFeeInfoToEncodedTx({
-        encodedTx,
-        feeInfoValue: { computeUnitPrice: specifiedFeeRate },
-      });
-      nativeTx = (await this.helper.parseToNativeTx(
-        encodedTxWithFee,
-      )) as Transaction;
-      message = nativeTx.compileMessage().serialize().toString('base64');
-    } else {
+    if (isNil(specifiedFeeRate)) {
       try {
         if (isVersionedTransaction) {
           nativeTx = nativeTx as VersionedTransaction;
@@ -1342,6 +1332,15 @@ export default class Vault extends VaultBase {
       } catch {
         // pass
       }
+    } else {
+      const encodedTxWithFee = await this.attachFeeInfoToEncodedTx({
+        encodedTx,
+        feeInfoValue: { computeUnitPrice: specifiedFeeRate },
+      });
+      nativeTx = (await this.helper.parseToNativeTx(
+        encodedTxWithFee,
+      )) as Transaction;
+      message = nativeTx.compileMessage().serialize().toString('base64');
     }
 
     const [network, feePerSig] = await Promise.all([

@@ -320,7 +320,7 @@ export function SendEditFeeCustomForm(props: ICustomFeeFormProps) {
           <Form.Item
             label={`${intl.formatMessage({
               id: 'form__prioritization_fee_sol',
-            })} microLamports`}
+            })} (microLamports)`}
             control={control}
             name="computeUnitPrice"
             rules={{
