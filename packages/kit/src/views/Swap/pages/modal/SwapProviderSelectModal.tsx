@@ -4,8 +4,10 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { ListView, Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteListAtom,
+  useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -20,6 +22,8 @@ const SwapProviderSelectModal = () => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
   const [swapQuoteList] = useSwapQuoteListAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [, setSwapManualSelect] = useSwapManualSelectQuoteProvidersAtom();
   const [settingsPersist] = useSettingsPersistAtom();
@@ -37,12 +41,20 @@ const SwapProviderSelectModal = () => {
         onPress={() => {
           onSelectQuote(item);
         }}
+        fromTokenAmount={fromTokenAmount}
+        fromTokenSymbol={fromToken?.symbol}
         providerResult={item}
         currencySymbol={settingsPersist.currencyInfo.symbol}
         toAmountSymbol={toToken?.symbol ?? ''}
       />
     ),
-    [onSelectQuote, settingsPersist.currencyInfo.symbol, toToken?.symbol],
+    [
+      fromToken?.symbol,
+      fromTokenAmount,
+      onSelectQuote,
+      settingsPersist.currencyInfo.symbol,
+      toToken?.symbol,
+    ],
   );
 
   return (

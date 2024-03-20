@@ -76,7 +76,6 @@ const SwapQuoteResult = ({
         />
       ) : null}
       <SwapProviderInfoItem
-        providerName={quoteResult.info.providerName}
         providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
         isLoading={quoteFetching}
         rate={quoteResult.instantRate}
@@ -97,7 +96,7 @@ const SwapQuoteResult = ({
               setSwapSlippagePopOverOpening(open);
             }}
           />
-          {quoteResult.fee.estimatedFeeFiatValue ? (
+          {quoteResult.fee?.estimatedFeeFiatValue ? (
             <SwapCommonInfoItem
               title="Est network fee"
               isLoading={quoteFetching}
