@@ -1,4 +1,3 @@
-import type { ComponentProps, FC } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -11,10 +10,12 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   AddressInput,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Layout } from './utils/Layout';
 
@@ -23,13 +24,7 @@ type IAddressFormValues = {
   address: IAddressInputValue;
 };
 
-const pluginsOptions = { 'clipboard': true, 'contacts': true, 'scan': true };
-
-type IAddressInputTestComponentProps = {
-  plugins?: ComponentProps<typeof AddressInput>['plugins'];
-};
-
-const TestComponent: FC<IAddressInputTestComponentProps> = ({ plugins }) => {
+const Demo1 = () => {
   const intl = useIntl();
   const form = useForm<IAddressFormValues>({
     defaultValues: { name: '', address: { raw: '', resolved: undefined } },
@@ -63,7 +58,7 @@ const TestComponent: FC<IAddressInputTestComponentProps> = ({ plugins }) => {
             networkId="evm--1"
             enableAddressBook
             enableWalletName
-            plugins={plugins}
+            contacts
           />
         </Form.Field>
       </Form>
@@ -85,6 +80,63 @@ const TestComponent: FC<IAddressInputTestComponentProps> = ({ plugins }) => {
   );
 };
 
+const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
+  const intl = useIntl();
+  const form = useForm<IAddressFormValues>({
+    defaultValues: { name: '', address: { raw: '', resolved: undefined } },
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
+  });
+  const { handleSubmit } = form;
+  const handleConfirm = useCallback((value: IAddressFormValues) => {
+    Toast.message({ title: 'Address', message: value.address.resolved ?? '' });
+  }, []);
+
+  return (
+    <YStack>
+      <Form form={form}>
+        <Form.Field
+          name="address"
+          rules={{
+            required: 'required',
+            validate: (value: IAddressInputValue) => {
+              if (value.pending) {
+                return;
+              }
+              if (!value.resolved) {
+                return intl.formatMessage({ id: 'form__address_invalid' });
+              }
+              return undefined;
+            },
+          }}
+        >
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName: EAccountSelectorSceneName.addressInput,
+              sceneUrl: '',
+            }}
+            enabledNum={[num]}
+            availableNetworksMap={{
+              [num]: { networkIds: [networkId], defaultNetworkId: networkId },
+            }}
+          >
+            <AddressInput
+              networkId={networkId}
+              enableAddressBook
+              enableWalletName
+              contacts
+              accountSelector={{ num }}
+            />
+          </AccountSelectorProviderMirror>
+        </Form.Field>
+      </Form>
+      <Button mt="$4" onPress={() => handleSubmit(handleConfirm)()}>
+        Submit
+      </Button>
+    </YStack>
+  );
+};
+
 const AddressInputGallery = () => (
   <Layout
     description=".."
@@ -95,15 +147,15 @@ const AddressInputGallery = () => (
         title: 'AddressInput',
         element: (
           <Stack space="$4">
-            <TestComponent />
+            <Demo1 />
           </Stack>
         ),
       },
       {
-        title: 'AddressInput With AddressBook',
+        title: 'AddressInput With AccountSelector/Contact EVM',
         element: (
           <Stack space="$4">
-            <TestComponent plugins={pluginsOptions} />
+            <Demo2 networkId="evm--1" num={0} />
           </Stack>
         ),
       },

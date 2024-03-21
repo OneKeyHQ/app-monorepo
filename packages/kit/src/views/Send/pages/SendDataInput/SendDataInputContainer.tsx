@@ -8,10 +8,10 @@ import { useIntl } from 'react-intl';
 
 import { Form, Input, Page, SizableText, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   AddressInput,
   type IAddressInputValue,
-  allAddressInputPlugins,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -35,6 +35,7 @@ import {
   EAssetSelectorRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -461,14 +462,26 @@ function SendDataInputContainer() {
               },
             }}
           >
-            <AddressInput
-              accountId={accountId}
-              networkId={networkId}
-              enableAddressBook
-              enableWalletName
-              enableAddressInteractionStatus
-              plugins={allAddressInputPlugins}
-            />
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+              availableNetworksMap={{
+                0: { networkIds: [networkId], defaultNetworkId: networkId },
+              }}
+            >
+              <AddressInput
+                accountId={accountId}
+                networkId={networkId}
+                enableAddressBook
+                enableWalletName
+                enableAddressInteractionStatus
+                contacts
+                accountSelector={{ num: 0 }}
+              />
+            </AccountSelectorProviderMirror>
           </Form.Field>
           {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
         </Form>

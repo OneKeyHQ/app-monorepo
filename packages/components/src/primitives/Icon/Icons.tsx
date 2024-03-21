@@ -385,6 +385,7 @@ const icons = {
   CompassSquareOutline: () => import("./react/outline/CompassSquare"),
   ComputerOutline: () => import("./react/outline/Computer"),
   ConsoleOutline: () => import("./react/outline/Console"),
+  ContactsOutline: () => import("./react/outline/Contacts"),
   ContrastOutline: () => import("./react/outline/Contrast"),
   ControlKeyOutline: () => import("./react/outline/ControlKey"),
   ControllerRoundOutline: () => import("./react/outline/ControllerRound"),

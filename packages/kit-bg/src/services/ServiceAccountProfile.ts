@@ -157,6 +157,7 @@ class ServiceAccountProfile extends ServiceBase {
           networkId,
           address: resolveAddress,
         });
+
       if (walletAccountItems.length > 0) {
         const item = walletAccountItems[0];
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
