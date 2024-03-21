@@ -23,7 +23,7 @@ const SwapPageContainer = () => {
     [],
   );
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
       <Page.Body>
         <SwapMainLand />

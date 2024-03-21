@@ -18,6 +18,7 @@ import type {
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IAmountInputFormItemProps = IFormFieldProps<
   string,
@@ -74,7 +75,7 @@ export function AmountInput({
 
     return (
       <Input
-        keyboardType="number-pad"
+        keyboardType={platformEnv.isNativeIOS ? 'numeric' : 'number-pad'}
         height="$14"
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
