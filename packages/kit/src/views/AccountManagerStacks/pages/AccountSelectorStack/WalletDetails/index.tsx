@@ -35,6 +35,7 @@ import type {
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
+  WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -90,6 +91,13 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const handleImportPrivatekeyAccount = useCallback(() => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.ImportPrivateKey,
+    });
+  }, [navigation]);
+
+  const handleAddExternalAccount = useCallback(() => {
+    console.log('handleAddExternalAccount');
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ConnectWallet,
     });
   }, [navigation]);
 
@@ -513,6 +521,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                 }
                 if (section.walletId === WALLET_TYPE_IMPORTED) {
                   handleImportPrivatekeyAccount();
+                }
+                if (section.walletId === WALLET_TYPE_EXTERNAL) {
+                  handleAddExternalAccount();
                 }
                 return;
               }

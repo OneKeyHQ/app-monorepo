@@ -17,6 +17,7 @@ export enum EAppEventBusNames {
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   AccountUpdate = 'AccountUpdate',
+  AccountRemove = 'AccountRemove',
   CloseCurrentBrowserTab = 'CloseCurrentBrowserTab',
   CloseAllBrowserTab = 'CloseAllBrowserTab',
   DAppConnectUpdate = 'DAppConnectUpdate',
@@ -42,6 +43,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.AccountUpdate]: undefined;
+  [EAppEventBusNames.AccountRemove]: undefined;
   [EAppEventBusNames.CloseCurrentBrowserTab]: undefined;
   [EAppEventBusNames.CloseAllBrowserTab]: undefined;
   [EAppEventBusNames.DAppConnectUpdate]: undefined;
