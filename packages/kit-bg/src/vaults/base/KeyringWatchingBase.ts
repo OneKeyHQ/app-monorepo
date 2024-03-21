@@ -4,7 +4,6 @@ import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   InvalidAddress,
-  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 
@@ -13,7 +12,7 @@ import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
-import type { IDBAccount, IDBSimpleAccount } from '../../dbs/local/types';
+import type { IDBAccount, IDBSimpleAccount, IDBUtxoAccount } from '../../dbs/local/types';
 import type { IPrepareWatchingAccountsParams } from '../types';
 
 export abstract class KeyringWatchingBase extends KeyringBase {
@@ -31,8 +30,16 @@ export abstract class KeyringWatchingBase extends KeyringBase {
     );
   }
 
-  async basePrepareUtxoWatchingAccounts(): Promise<IDBAccount[]> {
-    throw new NotImplemented();
+  async basePrepareUtxoWatchingAccounts(
+    params: IPrepareWatchingAccountsParams,
+  ): Promise<IDBUtxoAccount[]> {
+    const { address, xpub } = params;
+    if (!address && !xpub) {
+      throw new Error(
+        'basePrepareUtxoWatchingAccounts ERROR: address and xpub are not defined',
+      );
+    }
+    return [];
   }
 
   async basePrepareSimpleWatchingAccounts(

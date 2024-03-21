@@ -9,10 +9,9 @@ export class KeyringWatching extends KeyringWatchingBase {
   override coreApi: CoreChainApiBase | undefined;
 
   override async prepareAccounts(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: IPrepareWatchingAccountsParams,
   ): Promise<IDBAccount[]> {
-    return super.basePrepareUtxoWatchingAccounts();
+    return super.basePrepareUtxoWatchingAccounts(params);
     //   const { name, target, accountIdPrefix } = params;
     //   const { normalizedAddress, isValid } = mockVerifyAddress({
     //     address: target,
