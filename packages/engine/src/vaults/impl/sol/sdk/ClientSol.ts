@@ -1,11 +1,13 @@
 // eslint-disable-next-line @typescript-eslint/naming-convention
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { map, max } from 'lodash';
 
 import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
+import { getSolScanEndpoint } from '../../../../endpoint';
 import { TransactionStatus } from '../../../../types/provider';
 
 import type { CoinInfo } from '../../../../types/chain';
@@ -15,6 +17,7 @@ import type {
   FeePricePerUnit,
   PartialTokenInfo,
 } from '../../../../types/provider';
+import type { ISolScanTokenMeta } from '../types';
 import type { AccountInfo, PublicKey } from '@solana/web3.js';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -307,6 +310,28 @@ export class ClientSol extends BaseClient {
   override getTokenInfos = async (
     tokenAddresses: Array<string>,
   ): Promise<Array<PartialTokenInfo | undefined>> => {
+    const endpoint = getSolScanEndpoint();
+    try {
+      const tokensMeta = map(
+        await Promise.all(
+          tokenAddresses.map((tokenAddress) =>
+            axios.get<ISolScanTokenMeta>(`${endpoint}/v1.0/token/meta`, {
+              params: { tokenAddress },
+            }),
+          ),
+        ),
+        'data',
+      );
+
+      return tokensMeta.map((tokenMeta) => ({
+        ...tokenMeta,
+        logoURI: tokenMeta.icon || '',
+      }));
+    } catch {
+      // pass
+    }
+
+    // fallback to rpc
     const calls: any = tokenAddresses.map((address) => [
       RPC_METHODS.GET_ACCOUNT_INFO,
       [address, { encoding: PARAMS_ENCODINGS.JSON_PARSED }],
