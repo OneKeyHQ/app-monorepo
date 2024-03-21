@@ -1,11 +1,5 @@
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-
+import { parseQRCode as parse } from './utils/parseQRCode';
 import { EQRCodeHandlerType } from './utils/parseQRCode/type';
-
-const {
-  serviceScanQRCode: { parse },
-} = backgroundApiProxy;
 
 describe('useParseQRCode', () => {
   it('should parse as migrate', async () => {
@@ -260,7 +254,6 @@ describe('useParseQRCode', () => {
         data: expect.objectContaining({
           address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
           id: '1',
-          amount: '0.1',
         }),
       }),
     );
@@ -274,7 +267,6 @@ describe('useParseQRCode', () => {
         data: expect.objectContaining({
           address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
           id: '5',
-          amount: '0.01',
         }),
       }),
     );

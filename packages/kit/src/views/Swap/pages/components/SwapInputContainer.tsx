@@ -8,6 +8,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapActionState } from '../../hooks/useSwapState';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
@@ -41,33 +42,42 @@ const SwapInputContainer = ({
     type: direction,
   });
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const swapActionState = useSwapActionState();
   const amountPrice = useMemo(() => {
-    const currencySymbol = settingsPersistAtom.currencyInfo.symbol;
-    if (!token?.price) return `${currencySymbol}0.0`;
+    if (!token?.price) return '0.0';
     const tokenPriceBN = new BigNumber(token.price ?? 0);
     const tokenFiatValueBN = new BigNumber(amountValue ?? 0).multipliedBy(
       tokenPriceBN,
     );
     return tokenFiatValueBN.isNaN()
-      ? `${currencySymbol}0.0`
-      : `${currencySymbol}${tokenFiatValueBN
-          .decimalPlaces(6, BigNumber.ROUND_DOWN)
-          .toFixed()}`;
-  }, [amountValue, settingsPersistAtom.currencyInfo.symbol, token?.price]);
+      ? '0.0'
+      : `${tokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed()}`;
+  }, [amountValue, token?.price]);
+
+  const fromInputHasError = useMemo(
+    () =>
+      swapActionState.alerts?.some((item) => item.inputShowError) &&
+      direction === ESwapDirectionType.FROM,
+    [direction, swapActionState.alerts],
+  );
 
   return (
     <YStack>
-      {/* {token ? <SwapAccountAddressContainer type={direction} /> : null} */}
       <SwapAccountAddressContainer type={direction} />
       <AmountInput
         onChange={onAmountChange}
         value={amountValue}
+        hasError={fromInputHasError}
         balanceProps={{
           value: balance,
           onPress: onBalanceMaxPress,
           loading: token && isLoading,
         }}
-        valueProps={{ value: amountPrice, loading: inputLoading }}
+        valueProps={{
+          value: amountPrice,
+          loading: inputLoading,
+          currency: settingsPersistAtom.currencyInfo.symbol,
+        }}
         inputProps={{
           loading: inputLoading,
           placeholder: '0.0',

@@ -38,7 +38,6 @@ import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDbInstance';
-import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettingsAccountDeriveInfo } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -345,6 +344,7 @@ class ServiceAccount extends ServiceBase {
         return {
           networkId,
           walletId,
+          indexedAccountId,
           accounts,
           indexes,
           deriveType,

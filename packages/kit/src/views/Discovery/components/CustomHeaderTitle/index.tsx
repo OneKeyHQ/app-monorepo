@@ -1,5 +1,4 @@
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Icon,
@@ -13,12 +12,11 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
 interface ICustomHeaderTitleProps {
-  handleSearchBarPress: () => void;
+  handleSearchBarPress: (url: string) => void;
 }
 function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const intl = useIntl();
   const media = useMedia();
-  const screenWidth = useWindowDimensions().width;
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const displayUrl = activeTabId && tab?.url;
@@ -41,10 +39,8 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       pressStyle={{
         bg: '$bgActive',
       }}
-      onPress={handleSearchBarPress}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      onPress={() => handleSearchBarPress(tab?.url ?? '')}
+      borderCurve="continuous"
     >
       <Icon
         name={displayUrl ? 'LockOutline' : 'SearchOutline'}

@@ -104,9 +104,7 @@ function SelectItem({
           py: '$2.5',
           borderRadius: '$3',
         }}
-        style={{
-          borderCurve: 'continuous',
-        }}
+        borderCurve="continuous"
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         onPress={handleSelect}
