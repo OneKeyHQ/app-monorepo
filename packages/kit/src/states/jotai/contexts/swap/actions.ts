@@ -253,27 +253,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   quoteAction = contextAtomMethod(async (get, set, address?: string) => {
-    if (this.quoteInterval) {
-      clearInterval(this.quoteInterval);
-    }
-    const approvingTransaction = get(swapApprovingTransactionAtom());
+    this.cleanQuoteInterval();
     const fromToken = get(swapSelectFromTokenAtom());
     const toToken = get(swapSelectToTokenAtom());
     const fromTokenAmount = get(swapFromTokenAmountAtom());
     const swapSlippage = get(swapSlippagePercentageAtom());
     const fromTokenAmountNumber = Number(fromTokenAmount);
-    if (
-      fromToken?.contractAddress ===
-        approvingTransaction?.fromToken.contractAddress &&
-      fromTokenAmount === approvingTransaction?.amount &&
-      toToken?.contractAddress ===
-        approvingTransaction?.toToken.contractAddress &&
-      fromToken?.networkId === approvingTransaction?.fromToken.networkId &&
-      toToken?.networkId === approvingTransaction?.toToken.networkId
-    ) {
-      console.log('quoteAction skip approvingTransaction');
-      return;
-    }
     if (
       fromToken &&
       toToken &&
@@ -305,13 +290,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
   });
 
-  cleanQuoteInterval = () => {
-    if (this.quoteInterval) {
-      clearInterval(this.quoteInterval);
-    }
-    void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
-  };
-
   approvingStateRunSync = contextAtomMethod(
     async (get, set, networkId: string, txId: string) => {
       const txState = await backgroundApiProxy.serviceSwap.fetchTxState({
@@ -329,17 +307,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   approvingStateAction = contextAtomMethod(async (get, set) => {
-    if (this.approvingInterval) {
-      clearInterval(this.approvingInterval);
-    }
+    this.cleanApprovingInterval();
     const approvingTransaction = get(swapApprovingTransactionAtom());
     if (approvingTransaction && approvingTransaction.txId) {
-      void this.approvingStateRunSync.call(
-        set,
-        approvingTransaction.fromToken.networkId,
-
-        approvingTransaction.txId,
-      );
       this.approvingInterval = setInterval(() => {
         if (approvingTransaction.txId) {
           void this.approvingStateRunSync.call(
@@ -348,9 +318,44 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             approvingTransaction.txId,
           );
         }
-      }, 3000);
+      }, 2000);
     }
   });
+
+  recoverQuoteInterval = contextAtomMethod(
+    async (get, set, address?: string) => {
+      this.cleanQuoteInterval();
+      const fromToken = get(swapSelectFromTokenAtom());
+      const toToken = get(swapSelectToTokenAtom());
+      const fromTokenAmount = get(swapFromTokenAmountAtom());
+      const swapSlippage = get(swapSlippagePercentageAtom());
+      const fromTokenAmountNumber = Number(fromTokenAmount);
+      if (
+        fromToken &&
+        toToken &&
+        !Number.isNaN(fromTokenAmountNumber) &&
+        fromTokenAmountNumber > 0
+      ) {
+        this.quoteInterval = setInterval(() => {
+          void this.runQuote.call(
+            set,
+            fromToken,
+            toToken,
+            fromTokenAmount,
+            swapSlippage.value,
+            address,
+          );
+        }, swapQuoteFetchInterval);
+      }
+    },
+  );
+
+  cleanQuoteInterval = () => {
+    if (this.quoteInterval) {
+      clearInterval(this.quoteInterval);
+    }
+    void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
+  };
 
   cleanApprovingInterval = () => {
     if (this.approvingInterval) {
@@ -371,6 +376,7 @@ export const useSwapActions = () => {
   const addSwapHistoryItem = actions.addSwapHistoryItem.use();
   const cleanSwapHistoryItems = actions.cleanSwapHistoryItems.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
+  const recoverQuoteInterval = actions.recoverQuoteInterval.use();
   const quoteAction = debounce(actions.quoteAction.use(), 100);
   const approvingStateAction = debounce(
     actions.approvingStateAction.use(),
@@ -393,5 +399,6 @@ export const useSwapActions = () => {
     cleanApprovingInterval,
     approvingStateAction,
     tokenListFetchAction,
+    recoverQuoteInterval,
   });
 };

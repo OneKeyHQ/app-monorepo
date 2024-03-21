@@ -40,6 +40,7 @@ export type ISelectProps<T extends string | ISelectItem> = PropsWithChildren<{
   title: string;
   value?: T;
   onChange?: (value: T) => void;
+  onOpenChange?: (isOpen: boolean) => void;
   renderTrigger?: ISelectTriggerProps['renderTrigger'];
   disabled?: boolean;
   sheetProps?: SheetProps;

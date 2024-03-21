@@ -4,7 +4,10 @@ import BigNumber from 'bignumber.js';
 
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -16,6 +19,7 @@ import {
   useSwapSelectedToTokenBalanceAtom,
   useSwapTokenFetchingAtom,
   useSwapTokenMapAtom,
+  useSwapTxHistoryStatusChangeAtom,
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './uswSwapAccount';
@@ -117,6 +121,7 @@ export function useSwapSelectedTokenInfo({
   token?: ISwapToken;
 }) {
   const swapAddressInfo = useSwapAddressInfo(type);
+  const [swapTxHistoryStatusChange] = useSwapTxHistoryStatusChangeAtom();
   const accountAddress = swapAddressInfo.address;
   const accountNetworkId = swapAddressInfo.networkId;
   const accountXpub = (swapAddressInfo.accountInfo?.account as IDBUtxoAccount)
@@ -129,6 +134,14 @@ export function useSwapSelectedTokenInfo({
   const { isLoading } = usePromiseResult(
     async () => {
       let balanceDisplay;
+      if (
+        swapTxHistoryStatusChange.length > 0 &&
+        swapTxHistoryStatusChange.every(
+          (item) => item.status !== ESwapTxHistoryStatus.SUCCESS,
+        )
+      ) {
+        return;
+      }
       if (!(!token || !accountAddress || !accountNetworkId)) {
         if (
           token.accountAddress === accountAddress &&
@@ -173,6 +186,7 @@ export function useSwapSelectedTokenInfo({
       setSwapSelectedToTokenBalance,
       token,
       type,
+      swapTxHistoryStatusChange,
     ],
     {
       watchLoading: true,

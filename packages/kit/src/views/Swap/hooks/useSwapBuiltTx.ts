@@ -107,7 +107,7 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.networkId
     ) {
       setSwapBuildTxFetching(true);
-      const wrappedType = fromToken.contractAddress
+      const wrappedType = fromToken.isNative
         ? EWrappedType.WITHDRAW
         : EWrappedType.DEPOSIT;
       const wrappedInfo: IWrappedInfo = {
