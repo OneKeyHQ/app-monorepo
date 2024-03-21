@@ -65,7 +65,7 @@ function FlipperPluginsContainer() {
   return <>{realmPlugin}</>;
 }
 
-const renderWalletConnectModalContainer = platformEnv.isNative ? (
+const renderWalletConnectModalContainer = platformEnv.isNativeIOS ? (
   <Page.Every>
     <WalletConnectModalContainer />
   </Page.Every>
@@ -78,7 +78,6 @@ export function Container() {
     <RootSiblingParent>
       <AppStateLockContainer>
         <KeyboardContainer />
-        {renderWalletConnectModalContainer}
         <NavigationContainer>
           <JotaiContextRootProvidersAutoMount />
           <HardwareUiStateContainer />
@@ -91,6 +90,7 @@ export function Container() {
             </>
           ) : null}
         </NavigationContainer>
+        {renderWalletConnectModalContainer}
       </AppStateLockContainer>
     </RootSiblingParent>
   );
