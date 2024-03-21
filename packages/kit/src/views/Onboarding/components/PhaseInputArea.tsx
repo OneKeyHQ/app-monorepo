@@ -188,6 +188,10 @@ function PageFooter({
 const { height: windowHeight } = Dimensions.get('window');
 const visibleHeight = windowHeight / 5;
 
+const PINYIN_COMPOSITION_SPACE = platformEnv.isNative
+  ? String.fromCharCode(8198)
+  : ' ';
+
 function BasicPhaseInput(
   {
     index,
@@ -271,7 +275,8 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
-      const text = onInputChange(v);
+      const rawText = v.replaceAll(PINYIN_COMPOSITION_SPACE, '');
+      const text = onInputChange(rawText);
       onChange?.(text);
     },
     [onChange, onInputChange],
