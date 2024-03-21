@@ -101,7 +101,7 @@ export function useSwapBuildTx() {
       fromToken &&
       toToken &&
       fromTokenAmount &&
-      selectQuote &&
+      selectQuote?.toAmount &&
       swapFromAddressInfo.address &&
       swapToAddressInfo.address &&
       swapFromAddressInfo.networkId
@@ -217,7 +217,7 @@ export function useSwapBuildTx() {
       toToken &&
       fromTokenAmount &&
       slippagePercentage &&
-      selectQuote &&
+      selectQuote?.toAmount &&
       swapFromAddressInfo.address &&
       swapToAddressInfo.address &&
       swapFromAddressInfo.networkId
