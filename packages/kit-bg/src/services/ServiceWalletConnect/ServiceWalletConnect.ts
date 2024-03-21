@@ -169,20 +169,56 @@ class ServiceWalletConnect extends ServiceBase {
     proposal: Web3WalletTypes.SessionProposal,
   ) {
     const { requiredNamespaces, optionalNamespaces } = proposal.params;
-    const promises = Object.keys(requiredNamespaces).map(
-      async (namespace, index) => {
-        const networkIds = await this.getAvailableNetworkIdsForNamespace(
-          requiredNamespaces,
-          optionalNamespaces,
-          namespace,
-        );
-        return {
-          accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
-          networkIds,
-        };
-      },
-    );
-    return Promise.all(promises);
+    const supported: Array<{
+      accountSelectorNum: number;
+      networkIds: string[];
+      impl: string;
+    }> = [];
+    let index = 0;
+    // Filter supported chains from requiredNamespace
+    for (const namespace of Object.keys(requiredNamespaces)) {
+      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      if (!impl) {
+        throw new Error('Namespace not supported');
+      }
+      // Generate networkIds by merging supported networks from both required and optional namespaces
+      const networkIds = await this.getAvailableNetworkIdsForNamespace(
+        requiredNamespaces,
+        optionalNamespaces,
+        namespace,
+      );
+      supported.push({
+        impl,
+        accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
+        networkIds,
+      });
+      index += 1;
+    }
+
+    // Filter supported chains from optionalNamespace
+    for (const namespace of Object.keys(optionalNamespaces)) {
+      const impl = namespaceToImplsMap[namespace as INamespaceUnion];
+      // Skip namespaces not supported by the wallet
+      if (impl) {
+        const existImpl = supported.find((s) => s.impl === impl);
+        // Skip the current namespace if it has already been processed in the required list
+        if (!existImpl) {
+          const networkIds = await this.getAvailableNetworkIdsForNamespace(
+            requiredNamespaces,
+            optionalNamespaces,
+            namespace,
+          );
+          supported.push({
+            impl,
+            accountSelectorNum: index + WalletConnectStartAccountSelectorNumber,
+            networkIds,
+          });
+          index += 1;
+        }
+      }
+    }
+
+    return supported;
   }
 
   @backgroundMethod()
@@ -225,11 +261,15 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Process optional namespaces, considering unsupported chains
     if (proposal.params.optionalNamespaces) {
-      const filteredOptionalNamespaces = Object.fromEntries(
-        Object.entries(proposal.params.optionalNamespaces).filter(
-          ([key]) => key in proposal.params.requiredNamespaces,
-        ),
-      );
+      const isEmptyRequiredNamespace =
+        Object.keys(proposal.params.requiredNamespaces).length <= 0;
+      const filteredOptionalNamespaces = isEmptyRequiredNamespace
+        ? proposal.params.optionalNamespaces
+        : Object.fromEntries(
+            Object.entries(proposal.params.optionalNamespaces).filter(
+              ([key]) => key in proposal.params.requiredNamespaces,
+            ),
+          );
       await processNamespaces(filteredOptionalNamespaces, notSupportedChains);
     }
 
