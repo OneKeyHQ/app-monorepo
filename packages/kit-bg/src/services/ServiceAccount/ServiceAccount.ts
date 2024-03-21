@@ -381,6 +381,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async addImportedAccount({
     input,
     networkId,
@@ -629,6 +630,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async addWatchingAccount({
     input,
     networkId,

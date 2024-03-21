@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { EAddressEncodings, type ISignedTxPro } from '@onekeyhq/core/src/types';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   InvalidAddress,
@@ -12,7 +12,11 @@ import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
-import type { IDBAccount, IDBSimpleAccount, IDBUtxoAccount } from '../../dbs/local/types';
+import type {
+  IDBAccount,
+  IDBSimpleAccount,
+  IDBUtxoAccount,
+} from '../../dbs/local/types';
 import type { IPrepareWatchingAccountsParams } from '../types';
 
 export abstract class KeyringWatchingBase extends KeyringBase {
@@ -33,13 +37,35 @@ export abstract class KeyringWatchingBase extends KeyringBase {
   async basePrepareUtxoWatchingAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<IDBUtxoAccount[]> {
-    const { address, xpub } = params;
+    const { address, xpub, networks, createAtNetwork, name } = params;
     if (!address && !xpub) {
       throw new Error(
         'basePrepareUtxoWatchingAccounts ERROR: address and xpub are not defined',
       );
     }
-    return [];
+    const settings = await this.getVaultSettings();
+    const coinType = settings.coinTypeDefault;
+
+    let addressEncoding: EAddressEncodings | undefined; // xpub build
+
+    const id = `${WALLET_TYPE_WATCHING}--${coinType}--${
+      address || xpub || ''
+    }--${addressEncoding === EAddressEncodings.P2TR ? `86'/` : ''}`;
+    const account: IDBUtxoAccount = {
+      id,
+      name,
+      type: EDBAccountType.UTXO,
+      relPath: '0/0',
+      coinType,
+      impl: settings.impl,
+      networks,
+      createAtNetwork,
+      address,
+      xpub: xpub || '',
+      path: '',
+      addresses: {},
+    };
+    return [account];
   }
 
   async basePrepareSimpleWatchingAccounts(
