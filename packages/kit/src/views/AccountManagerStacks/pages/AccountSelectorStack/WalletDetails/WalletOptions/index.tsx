@@ -59,7 +59,7 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
         <>
           <Verification />
           <HomeScreen />
-          <Advance />
+          <Advance wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
         </>
       );
