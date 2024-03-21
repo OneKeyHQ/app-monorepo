@@ -4,6 +4,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_LIGHTNING,
   IMPL_LTC,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -48,6 +49,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_BCH]: () => import('./impls/bch/settings'),
     [IMPL_LTC]: () => import('./impls/ltc/settings'),
     [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
+    [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {
