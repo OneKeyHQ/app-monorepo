@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import deviceClassicIcon from '@onekeyhq/kit/assets/hardware/about/device-classic.png';
 import deviceMiniIcon from '@onekeyhq/kit/assets/hardware/about/device-mini.png';
+import deviceProIcon from '@onekeyhq/kit/assets/hardware/about/device-pro.png';
 import deviceTouchIcon from '@onekeyhq/kit/assets/hardware/about/device-touch.png';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import Protected from '@onekeyhq/kit/src/components/Protected';
@@ -85,6 +86,9 @@ const OnekeyHardwareDetails: FC<OnekeyHardwareDetailsModalProps> = ({
             break;
           case 'touch':
             setDevicePicture(deviceTouchIcon);
+            break;
+          case 'pro':
+            setDevicePicture(deviceProIcon);
             break;
           default:
             break;

@@ -812,6 +812,7 @@ class Engine {
   Promise<string> {
     const { coinType } = await this.dbApi.getAccount(accountId);
     // TODO: need a method to get default network from coinType.
+    // network shortcode
     const networkId = {
       '60': OnekeyNetwork.eth,
       '61': OnekeyNetwork.etc,
@@ -836,6 +837,7 @@ class Engine {
       '128': OnekeyNetwork.xmr,
       '111111': OnekeyNetwork.kaspa,
       '29223': OnekeyNetwork.nexa,
+      '1900': OnekeyNetwork.xna,
     }[coinType];
     if (typeof networkId === 'undefined') {
       throw new NotImplemented('Unsupported network.');

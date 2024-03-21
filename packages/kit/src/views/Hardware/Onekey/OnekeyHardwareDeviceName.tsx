@@ -46,7 +46,7 @@ type DeviceNameProps = {
 
 const defaultName: Record<IOneKeyDeviceType, string> = {
   'classic': 'OneKey Classic',
-  'classic1s': 'OneKey Classic',
+  'classic1s': 'OneKey Classic 1S',
   'mini': 'OneKey Mini',
   'touch': 'OneKey Touch',
   'pro': 'OneKey Pro',

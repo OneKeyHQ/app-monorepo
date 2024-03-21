@@ -179,11 +179,19 @@ const StateView: FC<StateViewProps> = ({ stateInfo }) => {
             stateContent.description = intl.formatMessage({
               id: 'modal__disconnecting_device',
             });
-          } else if (stateInfo?.content?.deviceType === 'touch') {
+          } else if (
+            stateInfo?.content?.deviceType === 'touch' ||
+            stateInfo?.content?.deviceType === 'pro'
+          ) {
             stateContent.emoji = '📱';
-            stateContent.description = intl.formatMessage({
-              id: 'modal__enter_bootloader_mode_touch',
-            });
+            stateContent.description = intl.formatMessage(
+              {
+                id: 'modal__enter_bootloader_mode_touch',
+              },
+              {
+                '0': stateInfo?.content?.deviceType?.toUpperCase() ?? '',
+              },
+            );
           } else if (
             stateInfo?.content?.deviceType === 'classic' ||
             stateInfo?.content?.deviceType === 'classic1s'
