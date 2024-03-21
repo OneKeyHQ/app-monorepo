@@ -5,7 +5,7 @@ import {
   useMemo,
   useRef,
 } from 'react';
-import type { ForwardedRef, RefObject } from 'react';
+import type { CompositionEventHandler, ForwardedRef, RefObject } from 'react';
 
 import {
   Group,
@@ -43,7 +43,12 @@ export type IInputProps = {
   addOns?: IInputAddOnProps[];
   containerProps?: IGroupProps;
   onChangeText?: ((text: string) => string | void) | undefined;
-} & Omit<ITMInputProps, 'size' | 'onChangeText'>;
+} & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
+    /** Web only */
+    onCompositionStart?: CompositionEventHandler<any>;
+    /** Web only */
+    onCompositionEnd?: CompositionEventHandler<any>;
+  };
 
 export type IInputRef = {
   focus: () => void;

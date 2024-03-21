@@ -1,0 +1,14 @@
+diff --git a/node_modules/react-native-web/dist/exports/TextInput/index.js b/node_modules/react-native-web/dist/exports/TextInput/index.js
+index f57d4bd..4650b90 100644
+--- a/node_modules/react-native-web/dist/exports/TextInput/index.js
++++ b/node_modules/react-native-web/dist/exports/TextInput/index.js
+@@ -364,6 +364,9 @@ var TextInput = /*#__PURE__*/React.forwardRef((props, forwardedRef) => {
+   var platformMethodsRef = usePlatformMethods(supportedProps);
+   var setRef = useMergeRefs(hostRef, platformMethodsRef, imperativeRef, forwardedRef);
+   supportedProps.ref = setRef;
++  // Keyboard events are not yet supported in React Native Web
++  supportedProps.onCompositionStart = props.onCompositionStart;
++  supportedProps.onCompositionEnd = props.onCompositionEnd;
+   var langDirection = props.lang != null ? getLocaleDirection(props.lang) : null;
+   var componentDirection = props.dir || langDirection;
+   var writingDirection = componentDirection || contextDirection;
