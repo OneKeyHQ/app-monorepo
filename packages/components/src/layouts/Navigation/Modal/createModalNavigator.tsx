@@ -149,16 +149,26 @@ function ModalNavigator({
   }, [rootNavigation, media, screenHeight]);
 
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
+  useEffect(() => {
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const listener = navigation.addListener('state', () => {
+      const newIndex = navigation?.getState?.().index ?? 0;
+      stackChildrenRefList.current.forEach((element, routeIndex) => {
+        const transform =
+          routeIndex <= newIndex ? 'translateX(0px)' : 'translateX(640px)';
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        element.style.transform = transform;
+      });
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return listener;
+  }, [navigation]);
   state.routes.forEach((route, routeIndex) => {
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
     const { render } = routeDescriptor;
-    stackChildrenRefList.current.forEach((element, refIndex) => {
-      // @ts-expect-error
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      element.style.transform =
-        refIndex <= state.index ? 'translateX(0px)' : 'translateX(640px)';
-    });
     routeDescriptor.render = () => (
       <Stack
         ref={(ref) => {
@@ -170,7 +180,7 @@ function ModalNavigator({
         bg="$bg"
         style={{
           transform: [{ translateX: routeIndex !== 0 ? 640 : 0 }],
-          transition: 'transform 3.25s ease-in-out',
+          transition: 'transform .25s ease-in-out',
           willChange: 'transform',
           shadowColor: 'black',
           shadowOpacity: 0.3,
