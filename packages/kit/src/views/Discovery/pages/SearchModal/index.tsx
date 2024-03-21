@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
-import { Keyboard } from 'react-native';
+import { InteractionManager, Keyboard } from 'react-native';
 
 import {
   Image,
@@ -119,8 +119,11 @@ function SearchModal() {
             value={searchValue}
             onFocus={(e) => {
               // Workaround for selectTextOnFocus={true} not working
-              e.currentTarget.setNativeProps({
-                selection: { start: 0, end: searchValue.length },
+              const { currentTarget } = e;
+              void InteractionManager.runAfterInteractions(() => {
+                currentTarget.setNativeProps({
+                  selection: { start: 0, end: searchValue.length },
+                });
               });
             }}
             onSearchTextChange={setSearchValue}
