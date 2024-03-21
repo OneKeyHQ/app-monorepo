@@ -5277,7 +5277,6 @@ __metadata:
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
     react-native-file-logger: "npm:^0.4.1"
-    react-native-flipper: "npm:0.201.0"
     react-native-fs: "npm:^2.20.0"
     react-native-gesture-handler: "npm:2.14.1"
     react-native-get-random-values: "npm:1.9.0"
