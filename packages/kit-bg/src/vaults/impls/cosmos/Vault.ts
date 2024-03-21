@@ -50,13 +50,14 @@ export default class VaultCosmos extends VaultBase {
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    const { account, networkInfo, networkId } = params;
+    const { account, networkInfo, networkId, externalAccountAddress } = params;
     const { curve, addressPrefix } = networkInfo;
     // cosmos chains share same db account,
     // but address is different from sub chain,
     // so we should recalculate address of each chain
 
-    let { address } = account;
+    let address = account.address || externalAccountAddress || '';
+
     let baseAddress = address;
 
     // TODO check is hd or imported
