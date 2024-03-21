@@ -144,7 +144,7 @@ function useSwapWarningCheck() {
     }
 
     // provider toAmount check
-    if (quoteResult && !quoteResult?.toAmount) {
+    if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
       alerts = [
         ...alerts,
         {
