@@ -4965,6 +4965,7 @@ __metadata:
     "@types/jest": "npm:^29.5.6"
     "@types/lodash": "npm:^4.14.200"
     "@types/memoizee": "npm:^0.4.10"
+    "@types/punycode": "npm:^2"
     "@types/react": "npm:^18.2.29"
     "@types/react-dom": "npm:~18.0.10"
     "@typescript-eslint/eslint-plugin": "npm:^5.46.1"
@@ -5024,6 +5025,7 @@ __metadata:
     patch-package: "npm:^7.0.0"
     prettier: "npm:^2.8.1"
     progress-bar-webpack-plugin: "npm:^2.1.0"
+    punycode: "npm:^2.3.1"
     react: "npm:18.2.0"
     react-dev-utils: "npm:^12.0.1"
     react-dom: "npm:18.2.0"
@@ -9193,6 +9195,13 @@ __metadata:
   version: 15.7.11
   resolution: "@types/prop-types@npm:15.7.11"
   checksum: 7519ff11d06fbf6b275029fe03fff9ec377b4cb6e864cac34d87d7146c7f5a7560fd164bdc1d2dbe00b60c43713631251af1fd3d34d46c69cd354602bc0c7c54
+  languageName: node
+  linkType: hard
+
+"@types/punycode@npm:^2":
+  version: 2.1.4
+  resolution: "@types/punycode@npm:2.1.4"
+  checksum: 16637bdd8e4f830243072668125f83b93b728085a05140ccc3e7801528d78c62cce5426b07d5cdc75e4f797e1644807c762777f651d1cd071ad0128835cdce5e
   languageName: node
   linkType: hard
 
@@ -24964,7 +24973,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"punycode@npm:^2.1.0, punycode@npm:^2.1.1":
+"punycode@npm:^2.1.0, punycode@npm:^2.1.1, punycode@npm:^2.3.1":
   version: 2.3.1
   resolution: "punycode@npm:2.3.1"
   checksum: febdc4362bead22f9e2608ff0171713230b57aff9dddc1c273aa2a651fbd366f94b7d6a71d78342a7c0819906750351ca7f2edd26ea41b626d87d6a13d1bd059
