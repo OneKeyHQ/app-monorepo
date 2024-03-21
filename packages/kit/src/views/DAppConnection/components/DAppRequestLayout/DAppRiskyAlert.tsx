@@ -41,6 +41,14 @@ function DAppRiskyAlert({
         descTextColor: '$textCautionStrong',
       };
     }
+    if (urlSecurityInfo?.level === EHostSecurityLevel.Unknown) {
+      return {
+        type: 'default',
+        alertIcon: 'InfoCircleSolid',
+        titleTextColor: '$text',
+        descTextColor: '$textSubdued',
+      };
+    }
     return defaultStyle;
   }, [urlSecurityInfo?.level]);
 

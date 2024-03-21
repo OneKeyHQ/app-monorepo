@@ -58,3 +58,11 @@ export type IWalletConnectSessionProposalResult = {
   supportedNamespaces: Record<string, SessionTypes.BaseNamespace>;
   storageType: IConnectionStorageType;
 };
+
+export enum EValidateUrlEnum {
+  Valid = 'Valid',
+  InvalidUrl = 'InvalidUrl',
+  NotSupportProtocol = 'NotSupportProtocol',
+  ValidDeeplink = 'ValidDeeplink',
+  InvalidPunycode = 'InvalidPunycode',
+}

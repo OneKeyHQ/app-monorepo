@@ -15,9 +15,8 @@ import {
   homeTab,
   useBrowserAction,
   useBrowserTabActions,
-  usePhishingLruCacheAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
@@ -61,9 +60,9 @@ function WebContent({
   const onRefresh = useCallback(() => {
     webviewRefs[id]?.innerRef?.reload();
   }, [id]);
-  const [phishingCache] = usePhishingLruCacheAtom();
-  const phishingUrlRef = useRef<string>('');
-  const { onNavigation, gotoSite } = useBrowserAction().current;
+  const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
+  const { onNavigation, gotoSite, validateWebviewSrc } =
+    useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
 
@@ -134,27 +133,19 @@ function WebContent({
   const onShouldStartLoadWithRequest = useCallback(
     (navigationStateChangeEvent: WebViewNavigation) => {
       const { url: navUrl } = navigationStateChangeEvent;
-      const maybeDeepLink =
-        !navUrl.startsWith('https') && navUrl !== 'about:blank';
-      if (maybeDeepLink) {
-        const { action } = uriUtils.parseDappRedirect(
-          navUrl,
-          Array.from(phishingCache.keys()),
-        );
-        const forbiddenRequest = action === uriUtils.EDAppOpenActionEnum.DENY;
-        if (forbiddenRequest) {
-          phishingUrlRef.current = navUrl;
-          setShowBlockAccessView(true);
-          return false;
-        }
-        if (uriUtils.isValidDeepLink(navUrl)) {
-          handleDeepLinkUrl({ url: navUrl });
-          return false;
-        }
+      const validateState = validateWebviewSrc(navUrl);
+      if (validateState === EValidateUrlEnum.Valid) {
+        return true;
       }
-      return true;
+      if (validateState === EValidateUrlEnum.ValidDeeplink) {
+        handleDeepLinkUrl({ url: navUrl });
+        return false;
+      }
+      setShowBlockAccessView(true);
+      setUrlValidateState(validateState);
+      return false;
     },
-    [phishingCache],
+    [validateWebviewSrc],
   );
 
   useBackHandler(
@@ -229,6 +220,7 @@ function WebContent({
     () => (
       <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
         <BlockAccessView
+          urlValidateState={urlValidateState}
           onCloseTab={() => {
             closeWebTab(id);
             setCurrentWebTab(null);
@@ -241,7 +233,7 @@ function WebContent({
         />
       </Stack>
     ),
-    [id, closeWebTab, setCurrentWebTab],
+    [id, closeWebTab, setCurrentWebTab, urlValidateState],
   );
 
   return (

@@ -3,9 +3,28 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Empty, YStack } from '@onekeyhq/components';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
-function BlockAccessView({ onCloseTab }: { onCloseTab: () => void }) {
+function BlockAccessView({
+  urlValidateState,
+  onCloseTab,
+}: {
+  urlValidateState: EValidateUrlEnum | undefined;
+  onCloseTab: () => void;
+}) {
   const intl = useIntl();
+  const title = useMemo(() => {
+    if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
+      return 'Risky domain';
+    }
+    return 'Connection is Not Private';
+  }, [urlValidateState]);
+  const description = useMemo(() => {
+    if (urlValidateState === EValidateUrlEnum.InvalidPunycode) {
+      return 'Possibly a fake website.Attackers sometimes make subtle, undetectable changes to URLs to impersonate websites.';
+    }
+    return 'Only supports HTTPS protocol! Unsafe website is vulnerable to attacks and forgery. ';
+  }, [urlValidateState]);
   const content = useMemo(
     () => (
       <YStack
@@ -17,8 +36,8 @@ function BlockAccessView({ onCloseTab }: { onCloseTab: () => void }) {
       >
         <Empty
           icon="ErrorOutline"
-          title="Connection is Not Private"
-          description="Only supports HTTPS protocol! Unsafe website is vulnerable to attacks and forgery. "
+          title={title}
+          description={description}
           buttonProps={{
             children: intl.formatMessage({ id: 'form__close_tab' }),
             onPress: onCloseTab,
@@ -26,7 +45,7 @@ function BlockAccessView({ onCloseTab }: { onCloseTab: () => void }) {
         />
       </YStack>
     ),
-    [onCloseTab, intl],
+    [onCloseTab, intl, title, description],
   );
   return content;
 }

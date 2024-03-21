@@ -22,7 +22,6 @@ import {
   crossWebviewLoadUrl,
   injectToPauseWebsocket,
   injectToResumeWebsocket,
-  validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -30,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import {
   activeTabIdAtom,
@@ -396,7 +396,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       const tab = this.getWebTabById.call(set, id ?? '');
       if (url) {
-        const validatedUrl = validateUrl(url);
+        const validatedUrl = uriUtils.validateUrl(url);
         if (!validatedUrl) {
           return;
         }
@@ -695,19 +695,23 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
-    if (!url) return false;
+    if (!url) return EValidateUrlEnum.InvalidUrl;
+    if (url === BLANK_PAGE_URL) return EValidateUrlEnum.Valid;
     const cache = get(phishingLruCacheAtom());
     const { action } = uriUtils.parseDappRedirect(
       url,
       Array.from(cache.keys()),
     );
     if (action === uriUtils.EDAppOpenActionEnum.DENY) {
-      return false;
+      return EValidateUrlEnum.NotSupportProtocol;
+    }
+    if (uriUtils.containsPunycode(url)) {
+      return EValidateUrlEnum.InvalidPunycode;
     }
     if (uriUtils.isValidDeepLink(url)) {
-      return true;
+      return EValidateUrlEnum.ValidDeeplink;
     }
-    return true;
+    return EValidateUrlEnum.Valid;
   });
 }
 

@@ -21,25 +21,6 @@ if (process.env.NODE_ENV !== 'production') {
   global.$$webviewRefs = webviewRefs;
 }
 
-export const isValidWebUrl = (url: string) =>
-  /^[^/\s]+\.(?:ai|app|art|co|com|club|dev|ee|fi|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(?:\/[^/\s]*)*$/.test(
-    url,
-  );
-
-export const validateUrl = (url: string): string => {
-  let validatedUrl;
-  try {
-    validatedUrl = new URL(url);
-  } catch (e) {
-    if (isValidWebUrl(url)) {
-      return `https://${url}`;
-    }
-    return `https://www.google.com/search?q=${url}`;
-  }
-
-  return validatedUrl?.href ?? url;
-};
-
 export function getWebviewWrapperRef(id?: string) {
   const ref = id ? webviewRefs[id] : null;
   return ref ?? null;
