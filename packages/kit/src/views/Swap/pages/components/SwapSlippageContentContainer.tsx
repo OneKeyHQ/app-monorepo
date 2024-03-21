@@ -61,8 +61,7 @@ const SwapsSlippageContentContainer = () => {
       if (valueBN.gte(swapSlippageWillAheadMinValue)) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
-          message:
-            'Your transaction may be frontrun and result in an unfavorable trade.',
+          message: 'High slippage tolerance may cause your asset loss.',
         });
       }
       setSwapSlippage({
@@ -99,6 +98,9 @@ const SwapsSlippageContentContainer = () => {
               key: keyValue,
               value: swapSlippageAutoValue,
             });
+            if (keyValue === ESwapSlippageSegmentKey.AUTO) {
+              setInputValue(swapSlippageAutoValue.toString());
+            }
           }}
         />
 
@@ -130,8 +132,8 @@ const SwapsSlippageContentContainer = () => {
         <SizableText
           color={
             customValueState.status === ESwapSlippageCustomStatus.ERROR
-              ? 'text/critical'
-              : 'text/caution'
+              ? '$textCritical'
+              : '$textCaution'
           }
         >
           {customValueState.message}

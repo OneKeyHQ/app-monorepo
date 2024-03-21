@@ -144,7 +144,7 @@ function useSwapWarningCheck() {
     }
 
     // provider toAmount check
-    if (quoteResult && !quoteResult?.toAmount) {
+    if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
       alerts = [
         ...alerts,
         {
@@ -308,6 +308,12 @@ export function useSwapActionState() {
     if (quoteFetching) {
       infoRes.label = 'Fetching quotes';
     } else {
+      if (isCrossChain) {
+        infoRes.label = 'Cross-Chain Swap';
+      }
+      if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
+        infoRes.label = 'Wrapped';
+      }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = swapQuoteApproveAllowanceUnLimit
           ? `Approve Unlimited ${fromToken?.symbol ?? ''} to ${
@@ -326,14 +332,6 @@ export function useSwapActionState() {
       ) {
         infoRes.label = 'Insufficient balance';
         infoRes.disable = true;
-      }
-
-      if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
-        infoRes.label = 'Wrapped';
-      }
-
-      if (isCrossChain) {
-        infoRes.label = 'Cross-Chain Swap';
       }
     }
     return infoRes;

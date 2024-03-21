@@ -1,5 +1,6 @@
 import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
+import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
 import { Popover, Trigger } from '../../actions';
@@ -307,6 +308,7 @@ function SelectFrame<T extends string | ISelectItem>({
   placeholder,
   value,
   onChange,
+  onOpenChange,
   children,
   title,
   disabled,
@@ -325,7 +327,15 @@ function SelectFrame<T extends string | ISelectItem>({
         },
   );
   const [isOpen, setIsOpen] = useState(false);
-  const changeOpenStatus = setIsOpen;
+  const changeOpenStatus = useCallback(
+    (openStatus: boolean) => {
+      setIsOpen(openStatus);
+      void InteractionManager.runAfterInteractions(() => {
+        onOpenChange?.(openStatus);
+      });
+    },
+    [onOpenChange],
+  );
   // eslint-disable-next-line no-bitwise
   const context = useMemo(
     () => ({

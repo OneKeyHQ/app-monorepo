@@ -34,20 +34,27 @@ const SwapProviderSelectModal = () => {
     },
     [navigation, setSwapManualSelect],
   );
-
   const renderItem = useCallback(
-    ({ item }: { item: IFetchQuoteResult; index: number }) => (
-      <SwapProviderListItem
-        onPress={() => {
-          onSelectQuote(item);
-        }}
-        fromTokenAmount={fromTokenAmount}
-        fromTokenSymbol={fromToken?.symbol}
-        providerResult={item}
-        currencySymbol={settingsPersist.currencyInfo.symbol}
-        toAmountSymbol={toToken?.symbol ?? ''}
-      />
-    ),
+    ({ item }: { item: IFetchQuoteResult; index: number }) => {
+      const disabled = !item.toAmount && !item.limit;
+      return (
+        <SwapProviderListItem
+          onPress={
+            !disabled
+              ? () => {
+                  onSelectQuote(item);
+                }
+              : undefined
+          }
+          fromTokenAmount={fromTokenAmount}
+          fromTokenSymbol={fromToken?.symbol}
+          providerResult={item}
+          currencySymbol={settingsPersist.currencyInfo.symbol}
+          toAmountSymbol={toToken?.symbol ?? ''}
+          disabled={disabled}
+        />
+      );
+    },
     [
       fromToken?.symbol,
       fromTokenAmount,

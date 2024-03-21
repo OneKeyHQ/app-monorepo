@@ -78,6 +78,15 @@ export interface IFetchTokensParams {
 
 // quote
 
+export interface ISwapApproveTransaction {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  provider: ESwapProviders;
+  useAddress: string;
+  spenderAddress: string;
+  amount: string;
+  txId?: string;
+}
 export interface IFetchQuotesParams {
   fromNetworkId: string;
   toNetworkId: string;
