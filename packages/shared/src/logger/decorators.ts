@@ -4,11 +4,33 @@ import { logger as RNLogger, consoleTransport } from 'react-native-logs';
 import { isPromiseObject } from '../utils/promiseUtils';
 
 import { stringifyFunc } from './stringifyFunc';
-import { consoleFunc } from './utils/consoleFunc';
+import { consoleFunc } from './utils';
 
-import type { IPrimitiveValue, IScene } from './types';
+// import type { IPrimitiveValue, IScene } from './types';
 
 type ILogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export type ILoggerMethods = {
+  debug: (...args: any[]) => void;
+  info: (...args: any[]) => void;
+  warn: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+};
+
+export type ILogger = ILoggerMethods & {
+  extend: (extension: string) => ILoggerMethods;
+};
+
+export type IPrimitiveValue = string | number | boolean | null | undefined;
+
+export enum ESceneName {
+  wallet = 'wallet',
+  common = 'common',
+}
+
+export interface IScene {
+  getName: () => ESceneName;
+}
 
 const dangerLogger = RNLogger.createLogger<ILogLevel>({
   async: true,
@@ -38,22 +60,6 @@ type ICreateLoggerMethodDecoratorArgs = {
   level: ILogLevel;
 };
 
-export class LogMsg {
-  data: any[];
-
-  constructor(data: any[]) {
-    this.data = data;
-  }
-
-  static Primitive(...data: IPrimitiveValue[]) {
-    return new LogMsg(data);
-  }
-
-  static Any(...data: any[]) {
-    return new LogMsg(data);
-  }
-}
-
 function createLocalLoggerDecorator(
   decoratorArgs: ICreateLoggerMethodDecoratorArgs,
 ) {
@@ -70,12 +76,7 @@ function createLocalLoggerDecorator(
       if (isPromiseObject(result)) {
         result = await result;
       }
-      if (result instanceof LogMsg) {
-        loggerExtension[decoratorArgs.level](
-          `Method ${propertyKey}()`,
-          ...result.data,
-        );
-      }
+      loggerExtension[decoratorArgs.level](`Method ${propertyKey}`, ...result);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;
     };
@@ -97,9 +98,6 @@ function createServerLoggerDecorator(
       let result = originalMethod.apply(this, args);
       if (isPromiseObject(result)) {
         result = await result;
-      }
-      if (result instanceof LogMsg) {
-        // TODO: implement server logging, mix panel, etc.
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return result;

@@ -1,8 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
-export const exportLogs = async () => {
-  const str = new Date().toISOString().replace(/[-:.]/g, '');
-  const logName = `OneKeyLogs-${str}.txt`;
+export const exportLogs = async (filename: string) => {
+  const logName = `${filename}.txt`;
   const allMsgs = await backgroundApiProxy.serviceLogger.getAllMsg();
   const element = document.createElement('a');
   const file = new Blob(allMsgs, {

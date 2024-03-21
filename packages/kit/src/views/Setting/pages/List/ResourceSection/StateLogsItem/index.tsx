@@ -21,7 +21,8 @@ export const StateLogsItem = () => {
       onConfirmText: 'Export',
       onConfirm: () => {
         defaultLogger.common.logDeviceInfo();
-        void exportLogs();
+        const str = new Date().toISOString().replace(/[-:.]/g, '');
+        void exportLogs(`OneKeyLogs-${str}`);
       },
     });
   }, []);
