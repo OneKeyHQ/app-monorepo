@@ -51,8 +51,8 @@ function TokenListView(props: IProps) {
     <ListView
       py="$3"
       estimatedItemSize={48}
-      scrollEnabled={platformEnv.isWebTouchable}
-      disableScrollViewPanResponder
+      scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
+      disableScrollViewPanResponder={!!onContentSizeChange}
       data={filteredTokens}
       ListHeaderComponent={
         withHeader && tokens.length > 0 ? (

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import {
   StackRouter,
@@ -7,11 +7,11 @@ import {
 } from '@react-navigation/core';
 import { StackView } from '@react-navigation/stack';
 import _ from 'lodash';
-import { Animated } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
 
 import { useBackHandler } from '../../../hooks';
-import { Stack } from '../../../primitives/Stack';
+import { Stack, YStack } from '../../../primitives/Stack';
 
 import type {
   IModalNavigationConfig,
@@ -25,8 +25,10 @@ import type {
   StackNavigationState,
   StackRouterOptions,
 } from '@react-navigation/native';
+import type { TamaguiElement } from 'tamagui';
 
-const ROOT_NAVIGATION_INDEX_VALUE = new Animated.Value(0);
+const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];
+let MODAL_ANIMATED_BACKDROP_VIEW_REF: TamaguiElement | null;
 let ROOT_NAVIGATION_INDEX_LISTENER: (() => void) | undefined;
 
 type IProps = DefaultNavigatorOptions<
@@ -44,6 +46,7 @@ function ModalNavigator({
   screenOptions,
   ...rest
 }: IProps) {
+  const screenHeight = useWindowDimensions().height;
   const media = useMedia();
   const { state, descriptors, navigation, NavigationContent } =
     useNavigationBuilder<
@@ -115,18 +118,80 @@ function ModalNavigator({
       'state',
       () => {
         const newIndex = rootNavigation?.getState?.().index ?? 0;
-        if (newIndex <= 0) {
-          return;
+        if (media.gtMd && MODAL_ANIMATED_BACKDROP_VIEW_REF) {
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          MODAL_ANIMATED_BACKDROP_VIEW_REF.style.opacity =
+            newIndex >= 1 ? 1 : 0;
         }
-        Animated.timing(ROOT_NAVIGATION_INDEX_VALUE, {
-          duration: 150,
-          toValue: newIndex,
-          useNativeDriver: false,
-        }).start();
+
+        MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
+          const transform = media.gtMd
+            ? {
+                translateY: `${
+                  newIndex < index ? screenHeight : -30 * (newIndex - index)
+                }px`,
+                scale: `${1 - 0.05 * (newIndex - index)}`,
+              }
+            : {
+                translateY: `${newIndex < index ? screenHeight : 0}px`,
+                scale: '1',
+              };
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          element.style.transform = Object.entries(transform)
+            .map(([key, value]) => `${key}(${value})`)
+            .join(' ');
+        });
       },
     );
     return () => {};
-  }, [rootNavigation]);
+  }, [rootNavigation, media, screenHeight]);
+
+  const stackChildrenRefList = useRef<TamaguiElement[]>([]);
+  useEffect(() => {
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const listener = navigation.addListener('state', () => {
+      const newIndex = navigation?.getState?.().index ?? 0;
+      stackChildrenRefList.current.forEach((element, routeIndex) => {
+        const transform =
+          routeIndex <= newIndex ? 'translateX(0px)' : 'translateX(640px)';
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        element.style.transform = transform;
+      });
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return listener;
+  }, [navigation]);
+  state.routes.forEach((route, routeIndex) => {
+    const routeDescriptor = descriptors[route.key];
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const { render } = routeDescriptor;
+    routeDescriptor.render = () => (
+      <Stack
+        ref={(ref) => {
+          if (ref) {
+            stackChildrenRefList.current[routeIndex] = ref;
+          }
+        }}
+        flex={1}
+        bg="$bg"
+        style={{
+          transform: [{ translateX: routeIndex !== 0 ? 640 : 0 }],
+          transition: 'transform .25s ease-in-out',
+          willChange: 'transform',
+          shadowColor: 'black',
+          shadowOpacity: 0.3,
+          shadowRadius: 10,
+          shadowOffset: { width: -5, height: 0 },
+        }}
+      >
+        {render()}
+      </Stack>
+    );
+  });
 
   return (
     <NavigationContent>
@@ -138,69 +203,58 @@ function ModalNavigator({
           alignItems: 'center',
         }}
       >
-        <Animated.View
+        {currentRouteIndex <= 1 ? (
+          <YStack
+            ref={(ref) => (MODAL_ANIMATED_BACKDROP_VIEW_REF = ref)}
+            fullscreen
+            style={{
+              opacity: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              transition: 'opacity .25s ease-in-out',
+              willChange: 'opacity',
+            }}
+          />
+        ) : null}
+
+        <Stack
+          // Prevents bubbling to prevent the background click event from being triggered when clicking on the modal window
+          onPress={(e) => e?.stopPropagation()}
+          testID="APP-Modal-Screen"
+          bg="$bgApp"
+          overflow="hidden"
+          width="100%"
+          height="100%"
+          borderTopStartRadius="$6"
+          borderTopEndRadius="$6"
+          $gtMd={{
+            width: '90%',
+            height: '90%',
+            maxWidth: '$160',
+            maxHeight: '$160',
+            borderRadius: '$4',
+            outlineWidth: '$px',
+            outlineStyle: 'solid',
+            outlineColor: '$borderSubdued',
+          }}
+          ref={(ref) => {
+            if (ref) {
+              MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
+            }
+          }}
           style={{
-            width: '100%',
-            height: '100%',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: media.gtMd
-              ? [
-                  {
-                    translateY: Animated.multiply(
-                      Animated.subtract(
-                        ROOT_NAVIGATION_INDEX_VALUE,
-                        currentRouteIndex,
-                      ),
-                      -30,
-                    ),
-                  },
-                  {
-                    scale: Animated.add(
-                      1,
-                      Animated.multiply(
-                        -0.05,
-                        Animated.subtract(
-                          ROOT_NAVIGATION_INDEX_VALUE,
-                          currentRouteIndex,
-                        ),
-                      ),
-                    ),
-                  },
-                ]
-              : [],
+            transform: [{ translateY: screenHeight }],
+            transition: 'transform .25s ease-in-out',
+            willChange: 'transform',
           }}
         >
-          <Stack
-            // Prevents bubbling to prevent the background click event from being triggered when clicking on the modal window
-            onPress={(e) => e?.stopPropagation()}
-            testID="APP-Modal-Screen"
-            bg="$bgApp"
-            overflow="hidden"
-            width="100%"
-            height="100%"
-            borderTopStartRadius="$6"
-            borderTopEndRadius="$6"
-            $gtMd={{
-              width: '90%',
-              height: '90%',
-              maxWidth: '$160',
-              maxHeight: '$160',
-              borderRadius: '$4',
-              outlineWidth: '$px',
-              outlineStyle: 'solid',
-              outlineColor: '$borderSubdued',
-            }}
-          >
-            <StackView
-              {...rest}
-              state={state}
-              // @ts-expect-error
-              descriptors={descriptors}
-              navigation={navigation}
-            />
-          </Stack>
-        </Animated.View>
+          <StackView
+            {...rest}
+            state={state}
+            // @ts-expect-error
+            descriptors={descriptors}
+            navigation={navigation}
+          />
+        </Stack>
       </Stack>
     </NavigationContent>
   );
