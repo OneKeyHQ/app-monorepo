@@ -4796,13 +4796,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.0.3":
-  version: 1.0.3
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.3"
+"@onekeyfe/react-native-lite-card@npm:1.0.4":
+  version: 1.0.4
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.4"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: ef94055c15541d746a3ed3afdd1e983a7df67973a9b745ce752a4fce5ab4cbe14acdba6fba35c35d547e9224ca3abc9c4394a657411a902379cd877bb8e69a43
+  checksum: 0c7898b6e503611173fc82347ff08fc58f6147e859ce172a4f20b81abc941e36882fc5a5caadc6bd34d2db45fba8afad141e729c8d9e61710524f06ca6636767
   languageName: node
   linkType: hard
 
@@ -4853,6 +4853,7 @@ __metadata:
     "@types/jest": "npm:^29.5.6"
     "@types/lodash": "npm:^4.14.200"
     "@types/memoizee": "npm:^0.4.10"
+    "@types/punycode": "npm:^2"
     "@types/react": "npm:^18.2.29"
     "@types/react-dom": "npm:~18.0.10"
     "@typescript-eslint/eslint-plugin": "npm:^5.46.1"
@@ -4910,6 +4911,7 @@ __metadata:
     patch-package: "npm:^7.0.0"
     prettier: "npm:^2.8.1"
     progress-bar-webpack-plugin: "npm:^2.1.0"
+    punycode: "npm:^2.3.1"
     react: "npm:18.2.0"
     react-dev-utils: "npm:^12.0.1"
     react-dom: "npm:18.2.0"
@@ -5117,7 +5119,7 @@ __metadata:
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
-    "@onekeyfe/react-native-lite-card": "npm:1.0.3"
+    "@onekeyfe/react-native-lite-card": "npm:1.0.4"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.3"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
@@ -9076,6 +9078,13 @@ __metadata:
   version: 15.7.11
   resolution: "@types/prop-types@npm:15.7.11"
   checksum: 7519ff11d06fbf6b275029fe03fff9ec377b4cb6e864cac34d87d7146c7f5a7560fd164bdc1d2dbe00b60c43713631251af1fd3d34d46c69cd354602bc0c7c54
+  languageName: node
+  linkType: hard
+
+"@types/punycode@npm:^2":
+  version: 2.1.4
+  resolution: "@types/punycode@npm:2.1.4"
+  checksum: 16637bdd8e4f830243072668125f83b93b728085a05140ccc3e7801528d78c62cce5426b07d5cdc75e4f797e1644807c762777f651d1cd071ad0128835cdce5e
   languageName: node
   linkType: hard
 
@@ -24671,7 +24680,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"punycode@npm:^2.1.0, punycode@npm:^2.1.1":
+"punycode@npm:^2.1.0, punycode@npm:^2.1.1, punycode@npm:^2.3.1":
   version: 2.3.1
   resolution: "punycode@npm:2.3.1"
   checksum: febdc4362bead22f9e2608ff0171713230b57aff9dddc1c273aa2a651fbd366f94b7d6a71d78342a7c0819906750351ca7f2edd26ea41b626d87d6a13d1bd059

@@ -33,8 +33,8 @@ export function PasswordKeyboard({
   const renderItem = useCallback(
     ({ item, index }: { item: string; index: number }) => (
       <Stack
+        bg="$bgStrong"
         disabled={item.length <= 0}
-        bg="$bgApp"
         focusStyle={{
           bg: '$bgActive',
         }}
@@ -50,8 +50,8 @@ export function PasswordKeyboard({
         $platform-web={{
           width: '33.3%',
         }}
-        marginRight={index % 3 !== 2 ? StyleSheet.hairlineWidth : 0}
-        marginTop={Math.floor(index / 3) > 0 ? StyleSheet.hairlineWidth : 0}
+        marginRight={index % 3 !== 2 ? 1 : 0}
+        marginTop={Math.floor(index / 3) > 0 ? 1 : 0}
         h="$14"
         justifyContent="center"
         alignItems="center"
@@ -90,7 +90,6 @@ export function PasswordKeyboard({
       </XStack>
       <ListView
         scrollEnabled={false}
-        bg="$bgStrong"
         data={[
           '1',
           '2',
