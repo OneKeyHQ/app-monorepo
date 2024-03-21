@@ -4,7 +4,6 @@ import {
   SizableText,
   Stack,
   XStack,
-  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import {
@@ -42,7 +41,6 @@ function HeaderLeftToolBar({
   onPinnedPress?: (pinned: boolean) => void;
 }) {
   const media = useMedia();
-  const { copyText } = useClipboard();
   if (media.md) {
     return (
       <Stack
@@ -94,7 +92,7 @@ function HeaderLeftToolBar({
         value={url}
         selectTextOnFocus
         onPress={() => {
-          copyText(url);
+          onSearch?.();
         }}
         addOns={[
           {
