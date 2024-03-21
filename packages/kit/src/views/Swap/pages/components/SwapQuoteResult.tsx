@@ -1,8 +1,7 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo } from 'react';
 
 import { NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
-  useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -10,13 +9,12 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
-import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
 
-import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSelect';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageContentContainer from './SwapSlippageContentContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
 
@@ -35,49 +33,19 @@ const SwapQuoteResult = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
 
   const [quoteFetching] = useSwapQuoteFetchingAtom();
-  const [, setSwapQuoteApproveAllowanceUnLimit] =
-    useSwapQuoteApproveAllowanceUnLimitAtom();
 
   const [, setSwapSlippagePopOverOpening] = useSwapSlippagePopoverOpeningAtom();
-
-  const approveAllowanceSelectItems = useMemo(() => {
-    if (quoteResult?.allowanceResult) {
-      return [
-        {
-          label: `${quoteResult.allowanceResult.amount} ${
-            fromToken?.symbol ?? ''
-          }`,
-          value: ESwapApproveAllowanceType.PRECISION,
-        },
-        {
-          label: 'Unlimited',
-          value: ESwapApproveAllowanceType.UN_LIMIT,
-        },
-      ];
-    }
-    return [];
-  }, [fromToken?.symbol, quoteResult?.allowanceResult]);
-
-  const onSelectAllowanceValue = useCallback(
-    (value: string) => {
-      setSwapQuoteApproveAllowanceUnLimit(
-        value === ESwapApproveAllowanceType.UN_LIMIT,
-      );
-    },
-    [setSwapQuoteApproveAllowanceUnLimit],
-  );
 
   return (
     <YStack space="$4">
       {quoteResult.allowanceResult ? (
-        <SwapApproveAllowanceSelect
-          onSelectAllowanceValue={onSelectAllowanceValue}
-          selectItems={approveAllowanceSelectItems}
+        <SwapApproveAllowanceSelectContainer
+          allowanceResult={quoteResult.allowanceResult}
+          fromTokenSymbol={fromToken?.symbol ?? ''}
           isLoading={quoteFetching}
         />
       ) : null}
       <SwapProviderInfoItem
-        providerName={quoteResult.info.providerName}
         providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
         isLoading={quoteFetching}
         rate={quoteResult.instantRate}
@@ -102,7 +70,7 @@ const SwapQuoteResult = ({
               setSwapSlippagePopOverOpening(open);
             }}
           />
-          {quoteResult.fee.estimatedFeeFiatValue ? (
+          {quoteResult.fee?.estimatedFeeFiatValue ? (
             <SwapCommonInfoItem
               title="Est network fee"
               isLoading={quoteFetching}
@@ -114,7 +82,7 @@ const SwapQuoteResult = ({
                     currency: settingsPersistAtom.currencyInfo.symbol,
                   }}
                 >
-                  {quoteResult.fee.estimatedFeeFiatValue}
+                  {quoteResult.fee?.estimatedFeeFiatValue}
                 </NumberSizeableText>
               }
             />

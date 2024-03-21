@@ -89,7 +89,7 @@ function TokenList() {
   ]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header title={title} headerRight={headerRight} />
       <Page.Body>
         <TokenListView

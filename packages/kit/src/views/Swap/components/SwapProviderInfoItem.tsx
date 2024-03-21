@@ -14,7 +14,6 @@ import {
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapProviderInfoItemProps {
-  providerName: string;
   rate?: string;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
@@ -30,7 +29,6 @@ const SwapProviderInfoItem = ({
   fromToken,
   toToken,
   providerIcon,
-  providerName,
   showLock,
   onPress,
   isLoading,
@@ -75,7 +73,7 @@ const SwapProviderInfoItem = ({
             borderRadius="$full"
           />
           <SizableText size="$bodyMdMedium" pl="$1">
-            {rate ? rateContent : providerName}
+            {rateContent}
           </SizableText>
           {showLock ? (
             <Icon name="LockOutline" color="$iconSubdued" ml="$1" size="$5" />

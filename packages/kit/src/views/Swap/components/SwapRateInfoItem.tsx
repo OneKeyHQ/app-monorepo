@@ -36,7 +36,7 @@ const SwapRateInfoItem = ({
   }, [fromToken, rate, rateSwitch, toToken]);
 
   return (
-    <XStack alignItems="center">
+    <XStack alignItems="center" space="$2">
       <Image
         source={{ uri: providerUrl }}
         width={20}
