@@ -1,5 +1,8 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -13,7 +16,7 @@ import type {
 } from '../../types';
 
 export class KeyringHd extends KeyringHdBase {
-  override coreApi = coreChainApi.evm.hd;
+  override coreApi = coreChainApi.lightning.hd;
 
   override async getPrivateKeys(
     params: IGetPrivateKeysParams,
@@ -24,7 +27,30 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
-    return this.basePrepareAccountsHd(params);
+    const networkInfo = await this.getCoreApiNetworkInfo();
+    return this.basePrepareHdNormalAccounts(params, {
+      buildAddressesInfo: async ({ usedIndexes }) => {
+        const { password, deriveInfo } = params;
+        const { template } = deriveInfo;
+        const credentials = await this.baseGetCredentialsInfo({ password });
+        if (!this.coreApi) {
+          throw new Error('coreApi is undefined');
+        }
+        const { addresses: addressesInfo } =
+          await this.coreApi.getAddressesFromHd({
+            networkInfo,
+            template,
+            hdCredential: checkIsDefined(credentials.hd),
+            password,
+            indexes: usedIndexes,
+          });
+
+        if (addressesInfo.length !== usedIndexes.length) {
+          throw new OneKeyInternalError('Unable to get address');
+        }
+        return addressesInfo;
+      },
+    });
   }
 
   override async signTransaction(

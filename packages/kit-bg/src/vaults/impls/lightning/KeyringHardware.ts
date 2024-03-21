@@ -12,7 +12,7 @@ import type {
 } from '../../types';
 
 export class KeyringHardware extends KeyringHardwareBase {
-  override coreApi = coreChainApi.evm.hd;
+  override coreApi = coreChainApi.lightning.hd;
 
   override prepareAccounts(
     params: IPrepareAccountsParams,

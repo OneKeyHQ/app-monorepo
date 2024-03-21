@@ -4,23 +4,28 @@ import {
   Transaction,
   crypto,
   initEccLib,
+  payments,
 } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import { ECPairFactory } from 'ecpair';
 
-import { ecc } from '../../../secret';
+import { CKDPub, IBip32ExtendedKey, ecc } from '../../../secret';
 
 import { IAddressValidation } from '@onekeyhq/shared/types/address';
 import type { BIP32API } from 'bip32/types/bip32';
-import type { Psbt, networks } from 'bitcoinjs-lib';
+import type { Payment, Psbt, networks } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 import type { ECPairAPI } from 'ecpair/src/ecpair';
 import {
   EAddressEncodings,
+  ICurveName,
   type ICoreApiSignAccount,
   type ITxInputToSign,
 } from '../../../types';
 import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
+import bs58check from 'bs58check';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { getBtcForkNetwork } from './networks';
 
 export * from './networks';
 
@@ -231,4 +236,165 @@ export function checkBtcAddressIsUsed(query: {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 }): Promise<{ isUsed: boolean }> {
   return Promise.resolve({ isUsed: true });
+}
+
+function getVersionBytesToEncodings({
+  networkChainCode,
+}: {
+  networkChainCode: string | undefined;
+}): {
+  public: Record<number, Array<EAddressEncodings>>;
+  private: Record<number, Array<EAddressEncodings>>;
+} {
+  const network = getBtcForkNetwork(networkChainCode);
+  const tmp: {
+    public: {
+      [bytes: number]: EAddressEncodings[];
+    };
+    private: {
+      [bytes: number]: EAddressEncodings[];
+    };
+  } = {
+    public: { [network.bip32.public]: [EAddressEncodings.P2PKH] },
+    private: { [network.bip32.private]: [EAddressEncodings.P2PKH] },
+  };
+  Object.entries(network.segwitVersionBytes || {}).forEach(
+    ([
+      encoding,
+      { public: publicVersionBytes, private: privateVersionBytes },
+    ]) => {
+      tmp.public[publicVersionBytes] = [
+        ...(tmp.public[publicVersionBytes] || []),
+        encoding as EAddressEncodings,
+      ];
+      tmp.private[privateVersionBytes] = [
+        ...(tmp.private[privateVersionBytes] || []),
+        encoding as EAddressEncodings,
+      ];
+    },
+  );
+  return tmp;
+}
+
+export function pubkeyToPayment({
+  pubkey,
+  encoding,
+  network,
+}: {
+  pubkey: Buffer;
+  encoding: EAddressEncodings;
+  network: IBtcForkNetwork;
+}): Payment {
+  initBitcoinEcc();
+  let payment: Payment = {
+    pubkey,
+    network,
+  };
+
+  switch (encoding) {
+    case EAddressEncodings.P2PKH:
+      payment = payments.p2pkh(payment);
+      break;
+
+    case EAddressEncodings.P2WPKH:
+      payment = payments.p2wpkh(payment);
+      break;
+
+    case EAddressEncodings.P2SH_P2WPKH:
+      payment = payments.p2sh({
+        redeem: payments.p2wpkh(payment),
+        network,
+      });
+      break;
+    case EAddressEncodings.P2TR:
+      payment = payments.p2tr({
+        internalPubkey: pubkey.slice(1, 33),
+        network,
+      });
+      break;
+
+    default:
+      throw new Error(`Invalid encoding: ${encoding as string}`);
+  }
+
+  return payment;
+}
+
+export function getAddressFromXpub({
+  curve,
+  network,
+  xpub,
+  relativePaths,
+  addressEncoding,
+  encodeAddress,
+}: {
+  curve: ICurveName;
+  network: IBtcForkNetwork;
+  xpub: string;
+  relativePaths: Array<string>;
+  addressEncoding?: EAddressEncodings;
+  encodeAddress: (address: string) => string;
+}): Record<string, string> {
+  // Only used to generate addresses locally.
+  const decodedXpub = bs58check.decode(xpub);
+  const versionBytes = parseInt(
+    bufferUtils.bytesToHex(decodedXpub.slice(0, 4)),
+    16,
+  );
+
+  let encoding = addressEncoding;
+  if (!encoding) {
+    const addressEncodingMap = getVersionBytesToEncodings({
+      networkChainCode: network.networkChainCode,
+    });
+    const supportEncodings = addressEncodingMap.public[versionBytes];
+    if (supportEncodings.length > 1) {
+      throw new Error(
+        'getAddressFromXpub ERROR: supportEncodings length > 1, you should specify addressEncoding by params',
+      );
+    }
+    encoding = supportEncodings[0];
+  }
+
+  const ret: Record<string, string> = {};
+
+  const startExtendedKey: IBip32ExtendedKey = {
+    chainCode: bufferUtils.toBuffer(decodedXpub.slice(13, 45)),
+    key: bufferUtils.toBuffer(decodedXpub.slice(45, 78)),
+  };
+
+  const cache = new Map();
+  // const leaf = null;
+  for (const path of relativePaths) {
+    let extendedKey = startExtendedKey;
+    let relPath = '';
+
+    const parts = path.split('/');
+    for (const part of parts) {
+      relPath += relPath === '' ? part : `/${part}`;
+      if (cache.has(relPath)) {
+        extendedKey = cache.get(relPath);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
+      const index = part.endsWith("'")
+        ? parseInt(part.slice(0, -1)) + 2 ** 31
+        : parseInt(part);
+      extendedKey = CKDPub(curve, extendedKey, index);
+      cache.set(relPath, extendedKey);
+    }
+
+    // const pubkey = taproot && inscribe ? fixedPublickey : extendedKey.key;
+    let { address } = pubkeyToPayment({
+      network,
+      pubkey: extendedKey.key,
+      encoding,
+    });
+    if (typeof address === 'string' && address.length > 0) {
+      address = encodeAddress(address);
+      ret[path] = address;
+    }
+  }
+  return ret;
 }

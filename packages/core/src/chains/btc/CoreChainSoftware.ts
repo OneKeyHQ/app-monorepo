@@ -52,6 +52,7 @@ import {
 import { slicePathTemplate } from '../../utils';
 
 import {
+  getAddressFromXpub,
   getBitcoinBip32,
   getBitcoinECPair,
   getBtcForkNetwork,
@@ -59,6 +60,7 @@ import {
   initBitcoinEcc,
   isTaprootPath,
   loadOPReturn,
+  pubkeyToPayment,
   tweakSigner,
 } from './sdkBtc';
 
@@ -129,89 +131,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     };
   }
 
-  // TODO memo and move to utils (file with getBtcForkNetwork)
-  private getVersionBytesToEncodings({
-    networkChainCode,
-  }: {
-    networkChainCode: string | undefined;
-  }): {
-    public: Record<number, Array<EAddressEncodings>>;
-    private: Record<number, Array<EAddressEncodings>>;
-  } {
-    const network = getBtcForkNetwork(networkChainCode);
-    const tmp: {
-      public: {
-        [bytes: number]: EAddressEncodings[];
-      };
-      private: {
-        [bytes: number]: EAddressEncodings[];
-      };
-    } = {
-      public: { [network.bip32.public]: [EAddressEncodings.P2PKH] },
-      private: { [network.bip32.private]: [EAddressEncodings.P2PKH] },
-    };
-    Object.entries(network.segwitVersionBytes || {}).forEach(
-      ([
-        encoding,
-        { public: publicVersionBytes, private: privateVersionBytes },
-      ]) => {
-        tmp.public[publicVersionBytes] = [
-          ...(tmp.public[publicVersionBytes] || []),
-          encoding as EAddressEncodings,
-        ];
-        tmp.private[privateVersionBytes] = [
-          ...(tmp.private[privateVersionBytes] || []),
-          encoding as EAddressEncodings,
-        ];
-      },
-    );
-    return tmp;
-  }
-
-  private pubkeyToPayment({
-    pubkey,
-    encoding,
-    network,
-  }: {
-    pubkey: Buffer;
-    encoding: EAddressEncodings;
-    network: IBtcForkNetwork;
-  }): Payment {
-    initBitcoinEcc();
-    let payment: Payment = {
-      pubkey,
-      network,
-    };
-
-    switch (encoding) {
-      case EAddressEncodings.P2PKH:
-        payment = payments.p2pkh(payment);
-        break;
-
-      case EAddressEncodings.P2WPKH:
-        payment = payments.p2wpkh(payment);
-        break;
-
-      case EAddressEncodings.P2SH_P2WPKH:
-        payment = payments.p2sh({
-          redeem: payments.p2wpkh(payment),
-          network,
-        });
-        break;
-      case EAddressEncodings.P2TR:
-        payment = payments.p2tr({
-          internalPubkey: pubkey.slice(1, 33),
-          network,
-        });
-        break;
-
-      default:
-        throw new Error(`Invalid encoding: ${encoding as string}`);
-    }
-
-    return payment;
-  }
-
   public async getAddressFromXpub({
     network,
     xpub,
@@ -223,68 +142,15 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     relativePaths: Array<string>;
     addressEncoding?: EAddressEncodings;
   }): Promise<Record<string, string>> {
-    // Only used to generate addresses locally.
-    const decodedXpub = bs58check.decode(xpub);
-    const versionBytes = parseInt(
-      bufferUtils.bytesToHex(decodedXpub.slice(0, 4)),
-      16,
-    );
-
-    let encoding = addressEncoding;
-    if (!encoding) {
-      const addressEncodingMap = this.getVersionBytesToEncodings({
-        networkChainCode: network.networkChainCode,
-      });
-      const supportEncodings = addressEncodingMap.public[versionBytes];
-      if (supportEncodings.length > 1) {
-        throw new Error(
-          'getAddressFromXpub ERROR: supportEncodings length > 1, you should specify addressEncoding by params',
-        );
-      }
-      encoding = supportEncodings[0];
-    }
-
-    const ret: Record<string, string> = {};
-
-    const startExtendedKey: IBip32ExtendedKey = {
-      chainCode: bufferUtils.toBuffer(decodedXpub.slice(13, 45)),
-      key: bufferUtils.toBuffer(decodedXpub.slice(45, 78)),
-    };
-
-    const cache = new Map();
-    // const leaf = null;
-    for (const path of relativePaths) {
-      let extendedKey = startExtendedKey;
-      let relPath = '';
-
-      const parts = path.split('/');
-      for (const part of parts) {
-        relPath += relPath === '' ? part : `/${part}`;
-        if (cache.has(relPath)) {
-          extendedKey = cache.get(relPath);
-          // eslint-disable-next-line no-continue
-          continue;
-        }
-
-        const index = part.endsWith("'")
-          ? parseInt(part.slice(0, -1)) + 2 ** 31
-          : parseInt(part);
-        extendedKey = CKDPub(curveName, extendedKey, index);
-        cache.set(relPath, extendedKey);
-      }
-
-      // const pubkey = taproot && inscribe ? fixedPublickey : extendedKey.key;
-      let { address } = this.pubkeyToPayment({
-        network,
-        pubkey: extendedKey.key,
-        encoding,
-      });
-      if (typeof address === 'string' && address.length > 0) {
-        address = this.encodeAddress(address);
-        ret[path] = address;
-      }
-    }
-    return ret;
+    const ret = getAddressFromXpub({
+      curve: curveName,
+      network,
+      xpub,
+      relativePaths,
+      addressEncoding,
+      encodeAddress: this.encodeAddress
+    })
+    return Promise.resolve(ret)
   }
 
   private async buildSignersMap({
@@ -402,7 +268,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         case EAddressEncodings.P2WPKH:
           mixin.witnessUtxo = {
             script: checkIsDefined(
-              this.pubkeyToPayment({
+              pubkeyToPayment({
                 pubkey: await signer.getPubkey(true),
                 encoding,
                 network,
@@ -414,7 +280,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         case EAddressEncodings.P2SH_P2WPKH:
           {
             const payment = checkIsDefined(
-              this.pubkeyToPayment({
+              pubkeyToPayment({
                 pubkey: await signer.getPubkey(true),
                 encoding,
                 network,
@@ -430,7 +296,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         case EAddressEncodings.P2TR:
           {
             const payment = checkIsDefined(
-              this.pubkeyToPayment({
+              pubkeyToPayment({
                 pubkey: await signer.getPubkey(true),
                 encoding,
                 network,

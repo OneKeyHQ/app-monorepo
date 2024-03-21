@@ -1,6 +1,6 @@
 import {
-  COINTYPE_ETH,
-  IMPL_EVM,
+  COINTYPE_LIGHTNING,
+  IMPL_LIGHTNING,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -10,29 +10,28 @@ import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
-    namePrefix: 'EVM',
-    labelKey: 'form__bip44_standard',
-    template: `m/44'/${COINTYPE_ETH}'/0'/0/${INDEX_PLACEHOLDER}`,
-    coinType: COINTYPE_ETH,
+    namePrefix: 'Lightning',
+    template: `m/44'/${COINTYPE_LIGHTNING}'/${INDEX_PLACEHOLDER}'/0/0`,
+    coinType: COINTYPE_LIGHTNING,
   },
 };
 
 const settings: IVaultSettings = {
-  impl: IMPL_EVM,
-  coinTypeDefault: COINTYPE_ETH,
-  accountType: EDBAccountType.SIMPLE,
+  impl: IMPL_LIGHTNING,
+  coinTypeDefault: COINTYPE_LIGHTNING,
+  accountType: EDBAccountType.VARIANT,
 
-  importedAccountEnabled: true,
+  importedAccountEnabled: false,
   hardwareAccountEnabled: true,
-  externalAccountEnabled: true,
-  watchingAccountEnabled: true,
+  externalAccountEnabled: false,
+  watchingAccountEnabled: false,
 
   isUtxo: false,
-  isSingleToken: false,
-  NFTEnabled: true,
-  nonceRequired: true,
+  isSingleToken: true,
+  NFTEnabled: false,
+  nonceRequired: false,
   feeUTXORequired: false,
-  editFeeEnabled: true,
+  editFeeEnabled: false,
 
   accountDeriveInfo,
   networkInfo: {
