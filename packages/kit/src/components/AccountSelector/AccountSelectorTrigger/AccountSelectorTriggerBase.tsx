@@ -11,12 +11,13 @@ export function AccountSelectorTriggerBase({
   linkNetwork?: boolean;
 }) {
   const {
-    activeAccount: { account, indexedAccount, accountName },
+    activeAccount: { account, dbAccount, indexedAccount, accountName },
     showAccountSelector,
   } = useAccountSelectorTrigger({ num, linkNetwork });
 
   return (
     <XStack
+      testID="AccountSelectorTriggerBase"
       role="button"
       alignItems="center"
       p="$1.5"
@@ -29,6 +30,7 @@ export function AccountSelectorTriggerBase({
         bg: '$bgActive',
       }}
       onPress={showAccountSelector}
+      userSelect="none"
       maxWidth="$40"
     >
       <AccountAvatar
@@ -36,6 +38,7 @@ export function AccountSelectorTriggerBase({
         borderRadius="$1"
         indexedAccount={indexedAccount}
         account={account}
+        dbAccount={dbAccount}
       />
 
       <SizableText
@@ -45,9 +48,14 @@ export function AccountSelectorTriggerBase({
         pr="$1"
         numberOfLines={1}
       >
-        {accountName}
+        {accountName || 'No Account'}
       </SizableText>
-      <Icon name="ChevronGrabberVerOutline" size="$5" color="$iconSubdued" />
+      <Icon
+        flexShrink={0} // Prevents the icon from shrinking when the text is too long
+        name="ChevronGrabberVerOutline"
+        size="$5"
+        color="$iconSubdued"
+      />
     </XStack>
   );
 }

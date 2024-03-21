@@ -24,7 +24,7 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
-import { AccountListItem } from '../../../DAppConnection/components/DAppAccountList';
+import { DAppAccountListItem } from '../../../DAppConnection/components/DAppAccountList';
 import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/useHandleAccountChanged';
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
@@ -155,7 +155,7 @@ function AccountSelectorPopoverContent({
     >
       <YStack p="$5" space="$2">
         {accountsInfo.map((account) => (
-          <AccountListItem
+          <DAppAccountListItem
             key={account.num}
             num={account.num}
             compressionUiMode

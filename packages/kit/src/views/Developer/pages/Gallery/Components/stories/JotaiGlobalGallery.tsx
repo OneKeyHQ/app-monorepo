@@ -8,9 +8,7 @@ import {
   useDemoReadOnlyAtom,
   useDemoReadWriteAtom,
   useDemoWriteOnlyAtom,
-  useSettingsIsLightCNAtom,
   useSettingsPersistAtom,
-  useSettingsTimeNowAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { JOTAI_RESET } from '@onekeyhq/kit-bg/src/states/jotai/types';
 
@@ -88,12 +86,9 @@ function JotaiDemo1() {
 
 function JotaiDemo2() {
   const [settings, setSettings] = useSettingsPersistAtom();
-  const [now] = useSettingsTimeNowAtom();
-  const [isLightCN] = useSettingsIsLightCNAtom();
   return (
     <Stack space="$2">
       <SizableText size="$headingMd">高频数据分离</SizableText>
-      <SizableText>now={now}</SizableText>
       <SizableText size="$headingMd">
         低频数据整体打包，避免定义数据太零碎
       </SizableText>
@@ -128,7 +123,6 @@ function JotaiDemo2() {
       <SizableText size="$headingMd">
         响应式的计算数据（只读，globalAtomComputed）
       </SizableText>
-      <SizableText>isLightCN={isLightCN.toString()}</SizableText>
       <SizableText>
         计算数据的写入函数 globalAtomComputedW 和 globalAtomComputedRW
         不考虑使用，而是通过 background 的 service 方法进行写数据

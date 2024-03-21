@@ -67,23 +67,6 @@ export const {
 });
 
 // extract high frequency refresh data to another atom
-export type ISettingsTimeNowAtom = string;
-export const { target: settingsTimeNowAtom, use: useSettingsTimeNowAtom } =
-  globalAtom<ISettingsTimeNowAtom>({
-    name: EAtomNames.settingsTimeNowAtom,
-    initialValue: new Date().toISOString(),
-  });
-
-export const { target: settingsIsLightCNAtom, use: useSettingsIsLightCNAtom } =
-  globalAtomComputed<boolean>((get) => {
-    const settings = get(settingsPersistAtom.atom());
-    const timeNow = get(settingsTimeNowAtom.atom());
-    return (
-      settings.locale === 'zh-CN' &&
-      settings.theme === 'light' &&
-      timeNow.length > 0
-    );
-  });
 
 export const {
   target: swapToAnotherAccountSwitchOnAtom,

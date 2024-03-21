@@ -95,7 +95,7 @@ export const useSuggestion = (
         resolve();
       }, 300);
     });
-  }, [form, selectInputIndex]);
+  }, [form, phraseLength, selectInputIndex]);
 
   const updateInputValue = useCallback(
     (word: string) => {

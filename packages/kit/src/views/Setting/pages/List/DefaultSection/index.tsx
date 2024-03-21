@@ -74,6 +74,7 @@ const LockNowButton = () => {
 };
 
 export const DefaultSection = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
   const navigation = useAppNavigation();
   return (

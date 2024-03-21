@@ -7,7 +7,7 @@ import type {
   IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
-import { AccountListItem } from '../DAppAccountList';
+import { DAppAccountListItem } from '../DAppAccountList';
 
 import type { IHandleAccountChangedParams } from '../../hooks/useHandleAccountChanged';
 
@@ -70,7 +70,7 @@ function ConnectionListItem({
       >
         <YStack space="$2">
           {Object.keys(item.connectionMap).map((num) => (
-            <AccountListItem
+            <DAppAccountListItem
               key={num}
               num={Number(num)}
               handleAccountChanged={(handleAccountChangedParams) => {

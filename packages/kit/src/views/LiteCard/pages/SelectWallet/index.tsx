@@ -1,6 +1,6 @@
 import { useRoute } from '@react-navigation/core';
 
-import { ListView, Page, SizableText, Empty } from '@onekeyhq/components';
+import { Empty, ListView, Page, SizableText } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';

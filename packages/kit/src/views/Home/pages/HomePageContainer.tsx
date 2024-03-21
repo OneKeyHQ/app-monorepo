@@ -41,6 +41,7 @@ import { TxHistoryListContainer } from './TxHistoryContainer';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const { screenWidth, pageWidth } = useHomePageWidth();
   if (CONTENT_ITEM_WIDTH == null) {
@@ -61,15 +62,20 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
   } = useActiveAccount({ num: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
 
   const isNFTEnabled = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId: network?.id ?? '',
-      }),
+    async () =>
+      network
+        ? (
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: network?.id ?? '',
+            })
+          )?.NFTEnabled
+        : Promise.resolve(undefined),
     [network],
-  ).result?.NFTEnabled;
+  ).result;
 
   const tabs = useMemo(
     () =>

@@ -12,6 +12,8 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { vaultFactory } from '../vaults/factory';
+
 import ServiceBase from './ServiceBase';
 
 @backgroundClass()
@@ -35,6 +37,13 @@ class ServiceToken extends ServiceBase {
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
     const { mergeTokens, flag, ...rest } = params;
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId: rest.networkId,
+    });
+    const { normalizedAddress } = await vault.validateAddress(
+      rest.accountAddress,
+    );
+    rest.accountAddress = normalizedAddress;
     const client = await this.getClient();
     const controller = new AbortController();
     this._fetchAccountTokensController = controller;

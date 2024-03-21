@@ -107,6 +107,11 @@ function buildImportedAccountId({
   return `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
 }
 
+function isExternalAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isExternalWallet({ walletId });
+}
+
 function buildHDAccountId({
   walletId,
   path,
@@ -210,15 +215,10 @@ function isAccountCompatibleWithNetwork({
       'isAccountCompatibleWithNetwork ERROR: networkId is not defined',
     );
   }
-  if (!account.impl) {
-    throw new Error(
-      'isAccountCompatibleWithNetwork ERROR: account.impl is not defined',
-    );
-  }
 
   const impl = networkUtils.getNetworkImpl({ networkId });
   // check if impl matched
-  if (impl !== account.impl) {
+  if (impl !== account.impl && account.impl) {
     return false;
   }
 
@@ -239,26 +239,28 @@ function getAccountCompatibleNetwork({
   networkId,
 }: {
   account: IDBAccount;
-  networkId: string;
+  networkId: string | undefined;
 }) {
   let accountNetworkId = networkId;
 
-  const activeNetworkImpl = networkUtils.getNetworkImpl({
-    networkId,
-  });
+  if (networkId) {
+    const activeNetworkImpl = networkUtils.getNetworkImpl({
+      networkId,
+    });
 
-  // if impl not matched, use createAtNetwork
-  if (activeNetworkImpl !== account.impl) {
-    accountNetworkId = account.createAtNetwork || ''; // should fallback to ''
+    // if impl not matched, use createAtNetwork
+    if (activeNetworkImpl !== account.impl && account.impl) {
+      accountNetworkId = account.createAtNetwork || ''; // should fallback to ''
+    }
   }
 
   // if accountNetworkId not in account available networks, use first networkId of available networks
   if (account.networks && account.networks.length) {
-    if (!account.networks.includes(accountNetworkId)) {
+    if (!accountNetworkId || !account.networks.includes(accountNetworkId)) {
       [accountNetworkId] = account.networks;
     }
   }
-  return accountNetworkId || '';
+  return accountNetworkId || undefined;
 }
 
 function isOthersWallet({ walletId }: { walletId: string }) {
@@ -286,11 +288,25 @@ function buildHwWalletId({
   return dbWalletId;
 }
 
+function buildExternalAccountId({
+  wcSessionTopic,
+}: {
+  wcSessionTopic: string;
+}) {
+  const accountId = `${WALLET_TYPE_EXTERNAL}--wc--${wcSessionTopic}`;
+  // accountId = `${WALLET_TYPE_EXTERNAL}--injected--${walletKey}`;
+  return accountId;
+}
+
 export default {
   buildImportedAccountId,
   buildLocalTokenId,
   buildLocalHistoryId,
   buildHdWalletId,
+  buildHDAccountId,
+  buildIndexedAccountId,
+  buildHwWalletId,
+  buildExternalAccountId,
   isHdWallet,
   isHwWallet,
   isHwHiddenWallet,
@@ -299,9 +315,7 @@ export default {
   isExternalWallet,
   isHdAccount,
   isHwAccount,
-  buildHDAccountId,
-  buildIndexedAccountId,
-  buildHwWalletId,
+  isExternalAccount,
   parseIndexedAccountId,
   shortenAddress,
   beautifyPathTemplate,

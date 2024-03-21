@@ -81,6 +81,7 @@ export interface IBackgroundApiBridge {
 export interface IBackgroundApi extends IBackgroundApiBridge {
   simpleDb: SimpleDb;
 
+  // TODO move to serviceWalletConnect.walletSide
   // **** WalletConnect
   walletConnect: ProviderApiWalletConnect;
 

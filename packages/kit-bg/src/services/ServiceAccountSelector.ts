@@ -17,7 +17,11 @@ import { getVaultSettingsAccountDeriveInfo } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBIndexedAccount, IDBWallet } from '../dbs/local/types';
+import type {
+  IDBAccount,
+  IDBIndexedAccount,
+  IDBWallet,
+} from '../dbs/local/types';
 import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
@@ -131,6 +135,9 @@ class ServiceAccountSelector extends ServiceBase {
     } = selectedAccount;
 
     let account: INetworkAccount | undefined;
+    // NetworkAccount is undefined if others wallet account not compatible with network
+    // in this case, we should use dbAccount
+    let dbAccount: IDBAccount | undefined;
     let wallet: IDBWallet | undefined;
     let network: IServerNetwork | undefined;
     let indexedAccount: IDBIndexedAccount | undefined;
@@ -145,15 +152,26 @@ class ServiceAccountSelector extends ServiceBase {
       } catch (e) {
         console.error(e);
       }
+    }
 
-      if (indexedAccountId) {
-        try {
-          indexedAccount = await serviceAccount.getIndexedAccount({
-            id: indexedAccountId,
-          });
-        } catch (e) {
-          console.error(e);
-        }
+    if (indexedAccountId && wallet) {
+      try {
+        indexedAccount = await serviceAccount.getIndexedAccount({
+          id: indexedAccountId,
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    if (othersWalletAccountId) {
+      try {
+        const r = await serviceAccount.getDBAccount({
+          accountId: othersWalletAccountId,
+        });
+        dbAccount = r;
+      } catch (e) {
+        console.error(e);
       }
     }
 
@@ -166,7 +184,7 @@ class ServiceAccountSelector extends ServiceBase {
         console.error(e);
       }
 
-      if (indexedAccountId || othersWalletAccountId) {
+      if ((indexedAccountId && wallet) || othersWalletAccountId) {
         try {
           const r = await serviceAccount.getNetworkAccount({
             indexedAccountId,
@@ -200,10 +218,28 @@ class ServiceAccountSelector extends ServiceBase {
     }
 
     const isOthersWallet = Boolean(account && !indexedAccountId);
+    const universalAccountName = (() => {
+      // hd account or others account
+      if (account) {
+        // localDB should replace account name from indexedAccount name if hd or hw
+        return account.name;
+      }
+      // hd index account but account not create yet
+      if (indexedAccount) {
+        return indexedAccount.name;
+      }
+      // others account but not compatible with network, account is undefined, so use dbAccount
+      if (dbAccount) {
+        return dbAccount.name;
+      }
+      return '';
+    })();
+
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
+      dbAccount,
       indexedAccount,
-      accountName: account?.name || indexedAccount?.name || '',
+      accountName: universalAccountName,
       wallet,
       network,
       deriveType,

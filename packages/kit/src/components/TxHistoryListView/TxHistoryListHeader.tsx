@@ -2,8 +2,7 @@ import { useState } from 'react';
 
 import { debounce } from 'lodash';
 
-import { IconButton, Popover, Stack, Switch } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Stack } from '@onekeyhq/components';
 import {
   ENABLE_SEARCH_HISTORY_MIN_LENGTH,
   SEARCH_DEBOUNCE_INTERVAL,
@@ -26,6 +25,7 @@ function TxHistoryListHeader({
   searchKey,
   setSearchKey,
 }: IProps) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [val, setVal] = useState(true);
 
   return (

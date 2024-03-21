@@ -1,7 +1,7 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
 import { EAccountSelectorSceneName } from '../../types';
-import { NETWORK_ID_ETC } from '../config/presetNetworks';
+import { NETWORK_ID_ETC } from '../config/networkIds';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';

@@ -376,8 +376,11 @@ export default class ServicePassword extends ServiceBase {
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId,
         });
-    } else {
-      // if (isHdWallet || walletId === WALLET_TYPE_IMPORTED) {
+    }
+    if (
+      accountUtils.isHdWallet({ walletId }) ||
+      accountUtils.isImportedWallet({ walletId })
+    ) {
       ({ password } = await this.promptPasswordVerify(reason));
     }
     return {

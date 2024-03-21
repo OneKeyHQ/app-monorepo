@@ -27,7 +27,6 @@ import {
 } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { createBackgroundProviders } from '../providers/backgroundProviders';
-import { settingsTimeNowAtom } from '../states/jotai/atoms';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
 import { jotaiInit } from '../states/jotai/jotaiInit';
 
@@ -60,7 +59,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     this.cycleDepsCheck();
     jotaiBgSync.setBackgroundApi(this as any);
     this.allAtoms = jotaiInit();
-    this.startDemoNowTimeUpdateInterval();
     if (process.env.NODE_ENV !== 'production') {
       global.$backgroundApi = this;
     }
@@ -84,14 +82,6 @@ class BackgroundApiBase implements IBackgroundApiBridge {
   allAtoms: Promise<{
     [key: string]: JotaiCrossAtom<any>;
   }>;
-
-  startDemoNowTimeUpdateInterval() {
-    if (process.env.NODE_ENV !== 'production') {
-      setInterval(() => {
-        void settingsTimeNowAtom.set(new Date().toLocaleTimeString());
-      }, 1000);
-    }
-  }
 
   @backgroundMethod()
   async getAtomStates(): Promise<{ states: Record<EAtomNames, any> }> {

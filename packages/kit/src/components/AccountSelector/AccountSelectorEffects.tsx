@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef } from 'react';
 
+import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { useSwapToAnotherAccountSwitchOnAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -13,6 +14,7 @@ import {
   useAccountSelectorContextDataAtom,
   useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
+  useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector/actions';
@@ -20,6 +22,19 @@ import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSe
 import { useAutoSelectAccount } from './hooks/useAutoSelectAccount';
 import { useAutoSelectDeriveType } from './hooks/useAutoSelectDeriveType';
 import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
+
+function useExternalAccountActivate({ num }: { num: number }) {
+  const { activeAccount } = useActiveAccount({ num });
+  const topic = (activeAccount.account as IDBExternalAccount | undefined)
+    ?.wcTopic;
+  useEffect(() => {
+    if (topic) {
+      void backgroundApiProxy.serviceWalletConnect.activateSession({
+        topic,
+      });
+    }
+  }, [topic]);
+}
 
 function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const actions = useAccountSelectorActions();
@@ -47,6 +62,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   useAutoSelectAccount({ num });
   useAutoSelectNetwork({ num });
   useAutoSelectDeriveType({ num });
+  useExternalAccountActivate({ num });
 
   const reloadActiveAccountInfo = useCallback(async () => {
     if (!isReady) {

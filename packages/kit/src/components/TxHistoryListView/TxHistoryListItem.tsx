@@ -11,7 +11,7 @@ type IProps = {
 };
 
 function TxHistoryListItem(props: IProps) {
-  const { historyTx, tableLayout, onPress, index, showIcon } = props;
+  const { historyTx, tableLayout, onPress, showIcon } = props;
 
   if (!historyTx || !historyTx.decodedTx) return null;
 

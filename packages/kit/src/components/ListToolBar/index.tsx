@@ -2,7 +2,6 @@ import type { ISearchBarProps } from '@onekeyhq/components';
 import {
   SearchBar,
   SizableText,
-  Stack,
   XStack,
   YStack,
   useMedia,

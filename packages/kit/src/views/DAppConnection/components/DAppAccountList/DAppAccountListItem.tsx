@@ -6,6 +6,7 @@ import {
   Divider,
   Group,
   SizableText,
+  Stack,
   XGroup,
   YStack,
 } from '@onekeyhq/components';
@@ -27,59 +28,12 @@ import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountCh
 
 import type { IHandleAccountChanged } from '../../hooks/useHandleAccountChanged';
 
-function AccountListItem({
-  num,
-  handleAccountChanged,
-  readonly,
-  networkReadonly,
-  compressionUiMode,
-  beforeShowTrigger,
-}: {
-  num: number;
-  handleAccountChanged?: IHandleAccountChanged;
-  readonly?: boolean;
-  networkReadonly?: boolean;
-  compressionUiMode?: boolean;
-  beforeShowTrigger?: () => Promise<void>;
-}) {
-  useHandleDiscoveryAccountChanged({
-    num,
-    handleAccountChanged,
-  });
-
-  return (
-    <XGroup
-      bg="$bg"
-      borderRadius="$3"
-      borderColor="$borderSubdued"
-      borderWidth={StyleSheet.hairlineWidth}
-      separator={<Divider vertical />}
-      disabled={readonly}
-    >
-      <Group.Item>
-        <NetworkSelectorTriggerDappConnection
-          num={num}
-          beforeShowTrigger={beforeShowTrigger}
-          disabled={networkReadonly || readonly}
-        />
-      </Group.Item>
-      <Group.Item>
-        <AccountSelectorTriggerDappConnection
-          num={num}
-          compressionUiMode={compressionUiMode}
-          beforeShowTrigger={beforeShowTrigger}
-        />
-      </Group.Item>
-    </XGroup>
-  );
-}
-
-function DAppAccountListSyncFromHome({ num }: { num: number }) {
+function DAppAccountListInitFromHome({ num }: { num: number }) {
   const actions = useAccountSelectorActions();
   useEffect(() => {
     void (async () => {
       // required delay here, should be called after AccountSelectEffects AutoSelect
-      await timerUtils.wait(300);
+      await timerUtils.wait(600);
       await actions.current.syncFromScene({
         from: {
           sceneName: EAccountSelectorSceneName.home,
@@ -89,8 +43,61 @@ function DAppAccountListSyncFromHome({ num }: { num: number }) {
       });
     })();
   }, [actions, num]);
-
   return null;
+}
+
+function DAppAccountListItem({
+  num,
+  handleAccountChanged,
+  readonly,
+  networkReadonly,
+  compressionUiMode,
+  initFromHome,
+  beforeShowTrigger,
+}: {
+  num: number;
+  handleAccountChanged?: IHandleAccountChanged;
+  readonly?: boolean;
+  networkReadonly?: boolean;
+  compressionUiMode?: boolean;
+  initFromHome?: boolean;
+  beforeShowTrigger?: () => Promise<void>;
+}) {
+  useHandleDiscoveryAccountChanged({
+    num,
+    handleAccountChanged,
+  });
+
+  return (
+    <>
+      <XGroup
+        bg="$bg"
+        borderRadius="$3"
+        borderColor="$borderSubdued"
+        borderWidth={StyleSheet.hairlineWidth}
+        separator={<Divider vertical />}
+        disabled={readonly}
+      >
+        <Group.Item>
+          <NetworkSelectorTriggerDappConnection
+            num={num}
+            beforeShowTrigger={beforeShowTrigger}
+            disabled={networkReadonly || readonly}
+          />
+        </Group.Item>
+        <Group.Item>
+          <AccountSelectorTriggerDappConnection
+            num={num}
+            compressionUiMode={compressionUiMode}
+            beforeShowTrigger={beforeShowTrigger}
+          />
+        </Group.Item>
+      </XGroup>
+      {initFromHome && !readonly ? (
+        <DAppAccountListInitFromHome num={num} />
+      ) : null}
+    </>
+  );
 }
 
 function DAppAccountListStandAloneItem({
@@ -151,17 +158,8 @@ function DAppAccountListStandAloneItem({
             [result.accountSelectorNum]: { networkIds: result.networkIds },
           }}
         >
-          <DAppAccountListSyncFromHome num={result?.accountSelectorNum} />
-
-          {/* <AccountSelectorSyncButton
-            from={{
-              sceneName: EAccountSelectorSceneName.home,
-              sceneNum: 0,
-            }}
-            num={result?.accountSelectorNum}
-          /> */}
-
-          <AccountListItem
+          <DAppAccountListItem
+            initFromHome
             num={result?.accountSelectorNum}
             handleAccountChanged={handleAccountChanged}
             readonly={readonly}
@@ -212,11 +210,13 @@ function WalletConnectAccountTriggerList({
         >
           <YStack space="$2">
             {sessionAccountsInfo.map((i) => (
-              <AccountListItem
-                key={i.accountSelectorNum}
-                num={i.accountSelectorNum}
-                handleAccountChanged={handleAccountChanged}
-              />
+              <Stack key={i.accountSelectorNum}>
+                <DAppAccountListItem
+                  initFromHome
+                  num={i.accountSelectorNum}
+                  handleAccountChanged={handleAccountChanged}
+                />
+              </Stack>
             ))}
           </YStack>
         </AccountSelectorProviderMirror>
@@ -226,7 +226,7 @@ function WalletConnectAccountTriggerList({
 }
 
 export {
+  DAppAccountListItem,
   DAppAccountListStandAloneItem,
-  AccountListItem,
   WalletConnectAccountTriggerList,
 };

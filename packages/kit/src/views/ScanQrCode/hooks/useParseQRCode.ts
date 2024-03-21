@@ -84,7 +84,7 @@ const useParseQRCode = () => {
         case EQRCodeHandlerType.WALLET_CONNECT:
           {
             const wcValue = result.data as IWalletConnectValue;
-            void backgroundApiProxy.walletConnect.connect(wcValue.wcUri);
+            void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
           }
           break;
         default: {

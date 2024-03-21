@@ -20,6 +20,7 @@ import { setupKeepAlive } from '../background/keepAlive';
 import serviceWorker from '../background/serviceWorker';
 
 function initBackground() {
+  // TODO use backgroundApiInit
   const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     require('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;

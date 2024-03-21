@@ -35,6 +35,7 @@ class JotaiStorage implements AsyncStorage<any> {
   async setItem(key: string, newValue: any): Promise<void> {
     const r = await this.getItem(key, undefined);
     if (r !== newValue) {
+      // TODO JSON.stringify only for native?
       await appStorage.setItem(key, JSON.stringify(newValue));
     }
   }
