@@ -1161,9 +1161,11 @@ export default class Vault extends VaultBase {
           const tx = await scanClient.getTransaction(this.networkId, txid);
 
           let status = TransactionStatus.PENDING;
-          if (tx.success === false) {
+          if (tx.pending === true) {
+            status = TransactionStatus.PENDING;
+          } else if (tx.success === false) {
             status = TransactionStatus.CONFIRM_BUT_FAILED;
-          } else if (tx.finalized) {
+          } else if (tx.success) {
             status = TransactionStatus.CONFIRM_AND_SUCCESS;
           }
           return await Promise.resolve(status);
