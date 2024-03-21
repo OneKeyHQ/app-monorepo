@@ -647,4 +647,7 @@ module.exports = [
   'vsize',
   'consts',
   'Consts',
+  'punycode',
+  'unicode',
+  'ascii',
 ];
