@@ -11,7 +11,7 @@ const LoggerDemo = () => {
     defaultLogger.common.test('a', 2);
   }, []);
   const downloadLog = useCallback(() => {
-    void exportLogs();
+    void exportLogs('onekey_logs');
   }, []);
   return (
     <Stack space="$2">

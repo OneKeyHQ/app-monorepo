@@ -1,6 +1,6 @@
-import { LogMsg, LogToLocal } from '../decorators';
-import { ESceneName, type IPrimitiveValue, type IScene } from '../types';
-import { getDeviceInfo } from '../utils/getDeviceInfo';
+import { LogToLocal } from '../decorators';
+import { ESceneName, type IScene } from '../types';
+import { getDeviceInfo } from '../utils';
 
 export class CommonScene implements IScene {
   getName() {
@@ -9,26 +9,16 @@ export class CommonScene implements IScene {
 
   @LogToLocal({ level: 'info' })
   public logDeviceInfo() {
-    return LogMsg.Primitive(...getDeviceInfo());
-  }
-
-  @LogToLocal({ level: 'info' })
-  public log(...args: IPrimitiveValue[]) {
-    return LogMsg.Primitive(...args);
-  }
-
-  @LogToLocal({ level: 'warn' })
-  public logAny(...args: any[]) {
-    return LogMsg.Any(...args);
+    return getDeviceInfo();
   }
 
   @LogToLocal({ level: 'error' })
   public test(a: string, b: number) {
-    return LogMsg.Primitive(a, b);
+    return [a, b];
   }
 
   @LogToLocal({ level: 'info' })
-  public failLog(a: string, b: number) {
+  public sum(a: number, b: number) {
     return [a, b];
   }
 }

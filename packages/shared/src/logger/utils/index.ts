@@ -6,5 +6,9 @@ export const consoleFunc = (msg: string) => {
   // eslint-disable-next-line
   global.$backgroundApiProxy.serviceLogger.addMsg(`${msg}\r\n`);
 };
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const getLogFilePath = async (filename: string) => {
+  throw new Error('Not implemented');
+};
 
-export const getLogFilePaths = async () => [] as string[];
+export const getDeviceInfo = () => '';
