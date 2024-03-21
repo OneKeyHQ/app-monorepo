@@ -24,7 +24,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
 import { useShouldUpdateConnectedAccount } from '../../../Discovery/hooks/useDAppNotifyChanges';
-import { AccountListItem } from '../../components/DAppAccountList';
+import { DAppAccountListItem } from '../../components/DAppAccountList';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -120,7 +120,7 @@ function CurrentConnectionModal() {
           >
             <YStack space="$2" px="$5">
               {accountsInfo.map((account) => (
-                <AccountListItem
+                <DAppAccountListItem
                   key={account.num}
                   num={account.num}
                   compressionUiMode

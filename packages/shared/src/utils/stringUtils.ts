@@ -29,6 +29,7 @@ function randomString(
 
 export default {
   stableStringify,
+  safeStringify,
   randomString,
   equalsIgnoreCase,
 };

@@ -1023,9 +1023,11 @@ PODS:
   - react-native-ble-plx (3.0.0):
     - MultiplatformBleAdapter (= 0.1.9)
     - React-Core
-  - react-native-compat (2.11.1):
+  - react-native-compat (2.11.2):
     - glog
     - RCT-Folly (= 2022.05.16.00)
+    - React-Core
+  - react-native-flipper (0.201.0):
     - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
@@ -1367,6 +1369,7 @@ DEPENDENCIES:
   - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
   - "react-native-ble-plx (from `../../../node_modules/@onekeyfe/react-native-ble-plx`)"
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
+  - react-native-flipper (from `../../../node_modules/react-native-flipper`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
   - react-native-metrix (from `../../../node_modules/react-native-metrix`)
@@ -1553,6 +1556,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-ble-plx"
   react-native-compat:
     :path: "../../../node_modules/@walletconnect/react-native-compat"
+  react-native-flipper:
+    :path: "../../../node_modules/react-native-flipper"
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-lite-card:
@@ -1725,7 +1730,8 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 9ee041e1d7be96da6d76a251f92e72b711c651d6
   react-native-ble-manager: 09724bad4d06b86a85e0cd7bd97196fecca15e9a
   react-native-ble-plx: 4b0b605e4c52453ecbeb82807878bc4a2652d1c9
-  react-native-compat: 204391d421586f64bcc8f6ea97e908d1b2da778d
+  react-native-compat: fedbfe0495fa772bed1fbaa2dfa5d4f3a303abb2
+  react-native-flipper: 18d15fc2a82b4bb3270b6dd8100d99a8c32cb3b1
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-lite-card: c6465103b1c627b08d26a46943a4a11225579f87
   react-native-metrix: b1aab1cb911f555b57812eed5d38c5942c6d99af
@@ -1783,4 +1789,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: c5c7c65d9c0695cfb831d66e9981b240d1af4c4e
 
-COCOAPODS: 1.12.1
+COCOAPODS: 1.14.3

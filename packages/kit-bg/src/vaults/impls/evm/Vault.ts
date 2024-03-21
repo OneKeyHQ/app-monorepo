@@ -73,6 +73,7 @@ import {
   formatValue,
   parseToNativeTx,
 } from './decoder/utils';
+import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -91,17 +92,21 @@ export default class Vault extends VaultBase {
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
-    external: KeyringWatching,
+    external: KeyringExternal,
   };
 
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    const { account, networkId } = params;
+    const { account, networkId, externalAccountAddress } = params;
+
+    const address = account.address || externalAccountAddress || '';
+
     // all evm chain shared same db account and same address, so we just validate db address only,
     // do not need recalculate address for each sub chain
+
     const { normalizedAddress, displayAddress, isValid } =
-      await this.validateAddress(account.address);
+      await this.validateAddress(address);
     return {
       networkId,
       normalizedAddress,
