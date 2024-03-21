@@ -39,15 +39,9 @@ function SearchModal() {
     useRoute<
       RouteProp<IDiscoveryModalParamList, EDiscoveryModalRoutes.SearchModal>
     >();
-  const { useCurrentWindow, tabId, url } = route.params ?? {};
-  const [searchValue, setSearchValue] = useState('');
+  const { useCurrentWindow, tabId, url = '' } = route.params ?? {};
+  const [searchValue, setSearchValue] = useState(url);
   const { handleOpenWebSite } = useBrowserAction().current;
-
-  useEffect(() => {
-    if (url) {
-      setSearchValue(url);
-    }
-  }, [url]);
 
   const { serviceDiscovery } = backgroundApiProxy;
   const { result: localData, run: refreshLocalData } =
@@ -119,6 +113,16 @@ function SearchModal() {
       <Page.Body>
         <Stack mx="$4">
           <SearchBar
+            autoFocus
+            zIndex={20}
+            selectTextOnFocus
+            value={searchValue}
+            onFocus={(e) => {
+              // Workaround for selectTextOnFocus={true} not working
+              e.currentTarget.setNativeProps({
+                selection: { start: 0, end: searchValue.length },
+              });
+            }}
             onSearchTextChange={setSearchValue}
             onSubmitEditing={() => {
               handleOpenWebSite({
