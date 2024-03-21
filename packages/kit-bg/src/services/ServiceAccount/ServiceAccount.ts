@@ -443,7 +443,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateExternalAccount({
+  async updateWalletConnectExternalAccount({
     wcSessionTopic,
     wcNamespaces,
   }: {
