@@ -3,12 +3,12 @@ import '@walletconnect/react-native-compat';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { AccountCtrl } from '@walletconnect/modal-react-native/lib/module/controllers/AccountCtrl';
-import { ClientCtrl } from '@walletconnect/modal-react-native/lib/module/controllers/ClientCtrl';
-import { WcConnectionCtrl } from '@walletconnect/modal-react-native/lib/module/controllers/WcConnectionCtrl';
-import { useWalletConnectModal } from '@walletconnect/modal-react-native/lib/module/hooks/useWalletConnectModal';
-import { WalletConnectModal as WalletConnectModalNative } from '@walletconnect/modal-react-native/lib/module/modal/wcm-modal';
-import { StorageUtil } from '@walletconnect/modal-react-native/lib/module/utils/StorageUtil';
+import { AccountCtrl } from '@walletconnect/modal-react-native/src/controllers/AccountCtrl';
+import { ClientCtrl } from '@walletconnect/modal-react-native/src/controllers/ClientCtrl';
+import { WcConnectionCtrl } from '@walletconnect/modal-react-native/src/controllers/WcConnectionCtrl';
+import { useWalletConnectModal } from '@walletconnect/modal-react-native/src/hooks/useWalletConnectModal';
+import { WalletConnectModal as WalletConnectModalNative } from '@walletconnect/modal-react-native/src/modal/wcm-modal';
+import { StorageUtil } from '@walletconnect/modal-react-native/src/utils/StorageUtil';
 
 import {
   EAppEventBusNames,
