@@ -7,9 +7,10 @@ export const isFromBackgroundToForeground = (
   nextAppState: AppStateStatus,
 ) => currentState === 'background' && nextAppState === 'active';
 
-export const useHandleAppStateActive = (onHandler: () => void | undefined) => {
+export const useHandleAppStateActive = (onHandler?: () => void | undefined) => {
   const appState = useRef<AppStateStatus>(AppState.currentState);
   useEffect(() => {
+    if (!onHandler) return;
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (isFromBackgroundToForeground(appState.current, nextState)) {
         onHandler?.();

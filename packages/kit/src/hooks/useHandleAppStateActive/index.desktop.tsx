@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 export const useHandleAppStateActive = (onHandler: () => void | undefined) => {
   const appState = useRef<IDesktopAppState>();
-  const onChange = useCallback(
-    (nextState: IDesktopAppState) => {
+  useEffect(() => {
+    if (!onHandler) return;
+    const handleAppStateChange = (nextState: IDesktopAppState) => {
       if (appState.current === 'background' && nextState === 'active') {
         onHandler?.();
       }
       appState.current = nextState;
-    },
-    [onHandler],
-  );
-  useEffect(() => window.desktopApi.onAppState(onChange), [onChange]);
+    };
+    return window.desktopApi.onAppState(handleAppStateChange);
+  }, [onHandler]);
 };

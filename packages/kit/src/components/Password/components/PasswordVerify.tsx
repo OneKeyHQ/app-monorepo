@@ -34,8 +34,6 @@ interface IPasswordVerifyForm {
   password: string;
 }
 
-const noop = () => {};
-
 const PasswordVerify = ({
   authType,
   isEnable,
@@ -134,7 +132,7 @@ const PasswordVerify = ({
     }
   }, [isEnable, passwordInput, status.value, manualLocking, onBiologyAuth]);
 
-  useHandleAppStateActive(isEnable ? onActive : noop);
+  useHandleAppStateActive(isEnable ? onActive : undefined);
 
   return (
     <Form form={form}>
