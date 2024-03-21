@@ -38,7 +38,7 @@ const BiologyAuthContainer = () => {
       { id: 'content__authentication_with' },
       { 0: 'TouchID' },
     );
-  }, []);
+  }, [authType, biologyAuthIsSupport, intl]);
   return biologyAuthIsSupport || webAuthIsSupport ? (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMdMedium">{settingsTitle}</SizableText>

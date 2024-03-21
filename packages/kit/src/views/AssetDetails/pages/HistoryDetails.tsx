@@ -214,6 +214,7 @@ function HistoryDetails() {
 
   const { data: txDetails, tokens = {}, nfts = {} } = txDetailsResp ?? {};
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleOnViewUTXOsPress = useCallback(() => {
     if (!txDetails) return;
     const { inputs: onChainInputs, outputs: onChainOutputs } = txDetails;
