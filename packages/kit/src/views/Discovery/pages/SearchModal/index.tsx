@@ -36,9 +36,15 @@ function SearchModal() {
     useRoute<
       RouteProp<IDiscoveryModalParamList, EDiscoveryModalRoutes.SearchModal>
     >();
-  const { useCurrentWindow, tabId } = route.params ?? {};
+  const { useCurrentWindow, tabId, url } = route.params ?? {};
   const [searchValue, setSearchValue] = useState('');
   const { handleOpenWebSite } = useBrowserAction().current;
+
+  useEffect(() => {
+    if (url) {
+      setSearchValue(url);
+    }
+  }, [url]);
 
   const { serviceDiscovery } = backgroundApiProxy;
   const { result: localData, run: refreshLocalData } =

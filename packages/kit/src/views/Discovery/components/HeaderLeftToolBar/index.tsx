@@ -34,7 +34,7 @@ function HeaderLeftToolBar({
   goForward?: () => void;
   stopLoading?: () => void;
   reload?: () => void;
-  onSearch?: () => void;
+  onSearch?: (url: string) => void;
   isBookmark?: boolean;
   onBookmarkPress?: (bookmark: boolean) => void;
   isPinned?: boolean;
@@ -48,7 +48,7 @@ function HeaderLeftToolBar({
         flex={1}
         alignItems="center"
         flexDirection="row"
-        onPress={() => onSearch?.()}
+        onPress={() => onSearch?.(url)}
         mr="$4"
         bg="$bgStrong"
         py="$2"
@@ -92,7 +92,7 @@ function HeaderLeftToolBar({
         leftIconName="LockSolid"
         value={url}
         onPress={() => {
-          onSearch?.();
+          onSearch?.(url);
         }}
         addOns={[
           {

@@ -90,11 +90,17 @@ function MobileBrowser() {
     [tabs, handleScroll],
   );
 
-  const handleSearchBarPress = useCallback(() => {
-    navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
-  }, [navigation]);
+  const handleSearchBarPress = useCallback(
+    (url: string) => {
+      navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.SearchModal,
+        params: {
+          url,
+        },
+      });
+    },
+    [navigation],
+  );
 
   const { top } = useSafeAreaInsets();
 
