@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { WalletConnectModalContainer } from '../../components/WalletConnect/WalletConnectModalContainer';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
 import { AppStateLockContainer } from './AppStateLockContainer';
@@ -18,7 +19,6 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
-import { WalletConnectModalContainer } from '../../components/WalletConnect/WalletConnectModalContainer';
 
 function ErrorToastContainer() {
   useEffect(() => {
@@ -65,14 +65,20 @@ function FlipperPluginsContainer() {
   return <>{realmPlugin}</>;
 }
 
+const renderWalletConnectModalContainer = platformEnv.isNative ? (
+  <Page.Every>
+    <WalletConnectModalContainer />
+  </Page.Every>
+) : (
+  <WalletConnectModalContainer />
+);
+
 export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
         <KeyboardContainer />
-        <Page.Every>
-          <WalletConnectModalContainer />
-        </Page.Every>
+        {renderWalletConnectModalContainer}
         <NavigationContainer>
           <JotaiContextRootProvidersAutoMount />
           <HardwareUiStateContainer />
