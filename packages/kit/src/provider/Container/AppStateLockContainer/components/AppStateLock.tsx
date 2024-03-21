@@ -30,21 +30,23 @@ interface IAppStateLockProps extends IThemeableStackProps {
 
 const safeKeyboardHeight = 80;
 
-const useSafeKeyboardAnimationStyle = () => {
-  const keyboardHeightValue = useSharedValue(0);
-  const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: keyboardHeightValue.value,
-  }));
-  useKeyboardEvent({
-    keyboardWillShow: () => {
-      keyboardHeightValue.value = withTiming(safeKeyboardHeight);
-    },
-    keyboardWillHide: () => {
-      keyboardHeightValue.value = withTiming(0);
-    },
-  });
-  return animatedStyles;
-};
+const useSafeKeyboardAnimationStyle = platformEnv.isNativeIOS
+  ? () => {
+      const keyboardHeightValue = useSharedValue(0);
+      const animatedStyles = useAnimatedStyle(() => ({
+        paddingBottom: keyboardHeightValue.value,
+      }));
+      useKeyboardEvent({
+        keyboardWillShow: () => {
+          keyboardHeightValue.value = withTiming(safeKeyboardHeight);
+        },
+        keyboardWillHide: () => {
+          keyboardHeightValue.value = withTiming(0);
+        },
+      });
+      return animatedStyles;
+    }
+  : () => ({});
 
 const AppStateLock = ({
   passwordVerifyContainer,
@@ -85,11 +87,7 @@ const AppStateLock = ({
             maxWidth: '$80',
           }}
         >
-          <Animated.View
-            style={
-              platformEnv.isNativeIOS ? safeKeyboardAnimationStyle : undefined
-            }
-          >
+          <Animated.View style={safeKeyboardAnimationStyle}>
             {passwordVerifyContainer}
           </Animated.View>
         </Stack>
