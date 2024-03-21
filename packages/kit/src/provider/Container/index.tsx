@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import { Toast } from '@onekeyhq/components';
+import { Page, Toast } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -10,7 +10,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { WalletConnectModalContainer } from '../../components/WalletConnect/WalletConnectModalContainer';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
 import { AppStateLockContainer } from './AppStateLockContainer';
@@ -19,6 +18,7 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
+import { WalletConnectModalContainer } from '../../components/WalletConnect/WalletConnectModalContainer';
 
 function ErrorToastContainer() {
   useEffect(() => {
@@ -70,10 +70,12 @@ export function Container() {
     <RootSiblingParent>
       <AppStateLockContainer>
         <KeyboardContainer />
+        <Page.Every>
+          <WalletConnectModalContainer />
+        </Page.Every>
         <NavigationContainer>
           <JotaiContextRootProvidersAutoMount />
           <HardwareUiStateContainer />
-          <WalletConnectModalContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
           <ErrorToastContainer />
