@@ -401,6 +401,55 @@ export default class Vault extends VaultBase {
       .catch(() => false);
   }
 
+  override async getFrozenBalance({
+    password,
+  }: {
+    password?: string;
+    useRecycleBalance?: boolean;
+    ignoreInscriptions?: boolean;
+    useCustomAddressesBalance?: boolean;
+  } = {}): Promise<number | Record<string, number>> {
+    const chainId = await this.getNetworkChainId();
+
+    if (chainId === 'astar') {
+      try {
+        const client = await this.getClient();
+        const { address: from } = await this.getDbAccount();
+
+        const ledger = await client.query.dappStaking.ledger(from);
+        const respose = ledger.toHuman() as {
+          locked: string;
+          unlocking: [
+            {
+              amount: string;
+              unlockBlock: string;
+            },
+          ];
+        };
+
+        let frozenBalance = new BigNumber(0);
+        if (!isEmpty(respose.locked)) {
+          frozenBalance = frozenBalance.plus(
+            new BigNumber(respose.locked.replace(/,/g, '')),
+          );
+        }
+        respose.unlocking.forEach((unlock) => {
+          if (!isEmpty(unlock.amount)) {
+            frozenBalance = frozenBalance.plus(
+              new BigNumber(unlock.amount.replace(/,/g, '')),
+            );
+          }
+        });
+
+        const network = await this.engine.getNetwork(this.networkId);
+        return frozenBalance.shiftedBy(-network.decimals).toNumber();
+      } catch (error) {
+        return 0;
+      }
+    }
+    return 0;
+  }
+
   override async getBalances(
     requests: { address: string; tokenAddress?: string | undefined }[],
   ): Promise<(BigNumber | undefined)[]> {
