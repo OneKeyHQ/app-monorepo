@@ -33,7 +33,7 @@ function ConnectionListItem({
       <XStack alignItems="center" justifyContent="space-between">
         <XStack alignItems="center" space="$3">
           <Image w="$10" h="$10" source={{ uri: item.imageURL }} />
-          <SizableText size="$bodyLgMedium" color="$grayA1">
+          <SizableText size="$bodyLgMedium" color="$text">
             {item.origin}
           </SizableText>
         </XStack>
