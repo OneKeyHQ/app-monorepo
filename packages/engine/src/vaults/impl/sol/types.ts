@@ -11,3 +11,14 @@ export type AssociatedTokenInfo = {
   mint: string;
   owner: string;
 };
+
+export type ISolScanTokenMeta = {
+  name: string;
+  symbol: string;
+  icon: string;
+  price: number;
+  decimals: number;
+  supply: number;
+  type: string;
+  address: string;
+};

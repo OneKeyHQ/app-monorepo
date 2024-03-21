@@ -531,7 +531,7 @@ class ProviderApiBtc extends ProviderApiBase {
         route: '/tx/decode',
         params: { psbtHex: psbt.toHex() },
       })
-    ).result;
+    ).data;
 
     const inputsToSign = getInputsToSignFromPsbt({
       psbt,
@@ -548,14 +548,18 @@ class ProviderApiBtc extends ProviderApiBase {
             path: '',
             value: v.value.toString(),
             inscriptions: v.inscriptions.map((i) =>
-              mapInscriptionToNFTBTCAssetModel(i),
+              mapInscriptionToNFTBTCAssetModel(
+                decodedPsbt.inscriptions[i.inscriptionId],
+              ),
             ),
           })),
           outputs: decodedPsbt.outputInfos.map((v) => ({
             ...v,
             value: v.value.toString(),
             inscriptions: v.inscriptions.map((i) =>
-              mapInscriptionToNFTBTCAssetModel(i),
+              mapInscriptionToNFTBTCAssetModel(
+                decodedPsbt.inscriptions[i.inscriptionId],
+              ),
             ),
           })),
           totalFee: decodedPsbt.fee,
