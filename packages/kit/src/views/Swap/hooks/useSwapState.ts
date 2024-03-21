@@ -86,7 +86,6 @@ function useSwapWarningCheck() {
 
     if (
       fromToken &&
-      !swapFromAddressInfo.address &&
       swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_WATCHING
     ) {
       alerts = [
@@ -308,7 +307,7 @@ export function useSwapActionState() {
     if (quoteFetching) {
       infoRes.label = 'Fetching quotes';
     } else {
-      if (isCrossChain) {
+      if (isCrossChain && fromToken && toToken) {
         infoRes.label = 'Cross-Chain Swap';
       }
       if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
@@ -345,6 +344,7 @@ export function useSwapActionState() {
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
     swapQuoteApproveAllowanceUnLimit,
+    toToken,
   ]);
 
   const stepState: ISwapState = {
