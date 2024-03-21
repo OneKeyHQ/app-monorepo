@@ -15,6 +15,7 @@ import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
 import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSelect';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import SwapSlippageContentContainer from './SwapSlippageContentContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
@@ -92,7 +93,11 @@ const SwapQuoteResult = ({
         <YStack space="$4">
           <SwapSlippageTriggerContainer
             isLoading={quoteFetching}
-            renderPopoverContent={() => <SwapSlippageContentContainer />}
+            renderPopoverContent={() => (
+              <SwapProviderMirror>
+                <SwapSlippageContentContainer />
+              </SwapProviderMirror>
+            )}
             popoverOnOpenChange={(open) => {
               setSwapSlippagePopOverOpening(open);
             }}
