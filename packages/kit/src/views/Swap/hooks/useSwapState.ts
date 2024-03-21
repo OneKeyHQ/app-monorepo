@@ -91,9 +91,7 @@ function useSwapWarningCheck() {
       alerts = [
         ...alerts,
         {
-          message: `The connected wallet do not support ${
-            swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
-          }. Try switching to another one.`,
+          message: `The connected wallet do not support swap. Try switching to another one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
       ];
