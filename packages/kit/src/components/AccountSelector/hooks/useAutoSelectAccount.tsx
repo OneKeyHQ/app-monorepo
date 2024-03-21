@@ -19,6 +19,7 @@ export function useAutoSelectAccount({ num }: { num: number }) {
 
   const actions = useAccountSelectorActions();
 
+  // **** autoSelectAccount onMount
   useEffect(() => {
     if (!storageReady || !activeAccountReady) {
       return;
@@ -26,6 +27,7 @@ export function useAutoSelectAccount({ num }: { num: number }) {
     void actions.current.autoSelectAccount({ num });
   }, [actions, activeAccountReady, num, storageReady]);
 
+  // **** autoSelectAccount after WalletUpdate
   useEffect(() => {
     const fn = () => {
       if (!account) {
@@ -37,4 +39,15 @@ export function useAutoSelectAccount({ num }: { num: number }) {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
     };
   }, [account, actions, num]);
+
+  // **** autoSelectAccount after AccountRemove
+  useEffect(() => {
+    const fn = async () => {
+      await actions.current.autoSelectAccount({ num });
+    };
+    appEventBus.on(EAppEventBusNames.AccountRemove, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountRemove, fn);
+    };
+  }, [actions, num]);
 }

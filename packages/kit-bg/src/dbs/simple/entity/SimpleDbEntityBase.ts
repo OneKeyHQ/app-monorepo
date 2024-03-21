@@ -86,6 +86,7 @@ abstract class SimpleDbEntityBase<T> {
         data,
         updatedAt,
       };
+      // TODO JSON.stringify only for native?
       await appStorage.setItem(this.entityKey, JSON.stringify(savedData));
       this.updatedAt = updatedAt;
       return data;
