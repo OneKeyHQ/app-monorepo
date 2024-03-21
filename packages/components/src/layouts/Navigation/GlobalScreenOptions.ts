@@ -10,9 +10,28 @@ import { makeHeaderScreenOptions } from './Header';
 import type { IScreenOptionsInfo } from './Navigator/types';
 import type { RouteProp } from '@react-navigation/native';
 import type { ParamListBase } from '@react-navigation/routers';
-import type { StackNavigationOptions } from '@react-navigation/stack';
+import type {
+  StackNavigationOptions,
+  TransitionPreset,
+} from '@react-navigation/stack';
 import type { StackCardInterpolationProps } from '@react-navigation/stack/lib/typescript/src/types';
 import type { VariableVal } from '@tamagui/core';
+
+const NULL_ANIMATION_DURATION_PRESET: TransitionPreset = {
+  gestureDirection: 'vertical',
+  transitionSpec: {
+    open: {
+      animation: 'timing',
+      config: { duration: 250 },
+    },
+    close: {
+      animation: 'timing',
+      config: { duration: 250 },
+    },
+  },
+  cardStyleInterpolator: () => ({}),
+  headerStyleInterpolator: () => ({}),
+};
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;
@@ -49,52 +68,9 @@ export function makeModalOpenAnimationOptions(info: {
   isVerticalLayout?: boolean;
   optionsInfo: IScreenOptionsInfo<any>;
 }): StackNavigationOptions {
-  if (platformEnv.isExtensionUiPopup) {
-    return {
-      animationEnabled: true,
-      ...extAnimConfig.transition,
-      ...extAnimConfig.openModalAnim,
-    };
-  }
-
-  if (info.isVerticalLayout) {
-    return {
-      animationEnabled: true,
-      ...TransitionPresets.BottomSheetAndroid,
-    };
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-  const currentRouteIndex = info?.optionsInfo?.navigation
-    ?.getState?.()
-    ?.routes?.findIndex?.(
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      (route: any) => route?.key === info?.optionsInfo?.route?.key,
-    );
-  const animationConfig = TransitionPresets.ModalPresentationIOS;
-
-  // stack/src/views/Stack/Card.tsx 578L
-  // need keep functions to be `forModalPresentationIOS`.
-  function forModalPresentationIOS(config: StackCardInterpolationProps) {
-    const value = animationConfig.cardStyleInterpolator(config);
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    value.overlayStyle.opacity = config?.current?.progress?.interpolate?.({
-      inputRange: [0, 1, 1.0001, 2],
-      outputRange: [0, 0.6, 1, 1],
-    });
-
-    // opacity animation of Modal page on Web
-    if (currentRouteIndex > 1) {
-      value.overlayStyle = null;
-    }
-    return value;
-  }
-
   return {
     animationEnabled: true,
-    ...animationConfig,
-    cardStyleInterpolator: forModalPresentationIOS,
+    ...NULL_ANIMATION_DURATION_PRESET,
   };
 }
 
@@ -113,17 +89,13 @@ export function makeModalStackNavigatorOptions({
 
     headerShown: platformEnv.isRuntimeBrowser,
     animationEnabled: true,
-    ...TransitionPresets.SlideFromRightIOS,
+    ...NULL_ANIMATION_DURATION_PRESET,
     ...makeHeaderScreenOptions({
       navigation: optionsInfo?.navigation,
       bgColor,
       titleColor,
       isModelScreen: true,
     }),
-
-    ...(platformEnv.isExtension
-      ? { ...extAnimConfig.transition, ...extAnimConfig.stackScreenAnim }
-      : undefined),
   } as any;
 
   // Disable modal first screen navigation.replace() animation
