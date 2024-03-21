@@ -181,8 +181,6 @@ function WalletItem({ logo, name }: { name?: string; logo: any }) {
         flexBasis: '25%',
       }}
       p="$1"
-      // onPress on Stack not working on native app, use below Button instead
-      onPress={connectToWallet}
     >
       <Stack
         justifyContent="center"
@@ -199,6 +197,7 @@ function WalletItem({ logo, name }: { name?: string; logo: any }) {
         pressStyle={{
           bg: '$bgActive',
         }}
+        onPress={connectToWallet}
         focusable
         focusStyle={{
           outlineColor: '$focusRing',
@@ -225,10 +224,6 @@ function WalletItem({ logo, name }: { name?: string; logo: any }) {
             {name}
           </SizableText>
         </XStack>
-
-        {platformEnv.isNative ? (
-          <Button onPress={connectToWallet}>Connect</Button>
-        ) : null}
       </Stack>
     </Stack>
   );
