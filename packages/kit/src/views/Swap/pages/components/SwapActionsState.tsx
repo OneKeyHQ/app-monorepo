@@ -121,7 +121,7 @@ const SwapActionsState = ({
           />
           <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
           <SizableText size="$bodyMd" color="$textSubdued">
-            Setp 2: Swap
+            Step 2: Swap
           </SizableText>
         </XStack>
       ) : null}

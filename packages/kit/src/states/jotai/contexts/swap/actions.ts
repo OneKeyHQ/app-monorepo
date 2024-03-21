@@ -254,6 +254,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   quoteAction = contextAtomMethod(async (get, set, address?: string) => {
     this.cleanQuoteInterval();
+    set(swapBuildTxFetchingAtom(), false);
+    set(swapApprovingTransactionAtom(), undefined);
     const fromToken = get(swapSelectFromTokenAtom());
     const toToken = get(swapSelectToTokenAtom());
     const fromTokenAmount = get(swapFromTokenAmountAtom());

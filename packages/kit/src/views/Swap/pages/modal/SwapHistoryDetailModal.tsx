@@ -16,12 +16,12 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
 import {
@@ -61,7 +61,7 @@ const SwapHistoryDetailModal = () => {
     [copyText],
   );
   const onViewInBrowser = useCallback((url: string) => {
-    openUrl(url);
+    openUrlExternal(url);
   }, []);
 
   const durationTime = useMemo(() => {

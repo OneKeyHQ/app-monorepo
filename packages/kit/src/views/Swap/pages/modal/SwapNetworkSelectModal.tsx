@@ -45,7 +45,6 @@ const SwapNetworkSelectModal = () => {
       <ListItem
         key={item.networkId}
         title={`${item.name ?? item.symbol ?? item.shortcode ?? ''}`}
-        subtitle={`${item.protocol}`}
         avatarProps={{ source: { uri: item.logoURI } }}
         onPress={() => {
           void syncNetworksSort(item.networkId);

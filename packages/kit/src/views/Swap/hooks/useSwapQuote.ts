@@ -71,7 +71,7 @@ export function useSwapQuote() {
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (isFocus && !isHiddenModel && !swapApprovingTxRef.current) {
+      if (isFocus && !isHiddenModel && !swapApprovingTxRef.current?.txId) {
         void quoteAction(activeAccountAddressRef.current);
       } else {
         cleanQuoteInterval();
