@@ -24,7 +24,7 @@ const SwapApproveAllowanceSelect = ({
     ISelectItem | undefined
   >(() => selectItems?.[0]);
   const renderTrigger = useCallback(() => {
-    if (isLoading && !selectItems.length)
+    if (isLoading)
       return (
         <Stack py="$1">
           <Skeleton h="$3" w="$24" />
@@ -49,7 +49,7 @@ const SwapApproveAllowanceSelect = ({
         />
       </XStack>
     );
-  }, [currentAllowanceValue?.label, isLoading, selectItems.length]);
+  }, [currentAllowanceValue?.label, isLoading]);
   return (
     <XStack justifyContent="space-between">
       <SizableText size="$bodyMd" color="$textSubdued">

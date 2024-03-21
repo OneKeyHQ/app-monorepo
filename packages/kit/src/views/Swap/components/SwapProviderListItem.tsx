@@ -61,7 +61,7 @@ const SwapProviderListItem = ({
     />
     <ListItem.Text
       align="right"
-      primary={`${providerResult.toAmount} ${toAmountSymbol}`}
+      primary={`${providerResult?.toAmount} ${toAmountSymbol}`}
       secondary={
         providerResult.isBest ? (
           <XStack justifyContent="flex-end">
