@@ -63,7 +63,7 @@ export async function httpPost<T>({
   route: string;
   params: any;
 }) {
-  const url = isTestnet ? OPENAPI_URL_TESTNET : OPENAPI_URL_MAINNET + route;
+  const url = (isTestnet ? OPENAPI_URL_TESTNET : OPENAPI_URL_MAINNET) + route;
   const headers = new Headers();
   headers.append('X-Client', 'UniSat Wallet');
   headers.append('X-Version', '1.0.0');
