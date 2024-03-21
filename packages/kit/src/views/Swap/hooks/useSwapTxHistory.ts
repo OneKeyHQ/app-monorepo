@@ -184,9 +184,10 @@ export function useSwapTxHistoryActions() {
             updated: Date.now(),
           },
           swapInfo: {
-            instantRate: swapTxInfo.swapBuildResData.result.instantRate,
+            instantRate: swapTxInfo.swapBuildResData.result.instantRate ?? '0',
             provider: swapTxInfo.swapBuildResData.result.info,
-            oneKeyFee: swapTxInfo.swapBuildResData.result.fee.percentageFee,
+            oneKeyFee:
+              swapTxInfo.swapBuildResData.result.fee?.percentageFee ?? 0,
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };
