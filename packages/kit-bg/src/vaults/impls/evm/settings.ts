@@ -1,4 +1,4 @@
-import { NETWORK_ID_ETC } from '@onekeyhq/shared/src/config/presetNetworks';
+import { NETWORK_ID_ETC } from '@onekeyhq/shared/src/config/networkIds';
 import {
   COINTYPE_ETC,
   COINTYPE_ETH,

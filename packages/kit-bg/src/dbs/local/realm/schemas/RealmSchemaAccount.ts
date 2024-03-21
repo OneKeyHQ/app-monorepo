@@ -4,6 +4,7 @@ import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type {
   IDBAccount,
+  IDBExternalAccount,
   IDBUtxoAccount,
   IDBVariantAccount,
 } from '../../types';
@@ -44,7 +45,15 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public customAddresses?: Realm.Dictionary<string>;
 
+  public connectedAddresses?: Realm.Dictionary<string>;
+
+  public selectedAddress?: Realm.Dictionary<number>;
+
   public template?: string;
+
+  public wcTopic?: string;
+
+  public wcInfoRaw?: string;
 
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Account,
@@ -71,6 +80,18 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
         default: {},
         objectType: 'string',
       },
+      connectedAddresses: {
+        type: 'dictionary',
+        default: {},
+        objectType: 'string',
+      },
+      selectedAddress: {
+        type: 'dictionary',
+        default: {},
+        objectType: 'int',
+      },
+      wcTopic: 'string?',
+      wcInfoRaw: 'string?',
       template: 'string?',
     },
   };
@@ -109,6 +130,22 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       (ret as IDBUtxoAccount).customAddresses =
         (this.customAddresses?.toJSON() as any) || {};
     }
+
+    if (this.connectedAddresses) {
+      (ret as IDBExternalAccount).connectedAddresses =
+        (this.connectedAddresses.toJSON() as any) || {};
+    }
+    if (this.selectedAddress) {
+      (ret as IDBExternalAccount).selectedAddress =
+        (this.selectedAddress.toJSON() as any) || {};
+    }
+    if (this.wcTopic) {
+      (ret as IDBExternalAccount).wcTopic = this.wcTopic;
+    }
+    if (this.wcInfoRaw) {
+      (ret as IDBExternalAccount).wcInfoRaw = this.wcInfoRaw;
+    }
+
     return ret;
   }
 }

@@ -128,9 +128,9 @@ interface IQuoteExtraData {
 }
 export interface IFetchQuoteResult {
   info: IFetchQuoteInfo;
-  toAmount: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
-  fee: IFetchQuoteFee;
-  instantRate: string;
+  toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
+  fee?: IFetchQuoteFee;
+  instantRate?: string;
   allowanceResult?: IAllowanceResult;
   estimatedTime?: string;
   isBest?: boolean;

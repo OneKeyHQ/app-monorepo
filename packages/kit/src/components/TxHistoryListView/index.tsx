@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -21,6 +22,7 @@ type IProps = {
   isLoading?: boolean;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
+  ListHeaderComponent?: ReactElement;
   showHeader?: boolean;
   showIcon?: boolean;
   onPressHistory?: (history: IAccountHistoryTx) => void;
@@ -35,6 +37,7 @@ function TxHistoryListView(props: IProps) {
     data,
     isLoading,
     showHeader,
+    ListHeaderComponent,
     showIcon,
     onPressHistory,
     tableLayout,
@@ -135,10 +138,13 @@ function TxHistoryListView(props: IProps) {
 
   if (!initialized && isLoading) {
     return (
-      <HistoryLoadingView
-        tableLayout={tableLayout}
-        onContentSizeChange={onContentSizeChange}
-      />
+      <Stack py="$3">
+        {ListHeaderComponent}
+        <HistoryLoadingView
+          tableLayout={tableLayout}
+          onContentSizeChange={onContentSizeChange}
+        />
+      </Stack>
     );
   }
 
@@ -146,8 +152,8 @@ function TxHistoryListView(props: IProps) {
     <ListView
       py="$3"
       h="100%"
-      scrollEnabled={platformEnv.isWebTouchable}
-      disableScrollViewPanResponder
+      scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
+      disableScrollViewPanResponder={!!onContentSizeChange}
       onContentSizeChange={onContentSizeChange}
       data={filteredHistory}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
@@ -160,6 +166,7 @@ function TxHistoryListView(props: IProps) {
         index: number;
       }) => renderListItem(item, index)}
       ListFooterComponent={ListFooterComponent}
+      ListHeaderComponent={ListHeaderComponent}
       {...(showHeader &&
         data?.length > 0 && {
           ListHeaderComponent: (

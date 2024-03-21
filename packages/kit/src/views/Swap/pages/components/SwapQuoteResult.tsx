@@ -12,6 +12,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageContentContainer from './SwapSlippageContentContainer';
@@ -45,7 +46,6 @@ const SwapQuoteResult = ({
         />
       ) : null}
       <SwapProviderInfoItem
-        providerName={quoteResult.info.providerName}
         providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
         isLoading={quoteFetching}
         rate={quoteResult.instantRate}
@@ -61,7 +61,11 @@ const SwapQuoteResult = ({
         <YStack space="$4">
           <SwapSlippageTriggerContainer
             isLoading={quoteFetching}
-            renderPopoverContent={() => <SwapSlippageContentContainer />}
+            renderPopoverContent={() => (
+              <SwapProviderMirror>
+                <SwapSlippageContentContainer />
+              </SwapProviderMirror>
+            )}
             popoverOnOpenChange={(open) => {
               setSwapSlippagePopOverOpening(open);
             }}
