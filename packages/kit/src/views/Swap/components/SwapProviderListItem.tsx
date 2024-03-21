@@ -42,7 +42,7 @@ const SwapProviderListItem = ({
         </XStack>
       }
       secondary={
-        providerResult.fee.estimatedFeeFiatValue ? (
+        providerResult.fee?.estimatedFeeFiatValue ? (
           <XStack py="$0.5" space="$1" alignItems="center">
             <Icon name="GasSolid" size="$4" color="$iconSubdued" />
             <NumberSizeableText
@@ -53,7 +53,7 @@ const SwapProviderListItem = ({
                 currency: currencySymbol,
               }}
             >
-              {providerResult.fee.estimatedFeeFiatValue}
+              {providerResult.fee?.estimatedFeeFiatValue}
             </NumberSizeableText>
           </XStack>
         ) : null

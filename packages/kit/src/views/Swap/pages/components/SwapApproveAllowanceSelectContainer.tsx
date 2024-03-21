@@ -1,6 +1,9 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { useSwapQuoteApproveAllowanceUnLimitAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapApproveAllowanceSelectOpenAtom,
+  useSwapQuoteApproveAllowanceUnLimitAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { IAllowanceResult } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
 
@@ -17,8 +20,12 @@ const SwapApproveAllowanceSelectContainer = ({
   fromTokenSymbol,
   isLoading,
 }: ISwapApproveAllowanceSelectProps) => {
-  const [, setSwapQuoteApproveAllowanceUnLimit] =
-    useSwapQuoteApproveAllowanceUnLimitAtom();
+  const [
+    swapQuoteApproveAllowanceUnLimit,
+    setSwapQuoteApproveAllowanceUnLimit,
+  ] = useSwapQuoteApproveAllowanceUnLimitAtom();
+  const [, setSwapApproveAllowanceSelectOpen] =
+    useSwapApproveAllowanceSelectOpenAtom();
   const approveAllowanceSelectItems = useMemo(
     () => [
       {
@@ -41,11 +48,16 @@ const SwapApproveAllowanceSelectContainer = ({
     },
     [setSwapQuoteApproveAllowanceUnLimit],
   );
+
   return (
     <SwapApproveAllowanceSelect
+      currentSelectAllowanceValue={
+        approveAllowanceSelectItems[swapQuoteApproveAllowanceUnLimit ? 1 : 0]
+      }
       onSelectAllowanceValue={onSelectAllowanceValue}
       selectItems={approveAllowanceSelectItems}
       isLoading={isLoading}
+      onSelectOpenChange={setSwapApproveAllowanceSelectOpen}
     />
   );
 };

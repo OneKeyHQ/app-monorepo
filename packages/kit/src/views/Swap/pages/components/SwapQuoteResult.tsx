@@ -66,7 +66,7 @@ const SwapQuoteResult = ({
               setSwapSlippagePopOverOpening(open);
             }}
           />
-          {quoteResult.fee.estimatedFeeFiatValue ? (
+          {quoteResult.fee?.estimatedFeeFiatValue ? (
             <SwapCommonInfoItem
               title="Est network fee"
               isLoading={quoteFetching}
@@ -78,7 +78,7 @@ const SwapQuoteResult = ({
                     currency: settingsPersistAtom.currencyInfo.symbol,
                   }}
                 >
-                  {quoteResult.fee.estimatedFeeFiatValue}
+                  {quoteResult.fee?.estimatedFeeFiatValue}
                 </NumberSizeableText>
               }
             />
