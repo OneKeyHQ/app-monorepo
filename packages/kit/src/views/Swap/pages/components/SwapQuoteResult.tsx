@@ -58,36 +58,34 @@ const SwapQuoteResult = ({
         }}
       />
       {!quoteResult.allowanceResult ? (
-        <YStack space="$4">
-          <SwapSlippageTriggerContainer
-            isLoading={quoteFetching}
-            renderPopoverContent={() => (
-              <SwapProviderMirror>
-                <SwapSlippageContentContainer />
-              </SwapProviderMirror>
-            )}
-            popoverOnOpenChange={(open) => {
-              setSwapSlippagePopOverOpening(open);
-            }}
-          />
-          {quoteResult.fee?.estimatedFeeFiatValue ? (
-            <SwapCommonInfoItem
-              title="Est network fee"
-              isLoading={quoteFetching}
-              valueComponent={
-                <NumberSizeableText
-                  size="$bodyMdMedium"
-                  formatter="value"
-                  formatterOptions={{
-                    currency: settingsPersistAtom.currencyInfo.symbol,
-                  }}
-                >
-                  {quoteResult.fee?.estimatedFeeFiatValue}
-                </NumberSizeableText>
-              }
-            />
-          ) : null}
-        </YStack>
+        <SwapSlippageTriggerContainer
+          isLoading={quoteFetching}
+          renderPopoverContent={() => (
+            <SwapProviderMirror>
+              <SwapSlippageContentContainer />
+            </SwapProviderMirror>
+          )}
+          popoverOnOpenChange={(open) => {
+            setSwapSlippagePopOverOpening(open);
+          }}
+        />
+      ) : null}
+      {quoteResult.fee?.estimatedFeeFiatValue ? (
+        <SwapCommonInfoItem
+          title="Est network fee"
+          isLoading={quoteFetching}
+          valueComponent={
+            <NumberSizeableText
+              size="$bodyMdMedium"
+              formatter="value"
+              formatterOptions={{
+                currency: settingsPersistAtom.currencyInfo.symbol,
+              }}
+            >
+              {quoteResult.fee?.estimatedFeeFiatValue}
+            </NumberSizeableText>
+          }
+        />
       ) : null}
     </YStack>
   );
