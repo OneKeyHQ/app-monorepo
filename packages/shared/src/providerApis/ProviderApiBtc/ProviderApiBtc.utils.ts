@@ -16,8 +16,8 @@ import { NETWORK_TYPES, NetworkTypeEnum } from './ProviderApiBtc.types';
 
 import type { InputToSign, Inscription } from './ProviderApiBtc.types';
 
-export const OPENAPI_URL_MAINNET = 'https://unisat.io/wallet-api-v4';
-export const OPENAPI_URL_TESTNET = 'https://unisat.io/testnet/wallet-api-v4';
+export const OPENAPI_URL_MAINNET = 'https://wallet-api.unisat.io/v5';
+export const OPENAPI_URL_TESTNET = 'https://wallet-api-testnet.unisat.io/v5';
 
 export function toXOnly(pubKey: Buffer) {
   return pubKey.length === 32 ? pubKey : pubKey.slice(1, 33);
@@ -63,7 +63,7 @@ export async function httpPost<T>({
   route: string;
   params: any;
 }) {
-  const url = isTestnet ? OPENAPI_URL_TESTNET : OPENAPI_URL_MAINNET + route;
+  const url = (isTestnet ? OPENAPI_URL_TESTNET : OPENAPI_URL_MAINNET) + route;
   const headers = new Headers();
   headers.append('X-Client', 'UniSat Wallet');
   headers.append('X-Version', '1.0.0');
@@ -80,7 +80,7 @@ export async function httpPost<T>({
   const data = (await res.json()) as {
     status: string;
     message: string;
-    result: T;
+    data: T;
   };
 
   if (data.status === '0') {

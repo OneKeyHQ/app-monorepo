@@ -383,7 +383,7 @@ const UpdateInfoModal: FC = () => {
                 icon={<Spinner mb="16px" size="lg" />}
                 title={intl.formatMessage({ id: 'modal__device_status_check' })}
                 subTitle={
-                  device?.deviceType === 'touch'
+                  device?.deviceType === 'touch' || device?.deviceType === 'pro'
                     ? intl.formatMessage({
                         id: 'modal__device_status_check_restart_device_to_exit_boardloader',
                       })

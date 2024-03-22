@@ -47,6 +47,7 @@ import {
 import { useBtcCustomFee } from '../../utils/useBtcCustomFee';
 import { useCustomFee } from '../../utils/useCustomFee';
 import { useFeeInfoPayload } from '../../utils/useFeeInfoPayload';
+import { useSolCustomFee } from '../../utils/useSolCustomFee';
 
 import { SendEditFeeCustomForm } from './SendEditFeeCustomForm';
 import { SendEditFeeStandardForm } from './SendEditFeeStandardForm';
@@ -151,6 +152,7 @@ function ScreenSendEditFee({ ...rest }) {
 
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
   const isBtcForkChain = feeInfoPayload?.info?.isBtcForkChain;
+  const isSolChain = feeInfoPayload?.info?.isSolChain;
 
   useEffect(() => {
     debugLogger.sendTx.info('SendEditFee  >>>>  ', feeInfoPayload, encodedTx);
@@ -193,12 +195,20 @@ function ScreenSendEditFee({ ...rest }) {
   );
 
   const watchBtcFeeRate = watch('feeRate');
+  const watchComputeUnitPrice = watch('computeUnitPrice');
   const { btcTxFee } = useBtcCustomFee({
     networkId,
     accountId,
     encodedTx,
     feeRate: watchBtcFeeRate,
     feeType: currentFeeType,
+  });
+  const { solLimit, solPrice } = useSolCustomFee({
+    networkId,
+    accountId,
+    computeUnitPrice: watchComputeUnitPrice,
+    feeType: currentFeeType,
+    encodedTx,
   });
   const { customFee, updateCustomFee } = useCustomFee(networkId);
 
@@ -231,6 +241,7 @@ function ScreenSendEditFee({ ...rest }) {
         ? { price1559: priceInfo as EIP1559Fee }
         : { price: priceInfo as string }),
       ...(isBtcForkChain ? { feeRate: data.feeRate } : {}),
+      ...(isSolChain ? { computeUnitPrice: data.computeUnitPrice } : {}),
     };
 
     if (type === 'custom') {
@@ -254,11 +265,26 @@ function ScreenSendEditFee({ ...rest }) {
         }
       }
 
+      if (isSolChain) {
+        feeInfoSelected.custom.isSolChain = isSolChain;
+        feeInfoSelected.custom.limit = solLimit;
+        feeInfoSelected.custom.limitForDisplay = solLimit;
+        feeInfoSelected.custom.price = solPrice;
+      }
+
       setCurrentCustom(feeInfoSelected.custom);
     }
 
     if (feeType === ESendEditFeeTypes.advanced) {
-      updateCustomFee(saveCustom ? feeInfoSelected.custom : null);
+      if (saveCustom) {
+        const customFeeToUpdate = {
+          ...custom,
+          feeRate: isSolChain ? custom.computeUnitPrice : custom.feeRate,
+        };
+        updateCustomFee(customFeeToUpdate);
+      } else {
+        updateCustomFee(null);
+      }
     }
 
     debugLogger.sendTx.info('SendEditFee Confirm >>>> ', feeInfoSelected);
@@ -372,11 +398,21 @@ function ScreenSendEditFee({ ...rest }) {
           );
         }
       }
+      if (isSolChain) {
+        if (feeInfoValue.computeUnitPrice || feeInfoValue.feeRate) {
+          setValue(
+            'computeUnitPrice',
+            feeInfoValue.computeUnitPrice || feeInfoValue.feeRate || '0',
+          );
+        }
+      }
+
       setValue('gasLimit', new BigNumber(limit ?? 0).toFixed());
     },
     [
       isEIP1559Fee,
       isBtcForkChain,
+      isSolChain,
       setValue,
       autoConfirmAfterFeeSaved,
       feeInfoPayload?.info.feeDecimals,
@@ -396,13 +432,23 @@ function ScreenSendEditFee({ ...rest }) {
     if (radioValue === 'custom' && currentCustom) {
       setFormValuesFromFeeInfo(currentCustom);
     } else {
-      const { limit, price, price1559 } = getSelectedFeeInfoUnit({
-        info: feeInfoPayload.info,
-        index: radioValue,
-      });
+      const { limit, price, price1559, eip1559, feeRate, computeUnitPrice } =
+        getSelectedFeeInfoUnit({
+          info: feeInfoPayload.info,
+          index: radioValue,
+        });
 
       if (!currentCustom) {
-        setFormValuesFromFeeInfo({ price, price1559, limit });
+        setFormValuesFromFeeInfo({
+          price,
+          price1559,
+          limit,
+          isBtcForkChain,
+          isSolChain,
+          eip1559,
+          feeRate,
+          computeUnitPrice,
+        });
       }
     }
   }, [
@@ -411,7 +457,9 @@ function ScreenSendEditFee({ ...rest }) {
     feeInfoPayload,
     feeType,
     getSelectedFeeInfoUnit,
+    isBtcForkChain,
     isEIP1559Fee,
+    isSolChain,
     radioValue,
     setFormValuesFromFeeInfo,
     setValue,

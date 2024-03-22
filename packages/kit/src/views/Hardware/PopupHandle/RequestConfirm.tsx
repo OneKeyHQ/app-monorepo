@@ -41,14 +41,14 @@ const RequestConfirmView: FC<RequestConfirmViewProps> = ({
   ...props
 }) => {
   const intl = useIntl();
-
+  const isPro = deviceType === 'pro';
   return (
-    <BaseRequestView {...props}>
+    <BaseRequestView {...props} alignItems="center">
       <LottieView
         source={getConfirmAnimation(deviceType)}
         autoPlay
         loop
-        style={{ width: '100%' }}
+        style={{ width: isPro ? '60%' : '100%' }}
       />
 
       <Text

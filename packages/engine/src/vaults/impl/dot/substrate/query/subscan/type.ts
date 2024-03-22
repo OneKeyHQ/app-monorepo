@@ -46,6 +46,7 @@ export interface Extrinsic {
   from_hex: string;
   finalized: boolean;
   success: boolean;
+  pending: boolean;
 }
 
 export interface TransactionV2 {

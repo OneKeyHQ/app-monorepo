@@ -495,7 +495,7 @@ export default class Vault extends VaultBase {
     txids: string[],
   ): Promise<(TransactionStatus | undefined)[]> {
     const client = await this.getClient();
-    const currentBlockNumber = new BigNumber(
+    const chainBlockNumber = new BigNumber(
       await client.getTipBlockNumber(),
       16,
     );
@@ -510,9 +510,10 @@ export default class Vault extends VaultBase {
           tx.txStatus.blockHash,
           '0x1',
         );
-        const isConfirmed = currentBlockNumber
+        const isConfirmed = chainBlockNumber
           .minus(new BigNumber(blockHeader.number, 16))
           .isGreaterThanOrEqualTo(DEFAULT_CONFIRM_BLOCK);
+
         if (tx.txStatus.status === 'committed' && isConfirmed) {
           status = TransactionStatus.CONFIRM_AND_SUCCESS;
         }
@@ -547,7 +548,7 @@ export default class Vault extends VaultBase {
     });
 
     const config = getConfig(await this.getNetworkChainId());
-    const currentBlockNumber = new BigNumber(
+    const chainBlockNumber = new BigNumber(
       await client.getTipBlockNumber(),
       16,
     );
@@ -566,7 +567,7 @@ export default class Vault extends VaultBase {
           txStatus: { status },
           transaction: { hash: txHash },
         } = tx.txWithStatus;
-        const { timestamp, number: blockNumber } = tx.txBlockHeader;
+        const { timestamp, number: txBlockNumber } = tx.txBlockHeader;
         const { inputs, outputs } = tx.txSkeleton;
 
         const txid = txHash;
@@ -675,8 +676,8 @@ export default class Vault extends VaultBase {
           .shiftedBy(-network.decimals)
           .toFixed();
 
-        const isConfirmed = currentBlockNumber
-          .minus(new BigNumber(blockNumber, 16))
+        const isConfirmed = chainBlockNumber
+          .minus(new BigNumber(txBlockNumber, 16))
           .isGreaterThanOrEqualTo(DEFAULT_CONFIRM_BLOCK);
 
         const decodedTx: IDecodedTx = {

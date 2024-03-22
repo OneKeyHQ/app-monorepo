@@ -35,7 +35,9 @@ function useDeviceMenu({
       const isSupportType = supportContentType.includes(
         asset.contentType ?? '',
       );
-      setShowMenu(hwDevice?.deviceType === 'touch' && isSupportType);
+      const isTouch =
+        hwDevice?.deviceType === 'touch' || hwDevice?.deviceType === 'pro';
+      setShowMenu(isTouch && isSupportType);
       setDevice(hwDevice);
     })();
   }, [wallet, asset]);

@@ -5,6 +5,7 @@ import { memo, useMemo } from 'react';
 import { Box, Center, Icon, Image, Text } from '@onekeyhq/components';
 import ClassicIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import ProIcon from '@onekeyhq/components/img/deviceicon_pro.png';
 import TouchIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import type { TypographyStyle } from '@onekeyhq/components/src/Typography';
 import type { IWallet } from '@onekeyhq/engine/src/types';
@@ -98,6 +99,9 @@ const WalletImage: FC<Partial<WalletAvatarProps>> = ({
     }
     if (hwWalletType === 'touch') {
       imgSource = TouchIcon;
+    }
+    if (hwWalletType === 'pro') {
+      imgSource = ProIcon;
     }
 
     return (

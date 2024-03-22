@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Box, Center, Image, Modal, Typography } from '@onekeyhq/components';
+import ProSetupNewAndImportDevicePng from '@onekeyhq/kit/assets/wallet/create-or-import-pro-device.png';
 import ClassicRestoreDevicePng from '@onekeyhq/kit/assets/wallet/restore-classic-device.png';
 import MiniRestoreDevicePng from '@onekeyhq/kit/assets/wallet/restore-mini-device.png';
 import TouchRestoreDevicePng from '@onekeyhq/kit/assets/wallet/restore-touch-device.png';
@@ -37,6 +38,8 @@ const getSetupNewDeviceIcon = (type: IDeviceType): any => {
       return MiniSetupNewDevicePng;
     case 'touch':
       return TouchSetupNewDevicePng;
+    case 'pro':
+      return ProSetupNewAndImportDevicePng;
     default:
       return undefined;
   }
@@ -51,6 +54,8 @@ const getRestoreDeviceIcon = (type: IDeviceType): any => {
       return MiniRestoreDevicePng;
     case 'touch':
       return TouchRestoreDevicePng;
+    case 'pro':
+      return ProSetupNewAndImportDevicePng;
     default:
       return undefined;
   }
@@ -63,8 +68,9 @@ const SetupNewDeviceModal: FC = () => {
   const route = useRoute<RouteProps>();
   const { device, type } = route?.params || {};
 
-  const miniActivateHelp = useHelpLink({ path: 'articles/4408289773455' });
-  const classicActivateHelp = useHelpLink({ path: 'articles/360004487195' });
+  const miniActivateHelp = useHelpLink({ path: 'articles/8934154578831' });
+  const classicActivateHelp = useHelpLink({ path: 'articles/8871438458767' });
+  const touchActivateHelp = useHelpLink({ path: 'articles/8944522379023' });
 
   const activateHelpUrl = useMemo(() => {
     if (!device) return null;
@@ -72,14 +78,15 @@ const SetupNewDeviceModal: FC = () => {
       case 'classic':
       case 'classic1s':
         return classicActivateHelp;
-
       case 'mini':
         return miniActivateHelp;
+      case 'touch':
+        return touchActivateHelp;
 
       default:
         return null;
     }
-  }, [classicActivateHelp, device, miniActivateHelp]);
+  }, [classicActivateHelp, device, miniActivateHelp, touchActivateHelp]);
 
   const numberedList = useMemo(() => {
     const hintList = [

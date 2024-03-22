@@ -66,7 +66,7 @@ const OnekeyHardwareHomescreen: FC = () => {
   const { engine, serviceHardware } = backgroundApiProxy;
 
   const isSmallScreen = useIsVerticalLayout();
-  const isTouch = deviceType === 'touch';
+  const isTouch = deviceType === 'touch' || deviceType === 'pro';
 
   useEffect(() => {
     engine.getHWDeviceByWalletId(walletId).then((device) => {
@@ -236,7 +236,7 @@ const OnekeyHardwareHomescreen: FC = () => {
   const cardWidth = Math.floor(
     (containerWidth - containerPadding * 2 - sperate * 3) / 4,
   );
-  const cardHeight = deviceType === 'touch' ? '120px' : '64px';
+  const cardHeight = isTouch ? '120px' : '64px';
 
   const renderItem = useCallback(
     ({ item, index }: RenderItemParams) =>
@@ -326,7 +326,7 @@ const OnekeyHardwareHomescreen: FC = () => {
   const footer = useMemo(
     () => (
       <>
-        {deviceType === 'touch' && (
+        {isTouch && (
           <Box display="flex" alignItems="center" justifyContent="center">
             <Text>
               {intl.formatMessage({
@@ -360,13 +360,13 @@ const OnekeyHardwareHomescreen: FC = () => {
       </>
     ),
     [
-      handleConfirm,
-      deviceType,
-      loading,
-      isSmallScreen,
+      isTouch,
       intl,
       bottom,
+      isSmallScreen,
+      loading,
       buttonTextId,
+      handleConfirm,
     ],
   );
 
