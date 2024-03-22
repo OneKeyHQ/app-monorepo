@@ -12,6 +12,7 @@ import {
   Button,
   Heading,
   Image,
+  OverlayContainer,
   Stack,
   ThemeableStack,
   useKeyboardEvent,
@@ -59,47 +60,49 @@ const AppStateLock = ({
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
   return (
-    <ThemeableStack
-      testID="unlock-screen"
-      ref={lockContainerRef}
-      position="absolute"
-      fullscreen
-      // keep the lock screen interface at the top by the z-index on Web & Android
-      zIndex={1e8}
-      flex={1}
-      bg="$bgApp"
-      {...props}
-    >
-      <Stack
+    <OverlayContainer>
+      <ThemeableStack
+        testID="unlock-screen"
+        ref={lockContainerRef}
+        position="absolute"
+        fullscreen
+        // keep the lock screen interface at the top by the z-index on Web & Android
+        zIndex={1e8}
         flex={1}
-        justifyContent="center"
-        alignItems="center"
-        p="$8"
-        space="$8"
+        bg="$bgApp"
+        {...props}
       >
-        <Stack space="$4" alignItems="center">
-          <Image w={72} h={72} source={Logo} />
-          <Heading size="$headingLg" textAlign="center">
-            Welcome Back
-          </Heading>
-        </Stack>
         <Stack
-          w="100%"
-          $gtMd={{
-            maxWidth: '$80',
-          }}
+          flex={1}
+          justifyContent="center"
+          alignItems="center"
+          p="$8"
+          space="$8"
         >
-          <Animated.View style={safeKeyboardAnimationStyle}>
-            {passwordVerifyContainer}
-          </Animated.View>
+          <Stack space="$4" alignItems="center">
+            <Image w={72} h={72} source={Logo} />
+            <Heading size="$headingLg" textAlign="center">
+              Welcome Back
+            </Heading>
+          </Stack>
+          <Stack
+            w="100%"
+            $gtMd={{
+              maxWidth: '$80',
+            }}
+          >
+            <Animated.View style={safeKeyboardAnimationStyle}>
+              {passwordVerifyContainer}
+            </Animated.View>
+          </Stack>
         </Stack>
-      </Stack>
-      <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
-        <Button size="small" variant="tertiary" onPress={resetApp}>
-          Forgot Password?
-        </Button>
-      </Stack>
-    </ThemeableStack>
+        <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
+          <Button size="small" variant="tertiary" onPress={resetApp}>
+            Forgot Password?
+          </Button>
+        </Stack>
+      </ThemeableStack>
+    </OverlayContainer>
   );
 };
 
