@@ -1,8 +1,12 @@
 import type { PropsWithChildren } from 'react';
 
 import type { IFooterActionsProps } from './PageFooterActions';
-import type { IPageLifeCycle } from './PageLifeCycle';
 import type { IScrollViewProps } from '../ScrollView';
+
+export interface IPageLifeCycle {
+  onMounted?: () => void;
+  onUnmounted?: () => void;
+}
 
 export type IBasicPageProps = PropsWithChildren<
   {
@@ -19,3 +23,4 @@ export type IBasicPageProps = PropsWithChildren<
 export type IPageFooterProps = PropsWithChildren<IFooterActionsProps>;
 
 export type IPageProps = IBasicPageProps;
+
