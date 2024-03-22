@@ -5,3 +5,5 @@ export type IPrefType =
   | 'notification'
   | 'locationService'
   | 'localNetwork';
+
+export type IDesktopAppState = 'active' | 'background' | 'blur';
