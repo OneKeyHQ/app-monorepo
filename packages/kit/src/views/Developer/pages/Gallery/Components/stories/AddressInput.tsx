@@ -83,7 +83,10 @@ const Demo1 = () => {
 const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
   const intl = useIntl();
   const form = useForm<IAddressFormValues>({
-    defaultValues: { name: '', address: { raw: '', resolved: undefined } },
+    defaultValues: {
+      name: '',
+      address: { raw: '0xFFFF', resolved: undefined },
+    },
     mode: 'onChange',
     reValidateMode: 'onBlur',
   });
@@ -95,29 +98,29 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
   return (
     <YStack>
       <Form form={form}>
-        <Form.Field
-          name="address"
-          rules={{
-            required: 'required',
-            validate: (value: IAddressInputValue) => {
-              if (value.pending) {
-                return;
-              }
-              if (!value.resolved) {
-                return intl.formatMessage({ id: 'form__address_invalid' });
-              }
-              return undefined;
-            },
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.addressInput,
+            sceneUrl: '',
+          }}
+          enabledNum={[num]}
+          availableNetworksMap={{
+            [num]: { networkIds: [networkId], defaultNetworkId: networkId },
           }}
         >
-          <AccountSelectorProviderMirror
-            config={{
-              sceneName: EAccountSelectorSceneName.addressInput,
-              sceneUrl: '',
-            }}
-            enabledNum={[num]}
-            availableNetworksMap={{
-              [num]: { networkIds: [networkId], defaultNetworkId: networkId },
+          <Form.Field
+            name="address"
+            rules={{
+              required: 'required',
+              validate: (value: IAddressInputValue) => {
+                if (value.pending) {
+                  return;
+                }
+                if (!value.resolved) {
+                  return intl.formatMessage({ id: 'form__address_invalid' });
+                }
+                return undefined;
+              },
             }}
           >
             <AddressInput
@@ -127,8 +130,8 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
               contacts
               accountSelector={{ num }}
             />
-          </AccountSelectorProviderMirror>
-        </Form.Field>
+          </Form.Field>
+        </AccountSelectorProviderMirror>
       </Form>
       <Button mt="$4" onPress={() => handleSubmit(handleConfirm)()}>
         Submit
