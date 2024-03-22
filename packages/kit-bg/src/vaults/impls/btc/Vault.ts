@@ -685,7 +685,7 @@ export default class VaultBtc extends VaultBase {
     const utxos = await this._collectUTXOsInfoByApi();
 
     const pathToAddresses: {
-      [path: string]: {
+      [fullPath: string]: {
         address: string;
         relPath: string;
       };
@@ -693,10 +693,10 @@ export default class VaultBtc extends VaultBase {
 
     // add all matched addresses from utxos
     for (const utxo of utxos) {
-      const { address, path } = utxo;
+      const { address, path: fullPath } = utxo;
       if (addresses.includes(address)) {
-        const relPath = path.split('/').slice(-2).join('/');
-        pathToAddresses[path] = {
+        const relPath = fullPath.split('/').slice(-2).join('/');
+        pathToAddresses[fullPath] = {
           address,
           relPath,
         };
