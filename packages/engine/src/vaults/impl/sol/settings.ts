@@ -9,7 +9,7 @@ import type { AccountNameInfo } from '../../../types/network';
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
-  feeInfoEditable: false,
+  feeInfoEditable: true,
   privateKeyExportEnabled: true,
   tokenEnabled: true,
   txCanBeReplaced: false,

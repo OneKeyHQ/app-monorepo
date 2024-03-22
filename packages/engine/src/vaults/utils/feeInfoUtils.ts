@@ -38,6 +38,17 @@ export const getSelectedFeeInfoUnit = ({
     };
   }
 
+  if (info.isSolChain) {
+    return {
+      eip1559: false,
+      isSolChain: true,
+      computeUnitPrice: info.computeUnitPrice,
+      price: priceInfo as string,
+      limit: info.limit,
+      limitForDisplay: info.limitForDisplay ?? info.limit,
+    };
+  }
+
   return {
     eip1559: false,
     price: priceInfo as string,

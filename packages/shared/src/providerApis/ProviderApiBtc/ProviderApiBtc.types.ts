@@ -98,6 +98,7 @@ export type DecodedPsbt = {
     value: number;
     inscriptions: Inscription[];
   }[];
+  inscriptions: Record<string, Inscription>;
   feeRate: string;
   fee: string;
   hasScammerAddress: boolean;

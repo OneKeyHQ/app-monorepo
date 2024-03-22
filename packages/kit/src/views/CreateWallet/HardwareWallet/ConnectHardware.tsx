@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/components';
 import ClassicDeviceIcon from '@onekeyhq/components/img/deviceIcon_classic.png';
 import MiniDeviceIcon from '@onekeyhq/components/img/deviceIcon_mini.png';
+import ProDeviceIcon from '@onekeyhq/components/img/deviceicon_pro.png';
 import TouchDeviceIcon from '@onekeyhq/components/img/deviceicon_touch.png';
 import type { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { OneKeyErrorClassNames } from '@onekeyhq/engine/src/errors';
@@ -79,6 +80,8 @@ const getDeviceIcon = (
       return MiniDeviceIcon as number;
     case 'touch':
       return TouchDeviceIcon as number;
+    case 'pro':
+      return ProDeviceIcon as number;
     default:
       return undefined;
   }
