@@ -1,19 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-
-import { mnemonicToSeedSync } from 'bip39';
-import bs58check from 'bs58check';
+import { ripemd160 } from '@noble/hashes/ripemd160';
+import { sha256 } from '@noble/hashes/sha256';
 
 import {
-  IMPL_LIGHTNING,
+  IMPL_BTC,
   IMPL_LIGHTNING_TESTNET,
+  IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { batchGetPublicKeys, mnemonicFromEntropy } from '../../secret';
 import {
-  EAddressEncodings,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImported,
   type ICoreApiGetAddressQueryPublicKey,
@@ -26,14 +23,12 @@ import {
   type ICurveName,
   type ISignedTxPro,
 } from '../../types';
-import {
-  getAddressFromXpub,
-  getBitcoinBip32,
-  getBitcoinECPair,
-  getBtcForkNetwork,
-} from '../btc/sdkBtc';
 
 import { generateNativeSegwitAccounts } from './sdkLightning/account';
+import ClientLightning from './sdkLightning/clientLightning';
+import { signLightningMessage } from './sdkLightning/signature';
+
+import type { ISigner } from '../../base/ChainSigner';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -41,7 +36,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new Error('Method not implemented.');
     return this.baseGetPrivateKeys({
       payload,
       curve,
@@ -108,6 +102,55 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
   }
 
+  private async buildSignerLightning({
+    password,
+    hdCredential,
+    address,
+    path,
+    isTestnet,
+  }: {
+    password: string;
+    hdCredential: string;
+    address: string;
+    path: string;
+    isTestnet: boolean;
+  }): Promise<ISigner> {
+    const btcNetworkInfo = isTestnet
+      ? {
+          networkChainCode: IMPL_TBTC,
+          networkImpl: IMPL_TBTC,
+          networkId: 'tbtc--0',
+          chainId: '',
+        }
+      : {
+          networkChainCode: IMPL_BTC,
+          networkImpl: IMPL_BTC,
+          networkId: 'btc--0',
+          chainId: '',
+        };
+    const fullPath = `${path}/0/0`;
+    const privateKeys = await this.getPrivateKeys({
+      networkInfo: btcNetworkInfo,
+      password,
+      account: {
+        address,
+        path: fullPath,
+      },
+      credentials: {
+        hd: hdCredential,
+      },
+    });
+    if (!privateKeys[fullPath]) {
+      throw new Error('No private key found.');
+    }
+    const signer = await this.baseCreateSigner({
+      curve,
+      password,
+      privateKey: privateKeys[fullPath],
+    });
+    return signer;
+  }
+
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
@@ -118,16 +161,67 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       networkInfo: { networkChainCode },
     } = query;
 
+    const isTestnet = networkChainCode === IMPL_LIGHTNING_TESTNET;
     const nativeSegwitAccounts = await generateNativeSegwitAccounts({
       curve,
       indexes,
       hdCredential,
       password,
-      isTestnet: networkChainCode === IMPL_LIGHTNING_TESTNET,
+      isTestnet,
     });
 
     console.log('nativeSegwitAccounts', nativeSegwitAccounts);
 
-    throw new Error('No Account.');
+    const client = new ClientLightning(isTestnet);
+    const addresses = [];
+
+    for (const account of nativeSegwitAccounts) {
+      const accountExist = await client.checkAccountExist(account.address);
+      if (!accountExist) {
+        const hashPubKey = bufferUtils.bytesToHex(sha256(account.xpub));
+        const signTemplate = await client.fetchSignTemplate(
+          account.address,
+          'register',
+        );
+        if (signTemplate.type !== 'register') {
+          throw new Error('Wrong signature type');
+        }
+        const signer = await this.buildSignerLightning({
+          password,
+          hdCredential,
+          address: account.address,
+          path: account.path,
+          isTestnet,
+        });
+        const sign = await signLightningMessage({
+          msgPayload: {
+            ...signTemplate,
+            pubkey: hashPubKey,
+            address: account.address,
+          },
+          signer,
+          isTestnet,
+        });
+        await client.createUser({
+          hashPubKey,
+          address: account.address,
+          signature: sign,
+          randomSeed: signTemplate.randomSeed,
+        });
+      }
+
+      addresses.push({
+        address: account.address,
+        publicKey: '',
+        path: account.path,
+        xpub: account.xpub,
+        addresses: {
+          normalizedAddress: account.address,
+          realPath: account.path,
+          hashAddress: bufferUtils.bytesToHex(ripemd160(account.address)),
+        },
+      });
+    }
+    return { addresses };
   }
 }
