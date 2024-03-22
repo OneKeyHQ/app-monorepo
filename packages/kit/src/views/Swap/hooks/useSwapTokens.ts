@@ -150,8 +150,8 @@ export function useSwapSelectedTokenInfo({
         ) {
           const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
           balanceDisplay = balanceParsedBN.isNaN()
-            ? '0'
-            : balanceParsedBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
+            ? '0.0'
+            : balanceParsedBN.toFixed();
         } else {
           const detailInfo =
             await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
@@ -166,9 +166,7 @@ export function useSwapSelectedTokenInfo({
             );
             balanceDisplay = balanceParsedBN.isNaN()
               ? '0.0'
-              : balanceParsedBN
-                  .decimalPlaces(6, BigNumber.ROUND_DOWN)
-                  .toFixed();
+              : balanceParsedBN.toFixed();
           }
         }
       }

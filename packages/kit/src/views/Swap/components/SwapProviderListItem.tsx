@@ -102,7 +102,11 @@ const SwapProviderListItem = ({
   ]);
   return (
     <ListItem
-      avatarProps={{ src: providerResult.info.providerLogo, size: '$10' }}
+      avatarProps={{
+        src: providerResult.info.providerLogo,
+        size: '$10',
+        borderRadius: '$2',
+      }}
       userSelect="none"
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}

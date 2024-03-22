@@ -31,12 +31,13 @@ const SwapSlippageTriggerContainer = ({
           : 'content__custom',
     });
 
-    return `${preText}(${swapSlippage.value}%)`;
+    return `${preText} (${swapSlippage.value}%)`;
   }, [intl, swapSlippage.key, swapSlippage.value]);
 
   const valueComponent = useMemo(
     () => (
       <SizableText
+        size="$bodyMdMedium"
         color={
           swapSlippage.value > swapSlippageWillAheadMinValue
             ? '$textCritical'

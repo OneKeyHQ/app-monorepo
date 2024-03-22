@@ -9,11 +9,11 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useSwapToAnotherAccountSwitchOnAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -112,6 +112,8 @@ const SwapAccountAddressContainer = ({
   const [swapSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
 
+  const [swapToAnotherAddressSwitch] = useSwapToAnotherAccountSwitchOnAtom();
+
   const handleOnCreateAddress = useCallback(async () => {
     if (!swapAddressInfo.accountInfo) return;
     await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
@@ -131,7 +133,6 @@ const SwapAccountAddressContainer = ({
     }
     if (
       !swapAddressInfo.accountInfo ||
-      swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_WATCHING ||
       (swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_IMPORTED &&
         !swapAddressInfo.address)
     ) {
@@ -153,6 +154,7 @@ const SwapAccountAddressContainer = ({
         />
       );
     }
+    // to address
     return (
       <AddressButton
         onPress={() => {
@@ -161,9 +163,9 @@ const SwapAccountAddressContainer = ({
             params: { address: swapAddressInfo.address },
           });
         }}
-        address={accountUtils.shortenAddress({
+        address={`${accountUtils.shortenAddress({
           address: swapAddressInfo.address ?? '',
-        })}
+        })} ${swapToAnotherAddressSwitch ? '(Edited)' : ''}`}
       />
     );
   }, [
@@ -173,6 +175,7 @@ const SwapAccountAddressContainer = ({
     swapAddressInfo.accountInfo,
     swapAddressInfo.address,
     swapSupportReceiveAddress,
+    swapToAnotherAddressSwitch,
     toToken,
     type,
   ]);
