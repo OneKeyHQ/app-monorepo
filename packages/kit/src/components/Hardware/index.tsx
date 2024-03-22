@@ -42,10 +42,10 @@ export const ConfirmOnDeviceToast = async ({
       console.log('close ConfirmOnDeviceToastContent');
     },
   });
-  // setTimeout(async () => {
-  //   event.confirm();
-  //   await toast.close({ flag: 'ConfirmOnDeviceToastContent closeFlag' });
-  // }, 3500);
+  setTimeout(async () => {
+    event.confirm();
+    await toast.close({ flag: 'ConfirmOnDeviceToastContent closeFlag' });
+  }, 3500);
   await event.run();
 };
 
