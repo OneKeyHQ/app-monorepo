@@ -91,9 +91,6 @@ const SwapCommonInfoItem = ({
           title={title}
           keepChildrenMounted
           onOpenChange={popoverOnOpenChange}
-          floatingPanelProps={{
-            w: 'unset',
-          }}
         />
       );
     }
