@@ -13,27 +13,9 @@ import {
   type IUnsignedTxPro,
 } from '../../types';
 
-import {
-  bufferToScripChunk,
-  decode,
-  decodeScriptBufferToScriptChunks,
-  encode,
-  getScriptBufferFromScriptTemplateOut,
-  isPublicKeyTemplateIn,
-  isPublicKeyTemplateOut,
-  reverseBuffer,
-  scriptChunksToBuffer,
-  sign,
-  varintBufNum,
-  writeInt32LE,
-  writeUInt32LE,
-  writeUInt64LEBN,
-  writeUInt8,
-} from './sdk';
-
 import type { Signer } from '../../../proxy';
 import type { Token } from '../../../types/token';
-
+import { IEncodedTxStacks } from './types';
 
 export function verifyStacksAddress(address: string) {
   try {
@@ -73,7 +55,7 @@ const NETWORKS = {
   },
 };
 
-export function getStacksNetworkInfo(chanid: string): {
+export function getStacksNetworkInfo(chainid: string): {
   name: string;
   prefix: string;
   pubkeyhash: number;
@@ -83,16 +65,11 @@ export function getStacksNetworkInfo(chanid: string): {
   xprivkey: number;
   networkMagic: number;
 } {
-  return chanid === 'testnet' ? NETWORKS.testnet : NETWORKS.mainnet;
+  return chainid === 'testnet' ? NETWORKS.testnet : NETWORKS.mainnet;
 }
 
-export function getStacksPrefix(chanid: string): string {
-  return getStacksNetworkInfo(chanid).prefix;
-}
-
-function convertScriptToPushBuffer(key: Buffer): Buffer {
-  const templateChunk = bufferToScripChunk(key);
-  return scriptChunksToBuffer([templateChunk]);
+export function getStacksPrefix(chainId: string): string {
+  return getStacksNetworkInfo(chainId).prefix;
 }
 
 export function verifyStacksAddressPrefix(address: string) {
@@ -131,14 +108,6 @@ export function estimateFee(
     size * feeRate + CHANGE_OUTPUT_MAX_SIZE * feeRate,
   );
   return feeWithChange;
-}
-
-export function buildInputScriptBuffer(publicKey: Buffer, signature: Buffer) {
-  const scriptBuffer = scriptChunksToBuffer([
-    bufferToScripChunk(scriptChunksToBuffer([bufferToScripChunk(publicKey)])),
-    bufferToScripChunk(signature),
-  ]);
-  return scriptBuffer;
 }
 
 function buildInputIdemWithSignature({
@@ -246,7 +215,10 @@ export function buildTxid(
   return txIdHash;
 }
 
-function buildSignatures(encodedTx: IEncodedTxStacks, dbAccountAddress: string) {
+function buildSignatures(
+  encodedTx: IEncodedTxStacks,
+  dbAccountAddress: string,
+) {
   const { inputs, outputs, gas } = encodedTx;
   const newOutputs = outputs.slice();
   const inputAmount: BN = inputs.reduce(
@@ -390,12 +362,14 @@ export async function signEncodedTx(
   } = buildSignatureBuffer(encodedTx, dbAccountAddress);
   const ret = sha256sha256(signatureBuffer);
   const signature = sign(privateKey, ret);
-  const inputSignatures: IStacksInputSignature[] = inputSigs.map((inputSig) => ({
-    ...inputSig,
-    publicKey,
-    signature,
-    scriptBuffer: buildInputScriptBuffer(publicKey, signature),
-  }));
+  const inputSignatures: IStacksInputSignature[] = inputSigs.map(
+    (inputSig) => ({
+      ...inputSig,
+      publicKey,
+      signature,
+      scriptBuffer: buildInputScriptBuffer(publicKey, signature),
+    }),
+  );
 
   const txid = buildTxid(inputSignatures, outputSignatures);
   const rawTx = buildRawTx(inputSignatures, outputSignatures, 0, true);

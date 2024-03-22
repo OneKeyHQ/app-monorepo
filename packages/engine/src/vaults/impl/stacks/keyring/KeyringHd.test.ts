@@ -1,16 +1,16 @@
-import nexaMockData from '../@tests/nexaMockData';
+import stacksMockData from '../@tests/stacksMockData';
 import {
   testPrepareAccounts,
   testSignTransaction,
-} from '../@tests/nexaPresetCase';
+} from '../@tests/stacksPresetCase';
 
 import { KeyringHd } from './KeyringHd';
 
 jest.setTimeout(3 * 60 * 1000);
 
-describe('Nexa KeyringHd Tests', () => {
-  it('Nexa KeyringHd prepareAccounts', async () => {
-    const { network, hdAccount1 } = nexaMockData;
+describe('Stacks KeyringHd Tests', () => {
+  it('Stacks KeyringHd prepareAccounts', async () => {
+    const { network, hdAccount1 } = stacksMockData;
     await testPrepareAccounts(
       {
         dbNetwork: network,
@@ -26,8 +26,8 @@ describe('Nexa KeyringHd Tests', () => {
     );
   });
 
-  it('Nexa KeyringHd sign tx', async () => {
-    const { network, hdAccount1 } = nexaMockData;
+  it('Stacks KeyringHd sign tx', async () => {
+    const { network, hdAccount1 } = stacksMockData;
     await testSignTransaction(
       {
         dbNetwork: network,

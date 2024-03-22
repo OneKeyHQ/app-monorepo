@@ -2,7 +2,10 @@ import { OneKeyHardwareError } from '@onekeyhq/engine/src/errors';
 import { slicePathTemplate } from '@onekeyhq/engine/src/managers/derivation';
 import { getAccountNameInfoByImpl } from '@onekeyhq/engine/src/managers/impl';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
-import type { DBUTXOAccount } from '@onekeyhq/engine/src/types/account';
+import type {
+  DBSimpleAccount,
+  DBUTXOAccount,
+} from '@onekeyhq/engine/src/types/account';
 import type { UnsignedTx } from '@onekeyhq/engine/src/types/provider';
 import { KeyringHardwareBase } from '@onekeyhq/engine/src/vaults/keyring/KeyringHardwareBase';
 import type {
@@ -12,22 +15,22 @@ import type {
 } from '@onekeyhq/engine/src/vaults/types';
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
 import {
-  IMPL_NEXA as COIN_IMPL,
-  COINTYPE_NEXA as COIN_TYPE,
+  IMPL_STACKS as COIN_IMPL,
+  COINTYPE_STACKS as COIN_TYPE,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
-import { type IEncodedTxNexa } from '../types';
+import { type IEncodedTxStacks } from '../types';
 import {
   buildInputScriptBuffer,
   buildRawTx,
   buildSignatureBuffer,
   buildTxid,
-  getNexaPrefix,
+  getStacksPrefix,
 } from '../utils';
 
-import type { INexaInputSignature } from '../types';
-import type { NexaAddress, Success, Unsuccessful } from '@onekeyfe/hd-core';
+import type { IStacksInputSignature } from '../types';
+import type { StacksAddress, Success, Unsuccessful } from '@onekeyfe/hd-core';
 
 const SIGN_TYPE = 'Schnorr';
 
@@ -35,7 +38,7 @@ const SIGN_TYPE = 'Schnorr';
 export class KeyringHardware extends KeyringHardwareBase {
   async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
-  ): Promise<Array<DBUTXOAccount>> {
+  ): Promise<Array<DBSimpleAccount>> {
     const { indexes, names, template } = params;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const paths = indexes.map(
@@ -53,16 +56,16 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { prefix } = getAccountNameInfoByImpl(COIN_IMPL).default;
     const chainId = await this.getNetworkChainId();
 
-    let addressesResponse: Unsuccessful | Success<NexaAddress[]>;
+    let addressesResponse: Unsuccessful | Success<StacksAddress[]>;
     try {
-      addressesResponse = await HardwareSDK.nexaGetAddress(
+      addressesResponse = await HardwareSDK.stacksGetAddress(
         connectId,
         deviceId,
         {
           bundle: paths.map((path) => ({
             path,
             showOnOneKey,
-            prefix: getNexaPrefix(chainId),
+            prefix: getStacksPrefix(chainId),
           })),
           ...passphraseState,
         },
@@ -84,7 +87,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       return {
         id: `${this.walletId}--${idPaths[index]}`,
         name,
-        type: AccountType.UTXO,
+        type: AccountType.SIMPLE,
         path,
         coinType: COIN_TYPE,
         xpub: '',
@@ -102,10 +105,10 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const chainId = await this.getNetworkChainId();
 
-    const response = await HardwareSDK.nexaGetAddress(connectId, deviceId, {
+    const response = await HardwareSDK.stacksGetAddress(connectId, deviceId, {
       path: params.path,
       showOnOneKey: params.showOnOneKey,
-      prefix: getNexaPrefix(chainId),
+      prefix: getStacksPrefix(chainId),
       scheme: SIGN_TYPE,
       ...passphraseState,
     });
@@ -124,12 +127,12 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const chainId = await this.getNetworkChainId();
 
-    const response = await HardwareSDK.nexaGetAddress(connectId, deviceId, {
+    const response = await HardwareSDK.stacksGetAddress(connectId, deviceId, {
       ...passphraseState,
       bundle: params.map(({ path, showOnOneKey }) => ({
         path,
         showOnOneKey: !!showOnOneKey,
-        prefix: getNexaPrefix(chainId),
+        prefix: getStacksPrefix(chainId),
         scheme: SIGN_TYPE,
       })),
     });
@@ -152,14 +155,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { encodedTx } = unsignedTx.payload;
     const { inputSignatures, outputSignatures, signatureBuffer } =
       buildSignatureBuffer(
-        encodedTx as IEncodedTxNexa,
+        encodedTx as IEncodedTxStacks,
         await this.vault.getDisplayAddress(dbAccount.address),
       );
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();
 
     const HardwareSDK = await this.getHardwareSDKInstance();
-    const response = await HardwareSDK.nexaSignTransaction(
+    const response = await HardwareSDK.stacksSignTransaction(
       connectId,
       deviceId,
       {
@@ -167,7 +170,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         inputs: [
           {
             path: dbAccount.path,
-            prefix: getNexaPrefix(chainId),
+            prefix: getStacksPrefix(chainId),
             message: signatureBuffer.toString('hex'),
           },
         ],
@@ -178,7 +181,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const nexaSignatures = response.payload;
       const publicKey = Buffer.from(dbAccount.address, 'hex');
       const defaultSignature = Buffer.from(nexaSignatures[0].signature, 'hex');
-      const inputSigs: INexaInputSignature[] = inputSignatures.map(
+      const inputSigs: IStacksInputSignature[] = inputSignatures.map(
         (inputSig) => ({
           ...inputSig,
           publicKey,

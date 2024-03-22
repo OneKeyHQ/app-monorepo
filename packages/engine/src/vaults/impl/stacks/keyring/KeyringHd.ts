@@ -1,4 +1,4 @@
-import { COINTYPE_NEXA as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
+import { COINTYPE_STACKS as COIN_TYPE } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { OneKeyInternalError } from '../../../../errors';
 import { slicePathTemplate } from '../../../../managers/derivation';
@@ -23,7 +23,7 @@ export class KeyringHd extends KeyringHdBase {
     const dbAccount = await this.getDbAccount();
 
     if (addresses.length !== 1) {
-      throw new OneKeyInternalError('NEXA signers number should be 1.');
+      throw new OneKeyInternalError('Stacks signers number should be 1.');
     } else if (addresses[0] !== dbAccount.address) {
       throw new OneKeyInternalError('Wrong address required for signing.');
     }
@@ -68,7 +68,7 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareSoftwareAccountsParams,
   ): Promise<DBUTXOAccount[]> {
-    const accountNamePrefix = 'NEXA';
+    const accountNamePrefix = 'STACKS';
 
     const { password, indexes, names, template } = params;
     const { seed } = (await this.engine.dbApi.getCredential(

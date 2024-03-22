@@ -7,23 +7,23 @@ import type { DBNetwork } from '../../../../types/network';
 // indexedDB -> networks
 const network: DBNetwork = {
   balance2FeeDecimals: 0,
-  decimals: 2,
+  decimals: 6,
   enabled: true,
-  feeDecimals: 2,
-  feeSymbol: 'TNEX',
-  id: 'nexa--testnet',
-  impl: 'nexa',
-  logoURI: 'https://onekey-asset.com/assets/nexa/nexa.png',
-  name: 'Nexa Testnet',
+  feeDecimals: 6,
+  feeSymbol: 'STX',
+  id: 'stacks--testnet',
+  impl: 'stacks',
+  logoURI: 'https://assets.stacks.co/Logos/Stacks%20Logo%20png.png',
+  name: 'Stacks Testnet',
   position: 33,
-  rpcURL: 'wss://testnet-explorer.nexa.org:30004/nexa_ws',
-  symbol: 'NEXA',
+  rpcURL: 'wss://api.testnet.hiro.so',
+  symbol: 'STX',
 };
 
 const hdAccount1: IUnitTestMockAccount = {
   // indexedDB -> accounts
   account: {
-    'name': 'NEXA #1',
+    'name': 'Stacks #1',
     'address':
       '02e3027885ce1ed1d21300158ce8f60649e280e2a8f746e9cea6858a3331021d8a',
     'addresses': {
@@ -31,10 +31,10 @@ const hdAccount1: IUnitTestMockAccount = {
         '02e3027885ce1ed1d21300158ce8f60649e280e2a8f746e9cea6858a3331021d8a',
     },
     'xpub': '',
-    'coinType': '29223',
-    'id': "hd-19--m/44'/29223'/0'",
-    'path': "m/44'/29223'/0'/0/0",
-    'template': "m/44'/29223'/$$INDEX$$'/0/0",
+    'coinType': '5757',
+    'id': "hd-19--m/44'/5757'/0'",
+    'path': "m/44'/5757'/0'/0/0",
+    'template': "m/44'/5757'/0'/0/$$INDEX$$",
     'type': AccountType.UTXO,
   },
   mnemonic: mockCredentials.mnemonic1,
@@ -47,15 +47,15 @@ const importedAccount1: IUnitTestMockAccount = {
     'address':
       '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     'addresses': {
-      'nexa--testnet':
+      'stacks--testnet':
         '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     },
-    'coinType': '29223',
-    'id': 'imported--29223--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    'coinType': '5757',
+    'id': 'imported--5757--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     name: 'Account #1',
     path: '',
     xpub: '',
-    type: AccountType.UTXO,
+    type: AccountType.SIMPLE,
   },
   // indexedDB -> credentials
   privateKey:
@@ -68,15 +68,15 @@ const importedAccount2: IUnitTestMockAccount = {
     'address':
       '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     'addresses': {
-      'nexa--testnet':
+      'stacks--testnet':
         '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     },
-    'coinType': '29223',
-    'id': 'imported--29223--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    'coinType': '5757',
+    'id': 'imported--5757--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     name: 'Account #1',
     path: '',
     xpub: '',
-    type: AccountType.UTXO,
+    type: AccountType.SIMPLE,
   },
   // indexedDB -> credentials
   privateKey:
@@ -86,9 +86,9 @@ const importedAccount2: IUnitTestMockAccount = {
 
 const watchingAccount1: IUnitTestMockAccount = {
   account: {
-    address: 'nexatest:nqtsq5g5s9cd8fsl9d9a7jhsuzsw7u9exztnnz8n9un89t0k',
-    'coinType': '29223',
-    'id': 'external--29223--nexatest:nqtsq5g5s9cd8fsl9d9a7jhsuzsw7u9exztnnz8n9un89t0k',
+    address: 'stackstest:nqtsq5g5s9cd8fsl9d9a7jhsuzsw7u9exztnnz8n9un89t0k',
+    'coinType': '5757',
+    'id': 'external--5757--stackstest:nqtsq5g5s9cd8fsl9d9a7jhsuzsw7u9exztnnz8n9un89t0k',
     name: 'Account #1',
     path: '',
     pub: '',
@@ -99,8 +99,8 @@ const watchingAccount1: IUnitTestMockAccount = {
 
 const watchingAccount2: IUnitTestMockAccount = {
   account: {
-    address: 'nexatest:fmza0ttf3pnv5zpg8e2q8lr3t2cesrrv9xdk395r5g5qsqtn',
-    coinType: '29223',
+    address: 'stackstest:fmza0ttf3pnv5zpg8e2q8lr3t2cesrrv9xdk395r5g5qsqtn',
+    coinType: '5757',
     id: 'external--397--ed25519:8wbWQQkeK9NV1qkiQZ95jbj7JNhpeapHafLPw3qsJdqi',
     name: 'Account #1',
     path: '',
@@ -114,21 +114,21 @@ const watchingAccount3: IUnitTestMockAccount = {
   account: {
     address:
       '03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
-    coinType: '29223',
-    id: 'external--29223--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    coinType: '5757',
+    id: 'external--5757--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     name: 'Account #1',
     path: '',
     pub: '',
-    type: AccountType.UTXO,
+    type: AccountType.SIMPLE,
   },
   password: '',
 };
 
 const watchingAccount4: IUnitTestMockAccount = {
   account: {
-    address: 'nexa:nqtsq5g50frur0vav60gupjlrr8cta8vyqufu7p98vx97c66',
-    coinType: '29223',
-    id: 'external--29223--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
+    address: 'stacks:nqtsq5g50frur0vav60gupjlrr8cta8vyqufu7p98vx97c66',
+    coinType: '5757',
+    id: 'external--5757--03560d4451deeef0d1bcc46ff062372400ecf7b6e4e058ef01792f140ce2a97c31',
     name: 'Account #1',
     path: '',
     pub: '',

@@ -6644,10 +6644,9 @@ __metadata:
     "@onekeyfe/onekey-cross-webview": 1.1.55
     "@open-wc/webpack-import-meta-loader": ^0.4.7
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
-    "@stacks/blockchain-api-client": ^7.3.4
-    "@stacks/encryption": ^6.10.0
-    "@stacks/network": ^6.10.0
-    "@stacks/transactions": ^6.10.0
+    "@stacks/blockchain-api-client": ^7.9.0
+    "@stacks/network": ^6.11.3
+    "@stacks/transactions": ^6.12.1
     "@starcoin/starcoin": 2.1.5
     "@types/babel__preset-env": ^7
     "@types/chrome": ^0.0.161
@@ -9839,18 +9838,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@stacks/blockchain-api-client@npm:^7.3.4":
-  version: 7.3.4
-  resolution: "@stacks/blockchain-api-client@npm:7.3.4"
+"@stacks/blockchain-api-client@npm:^7.9.0":
+  version: 7.9.0
+  resolution: "@stacks/blockchain-api-client@npm:7.9.0"
   dependencies:
     "@stacks/stacks-blockchain-api-types": "*"
     "@types/ws": 7.4.7
     cross-fetch: 3.1.5
     eventemitter3: 4.0.7
     jsonrpc-lite: 2.2.0
-    socket.io-client: 4.6.1
-    ws: 7.5.6
-  checksum: 6d2db64c48b46129862981b9f3d2e359d92d4c5f01416255999eeb514cd0dc267f12afc036a227dc6c686bfb3e30ed1bd00e10714ff21996bf972a61271c78ea
+    socket.io-client: 4.7.3
+    ws: 8.16.0
+  checksum: 105a9e0409aa43829da4a158cf2d62a9d87b7585ff146b50421a5c3e3085f9fb262f4119ec8e0aea51d2087b3295245ea5d29da8b7945d9fc8db0fc593390b12
   languageName: node
   linkType: hard
 
@@ -9864,30 +9863,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@stacks/encryption@npm:^6.10.0":
-  version: 6.10.0
-  resolution: "@stacks/encryption@npm:6.10.0"
-  dependencies:
-    "@noble/hashes": 1.1.5
-    "@noble/secp256k1": 1.7.1
-    "@scure/bip39": 1.1.0
-    "@stacks/common": ^6.10.0
-    "@types/node": ^18.0.4
-    base64-js: ^1.5.1
-    bs58: ^5.0.0
-    ripemd160-min: ^0.0.6
-    varuint-bitcoin: ^1.1.2
-  checksum: 1b71fede9fa32d60280204486f7a76dd8d215ae11eef4040bc06bedc4ff6c9251917056e2d411a9b9a3066d98a3bcf3e222dab45ad1330bcac95b40308a778c0
-  languageName: node
-  linkType: hard
-
-"@stacks/network@npm:^6.10.0":
-  version: 6.10.0
-  resolution: "@stacks/network@npm:6.10.0"
+"@stacks/network@npm:^6.11.3":
+  version: 6.11.3
+  resolution: "@stacks/network@npm:6.11.3"
   dependencies:
     "@stacks/common": ^6.10.0
     cross-fetch: ^3.1.5
-  checksum: 960fa88a66fad36c3502d86db603dd429e9f004a8e35cf02daf10adf6cac553c2f97c3aa70113c0b0639b8be602b851a243e4aa37f8a145c75543467a580cd28
+  checksum: a17b9ad41fc36bd55c5acd141594c8dfe9d1399d198fb81ae757fd7248b941793923e9589cd254af489dd5cb810eba9a16110fcc8170edfcbfc51ef965d5b725
   languageName: node
   linkType: hard
 
@@ -9898,17 +9880,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@stacks/transactions@npm:^6.10.0":
-  version: 6.10.0
-  resolution: "@stacks/transactions@npm:6.10.0"
+"@stacks/transactions@npm:^6.12.1":
+  version: 6.12.1
+  resolution: "@stacks/transactions@npm:6.12.1"
   dependencies:
     "@noble/hashes": 1.1.5
     "@noble/secp256k1": 1.7.1
     "@stacks/common": ^6.10.0
-    "@stacks/network": ^6.10.0
+    "@stacks/network": ^6.11.3
     c32check: ^2.0.0
     lodash.clonedeep: ^4.5.0
-  checksum: f1e69afa2aeda8d3f294a14a76a1a3fc9d2506a5357dcbeb07f2f28c331d98396c3d43899380d8399a19e59a613855af25731f79e836a03781069d5776322f39
+  checksum: 94745910d17c3877e2b254e0a4092ae95b82c249a3c7c31edae6982905028cb4a083bdc11ef544b35d797d57bb5fb1c6a889de690a7c47a43e977d0f87117fe5
   languageName: node
   linkType: hard
 
@@ -31774,7 +31756,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ripemd160-min@npm:0.0.6, ripemd160-min@npm:^0.0.6":
+"ripemd160-min@npm:0.0.6":
   version: 0.0.6
   resolution: "ripemd160-min@npm:0.0.6"
   checksum: 3253fec273aee407e736df0baf69f90c65f56573d6fc537532041112e7c09a2f665ee2e618ef4a88eb494923d36614322eac26ddf35a504fcfedb422fd414c75
