@@ -86,15 +86,12 @@ function useSwapWarningCheck() {
 
     if (
       fromToken &&
-      !swapFromAddressInfo.address &&
       swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_WATCHING
     ) {
       alerts = [
         ...alerts,
         {
-          message: `The connected wallet do not support ${
-            swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
-          }. Try switching to another one.`,
+          message: `The connected wallet do not support swap. Try switching to another one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
       ];
@@ -144,7 +141,7 @@ function useSwapWarningCheck() {
     }
 
     // provider toAmount check
-    if (quoteResult && !quoteResult?.toAmount) {
+    if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
       alerts = [
         ...alerts,
         {
@@ -308,6 +305,12 @@ export function useSwapActionState() {
     if (quoteFetching) {
       infoRes.label = 'Fetching quotes';
     } else {
+      if (isCrossChain && fromToken && toToken) {
+        infoRes.label = 'Cross-Chain Swap';
+      }
+      if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
+        infoRes.label = 'Wrapped';
+      }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = swapQuoteApproveAllowanceUnLimit
           ? `Approve Unlimited ${fromToken?.symbol ?? ''} to ${
@@ -327,14 +330,6 @@ export function useSwapActionState() {
         infoRes.label = 'Insufficient balance';
         infoRes.disable = true;
       }
-
-      if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
-        infoRes.label = 'Wrapped';
-      }
-
-      if (isCrossChain) {
-        infoRes.label = 'Cross-Chain Swap';
-      }
     }
     return infoRes;
   }, [
@@ -347,6 +342,7 @@ export function useSwapActionState() {
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
     swapQuoteApproveAllowanceUnLimit,
+    toToken,
   ]);
 
   const stepState: ISwapState = {

@@ -5,8 +5,8 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
-  ESwapProviders,
   IFetchQuoteResult,
+  ISwapApproveTransaction,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
   ISwapToken,
@@ -130,22 +130,16 @@ export const {
   use: useSwapQuoteApproveAllowanceUnLimitAtom,
 } = contextAtom<boolean>(false);
 
+export const {
+  atom: swapApproveAllowanceSelectOpenAtom,
+  use: useSwapApproveAllowanceSelectOpenAtom,
+} = contextAtom<boolean>(false);
+
 // swap approve
 export const {
   atom: swapApprovingTransactionAtom,
   use: useSwapApprovingTransactionAtom,
-} = contextAtom<
-  | {
-      fromToken: ISwapToken;
-      toToken: ISwapToken;
-      provider: ESwapProviders;
-      useAddress: string;
-      spenderAddress: string;
-      amount: string;
-      txId?: string;
-    }
-  | undefined
->(undefined);
+} = contextAtom<ISwapApproveTransaction | undefined>(undefined);
 
 // swap slippage
 export const {

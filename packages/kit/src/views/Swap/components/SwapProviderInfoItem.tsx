@@ -66,14 +66,12 @@ const SwapProviderInfoItem = ({
               Best
             </Badge>
           ) : null}
-          {rateIsExit ? (
-            <Image
-              source={{ uri: providerIcon }}
-              w="$5"
-              h="$5"
-              borderRadius="$full"
-            />
-          ) : null}
+          <Image
+            source={{ uri: providerIcon }}
+            w="$5"
+            h="$5"
+            borderRadius="$full"
+          />
           <SizableText size="$bodyMdMedium" pl="$1">
             {rateContent}
           </SizableText>
