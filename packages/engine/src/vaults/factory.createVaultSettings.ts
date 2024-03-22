@@ -22,6 +22,7 @@ import {
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
+  IMPL_STACKS,
   IMPL_STC,
   IMPL_SUI,
   IMPL_TBTC,
@@ -112,6 +113,9 @@ export function createVaultSettings(options: {
   }
   if (impl === IMPL_NEXA) {
     return require('./impl/nexa/settings').default as IVaultSettings;
+  }
+  if (impl === IMPL_STACKS) {
+    return require('./impl/stacks/settings').default as IVaultSettings;
   }
   if (impl === IMPL_LIGHTNING) {
     return require('./impl/lightning-network/settings')

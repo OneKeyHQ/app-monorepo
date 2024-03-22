@@ -278,6 +278,7 @@ export type IEncodedTx =
   | IEncodedTxXmr
   | IEncodedTxKaspa
   | IEncodedTxNexa
+  | IEncodedTxStacks
   | IEncodedTxLightning
   | IEncodedTxNostr
   | IEncodedTxNervos;
