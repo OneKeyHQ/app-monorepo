@@ -15,7 +15,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     if (a.alertLevel === ESwapAlertLevel.ERROR) {
       return -1;
     }
-    if (a.alertLevel === ESwapAlertLevel.WARNING) {
+    if (a.alertLevel === ESwapAlertLevel.INFO) {
       return 0;
     }
     return 1;
@@ -23,6 +23,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   if (alertsSorted?.some((item) => item.alertLevel === ESwapAlertLevel.ERROR)) {
     return alertsSorted
       .filter((item) => item.alertLevel === ESwapAlertLevel.ERROR)
+      .reverse()
       .map((item, index) => {
         const { message } = item;
         return (
@@ -40,7 +41,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     const { message, alertLevel } = item;
     return (
       <Alert
-        type={alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'info'}
+        type={alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'}
         description={message}
         {...(index !== 0 && {
           mt: '$2.5',

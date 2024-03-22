@@ -121,9 +121,12 @@ const SwapTokenSelectPage = () => {
         tokenImageSrc: item.logoURI,
         tokenName: item.name,
         tokenSymbol: item.symbol,
-        tokenContrastAddress: accountUtils.shortenAddress({
-          address: item.contractAddress,
-        }),
+        tokenContrastAddress:
+          searchKeyword || currentSelectNetwork?.networkId === 'all'
+            ? accountUtils.shortenAddress({
+                address: item.contractAddress,
+              })
+            : undefined,
         networkImageSrc: item.networkLogoURI,
         balance: item.balanceParsed,
         valueProps: item.fiatValue
@@ -136,7 +139,12 @@ const SwapTokenSelectPage = () => {
       };
       return <TokenListItem {...tokenItem} />;
     },
-    [onSelectToken, settingsPersistAtom.currencyInfo.symbol],
+    [
+      onSelectToken,
+      searchKeyword,
+      currentSelectNetwork,
+      settingsPersistAtom.currencyInfo.symbol,
+    ],
   );
 
   const { md } = useMedia();

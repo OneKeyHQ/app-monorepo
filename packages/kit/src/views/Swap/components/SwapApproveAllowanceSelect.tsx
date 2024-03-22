@@ -54,7 +54,7 @@ const SwapApproveAllowanceSelect = ({
   return (
     <XStack justifyContent="space-between">
       <SizableText size="$bodyMd" color="$textSubdued">
-        Authorization Limit
+        Authorization limit
       </SizableText>
       <Select
         placement="bottom-end"
@@ -64,7 +64,7 @@ const SwapApproveAllowanceSelect = ({
           onSelectAllowanceValue(value);
         }}
         onOpenChange={onSelectOpenChange}
-        title="Authorization Limit"
+        title="Authorization limit"
         renderTrigger={renderTrigger}
       />
     </XStack>

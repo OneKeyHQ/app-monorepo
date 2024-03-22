@@ -108,9 +108,6 @@ const SwapsSlippageContentContainer = () => {
           $gtMd={
             {
               size: 'small',
-              containerProps: {
-                w: '$40',
-              },
             } as IInputProps['$gtMd']
           }
           value={inputValue}
@@ -130,6 +127,7 @@ const SwapsSlippageContentContainer = () => {
       {swapSlippage.key !== ESwapSlippageSegmentKey.AUTO &&
       customValueState.status !== ESwapSlippageCustomStatus.NORMAL ? (
         <SizableText
+          size="$bodySmMedium"
           color={
             customValueState.status === ESwapSlippageCustomStatus.ERROR
               ? '$textCritical'
