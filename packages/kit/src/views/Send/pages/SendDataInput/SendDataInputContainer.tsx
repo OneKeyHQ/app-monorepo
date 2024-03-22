@@ -416,47 +416,47 @@ function SendDataInputContainer() {
     <Page scrollEnabled>
       <Page.Header title="Send" />
       <Page.Body px="$5">
-        <Form form={form}>
-          {isNFT && nft?.collectionType !== ENFTType.ERC1155 ? (
-            <Form.Field
-              label={intl.formatMessage({ id: 'form__token' })}
-              name="token"
-            >
-              <ListItem
-                avatarProps={{
-                  src: nft?.metadata?.image,
-                  borderRadius: '$full',
-                  cornerImageProps: {
-                    src: network?.logoURI,
-                  },
-                }}
-                mx="$0"
-                borderWidth={1}
-                borderColor="$border"
-                borderRadius="$2"
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+          availableNetworksMap={{
+            0: { networkIds: [networkId], defaultNetworkId: networkId },
+          }}
+        >
+          <Form form={form}>
+            {isNFT && nft?.collectionType !== ENFTType.ERC1155 ? (
+              <Form.Field
+                label={intl.formatMessage({ id: 'form__token' })}
+                name="token"
               >
-                <ListItem.Text
-                  flex={1}
-                  primary={nft?.metadata?.name}
-                  secondary={
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {tokenInfo?.name}
-                    </SizableText>
-                  }
-                />
-              </ListItem>
-            </Form.Field>
-          ) : null}
-          <AccountSelectorProviderMirror
-            config={{
-              sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
-              sceneUrl: '',
-            }}
-            enabledNum={[0]}
-            availableNetworksMap={{
-              0: { networkIds: [networkId], defaultNetworkId: networkId },
-            }}
-          >
+                <ListItem
+                  avatarProps={{
+                    src: nft?.metadata?.image,
+                    borderRadius: '$full',
+                    cornerImageProps: {
+                      src: network?.logoURI,
+                    },
+                  }}
+                  mx="$0"
+                  borderWidth={1}
+                  borderColor="$border"
+                  borderRadius="$2"
+                >
+                  <ListItem.Text
+                    flex={1}
+                    primary={nft?.metadata?.name}
+                    secondary={
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {tokenInfo?.name}
+                      </SizableText>
+                    }
+                  />
+                </ListItem>
+              </Form.Field>
+            ) : null}
             <Form.Field
               label={intl.formatMessage({ id: 'content__to' })}
               name="to"
@@ -482,9 +482,9 @@ function SendDataInputContainer() {
                 accountSelector={{ num: 0 }}
               />
             </Form.Field>
-          </AccountSelectorProviderMirror>
-          {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
-        </Form>
+            {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
+          </Form>
+        </AccountSelectorProviderMirror>
       </Page.Body>
       <Page.Footer
         onConfirm={handleOnConfirm}
