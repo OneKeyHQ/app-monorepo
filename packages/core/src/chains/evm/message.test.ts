@@ -426,7 +426,7 @@ describe('hashMessage', () => {
 
       expect(hash).toMatchSnapshot();
     });
-    test('should hash a typed message with extra domain seperator fields', () => {
+    test('should hash a typed message with extra domain separator fields', () => {
       const hash = hashMessage({
         messageType: EMessageTypesEth.TYPED_DATA_V3,
         message: {

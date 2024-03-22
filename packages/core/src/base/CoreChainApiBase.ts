@@ -207,7 +207,7 @@ export abstract class CoreChainApiBase {
     }
     const infos = isPrivateKeyMode ? pvtkeyInfos : pubkeyInfos;
     if (infos.length !== indexes.length) {
-      throw new OneKeyInternalError('Unable to get publick key.');
+      throw new OneKeyInternalError('Unable to get public key.');
     }
     const addresses = await Promise.all(
       infos.map(async (info: ISecretPublicKeyInfo | ISecretPrivateKeyInfo) => {
