@@ -33,9 +33,7 @@ const AppAutoLockItem = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingAppAutoLockModal,
-    });
+    navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
   }, [navigation]);
   const intl = useIntl();
   const options = useOptions();
@@ -129,9 +127,7 @@ const ProtectionItem = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingProtectModal,
-    });
+    navigation.push(EModalSettingRoutes.SettingProtectModal);
   }, [navigation]);
   return isPasswordSet ? (
     <ListItem

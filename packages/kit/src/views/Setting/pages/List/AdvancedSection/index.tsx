@@ -9,7 +9,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { BRIDGE_STATUS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { Section } from '../Section';
@@ -18,9 +18,7 @@ const HardwareBridgeListItems = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPressBridgeSdkUrl = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingHardwareSdkUrlModal,
-    });
+    navigation.push(EModalSettingRoutes.SettingHardwareSdkUrlModal);
   }, [navigation]);
 
   const onPressBridgeStatus = useCallback(() => {
@@ -61,14 +59,10 @@ export const AdvancedSection = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingSpendUTXOModal,
-    });
+    navigation.push(EModalSettingRoutes.SettingSpendUTXOModal);
   }, [navigation]);
   const onAccountDerivation = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingAccountDerivationModal,
-    });
+    navigation.push(EModalSettingRoutes.SettingAccountDerivationModal);
   }, [navigation]);
   const intl = useIntl();
   const [{ spendDustUTXO }] = useSettingsPersistAtom();
