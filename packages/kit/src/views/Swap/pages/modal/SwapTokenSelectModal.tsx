@@ -182,7 +182,7 @@ const SwapTokenSelectPage = () => {
     };
   }, [md, swapNetworks]);
 
-  const chainSelector = useConfigurableChainSelector();
+  const openChainSelector = useConfigurableChainSelector();
 
   return (
     <Page>
@@ -201,7 +201,7 @@ const SwapTokenSelectPage = () => {
           type={type}
           onMoreNetwork={() => {
             setSearchKeyword('');
-            chainSelector({
+            openChainSelector({
               onSelect: (network) => {
                 if (!network) return;
                 const swapNetwork: ISwapNetwork = {
