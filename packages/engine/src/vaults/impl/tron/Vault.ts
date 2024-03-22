@@ -16,6 +16,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { fromBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { getTronScanEndpoint } from '../../../endpoint';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -56,7 +57,6 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type {
-  IClientApi,
   IEncodedTxTron,
   IOnChainInternalTxHistory,
   IOnChainTransferHistory,
@@ -114,8 +114,7 @@ export default class Vault extends VaultBase {
   );
 
   async getApiExplorer() {
-    const clientApi = await this.getClientApi<IClientApi>();
-    return this.getApiExplorerCache(clientApi.tronscan);
+    return this.getApiExplorerCache(getTronScanEndpoint());
   }
 
   public async getClient() {

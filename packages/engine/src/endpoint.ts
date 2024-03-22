@@ -1,5 +1,12 @@
 const endpointsMap: Record<
-  'fiat' | 'wss' | 'covalent' | 'mempool' | 'getblock' | 'algosigner',
+  | 'fiat'
+  | 'wss'
+  | 'covalent'
+  | 'mempool'
+  | 'getblock'
+  | 'algosigner'
+  | 'tronscan'
+  | 'solscan',
   { prd: string; test: string }
 > = {
   fiat: {
@@ -27,6 +34,14 @@ const endpointsMap: Record<
     prd: 'https://node.onekey.so/algosigner/{network}/indexer',
     test: 'https://node.onekeytest.com/algosigner/{network}/indexer',
   },
+  tronscan: {
+    prd: 'https://node.onekey.so/tronscan',
+    test: 'https://node.onekeytest.com/tronscan',
+  },
+  solscan: {
+    prd: 'https://node.onekey.so/solscan',
+    test: 'https://node.onekeytest.com/solscan',
+  },
 };
 
 let endpointType: 'prd' | 'test' = 'prd';
@@ -39,6 +54,8 @@ switchTestEndpoint(false);
 export const getFiatEndpoint = () => endpointsMap.fiat[endpointType];
 export const getSocketEndpoint = () => endpointsMap.wss[endpointType];
 export const getCovalentApiEndpoint = () => endpointsMap.covalent[endpointType];
+export const getTronScanEndpoint = () => endpointsMap.tronscan[endpointType];
+export const getSolScanEndpoint = () => endpointsMap.solscan[endpointType];
 
 export function getMempoolEndpoint({
   network,
