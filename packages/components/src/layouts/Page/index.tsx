@@ -13,6 +13,7 @@ import {
   FooterConfirmButton,
 } from './PageFooterActions';
 import { PageHeader } from './PageHeader';
+import { PageLifeCycle, usePageLifeCycle } from './PageLifeCycle';
 
 import type { IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
@@ -27,6 +28,8 @@ function PageProvider({
   scrollEnabled = false,
   scrollProps = { showsVerticalScrollIndicator: false },
   safeAreaEnabled = true,
+  onMounted,
+  onUnmounted,
 }: IPageProps) {
   const pageRef = useRef<IScrollViewRef>(null);
   const pageOffsetRef = useRef<NativeScrollPoint>({
@@ -45,10 +48,18 @@ function PageProvider({
     }),
     [safeAreaEnabled, scrollEnabled, scrollProps],
   );
+
+  const isEnablePageLifeCycle = onMounted || onUnmounted;
+
   return (
-    <PageContext.Provider value={value}>
-      <PageContainer skipLoading={skipLoading}>{children}</PageContainer>
-    </PageContext.Provider>
+    <>
+      <PageContext.Provider value={value}>
+        <PageContainer skipLoading={skipLoading}>{children}</PageContainer>
+      </PageContext.Provider>
+      {isEnablePageLifeCycle ? (
+        <PageLifeCycle onMounted={onMounted} onUnmounted={onUnmounted} />
+      ) : null}
+    </>
   );
 }
 
