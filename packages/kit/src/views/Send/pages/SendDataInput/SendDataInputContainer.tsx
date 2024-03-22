@@ -447,29 +447,29 @@ function SendDataInputContainer() {
               </ListItem>
             </Form.Field>
           ) : null}
-          <Form.Field
-            label={intl.formatMessage({ id: 'content__to' })}
-            name="to"
-            rules={{
-              required: true,
-              validate: (value: IAddressInputValue) => {
-                if (value.pending) {
-                  return;
-                }
-                if (!value.resolved) {
-                  return intl.formatMessage({ id: 'form__address_invalid' });
-                }
-              },
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
+              sceneUrl: '',
+            }}
+            enabledNum={[0]}
+            availableNetworksMap={{
+              0: { networkIds: [networkId], defaultNetworkId: networkId },
             }}
           >
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
-                sceneUrl: '',
-              }}
-              enabledNum={[0]}
-              availableNetworksMap={{
-                0: { networkIds: [networkId], defaultNetworkId: networkId },
+            <Form.Field
+              label={intl.formatMessage({ id: 'content__to' })}
+              name="to"
+              rules={{
+                required: true,
+                validate: (value: IAddressInputValue) => {
+                  if (value.pending) {
+                    return;
+                  }
+                  if (!value.resolved) {
+                    return intl.formatMessage({ id: 'form__address_invalid' });
+                  }
+                },
               }}
             >
               <AddressInput
@@ -481,8 +481,8 @@ function SendDataInputContainer() {
                 contacts
                 accountSelector={{ num: 0 }}
               />
-            </AccountSelectorProviderMirror>
-          </Form.Field>
+            </Form.Field>
+          </AccountSelectorProviderMirror>
           {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
         </Form>
       </Page.Body>
