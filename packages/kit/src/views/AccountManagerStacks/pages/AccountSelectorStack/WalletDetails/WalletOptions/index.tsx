@@ -47,37 +47,6 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
     void liteCard.backupWallet(wallet?.id);
   }, [liteCard, wallet?.id]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleBackupPress = useCallback(() => {
-    ActionList.show({
-      title: 'Backup',
-      sections: [
-        {
-          items: [
-            {
-              label: `${intl.formatMessage({
-                id: 'backup__manual_backup',
-              })}`,
-              icon: 'PenOutline',
-              onPress: handleBackupPhrase,
-            },
-            ...(platformEnv.isNative
-              ? [
-                  {
-                    label: intl.formatMessage({
-                      id: 'app__hardware_name_onekey_lite',
-                    }),
-                    icon: 'GiroCardOutline' as IKeyOfIcons,
-                    onPress: handleBackupLiteCard,
-                  },
-                ]
-              : []),
-          ],
-        },
-      ],
-    });
-  }, [intl, handleBackupPhrase, handleBackupLiteCard]);
-
   const [editMode] = useAccountSelectorEditModeAtom();
 
   const walletSpecifiedOptions = useMemo(() => {

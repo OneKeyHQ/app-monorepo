@@ -9,11 +9,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 export function AccountSelectorCreateWalletButton() {
   const media = useMedia();
+  const liteCard = useLiteCard();
 
   const navigation = useAppNavigation();
 
@@ -80,7 +82,7 @@ export function AccountSelectorCreateWalletButton() {
                     {
                       label: 'Import with OneKey Lite',
                       icon: 'OnekeyLiteOutline' as IKeyOfIcons,
-                      onPress: () => console.log('clicked'),
+                      onPress: liteCard.importWallet,
                     },
                   ]
                 : []),
