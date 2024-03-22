@@ -2,11 +2,14 @@ import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { YStack } from '@onekeyhq/components';
+import { SizableText, YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapRateDifferenceUnit,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapActionState } from '../../hooks/useSwapState';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
@@ -61,6 +64,28 @@ const SwapInputContainer = ({
     [direction, swapActionState.alerts],
   );
 
+  const valueMoreComponent = useMemo(() => {
+    if (swapActionState.rateDifference && direction === ESwapDirectionType.TO) {
+      let color = '$textSubdued';
+      if (
+        swapActionState.rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE
+      ) {
+        color = '$textCritical';
+      }
+      if (
+        swapActionState.rateDifference.unit === ESwapRateDifferenceUnit.POSITIVE
+      ) {
+        color = '$textSuccess';
+      }
+      return (
+        <SizableText size="$bodyMd" color={color}>
+          {swapActionState.rateDifference.value}
+        </SizableText>
+      );
+    }
+    return null;
+  }, [direction, swapActionState.rateDifference]);
+
   return (
     <YStack>
       <SwapAccountAddressContainer type={direction} />
@@ -77,6 +102,7 @@ const SwapInputContainer = ({
           value: amountPrice,
           loading: inputLoading,
           currency: settingsPersistAtom.currencyInfo.symbol,
+          moreComponent: valueMoreComponent,
         }}
         inputProps={{
           loading: inputLoading,

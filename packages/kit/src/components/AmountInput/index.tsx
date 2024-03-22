@@ -32,6 +32,7 @@ type IAmountInputFormItemProps = IFormFieldProps<
       onPress?: () => void;
       loading?: boolean;
       currency?: string;
+      moreComponent?: React.ReactNode;
     };
     balanceProps?: {
       value?: string;
@@ -111,10 +112,11 @@ export function AmountInput({
           formatterOptions={{ currency: valueProps.currency ?? '$' }}
           size="$bodyMd"
           color="$textSubdued"
-          pr="$1.5"
+          pr="$0.5"
         >
           {valueProps.value || '0.00'}
         </NumberSizeableText>
+        {valueProps.moreComponent}
         {reversible ? (
           <Icon name="SwitchVerOutline" size="$4" color="$iconSubdued" />
         ) : null}
@@ -228,7 +230,7 @@ export function AmountInput({
         })}
       >
         <SizableText size="$bodyMd" color="$textSubdued">
-          Balance:
+          {`Balance: `}
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
