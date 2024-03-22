@@ -178,9 +178,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
 
     if (response.success) {
-      const nexaSignatures = response.payload;
+      const stacksSignatures = response.payload;
       const publicKey = Buffer.from(dbAccount.address, 'hex');
-      const defaultSignature = Buffer.from(nexaSignatures[0].signature, 'hex');
+      const defaultSignature = Buffer.from(
+        stacksSignatures[0].signature,
+        'hex',
+      );
       const inputSigs: IStacksInputSignature[] = inputSignatures.map(
         (inputSig) => ({
           ...inputSig,
