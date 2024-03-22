@@ -165,6 +165,15 @@ export const getEnabledAccountDynamicNetworkIds = (): string[] => [
   getNetworkIdsMap().optimism,
 ];
 
+export const getEnabledNFTNetworkIds = (): string[] => [
+  getNetworkIdsMap().eth,
+  getNetworkIdsMap().optimism,
+  getNetworkIdsMap().bsc,
+  getNetworkIdsMap().polygon,
+  getNetworkIdsMap().arbitrum,
+  getNetworkIdsMap().avalanche,
+];
+
 function getSupportedImpls() {
   if (process.env.NODE_ENV === 'production') {
     return PRODUCTION_IMPLS;
