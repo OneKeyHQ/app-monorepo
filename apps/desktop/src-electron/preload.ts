@@ -2,13 +2,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/require-await */
 import { ipcRenderer } from 'electron';
 
-import type { IPrefType } from '@onekeyhq/shared/types/desktop';
+import type {
+  IDesktopAppState,
+  IPrefType,
+} from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 
 import type { IUpdateSettings } from './libs/store';
-
-export type IDesktopAppState = 'active' | 'background' | 'blur';
 
 export type IDesktopAPI = {
   on: (channel: string, func: (...args: any[]) => any) => void;

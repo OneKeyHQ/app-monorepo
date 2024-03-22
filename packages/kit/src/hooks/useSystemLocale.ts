@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { useAppStateChange } from '@onekeyhq/kit/src/hooks/useAppStateChange';
+import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 
 export function useSystemLocale() {
@@ -8,6 +8,6 @@ export function useSystemLocale() {
   const onChange = useCallback(() => {
     setLocale(getDefaultLocale());
   }, []);
-  useAppStateChange(onChange);
+  useHandleAppStateActive(onChange);
   return locale;
 }

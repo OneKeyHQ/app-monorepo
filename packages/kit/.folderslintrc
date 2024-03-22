@@ -3,7 +3,7 @@
   "rules": [
     "background/**",
     "components/**",
-    "hooks",
+    "hooks/**",
     "provider/Container/**",
     "routes/config/**",
     "routes/Modal/*",
@@ -16,8 +16,6 @@
     "views/*/components/*",
     "views/*/hooks",
     "views/*/router",
-    "views/*/utils/**",
-    "common/components/**",
-    "common/hooks/**"
+    "views/*/utils/**"
    ]
 }

@@ -15,7 +15,7 @@ import { Form, Input, useForm } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
-import { AppStatusActiveListener } from '../../AppStatusActiveListener';
+import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import { PasswordRegex, getPasswordKeyboardType } from '../utils';
 
 interface IPasswordVerifyProps {
@@ -132,6 +132,8 @@ const PasswordVerify = ({
     }
   }, [isEnable, passwordInput, status.value, manualLocking, onBiologyAuth]);
 
+  useHandleAppStateActive(isEnable ? onActive : undefined);
+
   return (
     <Form form={form}>
       <Form.Field
@@ -156,7 +158,6 @@ const PasswordVerify = ({
           testID="enter-password"
         />
       </Form.Field>
-      {isEnable ? <AppStatusActiveListener onActive={onActive} /> : null}
     </Form>
   );
 };
