@@ -53,6 +53,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         color="$textSubdued"
         flex={1}
         numberOfLines={1}
+        testID="explore-index-search"
       >
         {displayUrl ? tab?.url : intl.formatMessage({ id: 'form__search' })}
       </SizableText>
