@@ -19,7 +19,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
 const settings: IVaultSettings = {
   impl: IMPL_LIGHTNING,
   coinTypeDefault: COINTYPE_LIGHTNING,
-  accountType: EDBAccountType.VARIANT,
+  accountType: EDBAccountType.SIMPLE,
 
   importedAccountEnabled: false,
   hardwareAccountEnabled: true,

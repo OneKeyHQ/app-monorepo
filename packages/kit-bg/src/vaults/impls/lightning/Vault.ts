@@ -4,11 +4,14 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   INetworkAccountAddressDetail,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -18,6 +21,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import ClientLightning from './sdkLightning/ClientLightning';
 import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -44,6 +48,23 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringExternal,
   };
+
+  async getClient() {
+    return this.getClientCache();
+  }
+
+  private getClientCache = memoizee(
+    async () => {
+      const network = await this.getNetwork();
+      const _client = await this.backgroundApi.serviceLightning.getClient(
+        EEndpointName.LN,
+      );
+      return new ClientLightning(_client, network.isTestnet);
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   override buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,

@@ -22,6 +22,7 @@ import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
@@ -109,7 +110,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceWalletConnect: ServiceWalletConnect;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
-
+  serviceLightning: ServiceLightning;
   serviceOnboarding: ServiceOnboarding;
   serviceScanQRCode: ServiceScanQRCode;
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
