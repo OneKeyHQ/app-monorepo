@@ -34,9 +34,9 @@ class ServiceLightning extends ServiceBase {
   );
 
   @backgroundMethod()
-  public async sampleMethod() {
-    console.log('sampleMethod');
-    return 'sampleMethod';
+  async getInvoiceConfig({ isTestnet }: { isTestnet: boolean }) {
+    const client = await this.getLnClient(isTestnet);
+    return client.getConfig();
   }
 }
 

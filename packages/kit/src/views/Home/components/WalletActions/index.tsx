@@ -126,75 +126,20 @@ function WalletActionSend() {
 function WalletActionReceive() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
-
-  const form = useForm();
+  const {
+    activeAccount: { account, network },
+  } = useActiveAccount({ num: 0 });
 
   const handleOnReceive = useCallback(() => {
-    Dialog.confirm({
-      title: 'Lighting Invoice',
-      renderContent: (
-        <Stack>
-          <Form form={form}>
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.discover,
-                sceneUrl: 'https://www.bing.com',
-              }}
-              enabledNum={[1]}
-            >
-              <NetworkSelectorTriggerLegacy key={1} num={1} />
-            </AccountSelectorProviderMirror>
-
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.discover,
-                sceneUrl: 'https://www.bing.com',
-              }}
-              enabledNum={[0]}
-            >
-              <NetworkSelectorTriggerLegacy key={0} num={0} />
-            </AccountSelectorProviderMirror>
-
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.home,
-              }}
-              enabledNum={[1]}
-            />
-            <Form.Field label="Amount" name="amount" description="$0.00">
-              <Input
-                placeholder="Enter amount"
-                size="large"
-                keyboardType="number-pad"
-                addOns={[
-                  {
-                    label: 'sats',
-                  },
-                ]}
-              />
-            </Form.Field>
-            <Form.Field
-              label="Description"
-              description="Enter a brief description for the payment. This helps the recipient identify and record the transaction."
-              name="description"
-              optional
-            >
-              <TextArea
-                size="large"
-                placeholder="e.g., Coffee purchase, Invoice #12345"
-              />
-            </Form.Field>
-          </Form>
-        </Stack>
-      ),
-      onConfirm: async ({ close }) => {
-        await close();
-        navigation.pushModal(EModalRoutes.ReceiveModal, {
-          screen: EModalReceiveRoutes.LightingInvoice,
-        });
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
+      screen: EModalReceiveRoutes.LightningCreateInvoice,
+      params: {
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+        isTestnet: !!network?.isTestnet,
       },
     });
-  }, [form, navigation]);
+  }, [navigation, network, account]);
 
   return (
     <RawActions.Receive

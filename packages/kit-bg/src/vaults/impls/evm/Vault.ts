@@ -114,6 +114,7 @@ export default class Vault extends VaultBase {
       address: displayAddress,
       baseAddress: normalizedAddress,
       isValid,
+      allowEmptyAddress: false,
     };
   }
 

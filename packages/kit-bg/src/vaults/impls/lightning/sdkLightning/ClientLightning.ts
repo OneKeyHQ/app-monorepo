@@ -1,7 +1,10 @@
+import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   ICreateUserResponse,
-  IUnionMsgType,
-} from '@onekeyhq/core/src/chains/lightning/types';
+  IInvoiceConfig,
+} from '@onekeyhq/shared/types/lightning';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import type { AxiosError, AxiosInstance } from 'axios';
@@ -73,6 +76,22 @@ class ClientLightning {
       )
       .then((i) => i.data.data);
   }
+
+  getConfig = memoizee(
+    async () =>
+      this.request
+        .get<IOneKeyAPIBaseResponse<IInvoiceConfig>>(
+          `${this.prefix}/invoices/config`,
+          {
+            params: { testnet: this.testnet },
+          },
+        )
+        .then((i) => i.data.data),
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
+    },
+  );
 }
 
 export default ClientLightning;

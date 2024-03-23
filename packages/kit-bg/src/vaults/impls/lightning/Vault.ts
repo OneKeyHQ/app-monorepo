@@ -1,9 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import {
+  getBtcForkNetwork,
+  validateBtcAddress,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type {
   IEncodedTx,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -69,7 +74,17 @@ export default class Vault extends VaultBase {
   override buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    throw new Error('Method not implemented.');
+    const { account, networkInfo, networkId, externalAccountAddress } = params;
+
+    return Promise.resolve({
+      isValid: true,
+      networkId,
+      address: '',
+      baseAddress: '',
+      normalizedAddress: account.address,
+      displayAddress: '',
+      allowEmptyAddress: true,
+    });
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
@@ -98,8 +113,12 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new Error('Method not implemented.');
+  override async validateAddress(address: string): Promise<IAddressValidation> {
+    const { isTestnet } = await this.getNetwork();
+    return validateBtcAddress({
+      network: getBtcForkNetwork(isTestnet ? IMPL_TBTC : IMPL_BTC),
+      address,
+    });
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
