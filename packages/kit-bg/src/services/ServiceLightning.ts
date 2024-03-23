@@ -7,9 +7,12 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 
+import { vaultFactory } from '../vaults/factory';
 import ClientLightning from '../vaults/impls/lightning/sdkLightning/ClientLightning';
 
 import ServiceBase from './ServiceBase';
+
+import type LightningVault from '../vaults/impls/lightning/Vault';
 
 @backgroundClass()
 class ServiceLightning extends ServiceBase {
@@ -27,7 +30,7 @@ class ServiceLightning extends ServiceBase {
       const _client = await this.backgroundApi.serviceLightning.getClient(
         EEndpointName.LN,
       );
-      return new ClientLightning(_client, isTestnet);
+      return new ClientLightning(this.backgroundApi, _client, isTestnet);
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
@@ -77,10 +80,27 @@ class ServiceLightning extends ServiceBase {
     const address = await this.getLightningAddress({ accountId, networkId });
     const client = await this.getLnClient(isTestnet);
     return client.createInvoice({
+      accountId,
+      networkId,
       address,
       amount,
       description,
     });
+  }
+
+  @backgroundMethod()
+  async exchangeToken({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as LightningVault;
+    await vault.exchangeToken();
   }
 }
 

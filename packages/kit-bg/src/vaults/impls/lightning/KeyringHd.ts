@@ -1,5 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 
+import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -80,17 +81,15 @@ export class KeyringHd extends KeyringHdBase {
           throw new Error('Wrong signature type');
         }
 
-        const signature = await this.coreApi.signApiMessage({
+        const signature = await this.signApiMessage({
           msgPayload: {
             ...signTemplate,
             pubkey: hashPubKey,
             address: account.address,
           },
           password,
-          hdCredential: checkIsDefined(credentials.hd),
           address: account.address,
           path: account.path,
-          isTestnet,
         });
 
         await client.createUser({
@@ -127,5 +126,22 @@ export class KeyringHd extends KeyringHdBase {
   override async signMessage(params: ISignMessageParams): Promise<string[]> {
     // throw new Error('Method not implemented.');
     return this.baseSignMessage(params);
+  }
+
+  async signApiMessage(params: {
+    msgPayload: IUnionMsgType;
+    password: string;
+    address: string;
+    path: string;
+  }) {
+    const credentials = await this.baseGetCredentialsInfo({
+      password: params.password,
+    });
+    const { isTestnet } = await this.getNetwork();
+    return this.coreApi.signApiMessage({
+      ...params,
+      hdCredential: checkIsDefined(credentials.hd),
+      isTestnet,
+    });
   }
 }

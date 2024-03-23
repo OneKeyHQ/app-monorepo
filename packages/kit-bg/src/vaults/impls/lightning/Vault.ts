@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { sha256 } from '@noble/hashes/sha256';
+
 import {
   getBtcForkNetwork,
   validateBtcAddress,
@@ -9,8 +11,11 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
   INetworkAccountAddressDetail,
@@ -64,7 +69,11 @@ export default class Vault extends VaultBase {
       const _client = await this.backgroundApi.serviceLightning.getClient(
         EEndpointName.LN,
       );
-      return new ClientLightning(_client, network.isTestnet);
+      return new ClientLightning(
+        this.backgroundApi,
+        _client,
+        network.isTestnet,
+      );
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
@@ -85,6 +94,12 @@ export default class Vault extends VaultBase {
       displayAddress: '',
       allowEmptyAddress: true,
     });
+  }
+
+  override async getAccountAddress(): Promise<string> {
+    return Promise.resolve(
+      (await this.getAccount()).addressDetail.normalizedAddress,
+    );
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
@@ -129,5 +144,47 @@ export default class Vault extends VaultBase {
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
     throw new Error('Method not implemented.');
+  }
+
+  async exchangeToken(account?: INetworkAccount) {
+    const { isTestnet } = await this.getNetwork();
+    const usedAccount = account || (await this.getAccount());
+    const address = usedAccount.addressDetail.normalizedAddress;
+    const hashPubKey = bufferUtils.bytesToHex(sha256(usedAccount.pub ?? ''));
+    let password = '';
+    if (accountUtils.isHdWallet({ walletId: this.walletId })) {
+      const ret =
+        await this.backgroundApi.servicePassword.promptPasswordVerify();
+      password = ret.password;
+    }
+    const client = await this.getClient();
+    const signTemplate = await client.fetchSignTemplate(address, 'auth');
+    if (signTemplate.type !== 'auth') {
+      throw new Error('Invalid auth sign template');
+    }
+    const timestamp = Date.now();
+    const keyring = this.keyring as KeyringHd;
+    const sign = await keyring.signApiMessage({
+      msgPayload: {
+        ...signTemplate,
+        pubkey: hashPubKey,
+        address,
+        timestamp,
+      },
+      password,
+      address,
+      path: accountUtils.buildLnToBtcPath({
+        path: usedAccount.path,
+        isTestnet,
+      }),
+    });
+    const res = await client.refreshAccessToken({
+      hashPubKey,
+      address,
+      signature: sign,
+      timestamp,
+      randomSeed: signTemplate.randomSeed,
+    });
+    return res;
   }
 }
