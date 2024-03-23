@@ -22,7 +22,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -106,7 +105,6 @@ export default class VaultCosmos extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override settings: IVaultSettings = settings;
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const { addressPrefix } = await this.getNetworkInfo();

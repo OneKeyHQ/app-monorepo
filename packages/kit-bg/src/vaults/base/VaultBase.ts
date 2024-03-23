@@ -25,7 +25,9 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
+  IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
@@ -58,8 +60,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   ISignTransactionParams,
   IUpdateUnsignedTxParams,
-  IVaultOptions,
-  IVaultSettings,
+  IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -74,21 +75,6 @@ if (platformEnv.isExtensionUi) {
 }
 
 export abstract class VaultBaseChainOnly extends VaultContext {
-  abstract settings: IVaultSettings;
-
-  constructor(options: IVaultOptions) {
-    super(options);
-    this.checkVaultSettingsIsValid();
-  }
-
-  private checkVaultSettingsIsValid() {
-    if (!Object.isFrozen(this.settings)) {
-      throw new Error(
-        `VaultSettings should be frozen, please use Object.freeze() >>>> networkId=${this.networkId}, accountId=${this.accountId}`,
-      );
-    }
-  }
-
   // Methods not related to a single account, but implementation.
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
@@ -103,6 +89,63 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   abstract validateAddress(address: string): Promise<IAddressValidation>;
 
   abstract validateXpub(xpub: string): Promise<IXpubValidation>;
+
+  abstract validateXprvt(xprvt: string): Promise<IXprvtValidation>;
+
+  abstract validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation>;
+
+  async baseValidateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<{ result: IGeneralInputValidation; inputDecoded: string }> {
+    const input = decodeSensitiveText({
+      encodedText: params.input,
+    });
+    const { validateAddress, validateXprvt, validateXpub } = params;
+
+    const result: IGeneralInputValidation = { isValid: false };
+
+    let isValid = false;
+
+    let addressResult: IAddressValidation | undefined;
+    let xpubResult: IXpubValidation | undefined;
+    let xprvtResult: IXprvtValidation | undefined;
+
+    if (validateAddress && !isValid) {
+      try {
+        addressResult = await this.validateAddress(input);
+        result.addressResult = addressResult;
+        isValid = isValid || addressResult?.isValid;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (validateXpub && !isValid) {
+      try {
+        xpubResult = await this.validateXpub(input);
+        result.xpubResult = xpubResult;
+        isValid = isValid || xpubResult?.isValid;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (validateXprvt && !isValid) {
+      try {
+        xprvtResult = await this.validateXprvt(input);
+        result.xprvtResult = xprvtResult;
+        isValid = isValid || xprvtResult?.isValid;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    result.isValid = Boolean(isValid);
+
+    return { result, inputDecoded: input };
+  }
 
   async baseGetPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,

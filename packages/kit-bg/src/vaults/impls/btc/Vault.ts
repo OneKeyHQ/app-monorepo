@@ -2,8 +2,13 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
 import {
+  convertBtcXprvtToHex,
   getBtcForkNetwork,
+  getBtcXpubFromXprvt,
+  getBtcXpubSupportedAddressEncodings,
   validateBtcAddress,
+  validateBtcXprvt,
+  validateBtcXpub,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type {
   IBtcInput,
@@ -11,6 +16,10 @@ import type {
   IEncodedTxBtc,
   IOutputsForCoinSelect,
 } from '@onekeyhq/core/src/chains/btc/types';
+import {
+  decodeSensitiveText,
+  encodeSensitiveText,
+} from '@onekeyhq/core/src/secret';
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
@@ -27,23 +36,24 @@ import { coinSelect } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import { BTC_TX_PLACEHOLDER_VSIZE } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   InsufficientBalance,
-  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
-import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -51,7 +61,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
 
 import type {
   IDBAccount,
@@ -66,7 +75,7 @@ import type {
   IBuildEncodedTxParams,
   IBuildUnsignedTxParams,
   ITransferInfo,
-  IVaultSettings,
+  IValidateGeneralInputParams,
 } from '../../types';
 
 // btc vault
@@ -203,8 +212,6 @@ export default class VaultBtc extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override settings: IVaultSettings = settings;
-
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxBtc> {
@@ -288,9 +295,12 @@ export default class VaultBtc extends VaultBase {
     return getBtcForkNetwork(await this.getNetworkImpl());
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  override async validateXpub(_xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+  override async validateXpub(xpub: string): Promise<IXpubValidation> {
+    return Promise.resolve(validateBtcXpub({ xpub }));
+  }
+
+  override async validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    return Promise.resolve(validateBtcXprvt({ xprvt }));
   }
 
   override async validateAddress(address: string) {
@@ -298,6 +308,45 @@ export default class VaultBtc extends VaultBase {
       address,
       network: await this.getBtcForkNetwork(),
     });
+  }
+
+  override async validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
+    const { result, inputDecoded: input } = await this.baseValidateGeneralInput(
+      params,
+    );
+
+    // build deriveItems
+    let xpub = '';
+    if (result.xpubResult?.isValid) {
+      xpub = input;
+    }
+    const network = await this.getBtcForkNetwork();
+    if (!xpub && result.xprvtResult?.isValid) {
+      ({ xpub } = getBtcXpubFromXprvt({
+        network,
+        privateKeyRaw: convertBtcXprvtToHex({ xprvt: input }),
+      }));
+    }
+    if (xpub) {
+      const { supportEncodings } = getBtcXpubSupportedAddressEncodings({
+        xpub,
+        network,
+      });
+
+      if (supportEncodings && supportEncodings.length) {
+        const settings = await this.getVaultSettings();
+        const items = Object.values(settings.accountDeriveInfo);
+        result.deriveInfoItems = items.filter(
+          (item) =>
+            item.addressEncoding &&
+            supportEncodings.includes(item.addressEncoding),
+        );
+      }
+    }
+
+    return result;
   }
 
   private parseAddressEncodings(
@@ -806,11 +855,19 @@ export default class VaultBtc extends VaultBase {
     return { btcExtraInfo, account: signerAccount };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   override getPrivateKeyFromImported(params: {
     input: string;
   }): Promise<{ privateKey: string }> {
-    throw new NotImplemented();
+    // params.input is xprvt format:
+    const input = decodeSensitiveText({ encodedText: params.input });
+
+    // result is hex format:
+    let privateKey = convertBtcXprvtToHex({ xprvt: input });
+
+    privateKey = encodeSensitiveText({ text: privateKey });
+    return Promise.resolve({
+      privateKey,
+    });
   }
 
   override async getAccountXpub(): Promise<string> {

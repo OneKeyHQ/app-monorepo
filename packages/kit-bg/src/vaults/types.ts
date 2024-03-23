@@ -24,6 +24,11 @@ import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import type { SignClientTypes } from '@walletconnect/types';
+import type { MessageDescriptor } from 'react-intl';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { EDBAccountType } from '../dbs/local/consts';
+import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type {
   IAccountDeriveInfoMapBtc,
   IAccountDeriveTypesBtc,
@@ -33,11 +38,6 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
-import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { EDBAccountType } from '../dbs/local/consts';
-import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
-import type { SignClientTypes } from '@walletconnect/types';
-import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -52,6 +52,7 @@ export type IAccountDeriveInfoItems = {
   value: string;
   label: string;
   item: IAccountDeriveInfo;
+  description: string | undefined;
 };
 export interface IAccountDeriveInfo {
   // because the first account path of ledger live template is the same as the bip44 account path, so we should set idSuffix to uniq them
@@ -160,6 +161,7 @@ export type IPrepareWatchingAccountsParams = {
   xpub?: string;
   name: string;
   template?: string; // TODO use deriveInfo, for BTC taproot address importing
+  deriveInfo?: IAccountDeriveInfo;
 };
 export type IPrepareImportedAccountsParams = {
   password: string;
@@ -179,7 +181,6 @@ export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
 };
 export type IPrepareHdAccountsOptions = {
-  addressEncoding?: EAddressEncodings;
   checkIsAccountUsed?: (query: {
     xpub: string;
     xpubSegwit?: string;
@@ -354,4 +355,10 @@ export type IGetPrivateKeyFromImportedParams = {
 };
 export type IGetPrivateKeyFromImportedResult = {
   privateKey: string;
+};
+export type IValidateGeneralInputParams = {
+  input: string;
+  validateAddress?: boolean;
+  validateXpub?: boolean;
+  validateXprvt?: boolean;
 };

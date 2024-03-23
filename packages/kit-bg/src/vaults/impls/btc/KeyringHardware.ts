@@ -31,10 +31,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<IDBAccount[]> {
     const networkInfo = await this.getCoreApiNetworkInfo();
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
-    const { addressEncoding } = params.deriveInfo;
 
     return this.basePrepareHdUtxoAccounts(params, {
-      addressEncoding,
       checkIsAccountUsed: checkBtcAddressIsUsed,
       buildAddressesInfo: async ({ usedIndexes }) => {
         const isChange = false;

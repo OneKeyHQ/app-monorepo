@@ -1,17 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import { EAddressEncodings, type ISignedTxPro } from '@onekeyhq/core/src/types';
+import type { EAddressEncodings, ISignedTxPro } from '@onekeyhq/core/src/types';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   InvalidAddress,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   IDBAccount,
   IDBSimpleAccount,
@@ -37,20 +39,39 @@ export abstract class KeyringWatchingBase extends KeyringBase {
   async basePrepareUtxoWatchingAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<IDBUtxoAccount[]> {
-    const { address, xpub, networks, createAtNetwork, name } = params;
+    const { address, xpub, networks, createAtNetwork, name, deriveInfo } =
+      params;
     if (!address && !xpub) {
       throw new Error(
         'basePrepareUtxoWatchingAccounts ERROR: address and xpub are not defined',
       );
     }
+    const networkInfo = await this.getCoreApiNetworkInfo();
+
     const settings = await this.getVaultSettings();
     const coinType = settings.coinTypeDefault;
 
-    let addressEncoding: EAddressEncodings | undefined; // xpub build
+    // xpub build
+    const addressEncoding: EAddressEncodings | undefined =
+      deriveInfo?.addressEncoding;
 
-    const id = `${WALLET_TYPE_WATCHING}--${coinType}--${
-      address || xpub || ''
-    }--${addressEncoding === EAddressEncodings.P2TR ? `86'/` : ''}`;
+    const id = accountUtils.buildWatchingAccountId({
+      coinType,
+      address,
+      xpub,
+      addressEncoding,
+    });
+    let addressFromXpub = '';
+    if (!address && xpub) {
+      checkIsDefined(this.coreApi);
+      const result = await this.coreApi?.getAddressFromPublic({
+        publicKey: xpub,
+        addressEncoding,
+        networkInfo,
+      });
+      addressFromXpub = result?.address || '';
+    }
+
     const account: IDBUtxoAccount = {
       id,
       name,
@@ -60,7 +81,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       impl: settings.impl,
       networks,
       createAtNetwork,
-      address,
+      address: addressFromXpub || address || '',
       xpub: xpub || '',
       path: '',
       addresses: {},

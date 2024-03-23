@@ -8,13 +8,13 @@ import {
 } from 'bitcoinjs-lib';
 import bitcoinMessage from 'bitcoinjs-message';
 import bs58check from 'bs58check';
-import { omit } from 'lodash';
 import { encode as VaruintBitCoinEncode } from 'varuint-bitcoin';
 
 import { IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import BigNumber from 'bignumber.js';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
@@ -28,9 +28,6 @@ import {
   secp256k1,
   verify,
 } from '../../secret';
-import {
-  EMessageTypesBtc,
-} from '@onekeyhq/shared/types/message';
 import {
   EAddressEncodings,
   type ICoreApiGetAddressItem,
@@ -55,6 +52,8 @@ import {
   getBitcoinBip32,
   getBitcoinECPair,
   getBtcForkNetwork,
+  getBtcXpubFromXprvt,
+  getBtcXpubSupportedAddressEncodings,
   getInputsToSignFromPsbt,
   initBitcoinEcc,
   isTaprootPath,
@@ -112,6 +111,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   ): Promise<ICoreApiGetAddressItem> {
     const { networkInfo, publicKey, addressEncoding } = query;
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
+
     // 'BTC fork UTXO account should pass account xpub but not single address publicKey.',
     const xpub = publicKey;
 
@@ -130,43 +130,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   // TODO memo and move to utils (file with getBtcForkNetwork)
-  private getVersionBytesToEncodings({
-    networkChainCode,
-  }: {
-    networkChainCode: string | undefined;
-  }): {
-    public: Record<number, Array<EAddressEncodings>>;
-    private: Record<number, Array<EAddressEncodings>>;
-  } {
-    const network = getBtcForkNetwork(networkChainCode);
-    const tmp: {
-      public: {
-        [bytes: number]: EAddressEncodings[];
-      };
-      private: {
-        [bytes: number]: EAddressEncodings[];
-      };
-    } = {
-      public: { [network.bip32.public]: [EAddressEncodings.P2PKH] },
-      private: { [network.bip32.private]: [EAddressEncodings.P2PKH] },
-    };
-    Object.entries(network.segwitVersionBytes || {}).forEach(
-      ([
-        encoding,
-        { public: publicVersionBytes, private: privateVersionBytes },
-      ]) => {
-        tmp.public[publicVersionBytes] = [
-          ...(tmp.public[publicVersionBytes] || []),
-          encoding as EAddressEncodings,
-        ];
-        tmp.private[privateVersionBytes] = [
-          ...(tmp.private[privateVersionBytes] || []),
-          encoding as EAddressEncodings,
-        ];
-      },
-    );
-    return tmp;
-  }
 
   private pubkeyToPayment({
     pubkey,
@@ -225,17 +188,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }): Promise<Record<string, string>> {
     // Only used to generate addresses locally.
     const decodedXpub = bs58check.decode(xpub);
-    const versionBytes = parseInt(
-      bufferUtils.bytesToHex(decodedXpub.slice(0, 4)),
-      16,
-    );
 
     let encoding = addressEncoding;
     if (!encoding) {
-      const addressEncodingMap = this.getVersionBytesToEncodings({
-        networkChainCode: network.networkChainCode,
+      const { supportEncodings } = getBtcXpubSupportedAddressEncodings({
+        network,
+        xpub,
       });
-      const supportEncodings = addressEncodingMap.public[versionBytes];
       if (supportEncodings.length > 1) {
         throw new Error(
           'getAddressFromXpub ERROR: supportEncodings length > 1, you should specify addressEncoding by params',
@@ -709,57 +668,18 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressQueryImportedBtc,
   ): Promise<ICoreApiGetAddressItem> {
     const {
+      // xPrivateKey hex format but not single address privateKey
       privateKeyRaw,
-      networkInfo: { networkChainCode },
+      networkInfo,
       template,
       addressEncoding,
     } = query;
-    // xPrivateKey but not single address privateKey
-    const xprv = bufferUtils.toBuffer(privateKeyRaw);
+    const network = getBtcForkNetwork(networkInfo.networkChainCode);
 
-    let xpub = '';
-    let pubKey = '';
-    const network = getBtcForkNetwork(networkChainCode);
-
-    const xprvVersionBytesNum = parseInt(xprv.slice(0, 4).toString('hex'), 16);
-    const versionByteOptions = [
-      // ...Object.values(network.segwitVersionBytes || {}),
-      ...Object.values(
-        omit(network.segwitVersionBytes, EAddressEncodings.P2TR),
-      ),
-      network.bip32,
-    ];
-
-    for (const versionBytes of versionByteOptions) {
-      if (versionBytes.private === xprvVersionBytesNum) {
-        const privateKeySlice = xprv.slice(46, 78);
-        const publicKey = secp256k1.publicFromPrivate(privateKeySlice);
-        const pubVersionBytes = Buffer.from(
-          versionBytes.public.toString(16).padStart(8, '0'),
-          'hex',
-        );
-        // const keyPair = getBitcoinECPair().fromPrivateKey(privateKeySlice, {
-        //   network,
-        // });
-        try {
-          xpub = bs58check.encode(
-            xprv.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
-          );
-          // const publicKeyStr1 = keyPair.publicKey.toString('hex');
-          const publicKeyStr2 = publicKey.toString('hex');
-          // TODO publicKey is different with HD account
-          //  - hd "03171d7528ce1cc199f2b8ce29ad7976de0535742169a8ba8b5a6dd55df7e589d1"
-          //  - imported "020da363502074fefdfbb07ec47abc974207951dcb1aa3c910f4a768e2c70f9c68"
-          pubKey = publicKeyStr2;
-        } catch (e) {
-          console.error(e);
-        }
-        break;
-      }
-    }
-    if (xpub === '') {
-      throw new OneKeyInternalError('Invalid X Private Key.');
-    }
+    const { xpub, pubKey } = getBtcXpubFromXprvt({
+      privateKeyRaw,
+      network,
+    });
 
     let usedAddressEncoding = addressEncoding;
     let xpubSegwit = xpub;
@@ -786,6 +706,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       publicKey: pubKey,
       xpub,
       xpubSegwit,
+      relPath: firstAddressRelPath,
       address,
       addresses: { [firstAddressRelPath]: address },
     });

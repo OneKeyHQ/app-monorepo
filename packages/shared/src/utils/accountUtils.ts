@@ -1,6 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 import { isNil } from 'lodash';
 
+import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IDBAccount,
   IDBWallet,
@@ -91,20 +92,48 @@ function isHwAccount({ accountId }: { accountId: string }) {
   return isHwWallet({ walletId });
 }
 
+function buildWatchingAccountId({
+  coinType,
+  address,
+  xpub,
+  addressEncoding,
+}: {
+  coinType: string;
+  address?: string;
+  xpub?: string;
+  addressEncoding?: EAddressEncodings | undefined;
+}) {
+  const publicKey = xpub || address;
+  if (!publicKey) {
+    throw new Error('buildWatchingAccountId ERROR: publicKey is not defined');
+  }
+  let id = `${WALLET_TYPE_WATCHING}--${coinType}--${publicKey}`;
+  if (addressEncoding) {
+    id += `--${addressEncoding}`;
+  }
+  return id;
+}
+
 function buildImportedAccountId({
   coinType,
   pub,
   xpub,
+  addressEncoding,
 }: {
   coinType: string;
   pub?: string;
   xpub?: string;
+  addressEncoding?: EAddressEncodings | undefined;
 }) {
   const publicKey = xpub || pub;
   if (!publicKey) {
     throw new Error('buildImportedAccountId ERROR: publicKey is not defined');
   }
-  return `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
+  let id = `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
+  if (addressEncoding) {
+    id += `--${addressEncoding}`;
+  }
+  return id;
 }
 
 function isExternalAccount({ accountId }: { accountId: string }) {
@@ -300,6 +329,7 @@ function buildExternalAccountId({
 
 export default {
   buildImportedAccountId,
+  buildWatchingAccountId,
   buildLocalTokenId,
   buildLocalHistoryId,
   buildHdWalletId,

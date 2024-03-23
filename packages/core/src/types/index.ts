@@ -28,7 +28,7 @@ export type ICoreApiNetworkInfo = {
 };
 export type ICoreApiGetAddressesQueryHdBase = {
   networkInfo: ICoreApiNetworkInfo;
-  template: string;
+  template: string; // TODO remove
   hdCredential: ICoreHdCredentialEncryptHex;
   password: string;
   indexes: number[];
@@ -50,15 +50,15 @@ export type ICoreApiGetAddressQueryImportedBase = {
 };
 export type ICoreApiGetAddressQueryImportedBtc =
   ICoreApiGetAddressQueryImportedBase & {
-    template?: string; // TODO use addressEncoding?
-    addressEncoding?: EAddressEncodings;
+    template?: string; // TODO remove use addressEncoding?
+    addressEncoding: EAddressEncodings | undefined;
   };
 export type ICoreApiGetAddressQueryImported =
   | ICoreApiGetAddressQueryImportedBase
   | ICoreApiGetAddressQueryImportedBtc;
 export type ICoreApiGetAddressQueryPublicKey = {
   networkInfo: ICoreApiNetworkInfo;
-  publicKey: string;
+  publicKey: string; // xpub in BTC and other UTXO chain
   publicKeyInfo?: ISecretPublicKeyInfo;
   addressEncoding?: EAddressEncodings;
 };
