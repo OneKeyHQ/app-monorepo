@@ -64,7 +64,6 @@ export const generateNativeSegwitAccounts = async ({
 
       const node = root.derivePath(`${path}/0/0`);
       const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
-      const publicKey = keyPair.publicKey.toString('hex');
 
       const xpub = bs58check.encode(
         Buffer.concat([
@@ -94,10 +93,9 @@ export const generateNativeSegwitAccounts = async ({
       const addressItem = {
         accountIndex,
         address,
-        publicKey,
+        publicKey: xpub,
         path,
         relPath: firstAddressRelPath,
-        xpub,
       };
       return addressItem;
     }),

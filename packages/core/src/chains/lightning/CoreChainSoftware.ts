@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { ripemd160 } from '@noble/hashes/ripemd160';
-import { sha256 } from '@noble/hashes/sha256';
+import bitcoinMessage from 'bitcoinjs-message';
+import stringify from 'fast-json-stable-stringify';
 
 import {
   IMPL_BTC,
   IMPL_LIGHTNING_TESTNET,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -23,11 +24,11 @@ import {
   type ICurveName,
   type ISignedTxPro,
 } from '../../types';
+import { getBitcoinECPair, getBtcForkNetwork } from '../btc/sdkBtc';
 
 import { generateNativeSegwitAccounts } from './sdkLightning/account';
-import ClientLightning from './sdkLightning/clientLightning';
-import { signLightningMessage } from './sdkLightning/signature';
 
+import type { IUnionMsgType } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 
 const curve: ICurveName = 'secp256k1';
@@ -170,58 +171,46 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       isTestnet,
     });
 
-    console.log('nativeSegwitAccounts', nativeSegwitAccounts);
+    return {
+      addresses: nativeSegwitAccounts,
+    };
+  }
 
-    const client = new ClientLightning(isTestnet);
-    const addresses = [];
+  async signApiMessage({
+    msgPayload,
+    password,
+    hdCredential,
+    address,
+    path,
+    isTestnet,
+  }: {
+    msgPayload: IUnionMsgType;
+    password: string;
+    hdCredential: string;
+    address: string;
+    path: string;
+    isTestnet: boolean;
+  }) {
+    const signer = await this.buildSignerLightning({
+      password,
+      hdCredential,
+      address,
+      path,
+      isTestnet,
+    });
+    const impl = isTestnet ? IMPL_TBTC : IMPL_BTC;
+    const network = getBtcForkNetwork(impl);
+    const privateKey = await signer.getPrvkey();
+    const keyPair = getBitcoinECPair().fromPrivateKey(privateKey, {
+      network,
+    });
+    const result = bitcoinMessage.sign(
+      stringify(msgPayload),
+      checkIsDefined(keyPair.privateKey),
+      keyPair.compressed,
+      { segwitType: 'p2wpkh' },
+    );
 
-    for (const account of nativeSegwitAccounts) {
-      const accountExist = await client.checkAccountExist(account.address);
-      if (!accountExist) {
-        const hashPubKey = bufferUtils.bytesToHex(sha256(account.xpub));
-        const signTemplate = await client.fetchSignTemplate(
-          account.address,
-          'register',
-        );
-        if (signTemplate.type !== 'register') {
-          throw new Error('Wrong signature type');
-        }
-        const signer = await this.buildSignerLightning({
-          password,
-          hdCredential,
-          address: account.address,
-          path: account.path,
-          isTestnet,
-        });
-        const sign = await signLightningMessage({
-          msgPayload: {
-            ...signTemplate,
-            pubkey: hashPubKey,
-            address: account.address,
-          },
-          signer,
-          isTestnet,
-        });
-        await client.createUser({
-          hashPubKey,
-          address: account.address,
-          signature: sign,
-          randomSeed: signTemplate.randomSeed,
-        });
-      }
-
-      addresses.push({
-        address: account.address,
-        publicKey: '',
-        path: account.path,
-        xpub: account.xpub,
-        addresses: {
-          normalizedAddress: account.address,
-          realPath: account.path,
-          hashAddress: bufferUtils.bytesToHex(ripemd160(account.address)),
-        },
-      });
-    }
-    return { addresses };
+    return result.toString('hex');
   }
 }
