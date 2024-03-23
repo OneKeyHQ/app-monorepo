@@ -40,7 +40,7 @@ export function SendConfirmFromDapp() {
   const navigateToSendConfirm = useCallback(() => {
     let action: any;
     // TODO get network and account from dapp connections
-    const { networkId, accountId, networkImpl } = getActiveWalletAccount();
+    const { networkId, accountId } = getActiveWalletAccount();
 
     // alert(JSON.stringify({ networkId, accountId, isReady }));
     // TODO providerName
@@ -52,7 +52,7 @@ export function SendConfirmFromDapp() {
         accountId,
         sourceInfo,
         encodedTx,
-        feeInfoEditable: !(isPsbt || networkImpl === IMPL_SOL),
+        feeInfoEditable: !isPsbt,
         feeInfoUseFeeInTx: true,
         ignoreFetchFeeCalling: !!isPsbt,
         signOnly,
