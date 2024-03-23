@@ -589,7 +589,7 @@ export default class Vault extends VaultBase {
     const computeUnitPriceFromInstructions =
       parseComputeUnitPrice(instructions);
 
-    if (computeUnitPriceFromInstructions !== '0') {
+    if (new BigNumber(computeUnitPriceFromInstructions).gte(MIN_PRIORITY_FEE)) {
       // If the DApp tx  includes prioritization fee,
       // try replacing it with another one to see if that works.
       const encodedTxWithFee = await this.attachFeeInfoToEncodedTx({
