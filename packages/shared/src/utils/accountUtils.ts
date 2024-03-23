@@ -13,7 +13,14 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 
-import { INDEX_PLACEHOLDER, SEPERATOR } from '../engine/engineConsts';
+import {
+  COINTYPE_BTC,
+  COINTYPE_LIGHTNING,
+  COINTYPE_LIGHTNING_TESTNET,
+  COINTYPE_TBTC,
+  INDEX_PLACEHOLDER,
+  SEPERATOR,
+} from '../engine/engineConsts';
 
 import networkUtils from './networkUtils';
 
@@ -298,6 +305,67 @@ function buildExternalAccountId({
   return accountId;
 }
 
+// m/84'/0'/0' -> m/44'/81297820149147'/0'
+function buildBtcToLnPath({
+  path,
+  isTestnet,
+}: {
+  path: string;
+  isTestnet: boolean;
+}) {
+  // purpose 84' -> 44'
+  let transformedPath = path.replace(/84'/, "44'");
+  const targetCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  const replacementCoinType = isTestnet
+    ? COINTYPE_LIGHTNING_TESTNET
+    : COINTYPE_LIGHTNING;
+  transformedPath = transformedPath.replace(
+    new RegExp(`(^m/44'/${targetCoinType})'`, 'g'),
+    `m/44'/${replacementCoinType}'`,
+  );
+  return transformedPath;
+}
+
+// m/44'/81297820149147'/0' -> m/84'/0'/0'
+function buildLnToBtcPath({
+  path,
+  isTestnet,
+}: {
+  path: string;
+  isTestnet: boolean;
+}) {
+  // purpose 44' -> 84'
+  let transformedPath = path.replace(/44'/, "84'");
+  const targetCoinType = isTestnet
+    ? COINTYPE_LIGHTNING_TESTNET
+    : COINTYPE_LIGHTNING;
+  const replacementCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  transformedPath = transformedPath.replace(
+    new RegExp(`(^m/84'/${targetCoinType})'`, 'g'),
+    `m/84'/${replacementCoinType}'`,
+  );
+  return transformedPath;
+}
+
+// hd-1--m/84'/0'/0' -> hd-1--m/44'/81297820149147'/0'
+function buildLightningAccountId({
+  accountId,
+  isTestnet,
+}: {
+  accountId: string;
+  isTestnet: boolean;
+}) {
+  const parts = accountId.split(SEPERATOR);
+  if (parts.length < 2) {
+    throw new Error('buildLightningAccountId ERROR: invalid accountId');
+  }
+  const newPath = buildBtcToLnPath({
+    path: parts[1],
+    isTestnet,
+  });
+  return `${parts[0]}--${newPath}`;
+}
+
 export default {
   buildImportedAccountId,
   buildLocalTokenId,
@@ -324,4 +392,7 @@ export default {
   isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
   isOthersWallet,
+  buildBtcToLnPath,
+  buildLnToBtcPath,
+  buildLightningAccountId,
 };
