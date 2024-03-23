@@ -20,6 +20,8 @@ module.exports = [
   'jane',
   'wildcard',
   'isXprvt',
+  'autofix',
+  'derivetype',
   'pino',
   'vitalik',
   'nonWitnessInputPrevTxids',

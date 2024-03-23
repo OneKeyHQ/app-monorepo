@@ -62,6 +62,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       addressEncoding,
     });
     let addressFromXpub = '';
+    let xpubSegwit = xpub;
     if (!address && xpub) {
       checkIsDefined(this.coreApi);
       // use first relPath 0/0 as xpub account address
@@ -71,6 +72,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
         networkInfo,
       });
       addressFromXpub = result?.address || '';
+      xpubSegwit = result?.xpubSegwit || xpubSegwit || xpub;
     }
 
     const account: IDBUtxoAccount = {
@@ -84,6 +86,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       createAtNetwork,
       address: addressFromXpub || address || '',
       xpub: xpub || '',
+      xpubSegwit,
       path: '',
       addresses: {},
     };

@@ -20,7 +20,9 @@ import {
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
+  IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
@@ -53,7 +55,7 @@ import {
   type INativeAmountInfo,
   type ITransferInfo,
   type IUpdateUnsignedTxParams,
-  type IVaultSettings,
+  type IValidateGeneralInputParams,
   type IWrappedInfo,
 } from '../../types';
 
@@ -79,13 +81,11 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 
-
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 
 // evm vault
 export default class Vault extends VaultBase {
-
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,
@@ -93,6 +93,17 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringExternal,
   };
+
+  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    throw new Error('Method not implemented.');
+  }
+
+  override async validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
+  }
 
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,

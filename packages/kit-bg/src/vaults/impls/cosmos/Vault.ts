@@ -11,7 +11,9 @@ import type {
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   IAddressValidation,
+  IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
@@ -34,10 +36,21 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   IUpdateUnsignedTxParams,
-  IVaultSettings,
+  IValidateGeneralInputParams,
 } from '../../types';
 
 export default class VaultCosmos extends VaultBase {
+  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    throw new Error('Method not implemented.');
+  }
+
+  override async validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
+  }
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,
@@ -104,7 +117,6 @@ export default class VaultCosmos extends VaultBase {
   ): Promise<ISignedTxPro> {
     throw new Error('Method not implemented.');
   }
-
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const { addressPrefix } = await this.getNetworkInfo();
