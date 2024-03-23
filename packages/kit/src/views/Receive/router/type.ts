@@ -8,6 +8,5 @@ export type IModalReceiveParamList = {
   [EModalReceiveRoutes.LightningCreateInvoice]: {
     accountId: string;
     networkId: string;
-    isTestnet: boolean;
   };
 };

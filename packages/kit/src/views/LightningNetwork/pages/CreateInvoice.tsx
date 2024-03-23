@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -37,11 +37,25 @@ function CreateInvoice() {
         EModalReceiveRoutes.LightningCreateInvoice
       >
     >();
-  const { isTestnet } = route.params;
+  const { accountId, networkId } = route.params;
+  const { serviceLightning } = backgroundApiProxy;
 
   const { result: invoiceConfig } = usePromiseResult(
-    () => backgroundApiProxy.serviceLightning.getInvoiceConfig({ isTestnet }),
-    [isTestnet],
+    () => serviceLightning.getInvoiceConfig({ networkId }),
+    [networkId, serviceLightning],
+  );
+
+  const onSubmit = useCallback(
+    async (values: IFormValues) => {
+      console.log('formvalue: ', values);
+      await serviceLightning.createInvoice({
+        accountId,
+        networkId,
+        amount: values.amount,
+        description: values.description,
+      });
+    },
+    [accountId, networkId, serviceLightning],
   );
 
   return (
@@ -116,10 +130,8 @@ function CreateInvoice() {
         </YStack>
       </Page.Body>
       <Page.Footer
-        onConfirmText="Connect"
-        onCancelText="Cancel"
-        onConfirm={() => console.log('onConfirm')}
-        onCancel={() => console.log('onCancel')}
+        onConfirmText="Create Invoice"
+        onConfirm={() => form.handleSubmit(onSubmit)()}
       />
     </Page>
   );

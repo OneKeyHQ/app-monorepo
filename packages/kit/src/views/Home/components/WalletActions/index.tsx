@@ -136,7 +136,6 @@ function WalletActionReceive() {
       params: {
         accountId: account?.id ?? '',
         networkId: network?.id ?? '',
-        isTestnet: !!network?.isTestnet,
       },
     });
   }, [navigation, network, account]);

@@ -1,6 +1,7 @@
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -34,9 +35,52 @@ class ServiceLightning extends ServiceBase {
   );
 
   @backgroundMethod()
-  async getInvoiceConfig({ isTestnet }: { isTestnet: boolean }) {
+  async getInvoiceConfig({ networkId }: { networkId: string }) {
+    const { isTestnet } = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
     const client = await this.getLnClient(isTestnet);
     return client.getConfig();
+  }
+
+  @backgroundMethod()
+  async getLightningAddress({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const { addressDetail } =
+      await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+    return addressDetail.normalizedAddress;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async createInvoice({
+    accountId,
+    networkId,
+    amount,
+    description,
+  }: {
+    accountId: string;
+    networkId: string;
+    amount: string;
+    description?: string;
+  }) {
+    const { serviceNetwork } = this.backgroundApi;
+    const { isTestnet } = await serviceNetwork.getNetwork({ networkId });
+    const address = await this.getLightningAddress({ accountId, networkId });
+    const client = await this.getLnClient(isTestnet);
+    return client.createInvoice({
+      address,
+      amount,
+      description,
+    });
   }
 }
 

@@ -2,6 +2,7 @@ import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  ICreateInvoiceResponse,
   ICreateUserResponse,
   IInvoiceConfig,
 } from '@onekeyhq/shared/types/lightning';
@@ -23,7 +24,7 @@ class ClientLightning {
     this.request.interceptors.response.use(
       (response) => response,
       (error: AxiosError) => {
-        const status = error.response ? error.response.status : null;
+        const status = error.response ? error.response.status : error.code;
         if (status === 401) {
           // TODO: replace i18n error
           return Promise.reject(new Error('Bad Auth'));
@@ -92,6 +93,32 @@ class ClientLightning {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
     },
   );
+
+  async createInvoice({
+    address,
+    amount,
+    description,
+  }: {
+    address: string;
+    amount: string;
+    description?: string;
+  }) {
+    return this.request
+      .post<ICreateInvoiceResponse>(
+        `${this.prefix}/invoices/create`,
+        {
+          amount,
+          description: description || 'OneKey Invoice',
+          testnet: this.testnet,
+        },
+        {
+          // headers: {
+          //   Authorization: await this.getAuthorization(address),
+          // },
+        },
+      )
+      .then((i) => i.data);
+  }
 }
 
 export default ClientLightning;
