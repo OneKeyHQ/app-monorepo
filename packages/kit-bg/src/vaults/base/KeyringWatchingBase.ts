@@ -7,13 +7,13 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   IDBAccount,
   IDBSimpleAccount,
@@ -64,6 +64,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
     let addressFromXpub = '';
     if (!address && xpub) {
       checkIsDefined(this.coreApi);
+      // use first relPath 0/0 as xpub account address
       const result = await this.coreApi?.getAddressFromPublic({
         publicKey: xpub,
         addressEncoding,

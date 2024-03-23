@@ -115,17 +115,20 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     // 'BTC fork UTXO account should pass account xpub but not single address publicKey.',
     const xpub = publicKey;
 
-    const result = await this.getAddressFromXpub({
+    // only return first 0/0 relPath address for xpub account
+    const firstRelPath = '0/0';
+    const { addresses, xpubSegwit } = await this.getAddressFromXpub({
       network,
       xpub,
-      relativePaths: ['0/0'],
+      relativePaths: [firstRelPath],
       addressEncoding,
     });
     return {
-      address: result['0/0'],
+      address: addresses[firstRelPath],
       publicKey: '',
       xpub,
-      addresses: result,
+      xpubSegwit,
+      addresses: addresses,
     };
   }
 
@@ -185,7 +188,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     xpub: string;
     relativePaths: Array<string>;
     addressEncoding?: EAddressEncodings;
-  }): Promise<Record<string, string>> {
+  }): Promise<{
+    addresses: Record<string, string>;
+    xpubSegwit: string;
+  }> {
     // Only used to generate addresses locally.
     const decodedXpub = bs58check.decode(xpub);
 
@@ -202,6 +208,26 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       }
       encoding = supportEncodings[0];
     }
+
+    let xpubSegwit = xpub;
+    if (encoding === EAddressEncodings.P2TR) {
+      // TODO if (isTaprootPath(pathPrefix)) {
+      xpubSegwit = `tr(${xpub})`;
+    }
+    // if (isTaprootPath(pathPrefix)) {
+    //   const rootFingerprint = generateRootFingerprint(
+    //     curveName,
+    //     hdCredential,
+    //     password,
+    //   );
+    //   const fingerprint = Number(
+    //     Buffer.from(rootFingerprint).readUInt32BE(0) || 0,
+    //   )
+    //     .toString(16)
+    //     .padStart(8, '0');
+    //   const descriptorPath = `${fingerprint}${path.substring(1)}`;
+    //   xpubSegwit = `tr([${descriptorPath}]${xpub}/<0;1>/*)`;
+    // }
 
     const ret: Record<string, string> = {};
 
@@ -243,7 +269,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         ret[path] = address;
       }
     }
-    return ret;
+    return { addresses: ret, xpubSegwit };
   }
 
   private async buildSignersMap({
@@ -682,33 +708,31 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
 
     let usedAddressEncoding = addressEncoding;
-    let xpubSegwit = xpub;
     if (template && !usedAddressEncoding) {
       if (template.startsWith(`m/44'/`)) {
         usedAddressEncoding = EAddressEncodings.P2PKH;
       } else if (template.startsWith(`m/86'/`)) {
         usedAddressEncoding = EAddressEncodings.P2TR;
-        // TODO if (isTaprootPath(pathPrefix)) {
-        xpubSegwit = `tr(${xpub})`;
       } else {
         usedAddressEncoding = undefined;
       }
     }
 
     const firstAddressRelPath = '0/0';
-    const { [firstAddressRelPath]: address } = await this.getAddressFromXpub({
+    const { addresses, xpubSegwit } = await this.getAddressFromXpub({
       network,
       xpub,
       relativePaths: [firstAddressRelPath],
       addressEncoding: usedAddressEncoding,
     });
+    const { [firstAddressRelPath]: address } = addresses;
     return Promise.resolve({
       publicKey: pubKey,
       xpub,
       xpubSegwit,
       relPath: firstAddressRelPath,
       address,
-      addresses: { [firstAddressRelPath]: address },
+      addresses,
     });
   }
 
@@ -789,15 +813,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
         const firstAddressRelPath = '0/0';
         const relativePaths = [firstAddressRelPath];
-        const { [firstAddressRelPath]: address } =
-          await this.getAddressFromXpub({
-            network,
-            xpub,
-            relativePaths,
-            addressEncoding,
-          });
+        let { addresses, xpubSegwit } = await this.getAddressFromXpub({
+          network,
+          xpub,
+          relativePaths,
+          addressEncoding,
+        });
+        const { [firstAddressRelPath]: address } = addresses;
 
-        let xpubSegwit = xpub;
         if (isTaprootPath(pathPrefix)) {
           const rootFingerprint = generateRootFingerprint(
             curveName,
