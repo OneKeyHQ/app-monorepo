@@ -436,6 +436,66 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     return credential;
   }
 
+  // insert lightning network credential
+  async updateLightningCredential({
+    credentialId,
+    credential,
+  }: {
+    credentialId: string;
+    credential: string;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpsertLightningCredential({
+        tx,
+        credentialId,
+        credential,
+        updater: (record) => {
+          record.credential = credential;
+          return record;
+        },
+      });
+    });
+  }
+
+  async txUpsertLightningCredential({
+    tx,
+    credentialId,
+    credential,
+    updater,
+  }: {
+    tx: ILocalDBTransaction;
+    credentialId: string;
+    credential: string;
+    updater: ILocalDBRecordUpdater<ELocalDBStoreNames.Credential>;
+  }) {
+    try {
+      const [existCredential] = await this.txGetRecordById({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        id: credentialId,
+      });
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        ids: [credentialId],
+        updater,
+      });
+    } catch (error) {
+      await this.txAddRecords({
+        tx,
+        skipIfExists: true,
+        name: ELocalDBStoreNames.Credential,
+        records: [
+          {
+            id: credentialId,
+            credential,
+          },
+        ],
+      });
+    }
+  }
+
   // ---------------------------------------------- wallet
 
   async txUpdateWallet({

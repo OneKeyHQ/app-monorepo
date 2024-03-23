@@ -77,12 +77,10 @@ class ServiceLightning extends ServiceBase {
   }) {
     const { serviceNetwork } = this.backgroundApi;
     const { isTestnet } = await serviceNetwork.getNetwork({ networkId });
-    const address = await this.getLightningAddress({ accountId, networkId });
     const client = await this.getLnClient(isTestnet);
     return client.createInvoice({
       accountId,
       networkId,
-      address,
       amount,
       description,
     });

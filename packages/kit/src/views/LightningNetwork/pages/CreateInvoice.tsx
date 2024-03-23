@@ -48,12 +48,14 @@ function CreateInvoice() {
   const onSubmit = useCallback(
     async (values: IFormValues) => {
       console.log('formvalue: ', values);
-      await serviceLightning.createInvoice({
+      const response = await serviceLightning.createInvoice({
         accountId,
         networkId,
         amount: values.amount,
         description: values.description,
       });
+      console.log('invoice: ', response.payment_request);
+      // TODO: show invoice, to Receive page
     },
     [accountId, networkId, serviceLightning],
   );

@@ -1,8 +1,8 @@
-import { type AxiosError, type AxiosInstance, isAxiosError } from 'axios';
-
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDbInstance';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -12,6 +12,8 @@ import type {
   IInvoiceConfig,
 } from '@onekeyhq/shared/types/lightning';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
+
+import type { AxiosInstance } from 'axios';
 
 function isAuthError(error: unknown): boolean {
   return (error as OneKeyError) && (error as OneKeyError).code === 401;
@@ -65,6 +67,32 @@ class ClientLightning {
       );
     }
   };
+
+  private async getAuthorization({
+    accountId,
+    networkId,
+    address,
+  }: {
+    accountId: string;
+    networkId: string;
+    address?: string;
+  }) {
+    const usedAddress =
+      address ||
+      (await this.backgroundApi.serviceLightning.getLightningAddress({
+        accountId,
+        networkId,
+      }));
+    try {
+      const credential = await localDb.getCredential(
+        accountUtils.buildLightingCredentialId({ address: usedAddress }),
+      );
+      return credential.credential;
+    } catch (e) {
+      console.error('=====>>>getAuthorization failed: ', e);
+      return '';
+    }
+  }
 
   async checkAccountExist(address: string) {
     return this.request
@@ -136,7 +164,7 @@ class ClientLightning {
           randomSeed,
           testnet: this.testnet,
         })
-        .then((i) => i.data);
+        .then((i) => i.data.data);
     } catch (e) {
       console.log('=====>>>exchange token failed: ', e);
       throw e;
@@ -162,13 +190,11 @@ class ClientLightning {
   async createInvoice({
     accountId,
     networkId,
-    address,
     amount,
     description,
   }: {
     accountId: string;
     networkId: string;
-    address: string;
     amount: string;
     description?: string;
   }): Promise<ICreateInvoiceResponse['data']> {
@@ -182,9 +208,12 @@ class ClientLightning {
             testnet: this.testnet,
           },
           {
-            // headers: {
-            //   Authorization: await this.getAuthorization(address),
-            // },
+            headers: {
+              Authorization: await this.getAuthorization({
+                accountId,
+                networkId,
+              }),
+            },
           },
         );
         return res.data.data;

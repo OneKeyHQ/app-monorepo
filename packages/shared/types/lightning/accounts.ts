@@ -12,10 +12,10 @@ export type IAuthParams = {
   refresh_token: string;
 };
 
-export type IAuthResponse = {
-  access_token: string;
-  refresh_token: string;
-};
+export type IAuthResponse = IOneKeyAPIBaseResponse<{
+  accessToken: string;
+  refreshToken: string;
+}>;
 
 export type IBalanceResponse = {
   balance: number;

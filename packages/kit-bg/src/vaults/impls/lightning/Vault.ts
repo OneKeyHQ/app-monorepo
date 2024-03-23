@@ -24,6 +24,7 @@ import type {
 import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
+import localDb from '../../../dbs/local/localDbInstance';
 import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringExternal } from './KeyringExternal';
@@ -184,6 +185,10 @@ export default class Vault extends VaultBase {
       signature: sign,
       timestamp,
       randomSeed: signTemplate.randomSeed,
+    });
+    await localDb.updateLightningCredential({
+      credentialId: accountUtils.buildLightingCredentialId({ address }),
+      credential: res.accessToken,
     });
     return res;
   }
