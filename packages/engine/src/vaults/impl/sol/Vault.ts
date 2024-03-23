@@ -138,7 +138,6 @@ import type {
 } from '@metaplex-foundation/mpl-token-metadata';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
-import { Buff } from '@cmdcode/buff-utils';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -498,7 +497,6 @@ export default class Vault extends VaultBase {
     const { encodedTx, feeInfoValue } = params;
     const { computeUnitPrice } = feeInfoValue;
     const client = await this.getClient();
-
     if (isNil(computeUnitPrice)) {
       return Promise.resolve(encodedTx);
     }
@@ -564,9 +562,63 @@ export default class Vault extends VaultBase {
       }
     }
 
-    return bs58.encode(
-      (nativeTx as Transaction).serialize({ requireAllSignatures: false }),
-    );
+    try {
+      return bs58.encode(
+        (nativeTx as Transaction).serialize({ requireAllSignatures: false }),
+      );
+    } catch {
+      return '';
+    }
+  }
+
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    const { encodedTx, feeInfoValue } = params;
+    const client = await this.getClient();
+    const accountAddress = await this.getAccountAddress();
+    let computeUnitPrice = '0';
+
+    const nativeTx = await this.helper.parseToNativeTx(encodedTx);
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client: await this.getClient(),
+    });
+
+    const computeUnitPriceFromInstructions =
+      parseComputeUnitPrice(instructions);
+
+    if (computeUnitPriceFromInstructions !== '0') {
+      // If the DApp tx  includes prioritization fee,
+      // try replacing it with another one to see if that works.
+      const encodedTxWithFee = await this.attachFeeInfoToEncodedTx({
+        encodedTx,
+        feeInfoValue: {
+          ...feeInfoValue,
+          computeUnitPrice: '1',
+        },
+      });
+
+      return encodedTxWithFee === '' ? encodedTxWithFee : encodedTx;
+    }
+
+    if (isNil(feeInfoValue.computeUnitPrice)) {
+      const prioritizationFee = await client.getRecentMaxPrioritizationFees([
+        accountAddress,
+      ]);
+      computeUnitPrice = String(Math.max(MIN_PRIORITY_FEE, prioritizationFee));
+    } else {
+      computeUnitPrice = feeInfoValue.computeUnitPrice;
+    }
+
+    return this.attachFeeInfoToEncodedTx({
+      encodedTx,
+      feeInfoValue: {
+        ...feeInfoValue,
+        computeUnitPrice,
+      },
+    });
   }
 
   override async decodeTx(

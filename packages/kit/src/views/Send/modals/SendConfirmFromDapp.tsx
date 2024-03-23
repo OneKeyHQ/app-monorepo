@@ -3,9 +3,11 @@ import { useCallback, useEffect, useRef } from 'react';
 import { StackActions, useNavigation } from '@react-navigation/native';
 import { AppState } from 'react-native';
 
+import { Center, Modal, Spinner } from '@onekeyhq/components';
 import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import { IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { getActiveWalletAccount } from '../../../hooks';
 import useDappParams from '../../../hooks/useDappParams';
 import { useReduxReady } from '../../../hooks/useReduxReady';
@@ -37,22 +39,46 @@ export function SendConfirmFromDapp() {
     networkId: dappNetworkId,
   } = useDappParams();
 
-  const navigateToSendConfirm = useCallback(() => {
+  const navigateToSendConfirm = useCallback(async () => {
     let action: any;
+    let newEncodedTx = encodedTx;
     // TODO get network and account from dapp connections
-    const { networkId, accountId } = getActiveWalletAccount();
+    const { networkId, accountId, networkImpl } = getActiveWalletAccount();
 
     // alert(JSON.stringify({ networkId, accountId, isReady }));
     // TODO providerName
-    if (encodedTx) {
+    if (newEncodedTx) {
       const isPsbt = (encodedTx as IEncodedTxBtc).psbtHex;
+
+      let feeInfoEditable = !isPsbt;
+      if (networkImpl === IMPL_SOL) {
+        /*
+         * Try adding prioritization fee to the transaction
+         * to check whether the fee information has been signed.
+         * If true, the fee information is not editable.
+         */
+
+        const encodedTxSolWithFee =
+          await backgroundApiProxy.serviceGas.attachFeeInfoToDAppEncodedTx({
+            accountId,
+            networkId,
+            encodedTx: newEncodedTx,
+            feeInfoValue: {},
+          });
+        if (encodedTxSolWithFee === '') {
+          feeInfoEditable = false;
+        } else {
+          feeInfoEditable = true;
+          newEncodedTx = encodedTxSolWithFee;
+        }
+      }
 
       const params: SendConfirmParams = {
         networkId: dappNetworkId ?? networkId,
         accountId,
         sourceInfo,
-        encodedTx,
-        feeInfoEditable: !isPsbt,
+        encodedTx: newEncodedTx,
+        feeInfoEditable,
         feeInfoUseFeeInTx: true,
         ignoreFetchFeeCalling: !!isPsbt,
         signOnly,
@@ -126,5 +152,11 @@ export function SendConfirmFromDapp() {
     navigateToSendConfirm,
   ]);
 
-  return null;
+  return (
+    <Modal footer={null}>
+      <Center minH="320px" w="full" h="full" flex={1}>
+        <Spinner size="lg" />
+      </Center>
+    </Modal>
+  );
 }
