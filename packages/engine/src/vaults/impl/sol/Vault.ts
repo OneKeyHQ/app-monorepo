@@ -27,6 +27,7 @@ import {
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
 import {
+  AddressLookupTableAccount,
   ComputeBudgetInstruction,
   ComputeBudgetProgram,
   PublicKey,
@@ -92,6 +93,8 @@ import {
   TOKEN_METADATA_PROGRAM_ID,
   masterEditionAddress,
   metadataAddress,
+  parseComputeUnitPrice,
+  parseNativeTxDetail,
   tokenRecordAddress,
 } from './utils';
 
@@ -493,39 +496,129 @@ export default class Vault extends VaultBase {
   }): Promise<IEncodedTx> {
     const { encodedTx, feeInfoValue } = params;
     const { computeUnitPrice } = feeInfoValue;
-
+    const client = await this.getClient();
     if (isNil(computeUnitPrice)) {
       return Promise.resolve(encodedTx);
     }
 
     let isComputeUnitPriceExist = false;
-    const nativeTx: Transaction = await this.helper.parseToNativeTx(encodedTx);
+    const nativeTx = await this.helper.parseToNativeTx(encodedTx);
+    const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
     const prioritizationFeeInstruction =
       ComputeBudgetProgram.setComputeUnitPrice({
         microLamports: Number(computeUnitPrice),
       });
 
-    for (let i = 0; i < nativeTx.instructions.length; i += 1) {
-      const instruction = nativeTx.instructions[i];
+    const {
+      instructions,
+      addressLookupTableAccounts,
+      versionedTransactionMessage,
+    } = await parseNativeTxDetail({
+      nativeTx,
+      client,
+    });
+
+    for (let i = 0; i < instructions.length; i += 1) {
+      const instruction = instructions[i];
       if (
         instruction.programId.toString() ===
         ComputeBudgetProgram.programId.toString()
       ) {
-        const { microLamports } =
-          ComputeBudgetInstruction.decodeSetComputeUnitPrice(instruction);
-        if (!isNil(microLamports)) {
-          nativeTx.instructions[i] = prioritizationFeeInstruction;
-          isComputeUnitPriceExist = true;
-          break;
+        const instructionType =
+          ComputeBudgetInstruction.decodeInstructionType(instruction);
+        if (instructionType === 'SetComputeUnitPrice') {
+          const { microLamports } =
+            ComputeBudgetInstruction.decodeSetComputeUnitPrice(instruction);
+          if (!isNil(microLamports)) {
+            isComputeUnitPriceExist = true;
+
+            if (isVersionedTransaction && versionedTransactionMessage) {
+              versionedTransactionMessage.instructions[i] =
+                prioritizationFeeInstruction;
+              nativeTx.message = versionedTransactionMessage.compileToV0Message(
+                addressLookupTableAccounts,
+              );
+            } else {
+              nativeTx.instructions[i] = prioritizationFeeInstruction;
+              break;
+            }
+          }
         }
       }
     }
 
     if (!isComputeUnitPriceExist) {
-      nativeTx.add(prioritizationFeeInstruction);
+      if (isVersionedTransaction && versionedTransactionMessage) {
+        versionedTransactionMessage.instructions.unshift(
+          prioritizationFeeInstruction,
+        );
+        nativeTx.message = versionedTransactionMessage.compileToV0Message(
+          addressLookupTableAccounts,
+        );
+      } else {
+        (nativeTx as Transaction).instructions.unshift(
+          prioritizationFeeInstruction,
+        );
+      }
     }
 
-    return bs58.encode(nativeTx.serialize({ requireAllSignatures: false }));
+    try {
+      return bs58.encode(
+        (nativeTx as Transaction).serialize({ requireAllSignatures: false }),
+      );
+    } catch {
+      return '';
+    }
+  }
+
+  override async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    const { encodedTx, feeInfoValue } = params;
+    const client = await this.getClient();
+    const accountAddress = await this.getAccountAddress();
+    let computeUnitPrice = '0';
+
+    const nativeTx = await this.helper.parseToNativeTx(encodedTx);
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx,
+      client: await this.getClient(),
+    });
+
+    const computeUnitPriceFromInstructions =
+      parseComputeUnitPrice(instructions);
+
+    if (new BigNumber(computeUnitPriceFromInstructions).gte(MIN_PRIORITY_FEE)) {
+      // If the DApp tx  includes prioritization fee,
+      // try replacing it with another one to see if that works.
+      const encodedTxWithFee = await this.attachFeeInfoToEncodedTx({
+        encodedTx,
+        feeInfoValue: {
+          ...feeInfoValue,
+          computeUnitPrice: '1',
+        },
+      });
+
+      return encodedTxWithFee === '' ? encodedTxWithFee : encodedTx;
+    }
+
+    if (isNil(feeInfoValue.computeUnitPrice)) {
+      const prioritizationFee = await client.getRecentMaxPrioritizationFees([
+        accountAddress,
+      ]);
+      computeUnitPrice = String(Math.max(MIN_PRIORITY_FEE, prioritizationFee));
+    } else {
+      computeUnitPrice = feeInfoValue.computeUnitPrice;
+    }
+
+    return this.attachFeeInfoToEncodedTx({
+      encodedTx,
+      feeInfoValue: {
+        ...feeInfoValue,
+        computeUnitPrice,
+      },
+    });
   }
 
   override async decodeTx(
@@ -1002,7 +1095,6 @@ export default class Vault extends VaultBase {
         isProgrammableNFT: false,
       };
     } catch (error) {
-      console.log(error);
       return {
         isProgrammableNFT: false,
       };
@@ -1297,37 +1389,15 @@ export default class Vault extends VaultBase {
   ): Promise<IFeeInfo> {
     const client = await this.getClient();
     let nativeTx: INativeTxSol = await this.helper.parseToNativeTx(encodedTx);
-    const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
     let message = '';
     let instructions: TransactionInstruction[] = [];
-    let transactionMessage;
     let computeUnitPrice = '0';
     if (isNil(specifiedFeeRate)) {
       try {
-        if (isVersionedTransaction) {
-          nativeTx = nativeTx as VersionedTransaction;
-          message = Buffer.from(nativeTx.message.serialize()).toString(
-            'base64',
-          );
-          transactionMessage = TransactionMessage.decompile(nativeTx.message);
-          instructions = transactionMessage.instructions;
-        } else {
-          nativeTx = nativeTx as Transaction;
-          message = nativeTx.compileMessage().serialize().toString('base64');
-          instructions = nativeTx.instructions;
-        }
-
-        for (const instruction of instructions) {
-          if (
-            instruction.programId.toString() ===
-            ComputeBudgetProgram.programId.toString()
-          ) {
-            const { microLamports } =
-              ComputeBudgetInstruction.decodeSetComputeUnitPrice(instruction);
-            computeUnitPrice = microLamports.toString();
-            break;
-          }
-        }
+        const detail = await parseNativeTxDetail({ nativeTx, client });
+        message = detail.message;
+        instructions = detail.instructions;
+        computeUnitPrice = parseComputeUnitPrice(instructions);
       } catch {
         // pass
       }
@@ -1336,10 +1406,12 @@ export default class Vault extends VaultBase {
         encodedTx,
         feeInfoValue: { computeUnitPrice: specifiedFeeRate },
       });
-      nativeTx = (await this.helper.parseToNativeTx(
-        encodedTxWithFee,
-      )) as Transaction;
-      message = nativeTx.compileMessage().serialize().toString('base64');
+      nativeTx = await this.helper.parseToNativeTx(encodedTxWithFee);
+      if (nativeTx instanceof VersionedTransaction) {
+        message = Buffer.from(nativeTx.message.serialize()).toString('base64');
+      } else {
+        message = nativeTx.compileMessage().serialize().toString('base64');
+      }
     }
 
     const [network, feePerSig] = await Promise.all([

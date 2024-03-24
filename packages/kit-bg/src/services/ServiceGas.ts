@@ -1,5 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import type {
+  IEncodedTx,
+  IFeeInfoUnit,
+} from '@onekeyhq/engine/src/vaults/types';
 import { setNetworkPrice } from '@onekeyhq/kit/src/store/reducers/discover';
 import {
   backgroundClass,
@@ -54,6 +58,22 @@ class ServiceGas extends ServiceBase {
     } finally {
       this.isRefresh[networkId] = false;
     }
+  }
+
+  @backgroundMethod()
+  async attachFeeInfoToDAppEncodedTx(params: {
+    networkId: string;
+    accountId: string;
+    encodedTx: IEncodedTx;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    const { networkId, accountId } = params;
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getVault({ networkId, accountId });
+    const txWithFee: IEncodedTx = await vault.attachFeeInfoToDAppEncodedTx(
+      params,
+    );
+    return txWithFee;
   }
 }
 
