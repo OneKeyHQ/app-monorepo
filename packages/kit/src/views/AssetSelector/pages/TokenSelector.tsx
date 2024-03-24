@@ -61,14 +61,15 @@ function TokenSelector() {
 
   const fetchAccountTokens = useCallback(async () => {
     updateTokenListState({ initialized: false, isRefreshing: true });
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    const accountAddress =
+      await backgroundApiProxy.serviceAccount.getAccountAddress({
+        accountId,
+        networkId,
+      });
 
     const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
       networkId,
-      accountAddress: account.address,
+      accountAddress,
       mergeTokens: true,
       flag: 'token-selector',
     });

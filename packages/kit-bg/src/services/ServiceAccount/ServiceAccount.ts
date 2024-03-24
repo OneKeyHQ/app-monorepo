@@ -1243,6 +1243,21 @@ class ServiceAccount extends ServiceBase {
     const vault = await vaultFactory.getVault({ accountId, networkId });
     return vault.getAccountXpub();
   }
+
+  @backgroundMethod()
+  async getAccountAddress({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const account = await this.getAccount({ accountId, networkId });
+    if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+      return account.addressDetail.normalizedAddress;
+    }
+    return account.address;
+  }
 }
 
 export default ServiceAccount;
