@@ -10,13 +10,12 @@ import TronWeb from 'tronweb';
 import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
 import type { FeePricePerUnit } from '@onekeyhq/engine/src/types/provider';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { getTimeDurationMs, wait } from '@onekeyhq/kit/src/utils/helper';
 import { toBigIntHex } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { fromBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { getTronScanEndpoint } from '../../../endpoint';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -57,6 +56,7 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type {
+  IClientApi,
   IEncodedTxTron,
   IOnChainInternalTxHistory,
   IOnChainTransferHistory,
@@ -113,8 +113,35 @@ export default class Vault extends VaultBase {
     },
   );
 
+  private getAccountTokensMemo = memoizee(
+    async (address: string) => {
+      try {
+        const apiExplorer = await this.getApiExplorer();
+        const resp = await apiExplorer.get<{ data: ITokenDetail[] }>(
+          'api/account/tokens',
+          {
+            params: {
+              address,
+            },
+          },
+        );
+
+        const tokens = resp?.data?.data || [];
+        return tokens;
+      } catch {
+        // pass
+      }
+    },
+    {
+      promise: true,
+      max: 10,
+      maxAge: getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
   async getApiExplorer() {
-    return this.getApiExplorerCache(getTronScanEndpoint());
+    const clientApi = await this.getClientApi<IClientApi>();
+    return this.getApiExplorerCache(clientApi.tronscan);
   }
 
   public async getClient() {
@@ -180,25 +207,6 @@ export default class Vault extends VaultBase {
     },
     { promise: true, maxAge: getTimeDurationMs({ minute: 3 }) },
   );
-
-  async getAccountTokens(address: string) {
-    try {
-      const apiExplorer = await this.getApiExplorer();
-      const resp = await apiExplorer.get<{ data: ITokenDetail[] }>(
-        'api/account/tokens',
-        {
-          params: {
-            address,
-          },
-        },
-      );
-
-      const tokens = resp?.data?.data || [];
-      return tokens;
-    } catch {
-      // pass
-    }
-  }
 
   async getConsumableResource(address: string) {
     const tronWeb = await this.getClient();
@@ -287,22 +295,22 @@ export default class Vault extends VaultBase {
     requests: Array<{ address: string; tokenAddress?: string }>,
   ) {
     const addresses = uniq(map(requests, 'address'));
-    const tokens = await Promise.all(
-      addresses.map(async (address) => {
-        try {
-          const accountTokens = await this.getAccountTokens(address);
-          if (accountTokens) {
-            return {
-              address,
-              tokens: accountTokens,
-            };
-          }
-          return null;
-        } catch {
-          return null;
+    const tokens: { address: string; tokens: ITokenDetail[] }[] = [];
+    // Avoid the frequency limitation problem of tron scan api
+    for (let i = 0; i < addresses.length; i += 1) {
+      try {
+        const accountTokens = await this.getAccountTokensMemo(addresses[i]);
+        if (accountTokens) {
+          tokens.push({
+            address: addresses[i],
+            tokens: accountTokens,
+          });
         }
-      }),
-    );
+      } catch {
+        // pass
+      }
+      await wait(300);
+    }
 
     return requests.map((request) => {
       const { address, tokenAddress } = request;
