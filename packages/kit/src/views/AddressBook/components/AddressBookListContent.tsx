@@ -10,7 +10,6 @@ import {
   SectionList,
   SizableText,
   Stack,
-  Toast,
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -68,9 +67,6 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
               icon: 'Copy1Outline',
               onPress: async () => {
                 copyText(item.address);
-                Toast.success({
-                  title: intl.formatMessage({ id: 'msg__copied' }),
-                });
               },
               testID: `address-menu-copy-${item.address ?? ''}`,
             },
