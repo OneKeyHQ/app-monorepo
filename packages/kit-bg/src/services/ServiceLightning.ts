@@ -100,6 +100,23 @@ class ServiceLightning extends ServiceBase {
     })) as LightningVault;
     await vault.exchangeToken();
   }
+
+  @backgroundMethod()
+  async checkAuth({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const { serviceNetwork } = this.backgroundApi;
+    const { isTestnet } = await serviceNetwork.getNetwork({ networkId });
+    const client = await this.getLnClient(isTestnet);
+    return client.checkAuth({
+      accountId,
+      networkId,
+    });
+  }
 }
 
 export default ServiceLightning;

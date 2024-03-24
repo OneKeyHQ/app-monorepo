@@ -40,6 +40,7 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+  validationRequired: true,
 };
 
 export default Object.freeze(settings);

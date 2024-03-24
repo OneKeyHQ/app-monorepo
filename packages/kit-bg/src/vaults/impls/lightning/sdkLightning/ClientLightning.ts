@@ -171,6 +171,36 @@ class ClientLightning {
     }
   }
 
+  checkAuth = memoizee(
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId: string;
+      networkId: string;
+    }) => {
+      const authorization = await this.getAuthorization({
+        accountId,
+        networkId,
+      });
+      if (!authorization) {
+        throw new Error('Bad Auth');
+      }
+      return this.request
+        .get<IOneKeyAPIBaseResponse<boolean>>('/account/auth/check', {
+          params: { testnet: this.testnet },
+          headers: {
+            Authorization: authorization,
+          },
+        })
+        .then((i) => i.data.data);
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
   getConfig = memoizee(
     async () =>
       this.request

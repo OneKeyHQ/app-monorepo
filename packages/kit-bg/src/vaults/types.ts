@@ -124,6 +124,7 @@ export type IVaultSettings = {
     default: IVaultSettingsNetworkInfo;
     [networkId: string]: IVaultSettingsNetworkInfo;
   };
+  validationRequired?: boolean;
 };
 
 export type IVaultFactoryOptions = {
