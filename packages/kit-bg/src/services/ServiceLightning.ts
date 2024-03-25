@@ -6,6 +6,7 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { vaultFactory } from '../vaults/factory';
 import ClientLightning from '../vaults/impls/lightning/sdkLightning/ClientLightning';
@@ -94,11 +95,21 @@ class ServiceLightning extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    const vault = (await vaultFactory.getVault({
-      networkId,
-      accountId,
-    })) as LightningVault;
-    await vault.exchangeToken();
+    const { deviceParams } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.LightningNetworkAuth,
+      });
+    await this.backgroundApi.serviceHardware.withHardwareProcessing(
+      async () => {
+        const vault = (await vaultFactory.getVault({
+          networkId,
+          accountId,
+        })) as LightningVault;
+        await vault.exchangeToken();
+      },
+      { deviceParams },
+    );
   }
 
   @backgroundMethod()

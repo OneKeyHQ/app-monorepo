@@ -24,12 +24,18 @@ import {
   type ICurveName,
   type ISignedTxPro,
 } from '../../types';
-import { getBitcoinECPair, getBtcForkNetwork } from '../btc/sdkBtc';
+import {
+  getAddressFromXpub,
+  getBitcoinECPair,
+  getBtcForkNetwork,
+} from '../btc/sdkBtc';
 
 import { generateNativeSegwitAccounts } from './sdkLightning/account';
 
 import type { IUnionMsgType } from './types';
 import type { ISigner } from '../../base/ChainSigner';
+import type { EAddressEncodings } from '../../types';
+import type { IBtcForkNetwork } from '../btc/types';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -101,6 +107,28 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       address,
       publicKey,
     });
+  }
+
+  public async getAddressFromXpub({
+    network,
+    xpub,
+    relativePaths,
+    addressEncoding,
+  }: {
+    network: IBtcForkNetwork;
+    xpub: string;
+    relativePaths: Array<string>;
+    addressEncoding?: EAddressEncodings;
+  }): Promise<Record<string, string>> {
+    const ret = getAddressFromXpub({
+      curve,
+      network,
+      xpub,
+      relativePaths,
+      addressEncoding,
+      encodeAddress: (address) => address,
+    });
+    return Promise.resolve(ret);
   }
 
   private async buildSignerLightning({

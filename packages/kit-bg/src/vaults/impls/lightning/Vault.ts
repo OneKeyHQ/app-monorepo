@@ -165,6 +165,18 @@ export default class Vault extends VaultBase {
     }
     const timestamp = Date.now();
     const keyring = this.keyring as KeyringHd;
+    let connectId;
+    let deviceId;
+    let deviceCommonParams;
+    if (accountUtils.isHwWallet({ walletId: this.walletId })) {
+      const { dbDevice, deviceCommonParams: _deviceCommonParams } =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId: this.walletId,
+        });
+      connectId = dbDevice.connectId;
+      deviceId = dbDevice.deviceId;
+      deviceCommonParams = _deviceCommonParams;
+    }
     const sign = await keyring.signApiMessage({
       msgPayload: {
         ...signTemplate,
@@ -172,12 +184,15 @@ export default class Vault extends VaultBase {
         address,
         timestamp,
       },
-      password,
       address,
       path: accountUtils.buildLnToBtcPath({
         path: usedAccount.path,
         isTestnet,
       }),
+      password,
+      connectId,
+      deviceId,
+      deviceCommonParams,
     });
     const res = await client.refreshAccessToken({
       hashPubKey,

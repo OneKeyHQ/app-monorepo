@@ -187,12 +187,15 @@ class ClientLightning {
         throw new Error('Bad Auth');
       }
       return this.request
-        .get<IOneKeyAPIBaseResponse<boolean>>('/account/auth/check', {
-          params: { testnet: this.testnet },
-          headers: {
-            Authorization: authorization,
+        .get<IOneKeyAPIBaseResponse<boolean>>(
+          `${this.prefix}/account/auth/check`,
+          {
+            params: { testnet: this.testnet },
+            headers: {
+              Authorization: authorization,
+            },
           },
-        })
+        )
         .then((i) => i.data.data);
     },
     {

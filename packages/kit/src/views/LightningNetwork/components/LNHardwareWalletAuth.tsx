@@ -18,13 +18,13 @@ function LNHardwareWalletAuth({
   const intl = useIntl();
   const [verifyAuth, setVerifyAuth] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { result } = usePromiseResult(async () => {
+  const { result, run } = usePromiseResult(async () => {
     try {
-      const ret = await backgroundApiProxy.serviceLightning.checkAuth({
+      await backgroundApiProxy.serviceLightning.checkAuth({
         accountId,
         networkId,
       });
-      return ret;
+      return true;
     } catch {
       return false;
     } finally {
@@ -39,6 +39,9 @@ function LNHardwareWalletAuth({
         networkId,
         accountId,
       });
+      setTimeout(() => {
+        void run();
+      }, 200);
     } catch (e) {
       console.error('refresh lightning network token failed: ', e);
       Toast.error({
@@ -49,7 +52,7 @@ function LNHardwareWalletAuth({
     } finally {
       setIsLoading(false);
     }
-  }, [networkId, accountId, intl]);
+  }, [networkId, accountId, intl, run]);
 
   if (!verifyAuth) {
     return (
@@ -59,12 +62,18 @@ function LNHardwareWalletAuth({
     );
   }
 
-  if (!result) {
+  if (result) {
     return <>{children}</>;
   }
 
   return (
-    <Stack w="full" h="full">
+    <Stack
+      testID="LNHardware"
+      w="100%"
+      h="100%"
+      justifyContent="center"
+      alignItems="center"
+    >
       <Empty
         icon="SearchOutline"
         title="Authorize Access"
