@@ -24,7 +24,7 @@ const BiologyAuthSwitchContainer = ({
           skipAuth,
         );
       } catch (e) {
-        Toast.error({ title: 'set biology auth fail' });
+        Toast.error({ title: 'Set biology auth fail' });
       }
     },
     [skipAuth],
