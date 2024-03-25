@@ -8,21 +8,31 @@ import {
 import BiologyAuthSwitchContainer from './BiologyAuthSwitchContainer';
 import WebAuthSwitchContainer from './WebAuthSwitchContainer';
 
-const UniversalContainer = () => {
+interface IUniversalContainerProps {
+  skipAuth?: boolean;
+}
+
+const UniversalContainer = ({ skipAuth }: IUniversalContainerProps) => {
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
   if (biologyAuthIsSupport) {
-    return <BiologyAuthSwitchContainer />;
+    return <BiologyAuthSwitchContainer skipAuth={skipAuth} />;
   }
   if (webAuthIsSupport) {
-    return <WebAuthSwitchContainer />;
+    return <WebAuthSwitchContainer skipRegistration={skipAuth} />;
   }
   return null;
 };
 
-export const UniversalContainerWithSuspense = () => (
+interface IUniversalContainerWithSuspenseProps {
+  skipAuth?: boolean;
+}
+
+export const UniversalContainerWithSuspense = ({
+  skipAuth,
+}: IUniversalContainerWithSuspenseProps) => (
   <Suspense fallback={null}>
-    <UniversalContainer />
+    <UniversalContainer skipAuth={skipAuth} />
   </Suspense>
 );

@@ -7,16 +7,28 @@ import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jota
 
 import BiologyAuthSwitch from '../components/BiologyAuthSwitch';
 
-const BiologyAuthSwitchContainer = () => {
+interface IBiologyAuthSwitchContainerProps {
+  skipAuth?: boolean; // only use for password setup
+}
+
+const BiologyAuthSwitchContainer = ({
+  skipAuth,
+}: IBiologyAuthSwitchContainerProps) => {
   const [{ isSupport }] = usePasswordBiologyAuthInfoAtom();
   const [settings] = useSettingsPersistAtom();
-  const onChange = useCallback(async (checked: boolean) => {
-    try {
-      await backgroundApiProxy.servicePassword.setBiologyAuthEnable(checked);
-    } catch (e) {
-      Toast.error({ title: 'msg__verification_failure' });
-    }
-  }, []);
+  const onChange = useCallback(
+    async (checked: boolean) => {
+      try {
+        await backgroundApiProxy.servicePassword.setBiologyAuthEnable(
+          checked,
+          skipAuth,
+        );
+      } catch (e) {
+        Toast.error({ title: 'set biology auth fail' });
+      }
+    },
+    [skipAuth],
+  );
   return (
     <BiologyAuthSwitch
       isSupport={isSupport}
