@@ -19,10 +19,10 @@ import {
 } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
-import { usePromiseResult } from '../../../../hooks/usePromiseResult';
 import { Tutorials } from '../../components';
 import { useShowCopyPasteButton } from '../../components/hooks';
 
