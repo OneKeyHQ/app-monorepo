@@ -1,10 +1,13 @@
-import { CommonScene } from './scenes/common';
-import { WalletScene } from './scenes/wallet';
+import { AppScope } from './scopes/app';
+import { DemoScope } from './scopes/demo';
+import { SettingScope } from './scopes/setting';
 
 class Logger {
-  wallet = new WalletScene();
+  app = new AppScope();
 
-  common = new CommonScene();
+  demo = new DemoScope();
+
+  setting = new SettingScope();
 }
 
 export const defaultLogger = new Logger();

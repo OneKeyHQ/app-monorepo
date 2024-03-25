@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { exportLogs } from './logs';
 
@@ -20,7 +19,6 @@ export const StateLogsItem = () => {
       },
       onConfirmText: 'Export',
       onConfirm: () => {
-        defaultLogger.common.logDeviceInfo();
         const str = new Date().toISOString().replace(/[-:.]/g, '');
         void exportLogs(`OneKeyLogs-${str}`);
       },
