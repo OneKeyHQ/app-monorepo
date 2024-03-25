@@ -27,6 +27,7 @@ import type {
   IAddressValidation,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
@@ -92,6 +93,10 @@ export abstract class VaultBaseChainOnly extends VaultContext {
 
   abstract validateXprvt(xprvt: string): Promise<IXprvtValidation>;
 
+  abstract validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation>;
+
   abstract validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation>;
@@ -102,7 +107,8 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     const input = decodeSensitiveText({
       encodedText: params.input,
     });
-    const { validateAddress, validateXprvt, validateXpub } = params;
+    const { validateAddress, validateXprvt, validateXpub, validatePrivateKey } =
+      params;
 
     const result: IGeneralInputValidation = { isValid: false };
 
@@ -111,6 +117,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     let addressResult: IAddressValidation | undefined;
     let xpubResult: IXpubValidation | undefined;
     let xprvtResult: IXprvtValidation | undefined;
+    let privateKeyResult: IPrivateKeyValidation | undefined;
 
     if (validateAddress && !isValid) {
       try {
@@ -137,6 +144,16 @@ export abstract class VaultBaseChainOnly extends VaultContext {
         xprvtResult = await this.validateXprvt(input);
         result.xprvtResult = xprvtResult;
         isValid = isValid || xprvtResult?.isValid;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (validatePrivateKey && !isValid) {
+      try {
+        privateKeyResult = await this.validatePrivateKey(input);
+        result.privateKeyResult = privateKeyResult;
+        isValid = isValid || privateKeyResult?.isValid;
       } catch (error) {
         console.error(error);
       }

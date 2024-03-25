@@ -2,7 +2,10 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
-import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import {
+  getPublicKeyFromPrivateKey,
+  validateEvmAddress,
+} from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import {
   EthersJsonRpcProvider,
   ethers,
@@ -22,6 +25,7 @@ import type {
   IAddressValidation,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
@@ -86,6 +90,26 @@ import type { KeyringBase } from '../../base/KeyringBase';
 
 // evm vault
 export default class Vault extends VaultBase {
+  override async validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    try {
+      const r = await getPublicKeyFromPrivateKey({
+        privateKeyRaw: privateKey,
+      });
+      if (r.publicKey) {
+        return {
+          isValid: true,
+        };
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    return {
+      isValid: false,
+    };
+  }
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,
@@ -95,7 +119,9 @@ export default class Vault extends VaultBase {
   };
 
   override validateXprvt(): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false, // EVM not support xprvt
+    });
   }
 
   override async validateGeneralInput(

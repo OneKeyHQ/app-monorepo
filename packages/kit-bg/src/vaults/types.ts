@@ -361,4 +361,5 @@ export type IValidateGeneralInputParams = {
   validateAddress?: boolean;
   validateXpub?: boolean;
   validateXprvt?: boolean;
+  validatePrivateKey?: boolean;
 };

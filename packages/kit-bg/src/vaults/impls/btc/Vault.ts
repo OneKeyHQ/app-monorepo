@@ -44,6 +44,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
@@ -293,6 +294,12 @@ export default class VaultBtc extends VaultBase {
 
   async getBtcForkNetwork() {
     return getBtcForkNetwork(await this.getNetworkImpl());
+  }
+
+  override validatePrivateKey(): Promise<IPrivateKeyValidation> {
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override async validateXpub(xpub: string): Promise<IXpubValidation> {

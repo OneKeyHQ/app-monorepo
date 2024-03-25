@@ -3,6 +3,7 @@ import {
   pubkeyToAddressDetail,
   validateCosmosAddress,
 } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -13,6 +14,7 @@ import type {
   IAddressValidation,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
@@ -40,8 +42,34 @@ import type {
 } from '../../types';
 
 export default class VaultCosmos extends VaultBase {
+  coreApi = coreChainApi.cosmos.hd;
+
+  override async validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    try {
+      const networkInfo = await this.getCoreApiNetworkInfo();
+      const result = await this.coreApi.getAddressFromPrivate({
+        networkInfo,
+        privateKeyRaw: privateKey,
+      });
+      if (result.publicKey) {
+        return {
+          isValid: true,
+        };
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    return {
+      isValid: false,
+    };
+  }
+
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override async validateGeneralInput(

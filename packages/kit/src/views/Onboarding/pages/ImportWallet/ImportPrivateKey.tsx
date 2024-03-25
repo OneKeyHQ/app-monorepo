@@ -59,6 +59,7 @@ export function ImportPrivateKey() {
             input,
             networkId: values.networkId,
             validateXprvt: true,
+            validatePrivateKey: true,
           },
         );
       setValidateResult(result);
@@ -71,6 +72,13 @@ export function ImportPrivateKey() {
   useEffect(() => {
     void validateFn();
   }, [validateFn]);
+
+  const networkIdText = useFormWatch({ control, name: 'networkId' });
+  useEffect(() => {
+    if (networkIdText) {
+      setValue('input', '');
+    }
+  }, [networkIdText, setValue]);
 
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();

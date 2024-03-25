@@ -48,11 +48,16 @@ export type IXprvtValidation = {
   isValid: boolean;
 };
 
+export type IPrivateKeyValidation = {
+  isValid: boolean;
+};
+
 export type IGeneralInputValidation = {
   isValid: boolean;
   addressResult?: IAddressValidation;
   xpubResult?: IXpubValidation;
   xprvtResult?: IXprvtValidation;
+  privateKeyResult?: IPrivateKeyValidation;
   deriveInfoItems?: IAccountDeriveInfo[];
 };
 

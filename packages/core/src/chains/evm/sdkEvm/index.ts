@@ -5,17 +5,21 @@ import { secp256k1 } from '@onekeyhq/core/src/secret';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 
-import type { IEncodedTxEvm } from '../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
+import type { IEncodedTxEvm } from '../types';
 
 export async function getPublicKeyFromPrivateKey({
   privateKeyRaw,
 }: {
   privateKeyRaw: string;
 }): Promise<{ publicKey: string }> {
+  if (!hexUtils.isHexString(privateKeyRaw)) {
+    throw new OneKeyInternalError('Invalid private key.');
+  }
   const privateKey = bufferUtils.toBuffer(privateKeyRaw);
   if (privateKey.length !== 32) {
     throw new OneKeyInternalError('Invalid private key.');
