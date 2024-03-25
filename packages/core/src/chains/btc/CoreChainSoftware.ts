@@ -678,8 +678,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressQueryImportedBtc,
   ): Promise<ICoreApiGetAddressItem> {
     const {
-      // xPrivateKey hex format but not single address privateKey
-      privateKeyRaw,
+      privateKeyRaw, // xPrivateKey hex format but not single address privateKey
       networkInfo,
       template,
       addressEncoding,
@@ -687,7 +686,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
 
     const { xpub, pubKey } = getBtcXpubFromXprvt({
-      privateKeyRaw,
+      privateKeyRaw, // hex privateKey
       network,
     });
 

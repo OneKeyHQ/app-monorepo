@@ -320,16 +320,19 @@ export default class VaultBtc extends VaultBase {
     // build deriveItems
     let xpub = '';
     if (result.xpubResult?.isValid) {
+      // xpub from input
       xpub = input;
     }
     const network = await this.getBtcForkNetwork();
     if (!xpub && result.xprvtResult?.isValid) {
+      // xpub from xprvt(input)
       ({ xpub } = getBtcXpubFromXprvt({
         network,
         privateKeyRaw: convertBtcXprvtToHex({ xprvt: input }),
       }));
     }
     if (xpub) {
+      // encoding list from xpub
       const { supportEncodings } = getBtcXpubSupportedAddressEncodings({
         xpub,
         network,

@@ -45,7 +45,7 @@ export type ICoreApiGetAddressesQueryHd =
 
 export type ICoreApiGetAddressQueryImportedBase = {
   networkInfo: ICoreApiNetworkInfo;
-  privateKeyRaw: string;
+  privateKeyRaw: string; // privateKey HEX format
   privateKeyInfo?: ISecretPrivateKeyInfo;
 };
 export type ICoreApiGetAddressQueryImportedBtc =

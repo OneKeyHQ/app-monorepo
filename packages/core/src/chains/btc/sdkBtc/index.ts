@@ -273,7 +273,12 @@ export function checkBtcAddressIsUsed(query: {
   return Promise.resolve({ isUsed: true });
 }
 
-export function convertBtcXprvtToHex({ xprvt }: { xprvt: string }) {
+export function convertBtcXprvtToHex({
+  xprvt,
+}: {
+  // base58 encoded xprvt
+  xprvt: string;
+}) {
   return bufferUtils.bytesToHex(bs58check.decode(xprvt));
 }
 
@@ -282,7 +287,7 @@ export function getBtcXpubFromXprvt({
   privateKeyRaw,
 }: {
   network: IBtcForkNetwork;
-  privateKeyRaw: string;
+  privateKeyRaw: string; // hex privateKey
 }) {
   const xprv = bufferUtils.toBuffer(privateKeyRaw);
 
@@ -376,7 +381,7 @@ export function getBtcXpubSupportedAddressEncodings({
   network,
 }: {
   network: IBtcForkNetwork;
-  xpub: string;
+  xpub: string; // base58 encoded xpub
 }) {
   const decodedXpub = bs58check.decode(xpub);
   const versionBytes = parseInt(
