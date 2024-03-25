@@ -18,6 +18,7 @@ exports.default = async function notarizing(context) {
   console.log(`notarizing ${appPath} ...`);
 
   const result = await notarize({
+    tool: 'legacy',
     appBundleId: build.appId,
     appPath,
     appleId: process.env.APPLEID,
