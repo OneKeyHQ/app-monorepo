@@ -71,11 +71,14 @@ const PasswordDemoGallery = () => {
               </Button>
               <Button
                 onPress={async () => {
+                  const oldEncodedPassword =
+                    await backgroundApiProxy.servicePassword.promptPasswordVerify();
                   const dialog = Dialog.show({
                     title: 'UpdatePassword',
                     estimatedContentHeight: 100,
                     renderContent: (
                       <PasswordUpdateContainer
+                        oldEncodedPassword={oldEncodedPassword.password}
                         onUpdateRes={async (data) => {
                           console.log('update data', data);
                           if (data) {
