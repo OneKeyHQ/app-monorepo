@@ -1165,39 +1165,48 @@ export default class Vault extends VaultBase {
       return Promise.resolve(encodedTx);
     }
 
-    const nativeTx = await this.helper.parseToNativeTx(encodedTx);
+    const nativeTx = (await this.helper.parseToNativeTx(
+      encodedTx,
+    )) as Transaction;
 
-    const nativeTxForUpdateTransfer = nativeTx as Transaction;
-    const [instruction] = nativeTxForUpdateTransfer.instructions;
     // max native token transfer update
     if (
-      options.type === 'transfer' &&
-      nativeTxForUpdateTransfer.instructions.length === 1 &&
-      instruction.programId.toString() === SystemProgram.programId.toString()
+      options.type === IEncodedTxUpdateType.transfer &&
+      nativeTx instanceof Transaction &&
+      nativeTx.instructions.length === 2
     ) {
-      const instructionType =
-        SystemInstruction.decodeInstructionType(instruction);
-      if (instructionType === 'Transfer') {
-        const { fromPubkey, toPubkey } =
-          SystemInstruction.decodeTransfer(instruction);
-        const nativeToken = await this.engine.getNativeTokenInfo(
-          this.networkId,
-        );
-        const { amount } = payload as IEncodedTxUpdatePayloadTransfer;
-        nativeTxForUpdateTransfer.instructions = [
-          SystemProgram.transfer({
-            fromPubkey,
-            toPubkey,
-            lamports: BigInt(
-              new BigNumber(amount).shiftedBy(nativeToken.decimals).toFixed(),
-            ),
-          }),
-        ];
-        return bs58.encode(
-          nativeTxForUpdateTransfer.serialize({ requireAllSignatures: false }),
-        );
+      for (let i = 0; i < nativeTx.instructions.length; i += 1) {
+        const instruction = nativeTx.instructions[i];
+        if (
+          instruction.programId.toString() ===
+          SystemProgram.programId.toString()
+        ) {
+          const instructionType =
+            SystemInstruction.decodeInstructionType(instruction);
+          if (instructionType === 'Transfer') {
+            const { fromPubkey, toPubkey } =
+              SystemInstruction.decodeTransfer(instruction);
+            const nativeToken = await this.engine.getNativeTokenInfo(
+              this.networkId,
+            );
+            const { amount } = payload as IEncodedTxUpdatePayloadTransfer;
+            nativeTx.instructions[i] = SystemProgram.transfer({
+              fromPubkey,
+              toPubkey,
+              lamports: BigInt(
+                new BigNumber(amount).shiftedBy(nativeToken.decimals).toFixed(),
+              ),
+            });
+            return bs58.encode(
+              nativeTx.serialize({
+                requireAllSignatures: false,
+              }),
+            );
+          }
+        }
       }
     }
+
     return Promise.resolve(encodedTx);
   }
 
