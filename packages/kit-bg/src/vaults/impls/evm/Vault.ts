@@ -2,15 +2,13 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
-import {
-  getPublicKeyFromPrivateKey,
-  validateEvmAddress,
-} from '@onekeyhq/core/src/chains/evm/sdkEvm';
+import { validateEvmAddress } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import {
   EthersJsonRpcProvider,
   ethers,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -90,24 +88,12 @@ import type { KeyringBase } from '../../base/KeyringBase';
 
 // evm vault
 export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.evm.hd;
+
   override async validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    try {
-      const r = await getPublicKeyFromPrivateKey({
-        privateKeyRaw: privateKey,
-      });
-      if (r.publicKey) {
-        return {
-          isValid: true,
-        };
-      }
-    } catch (error) {
-      console.error(error);
-    }
-    return {
-      isValid: false,
-    };
+    return this.baseValidatePrivateKey(privateKey);
   }
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {

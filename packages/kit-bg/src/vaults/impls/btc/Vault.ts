@@ -298,7 +298,7 @@ export default class VaultBtc extends VaultBase {
 
   override validatePrivateKey(): Promise<IPrivateKeyValidation> {
     return Promise.resolve({
-      isValid: false,
+      isValid: false, // BTC does not support private key, current support xprvt only
     });
   }
 

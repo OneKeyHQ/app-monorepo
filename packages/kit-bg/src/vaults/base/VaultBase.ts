@@ -4,6 +4,7 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
+import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -76,6 +77,8 @@ if (platformEnv.isExtensionUi) {
 }
 
 export abstract class VaultBaseChainOnly extends VaultContext {
+  coreApi: CoreChainApiBase | undefined;
+
   // Methods not related to a single account, but implementation.
 
   async proxyJsonRPCCall<T>(request: IJsonRpcRequest): Promise<T> {
@@ -100,6 +103,31 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   abstract validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation>;
+
+  async baseValidatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    if (!this.coreApi) {
+      throw new Error('coreApi not defined in Vault');
+    }
+    try {
+      const networkInfo = await this.getCoreApiNetworkInfo();
+      const result = await this.coreApi.getAddressFromPrivate({
+        networkInfo,
+        privateKeyRaw: privateKey,
+      });
+      if (result.publicKey) {
+        return {
+          isValid: true,
+        };
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    return {
+      isValid: false,
+    };
+  }
 
   async baseValidateGeneralInput(
     params: IValidateGeneralInputParams,

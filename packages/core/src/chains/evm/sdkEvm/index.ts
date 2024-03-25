@@ -9,8 +9,8 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 
-import type { UnsignedTransaction } from '@ethersproject/transactions';
 import type { IEncodedTxEvm } from '../types';
+import type { UnsignedTransaction } from '@ethersproject/transactions';
 
 export async function getPublicKeyFromPrivateKey({
   privateKeyRaw,

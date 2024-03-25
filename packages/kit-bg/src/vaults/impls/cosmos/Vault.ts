@@ -42,28 +42,12 @@ import type {
 } from '../../types';
 
 export default class VaultCosmos extends VaultBase {
-  coreApi = coreChainApi.cosmos.hd;
+  override coreApi = coreChainApi.cosmos.hd;
 
   override async validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    try {
-      const networkInfo = await this.getCoreApiNetworkInfo();
-      const result = await this.coreApi.getAddressFromPrivate({
-        networkInfo,
-        privateKeyRaw: privateKey,
-      });
-      if (result.publicKey) {
-        return {
-          isValid: true,
-        };
-      }
-    } catch (error) {
-      console.error(error);
-    }
-    return {
-      isValid: false,
-    };
+    return this.baseValidatePrivateKey(privateKey);
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
