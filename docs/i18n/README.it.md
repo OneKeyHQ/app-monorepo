@@ -9,9 +9,9 @@
 
 Dopo aver prelevato l'ultimo codice tramite lo strumento a riga di comando git, installare le dipendenze del progetto nella directory principale con il comando ``yarn``
 
-```
-# Installa tutte le dipendenze JS e i sottomoduli
+Installa tutte le dipendenze JS e i sottomoduli
 
+```
 yarn
 ```
 
