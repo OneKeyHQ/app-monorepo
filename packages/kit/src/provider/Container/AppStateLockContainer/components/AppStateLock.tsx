@@ -1,6 +1,12 @@
 import type { ForwardedRef } from 'react';
 import { memo } from 'react';
 
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+
 import type { IThemeableStackProps } from '@onekeyhq/components';
 import {
   Button,
@@ -8,10 +14,12 @@ import {
   Image,
   Stack,
   ThemeableStack,
+  useKeyboardEvent,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { View as IView } from 'react-native';
 
@@ -20,6 +28,26 @@ interface IAppStateLockProps extends IThemeableStackProps {
   lockContainerRef: ForwardedRef<IView>;
 }
 
+const safeKeyboardHeight = 80;
+
+const useSafeKeyboardAnimationStyle = platformEnv.isNativeIOS
+  ? () => {
+      const keyboardHeightValue = useSharedValue(0);
+      const animatedStyles = useAnimatedStyle(() => ({
+        paddingBottom: keyboardHeightValue.value,
+      }));
+      useKeyboardEvent({
+        keyboardWillShow: () => {
+          keyboardHeightValue.value = withTiming(safeKeyboardHeight);
+        },
+        keyboardWillHide: () => {
+          keyboardHeightValue.value = withTiming(0);
+        },
+      });
+      return animatedStyles;
+    }
+  : () => ({});
+
 const AppStateLock = ({
   passwordVerifyContainer,
   lockContainerRef,
@@ -27,6 +55,8 @@ const AppStateLock = ({
 }: IAppStateLockProps) => {
   const { bottom } = useSafeAreaInsets();
   const resetApp = useResetApp();
+
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
   return (
     <ThemeableStack
@@ -57,7 +87,9 @@ const AppStateLock = ({
             maxWidth: '$80',
           }}
         >
-          {passwordVerifyContainer}
+          <Animated.View style={safeKeyboardAnimationStyle}>
+            {passwordVerifyContainer}
+          </Animated.View>
         </Stack>
       </Stack>
       <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">

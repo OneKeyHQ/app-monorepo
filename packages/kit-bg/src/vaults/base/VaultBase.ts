@@ -42,7 +42,11 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 import { VaultContext } from './VaultContext';
 
 import type { KeyringBase } from './KeyringBase';
-import type { IDBAccount, IDBWalletType } from '../../dbs/local/types';
+import type {
+  IDBAccount,
+  IDBExternalAccount,
+  IDBWalletType,
+} from '../../dbs/local/types';
 import type {
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
@@ -334,7 +338,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       assetTransfer: {
         from: tx.from,
         to: tx.to,
-        label: tx.label.label,
+        label: tx.label,
         sends: tx.sends.map((send) =>
           this.buildHistoryTransfer({
             transfer: send,
@@ -420,6 +424,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // DO NOT override this method
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
+    params.signOnly = params.signOnly ?? true;
     const signedTx = await this.keyring.signTransaction(params);
     return {
       ...signedTx,
@@ -447,10 +452,23 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     }
 
     const networkInfo = await this.getNetworkInfo();
+
+    const externalAccount = account as IDBExternalAccount;
+    let externalAccountAddress = '';
+    if (externalAccount.connectedAddresses) {
+      const index = externalAccount.selectedAddress?.[this.networkId] ?? 0;
+      const addresses =
+        externalAccount.connectedAddresses?.[this.networkId]
+          ?.split(',')
+          .filter(Boolean) || [];
+      externalAccountAddress = addresses?.[index] || addresses?.[0] || '';
+    }
+
     const addressDetail = await this.buildAccountAddressDetail({
       networkInfo,
       account,
       networkId: this.networkId,
+      externalAccountAddress,
     });
 
     // always use addressDetail.address as account.address, which is normalized and validated

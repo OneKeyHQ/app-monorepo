@@ -11,10 +11,10 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapProviderInfoItemProps {
-  providerName: string;
   rate?: string;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
@@ -30,7 +30,6 @@ const SwapProviderInfoItem = ({
   fromToken,
   toToken,
   providerIcon,
-  providerName,
   showLock,
   onPress,
   isLoading,
@@ -42,7 +41,12 @@ const SwapProviderInfoItem = ({
   const rateContent = useMemo(() => {
     if (!rateIsExit || !fromToken || !toToken) return '-';
     const rateBN = new BigNumber(rate ?? 0);
-    return `1 ${fromToken.symbol.toUpperCase()} = ${rateBN.toFixed()} ${toToken.symbol.toUpperCase()}`;
+    const formatRate = numberFormat(rateBN.toFixed(), {
+      formatter: 'balance',
+    });
+    return `1 ${fromToken.symbol.toUpperCase()} = ${
+      formatRate as string
+    } ${toToken.symbol.toUpperCase()}`;
   }, [fromToken, rate, rateIsExit, toToken]);
   return (
     <XStack justifyContent="space-between" alignItems="center">
@@ -72,10 +76,10 @@ const SwapProviderInfoItem = ({
             source={{ uri: providerIcon }}
             w="$5"
             h="$5"
-            borderRadius="$full"
+            borderRadius="$1"
           />
           <SizableText size="$bodyMdMedium" pl="$1">
-            {rate ? rateContent : providerName}
+            {rateContent}
           </SizableText>
           {showLock ? (
             <Icon name="LockOutline" color="$iconSubdued" ml="$1" size="$5" />

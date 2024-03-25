@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import LiteCard from '@onekeyfe/react-native-lite-card';
 import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
@@ -26,6 +26,7 @@ export default function useLiteCard() {
     showChangePINSuccessDialog,
     showResetSuccessDialog,
   } = useOperationDialog();
+  const pin = useRef('');
 
   const navigation = useAppNavigation();
   const backupWallet = useCallback(
@@ -33,25 +34,23 @@ export default function useLiteCard() {
       await nfc.checkNFCEnabledPermission();
       const mnemonic = await readMnemonicWithWalletId(walletId);
       const createLiteInfoConnection = nfc.createNFCConnection(async () => {
-        const {
+        const { error: oldError, cardInfo: oldCard } =
+          await LiteCard.getLiteInfo();
+        await nfc.handlerLiteCardError({
           error: oldError,
-          data: oldData,
           cardInfo: oldCard,
-        } = await LiteCard.getLiteInfo();
-        await nfc.handlerLiteCardError(
-          oldError,
-          oldData,
-          oldCard,
-          null,
-          createLiteInfoConnection,
-        );
+          retryNFCAction: createLiteInfoConnection,
+        });
         if (!oldCard?.isNewCard) {
           await showBackupOverwrittenDialog();
         }
         const isNewCard = oldCard?.isNewCard;
-        const pin = await showPINFormDialog(isNewCard);
+        const createPINConnection = async () => {
+          pin.current = await showPINFormDialog(isNewCard);
+        };
+        await createPINConnection();
         if (isNewCard) {
-          await showPINFormDialog(isNewCard, pin);
+          await showPINFormDialog(isNewCard, pin.current);
         }
         const encodeMnemonic =
           await backgroundApiProxy.serviceLiteCardMnemonic.encodeMnemonic(
@@ -60,18 +59,19 @@ export default function useLiteCard() {
 
         const createSetMnemonicConnection = nfc.createNFCConnection(
           async () => {
-            const {
+            const { error: newError, cardInfo: newCard } =
+              await LiteCard.setMnemonic(
+                encodeMnemonic,
+                pin.current,
+                !isNewCard,
+              );
+            await nfc.handlerLiteCardError({
               error: newError,
-              data: newData,
               cardInfo: newCard,
-            } = await LiteCard.setMnemonic(encodeMnemonic, pin, !isNewCard);
-            await nfc.handlerLiteCardError(
-              newError,
-              newData,
-              newCard,
-              oldCard,
-              createSetMnemonicConnection,
-            );
+              lastCardInfo: oldCard,
+              retryNFCAction: createSetMnemonicConnection,
+              retryPINAction: createPINConnection,
+            });
             showBackupSuccessDialog();
           },
         );
@@ -89,16 +89,20 @@ export default function useLiteCard() {
   );
   const importWallet = useCallback(async () => {
     await nfc.checkNFCEnabledPermission();
-    const pin = await showPINFormDialog();
+    const createPINConnection = async () => {
+      pin.current = await showPINFormDialog();
+    };
+    await createPINConnection();
     const createGetMnemonicConnection = nfc.createNFCConnection(async () => {
-      const { error, data, cardInfo } = await LiteCard.getMnemonicWithPin(pin);
-      await nfc.handlerLiteCardError(
-        error,
-        data,
-        cardInfo,
-        null,
-        createGetMnemonicConnection,
+      const { error, data, cardInfo } = await LiteCard.getMnemonicWithPin(
+        pin.current,
       );
+      await nfc.handlerLiteCardError({
+        error,
+        cardInfo,
+        retryNFCAction: createGetMnemonicConnection,
+        retryPINAction: createPINConnection,
+      });
       const mnemonicEncoded =
         await backgroundApiProxy.servicePassword.encodeSensitiveText({
           text: await backgroundApiProxy.serviceLiteCardMnemonic.decodeMnemonic(
@@ -115,41 +119,39 @@ export default function useLiteCard() {
   }, [nfc, showPINFormDialog, navigation]);
   const changePIN = useCallback(async () => {
     await nfc.checkNFCEnabledPermission();
-    const oldPIN = await showPINFormDialog();
+    const createPINConnection = async () => {
+      pin.current = await showPINFormDialog();
+    };
+    await createPINConnection();
     const createGetMnemonicConnection = nfc.createNFCConnection(async () => {
-      const {
-        error: oldError,
-        data: oldData,
-        cardInfo: oldCard,
-      } = await LiteCard.getMnemonicWithPin(oldPIN);
+      const { error: oldError, cardInfo: oldCard } =
+        await LiteCard.getMnemonicWithPin(pin.current);
       if (oldError?.code === CardErrors.NotInitializedError) {
         await nfc.hideNFCConnectDialog();
         showChangePINOnNewCardDialog();
         return;
       }
-      await nfc.handlerLiteCardError(
-        oldError,
-        oldData,
-        oldCard,
-        null,
-        createGetMnemonicConnection,
-      );
+      await nfc.handlerLiteCardError({
+        error: oldError,
+        cardInfo: oldCard,
+        retryNFCAction: createGetMnemonicConnection,
+        retryPINAction: createPINConnection,
+      });
       Toast.success({ title: 'Lite PIN Verified' });
       const newPIN = await showPINFormDialog(true);
       await showPINFormDialog(true, newPIN);
       const createChangePINConnection = nfc.createNFCConnection(async () => {
-        const {
-          error: newError,
-          data: newData,
-          cardInfo: newCard,
-        } = await LiteCard.changePin(oldPIN, newPIN);
-        await nfc.handlerLiteCardError(
-          newError,
-          newData,
-          newCard,
-          oldCard,
-          createChangePINConnection,
+        const { error: newError, cardInfo: newCard } = await LiteCard.changePin(
+          pin.current,
+          newPIN,
         );
+        await nfc.handlerLiteCardError({
+          error: newError,
+          cardInfo: newCard,
+          lastCardInfo: oldCard,
+          retryNFCAction: createChangePINConnection,
+          retryPINAction: createPINConnection,
+        });
         showChangePINSuccessDialog();
       });
       await createChangePINConnection();
@@ -165,14 +167,12 @@ export default function useLiteCard() {
     await nfc.checkNFCEnabledPermission();
     await showResetWarningDialog();
     const createResetConnection = nfc.createNFCConnection(async () => {
-      const { error, data, cardInfo } = await LiteCard.reset();
-      await nfc.handlerLiteCardError(
+      const { error, cardInfo } = await LiteCard.reset();
+      await nfc.handlerLiteCardError({
         error,
-        data,
         cardInfo,
-        null,
-        createResetConnection,
-      );
+        retryNFCAction: createResetConnection,
+      });
       showResetSuccessDialog();
     });
     await createResetConnection();

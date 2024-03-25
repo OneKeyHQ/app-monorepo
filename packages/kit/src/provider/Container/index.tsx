@@ -11,6 +11,7 @@ import {
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { WalletConnectModalContainer } from '../../components/WalletConnect/WalletConnectModalContainer';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
 import { AppStateLockContainer } from './AppStateLockContainer';
@@ -78,6 +79,7 @@ export function Container() {
         <NavigationContainer>
           <JotaiContextRootProvidersAutoMount />
           <HardwareUiStateContainer />
+          <WalletConnectModalContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
           <PageTrackerContainer />

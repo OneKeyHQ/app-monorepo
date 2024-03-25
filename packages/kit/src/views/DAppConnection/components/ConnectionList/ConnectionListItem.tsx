@@ -7,7 +7,7 @@ import type {
   IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
-import { AccountListItem } from '../DAppAccountList';
+import { DAppAccountListItem } from '../DAppAccountList';
 
 import type { IHandleAccountChangedParams } from '../../hooks/useHandleAccountChanged';
 
@@ -33,7 +33,7 @@ function ConnectionListItem({
       <XStack alignItems="center" justifyContent="space-between">
         <XStack alignItems="center" space="$3">
           <Image w="$10" h="$10" source={{ uri: item.imageURL }} />
-          <SizableText size="$bodyLgMedium" color="$grayA1">
+          <SizableText size="$bodyLgMedium" color="$text">
             {item.origin}
           </SizableText>
         </XStack>
@@ -70,7 +70,7 @@ function ConnectionListItem({
       >
         <YStack space="$2">
           {Object.keys(item.connectionMap).map((num) => (
-            <AccountListItem
+            <DAppAccountListItem
               key={num}
               num={Number(num)}
               handleAccountChanged={(handleAccountChangedParams) => {
