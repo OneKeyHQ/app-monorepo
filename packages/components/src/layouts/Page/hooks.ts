@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect } from 'react';
+import { useCallback, useContext, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
@@ -21,10 +21,16 @@ export const usePage = () => {
 export function usePageLifeCycle(params?: IPageLifeCycle) {
   const navigation = useNavigation();
   const { onMounted, onUnmounted } = params || {};
+  const onMountedRef = useRef(onMounted);
+  if (onMountedRef.current !== onMounted) {
+    onMountedRef.current = onMounted;
+  }
+  const onUnmountedRef = useRef(onUnmounted);
+  if (onUnmountedRef.current !== onUnmounted) {
+    onUnmountedRef.current = onUnmounted;
+  }
+
   useEffect(() => {
-    if (!onMounted || !onUnmounted) {
-      return;
-    }
     const unsubscribe = navigation.addListener('transitionEnd' as any, (e) => {
       const {
         data: { closing },
@@ -36,19 +42,42 @@ export function usePageLifeCycle(params?: IPageLifeCycle) {
         type: string;
       };
 
-      if (closing) {
-        onUnmounted?.();
-      } else {
-        onMounted?.();
+      if (!closing) {
+        onMountedRef.current?.();
+        unsubscribe();
       }
     });
 
     return () => {
-      setTimeout(() => {
-        unsubscribe();
-      }, 100);
+      unsubscribe();
+      void Promise.race([
+        new Promise<void>((resolve) => setTimeout(resolve, 1000)),
+        new Promise<void>((resolve) => {
+          const unsubscribeNavigationEvent = navigation.addListener(
+            'transitionEnd' as any,
+            (e) => {
+              const {
+                data: { closing },
+              } = e as {
+                data: {
+                  closing: boolean;
+                };
+                target: string;
+                type: string;
+              };
+
+              if (closing) {
+                unsubscribeNavigationEvent();
+                resolve();
+              }
+            },
+          );
+        }),
+      ]).then(() => {
+        onUnmountedRef.current?.();
+      });
     };
-  }, [navigation, onMounted, onUnmounted]);
+  }, [navigation]);
 }
 
 export const usePageMounted = (onMounted: IPageLifeCycle['onMounted']) => {
