@@ -12,7 +12,7 @@ import type {
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { DBSchema, IDBPObjectStore } from 'idb';
 import type { EDBAccountType, EDBCredentialType } from './consts';
@@ -260,7 +260,7 @@ export type IDBDevice = IDBBaseObjectWithName & {
   name: string;
   uuid: string;
   deviceId: string; // deviceId changed after device reset
-  deviceType: string;
+  deviceType: IDeviceType;
   settingsRaw: string;
   settings?: IDBDeviceSettings;
   createdAt: number;
@@ -271,7 +271,10 @@ export type IDBUpdateDeviceSettingsParams = {
   dbDeviceId: string;
   settings: IDBDeviceSettings;
 };
-
+export type IDBUpdateFirmwareVerifiedParams = {
+  device: IDBDevice;
+  verifyResult: 'official' | 'unofficial' | 'unknown';
+};
 // ---------------------------------------------- address
 export type IDBAddress = IDBBaseObject & {
   // id: networkId--address, impl--address

@@ -1,6 +1,6 @@
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import type { IDeviceType, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 // TODO move to db converter
 function dbDeviceToSearchDevice(device: IDBDevice) {
@@ -9,16 +9,26 @@ function dbDeviceToSearchDevice(device: IDBDevice) {
     connectId: device.connectId,
     uuid: device.uuid,
     deviceId: device.deviceId,
-    deviceType: device.deviceType as IDeviceType,
+    deviceType: device.deviceType,
     name: device.name,
   };
   return result;
 }
 
-function getDeviceVersion(device: SearchDevice) {
+// web sdk return KnownDevice
+// ble sdk return SearchDevice
+function getDeviceVersion(device: SearchDevice | KnownDevice | IDBDevice) {
   const deviceFull = device as KnownDevice;
-  const bleVersion = (deviceFull.bleFirmwareVersion || []).join('.');
-  const firmwareVersion = (deviceFull.firmwareVersion || []).join('.');
+  let bleVersion = (deviceFull.bleFirmwareVersion || []).join('.');
+  let firmwareVersion = (deviceFull.firmwareVersion || []).join('.');
+
+  if (!bleVersion) {
+    bleVersion = (device as IDBDevice)?.featuresInfo?.ble_ver || '';
+  }
+  if (!firmwareVersion) {
+    firmwareVersion =
+      (device as IDBDevice)?.featuresInfo?.onekey_firmware_version || '';
+  }
   return {
     bleVersion,
     firmwareVersion,

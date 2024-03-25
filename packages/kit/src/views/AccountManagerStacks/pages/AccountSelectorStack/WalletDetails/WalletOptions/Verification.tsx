@@ -7,19 +7,13 @@ import type {
   IIconProps,
   IKeyOfIcons,
 } from '@onekeyhq/components';
-import {
-  Button,
-  Dialog,
-  HeightTransition,
-  SizableText,
-  Spinner,
-  Stack,
-  Toast,
-} from '@onekeyhq/components';
+import { Button, SizableText, Spinner, Stack } from '@onekeyhq/components';
+import { useFirmwareVerifyDialog } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
+import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
-function Content({ loading }: { loading?: boolean }) {
+function DeviceVerificationDialogContent({ loading }: { loading?: boolean }) {
   const [isShowingRiskWarning, setIsShowingRiskWarning] = useState(false);
 
   return (
@@ -91,17 +85,14 @@ function Content({ loading }: { loading?: boolean }) {
   );
 }
 
-export function Verification() {
-  const [verified, setVerified] = useState(false);
-  // const [unUnofficial, setUnofficial] = useState(false);
-  const [unUnofficial] = useState(false);
-  const returnVerified = () => {
-    setVerified(true);
-    Toast.success({
-      title: 'Verified',
-      message: 'You are good to go',
-    });
-  };
+export function Verification({ device }: { device?: IDBDevice | undefined }) {
+  // const returnVerified = () => {
+  //   setVerified(true);
+  //   Toast.success({
+  //     title: 'Verified',
+  //     message: 'You are good to go',
+  //   });
+  // };
 
   // const returnUnofficial = () => {
   //   setUnofficial(true);
@@ -115,14 +106,15 @@ export function Verification() {
     iconName: IKeyOfIcons;
     iconColor: IIconProps['color'];
   } => {
-    if (verified) {
+    if (device?.verifiedAtVersion) {
       return {
         iconName: 'BadgeVerifiedSolid',
         iconColor: '$iconSuccess',
       };
     }
 
-    if (unUnofficial) {
+    if (device?.verifiedAtVersion === '') {
+      // unUnofficial device cannot create a wallet
       return {
         iconName: 'ErrorSolid',
         iconColor: '$iconCritical',
@@ -137,22 +129,27 @@ export function Verification() {
 
   const { iconColor, iconName } = getIconNameAndIconColor();
 
+  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog({
+    noContinue: true,
+  });
+
   return (
     <WalletOptionItem
       icon={iconName}
       iconColor={iconColor}
+      // icon="BadgeVerifiedSolid"
+      // iconColor="$iconSuccess"
       label="Device Authentication"
-      onPress={() => {
-        const dialog = Dialog.show({
-          tone: 'success',
-          icon: 'DocumentSearch2Outline',
-          title: 'Device Authentication',
-          description:
-            'Confirm on your device to verify its authenticity and secure your connection.',
-          renderContent: <Content />,
-          showFooter: false,
+      onPress={async () => {
+        if (!device) {
+          return;
+        }
+        await showFirmwareVerifyDialog({
+          device,
+          onContinue: async ({ checked }) => {
+            console.log(checked);
+          },
         });
-
         // setTimeout(async () => {
         //   // TODO: dialog.close().then(() => doDomeThing())
         //   await dialog.close();
