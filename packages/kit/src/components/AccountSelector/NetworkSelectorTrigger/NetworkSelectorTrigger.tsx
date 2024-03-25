@@ -13,6 +13,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { ChainSelectorInput } from '../../ChainSelectorInput';
 import { Token } from '../../Token';
 import { useAccountSelectorAvailableNetworks } from '../hooks/useAccountSelectorAvailableNetworks';
 
@@ -166,34 +167,23 @@ export function ControlledNetworkSelectorTrigger({
 }) {
   const items = useNetworkSelectorItems();
   return (
-    <Select
+    <ChainSelectorInput
       testID="network-selector"
       title="Network"
-      items={items}
       value={value}
       onChange={onChange}
-      renderTrigger={({ label }) => (
-        <XStack
-          alignItems="center"
-          px="$3"
-          py="$2.5"
-          borderWidth={1}
-          borderColor="$borderSubdued"
-          borderRadius="$3"
-          userSelect="none"
-          $gtMd={{
-            borderRadius: '$2',
-            py: '$2',
-          }}
-          borderCurve="continuous"
-        >
-          <Token size="sm" />
-          <SizableText size="$bodyLg" flex={1} px="$3">
-            {label}
-          </SizableText>
-          <Icon name="ChevronDownSmallSolid" />
-        </XStack>
-      )}
+      networkIds={items.map((o) => o.value)}
+      borderRadius="$3"
+      borderWidth={1}
+      borderCurve="continuous"
+      borderColor="$borderSubdued"
+      userSelect="none"
+      px="$3"
+      py="$2.5"
+      $gtMd={{
+        borderRadius: '$2',
+        py: '$2',
+      }}
     />
   );
 }
