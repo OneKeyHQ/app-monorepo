@@ -144,14 +144,15 @@ function BookmarkListModal() {
               h={CELL_HEIGHT}
               testID={`search-modal-${item.url.toLowerCase()}`}
               {...(!isEditing && {
-                onPress: () =>
+                onPress: () => {
                   handleOpenWebSite({
                     navigation,
                     webSite: {
                       url: item.url,
                       title: item.title,
                     },
-                  }),
+                  });
+                },
               })}
             >
               {isEditing ? (

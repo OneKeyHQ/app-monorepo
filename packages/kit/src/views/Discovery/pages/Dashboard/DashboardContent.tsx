@@ -113,13 +113,13 @@ function DashboardContent({
           bookmarksData={bookmarksData}
           historiesData={historiesData}
           onPressMore={onPressMore}
-          handleOpenWebSite={({ webSite }) =>
+          handleOpenWebSite={({ webSite }) => {
             handleOpenWebSite({
               webSite,
               navigation,
               shouldPopNavigation: false,
-            })
-          }
+            });
+          }}
         />
         <SuggestedAndExploreSection
           key="SuggestedAndExploreSection"
@@ -128,13 +128,13 @@ function DashboardContent({
               ? homePageData.categories
               : []
           }
-          handleOpenWebSite={({ webSite }) =>
+          handleOpenWebSite={({ webSite }) => {
             handleOpenWebSite({
               webSite,
               navigation,
               shouldPopNavigation: false,
-            })
-          }
+            });
+          }}
           isLoading={isLoading}
         />
       </>

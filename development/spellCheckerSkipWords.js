@@ -1,4 +1,6 @@
 module.exports = [
+  'mixpanel',
+  'Mixpanel',
   'changelog',
   'qrcode',
   'tlightning',
@@ -641,6 +643,10 @@ module.exports = [
   'caips',
   'glmt',
   'walletconnect',
+  'Mixpanel',
+  'mixpanel',
+  'pageview',
+  'dnt',
   'lru',
   'compat',
   'replacer',

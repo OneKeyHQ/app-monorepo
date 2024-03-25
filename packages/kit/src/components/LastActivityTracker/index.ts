@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { AppState } from 'react-native';
 
@@ -7,16 +7,31 @@ import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import {
   usePasswordAtom,
   usePasswordPersistAtom,
+  useSettingsPersistAtom,
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  ETrackEventNames,
+  identify,
+  trackEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const LastActivityTracker = () => {
   const [{ enableSystemIdleLock, appLockDuration }] = usePasswordPersistAtom();
+  const [settings] = useSettingsPersistAtom();
   const [{ unLock }] = usePasswordAtom();
   const [supportSystemIdle] = useSystemIdleLockSupport();
+  const instanceIdRef = useRef(settings.instanceId);
+
+  useEffect(() => {
+    identify(instanceIdRef.current);
+    trackEvent(ETrackEventNames.AppStart);
+  }, []);
+
   const refresh = useCallback(() => {
-    if (AppState.currentState === 'active') {
+    const { currentState } = AppState;
+    if (currentState === 'active') {
       backgroundApiProxy.serviceSetting
         .refreshLastActivity()
         .catch(console.error);

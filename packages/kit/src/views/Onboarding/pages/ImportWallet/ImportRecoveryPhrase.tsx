@@ -1,5 +1,9 @@
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  ETrackEventNames,
+  trackEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
@@ -10,6 +14,9 @@ export function ImportRecoveryPhrase() {
   const handleConfirmPress = (mnemonic: string) => {
     navigation.push(EOnboardingPages.FinalizeWalletSetup, {
       mnemonic,
+    });
+    trackEvent(ETrackEventNames.ImportWallet, {
+      import_method: 'mnemonic',
     });
   };
 

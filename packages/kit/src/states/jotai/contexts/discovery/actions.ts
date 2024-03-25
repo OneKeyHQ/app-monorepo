@@ -24,6 +24,10 @@ import {
   injectToResumeWebsocket,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import {
+  ETrackEventNames,
+  trackEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -458,6 +462,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             }, 1000);
           }
         }
+
+        trackEvent(ETrackEventNames.EnterDapp, {
+          dapp_url: url,
+          dapp_title: title,
+          is_favorite: isBookmark,
+        });
         return true;
       }
       return false;

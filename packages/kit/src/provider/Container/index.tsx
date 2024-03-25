@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WalletConnectModalContainer } from '../../components/WalletConnect/WalletConnectModalContainer';
@@ -20,9 +21,14 @@ import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 
+const PageTrackerContainer = LazyLoad(
+  () => import('./PageTrackerContainer'),
+  100,
+);
 function ErrorToastContainer() {
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       Toast[p.method](p);
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);
@@ -83,6 +89,7 @@ export function Container() {
           <HardwareUiStateContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
+          <PageTrackerContainer />
           <ErrorToastContainer />
           {process.env.NODE_ENV !== 'production' ? (
             <>
