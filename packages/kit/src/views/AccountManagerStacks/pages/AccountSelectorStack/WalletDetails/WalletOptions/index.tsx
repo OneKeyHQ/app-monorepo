@@ -58,38 +58,6 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
     void liteCard.backupWallet(wallet?.id);
   }, [liteCard, wallet?.id]);
 
-  const handleBackupPress = useCallback(() => {
-    ActionList.show({
-      title: 'Backup',
-      sections: [
-        {
-          items: [
-            {
-              label: `${intl.formatMessage({
-                id: 'backup__manual_backup',
-              })}`,
-              icon: 'PenOutline',
-              onPress: () => {
-                void handleBackupPhrase();
-              },
-            },
-            ...(platformEnv.isNative
-              ? [
-                  {
-                    label: intl.formatMessage({
-                      id: 'app__hardware_name_onekey_lite',
-                    }),
-                    icon: 'GiroCardOutline' as IKeyOfIcons,
-                    onPress: handleBackupLiteCard,
-                  },
-                ]
-              : []),
-          ],
-        },
-      ],
-    });
-  }, [intl, handleBackupPhrase, handleBackupLiteCard]);
-
   const [editMode] = useAccountSelectorEditModeAtom();
 
   const walletSpecifiedOptions = useMemo(() => {
@@ -117,8 +85,8 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
             label: intl.formatMessage({
               id: 'backup__manual_backup',
             }),
-            icon: 'SignatureOutline',
-            onPress: handleBackupPress,
+            icon: 'PenOutline',
+            onPress: handleBackupPhrase,
           },
           ...(platformEnv.isNative
             ? [
@@ -126,12 +94,11 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
                   label: intl.formatMessage({
                     id: 'app__hardware_name_onekey_lite',
                   }),
-                  icon: 'OnekeyLiteOutline' as IKeyOfIcons,
+                  icon: 'GiroCardOutline' as IKeyOfIcons,
                   onPress: handleBackupLiteCard,
                 },
               ]
             : []),
-
           {
             label: 'OneKey KeyTag',
             icon: 'OnekeyKeytagOutline',
@@ -143,7 +110,7 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
         }
       />
     );
-  }, [handleBackupLiteCard, handleBackupPress, intl, wallet]);
+  }, [handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
 
   return (
     <HeightTransition>
