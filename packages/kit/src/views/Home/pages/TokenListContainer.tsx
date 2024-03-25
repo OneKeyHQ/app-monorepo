@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { CanceledError } from 'axios';
+import { useIntl } from 'react-intl';
 
 import {
   Portal,
@@ -29,11 +30,18 @@ import { WalletActions } from '../components/WalletActions';
 
 function TokenListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
+  const intl = useIntl();
   const { isFocused } = useTabIsRefreshingFocused();
 
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, deriveInfo },
   } = useActiveAccount({ num: 0 });
+
+  const addressType = deriveInfo?.labelKey
+    ? intl.formatMessage({
+        id: deriveInfo?.labelKey,
+      })
+    : deriveInfo?.label ?? '';
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -152,17 +160,19 @@ function TokenListContainer(props: ITabPageProps) {
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
-      if (!account || !network) return;
+      if (!account || !network || !wallet) return;
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
           accountId: account.id,
           networkId: network.id,
+          walletId: wallet.id,
+          addressType,
           tokenInfo: token,
         },
       });
     },
-    [account, navigation, network],
+    [account, addressType, navigation, network, wallet],
   );
 
   return (

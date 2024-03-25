@@ -113,9 +113,15 @@ function WalletActionSend() {
 }
 
 function WalletActionReceive() {
+  const intl = useIntl();
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, deriveInfo },
   } = useActiveAccount({ num: 0 });
+  const addressType = deriveInfo?.labelKey
+    ? intl.formatMessage({
+        id: deriveInfo?.labelKey,
+      })
+    : deriveInfo?.label ?? '';
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
 
@@ -127,9 +133,10 @@ function WalletActionReceive() {
         networkId: network.id,
         accountId: account.id,
         walletId: wallet.id,
+        addressType,
       },
     });
-  }, [account, navigation, network, wallet]);
+  }, [account, addressType, navigation, network, wallet]);
 
   return (
     <RawActions.Receive

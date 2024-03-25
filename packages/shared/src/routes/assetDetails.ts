@@ -13,6 +13,8 @@ export type IModalAssetDetailsParamList = {
   [EModalAssetDetailRoutes.TokenDetails]: {
     accountId: string;
     networkId: string;
+    walletId: string;
+    addressType: string;
     tokenInfo: IToken;
     isBlocked?: boolean;
     riskyTokens?: string[];
