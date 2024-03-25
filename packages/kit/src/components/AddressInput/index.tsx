@@ -270,14 +270,14 @@ const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
 }) => {
   if (status === 'not-interacted') {
     return (
-      <Badge badgeType="warning" badgeSize="sm">
+      <Badge badgeType="warning" badgeSize="sm" mb="$1">
         First Transfer
       </Badge>
     );
   }
   if (status === 'interacted') {
     return (
-      <Badge badgeType="success" badgeSize="sm">
+      <Badge badgeType="success" badgeSize="sm" mb="$1">
         Transferred
       </Badge>
     );

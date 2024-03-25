@@ -4,6 +4,9 @@ import type { IChainSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
 
 const ChainSelector = LazyLoadPage(() => import('../pages/ChainSelector'));
+const ConfigurableChainSelector = LazyLoadPage(
+  () => import('../pages/ConfigurableChainSelector'),
+);
 
 export const ChainSelectorRouter: IModalFlowNavigatorConfig<
   EChainSelectorPages,
@@ -12,5 +15,9 @@ export const ChainSelectorRouter: IModalFlowNavigatorConfig<
   {
     name: EChainSelectorPages.ChainSelector,
     component: ChainSelector,
+  },
+  {
+    name: EChainSelectorPages.ConfigurableChainSelector,
+    component: ConfigurableChainSelector,
   },
 ];

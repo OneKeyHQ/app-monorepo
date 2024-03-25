@@ -9,7 +9,6 @@ import {
   IconButton,
   Input,
   Page,
-  Select,
   SizableText,
   Stack,
   XStack,
@@ -20,7 +19,7 @@ import {
   AddressInput,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
-import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
 
 import type { IAddressItem } from '../type';
 
@@ -30,11 +29,6 @@ type ICreateOrEditContentProps = {
   onSubmit: (item: IAddressItem) => void;
   onRemove?: (item: IAddressItem) => void;
 };
-
-const mockItemsNetworks = getPresetNetworks().map((item) => ({
-  value: item.id,
-  label: item.name,
-}));
 
 type IFormValues = Omit<IAddressItem, 'address'> & {
   address: IAddressInputValue;
@@ -72,13 +66,14 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   const pending = form.watch('address.pending');
 
   const onSave = useCallback(
-    (values: IFormValues) =>
+    (values: IFormValues) => {
       onSubmit?.({
         id: values.id,
         name: values.name,
         networkId: values.networkId,
         address: values.address.resolved ?? '',
-      }),
+      });
+    },
     [onSubmit],
   );
 
@@ -92,11 +87,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             name="networkId"
             rules={{ required: true }}
           >
-            <Select
-              items={mockItemsNetworks}
-              title="Networks"
-              testID="address-form-network"
-            />
+            <ChainSelectorInput />
           </Form.Field>
           <Form.Field
             label="Name"
