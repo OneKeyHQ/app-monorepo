@@ -174,8 +174,11 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setBiologyAuthEnable(enable: boolean): Promise<void> {
-    if (enable) {
+  async setBiologyAuthEnable(
+    enable: boolean,
+    skipAuth?: boolean,
+  ): Promise<void> {
+    if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
         throw new OneKeyError.BiologyAuthFailed();

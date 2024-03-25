@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { Toast } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { registerWebAuth, verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
@@ -14,6 +15,9 @@ export const useWebAuthActions = () => {
       if (enable) {
         // web auth must be called in ui context for extension
         webAuthCredentialId = await registerWebAuth();
+        if (!webAuthCredentialId) {
+          Toast.error({ title: 'Failed to register Touch Id' });
+        }
       }
       setPasswordPersist((v) => ({
         ...v,
