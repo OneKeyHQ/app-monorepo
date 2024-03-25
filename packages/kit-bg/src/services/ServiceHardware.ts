@@ -101,7 +101,7 @@ class ServiceHardware extends ServiceBase {
           isBootloaderMode: Boolean(isBootloaderMode),
           passphraseState,
           supportInputPinOnSoftware:
-            dbDevice?.settings?.inputPinOnSoftware &&
+            dbDevice?.settings?.inputPinOnSoftware !== false &&
             inputPinOnSoftware.support,
         };
 
@@ -436,6 +436,9 @@ class ServiceHardware extends ServiceBase {
 
     return this.withHardwareProcessing(
       async () => {
+        // touch or Pro should unlock device first, otherwise features?.passphrase_protection will return undefined
+        await this.unlockDevice({ connectId: dbDevice.connectId });
+
         const features = await this.getFeaturesByWallet({ walletId });
         // const supportFeatures = await this.getDeviceSupportFeatures(
         //   dbDevice.connectId,
