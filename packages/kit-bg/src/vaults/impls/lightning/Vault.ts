@@ -67,9 +67,7 @@ export default class Vault extends VaultBase {
   private getClientCache = memoizee(
     async () => {
       const network = await this.getNetwork();
-      const _client = await this.backgroundApi.serviceLightning.getClient(
-        EEndpointName.LN,
-      );
+      const _client = await this.backgroundApi.serviceLightning.getClient();
       return new ClientLightning(
         this.backgroundApi,
         _client,

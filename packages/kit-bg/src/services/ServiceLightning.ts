@@ -28,9 +28,7 @@ class ServiceLightning extends ServiceBase {
 
   private getClientCache = memoizee(
     async (isTestnet: boolean) => {
-      const _client = await this.backgroundApi.serviceLightning.getClient(
-        EEndpointName.LN,
-      );
+      const _client = await this.backgroundApi.serviceLightning.getClient();
       return new ClientLightning(this.backgroundApi, _client, isTestnet);
     },
     {
