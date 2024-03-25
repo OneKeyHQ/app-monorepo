@@ -23,7 +23,6 @@ import {
   batchGetPublicKeys,
   decrypt,
   encrypt,
-  generateRootFingerprint,
   mnemonicFromEntropy,
   secp256k1,
   verify,
@@ -49,6 +48,7 @@ import {
 import { slicePathTemplate } from '../../utils';
 
 import {
+  buildBtcXpubSegwit,
   getBitcoinBip32,
   getBitcoinECPair,
   getBtcForkNetwork,
@@ -56,7 +56,6 @@ import {
   getBtcXpubSupportedAddressEncodings,
   getInputsToSignFromPsbt,
   initBitcoinEcc,
-  isTaprootPath,
   loadOPReturn,
   tweakSigner,
 } from './sdkBtc';
@@ -209,25 +208,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       encoding = supportEncodings[0];
     }
 
-    let xpubSegwit = xpub;
-    if (encoding === EAddressEncodings.P2TR) {
-      // TODO if (isTaprootPath(pathPrefix)) {
-      xpubSegwit = `tr(${xpub})`;
-    }
-    // if (isTaprootPath(pathPrefix)) {
-    //   const rootFingerprint = generateRootFingerprint(
-    //     curveName,
-    //     hdCredential,
-    //     password,
-    //   );
-    //   const fingerprint = Number(
-    //     Buffer.from(rootFingerprint).readUInt32BE(0) || 0,
-    //   )
-    //     .toString(16)
-    //     .padStart(8, '0');
-    //   const descriptorPath = `${fingerprint}${path.substring(1)}`;
-    //   xpubSegwit = `tr([${descriptorPath}]${xpub}/<0;1>/*)`;
-    // }
+    let xpubSegwit = buildBtcXpubSegwit({
+      xpub,
+      addressEncoding: encoding,
+    });
 
     const ret: Record<string, string> = {};
 
@@ -821,20 +805,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         });
         const { [firstAddressRelPath]: address } = addresses;
 
-        if (isTaprootPath(pathPrefix)) {
-          const rootFingerprint = generateRootFingerprint(
+        // rebuild xpubSegwit by hd account descriptor
+        xpubSegwit = buildBtcXpubSegwit({
+          xpub,
+          addressEncoding: addressEncoding,
+          hdAccountPayload: {
             curveName,
             hdCredential,
             password,
-          );
-          const fingerprint = Number(
-            Buffer.from(rootFingerprint).readUInt32BE(0) || 0,
-          )
-            .toString(16)
-            .padStart(8, '0');
-          const descriptorPath = `${fingerprint}${path.substring(1)}`;
-          xpubSegwit = `tr([${descriptorPath}]${xpub}/<0;1>/*)`;
-        }
+            path,
+          },
+        });
 
         const addressItem: ICoreApiGetAddressItem = {
           address,

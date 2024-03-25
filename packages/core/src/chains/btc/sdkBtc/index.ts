@@ -9,7 +9,7 @@ import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
 
-import { ecc, secp256k1 } from '../../../secret';
+import { ecc, generateRootFingerprint, secp256k1 } from '../../../secret';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -25,6 +25,7 @@ import type { ECPairAPI } from 'ecpair/src/ecpair';
 import { isNil, omit } from 'lodash';
 import {
   EAddressEncodings,
+  ICurveName,
   type ICoreApiSignAccount,
   type ITxInputToSign,
 } from '../../../types';
@@ -390,4 +391,44 @@ export function getBtcXpubSupportedAddressEncodings({
   return {
     supportEncodings,
   };
+}
+
+export function buildBtcXpubSegwit({
+  xpub,
+  addressEncoding: encoding,
+  hdAccountPayload,
+}: {
+  xpub: string;
+  addressEncoding: EAddressEncodings;
+  hdAccountPayload?: {
+    curveName: ICurveName;
+    hdCredential: string;
+    password: string;
+    path: string;
+  };
+}) {
+  let xpubSegwit = xpub;
+  if (encoding === EAddressEncodings.P2TR) {
+    xpubSegwit = `tr(${xpub})`;
+
+    // with hd account descriptor
+    // https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md
+    // https://github.com/trezor/blockbook/blob/master/docs/api.md#get-xpub
+    if (hdAccountPayload) {
+      const { curveName, hdCredential, password, path } = hdAccountPayload;
+      const rootFingerprint = generateRootFingerprint(
+        curveName,
+        hdCredential,
+        password,
+      );
+      const fingerprint = Number(
+        Buffer.from(rootFingerprint).readUInt32BE(0) || 0,
+      )
+        .toString(16)
+        .padStart(8, '0');
+      const descriptorPath = `${fingerprint}${path.substring(1)}`;
+      xpubSegwit = `tr([${descriptorPath}]${xpub}/<0;1>/*)`;
+    }
+  }
+  return xpubSegwit;
 }
