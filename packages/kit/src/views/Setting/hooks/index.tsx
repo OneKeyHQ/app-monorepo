@@ -54,8 +54,8 @@ export function useResetApp() {
         disabledOn: ({ getForm }) => {
           const { getValues } = getForm() || {};
           if (getValues) {
-            const { text } = getValues();
-            return text !== 'RESET';
+            const { text } = getValues() as { text: string };
+            return text.trim().toUpperCase() !== 'RESET';
           }
           return true;
         },
