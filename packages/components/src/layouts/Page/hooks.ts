@@ -31,29 +31,37 @@ export function usePageLifeCycle(params?: IPageLifeCycle) {
   }
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener('transitionEnd' as any, (e) => {
-      const {
-        data: { closing },
-      } = e as {
-        data: {
-          closing: boolean;
-        };
-        target: string;
-        type: string;
-      };
+    void Promise.race([
+      new Promise<void>((resolve) => setTimeout(resolve, 1000)),
+      new Promise<void>((resolve) => {
+        const unsubscribe = navigation.addListener(
+          'transitionEnd' as any,
+          (e) => {
+            const {
+              data: { closing },
+            } = e as {
+              data: {
+                closing: boolean;
+              };
+              target: string;
+              type: string;
+            };
 
-      if (!closing) {
-        onMountedRef.current?.();
-        unsubscribe();
-      }
+            if (!closing) {
+              unsubscribe();
+              resolve();
+            }
+          },
+        );
+      }),
+    ]).then(() => {
+      onMountedRef.current?.();
     });
-
     return () => {
-      unsubscribe();
       void Promise.race([
         new Promise<void>((resolve) => setTimeout(resolve, 1000)),
         new Promise<void>((resolve) => {
-          const unsubscribeNavigationEvent = navigation.addListener(
+          const unsubscribe = navigation.addListener(
             'transitionEnd' as any,
             (e) => {
               const {
@@ -67,7 +75,7 @@ export function usePageLifeCycle(params?: IPageLifeCycle) {
               };
 
               if (closing) {
-                unsubscribeNavigationEvent();
+                unsubscribe();
                 resolve();
               }
             },
