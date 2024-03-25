@@ -6,6 +6,7 @@ import { PageBody } from './PageBody';
 import { PageClose } from './PageClose';
 import { PageContainer } from './PageContainer';
 import { PageContext } from './PageContext';
+import { Every, PageEvery } from './PageEvery';
 import { PageFooter } from './PageFooter';
 import {
   FooterActions,
@@ -59,6 +60,7 @@ function PageProvider({
       {isEnablePageLifeCycle ? (
         <PageLifeCycle onMounted={onMounted} onUnmounted={onUnmounted} />
       ) : null}
+      <PageEvery />
     </>
   );
 }
@@ -71,6 +73,7 @@ export const Page = withStaticProperties(PageProvider, {
   CancelButton: FooterCancelButton,
   ConfirmButton: FooterConfirmButton,
   Close: PageClose,
+  Every,
 });
 
 export * from './hooks';
