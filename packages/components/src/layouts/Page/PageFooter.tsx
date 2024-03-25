@@ -52,7 +52,7 @@ const PageFooterContainer = ({ children }: PropsWithChildren) => {
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
   return (
     <Animated.View
-      style={platformEnv.isNativeIOS ? safeKeyboardAnimationStyle : undefined}
+      style={platformEnv.isNative ? safeKeyboardAnimationStyle : undefined}
     >
       {children}
     </Animated.View>
