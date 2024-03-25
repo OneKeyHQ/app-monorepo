@@ -2987,6 +2987,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@electron/notarize@npm:^2.3.0":
+  version: 2.3.0
+  resolution: "@electron/notarize@npm:2.3.0"
+  dependencies:
+    debug: ^4.1.1
+    fs-extra: ^9.0.1
+    promise-retry: ^2.0.1
+  checksum: 03e23005a42087150089ac6fb4176b81880392be06d0b3136107c0d6490beb99678ddd0d0e07185abd31b13384ebaf3fa06a29b16baa80ccebdc2a17abe0acd3
+  languageName: node
+  linkType: hard
+
 "@electron/remote@npm:^2.0.1":
   version: 2.0.1
   resolution: "@electron/remote@npm:2.0.1"
@@ -6897,6 +6908,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/desktop@workspace:packages/desktop"
   dependencies:
+    "@electron/notarize": ^2.3.0
     "@electron/remote": ^2.0.1
     "@onekeyhq/components": "*"
     "@onekeyhq/kit": "*"
@@ -6911,7 +6923,6 @@ __metadata:
     electron-context-menu: ^3.5.0
     electron-is-dev: ^2.0.0
     electron-log: ^4.4.8
-    electron-notarize: ^1.1.1
     electron-store: ^8.1.0
     electron-updater: ^5.2.1
     esbuild: ^0.15.11
@@ -17929,16 +17940,6 @@ __metadata:
   version: 4.4.8
   resolution: "electron-log@npm:4.4.8"
   checksum: 5a7958f8fd9a5c95987e885ffe1c5b88be15bb41d348b65c92e2d8664519faddf17ce0208cd4e7027b0908f92fecedfbef246a45061f53e4a53b5d2201aafbd9
-  languageName: node
-  linkType: hard
-
-"electron-notarize@npm:^1.1.1":
-  version: 1.1.1
-  resolution: "electron-notarize@npm:1.1.1"
-  dependencies:
-    debug: ^4.1.1
-    fs-extra: ^9.0.1
-  checksum: c1f822761277c817c3b7b5ed1ef2a2aabf70733f79e670b2f0b5bac31b9d63fb9ef4d9fae2051192727d811c6b6007de846e39844ab51d13986c1771d5d04d28
   languageName: node
   linkType: hard
 
