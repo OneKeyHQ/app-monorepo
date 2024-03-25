@@ -94,7 +94,7 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+  override validateXprvt(): Promise<IXprvtValidation> {
     throw new Error('Method not implemented.');
   }
 

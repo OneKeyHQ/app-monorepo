@@ -1,7 +1,6 @@
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
-  IAccountDeriveInfoItems,
   IUtxoInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
