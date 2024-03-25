@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { StyleSheet } from 'react-native';
@@ -20,17 +20,16 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
 } from '@onekeyhq/shared/src/routes';
 
 import { useAccountData } from '../../../hooks/useAccountData';
+import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
-import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
-
-type IAddressState = 'unverified' | 'verifying' | 'verified' | 'forceShow';
 
 function ReceiveToken() {
   const route =
@@ -38,7 +37,7 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId } = route.params;
+  const { networkId, accountId, walletId, addressType } = route.params;
 
   const { account, network, wallet } = useAccountData({
     accountId,
@@ -46,24 +45,24 @@ function ReceiveToken() {
     walletId,
   });
 
-  const [chain] = useState('Bitcoin');
-  const [addressType] = useState('Nested SegWit');
-  const [addressState, setAddressState] = useState<IAddressState>('unverified');
+  const [addressState, setAddressState] = useState<EAddressState>(
+    EAddressState.Unverified,
+  );
 
   const isHardwareWallet = wallet?.type === WALLET_TYPE_HW;
 
   const isShowAddress =
     !isHardwareWallet ||
-    addressState === 'forceShow' ||
-    addressState === 'verifying';
+    addressState === EAddressState.ForceShow ||
+    addressState === EAddressState.Verifying;
 
   const isShowQRCode =
     !isHardwareWallet ||
-    addressState === 'forceShow' ||
-    addressState === 'verified';
+    addressState === EAddressState.ForceShow ||
+    addressState === EAddressState.Verified;
 
   const handleVerifyOnDevicePress = () => {
-    setAddressState('verifying');
+    setAddressState(EAddressState.Verifying);
   };
 
   const handleCopyAddressPress = () => {
@@ -73,7 +72,7 @@ function ReceiveToken() {
   };
 
   const headerRight = () => {
-    const isForceShowAction = addressState !== 'forceShow';
+    const isForceShowAction = addressState !== EAddressState.ForceShow;
 
     return (
       <ActionList
@@ -86,8 +85,8 @@ function ReceiveToken() {
               : 'Hide Unverfied Address',
             onPress: () =>
               isForceShowAction
-                ? setAddressState('forceShow')
-                : setAddressState('unverified'),
+                ? setAddressState(EAddressState.ForceShow)
+                : setAddressState(EAddressState.Unverified),
           },
         ]}
         renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
@@ -95,14 +94,12 @@ function ReceiveToken() {
     );
   };
 
-  return (
-    <Page scrollEnabled>
-      <Page.Header
-        title="Receive"
-        headerRight={isHardwareWallet ? headerRight : undefined}
-      />
-      <Page.Body>
-        {isShowAddress && addressState === 'forceShow' ? (
+  const renderReceiveToken = useCallback(() => {
+    if (!account || !network || !wallet) return null;
+
+    return (
+      <>
+        {isShowAddress && addressState === EAddressState.ForceShow ? (
           <Alert
             fullBleed
             icon="InfoCircleOutline"
@@ -118,7 +115,7 @@ function ReceiveToken() {
         <Stack p="$5" pt="$0" my="auto" alignItems="center">
           <SizableText textAlign="center">
             Receive Only on{' '}
-            <SizableText size="$bodyLgMedium">{chain}</SizableText>
+            <SizableText size="$bodyLgMedium">{network.name}</SizableText>
           </SizableText>
           <Stack
             my="$5"
@@ -130,9 +127,9 @@ function ReceiveToken() {
             borderCurve="continuous"
           >
             <QRCode
-              value={account?.address}
+              value={account.address}
               logo={{
-                uri: network?.logoURI,
+                uri: network.logoURI,
               }}
               size={240}
             />
@@ -169,12 +166,12 @@ function ReceiveToken() {
           </Stack>
 
           <XStack space="$2" alignItems="center">
-            <Heading size="$headingMd">Account 1</Heading>
+            <Heading size="$headingMd">{account.name}</Heading>
             {addressType ? <Badge>{addressType}</Badge> : null}
           </XStack>
           <Stack alignItems="center">
             <ConfirmHighlighter
-              highlight={addressState === 'verifying'}
+              highlight={addressState === EAddressState.Verifying}
               my="$2.5"
               py="$1.5"
               px="$3"
@@ -190,7 +187,7 @@ function ReceiveToken() {
                   wordBreak: 'break-all',
                 }}
               >
-                37rdQk3XANNVuTvvyonUHW2eFKEHDUPCTG
+                {account.address}
               </SizableText>
 
               {!isShowAddress ? (
@@ -214,11 +211,12 @@ function ReceiveToken() {
             </ConfirmHighlighter>
 
             {isHardwareWallet &&
-            (addressState === 'unverified' || addressState !== 'forceShow') ? (
+            (addressState === EAddressState.Unverified ||
+              addressState !== EAddressState.ForceShow) ? (
               <Button
                 variant="primary"
                 onPress={handleVerifyOnDevicePress}
-                disabled={addressState === 'verifying'}
+                disabled={addressState === EAddressState.Verifying}
               >
                 Verify on Device
               </Button>
@@ -229,7 +227,28 @@ function ReceiveToken() {
             )}
           </Stack>
         </Stack>
-      </Page.Body>
+      </>
+    );
+  }, [
+    account,
+    addressState,
+    addressType,
+    isHardwareWallet,
+    isShowAddress,
+    isShowQRCode,
+    network,
+    wallet,
+  ]);
+
+  useEffect(() => {}, [account?.indexedAccountId]);
+
+  return (
+    <Page scrollEnabled>
+      <Page.Header
+        title="Receive"
+        headerRight={isHardwareWallet ? headerRight : undefined}
+      />
+      <Page.Body>{renderReceiveToken()}</Page.Body>
     </Page>
   );
 }

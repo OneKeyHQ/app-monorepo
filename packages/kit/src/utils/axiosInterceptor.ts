@@ -49,7 +49,7 @@ axios.interceptors.request.use(async (config) => {
   } catch (e) {
     return config;
   }
-
+  debugger;
   const settings = await settingsPersistAtom.get();
 
   let { locale, theme } = settings;

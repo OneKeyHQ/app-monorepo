@@ -63,6 +63,13 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
   } = useActiveAccount({ num: 0 });
+
+  const addressType = deriveInfo?.labelKey
+    ? intl.formatMessage({
+        id: deriveInfo?.labelKey,
+      })
+    : deriveInfo?.label ?? '';
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
 
@@ -212,13 +219,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                   <EmptyAccount
                     name={accountName}
                     chain={network?.name ?? ''}
-                    type={
-                      (deriveInfo?.labelKey
-                        ? intl.formatMessage({
-                            id: deriveInfo?.labelKey,
-                          })
-                        : deriveInfo?.label) ?? ''
-                    }
+                    type={addressType}
                   />
                 </Stack>
               </YStack>
@@ -254,17 +255,15 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   }, [
     ready,
     wallet,
-    headerLeft,
     renderHeaderRight,
+    headerLeft,
     top,
     account,
     tabs,
     screenWidth,
     accountName,
     network?.name,
-    deriveInfo?.labelKey,
-    deriveInfo?.label,
-    intl,
+    addressType,
   ]);
 
   return useMemo(

@@ -26,14 +26,22 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
+import { useIntl } from 'react-intl';
 
 function TokenListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
+  const intl = useIntl();
   const { isFocused } = useTabIsRefreshingFocused();
 
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet, deriveInfo },
   } = useActiveAccount({ num: 0 });
+
+  const addressType = deriveInfo?.labelKey
+    ? intl.formatMessage({
+        id: deriveInfo?.labelKey,
+      })
+    : deriveInfo?.label ?? '';
 
   const currentAccountId = useRef<string>('');
 
@@ -154,17 +162,19 @@ function TokenListContainer(props: ITabPageProps) {
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
-      if (!account || !network) return;
+      if (!account || !network || !wallet) return;
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
           accountId: account.id,
           networkId: network.id,
+          walletId: wallet.id,
+          addressType,
           tokenInfo: token,
         },
       });
     },
-    [account, navigation, network],
+    [account, navigation, network, wallet],
   );
 
   return (

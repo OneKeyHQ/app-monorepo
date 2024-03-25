@@ -53,6 +53,8 @@ export function TokenDetails() {
   const {
     accountId,
     networkId,
+    walletId,
+    addressType,
     tokenInfo,
     isBlocked: tokenIsBlocked,
   } = route.params;
@@ -105,9 +107,11 @@ export function TokenDetails() {
       params: {
         networkId,
         accountId,
+        walletId,
+        addressType,
       },
     });
-  }, [accountId, navigation, networkId]);
+  }, [accountId, addressType, navigation, networkId, walletId]);
 
   const handleHistoryItemPress = useCallback(
     (tx: IAccountHistoryTx) => {
