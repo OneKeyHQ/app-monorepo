@@ -28,7 +28,7 @@ export type ICoreApiNetworkInfo = {
 };
 export type ICoreApiGetAddressesQueryHdBase = {
   networkInfo: ICoreApiNetworkInfo;
-  template: string; // TODO remove
+  template: string;
   hdCredential: ICoreHdCredentialEncryptHex;
   password: string;
   indexes: number[];
@@ -50,7 +50,6 @@ export type ICoreApiGetAddressQueryImportedBase = {
 };
 export type ICoreApiGetAddressQueryImportedBtc =
   ICoreApiGetAddressQueryImportedBase & {
-    template?: string; // TODO remove use addressEncoding?
     addressEncoding: EAddressEncodings | undefined;
   };
 export type ICoreApiGetAddressQueryImported =

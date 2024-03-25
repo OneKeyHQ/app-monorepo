@@ -680,7 +680,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const {
       privateKeyRaw, // xPrivateKey hex format but not single address privateKey
       networkInfo,
-      template,
       addressEncoding,
     } = query;
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
@@ -691,15 +690,15 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
 
     let usedAddressEncoding = addressEncoding;
-    if (template && !usedAddressEncoding) {
-      if (template.startsWith(`m/44'/`)) {
-        usedAddressEncoding = EAddressEncodings.P2PKH;
-      } else if (template.startsWith(`m/86'/`)) {
-        usedAddressEncoding = EAddressEncodings.P2TR;
-      } else {
-        usedAddressEncoding = undefined;
-      }
-    }
+    // if (template && !usedAddressEncoding) {
+    //   if (template.startsWith(`m/44'/`)) {
+    //     usedAddressEncoding = EAddressEncodings.P2PKH;
+    //   } else if (template.startsWith(`m/86'/`)) {
+    //     usedAddressEncoding = EAddressEncodings.P2TR;
+    //   } else {
+    //     usedAddressEncoding = undefined;
+    //   }
+    // }
 
     const firstAddressRelPath = '0/0';
     const { addresses, xpubSegwit } = await this.getAddressFromXpub({
