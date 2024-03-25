@@ -9,13 +9,32 @@ export type ILogger = ILoggerMethods & {
   extend: (extension: string) => ILoggerMethods;
 };
 
-export type IPrimitiveValue = string | number | boolean | null | undefined;
+export type ILogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-export enum ESceneName {
-  wallet = 'wallet',
-  common = 'common',
+export enum EScopeName {
+  app = 'app',
+  demo = 'demo',
+  setting = 'setting',
+}
+export interface IScope {
+  getName: () => EScopeName;
 }
 
+export type IMethodDecoratorMetadata = {
+  level: ILogLevel;
+  type?: 'local' | 'server';
+};
+
+export class Metadata {
+  args: any;
+
+  metadata: IMethodDecoratorMetadata;
+
+  constructor(args: any, metadata: IMethodDecoratorMetadata) {
+    this.args = args;
+    this.metadata = metadata;
+  }
+}
 export interface IScene {
-  getName: () => ESceneName;
+  getName: () => string;
 }

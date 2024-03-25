@@ -58,4 +58,8 @@ export const getDeviceInfo = () =>
     `Version Hash: ${process.env.COMMITHASH || ''}`,
     `Build Number: ${getBuildNumber()} ${getIncrementalSync()}`,
     `Memory: ${getUsedMemorySync()}/${getTotalMemorySync()}`,
+    `appPlatform: ${platformEnv.appPlatform ?? ''}`,
+    `appChannel: ${platformEnv.appChannel ?? ''}`,
+    `buildNumber: ${platformEnv.buildNumber ?? ''}`,
+    `version: ${platformEnv.version ?? ''}`,
   ].join(',');

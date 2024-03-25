@@ -7,15 +7,14 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { Layout } from './utils/Layout';
 
 const LoggerDemo = () => {
-  const writeLog = useCallback(() => {
-    defaultLogger.common.test('a', 2);
-  }, []);
   const downloadLog = useCallback(() => {
     void exportLogs('onekey_logs');
   }, []);
   return (
     <Stack space="$2">
-      <Button onPress={writeLog}>Write Log</Button>
+      <Button onPress={() => defaultLogger.demo.math.sum(1, 2)}>Log #1</Button>
+      <Button onPress={() => defaultLogger.demo.math.obj(1, 2)}>Log #2</Button>
+      <Button onPress={() => defaultLogger.demo.math.arr(1, 2)}>Log #3</Button>
       <Button onPress={downloadLog}>Download Log</Button>
     </Stack>
   );
