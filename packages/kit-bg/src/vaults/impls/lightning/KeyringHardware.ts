@@ -3,7 +3,6 @@ import { sha256 } from '@noble/hashes/sha256';
 import stringify from 'fast-json-stable-stringify';
 
 import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
-import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -12,7 +11,6 @@ import type {
 } from '@onekeyhq/core/src/types';
 import {
   IMPL_BTC,
-  IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -20,7 +18,6 @@ import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceE
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { IDevicePassphraseParams } from '@onekeyhq/shared/types/device';
 import type { ISignApiMessageParams } from '@onekeyhq/shared/types/lightning';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
