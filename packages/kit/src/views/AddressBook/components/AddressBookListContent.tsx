@@ -192,7 +192,7 @@ export const AddressBookListContent = ({
             }`}
             icon={
               section.isFold
-                ? 'ChevronTopSmallOutline'
+                ? 'ChevronRightSmallOutline'
                 : 'ChevronDownSmallSolid'
             }
             onPress={() => onToggle(section.title)}
