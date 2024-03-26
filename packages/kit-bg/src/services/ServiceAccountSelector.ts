@@ -13,7 +13,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { swapToAnotherAccountSwitchOnAtom } from '../states/jotai/atoms';
-import { getVaultSettingsAccountDeriveInfo } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -201,10 +200,11 @@ class ServiceAccountSelector extends ServiceBase {
 
       if (deriveType) {
         try {
-          deriveInfo = await getVaultSettingsAccountDeriveInfo({
-            networkId,
-            deriveType,
-          });
+          deriveInfo =
+            await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+              networkId,
+              deriveType,
+            });
         } catch (error) {
           //
         }

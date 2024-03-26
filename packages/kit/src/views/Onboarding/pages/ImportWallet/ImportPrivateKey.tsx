@@ -1,22 +1,85 @@
-import { Form, Input, Page, useForm, useMedia } from '@onekeyhq/components';
+import { useCallback, useEffect, useState } from 'react';
+
+import {
+  Form,
+  Input,
+  Page,
+  useForm,
+  useFormWatch,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
 import { Tutorials } from '../../components';
 
+type IFormValues = {
+  networkId?: string;
+  input?: string;
+  deriveType?: IAccountDeriveTypes;
+};
 export function ImportPrivateKey() {
   const media = useMedia();
-  const form = useForm({
+  const form = useForm<IFormValues>({
     values: {
-      networkId: 'evm--1',
+      networkId: getNetworkIdsMap().btc,
       input: '',
+      deriveType: undefined,
     },
   });
+
+  const { setValue, control, getValues } = form;
+  const [validateResult, setValidateResult] = useState<
+    IGeneralInputValidation | undefined
+  >();
+
+  const inputText = useFormWatch({ control, name: 'input' });
+  const inputTextDebounced = useDebounce(inputText, 600);
+  const validateFn = useCallback(async () => {
+    setValue('deriveType', undefined);
+    const values = getValues();
+    if (inputTextDebounced && values.networkId) {
+      const input =
+        await backgroundApiProxy.servicePassword.encodeSensitiveText({
+          text: inputTextDebounced,
+        });
+      const result =
+        await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
+          {
+            input,
+            networkId: values.networkId,
+            validateXprvt: true,
+            validatePrivateKey: true,
+          },
+        );
+      setValidateResult(result);
+      console.log('validateGeneralInputOfImporting result', result);
+    } else {
+      setValidateResult(undefined);
+    }
+  }, [getValues, inputTextDebounced, setValue]);
+
+  useEffect(() => {
+    void validateFn();
+  }, [validateFn]);
+
+  const networkIdText = useFormWatch({ control, name: 'networkId' });
+  useEffect(() => {
+    if (networkIdText) {
+      setValue('input', '');
+    }
+  }, [networkIdText, setValue]);
+
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
 
@@ -42,7 +105,16 @@ export function ImportPrivateKey() {
               ]}
             />
           </Form.Field>
+          {validateResult?.deriveInfoItems ? (
+            <Form.Field label="Derivation Path" name="deriveType">
+              <DeriveTypeSelectorTriggerStaticInput
+                networkId={form.getValues().networkId || ''}
+                items={validateResult?.deriveInfoItems || []}
+              />
+            </Form.Field>
+          ) : null}
         </Form>
+
         <Tutorials
           list={[
             {
@@ -59,14 +131,22 @@ export function ImportPrivateKey() {
         />
       </Page.Body>
       <Page.Footer
+        confirmButtonProps={{
+          disabled: !validateResult?.isValid,
+        }}
         onConfirm={async () => {
           const values = form.getValues();
+          if (!values.input || !values.networkId) {
+            return;
+          }
+          console.log('add imported account', values);
+          const input =
+            await backgroundApiProxy.servicePassword.encodeSensitiveText({
+              text: values.input,
+            });
           const r = await backgroundApiProxy.serviceAccount.addImportedAccount({
-            input: await backgroundApiProxy.servicePassword.encodeSensitiveText(
-              {
-                text: values.input,
-              },
-            ),
+            input,
+            deriveType: values.deriveType,
             networkId: values.networkId,
           });
           console.log(r, values);

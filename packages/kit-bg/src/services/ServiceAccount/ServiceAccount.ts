@@ -44,13 +44,13 @@ import {
   type IWalletConnectSession,
 } from '@onekeyhq/shared/src/walletConnect/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDbInstance';
 import { vaultFactory } from '../../vaults/factory';
-import { getVaultSettingsAccountDeriveInfo } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
 import type {
@@ -74,12 +74,12 @@ import type {
   IAccountSelectorFocusedWallet,
 } from '../../dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type {
-  IAccountDeriveInfo,
   IAccountDeriveTypes,
   IPrepareHardwareAccountsParams,
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
   IPrepareWatchingAccountsParams,
+  IValidateGeneralInputParams,
 } from '../../vaults/types';
 
 @backgroundClass()
@@ -194,21 +194,6 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getDeriveInfo({
-    networkId,
-    deriveType,
-  }: {
-    networkId: string;
-    deriveType: IAccountDeriveTypes;
-  }): Promise<IAccountDeriveInfo> {
-    const deriveInfo = await getVaultSettingsAccountDeriveInfo({
-      networkId,
-      deriveType,
-    });
-    return deriveInfo;
-  }
-
-  @backgroundMethod()
   async getIndexedAccount({ id }: { id: string }) {
     return localDb.getIndexedAccount({ id });
   }
@@ -315,10 +300,11 @@ class ServiceAccount extends ServiceBase {
     }
 
     // const usedPurpose = await getVaultSettingsDefaultPurpose({ networkId });
-    const deriveInfo = await this.getDeriveInfo({
-      networkId,
-      deriveType,
-    });
+    const deriveInfo =
+      await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+        networkId,
+        deriveType,
+      });
 
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
@@ -381,31 +367,51 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async validateGeneralInputOfImporting({
+    input,
+    networkId,
+    ...others
+  }: IValidateGeneralInputParams & {
+    networkId: string;
+  }): Promise<IGeneralInputValidation> {
+    ensureSensitiveTextEncoded(input);
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId,
+    });
+    const result = await vault.validateGeneralInput({ input, ...others });
+    return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async addImportedAccount({
     input,
     networkId,
+    deriveType,
   }: {
     input: string;
     networkId: string;
+    deriveType: IAccountDeriveTypes | undefined;
   }) {
     ensureSensitiveTextEncoded(input);
     const walletId = WALLET_TYPE_IMPORTED;
-
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
-      });
 
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
       walletId,
     });
+    // TODO privateKey should be HEX format
     const { privateKey } = await vault.getPrivateKeyFromImported({ input });
     ensureSensitiveTextEncoded(privateKey);
     const nextAccountId = await localDb.getWalletNextAccountId({
       walletId,
     });
     const privateKeyDecoded = decodeSensitiveText({ encodedText: privateKey });
+
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+        walletId,
+      });
     const credentialEncrypt = encryptImportedCredential({
       credential: {
         privateKey: privateKeyDecoded,
@@ -418,6 +424,16 @@ class ServiceAccount extends ServiceBase {
       importedCredential: credentialEncrypt,
       createAtNetwork: networkId,
     };
+    if (deriveType) {
+      const deriveInfo =
+        await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+          networkId,
+          deriveType,
+        });
+      if (deriveInfo) params.deriveInfo = deriveInfo;
+    }
+
+    // addImportedAccount
     const accounts = await vault.keyring.prepareAccounts(params);
     await localDb.addAccountsToWallet({
       walletId,
@@ -442,7 +458,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateExternalAccount({
+  async updateWalletConnectExternalAccount({
     wcSessionTopic,
     wcNamespaces,
   }: {
@@ -629,12 +645,15 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async addWatchingAccount({
     input,
     networkId,
+    deriveType,
   }: {
     input: string;
     networkId: string;
+    deriveType: IAccountDeriveTypes | undefined;
   }) {
     const walletId = WALLET_TYPE_WATCHING;
     const vault = await vaultFactory.getWalletOnlyVault({
@@ -665,6 +684,15 @@ class ServiceAccount extends ServiceBase {
       networks: [networkId],
       createAtNetwork: networkId,
     };
+    if (deriveType) {
+      const deriveInfo =
+        await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+          networkId,
+          deriveType,
+        });
+      if (deriveInfo) params.deriveInfo = deriveInfo;
+    }
+
     // addWatchingAccount
     const accounts = await vault.keyring.prepareAccounts(params);
     await localDb.addAccountsToWallet({
@@ -937,10 +965,11 @@ class ServiceAccount extends ServiceBase {
     const settings = await this.backgroundApi.serviceNetwork.getVaultSettings({
       networkId,
     });
-    const deriveInfo = await getVaultSettingsAccountDeriveInfo({
-      networkId,
-      deriveType,
-    });
+    const deriveInfo =
+      await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+        networkId,
+        deriveType,
+      });
     const { idSuffix, template } = deriveInfo;
 
     const accounts = await Promise.all(

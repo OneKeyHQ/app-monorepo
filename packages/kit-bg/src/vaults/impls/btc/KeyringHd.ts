@@ -28,9 +28,7 @@ export class KeyringHd extends KeyringHdBase {
     const sdkBtc = await import('@onekeyhq/core/src/chains/btc/sdkBtc');
     sdkBtc.initBitcoinEcc();
 
-    const { addressEncoding } = params.deriveInfo;
     return this.basePrepareAccountsHdUtxo(params, {
-      addressEncoding,
       checkIsAccountUsed: checkBtcAddressIsUsed,
     });
   }

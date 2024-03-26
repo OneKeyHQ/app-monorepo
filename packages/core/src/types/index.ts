@@ -45,20 +45,19 @@ export type ICoreApiGetAddressesQueryHd =
 
 export type ICoreApiGetAddressQueryImportedBase = {
   networkInfo: ICoreApiNetworkInfo;
-  privateKeyRaw: string;
+  privateKeyRaw: string; // privateKey HEX format
   privateKeyInfo?: ISecretPrivateKeyInfo;
 };
 export type ICoreApiGetAddressQueryImportedBtc =
   ICoreApiGetAddressQueryImportedBase & {
-    template?: string; // TODO use addressEncoding?
-    addressEncoding?: EAddressEncodings;
+    addressEncoding: EAddressEncodings | undefined;
   };
 export type ICoreApiGetAddressQueryImported =
   | ICoreApiGetAddressQueryImportedBase
   | ICoreApiGetAddressQueryImportedBtc;
 export type ICoreApiGetAddressQueryPublicKey = {
   networkInfo: ICoreApiNetworkInfo;
-  publicKey: string;
+  publicKey: string; // xpub in BTC and other UTXO chain
   publicKeyInfo?: ISecretPublicKeyInfo;
   addressEncoding?: EAddressEncodings;
 };

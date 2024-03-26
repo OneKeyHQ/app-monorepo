@@ -8,9 +8,6 @@ const ethersHexlify = (...args: Parameters<typeof utils.hexlify>) =>
 const stripHexZeros = (...args: Parameters<typeof utils.hexStripZeros>) =>
   utils.hexStripZeros.apply(utils.hexStripZeros, args);
 
-const isHexString = (...args: Parameters<typeof utils.isHexString>) =>
-  utils.isHexString.apply(utils.isHexString, args);
-
 const hasHexPrefix = (str: string) =>
   str.startsWith('0x') || str.startsWith('0X');
 
@@ -36,6 +33,10 @@ const hexlify = (
   }
   return result;
 };
+
+function isHexString(value: string, length?: number): boolean {
+  return utils.isHexString(addHexPrefix(value), length);
+}
 
 export default {
   stripHexZeros,

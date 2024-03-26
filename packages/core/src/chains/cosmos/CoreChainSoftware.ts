@@ -11,6 +11,7 @@ import {
   serializeTxForSignature,
 } from './sdkCosmos';
 
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -81,6 +82,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
     const { privateKeyRaw } = query;
+    if (!hexUtils.isHexString(privateKeyRaw)) {
+      throw new Error('Invalid private key.');
+    }
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
     return this.getAddressFromPublic({
