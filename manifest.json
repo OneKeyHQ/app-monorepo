@@ -1,0 +1,8 @@
+{
+  "description": "Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others",
+  "display": "standalone",
+  "lang": "en",
+  "name": "web",
+  "short_name": "web",
+  "start_url": "/?utm_source=web_app_manifest"
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "so.onekey.app.wallet",
+      "sha256_cert_fingerprints": [
+        "F5:CC:38:B7:06:A5:C1:D6:F0:94:78:5D:FD:F5:8E:09:3C:E3:31:4E:35:A7:F3:5B:2A:79:C1:05:0C:07:E3:84"
+      ]
+    }
+  }
+]

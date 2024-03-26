@@ -1,0 +1,34 @@
+/*!
+ * The buffer module from node.js, for the browser.
+ *
+ * @author   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>
+ * @license  MIT
+ */
+
+/*!
+ * The buffer module from node.js, for the browser.
+ *
+ * @author   Feross Aboukhadijeh <https://feross.org>
+ * @license  MIT
+ */
+
+/*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */
+
+/**
+ * @file {@link http://asmjs.org Asm.js} implementation of the {@link https://en.wikipedia.org/wiki/Advanced_Encryption_Standard Advanced Encryption Standard}.
+ * @author Artem S Vybornov <vybornov@gmail.com>
+ * @license MIT
+ */
+
+/**
+ * @license bytebuffer.js (c) 2015 Daniel Wirtz <dcode@dcode.io>
+ * Backing buffer: ArrayBuffer, Accessor: Uint8Array
+ * Released under the Apache License, Version 2.0
+ * see: https://github.com/dcodeIO/bytebuffer.js for details
+ */
+
+/**
+ * @license long.js (c) 2013 Daniel Wirtz <dcode@dcode.io>
+ * Released under the Apache License, Version 2.0
+ * see: https://github.com/dcodeIO/long.js for details
+ */

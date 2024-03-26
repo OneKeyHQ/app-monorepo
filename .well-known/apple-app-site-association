@@ -1,0 +1,27 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "BVJ3FU5H2K.so.onekey.wallet"
+        ],
+        "components": [
+          {
+            "#": "no_universal_links",
+            "exclude": true,
+            "comment": "Matches any URL whose fragment equals no_universal_links and instructs the system not to open it as a universal link"
+          },
+          {
+            "/": "/account/*",
+            "comment": "Matches any URL whose path starts with /account/"
+          },
+          {
+            "/": "/wc/*",
+            "comment": "Matches any URL associate with wallet-connect"
+          }
+        ]
+      }
+    ]
+  }
+}
