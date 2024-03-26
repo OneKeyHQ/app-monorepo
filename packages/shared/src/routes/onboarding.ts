@@ -31,10 +31,17 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ActivateDevice]: undefined;
 
   // create wallet
-  [EOnboardingPages.BeforeShowRecoveryPhrase]: undefined;
-  [EOnboardingPages.RecoveryPhrase]: undefined;
+  [EOnboardingPages.BeforeShowRecoveryPhrase]: {
+    mnemonic?: string;
+    isBackup?: boolean;
+  };
+  [EOnboardingPages.RecoveryPhrase]: {
+    mnemonic?: string;
+    isBackup?: boolean;
+  };
   [EOnboardingPages.VerifyRecoverPhrase]: {
     mnemonic: string;
+    isBackup?: boolean;
   };
 
   // import wallet
