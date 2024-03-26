@@ -31,7 +31,7 @@ interface IAppStateLockProps extends IThemeableStackProps {
 
 const safeKeyboardHeight = 80;
 
-const useSafeKeyboardAnimationStyle = platformEnv.isNativeIOS
+const useSafeKeyboardAnimationStyle = platformEnv.isNative
   ? () => {
       const keyboardHeightValue = useSharedValue(0);
       const animatedStyles = useAnimatedStyle(() => ({
