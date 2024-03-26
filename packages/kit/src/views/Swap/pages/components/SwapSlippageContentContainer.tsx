@@ -3,6 +3,7 @@ import { memo, useCallback, useState } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
+import Animated from 'react-native-reanimated';
 
 import type { IInputProps } from '@onekeyhq/components';
 import {
@@ -11,6 +12,7 @@ import {
   SizableText,
   YStack,
   useMedia,
+  useSafeKeyboardAnimationStyle,
 } from '@onekeyhq/components';
 import { useSwapSlippagePercentageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -72,72 +74,75 @@ const SwapsSlippageContentContainer = () => {
     [],
   );
 
+  const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
   return (
-    <YStack p="$4" space="$4">
-      <YStack
-        space="$5"
-        $gtMd={{
-          flexDirection: 'row',
-        }}
-      >
-        <SegmentControl
-          fullWidth={!media.gtMd}
-          value={swapSlippage.key}
-          options={swapSlippageItems.map((item) => ({
-            label: intl.formatMessage({
-              id:
-                item.key === ESwapSlippageSegmentKey.AUTO
-                  ? 'form__auto'
-                  : 'content__custom',
-            }),
-            value: item.value,
-          }))}
-          onChange={(value) => {
-            const keyValue = value as ESwapSlippageSegmentKey;
-            setSwapSlippage({
-              key: keyValue,
-              value: swapSlippageAutoValue,
-            });
-            if (keyValue === ESwapSlippageSegmentKey.AUTO) {
-              setInputValue(swapSlippageAutoValue.toString());
-            }
+    <Animated.View style={safeKeyboardAnimationStyle}>
+      <YStack p="$4" space="$4">
+        <YStack
+          space="$5"
+          $gtMd={{
+            flexDirection: 'row',
           }}
-        />
-
-        <Input
-          $gtMd={
-            {
-              size: 'small',
-            } as IInputProps['$gtMd']
-          }
-          value={inputValue}
-          autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
-          addOns={[{ label: '%' }]}
-          textAlign="right"
-          disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
-          placeholder={swapSlippage.value.toString()}
-          onChangeText={(text) => {
-            if (validateAmountInput(text)) {
-              setInputValue(text);
-              handleSlippageChange(text);
-            }
-          }}
-        />
-      </YStack>
-      {swapSlippage.key !== ESwapSlippageSegmentKey.AUTO &&
-      customValueState.status !== ESwapSlippageCustomStatus.NORMAL ? (
-        <SizableText
-          size="$bodySmMedium"
-          color={
-            customValueState.status === ESwapSlippageCustomStatus.ERROR
-              ? '$textCritical'
-              : '$textCaution'
-          }
         >
-          {customValueState.message}
-        </SizableText>
-      ) : null}
-    </YStack>
+          <SegmentControl
+            fullWidth={!media.gtMd}
+            value={swapSlippage.key}
+            options={swapSlippageItems.map((item) => ({
+              label: intl.formatMessage({
+                id:
+                  item.key === ESwapSlippageSegmentKey.AUTO
+                    ? 'form__auto'
+                    : 'content__custom',
+              }),
+              value: item.value,
+            }))}
+            onChange={(value) => {
+              const keyValue = value as ESwapSlippageSegmentKey;
+              setSwapSlippage({
+                key: keyValue,
+                value: swapSlippageAutoValue,
+              });
+              if (keyValue === ESwapSlippageSegmentKey.AUTO) {
+                setInputValue(swapSlippageAutoValue.toString());
+              }
+            }}
+          />
+
+          <Input
+            $gtMd={
+              {
+                size: 'small',
+              } as IInputProps['$gtMd']
+            }
+            value={inputValue}
+            autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
+            addOns={[{ label: '%' }]}
+            textAlign="right"
+            disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
+            placeholder={swapSlippage.value.toString()}
+            onChangeText={(text) => {
+              if (validateAmountInput(text)) {
+                setInputValue(text);
+                handleSlippageChange(text);
+              }
+            }}
+          />
+        </YStack>
+        {swapSlippage.key !== ESwapSlippageSegmentKey.AUTO &&
+        customValueState.status !== ESwapSlippageCustomStatus.NORMAL ? (
+          <SizableText
+            size="$bodySmMedium"
+            color={
+              customValueState.status === ESwapSlippageCustomStatus.ERROR
+                ? '$textCritical'
+                : '$textCaution'
+            }
+          >
+            {customValueState.message}
+          </SizableText>
+        ) : null}
+      </YStack>
+    </Animated.View>
   );
 };
 
