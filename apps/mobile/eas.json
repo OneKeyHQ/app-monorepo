@@ -13,7 +13,7 @@
         }
       },
       "ios": {
-        "image": "macos-ventura-13.4-xcode-14.3.1",
+        "image": "macos-ventura-13.6-xcode-15.2",
         "resourceClass": "large",
         "env": { 
           "PLATFORM": "ios"
