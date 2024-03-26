@@ -51,6 +51,11 @@ function MobileTabListItem({
         borderColor={isActive ? '$brand6' : '$transparent'}
         p="$0.5"
         borderCurve="continuous"
+        testID={
+          isActive
+            ? `tab-modal-active-item-${id}`
+            : `tab-modal-no-active-item-${id}`
+        }
       >
         <Group
           borderRadius="$2.5"
