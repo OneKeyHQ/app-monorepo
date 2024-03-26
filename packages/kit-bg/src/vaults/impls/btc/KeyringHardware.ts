@@ -31,10 +31,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<IDBAccount[]> {
     const networkInfo = await this.getCoreApiNetworkInfo();
     const network = getBtcForkNetwork(networkInfo.networkChainCode);
-    const { addressEncoding } = params.deriveInfo;
+    const addressEncoding = params.deriveInfo?.addressEncoding;
 
     return this.basePrepareHdUtxoAccounts(params, {
-      addressEncoding,
       checkIsAccountUsed: checkBtcAddressIsUsed,
       buildAddressesInfo: async ({ usedIndexes }) => {
         const isChange = false;
@@ -68,12 +67,13 @@ export class KeyringHardware extends KeyringHardwareBase {
           const item = publicKeys[i];
           const { path, xpub, xpubSegwit } = item;
           const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
-          const addressFromXpub = await this.coreApi.getAddressFromXpub({
-            network,
-            xpub,
-            relativePaths: [addressRelPath],
-            addressEncoding,
-          });
+          const { addresses: addressFromXpub } =
+            await this.coreApi.getAddressFromXpub({
+              network,
+              xpub,
+              relativePaths: [addressRelPath],
+              addressEncoding,
+            });
           const { [addressRelPath]: address } = addressFromXpub;
           const addressInfo: ICoreApiGetAddressItem = {
             address,

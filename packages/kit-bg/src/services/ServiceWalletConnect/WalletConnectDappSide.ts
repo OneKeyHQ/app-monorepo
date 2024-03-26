@@ -101,7 +101,7 @@ export class WalletConnectDappSide {
       p,
     });
     // only handle matched topic
-    await this.backgroundApi.serviceAccount.updateExternalAccount({
+    await this.backgroundApi.serviceAccount.updateWalletConnectExternalAccount({
       wcSessionTopic: p.topic,
       wcNamespaces: p.params.namespaces,
     });
@@ -195,10 +195,12 @@ export class WalletConnectDappSide {
     // sync walletconnect session data to db
     if (provider?.session && updateDB) {
       try {
-        await this.backgroundApi.serviceAccount.updateExternalAccount({
-          wcSessionTopic: provider.session?.topic,
-          wcNamespaces: provider.session?.namespaces,
-        });
+        await this.backgroundApi.serviceAccount.updateWalletConnectExternalAccount(
+          {
+            wcSessionTopic: provider.session?.topic,
+            wcNamespaces: provider.session?.namespaces,
+          },
+        );
       } catch (error) {
         console.error(error);
       }
