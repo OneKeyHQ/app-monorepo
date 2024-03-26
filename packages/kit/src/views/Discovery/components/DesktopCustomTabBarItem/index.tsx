@@ -1,5 +1,8 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
+import type { IActionListItemProps } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
@@ -11,6 +14,8 @@ function DesktopCustomTabBarItem({
   onBookmarkPress,
   onPinnedPress,
   onClose,
+  displayDisconnectOption,
+  onDisconnect,
   testID,
 }: {
   id: string;
@@ -19,11 +24,62 @@ function DesktopCustomTabBarItem({
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
   onClose: (id: string) => void;
+  displayDisconnectOption: boolean;
+  onDisconnect: (url: string | undefined) => Promise<void>;
   testID?: string;
 }) {
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
+  const buildActionListItems = useCallback(
+    () =>
+      [
+        {
+          label: intl.formatMessage({
+            id: tab?.isBookmark
+              ? 'actionn__remove_bookmark'
+              : 'actionn__bookmark',
+          }),
+          icon: tab?.isBookmark ? 'StarSolid' : 'StarOutline',
+          onPress: () => {
+            onBookmarkPress(!tab?.isBookmark, tab?.url, tab?.title ?? '');
+          },
+          testID: `action-list-item-${
+            !tab?.isBookmark ? 'bookmark' : 'remove-bookmark'
+          }`,
+        },
+        {
+          label: intl.formatMessage({
+            id: tab?.isPinned ? 'action__unpin' : 'action__pin',
+          }),
+          icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
+          onPress: () => {
+            onPinnedPress(tab?.id, !tab?.isPinned);
+          },
+          testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
+        },
+        displayDisconnectOption && {
+          label: intl.formatMessage({ id: 'action__disconnect' }),
+          icon: 'CrossedLargeOutline',
+          onPress: () => {
+            void onDisconnect(tab?.url);
+          },
+          testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
+        },
+      ].filter(Boolean) as IActionListItemProps[],
+    [
+      displayDisconnectOption,
+      intl,
+      onBookmarkPress,
+      onPinnedPress,
+      tab?.id,
+      tab?.isBookmark,
+      tab?.isPinned,
+      tab?.title,
+      tab?.url,
+      onDisconnect,
+    ],
+  );
   return (
     <DesktopTabItem
       key={id}
@@ -34,32 +90,7 @@ function DesktopCustomTabBarItem({
       testID={testID}
       actionList={[
         {
-          items: [
-            {
-              label: intl.formatMessage({
-                id: tab?.isBookmark
-                  ? 'actionn__remove_bookmark'
-                  : 'actionn__bookmark',
-              }),
-              icon: tab?.isBookmark ? 'StarSolid' : 'StarOutline',
-              onPress: () => {
-                onBookmarkPress(!tab?.isBookmark, tab?.url, tab?.title ?? '');
-              },
-              testID: `action-list-item-${
-                !tab?.isBookmark ? 'bookmark' : 'remove-bookmark'
-              }`,
-            },
-            {
-              label: intl.formatMessage({
-                id: tab?.isPinned ? 'action__unpin' : 'action__pin',
-              }),
-              icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
-              onPress: () => {
-                onPinnedPress(tab?.id, !tab?.isPinned);
-              },
-              testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
-            },
-          ],
+          items: buildActionListItems(),
         },
         {
           items: [

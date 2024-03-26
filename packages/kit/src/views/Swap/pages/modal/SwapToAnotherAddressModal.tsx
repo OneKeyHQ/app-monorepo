@@ -7,12 +7,8 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Form, Page, useForm } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
-import {
-  AddressInput,
-  allAddressInputPlugins,
-} from '@onekeyhq/kit/src/components/AddressInput';
+import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSwapToAnotherAccountAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -47,7 +43,6 @@ const SwapToAnotherAddressPage = () => {
 
   const [, setSettings] = useSettingsPersistAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
-  const actions = useAccountSelectorActions();
   const intl = useIntl();
   const form = useForm({
     defaultValues: {
@@ -70,13 +65,7 @@ const SwapToAnotherAddressPage = () => {
       ...v,
       swapToAnotherAccountSwitchOn: true,
     }));
-    void actions.current.showAccountSelector({
-      activeWallet: accountInfo?.wallet,
-      num: 1,
-      navigation,
-      sceneName: EAccountSelectorSceneName.swap,
-    });
-  }, [accountInfo?.wallet, actions, navigation, setSettings]);
+  }, [setSettings]);
 
   const handleOnConfirm: SubmitHandler<IFormType> = useCallback(
     (data) => {
@@ -100,13 +89,6 @@ const SwapToAnotherAddressPage = () => {
   return accountInfo && accountInfo?.network?.id ? (
     <Page>
       <Page.Body px="$5" space="$4">
-        <Button
-          mt="$4"
-          onPress={handleOnOpenAccountSelector}
-          variant="tertiary"
-        >
-          Select Another Account
-        </Button>
         <Form form={form}>
           <Form.Field
             label="Enter a address"
@@ -128,7 +110,12 @@ const SwapToAnotherAddressPage = () => {
             <AddressInput
               networkId={accountInfo?.network?.id}
               enableAddressBook
-              plugins={allAddressInputPlugins}
+              enableWalletName
+              contacts
+              accountSelector={{
+                num: 1,
+                onBeforeAccountSelectorOpen: handleOnOpenAccountSelector,
+              }}
             />
           </Form.Field>
         </Form>

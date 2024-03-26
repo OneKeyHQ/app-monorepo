@@ -214,6 +214,7 @@ function HistoryDetails() {
 
   const { data: txDetails, tokens = {}, nfts = {} } = txDetailsResp ?? {};
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleOnViewUTXOsPress = useCallback(() => {
     if (!txDetails) return;
     const { inputs: onChainInputs, outputs: onChainOutputs } = txDetails;
@@ -538,7 +539,7 @@ function HistoryDetails() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={txDetails?.label.label} />
+      <Page.Header headerTitle={txDetails?.label} />
       <Page.Body>{renderHistoryDetails()}</Page.Body>
     </Page>
   );

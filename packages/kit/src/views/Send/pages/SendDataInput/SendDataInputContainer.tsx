@@ -8,10 +8,10 @@ import { useIntl } from 'react-intl';
 
 import { Form, Input, Page, SizableText, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   AddressInput,
   type IAddressInputValue,
-  allAddressInputPlugins,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -35,6 +35,7 @@ import {
   EAssetSelectorRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -415,63 +416,75 @@ function SendDataInputContainer() {
     <Page scrollEnabled>
       <Page.Header title="Send" />
       <Page.Body px="$5">
-        <Form form={form}>
-          {isNFT && nft?.collectionType !== ENFTType.ERC1155 ? (
-            <Form.Field
-              label={intl.formatMessage({ id: 'form__token' })}
-              name="token"
-            >
-              <ListItem
-                avatarProps={{
-                  src: nft?.metadata?.image,
-                  borderRadius: '$full',
-                  cornerImageProps: {
-                    src: network?.logoURI,
-                  },
-                }}
-                mx="$0"
-                borderWidth={1}
-                borderColor="$border"
-                borderRadius="$2"
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+          availableNetworksMap={{
+            0: { networkIds: [networkId], defaultNetworkId: networkId },
+          }}
+        >
+          <Form form={form}>
+            {isNFT && nft?.collectionType !== ENFTType.ERC1155 ? (
+              <Form.Field
+                label={intl.formatMessage({ id: 'form__token' })}
+                name="token"
               >
-                <ListItem.Text
-                  flex={1}
-                  primary={nft?.metadata?.name}
-                  secondary={
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {tokenInfo?.name}
-                    </SizableText>
+                <ListItem
+                  avatarProps={{
+                    src: nft?.metadata?.image,
+                    borderRadius: '$full',
+                    cornerImageProps: {
+                      src: network?.logoURI,
+                    },
+                  }}
+                  mx="$0"
+                  borderWidth={1}
+                  borderColor="$border"
+                  borderRadius="$2"
+                >
+                  <ListItem.Text
+                    flex={1}
+                    primary={nft?.metadata?.name}
+                    secondary={
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {tokenInfo?.name}
+                      </SizableText>
+                    }
+                  />
+                </ListItem>
+              </Form.Field>
+            ) : null}
+            <Form.Field
+              label={intl.formatMessage({ id: 'content__to' })}
+              name="to"
+              rules={{
+                required: true,
+                validate: (value: IAddressInputValue) => {
+                  if (value.pending) {
+                    return;
                   }
-                />
-              </ListItem>
+                  if (!value.resolved) {
+                    return intl.formatMessage({ id: 'form__address_invalid' });
+                  }
+                },
+              }}
+            >
+              <AddressInput
+                accountId={accountId}
+                networkId={networkId}
+                enableAddressBook
+                enableWalletName
+                enableAddressInteractionStatus
+                contacts
+                accountSelector={{ num: 0 }}
+              />
             </Form.Field>
-          ) : null}
-          <Form.Field
-            label={intl.formatMessage({ id: 'content__to' })}
-            name="to"
-            rules={{
-              required: true,
-              validate: (value: IAddressInputValue) => {
-                if (value.pending) {
-                  return;
-                }
-                if (!value.resolved) {
-                  return intl.formatMessage({ id: 'form__address_invalid' });
-                }
-              },
-            }}
-          >
-            <AddressInput
-              accountId={accountId}
-              networkId={networkId}
-              enableAddressBook
-              enableWalletName
-              enableAddressInteractionStatus
-              plugins={allAddressInputPlugins}
-            />
-          </Form.Field>
-          {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
-        </Form>
+            {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
+          </Form>
+        </AccountSelectorProviderMirror>
       </Page.Body>
       <Page.Footer
         onConfirm={handleOnConfirm}

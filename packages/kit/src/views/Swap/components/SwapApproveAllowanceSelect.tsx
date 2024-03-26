@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback } from 'react';
 
 import type { ISelectItem } from '@onekeyhq/components';
 import {
@@ -12,19 +12,20 @@ import {
 
 interface ISwapApproveAllowanceSelectProps {
   onSelectAllowanceValue: (value: string) => void;
+  onSelectOpenChange?: (open: boolean) => void;
+  currentSelectAllowanceValue?: ISelectItem;
   selectItems: ISelectItem[];
   isLoading?: boolean;
 }
 const SwapApproveAllowanceSelect = ({
   onSelectAllowanceValue,
+  currentSelectAllowanceValue,
   selectItems,
+  onSelectOpenChange,
   isLoading,
 }: ISwapApproveAllowanceSelectProps) => {
-  const [currentAllowanceValue, setCurrentAllowanceValue] = useState<
-    ISelectItem | undefined
-  >(() => selectItems?.[0]);
   const renderTrigger = useCallback(() => {
-    if (isLoading && !selectItems.length)
+    if (isLoading)
       return (
         <Stack py="$1">
           <Skeleton h="$3" w="$24" />
@@ -39,7 +40,7 @@ const SwapApproveAllowanceSelect = ({
         }}
       >
         <SizableText size="$bodyMdMedium">
-          {currentAllowanceValue?.label}
+          {currentSelectAllowanceValue?.label}
         </SizableText>
         <Icon
           size="$5"
@@ -49,23 +50,21 @@ const SwapApproveAllowanceSelect = ({
         />
       </XStack>
     );
-  }, [currentAllowanceValue?.label, isLoading, selectItems.length]);
+  }, [currentSelectAllowanceValue?.label, isLoading]);
   return (
     <XStack justifyContent="space-between">
       <SizableText size="$bodyMd" color="$textSubdued">
-        Authorization Limit
+        Authorization limit
       </SizableText>
       <Select
         placement="bottom-end"
         items={selectItems}
-        value={currentAllowanceValue?.value}
+        value={currentSelectAllowanceValue?.value}
         onChange={(value: string) => {
-          setCurrentAllowanceValue(
-            selectItems?.find((item) => item.value === value),
-          );
           onSelectAllowanceValue(value);
         }}
-        title="Authorization Limit"
+        onOpenChange={onSelectOpenChange}
+        title="Authorization limit"
         renderTrigger={renderTrigger}
       />
     </XStack>

@@ -8,6 +8,7 @@ import {
   ethers,
 } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -20,7 +21,10 @@ import {
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
+  IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
+  IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
@@ -53,7 +57,7 @@ import {
   type INativeAmountInfo,
   type ITransferInfo,
   type IUpdateUnsignedTxParams,
-  type IVaultSettings,
+  type IValidateGeneralInputParams,
   type IWrappedInfo,
 } from '../../types';
 
@@ -73,35 +77,58 @@ import {
   formatValue,
   parseToNativeTx,
 } from './decoder/utils';
+import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 
 // evm vault
 export default class Vault extends VaultBase {
-  override settings: IVaultSettings = settings;
+  override coreApi = coreChainApi.evm.hd;
+
+  override async validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    return this.baseValidatePrivateKey(privateKey);
+  }
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
-    external: KeyringWatching,
+    external: KeyringExternal,
   };
+
+  override validateXprvt(): Promise<IXprvtValidation> {
+    return Promise.resolve({
+      isValid: false, // EVM not support xprvt
+    });
+  }
+
+  override async validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
+  }
 
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    const { account, networkId } = params;
+    const { account, networkId, externalAccountAddress } = params;
+
+    const address = account.address || externalAccountAddress || '';
+
     // all evm chain shared same db account and same address, so we just validate db address only,
     // do not need recalculate address for each sub chain
+
     const { normalizedAddress, displayAddress, isValid } =
-      await this.validateAddress(account.address);
+      await this.validateAddress(address);
     return {
       networkId,
       normalizedAddress,

@@ -190,7 +190,7 @@ const TabComponent = (
             <item.page
               onContentSizeChange={(_width: number, height: number) => {
                 stickyConfig.data[index].contentHeight = height;
-                if (index === pageManager.pageIndex) {
+                if (index === stickyConfig.lastIndex) {
                   reloadContentHeight(index);
                 }
               }}
@@ -200,11 +200,11 @@ const TabComponent = (
       </Animated.View>
     ),
     [
+      stickyConfig.lastIndex,
       stickyConfig.data,
       contentItemWidth,
       initialScrollIndex,
       reloadContentHeight,
-      pageManager.pageIndex,
     ],
   );
   const Content = pageManager.renderContentView;

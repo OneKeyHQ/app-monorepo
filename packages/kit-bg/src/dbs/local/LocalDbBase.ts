@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Buffer } from 'buffer';
 
-import { isNil, max } from 'lodash';
+import { isNil, max, uniq } from 'lodash';
 import natsort from 'natsort';
 
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
@@ -59,6 +59,7 @@ import type {
   IDBCredentialBase,
   IDBDevice,
   IDBDevicePayload,
+  IDBExternalAccount,
   IDBGetWalletsParams,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
@@ -536,6 +537,18 @@ ssphrase wallet
     return this.refillWalletInfo({ wallet });
   }
 
+  async getWalletSafe({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<IDBWallet | undefined> {
+    try {
+      return await this.getWallet({ walletId });
+    } catch (error) {
+      return undefined;
+    }
+  }
+
   async refillWalletInfo({
     wallet,
     hiddenWallets,
@@ -603,17 +616,22 @@ ssphrase wallet
     return undefined;
   }
 
-  async getIndexedAccounts({ walletId }: { walletId?: string } = {}) {
+  async getIndexedAccounts({ walletId }: { walletId: string }) {
     const db = await this.readyDb;
-    // TODO performance
-    const { records } = await db.getAllRecords({
-      name: ELocalDBStoreNames.IndexedAccount,
+    let accounts: IDBIndexedAccount[] = [];
+
+    const wallet = await this.getWalletSafe({
+      walletId,
     });
-    console.log('getIndexedAccountsOfWallet', records);
-    let accounts = records;
-    if (walletId) {
-      accounts = accounts.filter((item) => item.walletId === walletId);
+    if (wallet) {
+      // TODO performance
+      const { records } = await db.getAllRecords({
+        name: ELocalDBStoreNames.IndexedAccount,
+      });
+      console.log('getIndexedAccountsOfWallet', records);
+      accounts = records.filter((item) => item.walletId === walletId);
     }
+
     return {
       accounts: accounts.sort((a, b) =>
         // indexedAccount sort by index
@@ -1191,14 +1209,16 @@ ssphrase wallet
           accountId,
         });
 
-        if (!account.impl) {
+        const isExternal = accountUtils.isExternalWallet({ walletId });
+
+        if (!account.impl && !isExternal) {
           throw new Error(
             'validateAccountsFields ERROR: account.impl is missing',
           );
         }
 
         if (account.type === EDBAccountType.VARIANT) {
-          if (account.address) {
+          if (account.address && !isExternal) {
             throw new Error('VARIANT account should not set account address');
           }
         }
@@ -1353,6 +1373,29 @@ ssphrase wallet
     });
   }
 
+  getNextAccountId({
+    nextAccountIds,
+    key,
+    defaultValue,
+  }: {
+    nextAccountIds: {
+      [key: string]: number;
+    };
+    key: string;
+    defaultValue: number;
+  }) {
+    const val = nextAccountIds[key];
+
+    // realmDB return NaN, indexedDB return undefined
+    if (Number.isNaN(val) || isNil(val)) {
+      // realmDB RangeError: number is not integral
+      // at BigInt (native)
+      // at numToInt
+      return defaultValue;
+    }
+    return val ?? defaultValue;
+  }
+
   async addAccountsToWallet({
     walletId,
     accounts,
@@ -1392,11 +1435,24 @@ ssphrase wallet
           walletId,
           updater: (w) => {
             w.nextAccountIds = w.nextAccountIds || {};
-            w.nextAccountIds.global = (w.nextAccountIds.global ?? 1) + added;
 
-            w.accounts = w.accounts || [];
-            // TODO uniq
-            w.accounts = [].concat(w.accounts as any, addedIds as any);
+            w.nextAccountIds.global =
+              // RealmDB return NaN, indexedDB return undefined
+              // RealmDB ERROR: RangeError: number is not integral
+              this.getNextAccountId({
+                nextAccountIds: w.nextAccountIds,
+                key: 'global',
+                defaultValue: 1,
+              }) + added;
+
+            // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
+            // w.accounts is List not Array in realmDB
+            w.accounts = Array.from(w.accounts || []);
+
+            w.accounts = uniq(
+              [].concat(Array.from(w.accounts) as any, addedIds as any),
+            ).filter(Boolean);
+
             return w;
           },
         });
@@ -1409,7 +1465,9 @@ ssphrase wallet
           );
         }
         if (!importedCredential) {
-          throw new Error('importedCredential is missing');
+          throw new Error(
+            'importedCredential is required for imported account',
+          );
         }
         await this.txAddRecords({
           tx,
@@ -1453,7 +1511,9 @@ ssphrase wallet
       ids: wallet.accounts, // filter by ids for better performance
     });
     return {
-      accounts: accounts.filter(Boolean),
+      accounts: accounts
+        .filter(Boolean)
+        .map((account) => this.refillAccountInfo({ account })),
     };
   }
 
@@ -1463,15 +1523,20 @@ ssphrase wallet
       name: ELocalDBStoreNames.Account,
       id: accountId,
     });
-    if (!account.impl) {
-      throw new Error(`account.impl is missing: ${accountId}`);
-    }
     const indexedAccount = await this.getIndexedAccountByAccount({
       account,
     });
     // fix account name by indexedAccount name
     if (indexedAccount) {
       account.name = indexedAccount.name;
+    }
+    return this.refillAccountInfo({ account });
+  }
+
+  refillAccountInfo({ account }: { account: IDBAccount }) {
+    const externalAccount = account as IDBExternalAccount;
+    if (externalAccount && externalAccount.wcInfoRaw) {
+      externalAccount.wcInfo = JSON.parse(externalAccount.wcInfoRaw);
     }
     return account;
   }
@@ -1543,6 +1608,45 @@ ssphrase wallet
         tx,
         name: ELocalDBStoreNames.IndexedAccount,
         ids: [indexedAccountId],
+      });
+    });
+  }
+
+  async updateExternalAccount({
+    accountId,
+    addressMap,
+    selectedMap,
+    networkIds,
+  }: {
+    accountId: string;
+    addressMap?: {
+      [networkId: string]: string; // multiple address join(',')
+    };
+    selectedMap?: {
+      [networkId: string]: number;
+    };
+    networkIds?: string[];
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [accountId],
+        updater: (item) => {
+          const updatedAccount = item as IDBExternalAccount;
+          if (addressMap) {
+            updatedAccount.connectedAddresses = addressMap;
+          }
+          if (selectedMap) {
+            updatedAccount.selectedAddress = selectedMap;
+          }
+          if (networkIds) {
+            updatedAccount.networks = networkIds;
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          return updatedAccount as any;
+        },
       });
     });
   }
@@ -1708,6 +1812,10 @@ ssphrase wallet
       name: ELocalDBStoreNames.Device,
       id: deviceId,
     });
+    return this.refillDeviceInfo({ device });
+  }
+
+  refillDeviceInfo({ device }: { device: IDBDevice }) {
     device.featuresInfo = JSON.parse(device.features) as IOneKeyDeviceFeatures;
     device.payloadJsonInfo = JSON.parse(device.payloadJson);
     return device;

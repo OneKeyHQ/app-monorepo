@@ -23,6 +23,7 @@ import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { SignClientTypes } from '@walletconnect/types';
 import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
@@ -99,7 +100,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   backuped: boolean;
   nextIndex: number; // TODO optional, merge with nextAccountIds
   // only for singleton wallet
-  accounts: Array<string>;
+  accounts: string[];
   // only for singleton wallet
   nextAccountIds: {
     // 'global': 1, // imported, external, watching,
@@ -161,7 +162,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   type: EDBAccountType | undefined;
   path: string;
   pathIndex?: number;
-  relPath?: string;
+  relPath?: string; // 0/0
   indexedAccountId?: string;
   coinType: string;
   impl: string; // single chain account belongs to network impl
@@ -169,6 +170,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   createAtNetwork?: string;
   template?: string;
 };
+
 export type IDBSimpleAccount = IDBBaseAccount & {
   pub: string;
   address: string;
@@ -179,16 +181,45 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
   addresses: Record<string, string>;
-  customAddresses?: Record<string, string>; // for btc custom address
+  customAddresses?: Record<string, string>; // for btc dynamic custom address
 };
 export type IDBVariantAccount = IDBBaseAccount & {
   pub: string;
   address: string; // Base address
-  // VARIANT: Network -> address
+  // VARIANT: networkId -> address
   // UTXO: relPath -> address
   addresses: Record<string, string>;
 };
-export type IDBAccount = IDBSimpleAccount | IDBUtxoAccount | IDBVariantAccount;
+export type IDBExternalAccountWalletConnectInfo = {
+  topic: string;
+  peerMeta: SignClientTypes.Metadata | undefined;
+  // how to check this account is connected by deeplink redirect at same device,
+  //      but not qrcode scan from another device
+  mobileLink?: string; // StorageUtil.setDeepLinkWallet(data?.wallet?.mobile_link);
+  connectedAddresses: {
+    [networkId: string]: string; // TODO change to string[]
+  };
+  selectedAddress: {
+    [networkId: string]: number;
+  };
+};
+export type IDBExternalAccount = IDBVariantAccount & {
+  address: string; // always be empty if walletconnect account
+  wcInfoRaw?: string;
+  wcInfo?: IDBExternalAccountWalletConnectInfo; // readonly field, json parse from wcInfoRaw
+  wcTopic?: string;
+  connectedAddresses: {
+    [networkId: string]: string; // multiple address join(',')
+  };
+  selectedAddress: {
+    [networkId: string]: number;
+  };
+};
+export type IDBAccount =
+  | IDBSimpleAccount
+  | IDBUtxoAccount
+  | IDBVariantAccount
+  | IDBExternalAccount;
 export type IDBIndexedAccount = IDBBaseObjectWithName & {
   walletId: string;
   index: number;

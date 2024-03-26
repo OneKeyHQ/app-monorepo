@@ -256,6 +256,7 @@ export { default as CompassSquare } from './CompassSquare';
 export { default as Compass } from './Compass';
 export { default as Computer } from './Computer';
 export { default as Console } from './Console';
+export { default as Contacts } from './Contacts';
 export { default as Contrast } from './Contrast';
 export { default as ControlKey } from './ControlKey';
 export { default as ControllerRoundDown } from './ControllerRoundDown';

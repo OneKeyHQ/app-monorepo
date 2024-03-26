@@ -9,8 +9,9 @@ import {
   Divider,
   HeightTransition,
   Stack,
-  Toast,
 } from '@onekeyhq/components';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
@@ -35,48 +36,27 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
   const intl = useIntl();
   const liteCard = useLiteCard();
 
-  const handleBackupPhrase = useCallback(() => {
-    Toast.error({
-      title: '功能未实现',
-    });
+  const handleBackupPhrase = useCallback(async () => {
+    if (!wallet?.id) {
+      return;
+    }
+    // TODO how to close ActionList
+    const { mnemonic } =
+      await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
+        walletId: wallet?.id,
+      });
+    if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
     navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.BeforeShowRecoveryPhrase,
+      params: {
+        mnemonic,
+        isBackup: true,
+      },
     });
-  }, [navigation]);
+  }, [navigation, wallet?.id]);
   const handleBackupLiteCard = useCallback(() => {
     void liteCard.backupWallet(wallet?.id);
   }, [liteCard, wallet?.id]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleBackupPress = useCallback(() => {
-    ActionList.show({
-      title: 'Backup',
-      sections: [
-        {
-          items: [
-            {
-              label: `${intl.formatMessage({
-                id: 'backup__manual_backup',
-              })}`,
-              icon: 'PenOutline',
-              onPress: handleBackupPhrase,
-            },
-            ...(platformEnv.isNative
-              ? [
-                  {
-                    label: intl.formatMessage({
-                      id: 'app__hardware_name_onekey_lite',
-                    }),
-                    icon: 'GiroCardOutline' as IKeyOfIcons,
-                    onPress: handleBackupLiteCard,
-                  },
-                ]
-              : []),
-          ],
-        },
-      ],
-    });
-  }, [intl, handleBackupPhrase, handleBackupLiteCard]);
 
   const [editMode] = useAccountSelectorEditModeAtom();
 
@@ -105,7 +85,7 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
             label: intl.formatMessage({
               id: 'backup__manual_backup',
             }),
-            icon: 'SignatureOutline',
+            icon: 'PenOutline',
             onPress: handleBackupPhrase,
           },
           ...(platformEnv.isNative
@@ -114,12 +94,11 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
                   label: intl.formatMessage({
                     id: 'app__hardware_name_onekey_lite',
                   }),
-                  icon: 'OnekeyLiteOutline' as IKeyOfIcons,
+                  icon: 'GiroCardOutline' as IKeyOfIcons,
                   onPress: handleBackupLiteCard,
                 },
               ]
             : []),
-
           {
             label: 'OneKey KeyTag',
             icon: 'OnekeyKeytagOutline',

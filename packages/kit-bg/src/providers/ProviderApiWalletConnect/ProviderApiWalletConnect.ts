@@ -1,15 +1,13 @@
-import { Core } from '@walletconnect/core';
 import { getSdkError } from '@walletconnect/utils';
-import { Web3Wallet } from '@walletconnect/web3wallet';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  WALLET_CONNECT_CLIENT_META,
-  WALLET_CONNECT_V2_PROJECT_ID,
-} from '@onekeyhq/shared/src/walletConnect/constant';
+import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
+
+import walletConnectClient from '../../services/ServiceWalletConnect/walletConnectClient';
+import walletConnectStorage from '../../services/ServiceWalletConnect/walletConnectStorage';
 
 import { WalletConnectRequestProxyEth } from './WalletConnectRequestProxyEth';
 
@@ -41,18 +39,19 @@ class ProviderApiWalletConnect {
     return this.requestProxyMap[networkImpl];
   }
 
+  async initializeOnStart() {
+    const sessions = await walletConnectStorage.walletSideStorage.getSessions();
+    if (sessions?.length) {
+      await this.initialize();
+    }
+  }
+
   @backgroundMethod()
   async initialize() {
     if (this.web3Wallet) {
       return;
     }
-    const core = new Core({
-      projectId: WALLET_CONNECT_V2_PROJECT_ID,
-    });
-    this.web3Wallet = await Web3Wallet.init({
-      core,
-      metadata: WALLET_CONNECT_CLIENT_META,
-    });
+    this.web3Wallet = await walletConnectClient.getWalletSideClient();
     this.registerEvents();
   }
 
@@ -60,28 +59,52 @@ class ProviderApiWalletConnect {
     if (!this.web3Wallet) {
       throw new Error('web3Wallet is not initialized');
     }
-    this.web3Wallet.on('session_proposal', this.onSessionProposal);
-    this.web3Wallet.on('session_request', this.onSessionRequest);
-    this.web3Wallet.on('session_delete', this.onSessionDelete);
+    this.web3Wallet.on(
+      EWalletConnectSessionEvents.session_proposal,
+      this.onSessionProposal,
+    );
+    this.web3Wallet.on(
+      EWalletConnectSessionEvents.session_request,
+      this.onSessionRequest,
+    );
+    this.web3Wallet.on(
+      EWalletConnectSessionEvents.session_delete,
+      this.onSessionDelete,
+    );
     this.web3Wallet.engine.signClient.events.on(
-      'session_ping',
+      EWalletConnectSessionEvents.session_ping,
       this.onSessionPing,
     );
-    this.web3Wallet.on('auth_request', this.onAuthRequest);
+    this.web3Wallet.on(
+      EWalletConnectSessionEvents.auth_request,
+      this.onAuthRequest,
+    );
   }
 
   unregisterEvents() {
     if (!this.web3Wallet) {
       throw new Error('web3Wallet is not initialized');
     }
-    this.web3Wallet.off('session_proposal', this.onSessionProposal);
-    this.web3Wallet.off('session_request', this.onSessionRequest);
-    this.web3Wallet.off('session_delete', this.onSessionDelete);
+    this.web3Wallet.off(
+      EWalletConnectSessionEvents.session_proposal,
+      this.onSessionProposal,
+    );
+    this.web3Wallet.off(
+      EWalletConnectSessionEvents.session_request,
+      this.onSessionRequest,
+    );
+    this.web3Wallet.off(
+      EWalletConnectSessionEvents.session_delete,
+      this.onSessionDelete,
+    );
     this.web3Wallet.engine.signClient.events.off(
-      'session_ping',
+      EWalletConnectSessionEvents.session_ping,
       this.onSessionPing,
     );
-    this.web3Wallet.off('auth_request', this.onAuthRequest);
+    this.web3Wallet.off(
+      EWalletConnectSessionEvents.auth_request,
+      this.onAuthRequest,
+    );
   }
 
   onSessionProposal = async (proposal: Web3WalletTypes.SessionProposal) => {
@@ -89,9 +112,14 @@ class ProviderApiWalletConnect {
     console.log('onSessionProposal: ', JSON.stringify(proposal));
     // check if all required networks are supported
     const notSupportedChains = await serviceWalletConnect.getNotSupportedChains(
-      proposal,
+      // proposal,
+      proposal?.params?.requiredNamespaces,
     );
     if (notSupportedChains.length > 0) {
+      console.error(
+        'ProviderApiWalletConnect ERROR: onSessionProposal notSupportedChains',
+        notSupportedChains,
+      );
       await this.web3Wallet?.rejectSession({
         id: proposal.id,
         reason: getSdkError('UNSUPPORTED_CHAINS'),
@@ -114,6 +142,7 @@ class ProviderApiWalletConnect {
         screens: [
           EModalRoutes.DAppConnectionModal,
           'WalletConnectSessionProposalModal',
+          // EDAppConnectionModal.WalletConnectSessionProposalModal, // cause desktop crash
         ],
         params: {
           proposal,
@@ -170,7 +199,7 @@ class ProviderApiWalletConnect {
 
     if (
       !(await serviceWalletConnect.checkMethodSupport(
-        chain.namespace,
+        chain.wcNamespace,
         request.params.request.method,
       ))
     ) {
@@ -187,7 +216,7 @@ class ProviderApiWalletConnect {
 
     try {
       const networkImpl = await serviceWalletConnect.getNetworkImplByNamespace(
-        chain.namespace,
+        chain.wcNamespace,
       );
       const requestProxy = this.getRequestProxy({ networkImpl });
 
@@ -282,10 +311,8 @@ class ProviderApiWalletConnect {
   }
 
   @backgroundMethod()
-  async connect(uri: string) {
-    if (!this.web3Wallet) {
-      await this.initialize();
-    }
+  async connectToDapp(uri: string) {
+    await this.initialize();
     await this.web3Wallet?.pair({ uri });
   }
 

@@ -230,6 +230,7 @@ class ServiceSetting extends ServiceBase {
       await settingsPersistAtom.get();
 
     return (
+      reason === EReasonForNeedPassword.ChangePassword ||
       (reason === EReasonForNeedPassword.CreateOrRemoveWallet &&
         protectCreateOrRemoveWallet) ||
       (reason === EReasonForNeedPassword.CreateTransaction &&

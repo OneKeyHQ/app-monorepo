@@ -174,8 +174,11 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setBiologyAuthEnable(enable: boolean): Promise<void> {
-    if (enable) {
+  async setBiologyAuthEnable(
+    enable: boolean,
+    skipAuth?: boolean,
+  ): Promise<void> {
+    if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
         throw new OneKeyError.BiologyAuthFailed();
@@ -376,8 +379,11 @@ export default class ServicePassword extends ServiceBase {
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId,
         });
-    } else {
-      // if (isHdWallet || walletId === WALLET_TYPE_IMPORTED) {
+    }
+    if (
+      accountUtils.isHdWallet({ walletId }) ||
+      accountUtils.isImportedWallet({ walletId })
+    ) {
       ({ password } = await this.promptPasswordVerify(reason));
     }
     return {

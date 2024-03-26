@@ -1,6 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 import { isNil } from 'lodash';
 
+import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IDBAccount,
   IDBWallet,
@@ -91,20 +92,53 @@ function isHwAccount({ accountId }: { accountId: string }) {
   return isHwWallet({ walletId });
 }
 
+function buildWatchingAccountId({
+  coinType,
+  address,
+  xpub,
+  addressEncoding,
+}: {
+  coinType: string;
+  address?: string;
+  xpub?: string;
+  addressEncoding?: EAddressEncodings | undefined;
+}) {
+  const publicKey = xpub || address;
+  if (!publicKey) {
+    throw new Error('buildWatchingAccountId ERROR: publicKey is not defined');
+  }
+  let id = `${WALLET_TYPE_WATCHING}--${coinType}--${publicKey}`;
+  if (addressEncoding) {
+    id += `--${addressEncoding}`;
+  }
+  return id;
+}
+
 function buildImportedAccountId({
   coinType,
   pub,
   xpub,
+  addressEncoding,
 }: {
   coinType: string;
   pub?: string;
   xpub?: string;
+  addressEncoding?: EAddressEncodings | undefined;
 }) {
   const publicKey = xpub || pub;
   if (!publicKey) {
     throw new Error('buildImportedAccountId ERROR: publicKey is not defined');
   }
-  return `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
+  let id = `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
+  if (addressEncoding) {
+    id += `--${addressEncoding}`;
+  }
+  return id;
+}
+
+function isExternalAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isExternalWallet({ walletId });
 }
 
 function buildHDAccountId({
@@ -210,15 +244,10 @@ function isAccountCompatibleWithNetwork({
       'isAccountCompatibleWithNetwork ERROR: networkId is not defined',
     );
   }
-  if (!account.impl) {
-    throw new Error(
-      'isAccountCompatibleWithNetwork ERROR: account.impl is not defined',
-    );
-  }
 
   const impl = networkUtils.getNetworkImpl({ networkId });
   // check if impl matched
-  if (impl !== account.impl) {
+  if (impl !== account.impl && account.impl) {
     return false;
   }
 
@@ -239,26 +268,28 @@ function getAccountCompatibleNetwork({
   networkId,
 }: {
   account: IDBAccount;
-  networkId: string;
+  networkId: string | undefined;
 }) {
   let accountNetworkId = networkId;
 
-  const activeNetworkImpl = networkUtils.getNetworkImpl({
-    networkId,
-  });
+  if (networkId) {
+    const activeNetworkImpl = networkUtils.getNetworkImpl({
+      networkId,
+    });
 
-  // if impl not matched, use createAtNetwork
-  if (activeNetworkImpl !== account.impl) {
-    accountNetworkId = account.createAtNetwork || ''; // should fallback to ''
+    // if impl not matched, use createAtNetwork
+    if (activeNetworkImpl !== account.impl && account.impl) {
+      accountNetworkId = account.createAtNetwork || ''; // should fallback to ''
+    }
   }
 
   // if accountNetworkId not in account available networks, use first networkId of available networks
   if (account.networks && account.networks.length) {
-    if (!account.networks.includes(accountNetworkId)) {
+    if (!accountNetworkId || !account.networks.includes(accountNetworkId)) {
       [accountNetworkId] = account.networks;
     }
   }
-  return accountNetworkId || '';
+  return accountNetworkId || undefined;
 }
 
 function isOthersWallet({ walletId }: { walletId: string }) {
@@ -286,11 +317,26 @@ function buildHwWalletId({
   return dbWalletId;
 }
 
+function buildExternalAccountId({
+  wcSessionTopic,
+}: {
+  wcSessionTopic: string;
+}) {
+  const accountId = `${WALLET_TYPE_EXTERNAL}--wc--${wcSessionTopic}`;
+  // accountId = `${WALLET_TYPE_EXTERNAL}--injected--${walletKey}`;
+  return accountId;
+}
+
 export default {
   buildImportedAccountId,
+  buildWatchingAccountId,
   buildLocalTokenId,
   buildLocalHistoryId,
   buildHdWalletId,
+  buildHDAccountId,
+  buildIndexedAccountId,
+  buildHwWalletId,
+  buildExternalAccountId,
   isHdWallet,
   isHwWallet,
   isHwHiddenWallet,
@@ -299,9 +345,7 @@ export default {
   isExternalWallet,
   isHdAccount,
   isHwAccount,
-  buildHDAccountId,
-  buildIndexedAccountId,
-  buildHwWalletId,
+  isExternalAccount,
   parseIndexedAccountId,
   shortenAddress,
   beautifyPathTemplate,

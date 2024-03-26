@@ -36,6 +36,7 @@ import type {
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
@@ -43,6 +44,7 @@ export enum EVaultKeyringTypes {
   hardware = 'hardware',
   imported = 'imported',
   watching = 'watching',
+  external = 'external',
 }
 
 // AccountNameInfo
@@ -50,6 +52,7 @@ export type IAccountDeriveInfoItems = {
   value: string;
   label: string;
   item: IAccountDeriveInfo;
+  description: string | undefined;
 };
 export interface IAccountDeriveInfo {
   // because the first account path of ledger live template is the same as the bip44 account path, so we should set idSuffix to uniq them
@@ -143,6 +146,12 @@ export type IGetPrivateKeysParams = {
 export type IGetPrivateKeysResult = {
   [path: string]: Buffer;
 };
+export type IPrepareExternalAccountsParams = {
+  name: string;
+  networks?: string[];
+  wcTopic?: string;
+  wcPeerMeta?: SignClientTypes.Metadata;
+};
 export type IPrepareWatchingAccountsParams = {
   // target: string; // address, xpub TODO remove
   address: string;
@@ -152,6 +161,7 @@ export type IPrepareWatchingAccountsParams = {
   xpub?: string;
   name: string;
   template?: string; // TODO use deriveInfo, for BTC taproot address importing
+  deriveInfo?: IAccountDeriveInfo;
 };
 export type IPrepareImportedAccountsParams = {
   password: string;
@@ -171,7 +181,6 @@ export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
 };
 export type IPrepareHdAccountsOptions = {
-  addressEncoding?: EAddressEncodings;
   checkIsAccountUsed?: (query: {
     xpub: string;
     xpubSegwit?: string;
@@ -188,7 +197,8 @@ export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
   | IPrepareImportedAccountsParams
   | IPrepareHdAccountsParams
-  | IPrepareHardwareAccountsParams;
+  | IPrepareHardwareAccountsParams
+  | IPrepareExternalAccountsParams;
 
 // PrepareAccountByAddressIndex
 export type IPrepareAccountByAddressIndexParams = {
@@ -216,6 +226,7 @@ export type IBuildAccountAddressDetailParams = {
   networkId: string;
   networkInfo: IVaultSettingsNetworkInfo;
   account: IDBAccount;
+  externalAccountAddress?: string;
 };
 
 // Internal txInfo ----------------------------------------------
@@ -307,6 +318,8 @@ export interface IBroadcastTransactionParams {
 
 export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
+  // TODO rename externalSignOnly
+  signOnly: boolean; // external account use this field to indicate sign only or sign and send
 }
 
 export type ISignAndSendTransactionParams = ISignTransactionParams;
@@ -342,4 +355,11 @@ export type IGetPrivateKeyFromImportedParams = {
 };
 export type IGetPrivateKeyFromImportedResult = {
   privateKey: string;
+};
+export type IValidateGeneralInputParams = {
+  input: string;
+  validateAddress?: boolean;
+  validateXpub?: boolean;
+  validateXprvt?: boolean;
+  validatePrivateKey?: boolean;
 };
