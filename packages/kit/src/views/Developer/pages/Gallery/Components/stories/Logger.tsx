@@ -15,6 +15,9 @@ const LoggerDemo = () => {
       <Button onPress={() => defaultLogger.demo.math.sum(1, 2)}>Log #1</Button>
       <Button onPress={() => defaultLogger.demo.math.obj(1, 2)}>Log #2</Button>
       <Button onPress={() => defaultLogger.demo.math.arr(1, 2)}>Log #3</Button>
+      <Button onPress={() => defaultLogger.demo.math.logSensitiveMessage(1, 2)}>
+        Log #4
+      </Button>
       <Button onPress={downloadLog}>Download Log</Button>
     </Stack>
   );
