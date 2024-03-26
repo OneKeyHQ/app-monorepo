@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
-import { Keyboard } from 'react-native';
+import { InteractionManager, Keyboard } from 'react-native';
 
 import {
   Image,
@@ -18,6 +18,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -39,8 +40,8 @@ function SearchModal() {
     useRoute<
       RouteProp<IDiscoveryModalParamList, EDiscoveryModalRoutes.SearchModal>
     >();
-  const { useCurrentWindow, tabId } = route.params ?? {};
-  const [searchValue, setSearchValue] = useState('');
+  const { useCurrentWindow, tabId, url = '' } = route.params ?? {};
+  const [searchValue, setSearchValue] = useState(url);
   const { handleOpenWebSite } = useBrowserAction().current;
 
   const { serviceDiscovery } = backgroundApiProxy;
@@ -113,6 +114,21 @@ function SearchModal() {
       <Page.Body>
         <Stack mx="$4">
           <SearchBar
+            autoFocus
+            zIndex={20}
+            selectTextOnFocus
+            value={searchValue}
+            onFocus={(e) => {
+              // Workaround for selectTextOnFocus={true} not working
+              if (platformEnv.isNative) {
+                const { currentTarget } = e;
+                void InteractionManager.runAfterInteractions(() => {
+                  currentTarget.setNativeProps({
+                    selection: { start: 0, end: searchValue.length },
+                  });
+                });
+              }
+            }}
             onSearchTextChange={setSearchValue}
             onSubmitEditing={() => {
               handleOpenWebSite({
