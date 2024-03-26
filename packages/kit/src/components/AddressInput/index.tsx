@@ -228,7 +228,7 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
 }) => {
   if (options.length <= 1) {
     return (
-      <Badge badgeSize="sm">
+      <Badge badgeSize="sm" mb="$1">
         <Badge.Text>
           {accountUtils.shortenAddress({
             address: value,
@@ -242,7 +242,7 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
       title="Choose an Address"
       placeholder="Choose an Address"
       renderTrigger={() => (
-        <Badge badgeSize="sm" userSelect="none">
+        <Badge badgeSize="sm" userSelect="none" mb="$1">
           <Badge.Text>
             {accountUtils.shortenAddress({
               address: value,
@@ -270,14 +270,14 @@ const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
 }) => {
   if (status === 'not-interacted') {
     return (
-      <Badge badgeType="warning" badgeSize="sm">
+      <Badge badgeType="warning" badgeSize="sm" mb="$1">
         First Transfer
       </Badge>
     );
   }
   if (status === 'interacted') {
     return (
-      <Badge badgeType="success" badgeSize="sm">
+      <Badge badgeType="success" badgeSize="sm" mb="$1">
         Transferred
       </Badge>
     );
@@ -435,21 +435,21 @@ function AddressInput(props: IAddressInputProps) {
     () => (
       <XStack
         justifyContent="space-between"
-        flexWrap="wrap"
+        flexWrap="nowrap"
         alignItems="center"
       >
-        <XStack space="$2">
+        <XStack space="$2" flex={1}>
           {loading ? (
             <Spinner />
           ) : (
-            <XStack space="$2">
+            <XStack space="$2" flex={1} flexWrap="wrap">
               {queryResult.walletAccountName ? (
-                <Badge badgeType="success" badgeSize="sm">
+                <Badge badgeType="success" badgeSize="sm" mb="$1">
                   {queryResult.walletAccountName}
                 </Badge>
               ) : null}
               {queryResult.addressBookName ? (
-                <Badge badgeType="success" badgeSize="sm">
+                <Badge badgeType="success" badgeSize="sm" mb="$1">
                   {queryResult.addressBookName}
                 </Badge>
               ) : null}

@@ -40,7 +40,7 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       instanceId: generateUUID(),
       sensitiveEncodeKey: generateUUID(),
       swapToAnotherAccountSwitchOn: false,
-      isBiologyAuthSwitchOn: false,
+      isBiologyAuthSwitchOn: true,
       protectCreateTransaction: false,
       protectCreateOrRemoveWallet: false,
       spendDustUTXO: false,
