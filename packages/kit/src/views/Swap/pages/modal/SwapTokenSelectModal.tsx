@@ -29,7 +29,6 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,

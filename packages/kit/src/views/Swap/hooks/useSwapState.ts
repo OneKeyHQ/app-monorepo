@@ -51,7 +51,7 @@ function useSwapWarningCheck() {
       | { value: string; unit: ESwapRateDifferenceUnit }
       | undefined;
     // check account
-    if (!swapFromAddressInfo.accountInfo?.indexedAccount) {
+    if (!swapFromAddressInfo.accountInfo?.wallet) {
       alerts = [
         ...alerts,
         {
