@@ -54,7 +54,7 @@ if (typeof crypto === 'undefined') {
 
 // https://docs.ethers.io/v5/cookbook/react-native/
 // Import the crypto getRandomValues shim (**BEFORE** the shims)
-// Import the the ethers shims (**BEFORE** ethers)
+// Import the ethers shims (**BEFORE** ethers)
 /*
 Shims Injected:
   - atob
