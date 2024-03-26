@@ -95,8 +95,8 @@ function buildMergedSelectedAccount({
         networkId: mergedByData.networkId || '',
       })
     ) {
-      result.networkId = mergedByData.networkId;
-      result.deriveType = mergedByData.deriveType;
+      // result.networkId = mergedByData.networkId;
+      // result.deriveType = mergedByData.deriveType;
     }
   }
 

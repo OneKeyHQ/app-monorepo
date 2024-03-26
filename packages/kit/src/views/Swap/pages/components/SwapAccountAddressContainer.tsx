@@ -132,8 +132,9 @@ const SwapAccountAddressContainer = ({
       return null;
     }
     if (
-      !swapAddressInfo.accountInfo ||
-      (swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_IMPORTED &&
+      !swapAddressInfo.accountInfo?.wallet ||
+      (type === ESwapDirectionType.FROM &&
+        swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_IMPORTED &&
         !swapAddressInfo.address)
     ) {
       return null;

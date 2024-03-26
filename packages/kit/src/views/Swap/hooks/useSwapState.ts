@@ -26,6 +26,7 @@ import {
 import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapNetworksAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteFetchingAtom,
@@ -38,6 +39,7 @@ import { useSwapAddressInfo } from './uswSwapAccount';
 
 function useSwapWarningCheck() {
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [networks] = useSwapNetworksAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -63,14 +65,17 @@ function useSwapWarningCheck() {
 
     if (
       fromToken &&
-      !swapFromAddressInfo.address &&
-      swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED
+      ((!swapFromAddressInfo.address &&
+        swapFromAddressInfo.accountInfo?.wallet?.type ===
+          WALLET_TYPE_IMPORTED) ||
+        swapFromAddressInfo.networkId !== fromToken.networkId)
     ) {
       alerts = [
         ...alerts,
         {
           message: `The connected wallet do not support ${
-            swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
+            networks.find((net) => net.networkId === fromToken.networkId)
+              ?.name ?? 'unknown'
           }. Try switch to another one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
@@ -79,14 +84,16 @@ function useSwapWarningCheck() {
 
     if (
       toToken &&
-      !swapToAddressInfo.address &&
-      swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED
+      ((!swapToAddressInfo.address &&
+        swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED) ||
+        swapToAddressInfo.networkId !== toToken.networkId)
     ) {
       alerts = [
         ...alerts,
         {
           message: `The connected wallet do not support ${
-            swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
+            networks.find((net) => net.networkId === toToken.networkId)?.name ??
+            'unknown'
           }. Try switch to another one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
@@ -310,8 +317,11 @@ function useSwapWarningCheck() {
   }, [
     fromToken,
     fromTokenAmount,
+    networks,
     quoteResult,
-    swapFromAddressInfo.accountInfo,
+    swapFromAddressInfo.accountInfo?.accountName,
+    swapFromAddressInfo.accountInfo?.network?.name,
+    swapFromAddressInfo.accountInfo?.wallet,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
     swapSelectFromTokenBalance,
