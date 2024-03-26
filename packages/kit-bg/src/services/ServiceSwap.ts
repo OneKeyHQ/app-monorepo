@@ -1,10 +1,9 @@
 import axios from 'axios';
 
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { Toast } from '@onekeyhq/components';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { CrossChainSwapProviders } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -33,6 +32,10 @@ export default class ServiceSwap extends ServiceBase {
 
   private _tokenListAbortController?: AbortController;
 
+  constructor({ backgroundApi }: { backgroundApi: any }) {
+    super({ backgroundApi });
+  }
+
   // --------------------- fetch
   @backgroundMethod()
   async cancelFetchQuotes() {
@@ -51,6 +54,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
     const protocol = EProtocolOfExchange.SWAP;
     const params = {
@@ -115,7 +119,11 @@ export default class ServiceSwap extends ServiceBase {
         });
       } else {
         const error = e as { message: string };
-        Toast.error({ title: 'error', message: error?.message });
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: 'error',
+          message: error?.message,
+        });
         return { result: [], next: undefined };
       }
     }
@@ -209,13 +217,18 @@ export default class ServiceSwap extends ServiceBase {
         });
       } else {
         const error = e as { message: string };
-        Toast.error({ title: 'error', message: error?.message });
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: 'error',
+          message: error?.message,
+        });
         return [];
       }
     }
   }
 
   @backgroundMethod()
+  @toastIfError()
   async fetchBuildTx({
     fromToken,
     toToken,

@@ -51,7 +51,7 @@ const PasswordSetup = ({
             message: 'Password cannot exceed 128 characters',
           },
           onChange: () => {
-            form.clearErrors('confirmPassword');
+            form.clearErrors();
           },
         }}
       >
