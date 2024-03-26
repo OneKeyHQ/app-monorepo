@@ -6,10 +6,17 @@ import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { getVaultSettings } from '../../vaults/settings';
+import {
+  getVaultSettings,
+  getVaultSettingsAccountDeriveInfo,
+} from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
-import type { IAccountDeriveInfoItems } from '../../vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveInfoItems,
+  IAccountDeriveTypes,
+} from '../../vaults/types';
 
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
@@ -188,8 +195,10 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getDeriveInfoItemsOfNetwork({
     networkId,
+    enabledItems,
   }: {
     networkId: string | undefined;
+    enabledItems?: IAccountDeriveInfo[];
   }): Promise<IAccountDeriveInfoItems[]> {
     if (!networkId) {
       return [];
@@ -197,14 +206,45 @@ class ServiceNetwork extends ServiceBase {
     const map = await this.getDeriveInfoMapOfNetwork({
       networkId,
     });
-    return Object.entries(map).map(([k, v]) => ({
-      value: k,
-      item: v,
-      label:
-        (v.labelKey
-          ? appLocale.intl.formatMessage({ id: v.labelKey })
-          : v.label) || k,
-    }));
+    return Object.entries(map)
+      .map(([k, v]) => {
+        if (
+          enabledItems &&
+          !enabledItems.find((item) => item.template === v.template)
+        ) {
+          return null;
+        }
+        const { desc, subDesc, descI18n } = v;
+        let description = desc || subDesc;
+        if (descI18n?.id) {
+          description = appLocale.intl.formatMessage(
+            { id: descI18n?.id },
+            descI18n?.data,
+          );
+        }
+
+        return {
+          item: v,
+          description,
+          value: k,
+          label:
+            (v.labelKey
+              ? appLocale.intl.formatMessage({ id: v.labelKey })
+              : v.label) || k,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  @backgroundMethod()
+  async getDeriveInfoOfNetwork({
+    networkId,
+    deriveType,
+  }: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    return getVaultSettingsAccountDeriveInfo({ networkId, deriveType });
   }
 }
 
