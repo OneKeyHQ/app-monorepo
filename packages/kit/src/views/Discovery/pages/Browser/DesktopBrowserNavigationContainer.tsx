@@ -121,12 +121,13 @@ function DesktopBrowserNavigationBar({
         onPinnedPress={(pinned) => {
           void setPinnedTab({ id, pinned });
         }}
-        onSearch={() => {
+        onSearch={(url: string) => {
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.SearchModal,
             params: {
               useCurrentWindow: true,
               tabId: id,
+              url,
             },
           });
         }}

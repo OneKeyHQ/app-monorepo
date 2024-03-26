@@ -12,7 +12,7 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
 interface ICustomHeaderTitleProps {
-  handleSearchBarPress: () => void;
+  handleSearchBarPress: (url: string) => void;
 }
 function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const intl = useIntl();
@@ -39,7 +39,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       pressStyle={{
         bg: '$bgActive',
       }}
-      onPress={handleSearchBarPress}
+      onPress={() => handleSearchBarPress(tab?.url ?? '')}
       borderCurve="continuous"
     >
       <Icon

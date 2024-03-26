@@ -10,6 +10,7 @@ export type IDiscoveryModalParamList = {
   [EDiscoveryModalRoutes.SearchModal]: {
     tabId?: string;
     useCurrentWindow?: boolean;
+    url: string;
   };
   [EDiscoveryModalRoutes.BookmarkListModal]: undefined;
   [EDiscoveryModalRoutes.HistoryListModal]: undefined;

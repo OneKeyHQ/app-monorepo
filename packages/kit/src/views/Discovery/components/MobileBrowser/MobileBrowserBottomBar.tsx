@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -7,11 +7,17 @@ import { captureRef } from 'react-native-view-shot';
 import type { IStackProps } from '@onekeyhq/components';
 import { IconButton, SizableText, Stack, Toast } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -47,8 +53,31 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const { tab } = useWebTabDataById(id);
   const { tabs } = useWebTabs();
 
+  useEffect(() => {
+    if (tab?.url) {
+      console.log('tab.url: ===>: ', tab.url);
+    }
+  }, [tab?.url]);
+
+  const origin = tab?.url ? new URL(tab.url).origin : null;
+  const { result: hasConnectedAccount, run: refreshConnectState } =
+    usePromiseResult(async () => {
+      try {
+        if (!origin) {
+          return false;
+        }
+        const connectedAccount =
+          await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+            origin,
+          );
+        return (connectedAccount ?? []).length > 0;
+      } catch {
+        return false;
+      }
+    }, [origin]);
+
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setWebTabData, setPinnedTab, setCurrentWebTab } =
+  const { setWebTabData, setPinnedTab, setCurrentWebTab, closeWebTab } =
     useBrowserTabActions().current;
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =
@@ -150,6 +179,11 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     [setPinnedTab, id, intl],
   );
 
+  const handleCloseTab = useCallback(async () => {
+    closeWebTab(id);
+    setCurrentWebTab(null);
+  }, [closeWebTab, setCurrentWebTab, id]);
+
   const handleGoBackHome = useCallback(async () => {
     try {
       await takeScreenshot();
@@ -164,6 +198,26 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   const onShare = useCallback(() => {
     handleShareUrl(tab?.url ?? '');
   }, [tab?.url, handleShareUrl]);
+
+  useEffect(() => {
+    const fn = () => {
+      setTimeout(() => {
+        void refreshConnectState();
+      }, 200);
+    };
+    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, fn);
+    };
+  }, [refreshConnectState]);
+  const handleDisconnect = useCallback(async () => {
+    if (!origin) return;
+    await backgroundApiProxy.serviceDApp.disconnectWebsite({
+      origin,
+      storageType: 'injectedProvider',
+    });
+    void refreshConnectState();
+  }, [origin, refreshConnectState]);
 
   const disabledGoBack = displayHomePage || !tab?.canGoBack;
   const disabledGoForward = displayHomePage ? true : !tab?.canGoForward;
@@ -241,6 +295,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions
+          disabled={displayHomePage}
           isBookmark={tab?.isBookmark ?? false}
           onBookmarkPress={handleBookmarkPress}
           onRefresh={() => {
@@ -255,7 +310,9 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             }
           }}
           onGoBackHomePage={handleGoBackHome}
-          disabled={displayHomePage}
+          onCloseTab={handleCloseTab}
+          displayDisconnectOption={!!hasConnectedAccount}
+          onDisconnect={handleDisconnect}
         >
           <IconButton
             variant="tertiary"

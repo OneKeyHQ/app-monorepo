@@ -18,7 +18,7 @@ import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
 import type { GestureResponderEvent } from 'react-native';
 
-interface IActionListItemProps {
+export interface IActionListItemProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
   label: string;

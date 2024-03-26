@@ -84,6 +84,7 @@ export interface IWebTabsAtom {
 }
 
 export interface IMobileBottomOptionsProps {
+  disabled: boolean;
   isBookmark: boolean;
   onBookmarkPress: (bookmark: boolean) => void;
   onRefresh: () => void;
@@ -92,7 +93,9 @@ export interface IMobileBottomOptionsProps {
   onPinnedPress: (pinned: boolean) => void;
   onBrowserOpen: () => void;
   onGoBackHomePage: () => void;
-  disabled: boolean;
+  onCloseTab: () => void;
+  displayDisconnectOption: boolean;
+  onDisconnect: () => void;
 }
 
 export interface IMobileTabListOptionsProps {
