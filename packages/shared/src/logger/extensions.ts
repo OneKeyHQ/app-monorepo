@@ -2,7 +2,7 @@ import { InteractionManager } from 'react-native';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
 
 // import { stringifyFunc } from './stringifyFunc';
-import { consoleFunc } from './utils';
+import utils from './utils';
 
 import type { ILogLevel } from './types';
 
@@ -14,7 +14,7 @@ const dangerLogger = RNLogger.createLogger<ILogLevel>({
   // stringifyFunc,
   transport: [consoleTransport],
   transportOptions: {
-    consoleFunc,
+    consoleFunc: utils.consoleFunc,
   },
 });
 
