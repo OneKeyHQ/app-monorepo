@@ -5,4 +5,8 @@ export const useForm: typeof useFromFunc = (props) =>
     ...props,
     mode: props?.mode || 'onBlur',
   });
-export { useFormState, useFormContext } from 'react-hook-form';
+export {
+  useFormContext,
+  useFormState,
+  useWatch as useFormWatch,
+} from 'react-hook-form';

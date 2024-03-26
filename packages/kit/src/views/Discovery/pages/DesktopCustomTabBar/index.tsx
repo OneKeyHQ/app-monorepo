@@ -3,9 +3,11 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Divider, ScrollView, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
   useBrowserBookmarkAction,
@@ -44,14 +46,42 @@ function DesktopCustomTabBar() {
     useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
-  const data = useMemo(() => {
-    const unpinnedData = (tabs ?? []).filter((t) => !t.isPinned);
-    unpinnedData.reverse();
-    return unpinnedData;
+
+  const { result, run } = usePromiseResult(async () => {
+    const tabsWithConnectedAccount = await Promise.all(
+      (tabs ?? []).map(async (tab) => {
+        const origin = tab?.url ? new URL(tab.url).origin : null;
+        let hasConnectedAccount = false;
+        if (origin) {
+          const connectedAccounts =
+            await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+              origin,
+            );
+          hasConnectedAccount = (connectedAccounts ?? []).length > 0;
+        }
+        return { ...tab, hasConnectedAccount };
+      }),
+    );
+    const unpinnedTabs = (tabsWithConnectedAccount ?? []).filter(
+      (t) => !t.isPinned,
+    );
+    unpinnedTabs.reverse();
+    const pinnedTabs = (tabsWithConnectedAccount ?? []).filter(
+      (t) => t.isPinned,
+    );
+    return {
+      unpinnedTabs,
+      pinnedTabs,
+    };
   }, [tabs]);
+
+  const data = useMemo(
+    () => result?.unpinnedTabs ?? [],
+    [result?.unpinnedTabs],
+  );
   const pinnedData = useMemo(
-    () => (tabs ?? []).filter((t) => t.isPinned),
-    [tabs],
+    () => result?.pinnedTabs ?? [],
+    [result?.pinnedTabs],
   );
 
   // scroll to top when new tab is added
@@ -86,6 +116,20 @@ function DesktopCustomTabBar() {
     [addBrowserBookmark, removeBrowserBookmark],
   );
 
+  const handleDisconnect = useCallback(
+    async (url: string | undefined) => {
+      const { origin } = new URL(url ?? '');
+      if (origin) {
+        await backgroundApiProxy.serviceDApp.disconnectWebsite({
+          origin,
+          storageType: 'injectedProvider',
+        });
+        setTimeout(() => run(), 200);
+      }
+    },
+    [run],
+  );
+
   useListenTabFocusState(ETabRoutes.MultiTabBrowser, (isFocus: boolean) => {
     if (!isFocus) {
       setCurrentWebTab('');
@@ -115,6 +159,15 @@ function DesktopCustomTabBar() {
     };
   }, [handleCloseTab, activeTabId]);
 
+  // For dApp connection state update
+  useEffect(() => {
+    const fn = () => setTimeout(() => run(), 200);
+    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, fn);
+    };
+  }, [run]);
+
   const onTabPress = useCallback(
     (id: string) => {
       navigation.switchTab(ETabRoutes.MultiTabBrowser);
@@ -136,6 +189,8 @@ function DesktopCustomTabBar() {
           onBookmarkPress={handleBookmarkPress}
           onPinnedPress={handlePinnedPress}
           onClose={handleCloseTab}
+          displayDisconnectOption={t.hasConnectedAccount}
+          onDisconnect={handleDisconnect}
           testID={`tab-list-stack-pinned-${t.id}`}
         />
       ))}
@@ -164,6 +219,8 @@ function DesktopCustomTabBar() {
             onBookmarkPress={handleBookmarkPress}
             onPinnedPress={handlePinnedPress}
             onClose={handleCloseTab}
+            displayDisconnectOption={t.hasConnectedAccount}
+            onDisconnect={handleDisconnect}
             testID={`tab-modal-list-item-${t.id}`}
           />
         ))}

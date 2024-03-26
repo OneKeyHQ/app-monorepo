@@ -162,7 +162,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   type: EDBAccountType | undefined;
   path: string;
   pathIndex?: number;
-  relPath?: string;
+  relPath?: string; // 0/0
   indexedAccountId?: string;
   coinType: string;
   impl: string; // single chain account belongs to network impl

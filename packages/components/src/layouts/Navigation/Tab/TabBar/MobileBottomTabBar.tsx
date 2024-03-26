@@ -3,10 +3,7 @@ import { useMemo } from 'react';
 import { CommonActions } from '@react-navigation/native';
 import { StyleSheet } from 'react-native';
 
-import {
-  useIsKeyboardShown,
-  useSafeAreaInsets,
-} from '@onekeyhq/components/src/hooks';
+import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 
@@ -25,11 +22,11 @@ export default function MobileBottomTabBar({
   state,
   descriptors,
 }: IMobileBottomTabBarProps) {
-  const isKeyboardShown = useIsKeyboardShown();
+  // const isKeyboardShown = useIsKeyboardShown();
   const { routes } = state;
   const { bottom } = useSafeAreaInsets();
 
-  const isHide = isKeyboardShown;
+  // const isHide = isKeyboardShown;
 
   const tabs = useMemo(
     () =>
@@ -87,8 +84,6 @@ export default function MobileBottomTabBar({
       bg="$bgApp"
       borderTopColor="$borderSubdued"
       pb={bottom}
-      // Hidden the tabBar and prevent tabBar re-rendering every time when the keyboard is popup.
-      {...(isHide && { h: 0, overflow: 'hidden' })}
     >
       <Stack
         testID="Mobile-AppTabBar-Content"

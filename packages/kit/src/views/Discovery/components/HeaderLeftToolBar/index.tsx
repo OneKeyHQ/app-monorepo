@@ -34,21 +34,20 @@ function HeaderLeftToolBar({
   goForward?: () => void;
   stopLoading?: () => void;
   reload?: () => void;
-  onSearch?: () => void;
+  onSearch?: (url: string) => void;
   isBookmark?: boolean;
   onBookmarkPress?: (bookmark: boolean) => void;
   isPinned?: boolean;
   onPinnedPress?: (pinned: boolean) => void;
 }) {
   const media = useMedia();
-
   if (media.md) {
     return (
       <Stack
         flex={1}
         alignItems="center"
         flexDirection="row"
-        onPress={() => onSearch?.()}
+        onPress={() => onSearch?.(url)}
         mr="$4"
         bg="$bgStrong"
         py="$2"
@@ -91,8 +90,9 @@ function HeaderLeftToolBar({
         size="small"
         leftIconName="LockSolid"
         value={url}
+        selectTextOnFocus
         onPress={() => {
-          onSearch?.();
+          onSearch?.(url);
         }}
         addOns={[
           {

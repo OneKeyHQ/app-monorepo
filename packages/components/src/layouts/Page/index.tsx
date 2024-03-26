@@ -14,13 +14,14 @@ import {
   FooterConfirmButton,
 } from './PageFooterActions';
 import { PageHeader } from './PageHeader';
+import { PageLifeCycle } from './PageLifeCycle';
 
 import type { IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
 import type { IScrollViewRef } from '../ScrollView';
 import type { NativeScrollPoint } from 'react-native';
 
-export type { IPageProps, IPageFooterProps } from './type';
+export type { IPageProps, IPageFooterProps, IPageLifeCycle } from './type';
 
 function PageProvider({
   children,
@@ -28,6 +29,8 @@ function PageProvider({
   scrollEnabled = false,
   scrollProps = { showsVerticalScrollIndicator: false },
   safeAreaEnabled = true,
+  onMounted,
+  onUnmounted,
 }: IPageProps) {
   const pageRef = useRef<IScrollViewRef>(null);
   const pageOffsetRef = useRef<NativeScrollPoint>({
@@ -46,11 +49,17 @@ function PageProvider({
     }),
     [safeAreaEnabled, scrollEnabled, scrollProps],
   );
+
+  const isEnablePageLifeCycle = onMounted || onUnmounted;
+
   return (
     <>
       <PageContext.Provider value={value}>
         <PageContainer skipLoading={skipLoading}>{children}</PageContainer>
       </PageContext.Provider>
+      {isEnablePageLifeCycle ? (
+        <PageLifeCycle onMounted={onMounted} onUnmounted={onUnmounted} />
+      ) : null}
       <PageEvery />
     </>
   );
