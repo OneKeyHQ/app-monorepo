@@ -6,21 +6,31 @@ import {
   initEccLib,
 } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
+import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
 
-import { ecc } from '../../../secret';
+import { ecc, generateRootFingerprint, secp256k1 } from '../../../secret';
 
-import { IAddressValidation } from '@onekeyhq/shared/types/address';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import {
+  IAddressValidation,
+  IXprvtValidation,
+  IXpubValidation,
+} from '@onekeyhq/shared/types/address';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Psbt, networks } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 import type { ECPairAPI } from 'ecpair/src/ecpair';
+import { isNil, omit } from 'lodash';
 import {
   EAddressEncodings,
+  ICurveName,
   type ICoreApiSignAccount,
   type ITxInputToSign,
 } from '../../../types';
 import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
+import { getBtcForkNetwork } from './networks';
 
 export * from './networks';
 
@@ -139,7 +149,8 @@ export function getInputsToSignFromPsbt({
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
         if (
-          (account.template as string).startsWith(`m/86'/`) &&
+          // TODO use addressEncoding
+          (account.template as string)?.startsWith(`m/86'/`) &&
           !v.tapInternalKey
         ) {
           v.tapInternalKey = toXOnly(Buffer.from(pubKeyStr, 'hex'));
@@ -154,6 +165,36 @@ export function isBRC20Token(tokenAddress?: string) {
   return (
     tokenAddress?.startsWith('brc20') || tokenAddress?.startsWith('brc-20')
   );
+}
+
+export function validateBtcXpub({ xpub }: { xpub: string }): IXpubValidation {
+  let isValid = false;
+  try {
+    bs58check.decode(xpub);
+    isValid = true;
+  } catch (error) {
+    //
+  }
+  return {
+    isValid,
+  };
+}
+
+export function validateBtcXprvt({
+  xprvt,
+}: {
+  xprvt: string;
+}): IXprvtValidation {
+  let isValid = false;
+  try {
+    bs58check.decode(xprvt);
+    isValid = true;
+  } catch (error) {
+    //
+  }
+  return {
+    isValid,
+  };
 }
 
 export function validateBtcAddress({
@@ -231,4 +272,169 @@ export function checkBtcAddressIsUsed(query: {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 }): Promise<{ isUsed: boolean }> {
   return Promise.resolve({ isUsed: true });
+}
+
+export function convertBtcXprvtToHex({
+  xprvt,
+}: {
+  // base58 encoded xprvt
+  xprvt: string;
+}) {
+  return bufferUtils.bytesToHex(bs58check.decode(xprvt));
+}
+
+export function getBtcXpubFromXprvt({
+  network,
+  privateKeyRaw,
+}: {
+  network: IBtcForkNetwork;
+  privateKeyRaw: string; // hex privateKey
+}) {
+  const xprv = bufferUtils.toBuffer(privateKeyRaw);
+
+  let xpub = '';
+  let pubKey = '';
+
+  const xprvVersionBytesNum = parseInt(xprv.slice(0, 4).toString('hex'), 16);
+
+  if (isNil(xprvVersionBytesNum) || Number.isNaN(xprvVersionBytesNum)) {
+    throw new Error('Invalid X Private Key: xprvVersionBytesNum not found');
+  }
+  const versionByteOptions = [
+    // ...Object.values(network.segwitVersionBytes || {}),
+    ...Object.values(omit(network.segwitVersionBytes, EAddressEncodings.P2TR)),
+    network.bip32,
+  ];
+
+  for (const versionBytes of versionByteOptions) {
+    if (versionBytes.private === xprvVersionBytesNum) {
+      const privateKeySlice = xprv.slice(46, 78);
+      const publicKey = secp256k1.publicFromPrivate(privateKeySlice);
+      const pubVersionBytes = Buffer.from(
+        versionBytes.public.toString(16).padStart(8, '0'),
+        'hex',
+      );
+      // const keyPair = getBitcoinECPair().fromPrivateKey(privateKeySlice, {
+      //   network,
+      // });
+      try {
+        xpub = bs58check.encode(
+          xprv.fill(pubVersionBytes, 0, 4).fill(publicKey, 45, 78),
+        );
+        // const publicKeyStr1 = keyPair.publicKey.toString('hex');
+        const publicKeyStr2 = publicKey.toString('hex');
+        // TODO publicKey is different with HD account
+        //  - hd "03171d7528ce1cc199f2b8ce29ad7976de0535742169a8ba8b5a6dd55df7e589d1"
+        //  - imported "020da363502074fefdfbb07ec47abc974207951dcb1aa3c910f4a768e2c70f9c68"
+        pubKey = publicKeyStr2;
+      } catch (e) {
+        console.error(e);
+      }
+      break;
+    }
+  }
+  if (xpub === '') {
+    throw new OneKeyInternalError('Invalid X Private Key.');
+  }
+  return { xpub, pubKey };
+}
+
+export function getBtcVersionBytesToEncodings({
+  networkChainCode,
+}: {
+  networkChainCode: string | undefined;
+}): {
+  public: Record<number, Array<EAddressEncodings>>;
+  private: Record<number, Array<EAddressEncodings>>;
+} {
+  const network = getBtcForkNetwork(networkChainCode);
+  const tmp: {
+    public: {
+      [bytes: number]: EAddressEncodings[];
+    };
+    private: {
+      [bytes: number]: EAddressEncodings[];
+    };
+  } = {
+    public: { [network.bip32.public]: [EAddressEncodings.P2PKH] },
+    private: { [network.bip32.private]: [EAddressEncodings.P2PKH] },
+  };
+  Object.entries(network.segwitVersionBytes || {}).forEach(
+    ([
+      encoding,
+      { public: publicVersionBytes, private: privateVersionBytes },
+    ]) => {
+      tmp.public[publicVersionBytes] = [
+        ...(tmp.public[publicVersionBytes] || []),
+        encoding as EAddressEncodings,
+      ];
+      tmp.private[privateVersionBytes] = [
+        ...(tmp.private[privateVersionBytes] || []),
+        encoding as EAddressEncodings,
+      ];
+    },
+  );
+  return tmp;
+}
+
+export function getBtcXpubSupportedAddressEncodings({
+  xpub,
+  network,
+}: {
+  network: IBtcForkNetwork;
+  xpub: string; // base58 encoded xpub
+}) {
+  const decodedXpub = bs58check.decode(xpub);
+  const versionBytes = parseInt(
+    bufferUtils.bytesToHex(decodedXpub.slice(0, 4)),
+    16,
+  );
+  const addressEncodingMap = getBtcVersionBytesToEncodings({
+    networkChainCode: network.networkChainCode,
+  });
+  const supportEncodings = addressEncodingMap.public[versionBytes];
+
+  return {
+    supportEncodings,
+  };
+}
+
+export function buildBtcXpubSegwit({
+  xpub,
+  addressEncoding: encoding,
+  hdAccountPayload,
+}: {
+  xpub: string;
+  addressEncoding: EAddressEncodings;
+  hdAccountPayload?: {
+    curveName: ICurveName;
+    hdCredential: string;
+    password: string;
+    path: string;
+  };
+}) {
+  let xpubSegwit = xpub;
+  if (encoding === EAddressEncodings.P2TR) {
+    xpubSegwit = `tr(${xpub})`;
+
+    // with hd account descriptor
+    // https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md
+    // https://github.com/trezor/blockbook/blob/master/docs/api.md#get-xpub
+    if (hdAccountPayload) {
+      const { curveName, hdCredential, password, path } = hdAccountPayload;
+      const rootFingerprint = generateRootFingerprint(
+        curveName,
+        hdCredential,
+        password,
+      );
+      const fingerprint = Number(
+        Buffer.from(rootFingerprint).readUInt32BE(0) || 0,
+      )
+        .toString(16)
+        .padStart(8, '0');
+      const descriptorPath = `${fingerprint}${path.substring(1)}`;
+      xpubSegwit = `tr([${descriptorPath}]${xpub}/<0;1>/*)`;
+    }
+  }
+  return xpubSegwit;
 }

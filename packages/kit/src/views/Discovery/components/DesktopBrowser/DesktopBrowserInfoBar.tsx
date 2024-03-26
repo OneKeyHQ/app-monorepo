@@ -25,7 +25,7 @@ function DesktopBrowserInfoBar({
   onBookmarkPress: (bookmark: boolean) => void;
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
-  onSearch: () => void;
+  onSearch: (url: string) => void;
 }) {
   return (
     <HeaderLeftToolBar
