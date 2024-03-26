@@ -8,6 +8,9 @@ import {
   Switch,
   XStack,
   YStack,
+  usePageLifeCycle,
+  usePageMounted,
+  usePageUnMounted,
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import { ETestModalPages } from '@onekeyhq/shared/src/routes';
@@ -56,6 +59,23 @@ export function TestSimpleModal() {
   const navigateToNextPage = useCallback(() => {
     navigation.push(ETestModalPages.TestSimpleModal);
   }, [navigation]);
+
+  usePageMounted(() => {
+    console.log('PageLifeCycle----page Mounted');
+  });
+
+  usePageUnMounted(() => {
+    console.log('PageLifeCycle----Page UnMounted');
+  });
+
+  usePageLifeCycle({
+    onMounted: () => {
+      console.log('usePageLifeCycle----page Mounted');
+    },
+    onUnmounted: () => {
+      console.log('usePageLifeCycle----page UnMounted');
+    },
+  });
 
   const [, setVal] = useState('');
 
