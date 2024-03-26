@@ -1269,6 +1269,23 @@ class ServiceAccount extends ServiceBase {
     const vault = await vaultFactory.getVault({ accountId, networkId });
     return vault.getAccountXpub();
   }
+
+  @backgroundMethod()
+  async getHDAccountMnemonic({ walletId }: { walletId: string }) {
+    if (!accountUtils.isHdWallet({ walletId })) {
+      throw new Error('getHDAccountMnemonic ERROR: Not a HD account');
+    }
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+        walletId,
+      });
+    const credential = await localDb.getCredential(walletId);
+    let mnemonic = mnemonicFromEntropy(credential.credential, password);
+    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
+      text: mnemonic,
+    });
+    return { mnemonic };
+  }
 }
 
 export default ServiceAccount;
