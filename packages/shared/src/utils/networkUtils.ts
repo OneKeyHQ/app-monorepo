@@ -1,5 +1,3 @@
-import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
-
 import {
   BtcDappNetworkTypes,
   EBtcDappNetworkTypeEnum,

@@ -1,17 +1,11 @@
-import { mnemonicToSeedSync } from 'bip39';
 import bs58check from 'bs58check';
 
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
-import { batchGetPublicKeys, mnemonicFromEntropy } from '../../../secret';
+import { batchGetPublicKeys } from '../../../secret';
 import { EAddressEncodings, type ICurveName } from '../../../types';
-import {
-  getAddressFromXpub,
-  getBitcoinBip32,
-  getBitcoinECPair,
-  getBtcForkNetwork,
-} from '../../btc/sdkBtc';
+import { getAddressFromXpub, getBtcForkNetwork } from '../../btc/sdkBtc';
 
 export const generateNativeSegwitAccounts = async ({
   curve,
@@ -50,9 +44,6 @@ export const generateNativeSegwitAccounts = async ({
     ((network.segwitVersionBytes || {})[
       EAddressEncodings.P2WPKH
     ] as typeof network.bip32) || network.bip32;
-
-  const mnemonic = mnemonicFromEntropy(hdCredential, password);
-  const root = getBitcoinBip32().fromSeed(mnemonicToSeedSync(mnemonic));
   const xpubBuffers = [
     Buffer.from(xpubVersionBytes.toString(16).padStart(8, '0'), 'hex'),
     Buffer.from([3]),
@@ -61,10 +52,6 @@ export const generateNativeSegwitAccounts = async ({
   const addresses = await Promise.all(
     pubkeyInfos.map(async (info, index) => {
       const { path, parentFingerPrint, extendedKey } = info;
-
-      const node = root.derivePath(`${path}/0/0`);
-      const keyPair = getBitcoinECPair().fromWIF(node.toWIF());
-
       const xpub = bs58check.encode(
         Buffer.concat([
           ...xpubBuffers,
@@ -80,7 +67,7 @@ export const generateNativeSegwitAccounts = async ({
 
       const firstAddressRelPath = '0/0';
       const relativePaths = [firstAddressRelPath];
-      const { [firstAddressRelPath]: address } = getAddressFromXpub({
+      const { addresses: generatedAddresses } = await getAddressFromXpub({
         curve,
         network,
         xpub,
@@ -88,6 +75,8 @@ export const generateNativeSegwitAccounts = async ({
         addressEncoding: EAddressEncodings.P2WPKH,
         encodeAddress: (r) => r,
       });
+
+      const { [firstAddressRelPath]: address } = generatedAddresses;
 
       const accountIndex = indexes[index];
       const addressItem = {

@@ -52,7 +52,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { dbDevice } = deviceParams;
     const { connectId, deviceId } = dbDevice;
     return this.basePrepareHdNormalAccounts(params, {
-      addressEncoding,
       buildAddressesInfo: async ({ usedIndexes }) => {
         const publicKeys = await this.baseGetDeviceAccountPublicKeys({
           params,

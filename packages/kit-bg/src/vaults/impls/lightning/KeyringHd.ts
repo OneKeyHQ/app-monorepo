@@ -1,6 +1,5 @@
 import { sha256 } from '@noble/hashes/sha256';
 
-import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';

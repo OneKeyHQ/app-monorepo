@@ -6,7 +6,10 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type {
   IAddressValidation,
+  IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
+  IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
@@ -31,11 +34,12 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   IUpdateUnsignedTxParams,
+  IValidateGeneralInputParams,
   IVaultSettings,
 } from '../../types';
 
 export default class Vault extends VaultBase {
-  override settings: IVaultSettings = settings;
+  settings: IVaultSettings = settings;
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
@@ -88,6 +92,22 @@ export default class Vault extends VaultBase {
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
+    throw new Error('Method not implemented.');
+  }
+
+  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    throw new Error('Method not implemented.');
+  }
+
+  override validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    throw new Error('Method not implemented.');
+  }
+
+  override validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
     throw new Error('Method not implemented.');
   }
 }

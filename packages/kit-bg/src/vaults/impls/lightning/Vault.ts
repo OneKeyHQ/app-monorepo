@@ -18,7 +18,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
+  IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
+  IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
@@ -46,11 +49,12 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   IUpdateUnsignedTxParams,
+  IValidateGeneralInputParams,
   IVaultSettings,
 } from '../../types';
 
 export default class Vault extends VaultBase {
-  override settings: IVaultSettings = settings;
+  settings: IVaultSettings = settings;
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
@@ -136,6 +140,22 @@ export default class Vault extends VaultBase {
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
+    throw new Error('Method not implemented.');
+  }
+
+  override validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    throw new Error('Method not implemented.');
+  }
+
+  override validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
+    throw new Error('Method not implemented.');
+  }
+
+  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
     throw new Error('Method not implemented.');
   }
 
