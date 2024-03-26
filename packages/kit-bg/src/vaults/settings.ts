@@ -30,6 +30,11 @@ function validateVaultSettings({
         `no default accountDeriveInfo found in vault settings: ${networkId}`,
       );
     }
+    if (!Object.isFrozen(settings)) {
+      throw new Error(
+        `VaultSettings should be frozen, please use Object.freeze() >>>> networkId=${networkId}`,
+      );
+    }
   }
 }
 

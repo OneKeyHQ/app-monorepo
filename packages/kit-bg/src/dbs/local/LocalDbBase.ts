@@ -1525,7 +1525,9 @@ ssphrase wallet
           );
         }
         if (!importedCredential) {
-          throw new Error('importedCredential is missing');
+          throw new Error(
+            'importedCredential is required for imported account',
+          );
         }
         await this.txAddRecords({
           tx,
