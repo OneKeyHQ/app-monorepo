@@ -43,7 +43,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
   /**
    * device config
    */
-  public payloadJson!: string;
+  public settingsRaw!: string;
 
   /**
    * timestamp of the device bonded with the host device.
@@ -85,7 +85,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       deviceId: this.deviceId,
       deviceType: this.deviceType,
       features: this.features,
-      payloadJson: this.payloadJson,
+      settingsRaw: this.settingsRaw,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       verifiedAtVersion: this.verifiedAtVersion,
