@@ -18,6 +18,8 @@ import { zip } from '@onekeyhq/shared/src/modules3rdParty/react-native-zip-archi
 
 import platformEnv from '../../platformEnv';
 
+import type { IUtilsType } from './types';
+
 const NATIVE_LOG_DIR_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs`;
 const NATIVE_LOG_ZIP_PATH = `${RNFS?.CachesDirectoryPath || 'OneKey'}/logs_zip`;
 
@@ -31,12 +33,12 @@ void FileLogger.configure({
   logLevel: LogLevel.Info,
 });
 
-export const consoleFunc = (msg: string) => {
+const consoleFunc = (msg: string) => {
   console.log(msg);
   FileLogger.write(LogLevel.Info, msg);
 };
 
-export const getLogFilePath = async (filename: string) => {
+const getLogFilePath = async (filename: string) => {
   if (!RNFS) {
     throw new Error('RNFS is not available');
   }
@@ -51,7 +53,7 @@ export const getLogFilePath = async (filename: string) => {
   return platformEnv.isNativeAndroid ? `file://${filepath}` : filepath;
 };
 
-export const getDeviceInfo = () =>
+const getDeviceInfo = () =>
   [
     `Device: ${getModel()} ${getDeviceId()}`,
     `System: ${getSystemName()} ${getSystemVersion()}`,
@@ -63,3 +65,6 @@ export const getDeviceInfo = () =>
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,
     `version: ${platformEnv.version ?? ''}`,
   ].join(',');
+
+const utils: IUtilsType = { getDeviceInfo, getLogFilePath, consoleFunc };
+export default utils;

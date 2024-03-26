@@ -1,5 +1,5 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { getLogFilePath } from '@onekeyhq/shared/src/logger/utils';
+import utils from '@onekeyhq/shared/src/logger/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 
@@ -13,7 +13,7 @@ const getShareModule = async () => {
 export const exportLogs = async (filename: string) => {
   defaultLogger.setting.device.logDeviceInfo();
   await waitAsync(1000);
-  const logFilePath = await getLogFilePath(filename);
+  const logFilePath = await utils.getLogFilePath(filename);
   const Share = await getShareModule();
   if (!Share) return;
   Share.open({
