@@ -2,6 +2,16 @@ import { useCallback, useContext, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
+import {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
+
 import { PageContext } from './PageContext';
 
 import type { IPageLifeCycle } from './type';
@@ -96,4 +106,22 @@ export const usePageUnMounted = (
   onUnmounted: IPageLifeCycle['onUnmounted'],
 ) => {
   usePageLifeCycle({ onUnmounted });
+};
+
+export const useSafeKeyboardAnimationStyle = () => {
+  const { bottom: safeBottomHeight } = useSafeAreaInsets();
+  const keyboardHeightValue = useSharedValue(0);
+  const animatedStyles = useAnimatedStyle(() => ({
+    paddingBottom: keyboardHeightValue.value + safeBottomHeight,
+  }));
+  useKeyboardEvent({
+    keyboardWillShow: (e) => {
+      const keyboardHeight = e.endCoordinates.height;
+      keyboardHeightValue.value = withTiming(keyboardHeight - safeBottomHeight);
+    },
+    keyboardWillHide: () => {
+      keyboardHeightValue.value = withTiming(0);
+    },
+  });
+  return platformEnv.isNative ? animatedStyles : undefined;
 };
