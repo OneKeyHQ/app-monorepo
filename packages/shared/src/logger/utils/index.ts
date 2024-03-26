@@ -18,6 +18,7 @@ const getDeviceInfo = () =>
     `appChannel: ${platformEnv.appChannel ?? ''}`,
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,
     `version: ${platformEnv.version ?? ''}`,
+    `browserInfo: ${platformEnv.browserInfo ?? ''}`,
   ].join(',');
 
 const utils: IUtilsType = { getDeviceInfo, getLogFilePath, consoleFunc };
