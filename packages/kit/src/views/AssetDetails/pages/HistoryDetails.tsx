@@ -465,7 +465,7 @@ function HistoryDetails() {
               renderContent={renderFeeInfo()}
               compact
             />
-            {!isNil(txInfo.nonce) ? (
+            {vaultSettings?.nonceRequired && !isNil(txInfo.nonce) ? (
               <InfoItem
                 label="Nonce"
                 renderContent={String(txInfo.nonce)}
@@ -535,6 +535,7 @@ function HistoryDetails() {
     txInfo.nonce,
     txInfo.swapInfo,
     txInfo.txid,
+    vaultSettings?.nonceRequired,
   ]);
 
   return (
