@@ -12,19 +12,6 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
-  type ICoreApiGetAddressItem,
-  type ICoreApiGetAddressQueryImported,
-  type ICoreApiGetAddressQueryPublicKey,
-  type ICoreApiGetAddressesQueryHd,
-  type ICoreApiGetAddressesResult,
-  type ICoreApiPrivateKeysMap,
-  type ICoreApiSignBasePayload,
-  type ICoreApiSignMsgPayload,
-  type ICoreApiSignTxPayload,
-  type ICurveName,
-  type ISignedTxPro,
-} from '../../types';
-import {
   getAddressFromXpub,
   getBitcoinECPair,
   getBtcForkNetwork,
@@ -34,7 +21,20 @@ import { generateNativeSegwitAccounts } from './sdkLightning/account';
 
 import type { IUnionMsgType } from './types';
 import type { ISigner } from '../../base/ChainSigner';
-import type { EAddressEncodings } from '../../types';
+import type {
+  EAddressEncodings,
+  ICoreApiGetAddressItem,
+  ICoreApiGetAddressQueryImported,
+  ICoreApiGetAddressQueryPublicKey,
+  ICoreApiGetAddressesQueryHd,
+  ICoreApiGetAddressesResult,
+  ICoreApiPrivateKeysMap,
+  ICoreApiSignBasePayload,
+  ICoreApiSignMsgPayload,
+  ICoreApiSignTxPayload,
+  ICurveName,
+  ISignedTxPro,
+} from '../../types';
 import type { IBtcForkNetwork } from '../btc/types';
 
 const curve: ICurveName = 'secp256k1';
@@ -120,7 +120,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     relativePaths: Array<string>;
     addressEncoding?: EAddressEncodings;
   }): Promise<Record<string, string>> {
-    const ret = getAddressFromXpub({
+    const { addresses } = await getAddressFromXpub({
       curve,
       network,
       xpub,
@@ -128,7 +128,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       addressEncoding,
       encodeAddress: (address) => address,
     });
-    return Promise.resolve(ret);
+    return addresses;
   }
 
   private async buildSignerLightning({
