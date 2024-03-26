@@ -53,8 +53,6 @@ function TokenListContainer(props: ITabPageProps) {
     updateTokenListState,
   } = useTokenListActions().current;
 
-  console.log(account);
-
   usePromiseResult(
     async () => {
       try {
@@ -74,10 +72,6 @@ function TokenListContainer(props: ITabPageProps) {
         }
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
-        // const blockedTokens =
-        //   await backgroundApiProxy.serviceToken.getBlockedTokens({
-        //     networkId: network.id,
-        //   });
         // const unblockedTokens =
         //   await backgroundApiProxy.serviceToken.getUnblockedTokens({
         //     networkId: network.id,
@@ -85,6 +79,10 @@ function TokenListContainer(props: ITabPageProps) {
         const accountAddress =
           await backgroundApiProxy.serviceAccount.getAccountAddress({
             accountId: account.id,
+            networkId: network.id,
+          });
+        const blockedTokens =
+          await backgroundApiProxy.serviceToken.getBlockedTokens({
             networkId: network.id,
           });
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
@@ -96,8 +94,7 @@ function TokenListContainer(props: ITabPageProps) {
             accountId: account.id,
             networkId: network.id,
           }),
-          // blockedTokens: Object.keys(blockedTokens),
-          // unblockedTokens: Object.keys(unblockedTokens),
+          blockedTokens: Object.keys(blockedTokens),
         });
 
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });

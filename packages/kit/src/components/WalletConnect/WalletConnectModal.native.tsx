@@ -72,7 +72,7 @@ const modal: IWalletConnectModalShared = {
       await resetAppRef.current();
       // WalletConnectModal -> useConfigure -> initProvider()
       WcConnectionCtrl.setPairingUri(uri); // onDisplayUri
-      // import { ClientCtrl } from '@walletconnect/modal-react-native/src/controllers/ClientCtrl';
+      // import { ClientCtrl } from '@walletconnect/modal-react-native/lib/module/controllers/ClientCtrl';
       // TODO use custom provider from bg make QRCode Modal not open automatically
       ClientCtrl.setProvider({} as any);
       // resetApp(); // onSessionDelete

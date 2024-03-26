@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -75,7 +76,9 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         : Promise.resolve(undefined),
     [network],
   ).result;
-  const isNFTEnabled = vaultSettings?.NFTEnabled;
+  const isNFTEnabled =
+    vaultSettings?.NFTEnabled &&
+    getEnabledNFTNetworkIds().includes(network?.id ?? '');
   const isRequiredValidation = vaultSettings?.validationRequired;
 
   const tabs = useMemo(

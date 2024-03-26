@@ -11,15 +11,17 @@ export interface IPasswordSetupForm {
   confirmPassword: string;
 }
 interface IPasswordSetupProps {
-  biologyAuthSwitchContainer: React.ReactNode;
   loading: boolean;
   onSetupPassword: (data: IPasswordSetupForm) => void;
+  biologyAuthSwitchContainer?: React.ReactNode;
+  confirmBtnText?: string;
 }
 
 const PasswordSetup = ({
   loading,
-  biologyAuthSwitchContainer,
   onSetupPassword,
+  confirmBtnText,
+  biologyAuthSwitchContainer,
 }: IPasswordSetupProps) => {
   const intl = useIntl();
   const form = useForm<IPasswordSetupForm>({
@@ -36,6 +38,7 @@ const PasswordSetup = ({
   return (
     <Form form={form}>
       <Form.Field
+        label="New Password"
         name="password"
         rules={{
           required: { value: true, message: 'Please enter a password' },
@@ -48,7 +51,7 @@ const PasswordSetup = ({
             message: 'Password cannot exceed 128 characters',
           },
           onChange: () => {
-            form.clearErrors('confirmPassword');
+            form.clearErrors();
           },
         }}
       >
@@ -76,6 +79,7 @@ const PasswordSetup = ({
         />
       </Form.Field>
       <Form.Field
+        label="Confirm Password"
         name="confirmPassword"
         rules={{
           validate: {
@@ -122,7 +126,7 @@ const PasswordSetup = ({
         onPress={form.handleSubmit(onSetupPassword)}
         testID="set-password"
       >
-        {intl.formatMessage({ id: 'title__set_password' })}
+        {confirmBtnText ?? intl.formatMessage({ id: 'title__set_password' })}
       </Button>
     </Form>
   );

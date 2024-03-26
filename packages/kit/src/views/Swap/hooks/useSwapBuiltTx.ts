@@ -96,6 +96,11 @@ export function useSwapBuildTx() {
     setSwapBuildTxFetching(false);
   }, [setSwapBuildTxFetching]);
 
+  const cancelApproveTx = useCallback(() => {
+    handleTxFail();
+    setSwapApprovingTransaction(undefined);
+  }, [handleTxFail, setSwapApprovingTransaction]);
+
   const wrappedTx = useCallback(async () => {
     if (
       fromToken &&
@@ -107,7 +112,7 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.networkId
     ) {
       setSwapBuildTxFetching(true);
-      const wrappedType = fromToken.contractAddress
+      const wrappedType = fromToken.isNative
         ? EWrappedType.WITHDRAW
         : EWrappedType.DEPOSIT;
       const wrappedInfo: IWrappedInfo = {
@@ -190,8 +195,8 @@ export function useSwapBuildTx() {
         await navigationToSendConfirm({
           approveInfo,
           onSuccess: onApproveSuccess || handleApproveTxSuccess,
-          onFail: handleTxFail,
-          onCancel: handleTxFail,
+          onFail: cancelApproveTx,
+          onCancel: cancelApproveTx,
         });
       }
     },
@@ -206,7 +211,7 @@ export function useSwapBuildTx() {
       setSwapBuildTxFetching,
       navigationToSendConfirm,
       handleApproveTxSuccess,
-      handleTxFail,
+      cancelApproveTx,
       setSwapApprovingTransaction,
     ],
   );

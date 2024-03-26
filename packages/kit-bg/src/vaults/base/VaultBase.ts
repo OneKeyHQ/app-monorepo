@@ -338,7 +338,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       assetTransfer: {
         from: tx.from,
         to: tx.to,
-        label: tx.label.label,
+        label: tx.label,
         sends: tx.sends.map((send) =>
           this.buildHistoryTransfer({
             transfer: send,

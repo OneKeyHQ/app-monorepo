@@ -69,7 +69,7 @@ export type IOnChainHistoryTx = {
   functionCode: string;
   params: string[];
   value: string;
-  label: { label: string };
+  label: string;
   confirmations?: number;
   inputs?: IOnChainHistoryTxUTXOInput[];
   outputs?: IOnChainHistoryTxUTXOOutput[];
