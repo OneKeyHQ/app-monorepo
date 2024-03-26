@@ -18,9 +18,15 @@ function dbDeviceToSearchDevice(device: IDBDevice) {
 // web sdk return KnownDevice
 // ble sdk return SearchDevice
 function getDeviceVersion(device: SearchDevice | KnownDevice | IDBDevice) {
-  const deviceFull = device as KnownDevice;
-  let bleVersion = (deviceFull.bleFirmwareVersion || []).join('.');
-  let firmwareVersion = (deviceFull.firmwareVersion || []).join('.');
+  const knownDevice = device as KnownDevice;
+  let bleVersion =
+    (knownDevice.bleFirmwareVersion || []).join('.') ||
+    knownDevice?.features?.ble_ver ||
+    '';
+  let firmwareVersion =
+    (knownDevice.firmwareVersion || []).join('.') ||
+    knownDevice?.features?.onekey_firmware_version ||
+    '';
 
   if (!bleVersion) {
     bleVersion = (device as IDBDevice)?.featuresInfo?.ble_ver || '';
@@ -37,6 +43,7 @@ function getDeviceVersion(device: SearchDevice | KnownDevice | IDBDevice) {
 
 function getDeviceVersionStr(device: SearchDevice) {
   const { bleVersion, firmwareVersion } = getDeviceVersion(device);
+  // keep empty if version not found
   return `${bleVersion}--${firmwareVersion}`;
 }
 

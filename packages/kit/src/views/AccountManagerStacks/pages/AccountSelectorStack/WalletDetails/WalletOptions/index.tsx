@@ -110,7 +110,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
         }
       />
     );
-  }, [handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
+  }, [device, handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
 
   return (
     <HeightTransition>
