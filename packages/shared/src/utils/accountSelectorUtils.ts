@@ -95,6 +95,7 @@ function buildMergedSelectedAccount({
         networkId: mergedByData.networkId || '',
       })
     ) {
+      // TODO why should change networkId and driveType? check new network compatibility
       // result.networkId = mergedByData.networkId;
       // result.deriveType = mergedByData.deriveType;
     }
