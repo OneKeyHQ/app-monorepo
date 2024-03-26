@@ -44,7 +44,13 @@ const SelectDefaultItem = () => {
   const [val, setVal] = useState(items[1].value);
 
   return (
-    <Select items={items} value={val} onChange={setVal} title="Demo Title" />
+    <Select
+      items={items}
+      value={val}
+      onChange={setVal}
+      title="Demo Title"
+      onOpenChange={console.log}
+    />
   );
 };
 
@@ -64,6 +70,7 @@ const SelectLongListItem = () => {
       value={val}
       onChange={setVal}
       title="Demo Title"
+      onOpenChange={console.log}
     />
   );
 };
@@ -78,6 +85,7 @@ const SelectDisabledItem = () => {
       value={val}
       onChange={setVal}
       title="Demo Title"
+      onOpenChange={console.log}
     />
   );
 };
@@ -97,6 +105,7 @@ const SelectCustomItem = () => {
       value={val}
       onChange={setVal}
       title="Demo Title"
+      onOpenChange={console.log}
     />
   );
 };
@@ -154,6 +163,7 @@ const SelectSectionsItemDemo = () => {
       value={val}
       onChange={setVal}
       title="Demo Title"
+      onOpenChange={console.log}
     />
   );
 };
@@ -166,6 +176,7 @@ const SelectDefaultValue = () => {
       value={val}
       onChange={setVal}
       title="Demo Title"
+      onOpenChange={console.log}
     />
   );
 };
@@ -197,6 +208,7 @@ const SelectGallery = () => (
                 value={val}
                 onChange={setVal}
                 title="Label In Value"
+                onOpenChange={console.log}
               />
 
               <Select
@@ -205,6 +217,7 @@ const SelectGallery = () => (
                 value={sectionVal}
                 onChange={setSectionVal}
                 title="Label In Value"
+                onOpenChange={console.log}
               />
             </Stack>
           );

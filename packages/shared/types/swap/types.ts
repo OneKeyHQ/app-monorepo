@@ -21,6 +21,12 @@ export enum ESwapDirectionType {
   TO = 'to',
 }
 
+export enum ESwapRateDifferenceUnit {
+  POSITIVE = 'positive',
+  NEGATIVE = 'negative',
+  DEFAULT = 'default',
+}
+
 // token & network
 export interface ISwapNetwork {
   networkId: string;
@@ -78,6 +84,15 @@ export interface IFetchTokensParams {
 
 // quote
 
+export interface ISwapApproveTransaction {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  provider: ESwapProviders;
+  useAddress: string;
+  spenderAddress: string;
+  amount: string;
+  txId?: string;
+}
 export interface IFetchQuotesParams {
   fromNetworkId: string;
   toNetworkId: string;
@@ -173,6 +188,7 @@ export interface ISwapState {
   shoutResetApprove?: boolean;
   approveUnLimit?: boolean;
   alerts?: ISwapAlertState[];
+  rateDifference?: { value: string; unit: ESwapRateDifferenceUnit };
 }
 
 export enum ESwapAlertLevel {

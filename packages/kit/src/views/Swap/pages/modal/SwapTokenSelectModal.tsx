@@ -30,8 +30,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import type {
+  EModalSwapRoutes,
+  IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -44,6 +46,7 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainSelector';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { withSwapProvider } from '../WithSwapProvider';
@@ -121,9 +124,12 @@ const SwapTokenSelectPage = () => {
         tokenImageSrc: item.logoURI,
         tokenName: item.name,
         tokenSymbol: item.symbol,
-        tokenContrastAddress: accountUtils.shortenAddress({
-          address: item.contractAddress,
-        }),
+        tokenContrastAddress:
+          searchKeyword || currentSelectNetwork?.networkId === 'all'
+            ? accountUtils.shortenAddress({
+                address: item.contractAddress,
+              })
+            : undefined,
         networkImageSrc: item.networkLogoURI,
         balance: item.balanceParsed,
         valueProps: item.fiatValue
@@ -136,7 +142,12 @@ const SwapTokenSelectPage = () => {
       };
       return <TokenListItem {...tokenItem} />;
     },
-    [onSelectToken, settingsPersistAtom.currencyInfo.symbol],
+    [
+      onSelectToken,
+      searchKeyword,
+      currentSelectNetwork,
+      settingsPersistAtom.currencyInfo.symbol,
+    ],
   );
 
   const { md } = useMedia();
@@ -171,6 +182,8 @@ const SwapTokenSelectPage = () => {
     };
   }, [md, swapNetworks]);
 
+  const openChainSelector = useConfigurableChainSelector();
+
   return (
     <Page>
       <Page.Header
@@ -188,9 +201,19 @@ const SwapTokenSelectPage = () => {
           type={type}
           onMoreNetwork={() => {
             setSearchKeyword('');
-            navigation.pushModal(EModalRoutes.SwapModal, {
-              screen: EModalSwapRoutes.SwapNetworkSelect,
-              params: { setCurrentSelectNetwork: onSelectCurrentNetwork },
+            openChainSelector({
+              onSelect: (network) => {
+                if (!network) return;
+                const swapNetwork: ISwapNetwork = {
+                  networkId: network?.id,
+                  protocol: '',
+                  name: network.name,
+                  symbol: network.symbol,
+                  shortcode: network.shortcode,
+                  logoURI: network.logoURI,
+                };
+                onSelectCurrentNetwork(swapNetwork);
+              },
             });
           }}
           onlySupportSingleNetWork={onlySupportSingleNetWork}

@@ -65,6 +65,7 @@ const SwapCommonInfoItem = ({
         hoverStyle={{
           opacity: 0.5,
         }}
+        alignItems="center"
       >
         {valueComponent || (
           <SizableText size="$bodyMdMedium">{value}</SizableText>
@@ -90,9 +91,6 @@ const SwapCommonInfoItem = ({
           title={title}
           keepChildrenMounted
           onOpenChange={popoverOnOpenChange}
-          floatingPanelProps={{
-            w: 'unset',
-          }}
         />
       );
     }

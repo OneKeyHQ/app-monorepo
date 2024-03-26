@@ -55,3 +55,6 @@ export const swapQuoteFetchInterval = timerUtils.getTimeDurationMs({
 
 export const swapNetworksCommonCount = 8;
 export const swapNetworksCommonCountMD = 5;
+
+export const swapRateDifferenceMax = -10;
+export const swapRateDifferenceMin = 0.05;
