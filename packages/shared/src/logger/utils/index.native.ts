@@ -34,7 +34,9 @@ void FileLogger.configure({
 });
 
 const consoleFunc = (msg: string) => {
-  console.log(msg);
+  if (platformEnv.isDev) {
+    console.log(msg);
+  }
   FileLogger.write(LogLevel.Info, msg);
 };
 

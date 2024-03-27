@@ -34,12 +34,19 @@ export abstract class BaseScope implements IScope {
           const result = instance[prop].call(instance, ...args);
           const obj = isPromiseObject(result) ? await result : result;
           if (obj instanceof Metadata) {
-            const extensionName = `${this.scopeName}`;
-            const logger = getLoggerExtension(extensionName);
-            const msg = `${
-              this.scopeName
-            } -> ${sceneName} -> ${prop}: ${stringifyFunc(...obj.args)}`;
-            logger[obj.metadata.level](msg);
+            if (obj.metadata.type === 'local') {
+              const extensionName = `${this.scopeName}`;
+              const logger = getLoggerExtension(extensionName);
+              const msg = `${
+                this.scopeName
+              } -> ${sceneName} -> ${prop}: ${stringifyFunc(...obj.args)}`;
+              logger[obj.metadata.level](msg);
+            } else if (obj.metadata.type === 'console') {
+              // eslint-disable-next-line no-console
+              console[obj.metadata.level](...obj.args);
+            } else if (obj.metadata.type === 'server') {
+              // send data to server/ mix panel
+            }
             return obj;
           }
           //  eslint-disable-next-line @typescript-eslint/no-unsafe-return
