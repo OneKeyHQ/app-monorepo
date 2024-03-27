@@ -27,8 +27,8 @@ export type ITxActionComponents = {
 export type ITxActionCommonListViewProps = {
   avatar: {
     isNFT?: boolean;
-    src?: string | string[];
-    fallbackIcon: IKeyOfIcons;
+    src: string | string[];
+    fallbackIcon?: IKeyOfIcons;
   };
   title: string;
   fee?: string;

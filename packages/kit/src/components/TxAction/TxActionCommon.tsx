@@ -24,24 +24,7 @@ import type {
 function TxActionCommonAvatar({
   avatar,
 }: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout'>) {
-  const icon = avatar?.fallbackIcon;
   const containerSize = '$10';
-  const borderRadius = avatar.isNFT ? '$full' : '$2';
-
-  if (!avatar?.src) {
-    return (
-      <Stack
-        w={containerSize}
-        h={containerSize}
-        bg="$bgStrong"
-        alignItems="center"
-        justifyContent="center"
-        borderRadius={borderRadius}
-      >
-        <Icon name={icon} color="$iconSubdued" />
-      </Stack>
-    );
-  }
 
   if (typeof avatar?.src === 'string') {
     return <Token size="lg" isNFT={avatar.isNFT} tokenImageUri={avatar.src} />;
