@@ -1,4 +1,5 @@
 import { UI_RESPONSE } from '@onekeyfe/hd-core';
+import { isNil } from 'lodash';
 
 import {
   backgroundClass,
@@ -27,7 +28,7 @@ import type {
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-import { isNil } from 'lodash';
+
 import localDb from '../dbs/local/localDbInstance';
 import {
   EHardwareUiStateAction,
@@ -37,6 +38,11 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type {
+  IDBDevice,
+  IDBDeviceSettings as IDBDeviceDbSettings,
+} from '../dbs/local/types';
+import type { IHardwareUiPayload } from '../states/jotai/atoms';
 import type {
   CoreApi,
   DeviceSettingsParams,
@@ -48,11 +54,6 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import type {
-  IDBDevice,
-  IDBDeviceSettings as IDBDeviceDbSettings,
-} from '../dbs/local/types';
-import type { IHardwareUiPayload } from '../states/jotai/atoms';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {

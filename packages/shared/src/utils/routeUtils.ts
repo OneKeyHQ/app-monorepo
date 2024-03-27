@@ -8,11 +8,10 @@ import {
   ETabDiscoveryRoutes,
   ETabHomeRoutes,
   ETabMeRoutes,
+  ETabRoutes,
   ETabSwapRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
-
-import { ETabRoutes } from '../Tab/type';
 
 interface IAllowSettingItem {
   /** whether to show URL parameters, it is false in default. */

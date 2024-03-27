@@ -12,9 +12,6 @@ import type {
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
-import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { SignClientTypes } from '@walletconnect/types';
-import type { DBSchema, IDBPObjectStore } from 'idb';
 import type { EDBAccountType, EDBCredentialType } from './consts';
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
@@ -25,6 +22,9 @@ import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredentia
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
+import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { SignClientTypes } from '@walletconnect/types';
+import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
 export type IDBBaseObject = {
