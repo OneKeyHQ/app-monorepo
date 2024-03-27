@@ -1,17 +1,15 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgExpand = (props: SvgProps) => (
-  <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
+  <Svg
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
-      fill="currentColor"
-      d="M9 13a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-3a3 3 0 0 1 3-3h4Z"
-    />
-    <Path
-      fill="currentColor"
-      d="M20 6a1 1 0 0 0-1-1H6a1 1 0 0 0-1 1v4a1 1 0 1 1-2 0V6a3 3 0 0 1 3-3h13a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3h-4a1 1 0 1 1 0-2h4a1 1 0 0 0 1-1V6Z"
-    />
-    <Path
-      fill="currentColor"
-      d="M17 7a1 1 0 0 1 1 1v3a1 1 0 1 1-2 0v-.586l-1.293 1.293a1 1 0 0 1-1.414-1.414L14.586 9H14a1 1 0 1 1 0-2h3Z"
+      fillRule="evenodd"
+      d="M13 4a1 1 0 0 1 1-1h5a2 2 0 0 1 2 2v5a1 1 0 1 1-2 0V6.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L17.586 5H14a1 1 0 0 1-1-1Zm-9 9a1 1 0 0 1 1 1v3.586l4.293-4.293a1 1 0 0 1 1.414 1.414L6.414 19H10a1 1 0 1 1 0 2H5a2 2 0 0 1-2-2v-5a1 1 0 0 1 1-1Z"
+      clipRule="evenodd"
     />
   </Svg>
 );
