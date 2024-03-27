@@ -32,12 +32,19 @@ export function VerifyRecoveryPhrase({
         }),
       )
     ) {
-      navigation.push(EOnboardingPages.FinalizeWalletSetup, {
-        mnemonic: mnemonicConfirm,
-      });
+      if (route.params?.isBackup) {
+        Toast.success({
+          title: 'Done! Your recovery phrase is backuped.',
+        });
+        navigation.popStack();
+      } else {
+        navigation.push(EOnboardingPages.FinalizeWalletSetup, {
+          mnemonic: mnemonicConfirm,
+        });
+      }
     } else {
       Toast.error({
-        title: 'Invalid Phrases',
+        title: 'Invalid Phrases (not equal)',
       });
     }
   };

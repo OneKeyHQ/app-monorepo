@@ -12,6 +12,9 @@ import type {
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 
+import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { SignClientTypes } from '@walletconnect/types';
+import type { DBSchema, IDBPObjectStore } from 'idb';
 import type { EDBAccountType, EDBCredentialType } from './consts';
 import type { ELocalDBStoreNames } from './localDBStoreNames';
 import type { RealmSchemaAccount } from './realm/schemas/RealmSchemaAccount';
@@ -22,9 +25,6 @@ import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredentia
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
-import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { SignClientTypes } from '@walletconnect/types';
-import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
 export type IDBBaseObject = {
@@ -162,7 +162,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   type: EDBAccountType | undefined;
   path: string;
   pathIndex?: number;
-  relPath?: string;
+  relPath?: string; // 0/0
   indexedAccountId?: string;
   coinType: string;
   impl: string; // single chain account belongs to network impl
@@ -249,8 +249,9 @@ export type IDBSetNextAccountIdsParams = {
 };
 
 // ---------------------------------------------- device
-export type IDBDevicePayload = {
-  onDeviceInputPin?: boolean;
+export type IDBDeviceSettings = {
+  inputPinOnSoftware?: boolean;
+  inputPinOnSoftwareSupport?: boolean;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string;
@@ -260,14 +261,15 @@ export type IDBDevice = IDBBaseObjectWithName & {
   uuid: string;
   deviceId: string; // deviceId changed after device reset
   deviceType: string;
-  payloadJson: string;
-  payloadJsonInfo?: any;
+  settingsRaw: string;
+  settings?: IDBDeviceSettings;
   createdAt: number;
   updatedAt: number;
   verifiedAtVersion?: string;
 };
-export type IDBDevicePro = Omit<IDBDevice, 'payloadJson'> & {
-  payload: IDBDevicePayload;
+export type IDBUpdateDeviceSettingsParams = {
+  dbDeviceId: string;
+  settings: IDBDeviceSettings;
 };
 
 // ---------------------------------------------- address
