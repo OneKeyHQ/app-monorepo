@@ -20,13 +20,14 @@ export const ConfigurableListView: FC<IConfigurableListViewProps> = ({
     setText(value.trim());
   }, []);
 
-  const data = useMemo(
-    () =>
-      networks.filter(
-        (o) => o.name.includes(text) || o.shortname.includes(text),
-      ),
-    [networks, text],
-  );
+  const data = useMemo(() => {
+    const key = text.toLowerCase();
+    return networks.filter(
+      (o) =>
+        o.name.toLowerCase().includes(key) ||
+        o.shortname.toLowerCase().includes(text),
+    );
+  }, [networks, text]);
   return (
     <Stack flex={1}>
       <Stack px="$4">
