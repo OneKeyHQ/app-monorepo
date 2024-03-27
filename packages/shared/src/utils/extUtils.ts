@@ -9,20 +9,22 @@ export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
 
 export type IOpenUrlRouteInfo = {
-  routes: string | string[];
+  routes?: string | string[];
+  path?: string;
   params?: any;
 };
 
 function buildExtRouteUrl(
   htmlFile: string,
-  { routes, params = {} }: IOpenUrlRouteInfo,
+  { routes, params = {}, path }: IOpenUrlRouteInfo,
 ) {
   /*
   http://localhost:3001/#/modal/DappConnectionModal/ConnectionModal?id=0&origin=https%3A%2F%2Fmetamask.github.io&scope=ethereum&data=%7B%22method%22%3A%22eth_requestAccounts%22%2C%22jsonrpc%22%3A%222.0%22%7D
    */
-  const pathStr = getAllowPathFromScreenNames(
-    Array.isArray(routes) ? routes : [routes],
-  );
+  const pathStr = routes
+    ? `/${([] as string[]).concat(routes).join('/')}`
+    : path || '/';
+
   const paramsStr = new URLSearchParams(params).toString();
 
   let hash = '';
