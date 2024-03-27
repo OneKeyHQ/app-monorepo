@@ -311,5 +311,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceE2E', { value });
     return value;
   }
+
+  get serviceLogger() {
+    const ServiceLogger =
+      require('../services/ServiceLogger') as typeof import('../services/ServiceLogger');
+    const value = new ServiceLogger.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceLogger', { value });
+    return value;
+  }
 }
 export default BackgroundApi;
