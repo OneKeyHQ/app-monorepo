@@ -1273,8 +1273,9 @@ class ServiceAccount extends ServiceBase {
     return vault.getAccountXpub();
   }
 
+  // Get Address for each chain when request the API
   @backgroundMethod()
-  async getAccountAddress({
+  async getAccountAddressForApi({
     accountId,
     networkId,
   }: {

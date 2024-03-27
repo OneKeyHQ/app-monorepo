@@ -77,7 +77,7 @@ function TokenListContainer(props: ITabPageProps) {
         //     networkId: network.id,
         //   });
         const accountAddress =
-          await backgroundApiProxy.serviceAccount.getAccountAddress({
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
             accountId: account.id,
             networkId: network.id,
           });

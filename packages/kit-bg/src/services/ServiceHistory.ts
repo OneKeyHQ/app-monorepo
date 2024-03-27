@@ -29,7 +29,7 @@ class ServiceHistory extends ServiceBase {
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId, tokenIdOnNetwork } = params;
     const accountAddress =
-      await this.backgroundApi.serviceAccount.getAccountAddress({
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
       });

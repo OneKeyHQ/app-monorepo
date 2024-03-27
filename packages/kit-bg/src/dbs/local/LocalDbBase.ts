@@ -446,7 +446,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   }) {
     const db = await this.readyDb;
     await db.withTransaction(async (tx) => {
-      await this.txUpsertLightningCredential({
+      await this.txUpdateLightningCredential({
         tx,
         credentialId,
         credential,
@@ -458,7 +458,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
-  async txUpsertLightningCredential({
+  async txUpdateLightningCredential({
     tx,
     credentialId,
     credential,
@@ -469,31 +469,23 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     credential: string;
     updater: ILocalDBRecordUpdater<ELocalDBStoreNames.Credential>;
   }) {
-    try {
-      const [existCredential] = await this.txGetRecordById({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        id: credentialId,
-      });
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        ids: [credentialId],
-        updater,
-      });
-    } catch (error) {
-      await this.txAddRecords({
-        tx,
-        skipIfExists: true,
-        name: ELocalDBStoreNames.Credential,
-        records: [
-          {
-            id: credentialId,
-            credential,
-          },
-        ],
-      });
-    }
+    await this.txAddRecords({
+      tx,
+      skipIfExists: true,
+      name: ELocalDBStoreNames.Credential,
+      records: [
+        {
+          id: credentialId,
+          credential,
+        },
+      ],
+    });
+    await this.txUpdateRecords({
+      tx,
+      name: ELocalDBStoreNames.Credential,
+      ids: [credentialId],
+      updater,
+    });
   }
 
   // ---------------------------------------------- wallet

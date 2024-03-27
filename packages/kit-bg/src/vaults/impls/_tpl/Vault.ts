@@ -39,8 +39,6 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
-  settings: IVaultSettings = settings;
-
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,

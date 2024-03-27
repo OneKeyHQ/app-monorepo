@@ -17,7 +17,7 @@ function HomeOverviewContainer() {
     async () => {
       if (!account || !network) return;
       const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddress({
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
           accountId: account.id,
           networkId: network.id,
         });
