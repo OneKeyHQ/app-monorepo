@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   BridgeTimeoutError,
+  FirmwareVersionTooLow,
   InitIframeLoadFail,
   InitIframeTimeout,
   OneKeyHardwareError,
@@ -26,7 +27,7 @@ import type {
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
-
+import { isNil } from 'lodash';
 import localDb from '../dbs/local/localDbInstance';
 import {
   EHardwareUiStateAction,
@@ -36,8 +37,6 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-import type { IDBDevice } from '../dbs/local/types';
-import type { IHardwareUiPayload } from '../states/jotai/atoms';
 import type {
   CoreApi,
   DeviceSettingsParams,
@@ -49,12 +48,15 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import type {
+  IDBDevice,
+  IDBDeviceSettings as IDBDeviceDbSettings,
+} from '../dbs/local/types';
+import type { IHardwareUiPayload } from '../states/jotai/atoms';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
   registeredEvents = false;
-
-  featuresCache: Record<string, IOneKeyDeviceFeatures> = {};
 
   async getSDKInstance() {
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
@@ -88,6 +90,8 @@ class ServiceHardware extends ServiceBase {
         const { bootloader_mode: isBootloaderMode } = features || {};
         const inputPinOnSoftware = supportInputPinOnSoftware(features);
 
+        const dbDevice = await localDb.getDeviceByConnectId({ connectId });
+
         const usedPayload: IHardwareUiPayload = {
           uiRequestType: type,
           eventType,
@@ -96,7 +100,9 @@ class ServiceHardware extends ServiceBase {
           connectId,
           isBootloaderMode: Boolean(isBootloaderMode),
           passphraseState,
-          supportInputPinOnSoftware: inputPinOnSoftware.support,
+          supportInputPinOnSoftware:
+            dbDevice?.settings?.inputPinOnSoftware !== false &&
+            inputPinOnSoftware.support,
         };
 
         // >>> mock hardware forceInputOnDevice
@@ -128,29 +134,6 @@ class ServiceHardware extends ServiceBase {
         console.log('todo: features cache');
       });
     }
-  }
-
-  @backgroundMethod()
-  async getFeaturesByWalletId(walletId: string) {
-    return Promise.resolve(this.featuresCache[walletId] ?? null);
-  }
-
-  @backgroundMethod()
-  async updateFeaturesCache(walletId: string, payload: Record<string, any>) {
-    if (!this.featuresCache[walletId]) return;
-    this.featuresCache[walletId] = {
-      ...this.featuresCache[walletId],
-      ...payload,
-    };
-    return Promise.resolve(true);
-  }
-
-  @backgroundMethod()
-  async removeFeaturesCache(walletId: string) {
-    if (this.featuresCache[walletId]) {
-      delete this.featuresCache[walletId];
-    }
-    return Promise.resolve(true);
   }
 
   // startDeviceScan
@@ -195,6 +178,14 @@ class ServiceHardware extends ServiceBase {
     }
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() => hardwareSDK?.getFeatures(connectId));
+  }
+
+  @backgroundMethod()
+  async getFeaturesByWallet({ walletId }: { walletId: string }) {
+    const device = await this.backgroundApi.serviceAccount.getWalletDevice({
+      walletId,
+    });
+    return this.getFeatures(device.connectId);
   }
 
   @backgroundMethod()
@@ -416,7 +407,10 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async applySettings(connectId: string, settings: DeviceSettingsParams) {
+  async applySettingsToDevice(
+    connectId: string,
+    settings: DeviceSettingsParams,
+  ) {
     const hardwareSDK = await this.getSDKInstance();
 
     return convertDeviceResponse(() =>
@@ -431,6 +425,118 @@ class ServiceHardware extends ServiceBase {
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceSupportFeatures(connectId),
     );
+  }
+
+  @backgroundMethod()
+  async getDeviceAdvanceSettings({ walletId }: { walletId: string }): Promise<{
+    passphraseEnabled: boolean;
+    inputPinOnSoftware: boolean;
+  }> {
+    const dbDevice = await localDb.getWalletDevice({ walletId });
+
+    return this.withHardwareProcessing(
+      async () => {
+        // touch or Pro should unlock device first, otherwise features?.passphrase_protection will return undefined
+        await this.unlockDevice({ connectId: dbDevice.connectId });
+
+        const features = await this.getFeaturesByWallet({ walletId });
+        // const supportFeatures = await this.getDeviceSupportFeatures(
+        //   dbDevice.connectId,
+        // );
+        // const inputPinOnSoftwareSupport = Boolean(
+        //   supportFeatures?.inputPinOnSoftware?.support,
+        // );
+        const passphraseEnabled = Boolean(features?.passphrase_protection);
+        const inputPinOnSoftware = Boolean(
+          dbDevice?.settings?.inputPinOnSoftware,
+        );
+        return {
+          passphraseEnabled,
+          // TODO check if device support inputPinOnSoftware
+          inputPinOnSoftware,
+          // inputPinOnSoftwareSupport,
+        };
+      },
+      {
+        deviceParams: {
+          dbDevice,
+        },
+        hideCheckingDeviceLoading: true,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async setPassphraseEnabled({
+    walletId,
+    passphraseEnabled,
+  }: {
+    walletId: string;
+    passphraseEnabled: boolean;
+  }) {
+    const device = await localDb.getWalletDevice({ walletId });
+    return this.withHardwareProcessing(
+      () =>
+        this.applySettingsToDevice(device.connectId, {
+          usePassphrase: passphraseEnabled,
+        }),
+      {
+        deviceParams: {
+          dbDevice: device,
+        },
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async setInputPinOnSoftware({
+    walletId,
+    inputPinOnSoftware,
+  }: {
+    walletId: string;
+    inputPinOnSoftware: boolean;
+  }) {
+    const device = await localDb.getWalletDevice({ walletId });
+    const { id: dbDeviceId, deviceId, connectId } = device;
+
+    let minSupportVersion: string | undefined = '';
+    let inputPinOnSoftwareSupport: boolean | undefined;
+
+    // If open PIN input on the App
+    // Check whether the hardware supports it
+    if (inputPinOnSoftware && !device.settings?.inputPinOnSoftwareSupport) {
+      const supportFeatures = await this.getDeviceSupportFeatures(connectId);
+
+      if (!supportFeatures?.inputPinOnSoftware?.support) {
+        // eslint-disable-next-line no-param-reassign
+        inputPinOnSoftware = false;
+        minSupportVersion = supportFeatures?.inputPinOnSoftware?.require;
+        inputPinOnSoftwareSupport = false;
+      } else {
+        inputPinOnSoftwareSupport = true;
+      }
+    }
+
+    const settings: IDBDeviceDbSettings = {
+      ...device.settings,
+      inputPinOnSoftware,
+    };
+    if (!isNil(inputPinOnSoftwareSupport)) {
+      settings.inputPinOnSoftwareSupport = inputPinOnSoftwareSupport;
+    }
+
+    await localDb.updateDeviceDbSettings({
+      dbDeviceId,
+      settings,
+    });
+
+    if (minSupportVersion) {
+      throw new FirmwareVersionTooLow({
+        info: {
+          0: minSupportVersion,
+        },
+      });
+    }
   }
 
   @backgroundMethod()
