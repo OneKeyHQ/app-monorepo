@@ -22,6 +22,7 @@ import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
+import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -136,6 +137,8 @@ class BackgroundApiProxy
   serviceLightning = this._createProxyService(
     'serviceLightning',
   ) as ServiceLightning;
+
+  serviceLogger = this._createProxyService('serviceLogger') as ServiceLogger;
 }
 
 export default BackgroundApiProxy;

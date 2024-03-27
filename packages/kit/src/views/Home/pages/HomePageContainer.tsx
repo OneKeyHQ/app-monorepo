@@ -142,16 +142,28 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [scanQrCode],
   );
 
+  const openExtensionExpandTab = useCallback(async () => {
+    await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+      routes: '',
+    });
+  }, []);
+
   const renderHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup testID="Wallet-Page-Header-Right">
-        <HeaderIconButton
-          title="Scan"
-          icon="ScanOutline"
-          onPress={onScanButtonPressed}
-        />
-        {/* <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
-
+        {platformEnv.isExtensionUiPopup ? (
+          <HeaderIconButton
+            title="Expand View"
+            icon="CameraExposureSquareOutline"
+            onPress={openExtensionExpandTab}
+          />
+        ) : (
+          <HeaderIconButton
+            title="Scan"
+            icon="ScanOutline"
+            onPress={onScanButtonPressed}
+          />
+        )}
         <HeaderIconButton
           title="Settings"
           icon="SettingsOutline"
