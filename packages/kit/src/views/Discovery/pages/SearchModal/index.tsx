@@ -185,6 +185,7 @@ function SearchModal() {
                       });
                     }
                   }}
+                  testID={`dapp-search${index}`}
                 />
               ))}
             </Stack>
