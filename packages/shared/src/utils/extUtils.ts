@@ -142,8 +142,19 @@ export function getExtensionIndexHtml() {
   return EXT_HTML_FILES.uiExpandTab;
 }
 
+let expandTabId: number | undefined;
+async function openExpandTab(
+  routeInfo: IOpenUrlRouteInfo,
+): Promise<chrome.tabs.Tab | undefined> {
+  const url = buildExtRouteUrl('ui-expand-tab.html', routeInfo);
+  const tab = await openUrlInTab(url, { tabId: expandTabId });
+  expandTabId = tab?.id;
+  return tab;
+}
+
 export default {
   openUrl,
   openUrlInTab,
   openStandaloneWindow,
+  openExpandTab,
 };

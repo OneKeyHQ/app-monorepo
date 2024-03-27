@@ -14,6 +14,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDbInstance';
@@ -182,6 +184,11 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async showToast(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
     appEventBus.emit(EAppEventBusNames.ShowToast, params);
+  }
+
+  @backgroundMethod()
+  async openExtensionExpandTab(routeInfo: IOpenUrlRouteInfo) {
+    await extUtils.openExpandTab(routeInfo);
   }
 }
 
