@@ -295,23 +295,10 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
         title={overview.title}
         content={
           <XStack alignItems="center" space="$1">
-            <ListItem.Avatar
-              src={overview.avatar?.fallbackIcon}
-              size="$7"
-              circular={overview.avatar?.circular}
-              fallbackProps={{
-                bg: '$bgStrong',
-                justifyContent: 'center',
-                alignItems: 'center',
-                children: (
-                  <Icon
-                    name={
-                      overview.avatar?.fallbackIcon ?? 'QuestionmarkOutline'
-                    }
-                    color="$iconSubdued"
-                  />
-                ),
-              }}
+            <Token
+              size="md"
+              isNFT={overview.avatar?.isNFT}
+              tokenImageUri={overview.avatar?.src}
             />
             <SizableText size="$headingLg">{overview.content}</SizableText>
           </XStack>

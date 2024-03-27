@@ -97,16 +97,23 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getNativeToken({ networkId }: { networkId: string }) {
-    return this.getToken({ networkId, tokenIdOnNetwork: '' });
+  public async getNativeToken({
+    networkId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+  }) {
+    return this.getToken({ networkId, tokenIdOnNetwork: '', accountAddress });
   }
 
   @backgroundMethod()
   public async getToken(params: {
     networkId: string;
     tokenIdOnNetwork: string;
+    accountAddress?: string;
   }) {
-    const { networkId, tokenIdOnNetwork } = params;
+    const { networkId, tokenIdOnNetwork, accountAddress } = params;
 
     const localToken = await this.backgroundApi.simpleDb.localTokens.getToken({
       networkId,
@@ -118,6 +125,7 @@ class ServiceToken extends ServiceBase {
     try {
       const tokensDetails = await this.fetchTokensDetails({
         networkId,
+        accountAddress,
         contractList: [tokenIdOnNetwork],
       });
 

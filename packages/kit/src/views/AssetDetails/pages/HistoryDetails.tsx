@@ -205,7 +205,10 @@ function HistoryDetails() {
           txid: historyTx.decodedTx.txid,
           status: historyTx.decodedTx.status,
         }),
-        backgroundApiProxy.serviceToken.getNativeToken({ networkId }),
+        backgroundApiProxy.serviceToken.getNativeToken({
+          networkId,
+          accountAddress,
+        }),
       ]),
     [
       accountAddress,

@@ -50,8 +50,8 @@ export type ITxActionCommonListViewProps = {
 export type ITxActionCommonDetailViewProps = {
   overview: {
     avatar?: {
-      circular?: boolean;
-      src?: string | string[];
+      isNFT?: boolean;
+      src?: string;
       fallbackIcon?: IKeyOfIcons;
     };
     title?: string;
