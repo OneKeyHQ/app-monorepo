@@ -2,12 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import {
-  WALLET_TYPE_HD,
-  WALLET_TYPE_HW,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/shared/src/consts/dbConsts';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swapRateDifferenceMax,
@@ -66,8 +61,12 @@ function useSwapWarningCheck() {
     if (
       fromToken &&
       ((!swapFromAddressInfo.address &&
-        swapFromAddressInfo.accountInfo?.wallet?.type ===
-          WALLET_TYPE_IMPORTED) ||
+        !accountUtils.isHdWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        })) ||
         swapFromAddressInfo.networkId !== fromToken.networkId)
     ) {
       alerts = [
@@ -85,7 +84,12 @@ function useSwapWarningCheck() {
     if (
       toToken &&
       ((!swapToAddressInfo.address &&
-        swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED) ||
+        !accountUtils.isHdWallet({
+          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+        })) ||
         swapToAddressInfo.networkId !== toToken.networkId)
     ) {
       alerts = [
@@ -102,7 +106,9 @@ function useSwapWarningCheck() {
 
     if (
       fromToken &&
-      swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_WATCHING
+      accountUtils.isWatchingWallet({
+        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      })
     ) {
       alerts = [
         ...alerts,
@@ -116,8 +122,12 @@ function useSwapWarningCheck() {
     if (
       fromToken &&
       !swapFromAddressInfo.address &&
-      (swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HD ||
-        swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW)
+      (accountUtils.isHdWallet({
+        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }))
     ) {
       alerts = [
         ...alerts,
@@ -127,7 +137,7 @@ function useSwapWarningCheck() {
           } - ${
             swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
           } lacks ${
-            swapFromAddressInfo.accountInfo.network?.name ?? 'unknown'
+            swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
           } address. Please try to create one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
@@ -137,8 +147,12 @@ function useSwapWarningCheck() {
     if (
       toToken &&
       !swapToAddressInfo.address &&
-      (swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HD ||
-        swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW) &&
+      (accountUtils.isHdWallet({
+        walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+        })) &&
       swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
     ) {
       alerts = [
@@ -327,8 +341,8 @@ function useSwapWarningCheck() {
     swapSelectFromTokenBalance,
     swapToAddressInfo.accountInfo?.accountName,
     swapToAddressInfo.accountInfo?.network?.name,
+    swapToAddressInfo.accountInfo?.wallet?.id,
     swapToAddressInfo.accountInfo?.wallet?.name,
-    swapToAddressInfo.accountInfo?.wallet?.type,
     swapToAddressInfo.address,
     swapToAddressInfo.networkId,
     toToken,
