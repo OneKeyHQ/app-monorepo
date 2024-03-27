@@ -43,6 +43,13 @@ const addPath = (prev: string, path: string) => {
   return `${prev}/${path}`;
 };
 
+const allowListMap = new Map<string, string>();
+
+const buildAllowListMapKey = (screenNames: string[]) => screenNames.join(',');
+
+export const getAllowPathFromScreenNames = (screenNames: string[]) =>
+  allowListMap.get(buildAllowListMapKey(screenNames)) || '/';
+
 export const buildAllowList = (screens: IScreenPathConfig) => {
   function pagePath(_: TemplateStringsArray, ...screenNames: string[]): string {
     let screenConfig = screens;
@@ -64,7 +71,9 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       // if the path is rewritten path, the full path will be rewritten.
       return screen.exact ? screenPath : addPath(prev, screenPath);
     }, '');
-    return `/${path}`;
+    const fullPath = `/${path}`;
+    allowListMap.set(buildAllowListMapKey(screenNames), fullPath);
+    return fullPath;
   }
 
   // fill in the route name as the key according to the route stacks order
