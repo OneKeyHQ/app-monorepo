@@ -35,3 +35,7 @@ export function LogToLocal(decoratorArgs?: IMethodDecoratorMetadata) {
 export function LogToServer(decoratorArgs?: IMethodDecoratorMetadata) {
   return createDecorator(decoratorArgs ?? { level: 'info', type: 'server' });
 }
+
+export function LogToConsole(decoratorArgs?: IMethodDecoratorMetadata) {
+  return createDecorator(decoratorArgs ?? { level: 'info', type: 'console' });
+}
