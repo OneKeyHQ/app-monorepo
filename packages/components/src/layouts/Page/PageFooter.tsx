@@ -3,8 +3,6 @@ import { memo, useContext, useEffect, useMemo, useState } from 'react';
 
 import Animated from 'react-native-reanimated';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { EPageType, usePageType } from '../../hocs';
 import { useSafeAreaInsets } from '../../hooks';
 import { View } from '../../optimization';
