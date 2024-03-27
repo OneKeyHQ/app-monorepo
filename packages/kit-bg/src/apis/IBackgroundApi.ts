@@ -23,6 +23,7 @@ import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
+import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -116,4 +117,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAddressBook: ServiceAddressBook;
 
   serviceE2E: ServiceE2E;
+  serviceLogger: ServiceLogger;
 }
