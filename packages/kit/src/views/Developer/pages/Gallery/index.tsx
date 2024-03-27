@@ -361,6 +361,13 @@ const TokenGallery = LazyLoadPage(
     ),
 );
 
+const LoggerGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Logger'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -511,5 +518,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentAddressInput,
     component: AddressInputGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentLogger,
+    component: LoggerGallery,
   },
 ];
