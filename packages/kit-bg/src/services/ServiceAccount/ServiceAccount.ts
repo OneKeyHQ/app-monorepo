@@ -123,14 +123,16 @@ class ServiceAccount extends ServiceBase {
     return localDb.getWalletSafe({ walletId });
   }
 
+  // TODO move to serviceHardware
   @backgroundMethod()
   async getWalletDevice({ walletId }: { walletId: string }) {
     return localDb.getWalletDevice({ walletId });
   }
 
+  // TODO move to serviceHardware
   @backgroundMethod()
-  async getDevice({ deviceId }: { deviceId: string }) {
-    return localDb.getDevice(deviceId);
+  async getDevice({ dbDeviceId }: { dbDeviceId: string }) {
+    return localDb.getDevice(dbDeviceId);
   }
 
   @backgroundMethod()
