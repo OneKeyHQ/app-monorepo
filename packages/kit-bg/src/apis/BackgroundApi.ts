@@ -319,6 +319,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceLightning', { value });
+    return value;
   }
 
   get serviceLogger() {
