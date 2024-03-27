@@ -26,8 +26,6 @@ import { useAccountSelectorActions } from '../../../states/jotai/contexts/accoun
 
 import HeaderView from './HeaderView';
 
-import type { ITabHomeParamList } from '../../Home/router';
-
 const FirstRoute = ({
   onContentSizeChange,
 }: {

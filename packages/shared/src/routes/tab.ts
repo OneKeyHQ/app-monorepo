@@ -1,6 +1,6 @@
-import type { IMultiTabBrowserParamList } from '@onekeyhq/kit/src/routes/Tab/MultiTabBrowser/type';
 import type { IDemoDeveloperTabParamList } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 import type {
+  IMultiTabBrowserParamList,
   ITabDiscoveryParamList,
   ITabHomeParamList,
   ITabMeParamList,
