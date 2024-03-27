@@ -86,6 +86,7 @@ export type IPlatformEnv = {
   appPlatform: IAppPlatform | undefined;
   symbol: IPlatformLegacy | undefined;
   appChannel: IAppChannel | undefined;
+  browserInfo?: string;
 
   isManifestV3?: boolean;
   isExtensionBackground?: boolean;
@@ -249,6 +250,42 @@ const checkIsRuntimeChrome = (): boolean => {
   return false;
 };
 
+const getBrowserInfo = () => {
+  const browserInfo = {
+    name: 'unknown',
+    version: 'unknown',
+  };
+  if (isRuntimeBrowser) {
+    try {
+      const userAgent = window.navigator.userAgent.toLowerCase();
+
+      if (userAgent.indexOf('firefox') > -1) {
+        browserInfo.name = 'Firefox';
+        browserInfo.version =
+          userAgent.match(/firefox\/([\d.]+)/)?.[1] ?? 'unknown';
+      } else if (userAgent.indexOf('chrome') > -1) {
+        browserInfo.name = 'Chrome';
+        browserInfo.version =
+          userAgent.match(/chrome\/([\d.]+)/)?.[1] ?? 'unknown';
+      } else if (userAgent.indexOf('safari') > -1) {
+        browserInfo.name = 'Safari';
+        browserInfo.version =
+          userAgent.match(/version\/([\d.]+)/)?.[1] ?? 'unknown';
+      } else if (
+        userAgent.indexOf('msie') > -1 ||
+        userAgent.indexOf('trident') > -1
+      ) {
+        browserInfo.name = 'Internet Explorer';
+        browserInfo.version =
+          userAgent.match(/(?:msie |rv:)(\d+(\.\d+)?)/)?.[1] ?? 'unknown';
+      }
+    } catch (e) {
+      console.error('getBrowserInfo error:', e);
+    }
+  }
+  return `browser name: ${browserInfo.name}, browser version: ${browserInfo.version}`;
+};
+
 const isWebTouchable =
   isRuntimeBrowser &&
   ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -347,6 +384,7 @@ const platformEnv: IPlatformEnv = {
   symbol: getPlatformSymbolLegacy(),
   appPlatform: getAppPlatform(),
   appChannel: getAppChannel(),
+  browserInfo: getBrowserInfo(),
 
   isManifestV3,
   isExtensionBackground,

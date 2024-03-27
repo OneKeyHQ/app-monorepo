@@ -23,4 +23,3 @@ export type IBasicPageProps = PropsWithChildren<
 export type IPageFooterProps = PropsWithChildren<IFooterActionsProps>;
 
 export type IPageProps = IBasicPageProps;
-

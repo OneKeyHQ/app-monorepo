@@ -1,7 +1,6 @@
 import { useCallback, useContext, useEffect, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
-
 import {
   useAnimatedStyle,
   useSharedValue,
