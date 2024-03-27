@@ -1,8 +1,7 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
+import { ETabSwapRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-
-import { ETabSwapRoutes } from './type';
 
 const Swap = LazyLoadPage(() => import('../../../views/Swap'));
 

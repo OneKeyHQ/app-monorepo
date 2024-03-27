@@ -7,10 +7,10 @@ import {
   ETabDeveloperRoutes,
   ETabDiscoveryRoutes,
   ETabHomeRoutes,
+  ETabMeRoutes,
   ETabSwapRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
-import { ETabMeRoutes } from '@onekeyhq/shared/src/routes/tabMe';
 
 import { ETabRoutes } from '../Tab/type';
 
