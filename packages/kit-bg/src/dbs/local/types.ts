@@ -254,8 +254,8 @@ export type IDBDeviceSettings = {
   inputPinOnSoftwareSupport?: boolean;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
-  features: string;
-  featuresInfo?: IOneKeyDeviceFeatures; // readonly field
+  features: string; // TODO rename to featuresRaw
+  featuresInfo?: IOneKeyDeviceFeatures; // readonly field // TODO rename to features
   connectId: string; // alias mac\sn, never changed
   name: string;
   uuid: string;

@@ -906,14 +906,17 @@ ssphrase wallet
     const db = await this.readyDb;
     await db.withTransaction(async (tx) => {
       const { device, verifyResult } = params;
-      const { id } = device;
+      const { id, featuresInfo, features } = device;
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
         ids: [id],
         updater: (item) => {
           if (verifyResult === 'official') {
-            const versionText = deviceUtils.getDeviceVersionStr(device);
+            const versionText = deviceUtils.getDeviceVersionStr({
+              device,
+              features: checkIsDefined(featuresInfo),
+            });
             // official firmware verified
             item.verifiedAtVersion = versionText;
           }
@@ -1006,7 +1009,10 @@ ssphrase wallet
           item.features = featuresStr;
           item.updatedAt = now;
           if (isFirmwareVerified) {
-            const versionText = deviceUtils.getDeviceVersionStr(device);
+            const versionText = deviceUtils.getDeviceVersionStr({
+              device,
+              features,
+            });
             // official firmware verified
             item.verifiedAtVersion = versionText;
           } else {
