@@ -182,7 +182,6 @@ export function useFeeInfoPayload({
             };
             info.eip1559 = true;
             info.limit = limit || info.limit;
-            info.prices = [price1559];
             info.tx = {
               eip1559: true,
               limit: limit || info.limit,
@@ -194,7 +193,6 @@ export function useFeeInfoPayload({
               .shiftedBy(-(feeDecimals ?? 0))
               .toFixed();
             info.limit = limit || info.limit;
-            info.prices = [price];
             info.tx = {
               eip1559: false,
               limit: limit || info.limit,
