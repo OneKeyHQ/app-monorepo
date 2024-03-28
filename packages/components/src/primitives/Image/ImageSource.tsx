@@ -12,7 +12,7 @@ import type { ImageStyle, StyleProp } from 'react-native';
 export function ImageSource({
   source,
   src,
-  delayMs,
+  delayMs = 0,
   ...props
 }: IImageSourceProps) {
   const hasError = useRef(false);
@@ -31,21 +31,19 @@ export function ImageSource({
     hasError.current = true;
   }, []);
 
+  // Android specify:
+  // After triggering the onerror event, the onLoadEnd event will not be triggered again.
   const handleLoadEnd = useCallback(() => {
     if (hasError.current) {
       return;
     }
-    if (delayMs) {
-      const diff = Date.now() - startTime.current;
-      setTimeout(
-        () => {
-          setLoading?.(false);
-        },
-        diff > delayMs ? 0 : delayMs - diff,
-      );
-    } else {
-      setLoading?.(false);
-    }
+    const diff = Date.now() - startTime.current;
+    setTimeout(
+      () => {
+        setLoading?.(false);
+      },
+      diff > delayMs ? 0 : delayMs - diff,
+    );
   }, [delayMs, setLoading]);
 
   const imageSource = useSource(source, src);

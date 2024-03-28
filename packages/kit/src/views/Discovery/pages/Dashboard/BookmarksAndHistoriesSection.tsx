@@ -81,19 +81,13 @@ function Items({
           }
         >
           <Image
-            w="$14"
-            h="$14"
+            size="$14"
             borderRadius="$3"
             $gtLg={{
               w: '$12',
               h: '$12',
             }}
           >
-            <Image.Source
-              source={{
-                uri: logo,
-              }}
-            />
             <Image.Fallback>
               <Icon
                 size="$14"
@@ -103,6 +97,11 @@ function Items({
                 name="GlobusOutline"
               />
             </Image.Fallback>
+            <Image.Source
+              source={{
+                uri: logo,
+              }}
+            />
           </Image>
           <SizableText
             size="$bodyLgMedium"

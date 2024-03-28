@@ -24,7 +24,7 @@ const useVisible = (delayMs: number) => {
   return loading && visible;
 };
 export function ImageFallback({
-  delayMs = 0,
+  delayMs = 50,
   children,
   ...props
 }: IImageFallbackProps) {
@@ -33,7 +33,6 @@ export function ImageFallback({
     <AnimatePresence>
       {visible ? (
         <Stack
-          position="absolute"
           width="100%"
           height="100%"
           {...props}

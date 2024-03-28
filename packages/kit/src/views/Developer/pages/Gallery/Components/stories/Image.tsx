@@ -124,6 +124,29 @@ const ImageGallery = () => (
               />
               <Image.Skeleton />
             </Image>
+            <Image
+              size="$14"
+              borderRadius="$3"
+              $gtLg={{
+                w: '$12',
+                h: '$12',
+              }}
+            >
+              <Image.Fallback>
+                <Icon
+                  size="$14"
+                  $gtLg={{
+                    size: '$12',
+                  }}
+                  name="GlobusOutline"
+                />
+              </Image.Fallback>
+              <Image.Source
+                source={{
+                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                }}
+              />
+            </Image>
           </YStack>
         ),
       },
