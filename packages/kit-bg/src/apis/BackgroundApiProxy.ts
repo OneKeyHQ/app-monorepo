@@ -20,6 +20,7 @@ import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
@@ -132,6 +133,10 @@ class BackgroundApiProxy
   ) as ServiceAddressBook;
 
   serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
+
+  serviceLightning = this._createProxyService(
+    'serviceLightning',
+  ) as ServiceLightning;
 
   serviceLogger = this._createProxyService('serviceLogger') as ServiceLogger;
 }
