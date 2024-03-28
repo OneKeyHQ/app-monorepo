@@ -90,7 +90,10 @@ export function ensureSerializable(
     if (!isSerializable(obj)) {
       console.error('Object should be serializable >>>> ', obj, info);
       if (stringify) {
-        return JSON.parse(JSON.stringify(obj));
+        return JSON.parse(
+          // stringUtils.safeStringify(obj),
+          JSON.stringify(obj),
+        );
       }
 
       throw new Error('Object should be serializable');

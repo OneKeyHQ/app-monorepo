@@ -1,24 +1,27 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
-import { Linking } from 'react-native';
-
+import type { ISignedMessagePro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import type { IWalletConnectChainInfo } from '@onekeyhq/shared/src/walletConnect/types';
 
 import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
 import type { IDBAccount, IDBExternalAccount } from '../../dbs/local/types';
+import type { IEvmWalletProvider } from '../../services/ServiceDappSide/providers/evm/EvmEIP6963Provider';
+import type { WalletConnectDappSideProvider } from '../../services/ServiceWalletConnect/WalletConnectDappProvider';
 import type {
   IPrepareAccountsParams,
   IPrepareExternalAccountsParams,
+  ISignMessageParams,
 } from '../types';
 
 export abstract class KeyringExternalBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.external;
 
-  async signMessage(): Promise<string[]> {
+  async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
     throw new OneKeyInternalError(
       'signMessage is not supported for external accounts',
     );
@@ -84,5 +87,49 @@ export abstract class KeyringExternalBase extends KeyringBase {
     //   path: '',
     // };
     // return Promise.resolve([account]);
+  }
+
+  async getExternalWalletProviders(): Promise<{
+    evm?: IEvmWalletProvider;
+    walletConnect?: WalletConnectDappSideProvider;
+    wcChainInfo?: IWalletConnectChainInfo | undefined;
+  }> {
+    const account = (await this.vault.getAccount()) as IDBExternalAccount;
+    const evmEIP6963 = account.externalInfo?.evmEIP6963;
+    const evmInjected = account.externalInfo?.evmInjected;
+
+    if (evmInjected || evmEIP6963) {
+      const { connector, provider } =
+        await this.backgroundApi.serviceDappSide.getExternalConnectorEvm({
+          accountId: this.accountId,
+        });
+
+      return { evm: provider };
+    }
+
+    if (account.wcTopic) {
+      // TODO update account & check address matched
+      const provider =
+        await this.backgroundApi.serviceWalletConnect.dappSide.getOrCreateProvider(
+          {
+            topic: checkIsDefined(account.wcTopic),
+            updateDB: true,
+          },
+        );
+      const chainInfo =
+        await this.backgroundApi.serviceWalletConnect.getChainDataByNetworkId({
+          networkId: this.networkId,
+        });
+      if (!chainInfo?.wcChain) {
+        throw new Error(
+          `KeyringExternal signTransaction ERROR: Chain not supported: ${this.networkId}`,
+        );
+      }
+      // TODO  Chain not supported checking
+      // TODO open mobile app deeplink
+      return { walletConnect: provider, wcChainInfo: chainInfo };
+    }
+
+    throw new Error('getEvmDappProvider ERROR: provider not found');
   }
 }

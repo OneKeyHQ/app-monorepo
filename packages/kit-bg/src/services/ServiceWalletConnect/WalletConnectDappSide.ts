@@ -27,7 +27,7 @@ import {
 } from '@onekeyhq/shared/src/walletConnect/types';
 
 import walletConnectClient from './walletConnectClient';
-import { WalletConnectDappProvider } from './WalletConnectDappProvider';
+import { WalletConnectDappSideProvider } from './WalletConnectDappProvider';
 import walletConnectStorage from './walletConnectStorage';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -86,6 +86,7 @@ export class WalletConnectDappSide {
     console.log('***** session_delete', p);
     console.log('remove account by topic', p.topic);
     try {
+      // TODO keep account when peer wallet remove this session
       await this.backgroundApi.serviceAccount.removeExternalAccount({
         wcSessionTopic: p.topic,
       });
@@ -112,7 +113,7 @@ export class WalletConnectDappSide {
 
     const provider = await this.getOrCreateProvider({ topic });
 
-    const destroy = async (p: WalletConnectDappProvider | undefined) => {
+    const destroy = async (p: WalletConnectDappSideProvider | undefined) => {
       try {
         await p?.disconnect();
       } catch (error) {
@@ -149,8 +150,9 @@ export class WalletConnectDappSide {
     delete this.providers[topic];
   }
 
+  // TODO rename to providersCache
   providers: {
-    [topic: string]: WalletConnectDappProvider;
+    [topic: string]: WalletConnectDappSideProvider;
   } = {};
 
   async getOrCreateProvider({
@@ -161,8 +163,8 @@ export class WalletConnectDappSide {
     topic: string | undefined;
     createNewTopic?: boolean;
     updateDB?: boolean; // set true if sign tx or connect new session
-  }): Promise<WalletConnectDappProvider> {
-    let provider: WalletConnectDappProvider | undefined;
+  }): Promise<WalletConnectDappSideProvider> {
+    let provider: WalletConnectDappSideProvider | undefined;
 
     if (!topic && !createNewTopic) {
       throw new Error('topic or createNewTopic is required');
@@ -182,7 +184,7 @@ export class WalletConnectDappSide {
 
     if (!provider) {
       const client = await this.getSharedClient();
-      provider = await WalletConnectDappProvider.initPro({
+      provider = await WalletConnectDappSideProvider.initPro({
         ...walletConnectClient.sharedOptions,
         logger: WALLET_CONNECT_LOGGER_LEVEL,
         metadata: WALLET_CONNECT_CLIENT_META,
@@ -269,18 +271,20 @@ export class WalletConnectDappSide {
     topic: string;
     account: IDBExternalAccount;
   }) {
-    const message = `My email is john@doe.com - ${Date.now()}`;
-    const hexMsg = bufferUtils.textToHex(message, 'utf-8');
-    // personal_sign params
-    const params = [hexMsg, address];
     const provider = await this.getOrCreateProvider({
       topic,
       updateDB: true,
     });
+
+    const message = `My email is john@doe.com - ${Date.now()}`;
+    const hexMsg = bufferUtils.textToHex(message, 'utf-8');
+    // personal_sign params
+    const params = [hexMsg, address];
     const payload = {
       method: 'personal_sign',
       params,
     };
+
     console.log(
       'testExternalAccountPersonalSign',
       payload,

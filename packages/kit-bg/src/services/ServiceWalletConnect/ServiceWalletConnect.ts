@@ -18,12 +18,13 @@ import {
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
   ICaipsInfo,
-  IChainInfo,
   INamespaceUnion,
   IWalletConnectAddressString,
+  IWalletConnectChainInfo,
   IWalletConnectChainString,
   IWalletConnectOptionalNamespaces,
   IWalletConnectRequiredNamespaces,
+  IWalletConnectSession,
   IWcChainAddress,
 } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
@@ -49,7 +50,7 @@ class ServiceWalletConnect extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  connectToWallet() {
+  connectToWallet(): Promise<IWalletConnectSession> {
     return this.dappSide.connectToWallet();
   }
 
@@ -88,7 +89,7 @@ class ServiceWalletConnect extends ServiceBase {
   @backgroundMethod()
   async getChainData(
     walletConnectChainId?: IWalletConnectChainString,
-  ): Promise<IChainInfo | undefined> {
+  ): Promise<IWalletConnectChainInfo | undefined> {
     if (!walletConnectChainId || !walletConnectChainId.includes(':')) {
       throw new Error(
         `WalletConnect ChainId not valid: ${walletConnectChainId || ''}`,
@@ -103,14 +104,14 @@ class ServiceWalletConnect extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllChains(): Promise<IChainInfo[]> {
+  async getAllChains(): Promise<IWalletConnectChainInfo[]> {
     return this._getAllChains();
   }
 
   _getAllChains = memoizee(
     async () => {
       const { serviceNetwork } = this.backgroundApi;
-      let chainInfos: IChainInfo[] = [];
+      let chainInfos: IWalletConnectChainInfo[] = [];
 
       for (const [networkImpl, namespace] of Object.entries(
         implToNamespaceMap,
@@ -118,7 +119,7 @@ class ServiceWalletConnect extends ServiceBase {
         const { networks } = await serviceNetwork.getNetworksByImpls({
           impls: [networkImpl],
         });
-        const infos = networks.map<IChainInfo>((n) => {
+        const infos = networks.map<IWalletConnectChainInfo>((n) => {
           let caipsInfo: ICaipsInfo | undefined;
           const caipsItem = caipsToNetworkMap[namespace];
           if (caipsItem) {

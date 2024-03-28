@@ -48,6 +48,7 @@ const AccountDerivation = () => {
   );
   return (
     <Page>
+      <Page.Header title="Derivation Path" />
       <Stack px="$5" py="$3">
         <SizableText size="$bodyLg">
           If you don't see the accounts you expect, try switching the derivation

@@ -15,6 +15,7 @@ import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceDApp from '../services/ServiceDApp';
+import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
@@ -108,6 +109,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceGas: ServiceGas;
   serviceDiscovery: ServiceDiscovery;
   serviceDApp: ServiceDApp;
+  serviceDappSide: ServiceDappSide;
   serviceWalletConnect: ServiceWalletConnect;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
