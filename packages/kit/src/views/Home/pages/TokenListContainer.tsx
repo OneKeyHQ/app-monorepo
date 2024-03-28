@@ -72,6 +72,15 @@ function TokenListContainer(props: ITabPageProps) {
         }
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
+        // const unblockedTokens =
+        //   await backgroundApiProxy.serviceToken.getUnblockedTokens({
+        //     networkId: network.id,
+        //   });
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId: account.id,
+            networkId: network.id,
+          });
         const blockedTokens =
           await backgroundApiProxy.serviceToken.getBlockedTokens({
             networkId: network.id,
@@ -79,7 +88,7 @@ function TokenListContainer(props: ITabPageProps) {
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
           mergeTokens: true,
           networkId: network.id,
-          accountAddress: account.address,
+          accountAddress,
           flag: 'home-token-list',
           xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
             accountId: account.id,

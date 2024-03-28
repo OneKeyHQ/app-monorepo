@@ -74,6 +74,7 @@ export type INetworkAccountAddressDetail = {
   baseAddress: string; // base address shared with all subnetworks
   normalizedAddress: string; // lowercase address saved to db in EVM
   displayAddress: string; // checksum address in EVM
+  allowEmptyAddress: boolean; // allow empty address, like lightning network
 };
 
 export type IAddressInteractionStatus =

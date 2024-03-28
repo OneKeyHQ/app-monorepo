@@ -4,7 +4,6 @@ import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
 
 import {
-  Button,
   Icon,
   Page,
   Stack,
