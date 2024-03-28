@@ -48,7 +48,10 @@ const Demo1 = () => {
                 return;
               }
               if (!value.resolved) {
-                return intl.formatMessage({ id: 'form__address_invalid' });
+                return (
+                  value.validateError?.message ??
+                  intl.formatMessage({ id: 'form__address_invalid' })
+                );
               }
               return undefined;
             },
@@ -117,7 +120,10 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
                   return;
                 }
                 if (!value.resolved) {
-                  return intl.formatMessage({ id: 'form__address_invalid' });
+                  return (
+                    value.validateError?.message ??
+                    intl.formatMessage({ id: 'form__address_invalid' })
+                  );
                 }
                 return undefined;
               },

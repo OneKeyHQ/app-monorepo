@@ -3,9 +3,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IAddressInteractionStatus,
+  IAddressValidateStatus,
+  IAddressValidation,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
 } from '@onekeyhq/shared/types/address';
@@ -47,19 +50,22 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async validateAddress({
-    networkId,
-    address,
-  }: IAddressNetworkIdParams): Promise<boolean> {
+  public async validateAddress(
+    params: IAddressNetworkIdParams,
+  ): Promise<IAddressValidateStatus> {
     try {
-      const result = await this.fetchAccountDetails({
-        networkId,
-        accountAddress: address,
-        withValidate: true,
+      const client = await this.getClient();
+      const resp = await client.get<{
+        data: IAddressValidation;
+      }>('/wallet/v1/account/validate-address', {
+        params: { networkId: params.networkId, accountAddress: params.address },
       });
-      return Boolean(result.validateInfo?.isValid);
-    } catch {
-      return false;
+      return resp.data.data.isValid ? 'valid' : 'invalid';
+    } catch (e) {
+      defaultLogger.addressInput.request.logRequestUnknownError(
+        (e as Error).message,
+      );
+      return 'unknown';
     }
   }
 
@@ -129,7 +135,7 @@ class ServiceAccountProfile extends ServiceBase {
     if (!networkId) {
       return result;
     }
-    result.isValid = await this.validateAddress({
+    result.validStatus = await this.validateAddress({
       networkId,
       address,
     });
@@ -137,7 +143,7 @@ class ServiceAccountProfile extends ServiceBase {
     if (isDomain && enableNameResolve) {
       await this.handleNameSolve(networkId, address, result);
     }
-    if (!result.isValid) {
+    if (result.validStatus !== 'valid') {
       return result;
     }
     const resolveAddress = result.resolveAddress ?? result.input;
@@ -187,8 +193,8 @@ class ServiceAccountProfile extends ServiceBase {
     if (resolveNames && resolveNames.names?.length) {
       result.resolveAddress = resolveNames.names?.[0].value;
       result.resolveOptions = resolveNames.names?.map((o) => o.value);
-      if (!result.isValid) {
-        result.isValid = await this.validateAddress({
+      if (result.validStatus !== 'valid') {
+        result.validStatus = await this.validateAddress({
           networkId,
           address: result.resolveAddress,
         });
