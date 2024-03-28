@@ -18,8 +18,8 @@ const useVisible = (delayMs: number) => {
       }, delayMs);
     }
   }, [delayMs]);
-  const { loading } = useContext(ImageContext);
-  return loading && visible;
+  const { loading, loadedSuccessfully } = useContext(ImageContext);
+  return (loading || !loadedSuccessfully) && visible;
 };
 export function ImageFallback({
   delayMs = 80,

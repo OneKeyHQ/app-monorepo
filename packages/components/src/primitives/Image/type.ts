@@ -4,8 +4,10 @@ import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { ImageProps, ImageSourcePropType } from 'react-native';
 
 export type IImageContext = {
-  loading?: boolean;
-  setLoading?: (loading: boolean) => void;
+  loading: boolean;
+  setLoading: (loading: boolean) => void;
+  loadedSuccessfully: boolean;
+  setLoadedSuccessfully: (isSuccessful: boolean) => void;
 };
 
 export type IImageFallbackProps = PropsWithChildren<

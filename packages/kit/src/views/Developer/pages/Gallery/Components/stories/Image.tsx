@@ -152,6 +152,11 @@ const ImageGallery = () => (
                 h: '$12',
               }}
             >
+              <Image.Source
+                source={{
+                  uri: 'https://onekey-asset.com/assets/btc/bt',
+                }}
+              />
               <Image.Fallback>
                 <Icon
                   size="$14"
@@ -161,11 +166,33 @@ const ImageGallery = () => (
                   name="GlobusOutline"
                 />
               </Image.Fallback>
+            </Image>
+            <Image
+              size="$14"
+              borderRadius="$3"
+              delayMs={10 * 1000}
+              $gtLg={{
+                w: '$12',
+                h: '$12',
+              }}
+            >
               <Image.Source
                 source={{
                   uri: 'https://onekey-asset.com/assets/btc/bt',
                 }}
               />
+              <Image.Fallback>
+                <Icon
+                  size="$14"
+                  $gtLg={{
+                    size: '$12',
+                  }}
+                  name="GlobusOutline"
+                />
+              </Image.Fallback>
+              <Image.Loading>
+                <Skeleton width="100%" height="100%" />
+              </Image.Loading>
             </Image>
           </YStack>
         ),
