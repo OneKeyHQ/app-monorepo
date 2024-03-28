@@ -3,11 +3,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { debounce } from 'lodash';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import { ETabRoutes } from '../../../routes/Tab/type';
 import {
   useAccountSelectorActions,
   useActiveAccount,

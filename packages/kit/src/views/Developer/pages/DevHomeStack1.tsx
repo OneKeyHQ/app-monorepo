@@ -3,9 +3,10 @@ import type {
   IPageNavigationProp,
   IPageScreenProps,
 } from '@onekeyhq/components/src/layouts/Navigation';
+import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
+import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { ETabDeveloperRoutes, type ITabDeveloperParamList } from '../type';
 
 const DevHomeStack1 = (
   props: IPageScreenProps<

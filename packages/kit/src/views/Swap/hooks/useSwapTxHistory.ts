@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { debounce } from 'lodash';
 
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EProtocolOfExchange,
   ESwapTxHistoryStatus,
@@ -14,7 +15,6 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { ETabRoutes } from '../../../routes/Tab/type';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,

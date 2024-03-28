@@ -4,12 +4,12 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 

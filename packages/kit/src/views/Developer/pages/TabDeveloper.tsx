@@ -15,6 +15,8 @@ import {
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
+import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
 import { EAppSettingKey } from '@onekeyhq/shared/src/storage/appSetting';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -25,7 +27,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import useCookie from '../../../hooks/useCookie';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { StartTimePanel } from '../../Setting/pages/List/DevSettingsSection/StartTimePanel';
-import { ETabDeveloperRoutes, type ITabDeveloperParamList } from '../type';
 
 const useStorage = platformEnv.isNative
   ? (key: EAppSettingKey, initialValue?: boolean) => {
