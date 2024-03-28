@@ -150,11 +150,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
 
   const openExtensionExpandTab = useCallback(async () => {
     await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-      path: getAllowPathFromScreenNames([
-        ERootRoutes.Main,
-        ETabRoutes.Swap,
-        ETabSwapRoutes.TabSwap,
-      ]),
+      routes: '',
     });
   }, []);
 
