@@ -3,6 +3,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IAddressInteractionStatus,
@@ -60,7 +61,10 @@ class ServiceAccountProfile extends ServiceBase {
         params: { networkId: params.networkId, accountAddress: params.address },
       });
       return resp.data.data.isValid ? 'valid' : 'invalid';
-    } catch {
+    } catch (e) {
+      defaultLogger.addressInput.request.logRequestUnknownError(
+        (e as Error).message,
+      );
       return 'unknown';
     }
   }

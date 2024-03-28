@@ -49,7 +49,7 @@ const Demo1 = () => {
               }
               if (!value.resolved) {
                 return (
-                  value.errMsg ??
+                  value.validateError?.message ??
                   intl.formatMessage({ id: 'form__address_invalid' })
                 );
               }
@@ -121,7 +121,7 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
                 }
                 if (!value.resolved) {
                   return (
-                    value.errMsg ??
+                    value.validateError?.message ??
                     intl.formatMessage({ id: 'form__address_invalid' })
                   );
                 }

@@ -15,6 +15,7 @@ export enum EScopeName {
   app = 'app',
   demo = 'demo',
   setting = 'setting',
+  addressInput = 'addressInput',
 }
 export interface IScope {
   getName: () => EScopeName;

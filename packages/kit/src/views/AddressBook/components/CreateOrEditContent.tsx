@@ -126,7 +126,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                   return;
                 }
                 if (!output.resolved) {
-                  return output.errMsg ?? 'Invalid address';
+                  return output.validateError?.message ?? 'Invalid address';
                 }
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({

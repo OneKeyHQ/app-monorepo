@@ -293,7 +293,10 @@ export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
   pending?: boolean;
-  errMsg?: string;
+  validateError?: {
+    type?: Exclude<IAddressValidateStatus, 'valid'>;
+    message?: string;
+  };
 };
 
 type IAddressInputProps = Omit<
@@ -485,10 +488,13 @@ function AddressInput(props: IAddressInputProps) {
       onChange?.({
         raw: queryResult.input,
         pending: false,
-        errMsg:
-          queryResult.validStatus === 'unknown'
-            ? 'Check request error, please refresh again'
-            : intl.formatMessage({ id: 'form__address_invalid' }),
+        validateError: {
+          type: queryResult.validStatus,
+          message:
+            queryResult.validStatus === 'unknown'
+              ? 'Check request error, please refresh again'
+              : intl.formatMessage({ id: 'form__address_invalid' }),
+        },
       });
     }
   }, [queryResult, intl, clearErrors, setError, name, onChange]);

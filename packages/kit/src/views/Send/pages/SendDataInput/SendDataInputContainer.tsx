@@ -468,7 +468,7 @@ function SendDataInputContainer() {
                   }
                   if (!value.resolved) {
                     return (
-                      value.errMsg ??
+                      value.validateError?.message ??
                       intl.formatMessage({ id: 'form__address_invalid' })
                     );
                   }
