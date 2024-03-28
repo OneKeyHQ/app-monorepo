@@ -4919,13 +4919,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-lite-card@npm:1.0.4":
-  version: 1.0.4
-  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.4"
+"@onekeyfe/react-native-lite-card@npm:1.0.5":
+  version: 1.0.5
+  resolution: "@onekeyfe/react-native-lite-card@npm:1.0.5"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 0c7898b6e503611173fc82347ff08fc58f6147e859ce172a4f20b81abc941e36882fc5a5caadc6bd34d2db45fba8afad141e729c8d9e61710524f06ca6636767
+  checksum: 88c98ae589e23891830d0cf3d3739142cab3051c0c43595fefee3094f16177a0e20c390252219cf1041f4b020326266f0193e3762dd067b4511917c1ffe57391
   languageName: node
   linkType: hard
 
@@ -5244,7 +5244,7 @@ __metadata:
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
-    "@onekeyfe/react-native-lite-card": "npm:1.0.4"
+    "@onekeyfe/react-native-lite-card": "npm:1.0.5"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.3"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
