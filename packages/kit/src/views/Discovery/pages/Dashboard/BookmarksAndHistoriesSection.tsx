@@ -147,7 +147,7 @@ export function BookmarksAndHistoriesSection({
     : isNil(bookmarksData);
 
   return (
-    <Stack px="$5">
+    <Stack px="$5" minHeight="$40">
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading
           selected={!isHistoriesView}
@@ -177,11 +177,13 @@ export function BookmarksAndHistoriesSection({
         <Stack
           bg="$bgSubdued"
           py="$6"
+          flex={1}
           borderRadius="$3"
           borderCurve="continuous"
+          justifyContent="center"
         >
           {isNilDataSource ? (
-            <Skeleton w="100%" h="$6" />
+            <Skeleton w="100%" />
           ) : (
             <SizableText
               size="$bodyLg"
