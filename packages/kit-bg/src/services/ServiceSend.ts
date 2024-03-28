@@ -25,8 +25,6 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
-import type ServiceNFT from './ServiceNFT';
-import type ServiceToken from './ServiceToken';
 import type {
   IBatchSignTransactionParamsBase,
   IBroadcastTransactionParams,
@@ -184,10 +182,8 @@ class ServiceSend extends ServiceBase {
   ): Promise<IDecodedTx> {
     const { networkId, accountId, unsignedTx, feeInfo } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    const buildTxHelper = await this.getBuildTxHelper();
     const decodedTx = await vault.buildDecodedTx({
       unsignedTx,
-      ...buildTxHelper,
     });
 
     if (feeInfo) {
@@ -463,21 +459,6 @@ class ServiceSend extends ServiceBase {
     }
 
     return nextNonce;
-  }
-
-  @backgroundMethod()
-  public getBuildTxHelper(): Promise<{
-    getToken: ServiceToken['getToken'];
-    getNFT: ServiceNFT['getNFT'];
-  }> {
-    return Promise.resolve({
-      getToken: this.backgroundApi.serviceToken.getToken.bind(
-        this.backgroundApi.serviceToken,
-      ),
-      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
-        this.backgroundApi.serviceNFT,
-      ),
-    });
   }
 
   @backgroundMethod()

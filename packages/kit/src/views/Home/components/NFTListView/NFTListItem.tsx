@@ -54,7 +54,7 @@ function NFTListItem(props: IProps) {
               justifyContent="center"
               alignItems="center"
             >
-              <Icon name="ImageSquareWavesOutline" />
+              <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
             </Image.Fallback>
           </Image>
           {Number.parseInt(nft.amount, 10) > 1 ? (

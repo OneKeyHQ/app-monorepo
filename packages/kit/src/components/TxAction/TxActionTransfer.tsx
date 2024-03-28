@@ -221,11 +221,8 @@ function TxActionTransferListView(props: ITxActionProps) {
   };
 
   const avatar: ITxActionCommonListViewProps['avatar'] = {
+    src: '',
     isNFT: !!(sendNFTIcon || receiveNFTIcon),
-    fallbackIcon:
-      sendNFTIcon || receiveNFTIcon
-        ? 'ImageMountainSolid'
-        : 'QuestionmarkSolid',
   };
   let title = '';
   let change: React.ReactNode = '';

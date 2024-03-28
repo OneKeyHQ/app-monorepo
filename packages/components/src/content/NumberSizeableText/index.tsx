@@ -39,7 +39,7 @@ export function NumberSizeableText({
   return typeof result === 'string' ? (
     <SizableText {...props}>{result}</SizableText>
   ) : (
-    <SizableText>
+    <SizableText {...props}>
       {result.map((r) =>
         typeof r === 'string' ? (
           <SizableText {...props}>{r}</SizableText>

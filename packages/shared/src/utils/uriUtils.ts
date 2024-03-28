@@ -132,6 +132,21 @@ export function buildExplorerAddressUrl({
   return addressUrl.replace('{address}', address);
 }
 
+export function buildTransactionDetailsUrl({
+  network,
+  txid,
+}: {
+  network: IServerNetwork | undefined;
+  txid: string | undefined;
+}) {
+  if (!network || !txid) return '';
+
+  const transactionUrl = network.explorers[0]?.transaction;
+
+  if (!transactionUrl) return '';
+
+  return transactionUrl.replace('{transaction}', txid);
+}
 export function isValidDeepLink(url: string) {
   return VALID_DEEP_LINK.some((protocol) =>
     url.toLowerCase().startsWith(`${protocol.toLowerCase()}//`),
