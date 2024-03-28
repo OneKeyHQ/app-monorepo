@@ -1,3 +1,0 @@
-function CustomFeeEditor() {}
-
-export { CustomFeeEditor };

@@ -76,3 +76,10 @@ export type IEstimateGasResp = {
     price24h: number;
   };
 };
+
+export type IFeeSelectorItem = {
+  label: string;
+  value: number;
+  feeInfo: IFeeInfoUnit;
+  type: EFeeType;
+};

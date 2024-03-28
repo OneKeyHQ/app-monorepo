@@ -1,11 +1,11 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, set } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
-import { SizableText, YStack } from '@onekeyhq/components';
+import { Popover, SizableText, Skeleton, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -29,8 +29,12 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import { FeeSelectorTrigger } from '../../components/SendFee';
+import type {
+  IFeeInfoUnit,
+  IFeeSelectorItem,
+} from '@onekeyhq/shared/types/fee';
+
+import { FeeEditor, FeeSelectorTrigger } from '../../components/SendFee';
 
 type IProps = {
   accountId: string;
@@ -42,6 +46,7 @@ function TxFeeContainer(props: IProps) {
   const { accountId, networkId } = props;
   const intl = useIntl();
   const txFeeInit = useRef(false);
+  const [isEditFeeActive, setIsEditFeeActive] = useState(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
@@ -122,7 +127,7 @@ function TxFeeContainer(props: IProps) {
     },
   );
 
-  const feeSelectorItems = useMemo(() => {
+  const feeSelectorItems: IFeeSelectorItem[] = useMemo(() => {
     const items = [];
     if (gasFee) {
       const feeLength =
@@ -140,19 +145,12 @@ function TxFeeContainer(props: IProps) {
         };
 
         items.push({
-          leading: (
-            <SizableText fontSize={32}>
-              {getFeeIcon({
-                feeType: EFeeType.Standard,
-                presetIndex: i,
-              })}
-            </SizableText>
-          ),
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: i }),
           }),
-          value: String(i),
+          value: i,
           feeInfo,
+          type: EFeeType.Standard,
         });
       }
 
@@ -187,18 +185,12 @@ function TxFeeContainer(props: IProps) {
         }
 
         items.push({
-          leading: (
-            <SizableText fontSize={32}>
-              {getFeeIcon({
-                feeType: EFeeType.Custom,
-              })}
-            </SizableText>
-          ),
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Custom }),
           }),
-          value: EFeeType.Custom,
+          value: items.length,
           feeInfo: customFeeInfo,
+          type: EFeeType.Custom,
         });
       }
 
@@ -260,6 +252,11 @@ function TxFeeContainer(props: IProps) {
     unsignedTxs,
   ]);
 
+  const handleFeeSelectorTriggerOnPress = useCallback(() => {
+    if (!txFeeInit.current) return;
+    setIsEditFeeActive(true);
+  }, []);
+
   const handleSelectedFeeOnChange = useCallback(
     (value: string | ISelectItem) => {
       // if (value === EFeeType.Custom) {
@@ -287,8 +284,6 @@ function TxFeeContainer(props: IProps) {
     },
     [],
   );
-
-  const handleTriggerFeeSelector = useCallback(() => {}, []);
 
   useEffect(() => {
     if (selectedFee && selectedFee.feeInfo) {
@@ -319,18 +314,41 @@ function TxFeeContainer(props: IProps) {
     <Container.Box>
       <Container.Item
         title="Fee Estimate"
-        content={`${selectedFee?.totalNativeForDisplay ?? '0.00'} ${
-          gasFee?.common.nativeSymbol ?? ''
-        }`}
-        subContent={`${settings.currencyInfo.symbol}${
-          selectedFee?.totalFiatForDisplay ?? '0.00'
-        }`}
+        content={
+          txFeeInit.current ? (
+            `${selectedFee?.totalNativeForDisplay ?? '0.00'} ${
+              gasFee?.common.nativeSymbol ?? ''
+            }`
+          ) : (
+            <Skeleton height="$5" width="$40" />
+          )
+        }
+        subContent={
+          txFeeInit.current
+            ? `${settings.currencyInfo.symbol}${
+                selectedFee?.totalFiatForDisplay ?? '0.00'
+              }`
+            : ''
+        }
         contentAdd={
-          <FeeSelectorTrigger
-            onPress={handleTriggerFeeSelector}
-            disabled={
-              sendFeeStatus.status === ESendFeeStatus.Loading ||
-              sendFeeStatus.status === ESendFeeStatus.Error
+          <Popover
+            title={intl.formatMessage({ id: 'title__edit_fee' })}
+            open={isEditFeeActive}
+            onOpenChange={setIsEditFeeActive}
+            renderContent={
+              <FeeEditor
+                networkId={networkId}
+                feeSelectorItems={feeSelectorItems}
+              />
+            }
+            renderTrigger={
+              <FeeSelectorTrigger
+                onPress={() => handleFeeSelectorTriggerOnPress()}
+                disabled={
+                  sendFeeStatus.status === ESendFeeStatus.Error ||
+                  !txFeeInit.current
+                }
+              />
             }
           />
         }

@@ -1,40 +1,49 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
-  Divider,
   Form,
   Input,
-  Page,
-  ScrollView,
+  SegmentControl,
+  SizableText,
   Stack,
   YStack,
   useForm,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  useCustomFeeAtom,
+  useSendSelectedFeeAtom,
+  useSendSelectedFeeInfoAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import type {
-  EModalSendRoutes,
-  IModalSendParamList,
-} from '@onekeyhq/shared/src/routes';
-import type { IGasEIP1559 } from '@onekeyhq/shared/types/fee';
+  IFeeInfoUnit,
+  IFeeSelectorItem,
+} from '@onekeyhq/shared/types/fee';
+import { EFeeType } from '@onekeyhq/shared/types/fee';
 
-import { FeeOverviewContainer } from './FeeOverviewContainer';
-import { FeePredictionContainer } from './FeePredictionContainer';
+type IProps = {
+  networkId: string;
+  feeSelectorItems: IFeeSelectorItem[];
+};
 
-import type { RouteProp } from '@react-navigation/core';
-
-function SendCustomFeeContainer() {
+function FeeEditor(props: IProps) {
+  const { networkId, feeSelectorItems } = props;
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const route =
-    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendCustomFee>>();
 
-  const { networkId, customFee, onApply } = route.params;
+  const [sendSelectedFee] = useSendSelectedFeeAtom();
+  const [originalCustomFee] = useCustomFeeAtom();
+  const [selectedFee] = useSendSelectedFeeInfoAtom();
+  const [currentFeeIndex, setCurrentFeeIndex] = useState(
+    sendSelectedFee.feeType === EFeeType.Custom
+      ? feeSelectorItems.length - 1
+      : sendSelectedFee.presetIndex,
+  );
+  const [currentFeeType, setCurrentFeeType] = useState<EFeeType>(
+    sendSelectedFee.feeType,
+  );
+  const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
 
   const { feeDecimals, feeSymbol, nativeSymbol } = customFee.common;
 
@@ -86,25 +95,24 @@ function SendCustomFeeContainer() {
     ],
   );
 
-  const isApplyButtonDisabled = useMemo(() => {
-    if (!form.formState.isValid) return true;
-    return false;
-  }, [form.formState.isValid]);
-
-  const handleSelectFeePrediction = useCallback(
-    (prediction: IGasEIP1559) => {
-      form.setValue('priorityFee', prediction.maxPriorityFeePerGas);
-      form.setValue('maxFee', prediction.maxFeePerGas);
-    },
-    [form],
+  const renderFeeTypeSelector = useCallback(
+    () => (
+      <SegmentControl
+        fullWidth
+        value={currentFeeIndex}
+        onChange={(v) => {
+          setCurrentFeeIndex(Number(v));
+          setCurrentFeeType(feeSelectorItems[Number(v)].type);
+        }}
+        options={feeSelectorItems}
+      />
+    ),
+    [currentFeeIndex, feeSelectorItems],
   );
 
-  const handleApplyCustomFee = useCallback(() => {
-    onApply(customFeeInfo);
-    navigation.pop();
-  }, [customFeeInfo, navigation, onApply]);
+  const renderFeeEditorForm = useCallback(() => {
+    if (currentFeeType !== EFeeType.Custom) return null;
 
-  const renderCustomFeeForm = useCallback(() => {
     if (customFee.gas) {
       return (
         <YStack space="$5">
@@ -216,6 +224,7 @@ function SendCustomFeeContainer() {
       );
     }
   }, [
+    currentFeeType,
     customFee.feeUTXO,
     customFee.gas,
     customFee.gasEIP1559,
@@ -227,41 +236,16 @@ function SendCustomFeeContainer() {
     watchAllFields.maxFee,
     watchAllFields.priorityFee,
   ]);
+
+  const renderFeeOverview = useCallback(() => {}, []);
+
   return (
-    <Page>
-      <Page.Header title="Custom Fee" />
-      <Page.Body>
-        <ScrollView>
-          <FeeOverviewContainer feeInfo={customFeeInfo} />
-          <Divider />
-          <Stack padding="$5">
-            <Form form={form}>{renderCustomFeeForm()}</Form>
-          </Stack>
-          {shouldRenderFeePrediction ? (
-            <>
-              <Divider />
-              <FeePredictionContainer
-                networkId={networkId}
-                onSelected={handleSelectFeePrediction}
-              />
-            </>
-          ) : null}
-        </ScrollView>
-      </Page.Body>
-      <Page.Footer>
-        <YStack padding="$5" space="$2">
-          <Button
-            size="large"
-            variant="primary"
-            disabled={isApplyButtonDisabled}
-            onPress={handleApplyCustomFee}
-          >
-            {intl.formatMessage({ id: 'action__apply' })}
-          </Button>
-        </YStack>
-      </Page.Footer>
-    </Page>
+    <Stack p="$5">
+      {renderFeeTypeSelector()}
+      {renderFeeEditorForm()}
+      {renderFeeOverview()}
+    </Stack>
   );
 }
 
-export { SendCustomFeeContainer };
+export { FeeEditor };
