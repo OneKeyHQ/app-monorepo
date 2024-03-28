@@ -58,7 +58,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   onBeforeAccountSelectorOpen,
 }) => {
   const accountSelectorOpen = useRef<boolean>(false);
-  const pick = useAddressBookPick();
+  const showAddressBook = useAddressBookPick();
   const {
     activeAccount: { account },
     showAccountSelector,
@@ -70,14 +70,14 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
     }
   }, [account, onChange]);
 
-  const onPickContacts = useCallback(() => {
-    void pick({
+  const onContacts = useCallback(() => {
+    void showAddressBook({
       networkId,
       onPick: (item: IAddressItem) => {
         onChange?.(item.address);
       },
     });
-  }, [onChange, pick, networkId]);
+  }, [onChange, showAddressBook, networkId]);
 
   return (
     <ActionList
@@ -95,7 +95,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
         {
           icon: 'ContactsOutline' as const,
           label: 'Address Book',
-          onPress: onPickContacts,
+          onPress: onContacts,
         },
       ]}
       renderTrigger={
