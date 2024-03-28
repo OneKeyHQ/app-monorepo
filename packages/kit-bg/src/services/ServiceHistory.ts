@@ -156,7 +156,6 @@ class ServiceHistory extends ServiceBase {
       isLocalCreated: true,
     });
     newHistoryTx.decodedTx.feeInfo = newHistoryTx.decodedTx.feeInfo ?? feeInfo;
-
     await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
   }
 }

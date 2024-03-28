@@ -67,6 +67,7 @@ function WalletActionSend() {
     if (isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
         networkId: network.id,
+        accountAddress: account.address,
       });
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendDataInput,
