@@ -118,17 +118,6 @@ function SearchModal() {
             zIndex={20}
             selectTextOnFocus
             value={searchValue}
-            onFocus={(e) => {
-              // Workaround for selectTextOnFocus={true} not working
-              if (platformEnv.isNative) {
-                const { currentTarget } = e;
-                void InteractionManager.runAfterInteractions(() => {
-                  currentTarget.setNativeProps({
-                    selection: { start: 0, end: searchValue.length },
-                  });
-                });
-              }
-            }}
             onSearchTextChange={setSearchValue}
             onSubmitEditing={() => {
               handleOpenWebSite({
