@@ -25,8 +25,4 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
     name: EModalSendRoutes.SendConfirmFromDApp,
     component: SendConfirmFromDApp,
   },
-  {
-    name: EModalSendRoutes.SendCustomFee,
-    component: SendCustomFee,
-  },
 ];

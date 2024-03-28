@@ -30,8 +30,7 @@ import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-
-import { GasSelector } from '../../components/GasSelector';
+import { FeeSelectorTrigger } from '../../components/SendFee';
 
 type IProps = {
   accountId: string;
@@ -263,39 +262,33 @@ function TxFeeContainer(props: IProps) {
 
   const handleSelectedFeeOnChange = useCallback(
     (value: string | ISelectItem) => {
-      if (value === EFeeType.Custom) {
-        navigation.pushModal(EModalRoutes.SendModal, {
-          screen: EModalSendRoutes.SendCustomFee,
-          params: {
-            networkId,
-            accountId,
-            customFee: (customFee ?? selectedFee?.feeInfo) as IFeeInfoUnit,
-            onApply: (feeInfo: IFeeInfoUnit) => {
-              updateCustomFee(feeInfo);
-              updateSendSelectedFee({
-                feeType: EFeeType.Custom,
-                presetIndex: 0,
-              });
-            },
-          },
-        });
-      } else {
-        updateSendSelectedFee({
-          feeType: EFeeType.Standard,
-          presetIndex: Number(value),
-        });
-      }
+      // if (value === EFeeType.Custom) {
+      //   navigation.pushModal(EModalRoutes.SendModal, {
+      //     screen: EModalSendRoutes.SendCustomFee,
+      //     params: {
+      //       networkId,
+      //       accountId,
+      //       customFee: (customFee ?? selectedFee?.feeInfo) as IFeeInfoUnit,
+      //       onApply: (feeInfo: IFeeInfoUnit) => {
+      //         updateCustomFee(feeInfo);
+      //         updateSendSelectedFee({
+      //           feeType: EFeeType.Custom,
+      //           presetIndex: 0,
+      //         });
+      //       },
+      //     },
+      //   });
+      // } else {
+      //   updateSendSelectedFee({
+      //     feeType: EFeeType.Standard,
+      //     presetIndex: Number(value),
+      //   });
+      // }
     },
-    [
-      accountId,
-      customFee,
-      navigation,
-      networkId,
-      selectedFee?.feeInfo,
-      updateCustomFee,
-      updateSendSelectedFee,
-    ],
+    [],
   );
+
+  const handleTriggerFeeSelector = useCallback(() => {}, []);
 
   useEffect(() => {
     if (selectedFee && selectedFee.feeInfo) {
@@ -333,10 +326,8 @@ function TxFeeContainer(props: IProps) {
           selectedFee?.totalFiatForDisplay ?? '0.00'
         }`}
         contentAdd={
-          <GasSelector
-            items={feeSelectorItems}
-            value={feeSelectorValue}
-            onChange={handleSelectedFeeOnChange}
+          <FeeSelectorTrigger
+            onPress={handleTriggerFeeSelector}
             disabled={
               sendFeeStatus.status === ESendFeeStatus.Loading ||
               sendFeeStatus.status === ESendFeeStatus.Error
