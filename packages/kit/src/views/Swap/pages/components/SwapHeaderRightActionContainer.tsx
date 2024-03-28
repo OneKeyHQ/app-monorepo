@@ -43,9 +43,15 @@ const SwapHeaderRightActionContainer = () => {
         <HeaderIconButton
           icon="ClockTimeHistoryOutline"
           onPress={onOpenHistoryListModal}
+          iconProps={{ size: 24 }}
+          size="medium"
         />
       )}
-      <HeaderIconButton icon="QuestionmarkOutline" />
+      <HeaderIconButton
+        icon="QuestionmarkOutline"
+        iconProps={{ size: 24 }}
+        size="medium"
+      />
     </HeaderButtonGroup>
   );
 };

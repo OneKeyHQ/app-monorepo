@@ -11,6 +11,6 @@ export const swapRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabSwapRoutes.TabSwap,
     component: Swap,
     rewrite: '/',
-    translationId: 'title__swap',
+    // translationId: 'title__swap',
   },
 ];

@@ -18,6 +18,7 @@ import { withSwapProvider } from '../WithSwapProvider';
 
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
+import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 
@@ -73,13 +74,17 @@ const SwapMainLoad = () => {
       maxWidth={480}
     >
       <YStack
-        p="$5"
+        pt="$2.5"
+        px="$5"
+        pb="$5"
         space="$5"
         flex={1}
         $gtMd={{
           flex: 'unset',
+          pt: '$5',
         }}
       >
+        <SwapHeaderContainer />
         <SwapQuoteInput onSelectToken={onSelectToken} />
         {swapActionState.alerts?.length ? (
           <SwapAlertContainer alerts={swapActionState.alerts} />
