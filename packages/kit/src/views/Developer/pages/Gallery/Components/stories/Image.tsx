@@ -102,7 +102,7 @@ const ImageGallery = () => (
       {
         title: 'Loading Fallback',
         element: (
-          <YStack>
+          <YStack space="$4">
             <Image height="$10" width="$10">
               <Image.Source
                 delayMs={2500}
@@ -110,13 +110,36 @@ const ImageGallery = () => (
               />
               <Image.Skeleton />
             </Image>
+            <Image
+              size="$14"
+              borderRadius="$3"
+              $gtLg={{
+                w: '$12',
+                h: '$12',
+              }}
+            >
+              <Image.Source
+                source={{
+                  uri: 'https://dev.onekey-asset.com/dashboard/dapp/upload_1706684476225.0.17899416707349025.0.jpeg',
+                }}
+              />
+              <Image.Fallback>
+                <Icon
+                  size="$14"
+                  $gtLg={{
+                    size: '$12',
+                  }}
+                  name="GlobusOutline"
+                />
+              </Image.Fallback>
+            </Image>
           </YStack>
         ),
       },
       {
         title: 'onError',
         element: (
-          <YStack>
+          <YStack space="$4">
             <Image height="$10" width="$10">
               <Image.Source src="https://onekey-asset.com/assets/btc/bt" />
               <Image.Skeleton />

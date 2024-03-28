@@ -1,7 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Skeleton } from '../Skeleton';
@@ -29,30 +27,17 @@ export function ImageFallback({
   ...props
 }: IImageFallbackProps) {
   const visible = useVisible(delayMs);
-  return (
-    <AnimatePresence>
-      {visible ? (
-        <Stack
-          position="absolute"
-          width="100%"
-          height="100%"
-          {...props}
-          {
-            // If an Animated.Image is rendered on a cell, We cannot run many animations simultaneously on the Android main thread,
-            // as it would result in the main thread becoming unresponsive
-            ...(!platformEnv.isNativeAndroid
-              ? {
-                  animation: 'slow',
-                  exitStyle: { opacity: 0 },
-                }
-              : {})
-          }
-        >
-          {children}
-        </Stack>
-      ) : null}
-    </AnimatePresence>
-  );
+  return visible ? (
+    <Stack
+      position="absolute"
+      bg="$bgApp"
+      width="100%"
+      height="100%"
+      {...props}
+    >
+      {children}
+    </Stack>
+  ) : null;
 }
 
 export function ImageSkeleton(props: IImageSkeletonProps) {
