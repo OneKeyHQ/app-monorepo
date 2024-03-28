@@ -1,6 +1,17 @@
+import {
+  getDeviceBootloaderVersion,
+  getDeviceFirmwareVersion,
+} from '@onekeyfe/hd-core';
+
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
-import type { IDeviceType, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+import type { IOneKeyDeviceFeatures } from '../../types';
+import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+
+type IGetDeviceVersionParams = {
+  device: SearchDevice;
+  features: IOneKeyDeviceFeatures;
+};
 
 // TODO move to db converter
 function dbDeviceToSearchDevice(device: IDBDevice) {
@@ -9,25 +20,54 @@ function dbDeviceToSearchDevice(device: IDBDevice) {
     connectId: device.connectId,
     uuid: device.uuid,
     deviceId: device.deviceId,
-    deviceType: device.deviceType as IDeviceType,
+    deviceType: device.deviceType,
     name: device.name,
   };
   return result;
 }
 
-function getDeviceVersion(device: SearchDevice) {
-  const deviceFull = device as KnownDevice;
-  const bleVersion = (deviceFull.bleFirmwareVersion || []).join('.');
-  const firmwareVersion = (deviceFull.firmwareVersion || []).join('.');
+// web sdk return KnownDevice
+// ble sdk return SearchDevice
+// db return IDBDevice
+function getDeviceVersion(params: IGetDeviceVersionParams): {
+  bleVersion: string;
+  firmwareVersion: string;
+  bootloaderVersion: string;
+} {
+  const { device, features } = params;
+  const knownDevice = device as KnownDevice;
+  const dbDevice = device as IDBDevice;
+  const usedFeatures =
+    features || dbDevice?.featuresInfo || knownDevice?.features;
+
+  const bootloaderVersion =
+    (getDeviceBootloaderVersion(usedFeatures) || []).join('.') ||
+    usedFeatures?.bootloader_version ||
+    '';
+
+  const bleVersion =
+    (knownDevice?.bleFirmwareVersion || []).join('.') ||
+    usedFeatures?.ble_ver ||
+    '';
+
+  const firmwareVersion =
+    (getDeviceFirmwareVersion(usedFeatures) || []).join('.') ||
+    (knownDevice?.firmwareVersion || []).join('.') ||
+    usedFeatures?.onekey_firmware_version ||
+    '';
+
   return {
     bleVersion,
     firmwareVersion,
+    bootloaderVersion,
   };
 }
 
-function getDeviceVersionStr(device: SearchDevice) {
-  const { bleVersion, firmwareVersion } = getDeviceVersion(device);
-  return `${bleVersion}--${firmwareVersion}`;
+function getDeviceVersionStr(params: IGetDeviceVersionParams) {
+  const { bleVersion, firmwareVersion, bootloaderVersion } =
+    getDeviceVersion(params);
+  // keep empty if version not found
+  return `${bootloaderVersion}--${bleVersion}--${firmwareVersion}`;
 }
 
 export default {
