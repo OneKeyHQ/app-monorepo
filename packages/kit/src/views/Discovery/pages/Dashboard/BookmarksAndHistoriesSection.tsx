@@ -102,6 +102,9 @@ function Items({
                 name="GlobusOutline"
               />
             </Image.Fallback>
+            <Image.Loading>
+              <Skeleton width="100%" height="100%" />
+            </Image.Loading>
           </Image>
           <SizableText
             size="$bodyLgMedium"
