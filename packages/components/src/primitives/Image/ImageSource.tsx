@@ -3,6 +3,8 @@ import { useCallback, useContext, useRef } from 'react';
 import { usePropsAndStyle } from '@tamagui/core';
 import { Image as NativeImage } from 'react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { ImageContext } from './context';
 import { useSource } from './hooks';
 
@@ -12,7 +14,7 @@ import type { ImageStyle, StyleProp } from 'react-native';
 export function ImageSource({
   source,
   src,
-  delayMs,
+  delayMs = 0,
   ...props
 }: IImageSourceProps) {
   const hasError = useRef(false);
@@ -21,32 +23,31 @@ export function ImageSource({
     resolveValues: 'auto',
   });
 
-  const { setLoading } = useContext(ImageContext);
+  const { setLoading, setLoadedSuccessfully } = useContext(ImageContext);
 
   const handleLoadStart = useCallback(() => {
     setLoading?.(true);
   }, [setLoading]);
 
+  const handleLoadEnd = useCallback(() => {
+    const diff = Date.now() - startTime.current;
+    setTimeout(
+      () => {
+        setLoading?.(false);
+        setLoadedSuccessfully?.(!hasError.current);
+      },
+      diff > delayMs ? 0 : delayMs - diff,
+    );
+  }, [delayMs, setLoadedSuccessfully, setLoading]);
+
   const handleError = useCallback(() => {
     hasError.current = true;
-  }, []);
-
-  const handleLoadEnd = useCallback(() => {
-    if (hasError.current) {
-      return;
+    // Android specify:
+    // After triggering the onerror event, the onLoadEnd event will not be triggered again.
+    if (platformEnv.isNativeAndroid) {
+      handleLoadEnd();
     }
-    if (delayMs) {
-      const diff = Date.now() - startTime.current;
-      setTimeout(
-        () => {
-          setLoading?.(false);
-        },
-        diff > delayMs ? 0 : delayMs - diff,
-      );
-    } else {
-      setLoading?.(false);
-    }
-  }, [delayMs, setLoading]);
+  }, [handleLoadEnd]);
 
   const imageSource = useSource(source, src);
   if (!imageSource) {
