@@ -72,7 +72,12 @@ class ServiceAccountProfile extends ServiceBase {
         return localValidation.isValid ? 'valid' : 'invalid';
       } catch (localError) {
         console.error('failed to validateAddress', serverError, localError);
-        defaultLogger.addressInput.validation.failWithUnknownError(params);
+        defaultLogger.addressInput.validation.failWithUnknownError({
+          networkId,
+          address,
+          serverError: (serverError as Error).message,
+          localError: (localError as Error).message,
+        });
         return 'unknown';
       }
     }

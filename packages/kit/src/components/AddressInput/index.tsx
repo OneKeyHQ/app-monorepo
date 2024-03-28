@@ -348,6 +348,7 @@ export function AddressInput(props: IAddressInputProps) {
               onChange={onChangeText}
               networkId={networkId}
               num={accountSelector?.num}
+              currentAddress={inputText}
               onBeforeAccountSelectorOpen={
                 accountSelector?.onBeforeAccountSelectorOpen
               }
@@ -369,6 +370,7 @@ export function AddressInput(props: IAddressInputProps) {
       networkId,
       rest.testID,
       onRefresh,
+      inputText,
     ],
   );
 

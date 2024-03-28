@@ -2,6 +2,8 @@ import { type FC, useCallback, useEffect, useRef } from 'react';
 
 import { ActionList, IconButton } from '@onekeyhq/components';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { defaultSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 
@@ -11,6 +13,7 @@ type ISelectorPluginProps = IAddressPluginProps & {
   networkId?: string;
   num?: number;
   onBeforeAccountSelectorOpen?: () => void;
+  currentAddress?: string;
 };
 
 const AddressBookPlugin: FC<ISelectorPluginProps> = ({
@@ -56,13 +59,16 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   testID,
   num,
   onBeforeAccountSelectorOpen,
+  currentAddress,
 }) => {
+  const accountSelectorNum = num ?? 0;
   const accountSelectorOpen = useRef<boolean>(false);
   const showAddressBook = useAddressBookPick();
+  const actions = useAccountSelectorActions();
   const {
     activeAccount: { account },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num: num ?? 0, linkNetwork: true });
+  } = useAccountSelectorTrigger({ num: accountSelectorNum, linkNetwork: true });
 
   useEffect(() => {
     if (account?.address && accountSelectorOpen.current) {
@@ -79,6 +85,27 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
     });
   }, [onChange, showAddressBook, networkId]);
 
+  const onShowAccountSelector = useCallback(async () => {
+    accountSelectorOpen.current = true;
+    const activeAccount = actions.current.getActiveAccount({
+      num: accountSelectorNum,
+    });
+    if (activeAccount.account?.address !== currentAddress) {
+      await actions.current.updateSelectedAccount({
+        num: accountSelectorNum,
+        builder: () => defaultSelectedAccount(),
+      });
+    }
+    onBeforeAccountSelectorOpen?.();
+    showAccountSelector();
+  }, [
+    onBeforeAccountSelectorOpen,
+    showAccountSelector,
+    actions,
+    accountSelectorNum,
+    currentAddress,
+  ]);
+
   return (
     <ActionList
       title="Select"
@@ -86,11 +113,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
         {
           icon: 'WalletCryptoOutline' as const,
           label: 'My Accounts',
-          onPress: () => {
-            accountSelectorOpen.current = true;
-            onBeforeAccountSelectorOpen?.();
-            showAccountSelector();
-          },
+          onPress: onShowAccountSelector,
         },
         {
           icon: 'ContactsOutline' as const,
@@ -116,6 +139,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   testID,
   num,
   onBeforeAccountSelectorOpen,
+  currentAddress,
 }) => {
   if (num !== undefined) {
     return (
@@ -125,6 +149,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
         networkId={networkId}
         onBeforeAccountSelectorOpen={onBeforeAccountSelectorOpen}
         testID={testID}
+        currentAddress={currentAddress}
       />
     );
   }
