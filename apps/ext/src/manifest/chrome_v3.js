@@ -119,5 +119,6 @@ module.exports = {
     // 'activeTab',
     // 'webRequest',
     'idle',
+    'sidePanel',
   ],
 };

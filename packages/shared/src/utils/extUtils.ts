@@ -142,12 +142,31 @@ export function getExtensionIndexHtml() {
   return EXT_HTML_FILES.uiExpandTab;
 }
 
+function openUrlInSidePanel(url: string): Promise<chrome.tabs.Tab | undefined> {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (tab && tab.id) {
+        chrome.sidePanel.open({ tabId: tab.id }, () => {
+          void chrome.sidePanel.setOptions({
+            tabId: tab.id,
+            path: url,
+            enabled: true,
+          });
+        });
+        resolve(tab);
+      }
+    });
+  });
+}
+
 let expandTabId: number | undefined;
 async function openExpandTab(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
   const url = buildExtRouteUrl('ui-expand-tab.html', routeInfo);
-  const tab = await openUrlInTab(url, { tabId: expandTabId });
+  // const tab = await openUrlInTab(url, { tabId: expandTabId });
+  const tab = await openUrlInSidePanel(url);
   expandTabId = tab?.id;
   return tab;
 }
@@ -157,4 +176,5 @@ export default {
   openUrlInTab,
   openStandaloneWindow,
   openExpandTab,
+  openUrlInSidePanel,
 };
