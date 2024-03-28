@@ -58,6 +58,7 @@ import type { RouteProp } from '@react-navigation/core';
 export interface IWalletDetailsProps {
   num: number;
   wallet?: IDBWallet;
+  device?: IDBDevice | undefined;
 }
 
 export function WalletDetails({ num }: IWalletDetailsProps) {
@@ -336,7 +337,12 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         //   ),
         // })}
         ListHeaderComponent={
-          isOthers ? null : <WalletOptions wallet={focusedWalletInfo?.wallet} />
+          isOthers ? null : (
+            <WalletOptions
+              wallet={focusedWalletInfo?.wallet}
+              device={focusedWalletInfo?.device}
+            />
+          )
         }
         sections={sectionData ?? (emptyArray as any)}
         renderSectionHeader={({

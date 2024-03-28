@@ -467,7 +467,10 @@ function SendDataInputContainer() {
                     return;
                   }
                   if (!value.resolved) {
-                    return intl.formatMessage({ id: 'form__address_invalid' });
+                    return (
+                      value.validateError?.message ??
+                      intl.formatMessage({ id: 'form__address_invalid' })
+                    );
                   }
                 },
               }}
