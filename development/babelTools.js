@@ -154,16 +154,16 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-class-static-block'],
     isDev && !isJest && !isNative && ['react-refresh/babel'],
-    // isDev && [
-    //   'babel-plugin-catch-logger',
-    //   {
-    //     source: '@onekeyhq/shared/src/logger/autoLogger',
-    //     name: 'autoLogger',
-    //     methodName: 'error',
-    //     catchPromise: false,
-    //     namespaced: false,
-    //   },
-    // ],
+    isDev && [
+      'babel-plugin-catch-logger',
+      {
+        source: '@onekeyhq/shared/src/logger/autoLogger',
+        name: 'autoLogger',
+        methodName: 'error',
+        catchPromise: false,
+        namespaced: false,
+      },
+    ],
     moduleResolver && ['module-resolver', moduleResolver],
   ].filter(Boolean);
   // console.log('babelToolsConfig > moduleResolver: ', moduleResolver);
