@@ -30,14 +30,11 @@ export function ImageSource({
   }, [setLoading]);
 
   const handleLoadEnd = useCallback(() => {
-    if (hasError.current) {
-      return;
-    }
     const diff = Date.now() - startTime.current;
     setTimeout(
       () => {
         setLoading?.(false);
-        setLoadedSuccessfully?.(true);
+        setLoadedSuccessfully?.(!hasError.current);
       },
       diff > delayMs ? 0 : delayMs - diff,
     );

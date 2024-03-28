@@ -170,13 +170,13 @@ const ImageGallery = () => (
             <Image
               size="$14"
               borderRadius="$3"
-              delayMs={10 * 1000}
               $gtLg={{
                 w: '$12',
                 h: '$12',
               }}
             >
               <Image.Source
+                delayMs={10 * 1000}
                 source={{
                   uri: 'https://onekey-asset.com/assets/btc/bt',
                 }}

@@ -10,8 +10,8 @@ export function ImageLoading({ children, ...props }: IImageFallbackProps) {
   const { loading } = useContext(ImageContext);
   return loading ? (
     <Stack
-      position="absolute"
       bg="$bgApp"
+      position="absolute"
       width="100%"
       height="100%"
       {...props}
