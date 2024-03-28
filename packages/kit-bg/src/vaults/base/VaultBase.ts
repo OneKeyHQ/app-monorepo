@@ -4,6 +4,7 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
+import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -25,17 +26,24 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
+  IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
+  IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
+  IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
-import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTransferType,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
@@ -58,8 +66,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   ISignTransactionParams,
   IUpdateUnsignedTxParams,
-  IVaultOptions,
-  IVaultSettings,
+  IValidateGeneralInputParams,
 } from '../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -74,20 +81,7 @@ if (platformEnv.isExtensionUi) {
 }
 
 export abstract class VaultBaseChainOnly extends VaultContext {
-  abstract settings: IVaultSettings;
-
-  constructor(options: IVaultOptions) {
-    super(options);
-    this.checkVaultSettingsIsValid();
-  }
-
-  private checkVaultSettingsIsValid() {
-    if (!Object.isFrozen(this.settings)) {
-      throw new Error(
-        `VaultSettings should be frozen, please use Object.freeze() >>>> networkId=${this.networkId}, accountId=${this.accountId}`,
-      );
-    }
-  }
+  coreApi: CoreChainApiBase | undefined;
 
   // Methods not related to a single account, but implementation.
 
@@ -103,6 +97,104 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   abstract validateAddress(address: string): Promise<IAddressValidation>;
 
   abstract validateXpub(xpub: string): Promise<IXpubValidation>;
+
+  abstract validateXprvt(xprvt: string): Promise<IXprvtValidation>;
+
+  abstract validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation>;
+
+  abstract validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation>;
+
+  async baseValidatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    if (!this.coreApi) {
+      throw new Error('coreApi not defined in Vault');
+    }
+    try {
+      const networkInfo = await this.getCoreApiNetworkInfo();
+      const result = await this.coreApi.getAddressFromPrivate({
+        networkInfo,
+        privateKeyRaw: privateKey,
+      });
+      if (result.publicKey) {
+        return {
+          isValid: true,
+        };
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    return {
+      isValid: false,
+    };
+  }
+
+  async baseValidateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<{ result: IGeneralInputValidation; inputDecoded: string }> {
+    const input = decodeSensitiveText({
+      encodedText: params.input,
+    });
+    const { validateAddress, validateXprvt, validateXpub, validatePrivateKey } =
+      params;
+
+    const result: IGeneralInputValidation = { isValid: false };
+
+    let isValid = false;
+
+    let addressResult: IAddressValidation | undefined;
+    let xpubResult: IXpubValidation | undefined;
+    let xprvtResult: IXprvtValidation | undefined;
+    let privateKeyResult: IPrivateKeyValidation | undefined;
+
+    if (validateAddress && !isValid) {
+      try {
+        addressResult = await this.validateAddress(input);
+        result.addressResult = addressResult;
+        isValid = isValid || addressResult?.isValid;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (validateXpub && !isValid) {
+      try {
+        xpubResult = await this.validateXpub(input);
+        result.xpubResult = xpubResult;
+        isValid = isValid || xpubResult?.isValid;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (validateXprvt && !isValid) {
+      try {
+        xprvtResult = await this.validateXprvt(input);
+        result.xprvtResult = xprvtResult;
+        isValid = isValid || xprvtResult?.isValid;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (validatePrivateKey && !isValid) {
+      try {
+        privateKeyResult = await this.validatePrivateKey(input);
+        result.privateKeyResult = privateKeyResult;
+        isValid = isValid || privateKeyResult?.isValid;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    result.isValid = Boolean(isValid);
+
+    return { result, inputDecoded: input };
+  }
 
   async baseGetPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
@@ -277,13 +369,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
   }) {
+    if (tx.type === EOnChainHistoryTxType.Approve && tx.tokenApprove) {
+      return this.buildHistoryTxApproveAction({
+        tx,
+        tokens,
+        nfts,
+        tokenApprove: tx.tokenApprove,
+      });
+    }
+
     if (isEmpty(tx.sends) && isEmpty(tx.receives)) {
       if (tx.type) return this.buildHistoryTxFunctionCallAction({ tx });
       return this.buildHistoryTxUnknownAction({ tx });
-    }
-
-    if (tx.sends[0]?.type === EOnChainHistoryTransferType.Approve) {
-      return this.buildHistoryTxApproveAction({ tx, tokens, nfts });
     }
 
     return this.buildHistoryTransferAction({ tx, tokens, nfts });
@@ -338,7 +435,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       assetTransfer: {
         from: tx.from,
         to: tx.to,
-        label: tx.label.label,
+        label: tx.label,
         sends: tx.sends.map((send) =>
           this.buildHistoryTransfer({
             transfer: send,
@@ -393,28 +490,30 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tx,
     tokens,
     nfts,
+    tokenApprove,
   }: {
     tx: IOnChainHistoryTx;
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
+    tokenApprove: IOnChainHistoryTxApprove;
   }): IDecodedTxAction {
-    const approve = tx.sends[0];
-    const transfer = this.buildHistoryTransfer({
-      transfer: approve,
+    const { icon, symbol, name, decimals } = getOnChainHistoryTxAssetInfo({
+      tokenAddress: tokenApprove.token,
       tokens,
       nfts,
     });
     return {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
-        label: approve.label ?? tx.label,
-        from: approve.from,
-        to: approve.to,
-        icon: transfer.icon,
-        name: transfer.name,
-        symbol: transfer.symbol,
-        tokenIdOnNetwork: transfer.tokenIdOnNetwork,
-        amount: new BigNumber(approve.amount).abs().toFixed(),
+        from: tx.from,
+        to: tokenApprove.spender,
+        icon,
+        name,
+        symbol,
+        tokenIdOnNetwork: tokenApprove.token,
+        amount: new BigNumber(tokenApprove.amount)
+          .shiftedBy(-decimals)
+          .toFixed(),
         // TODO: isMax from server
         isMax: false,
       },

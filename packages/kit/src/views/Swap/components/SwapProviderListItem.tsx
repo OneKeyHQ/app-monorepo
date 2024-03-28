@@ -33,29 +33,12 @@ const SwapProviderListItem = ({
   ...rest
 }: ISwapProviderListItemProps) => {
   const leftSecondaryComponent = useMemo(() => {
-    if (!providerResult.toAmount) {
+    if (disabled) {
       return (
         <XStack py="$0.5" space="$1" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
             Unable to fetch the price
           </SizableText>
-        </XStack>
-      );
-    }
-    if (providerResult?.fee?.estimatedFeeFiatValue) {
-      return (
-        <XStack py="$0.5" space="$1" alignItems="center">
-          <Icon name="GasSolid" size="$4" color="$iconSubdued" />
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="value"
-            formatterOptions={{
-              currency: currencySymbol,
-            }}
-          >
-            {providerResult.fee.estimatedFeeFiatValue}
-          </NumberSizeableText>
         </XStack>
       );
     }
@@ -90,19 +73,42 @@ const SwapProviderListItem = ({
         }
       }
     }
+    if (providerResult.fee?.estimatedFeeFiatValue) {
+      return (
+        <XStack py="$0.5" space="$1" alignItems="center">
+          <Icon name="GasSolid" size="$4" color="$iconSubdued" />
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            formatter="value"
+            formatterOptions={{
+              currency: currencySymbol,
+            }}
+          >
+            {providerResult.fee.estimatedFeeFiatValue}
+          </NumberSizeableText>
+        </XStack>
+      );
+    }
+
     return null;
   }, [
     currencySymbol,
+    disabled,
     fromTokenAmount,
     fromTokenSymbol,
     providerResult.fee?.estimatedFeeFiatValue,
     providerResult.limit,
-    providerResult.toAmount,
   ]);
   return (
     <ListItem
-      avatarProps={{ src: providerResult.info.providerLogo, size: '$10' }}
+      avatarProps={{
+        src: providerResult.info.providerLogo,
+        size: '$10',
+        borderRadius: '$2',
+      }}
       userSelect="none"
+      opacity={disabled ? 0.5 : 1}
       disabled={disabled}
       {...rest}
     >

@@ -9,12 +9,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import {
-  WALLET_TYPE_HD,
-  WALLET_TYPE_HW,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/shared/src/consts/dbConsts';
+import { useSwapToAnotherAccountSwitchOnAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -23,7 +18,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 
 function AddressButton({
   address,
@@ -112,6 +107,8 @@ const SwapAccountAddressContainer = ({
   const [swapSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
 
+  const [swapToAnotherAddressSwitch] = useSwapToAnotherAccountSwitchOnAtom();
+
   const handleOnCreateAddress = useCallback(async () => {
     if (!swapAddressInfo.accountInfo) return;
     await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
@@ -130,17 +127,26 @@ const SwapAccountAddressContainer = ({
       return null;
     }
     if (
-      !swapAddressInfo.accountInfo ||
-      swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_WATCHING ||
-      (swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_IMPORTED &&
-        !swapAddressInfo.address)
+      !swapAddressInfo.accountInfo?.wallet ||
+      (type === ESwapDirectionType.FROM &&
+        !swapAddressInfo.address &&
+        !accountUtils.isHdWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        }))
     ) {
       return null;
     }
     if (
       !swapAddressInfo.address &&
-      (swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_HD ||
-        swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_HW)
+      (accountUtils.isHdWallet({
+        walletId: swapAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        }))
     ) {
       return <AddressButton empty onPress={handleOnCreateAddress} />;
     }
@@ -153,6 +159,7 @@ const SwapAccountAddressContainer = ({
         />
       );
     }
+    // to address
     return (
       <AddressButton
         onPress={() => {
@@ -161,9 +168,9 @@ const SwapAccountAddressContainer = ({
             params: { address: swapAddressInfo.address },
           });
         }}
-        address={accountUtils.shortenAddress({
+        address={`${accountUtils.shortenAddress({
           address: swapAddressInfo.address ?? '',
-        })}
+        })} ${swapToAnotherAddressSwitch ? '(Edited)' : ''}`}
       />
     );
   }, [
@@ -173,6 +180,7 @@ const SwapAccountAddressContainer = ({
     swapAddressInfo.accountInfo,
     swapAddressInfo.address,
     swapSupportReceiveAddress,
+    swapToAnotherAddressSwitch,
     toToken,
     type,
   ]);

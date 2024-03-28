@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import {
-  Button,
   Heading,
   Image,
   Page,
@@ -17,9 +16,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -132,16 +129,6 @@ function WalletItem({ logo, name }: { name?: string; logo: any }) {
 
       setLoading(true);
 
-      if (platformEnv.isNative) {
-        // walletconnect modal is below onboarding modal, so navigation pop is needed
-        // should close all app modals make sure wallet connect modal can be shown
-        // Attempt to present <RCTModalHostViewController: 0x7fb046e62490> on <UIViewController: 0x7fb05171d330> (from <UIViewController: 0x7fb05171d330>) which is already presenting <RNSScreen: 0x7fb04b033800>.
-        navigation.popStack();
-        await timerUtils.wait(0);
-        navigation.popStack();
-        await timerUtils.wait(0);
-      }
-
       const session =
         await backgroundApiProxy.serviceWalletConnect.connectToWallet();
       console.log('connected', session?.namespaces);
@@ -181,8 +168,6 @@ function WalletItem({ logo, name }: { name?: string; logo: any }) {
         flexBasis: '25%',
       }}
       p="$1"
-      // onPress on Stack not working on native app, use below Button instead
-      onPress={connectToWallet}
     >
       <Stack
         justifyContent="center"
@@ -199,6 +184,7 @@ function WalletItem({ logo, name }: { name?: string; logo: any }) {
         pressStyle={{
           bg: '$bgActive',
         }}
+        onPress={connectToWallet}
         focusable
         focusStyle={{
           outlineColor: '$focusRing',
@@ -225,10 +211,6 @@ function WalletItem({ logo, name }: { name?: string; logo: any }) {
             {name}
           </SizableText>
         </XStack>
-
-        {platformEnv.isNative ? (
-          <Button onPress={connectToWallet}>Connect</Button>
-        ) : null}
       </Stack>
     </Stack>
   );

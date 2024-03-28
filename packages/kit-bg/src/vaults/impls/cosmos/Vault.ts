@@ -3,6 +3,7 @@ import {
   pubkeyToAddressDetail,
   validateCosmosAddress,
 } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -11,7 +12,10 @@ import type {
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   IAddressValidation,
+  IGeneralInputValidation,
   INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
+  IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
@@ -22,7 +26,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -35,10 +38,31 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   IUpdateUnsignedTxParams,
-  IVaultSettings,
+  IValidateGeneralInputParams,
 } from '../../types';
 
 export default class VaultCosmos extends VaultBase {
+  override coreApi = coreChainApi.cosmos.hd;
+
+  override async validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    return this.baseValidatePrivateKey(privateKey);
+  }
+
+  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    return Promise.resolve({
+      isValid: false,
+    });
+  }
+
+  override async validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
+  }
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,
@@ -105,8 +129,6 @@ export default class VaultCosmos extends VaultBase {
   ): Promise<ISignedTxPro> {
     throw new Error('Method not implemented.');
   }
-
-  override settings: IVaultSettings = settings;
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const { addressPrefix } = await this.getNetworkInfo();

@@ -416,60 +416,63 @@ function SendDataInputContainer() {
     <Page scrollEnabled>
       <Page.Header title="Send" />
       <Page.Body px="$5">
-        <Form form={form}>
-          {isNFT && nft?.collectionType !== ENFTType.ERC1155 ? (
-            <Form.Field
-              label={intl.formatMessage({ id: 'form__token' })}
-              name="token"
-            >
-              <ListItem
-                avatarProps={{
-                  src: nft?.metadata?.image,
-                  borderRadius: '$full',
-                  cornerImageProps: {
-                    src: network?.logoURI,
-                  },
-                }}
-                mx="$0"
-                borderWidth={1}
-                borderColor="$border"
-                borderRadius="$2"
+        <AccountSelectorProviderMirror
+          config={{
+            sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
+            sceneUrl: '',
+          }}
+          enabledNum={[0]}
+          availableNetworksMap={{
+            0: { networkIds: [networkId], defaultNetworkId: networkId },
+          }}
+        >
+          <Form form={form}>
+            {isNFT && nft?.collectionType !== ENFTType.ERC1155 ? (
+              <Form.Field
+                label={intl.formatMessage({ id: 'form__token' })}
+                name="token"
               >
-                <ListItem.Text
-                  flex={1}
-                  primary={nft?.metadata?.name}
-                  secondary={
-                    <SizableText size="$bodyMd" color="$textSubdued">
-                      {tokenInfo?.name}
-                    </SizableText>
+                <ListItem
+                  avatarProps={{
+                    src: nft?.metadata?.image,
+                    borderRadius: '$full',
+                    cornerImageProps: {
+                      src: network?.logoURI,
+                    },
+                  }}
+                  mx="$0"
+                  borderWidth={1}
+                  borderColor="$border"
+                  borderRadius="$2"
+                >
+                  <ListItem.Text
+                    flex={1}
+                    primary={nft?.metadata?.name}
+                    secondary={
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {tokenInfo?.name}
+                      </SizableText>
+                    }
+                  />
+                </ListItem>
+              </Form.Field>
+            ) : null}
+            <Form.Field
+              label={intl.formatMessage({ id: 'content__to' })}
+              name="to"
+              rules={{
+                required: true,
+                validate: (value: IAddressInputValue) => {
+                  if (value.pending) {
+                    return;
                   }
-                />
-              </ListItem>
-            </Form.Field>
-          ) : null}
-          <Form.Field
-            label={intl.formatMessage({ id: 'content__to' })}
-            name="to"
-            rules={{
-              required: true,
-              validate: (value: IAddressInputValue) => {
-                if (value.pending) {
-                  return;
-                }
-                if (!value.resolved) {
-                  return intl.formatMessage({ id: 'form__address_invalid' });
-                }
-              },
-            }}
-          >
-            <AccountSelectorProviderMirror
-              config={{
-                sceneName: EAccountSelectorSceneName.addressInput, // can replace with other sceneName
-                sceneUrl: '',
-              }}
-              enabledNum={[0]}
-              availableNetworksMap={{
-                0: { networkIds: [networkId], defaultNetworkId: networkId },
+                  if (!value.resolved) {
+                    return (
+                      value.validateError?.message ??
+                      intl.formatMessage({ id: 'form__address_invalid' })
+                    );
+                  }
+                },
               }}
             >
               <AddressInput
@@ -481,10 +484,10 @@ function SendDataInputContainer() {
                 contacts
                 accountSelector={{ num: 0 }}
               />
-            </AccountSelectorProviderMirror>
-          </Form.Field>
-          {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
-        </Form>
+            </Form.Field>
+            {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
+          </Form>
+        </AccountSelectorProviderMirror>
       </Page.Body>
       <Page.Footer
         onConfirm={handleOnConfirm}

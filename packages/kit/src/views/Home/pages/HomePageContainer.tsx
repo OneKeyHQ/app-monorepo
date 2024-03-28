@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -65,17 +66,19 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
 
-  const isNFTEnabled = usePromiseResult(
-    async () =>
-      network
-        ? (
-            await backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: network?.id ?? '',
-            })
-          )?.NFTEnabled
-        : Promise.resolve(undefined),
-    [network],
-  ).result;
+  const isNFTEnabled = usePromiseResult(async () => {
+    if (network) {
+      const NFTEnabled = (
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: network?.id ?? '',
+        })
+      )?.NFTEnabled;
+
+      return NFTEnabled && getEnabledNFTNetworkIds().includes(network.id);
+    }
+
+    return Promise.resolve(undefined);
+  }, [network]).result;
 
   const tabs = useMemo(
     () =>
@@ -138,16 +141,28 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [scanQrCode],
   );
 
+  const openExtensionExpandTab = useCallback(async () => {
+    await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+      routes: '',
+    });
+  }, []);
+
   const renderHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup testID="Wallet-Page-Header-Right">
-        <HeaderIconButton
-          title="Scan"
-          icon="ScanOutline"
-          onPress={onScanButtonPressed}
-        />
-        {/* <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
-
+        {platformEnv.isExtensionUiPopup ? (
+          <HeaderIconButton
+            title="Expand View"
+            icon="CameraExposureSquareOutline"
+            onPress={openExtensionExpandTab}
+          />
+        ) : (
+          <HeaderIconButton
+            title="Scan"
+            icon="ScanOutline"
+            onPress={onScanButtonPressed}
+          />
+        )}
         <HeaderIconButton
           title="Settings"
           icon="SettingsOutline"
@@ -233,11 +248,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         />
         <Page.Body>
           {platformEnv.isNative ? (
-            <XStack
-              justifyContent="space-between"
-              px="$4"
-              pt={platformEnv.isNativeIOS ? '$20' : 0}
-            >
+            <XStack justifyContent="space-between" px="$4" pt={top}>
               <Stack flex={1} />
               {renderHeaderRight()}
             </XStack>

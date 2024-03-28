@@ -58,6 +58,7 @@ import type { RouteProp } from '@react-navigation/core';
 export interface IWalletDetailsProps {
   num: number;
   wallet?: IDBWallet;
+  device?: IDBDevice | undefined;
 }
 
 export function WalletDetails({ num }: IWalletDetailsProps) {
@@ -336,7 +337,12 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         //   ),
         // })}
         ListHeaderComponent={
-          isOthers ? null : <WalletOptions wallet={focusedWalletInfo?.wallet} />
+          isOthers ? null : (
+            <WalletOptions
+              wallet={focusedWalletInfo?.wallet}
+              device={focusedWalletInfo?.device}
+            />
+          )
         }
         sections={sectionData ?? (emptyArray as any)}
         renderSectionHeader={({
@@ -452,6 +458,14 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             return null;
           })();
 
+          let avatarNetworkId: string | undefined;
+          if (isOthers && account) {
+            avatarNetworkId = accountUtils.getAccountCompatibleNetwork({
+              account,
+              networkId: selectedAccount?.networkId,
+            });
+          }
+
           return (
             <ListItem
               key={item.id}
@@ -460,6 +474,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   fallback={<AccountAvatar.Fallback w="$10" h="$10" />}
                   indexedAccount={isOthers ? undefined : (item as any)}
                   account={isOthers ? (item as any) : undefined}
+                  networkId={avatarNetworkId}
                 />
               }
               title={item.name}

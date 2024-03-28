@@ -17,7 +17,14 @@ export enum EOnChainHistoryTxStatus {
 export enum EOnChainHistoryTxType {
   Send = 'Send',
   Receive = 'Receive',
+  Approve = 'Approve',
 }
+
+export type IOnChainHistoryTxApprove = {
+  amount: string;
+  spender: string;
+  token: string;
+};
 
 export type IOnChainHistoryTxTransfer = {
   type: EOnChainHistoryTransferType;
@@ -69,10 +76,12 @@ export type IOnChainHistoryTx = {
   functionCode: string;
   params: string[];
   value: string;
-  label: { label: string };
+  label: string;
   confirmations?: number;
   inputs?: IOnChainHistoryTxUTXOInput[];
   outputs?: IOnChainHistoryTxUTXOOutput[];
+
+  tokenApprove?: IOnChainHistoryTxApprove;
   // TODO: on chain swap info
   swapInfo?: any;
 };

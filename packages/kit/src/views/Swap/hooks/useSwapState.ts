@@ -2,24 +2,26 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
-  WALLET_TYPE_HD,
-  WALLET_TYPE_HW,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/shared/src/consts/dbConsts';
-import {
-  ESwapAlertLevel,
-  ESwapDirectionType,
-} from '@onekeyhq/shared/types/swap/types';
+  swapRateDifferenceMax,
+  swapRateDifferenceMin,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapAlertState,
   ISwapState,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapAlertLevel,
+  ESwapDirectionType,
+  ESwapRateDifferenceUnit,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapNetworksAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteFetchingAtom,
@@ -28,10 +30,11 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
 } from '../../../states/jotai/contexts/swap';
 
-import { useSwapAddressInfo } from './uswSwapAccount';
+import { useSwapAddressInfo } from './useSwapAccount';
 
 function useSwapWarningCheck() {
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [networks] = useSwapNetworksAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -41,8 +44,11 @@ function useSwapWarningCheck() {
 
   const checkSwapWarning = useCallback(() => {
     let alerts: ISwapAlertState[] = [];
+    let rateDifference:
+      | { value: string; unit: ESwapRateDifferenceUnit }
+      | undefined;
     // check account
-    if (!swapFromAddressInfo.accountInfo) {
+    if (!swapFromAddressInfo.accountInfo?.wallet) {
       alerts = [
         ...alerts,
         {
@@ -54,15 +60,22 @@ function useSwapWarningCheck() {
 
     if (
       fromToken &&
-      !swapFromAddressInfo.address &&
-      swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED
+      ((!swapFromAddressInfo.address &&
+        !accountUtils.isHdWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        })) ||
+        swapFromAddressInfo.networkId !== fromToken.networkId)
     ) {
       alerts = [
         ...alerts,
         {
           message: `The connected wallet do not support ${
-            swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
-          }. Try switching to another one.`,
+            networks.find((net) => net.networkId === fromToken.networkId)
+              ?.name ?? 'unknown'
+          }. Try switch to another one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
       ];
@@ -70,15 +83,37 @@ function useSwapWarningCheck() {
 
     if (
       toToken &&
-      !swapToAddressInfo.address &&
-      swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED
+      ((!swapToAddressInfo.address &&
+        !accountUtils.isHdWallet({
+          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+        })) ||
+        swapToAddressInfo.networkId !== toToken.networkId)
     ) {
       alerts = [
         ...alerts,
         {
           message: `The connected wallet do not support ${
-            swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
-          }. Try switching to another one.`,
+            networks.find((net) => net.networkId === toToken.networkId)?.name ??
+            'unknown'
+          }. Try switch to another one.`,
+          alertLevel: ESwapAlertLevel.ERROR,
+        },
+      ];
+    }
+
+    if (
+      fromToken &&
+      accountUtils.isWatchingWallet({
+        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      })
+    ) {
+      alerts = [
+        ...alerts,
+        {
+          message: `The connected wallet do not support swap. Try switch to another one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
       ];
@@ -87,24 +122,12 @@ function useSwapWarningCheck() {
     if (
       fromToken &&
       !swapFromAddressInfo.address &&
-      swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_WATCHING
-    ) {
-      alerts = [
-        ...alerts,
-        {
-          message: `The connected wallet do not support ${
-            swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
-          }. Try switching to another one.`,
-          alertLevel: ESwapAlertLevel.ERROR,
-        },
-      ];
-    }
-
-    if (
-      fromToken &&
-      !swapFromAddressInfo.address &&
-      (swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HD ||
-        swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW)
+      (accountUtils.isHdWallet({
+        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }))
     ) {
       alerts = [
         ...alerts,
@@ -113,9 +136,9 @@ function useSwapWarningCheck() {
             swapFromAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
           } - ${
             swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
-          } does not have a ${
-            swapFromAddressInfo.accountInfo.network?.name ?? 'unknown'
-          } address. Please complete the creation.`,
+          } lacks ${
+            swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
+          } address. Please try to create one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
       ];
@@ -124,8 +147,12 @@ function useSwapWarningCheck() {
     if (
       toToken &&
       !swapToAddressInfo.address &&
-      (swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HD ||
-        swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW) &&
+      (accountUtils.isHdWallet({
+        walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+        })) &&
       swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
     ) {
       alerts = [
@@ -135,20 +162,20 @@ function useSwapWarningCheck() {
             swapToAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
           } - ${
             swapToAddressInfo.accountInfo?.accountName ?? 'unknown'
-          } does not have a ${
+          } lacks ${
             swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
-          } address. Please complete the creation.`,
+          } address. Please try to create one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
       ];
     }
 
     // provider toAmount check
-    if (quoteResult && !quoteResult?.toAmount) {
+    if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
       alerts = [
         ...alerts,
         {
-          message: 'No the third provider supports this trade.',
+          message: 'No provider supports this trade.',
           alertLevel: ESwapAlertLevel.ERROR,
         },
       ];
@@ -182,32 +209,52 @@ function useSwapWarningCheck() {
     }
 
     // market rate check
-    if (fromToken && toToken && quoteResult?.instantRate) {
+    if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
       const fromTokenPrice = new BigNumber(fromToken.price);
       const toTokenPrice = new BigNumber(toToken.price);
       const marketingRate = fromTokenPrice
         .dividedBy(toTokenPrice)
         .decimalPlaces(6);
       const quoteRateBN = new BigNumber(quoteResult.instantRate);
-      const difference = marketingRate
-        .dividedBy(quoteRateBN)
+      const difference = quoteRateBN
+        .dividedBy(marketingRate)
         .minus(1)
         .multipliedBy(100);
+      if (difference.absoluteValue().gte(swapRateDifferenceMin)) {
+        let unit = ESwapRateDifferenceUnit.POSITIVE;
+        if (difference.isNegative()) {
+          if (difference.lte(swapRateDifferenceMax)) {
+            unit = ESwapRateDifferenceUnit.NEGATIVE;
+          } else {
+            unit = ESwapRateDifferenceUnit.DEFAULT;
+          }
+        }
+        rateDifference = {
+          value: `(${difference.isPositive() ? '+' : ''}${
+            numberFormat(difference.toFixed(), {
+              formatter: 'priceChange',
+            }) as string
+          })`,
+          unit,
+        };
+      }
       if (quoteRateBN.isZero()) {
         alerts = [
           ...alerts,
           {
-            message: `High price impact! A drop of more than 100% may result in loss of assets.`,
+            message: `100% value drop! High price impact may cause your asset loss.`,
             alertLevel: ESwapAlertLevel.WARNING,
           },
         ];
-      } else if (difference.comparedTo(5) === 1) {
+      } else if (difference.lt(swapRateDifferenceMax)) {
         alerts = [
           ...alerts,
           {
-            message: `High price impact! A drop of more than ${difference
-              .decimalPlaces(2)
-              .toFixed()}% may result in loss of assets.`,
+            message: `${
+              numberFormat(difference.absoluteValue().toFixed(), {
+                formatter: 'priceChange',
+              }) as string
+            } value drop! High price impact may cause your asset loss.`,
             alertLevel: ESwapAlertLevel.WARNING,
           },
         ];
@@ -246,6 +293,26 @@ function useSwapWarningCheck() {
         ];
       }
     }
+
+    const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
+    const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
+
+    const gasFeeBN = new BigNumber(
+      quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
+    );
+    if (
+      !(tokenFiatValueBN.isNaN() || tokenFiatValueBN.isZero()) &&
+      gasFeeBN.gt(tokenFiatValueBN)
+    ) {
+      alerts = [
+        ...alerts,
+        {
+          message: 'Est Network fee exceeds swap amount, proceed with caution.',
+          alertLevel: ESwapAlertLevel.WARNING,
+        },
+      ];
+    }
+
     if (
       fromToken?.isNative &&
       fromTokenAmountBN.isEqualTo(
@@ -255,24 +322,27 @@ function useSwapWarningCheck() {
       alerts = [
         ...alerts,
         {
-          message: `${fromToken.symbol} is required for the network fee, and the cost will be automatically deducted from amount in the next step.`,
+          message: `Network fee in ${fromToken.symbol} deducted automatically in the next step.`,
           alertLevel: ESwapAlertLevel.INFO,
         },
       ];
     }
-    return alerts;
+    return { alerts, rateDifference };
   }, [
     fromToken,
     fromTokenAmount,
+    networks,
     quoteResult,
-    swapFromAddressInfo.accountInfo,
+    swapFromAddressInfo.accountInfo?.accountName,
+    swapFromAddressInfo.accountInfo?.network?.name,
+    swapFromAddressInfo.accountInfo?.wallet,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
     swapSelectFromTokenBalance,
     swapToAddressInfo.accountInfo?.accountName,
     swapToAddressInfo.accountInfo?.network?.name,
+    swapToAddressInfo.accountInfo?.wallet?.id,
     swapToAddressInfo.accountInfo?.wallet?.name,
-    swapToAddressInfo.accountInfo?.wallet?.type,
     swapToAddressInfo.address,
     swapToAddressInfo.networkId,
     toToken,
@@ -296,7 +366,7 @@ export function useSwapActionState() {
   const [selectedFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const alerts = checkSwapWarning();
+  const { alerts, rateDifference } = checkSwapWarning();
   const hasError = alerts.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
@@ -308,6 +378,12 @@ export function useSwapActionState() {
     if (quoteFetching) {
       infoRes.label = 'Fetching quotes';
     } else {
+      if (isCrossChain && fromToken && toToken) {
+        infoRes.label = 'Cross-Chain Swap';
+      }
+      if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
+        infoRes.label = 'Wrapped';
+      }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = swapQuoteApproveAllowanceUnLimit
           ? `Approve Unlimited ${fromToken?.symbol ?? ''} to ${
@@ -327,14 +403,6 @@ export function useSwapActionState() {
         infoRes.label = 'Insufficient balance';
         infoRes.disable = true;
       }
-
-      if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
-        infoRes.label = 'Wrapped';
-      }
-
-      if (isCrossChain) {
-        infoRes.label = 'Cross-Chain Swap';
-      }
     }
     return infoRes;
   }, [
@@ -347,10 +415,12 @@ export function useSwapActionState() {
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
     swapQuoteApproveAllowanceUnLimit,
+    toToken,
   ]);
 
   const stepState: ISwapState = {
     label: actionInfo.label,
+    rateDifference,
     isLoading: quoteFetching || buildTxFetching,
     disabled: actionInfo.disable,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,

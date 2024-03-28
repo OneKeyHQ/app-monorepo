@@ -3,7 +3,14 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
 
-import { Page, Stack, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  Page,
+  Stack,
+  XStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -69,18 +76,21 @@ function MobileBrowser() {
     void checkAndCreateFolder();
   }, []);
 
+  const closeCurrentWebTab = useCallback(
+    async () => (activeTabId ? closeWebTab(activeTabId) : Promise.resolve()),
+    [activeTabId, closeWebTab],
+  );
+
   // For risk detection
   useEffect(() => {
     const listener = () => {
-      if (activeTabId) {
-        void closeWebTab(activeTabId);
-      }
+      void closeCurrentWebTab();
     };
     appEventBus.on(EAppEventBusNames.CloseCurrentBrowserTab, listener);
     return () => {
       appEventBus.off(EAppEventBusNames.CloseCurrentBrowserTab, listener);
     };
-  }, [closeWebTab, activeTabId]);
+  }, [closeCurrentWebTab]);
 
   const content = useMemo(
     () =>
@@ -90,11 +100,17 @@ function MobileBrowser() {
     [tabs, handleScroll],
   );
 
-  const handleSearchBarPress = useCallback(() => {
-    navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
-  }, [navigation]);
+  const handleSearchBarPress = useCallback(
+    (url: string) => {
+      navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.SearchModal,
+        params: {
+          url,
+        },
+      });
+    },
+    [navigation],
+  );
 
   const { top } = useSafeAreaInsets();
 
@@ -104,8 +120,14 @@ function MobileBrowser() {
       <XStack
         pt={top}
         mx="$5"
+        alignItems="center"
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
       >
+        {!displayHomePage ? (
+          <Stack onPress={closeCurrentWebTab}>
+            <Icon name="CrossedLargeOutline" mr="$4" />
+          </Stack>
+        ) : null}
         <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
         <HeaderRightToolBar />
       </XStack>

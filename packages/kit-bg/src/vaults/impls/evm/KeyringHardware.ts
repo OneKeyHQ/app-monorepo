@@ -148,11 +148,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    const { addressEncoding } = params.deriveInfo;
     const chainId = await this.getNetworkChainId();
 
     return this.basePrepareHdNormalAccounts(params, {
-      addressEncoding,
       buildAddressesInfo: async ({ usedIndexes }) => {
         const publicKeys = await this.baseGetDeviceAccountPublicKeys({
           params,

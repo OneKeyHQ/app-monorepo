@@ -19,6 +19,7 @@ import {
   IconButton,
   Select,
   Spinner,
+  Stack,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
@@ -31,7 +32,10 @@ import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IAddressInteractionStatus } from '@onekeyhq/shared/types/address';
+import type {
+  IAddressInteractionStatus,
+  IAddressValidateStatus,
+} from '@onekeyhq/shared/types/address';
 
 import { BaseInput } from '../BaseInput';
 
@@ -289,6 +293,10 @@ export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
   pending?: boolean;
+  validateError?: {
+    type?: Exclude<IAddressValidateStatus, 'valid'>;
+    message?: string;
+  };
 };
 
 type IAddressInputProps = Omit<
@@ -319,13 +327,66 @@ type IAddressInputProps = Omit<
 
 export type IAddressQueryResult = {
   input?: string;
-  isValid?: boolean;
+  validStatus?: IAddressValidateStatus;
   walletAccountName?: string;
   addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
   addressInteractionStatus?: IAddressInteractionStatus;
 };
+
+type IAddressInputBadgeGroupProps = {
+  loading?: boolean;
+  result?: IAddressQueryResult;
+  setResolveAddress?: (address: string) => void;
+  onRefresh?: () => void;
+};
+
+function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
+  const { loading, result, setResolveAddress, onRefresh } = props;
+  if (loading) {
+    return <Spinner />;
+  }
+  if (result?.validStatus === 'unknown') {
+    return (
+      <IconButton
+        variant="tertiary"
+        icon="RotateClockwiseSolid"
+        size="small"
+        onPress={onRefresh}
+      />
+    );
+  }
+  if (result) {
+    return (
+      <XStack space="$2" flex={1} flexWrap="wrap">
+        {result.walletAccountName ? (
+          <Badge badgeType="success" badgeSize="sm" mb="$1">
+            {result.walletAccountName}
+          </Badge>
+        ) : null}
+        {result.addressBookName ? (
+          <Badge badgeType="success" badgeSize="sm" mb="$1">
+            {result.addressBookName}
+          </Badge>
+        ) : null}
+        {result.resolveAddress ? (
+          <Stack mb="$1">
+            <ResolvedAddress
+              value={result.resolveAddress}
+              options={result.resolveOptions ?? []}
+              onChange={setResolveAddress}
+            />
+          </Stack>
+        ) : null}
+        <Stack mb="$1">
+          <AddressInteractionStatus status={result.addressInteractionStatus} />
+        </Stack>
+      </XStack>
+    );
+  }
+  return null;
+}
 
 function AddressInput(props: IAddressInputProps) {
   const {
@@ -334,8 +395,6 @@ function AddressInput(props: IAddressInputProps) {
     onChange,
     networkId,
     placeholder,
-    autoError = true,
-    onBlur,
     clipboard = true,
     scan = true,
     contacts,
@@ -356,6 +415,7 @@ function AddressInput(props: IAddressInputProps) {
   const debounceText = useDebounce(inputText, 300, { trailing: true });
 
   const [queryResult, setQueryResult] = useState<IAddressQueryResult>({});
+  const [refreshNum, setRefreshNum] = useState(1);
 
   const setResolveAddress = useCallback((text: string) => {
     setQueryResult((prev) => ({ ...prev, resolveAddress: text }));
@@ -369,6 +429,8 @@ function AddressInput(props: IAddressInputProps) {
     },
     [onChange],
   );
+
+  const onRefresh = useCallback(() => setRefreshNum((prev) => prev + 1), []);
 
   useEffect(() => {
     if (rawAddress && textRef.current !== rawAddress) {
@@ -410,11 +472,12 @@ function AddressInput(props: IAddressInputProps) {
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
+    refreshNum,
   ]);
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
-    if (queryResult.isValid) {
+    if (queryResult.validStatus === 'valid') {
       clearErrors(name);
       onChange?.({
         raw: queryResult.input,
@@ -422,49 +485,34 @@ function AddressInput(props: IAddressInputProps) {
         pending: false,
       });
     } else {
-      if (autoError) {
-        setError(name, {
-          message: intl.formatMessage({ id: 'form__address_invalid' }),
-        });
-      }
-      onChange?.({ raw: queryResult.input, pending: false });
+      onChange?.({
+        raw: queryResult.input,
+        pending: false,
+        validateError: {
+          type: queryResult.validStatus,
+          message:
+            queryResult.validStatus === 'unknown'
+              ? 'Check request error, please refresh again'
+              : intl.formatMessage({ id: 'form__address_invalid' }),
+        },
+      });
     }
-  }, [queryResult, intl, clearErrors, setError, name, onChange, autoError]);
+  }, [queryResult, intl, clearErrors, setError, name, onChange]);
 
   const AddressInputExtension = useMemo(
     () => (
       <XStack
         justifyContent="space-between"
-        flexWrap="wrap"
+        flexWrap="nowrap"
         alignItems="center"
       >
-        <XStack space="$2">
-          {loading ? (
-            <Spinner />
-          ) : (
-            <XStack space="$2">
-              {queryResult.walletAccountName ? (
-                <Badge badgeType="success" badgeSize="sm">
-                  {queryResult.walletAccountName}
-                </Badge>
-              ) : null}
-              {queryResult.addressBookName ? (
-                <Badge badgeType="success" badgeSize="sm">
-                  {queryResult.addressBookName}
-                </Badge>
-              ) : null}
-              {queryResult.resolveAddress ? (
-                <ResolvedAddress
-                  value={queryResult.resolveAddress}
-                  options={queryResult.resolveOptions ?? []}
-                  onChange={setResolveAddress}
-                />
-              ) : null}
-              <AddressInteractionStatus
-                status={queryResult.addressInteractionStatus}
-              />
-            </XStack>
-          )}
+        <XStack space="$2" flex={1}>
+          <AddressInputBadgeGroup
+            loading={loading}
+            result={queryResult}
+            setResolveAddress={setResolveAddress}
+            onRefresh={onRefresh}
+          />
         </XStack>
         <XStack space="$6">
           {clipboard ? (
@@ -500,14 +548,11 @@ function AddressInput(props: IAddressInputProps) {
       scan,
       contacts,
       accountSelector,
-      queryResult.addressInteractionStatus,
-      queryResult.resolveAddress,
-      queryResult.resolveOptions,
-      queryResult.walletAccountName,
-      queryResult.addressBookName,
+      queryResult,
       setResolveAddress,
       networkId,
       rest.testID,
+      onRefresh,
     ],
   );
 

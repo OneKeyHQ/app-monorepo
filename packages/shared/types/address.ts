@@ -1,5 +1,8 @@
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
-import type { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IUtxoInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
@@ -37,8 +40,31 @@ export type IFetchAccountDetailsResp = {
     addressType: string;
   };
 };
+
+export type IValidateAddressResp = {
+  isValid: boolean;
+  addressType?: string;
+};
+
 export type IXpubValidation = {
   isValid: boolean;
+};
+
+export type IXprvtValidation = {
+  isValid: boolean;
+};
+
+export type IPrivateKeyValidation = {
+  isValid: boolean;
+};
+
+export type IGeneralInputValidation = {
+  isValid: boolean;
+  addressResult?: IAddressValidation;
+  xpubResult?: IXpubValidation;
+  xprvtResult?: IXprvtValidation;
+  privateKeyResult?: IPrivateKeyValidation;
+  deriveInfoItems?: IAccountDeriveInfo[];
 };
 
 export type INetworkAccountAddressDetail = {
@@ -54,3 +80,5 @@ export type IAddressInteractionStatus =
   | 'interacted'
   | 'not-interacted'
   | 'unknown';
+
+export type IAddressValidateStatus = 'valid' | 'invalid' | 'unknown';

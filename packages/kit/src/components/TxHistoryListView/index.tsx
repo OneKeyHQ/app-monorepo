@@ -3,7 +3,13 @@ import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ListView, SectionList, Stack } from '@onekeyhq/components';
+import {
+  ListView,
+  SectionList,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -63,9 +69,21 @@ function TxHistoryListView(props: IProps) {
         return (
           <>
             {index === 0 ? (
-              <SectionList.SectionHeader
-                title={intl.formatMessage({ id: 'transaction__pending' })}
-              />
+              <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" space="$2">
+                <Stack
+                  w="$2"
+                  height="$2"
+                  backgroundColor="$textCaution"
+                  borderRadius="$full"
+                />
+                <SizableText
+                  numberOfLines={1}
+                  size="$headingSm"
+                  color="$textCaution"
+                >
+                  {intl.formatMessage({ id: 'transaction__pending' })}
+                </SizableText>
+              </XStack>
             ) : null}
             <TxHistoryListItem
               key={index}

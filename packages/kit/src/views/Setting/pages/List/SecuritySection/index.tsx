@@ -22,6 +22,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useOptions } from '../../AppAutoLock/useOptions';
 import { Section } from '../Section';
@@ -33,9 +34,7 @@ const AppAutoLockItem = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingAppAutoLockModal,
-    });
+    navigation.push(EModalSettingRoutes.SettingAppAutoLockModal);
   }, [navigation]);
   const intl = useIntl();
   const options = useOptions();
@@ -70,11 +69,16 @@ const SetPasswordItem = () => {
 
 const ChangePasswordItem = () => {
   const intl = useIntl();
-  const onPress = useCallback(() => {
+  const onPress = useCallback(async () => {
+    const oldEncodedPassword =
+      await backgroundApiProxy.servicePassword.promptPasswordVerify(
+        EReasonForNeedPassword.ChangePassword,
+      );
     const dialog = Dialog.show({
       title: intl.formatMessage({ id: 'form__change_password' }),
       renderContent: (
         <PasswordUpdateContainer
+          oldEncodedPassword={oldEncodedPassword.password}
           onUpdateRes={async (data) => {
             if (data) {
               await dialog.close();
@@ -129,9 +133,7 @@ const ProtectionItem = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingProtectModal,
-    });
+    navigation.push(EModalSettingRoutes.SettingProtectModal);
   }, [navigation]);
   return isPasswordSet ? (
     <ListItem

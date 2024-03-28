@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { ListView, Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -34,20 +36,42 @@ const SwapProviderSelectModal = () => {
     },
     [navigation, setSwapManualSelect],
   );
-
   const renderItem = useCallback(
-    ({ item }: { item: IFetchQuoteResult; index: number }) => (
-      <SwapProviderListItem
-        onPress={() => {
-          onSelectQuote(item);
-        }}
-        fromTokenAmount={fromTokenAmount}
-        fromTokenSymbol={fromToken?.symbol}
-        providerResult={item}
-        currencySymbol={settingsPersist.currencyInfo.symbol}
-        toAmountSymbol={toToken?.symbol ?? ''}
-      />
-    ),
+    ({ item }: { item: IFetchQuoteResult; index: number }) => {
+      let disabled = !item.toAmount;
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
+      if (item.limit) {
+        if (item.limit.min) {
+          const minBN = new BigNumber(item.limit.min);
+          if (fromTokenAmountBN.lt(minBN)) {
+            disabled = false;
+          }
+        }
+        if (item.limit.max) {
+          const maxBN = new BigNumber(item.limit.max);
+          if (fromTokenAmountBN.gt(maxBN)) {
+            disabled = false;
+          }
+        }
+      }
+      return (
+        <SwapProviderListItem
+          onPress={
+            !disabled
+              ? () => {
+                  onSelectQuote(item);
+                }
+              : undefined
+          }
+          fromTokenAmount={fromTokenAmount}
+          fromTokenSymbol={fromToken?.symbol}
+          providerResult={item}
+          currencySymbol={settingsPersist.currencyInfo.symbol}
+          toAmountSymbol={toToken?.symbol ?? ''}
+          disabled={disabled}
+        />
+      );
+    },
     [
       fromToken?.symbol,
       fromTokenAmount,
