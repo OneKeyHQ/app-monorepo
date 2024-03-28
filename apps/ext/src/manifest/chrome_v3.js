@@ -99,7 +99,9 @@ module.exports = {
         }
       : null,
   ].filter(Boolean),
-
+  'side_panel': {
+    'default_path': 'ui-expand-tab.html',
+  },
   'permissions': [
     'offscreen',
     // 'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
