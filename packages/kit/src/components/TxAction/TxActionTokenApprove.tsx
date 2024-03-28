@@ -123,7 +123,6 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         content,
         avatar: {
           src: approveIcon,
-          circular: true,
         },
       }}
       target={{

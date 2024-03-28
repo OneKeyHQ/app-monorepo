@@ -72,7 +72,6 @@ function TxActionUnknownDetailView(props: ITxActionProps) {
         }),
         avatar: {
           src: unknownIcon,
-          circular: true,
         },
       }}
       target={{ title: 'To Contract', content: unknownTo }}

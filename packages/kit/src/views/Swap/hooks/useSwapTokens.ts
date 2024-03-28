@@ -22,7 +22,7 @@ import {
   useSwapTxHistoryStatusChangeAtom,
 } from '../../../states/jotai/contexts/swap';
 
-import { useSwapAddressInfo } from './uswSwapAccount';
+import { useSwapAddressInfo } from './useSwapAccount';
 
 export function useSwapNetworkList() {
   const [, setSwapNetworks] = useSwapNetworksAtom();
