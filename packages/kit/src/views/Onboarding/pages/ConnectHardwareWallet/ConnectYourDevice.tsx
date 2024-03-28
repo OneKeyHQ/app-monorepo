@@ -3,18 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type { IButtonProps } from '@onekeyhq/components';
 import {
   Anchor,
-  Button,
   Dialog,
-  HeightTransition,
-  Icon,
   LottieView,
   Page,
   ScrollView,
   SizableText,
-  Spinner,
   Stack,
   Toast,
   XStack,
@@ -41,182 +36,14 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
+
 import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
 const headerRight = (onPress: () => void) => (
   <HeaderIconButton icon="QuestionmarkOutline" onPress={onPress} />
 );
-
-type IFirmwareAuthenticationState =
-  | 'unknown'
-  | 'official'
-  | 'unofficial'
-  | 'error';
-
-const FirmwareAuthenticationDialogContent = ({
-  onContinue,
-  device,
-  skipDeviceCancel,
-}: {
-  onContinue: (params: { checked: boolean }) => void;
-  device: SearchDevice;
-  skipDeviceCancel?: boolean;
-}) => {
-  const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
-
-  const verify = useCallback(async () => {
-    try {
-      const authResult =
-        await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
-          device,
-          skipDeviceCancel,
-        });
-      console.log('firmwareAuthenticate >>>> ', authResult);
-      if (authResult.verified) {
-        setResult('official');
-        // setResult('unofficial');
-      } else {
-        setResult('unofficial');
-      }
-    } catch (error) {
-      setResult('error');
-      throw error;
-    } finally {
-      await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog({
-        connectId: device.connectId || '',
-        skipDeviceCancel,
-      });
-    }
-  }, [device, skipDeviceCancel]);
-
-  useEffect(() => {
-    void verify();
-    // setTimeout(() => {
-    //   setIsConfirmOnDevice(true);
-    //   setTimeout(() => {
-    //     setResult('official');
-    //   }, 3000);
-    // }, 3000);
-  }, [verify]);
-
-  return (
-    <Stack>
-      <HeightTransition initialHeight={106}>
-        <Stack
-          borderRadius="$3"
-          p="$5"
-          bg="$bgSubdued"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$transparent"
-          {...(result === 'official' && {
-            bg: '$bgSuccessSubdued',
-            borderColor: '$borderSuccessSubdued',
-          })}
-          {...(result === 'unofficial' && {
-            bg: '$bgCriticalSubdued',
-            borderColor: '$borderCriticalSubdued',
-          })}
-          {...(result === 'error' && {
-            bg: '$bgCautionSubdued',
-            borderColor: '$borderCautionSubdued',
-          })}
-          borderCurve="continuous"
-        >
-          <Stack>
-            <Stack justifyContent="center" alignItems="center">
-              {result === 'unknown' ? (
-                <Spinner size="large" />
-              ) : (
-                <Icon
-                  name="BadgeVerifiedSolid"
-                  size="$9"
-                  color="$iconSuccess"
-                  {...(result === 'unofficial' && {
-                    name: 'ErrorSolid',
-                    color: '$iconCritical',
-                  })}
-                  {...(result === 'error' && {
-                    name: 'ErrorSolid',
-                    color: '$iconCaution',
-                  })}
-                />
-              )}
-            </Stack>
-
-            <SizableText
-              textAlign="center"
-              mt="$5"
-              {...(result === 'official' && {
-                color: '$textSuccess',
-              })}
-              {...(result === 'unofficial' && {
-                color: '$textCritical',
-              })}
-              {...(result === 'error' && {
-                color: '$textCaution',
-              })}
-            >
-              {result === 'unknown' ? 'Verifying official firmware' : null}
-              {result === 'official'
-                ? 'Your device is running official firmware'
-                : null}
-              {result === 'unofficial' ? 'Unofficial firmware detected!' : null}
-              {result === 'error'
-                ? 'Unable to verify firmware: internet connection required'
-                : null}
-            </SizableText>
-          </Stack>
-        </Stack>
-        {result !== 'unknown' ? (
-          <Stack pt="$5">
-            <Button
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              variant="primary"
-              {...(result === 'official' && {
-                onPress: () => onContinue({ checked: true }),
-              })}
-              {...(result === 'unofficial' && {
-                onPress: async () => {
-                  // Contact OneKey Support
-                  await Linking.openURL(
-                    'https://help.onekey.so/hc/requests/new',
-                  );
-                },
-              })}
-              {...(result === 'error' && {
-                onPress: async () => {
-                  setResult('unknown');
-                  // Retry
-                  await verify();
-                },
-              })}
-            >
-              {result === 'official' ? 'Continue' : null}
-              {result === 'unofficial' ? 'Contact OneKey Support' : null}
-              {result === 'error' ? 'Retry' : null}
-            </Button>
-          </Stack>
-        ) : null}
-        {result === 'error' ? (
-          <Stack pt="$3">
-            <Button
-              variant="tertiary"
-              m="$0"
-              onPress={() => onContinue({ checked: false })}
-            >
-              Continue Anyway
-            </Button>
-          </Stack>
-        ) : null}
-      </HeightTransition>
-    </Stack>
-  );
-};
 
 export function ConnectYourDevicePage() {
   const navigation = useAppNavigation();
@@ -269,10 +96,6 @@ export function ConnectYourDevicePage() {
 
   const handleHeaderRightPress = useCallback(() => {
     navigation.push(EOnboardingPages.OneKeyHardwareWallet);
-  }, [navigation]);
-
-  const handleWalletItemPress = useCallback(() => {
-    navigation.push(EOnboardingPages.FinalizeWalletSetup);
   }, [navigation]);
 
   const handleSetupNewWalletPress = useCallback(() => {
@@ -340,23 +163,6 @@ export function ConnectYourDevicePage() {
     });
   }, [handleSetupNewWalletPress]);
 
-  const handleFirmwareAuthenticationDemo = useCallback(() => {
-    const firmwareAuthenticationDialog = Dialog.show({
-      dismissOnOverlayPress: false,
-      title: 'Firmware Authentication',
-      renderContent: (
-        <FirmwareAuthenticationDialogContent
-          device={null as any}
-          onContinue={async () => {
-            await firmwareAuthenticationDialog.close();
-            handleNotActivatedDevicePress();
-          }}
-        />
-      ),
-      showFooter: false,
-    });
-  }, [handleNotActivatedDevicePress]);
-
   const createHwWallet = useCallback(
     async ({
       device,
@@ -395,38 +201,7 @@ export function ConnectYourDevicePage() {
     [actions, navigation],
   );
 
-  const showAuthenticateFirmwareDialog = useCallback(
-    async ({ device }: { device: SearchDevice }) => {
-      const firmwareAuthenticationDialog = Dialog.show({
-        title: 'Firmware Authentication',
-        dismissOnOverlayPress: false,
-        renderContent: (
-          <FirmwareAuthenticationDialogContent
-            device={device}
-            onContinue={async ({ checked }) => {
-              await firmwareAuthenticationDialog.close();
-              await createHwWallet({ device, isFirmwareVerified: checked });
-            }}
-            {...{
-              skipDeviceCancel: true, // FirmwareAuthenticationDialogContent
-            }}
-          />
-        ),
-        showFooter: false,
-        async onClose() {
-          if (device.connectId) {
-            await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog(
-              {
-                connectId: device.connectId,
-                skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose
-              },
-            );
-          }
-        },
-      });
-    },
-    [createHwWallet],
-  );
+  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
 
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
@@ -435,37 +210,19 @@ export function ConnectYourDevicePage() {
           device,
         })
       ) {
-        await showAuthenticateFirmwareDialog({ device });
+        await showFirmwareVerifyDialog({
+          device,
+          onContinue: async ({ checked }) => {
+            await createHwWallet({ device, isFirmwareVerified: checked });
+          },
+        });
         return;
       }
 
       await createHwWallet({ device });
     },
-    [showAuthenticateFirmwareDialog, createHwWallet],
+    [showFirmwareVerifyDialog, createHwWallet],
   );
-
-  const handleCheckingDevice = useCallback(() => {
-    const checkingDeviceDialog = Dialog.show({
-      title: 'Checking Device',
-      dismissOnOverlayPress: false,
-      renderContent: (
-        <Stack
-          borderRadius="$3"
-          p="$5"
-          bg="$bgSubdued"
-          borderCurve="continuous"
-        >
-          <Spinner size="large" />
-        </Stack>
-      ),
-      showFooter: false,
-    });
-
-    setTimeout(async () => {
-      await checkingDeviceDialog.close();
-      handleFirmwareAuthenticationDemo();
-    }, 1000);
-  }, [handleFirmwareAuthenticationDemo]);
 
   const devicesData = useMemo<
     {
@@ -500,16 +257,6 @@ export function ConnectYourDevicePage() {
       ...(process.env.NODE_ENV !== 'production'
         ? [
             {
-              title: 'OneKey Classic(Checking)',
-              src: HwWalletAvatarImages.classic,
-              onPress: handleCheckingDevice,
-            },
-            {
-              title: 'OneKey Classic(Firmware Verify)',
-              src: HwWalletAvatarImages.classic,
-              onPress: handleFirmwareAuthenticationDemo,
-            },
-            {
               title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
               src: HwWalletAvatarImages.classic1s,
               onPress: handleNotActivatedDevicePress,
@@ -520,11 +267,6 @@ export function ConnectYourDevicePage() {
               onPress: handleSetupNewWalletPress,
             },
             {
-              title: 'OneKey Touch(Finalize Wallet Setup)',
-              src: HwWalletAvatarImages.touch,
-              onPress: handleWalletItemPress,
-            },
-            {
               title: 'OneKey Touch2(buy)',
               src: HwWalletAvatarImages.touch,
               onPress: handleHeaderRightPress,
@@ -533,13 +275,10 @@ export function ConnectYourDevicePage() {
         : []),
     ],
     [
-      handleCheckingDevice,
-      handleFirmwareAuthenticationDemo,
       handleHeaderRightPress,
       handleHwWalletCreateFlow,
       handleNotActivatedDevicePress,
       handleSetupNewWalletPress,
-      handleWalletItemPress,
       searchedDevices,
     ],
   );

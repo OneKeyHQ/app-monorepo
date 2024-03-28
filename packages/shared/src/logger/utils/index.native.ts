@@ -34,7 +34,10 @@ void FileLogger.configure({
 });
 
 const consoleFunc = (msg: string) => {
-  console.log(msg);
+  if (platformEnv.isDev) {
+    // eslint-disable-next-line no-console
+    console.log(msg);
+  }
   FileLogger.write(LogLevel.Info, msg);
 };
 

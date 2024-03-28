@@ -1,107 +1,17 @@
-import { useState } from 'react';
-
-import { StyleSheet } from 'react-native';
-
-import type {
-  IButtonProps,
-  IIconProps,
-  IKeyOfIcons,
-} from '@onekeyhq/components';
-import {
-  Button,
-  Dialog,
-  HeightTransition,
-  SizableText,
-  Spinner,
-  Stack,
-  Toast,
-} from '@onekeyhq/components';
+import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
+import { useFirmwareVerifyDialog } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
+import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
-function Content({ loading }: { loading?: boolean }) {
-  const [isShowingRiskWarning, setIsShowingRiskWarning] = useState(false);
-
-  return (
-    <Stack space="$5">
-      {loading ? (
-        <Stack
-          p="$5"
-          bg="$bgSubdued"
-          borderRadius="$3"
-          borderCurve="continuous"
-        >
-          <Spinner size="large" />
-        </Stack>
-      ) : (
-        <Stack space="$4">
-          <Button
-            $md={
-              {
-                size: 'large',
-              } as IButtonProps
-            }
-            variant="primary"
-          >
-            Continue (or Contact us)
-          </Button>
-          {!isShowingRiskWarning ? (
-            <Button
-              key="continue-anyway"
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              variant="tertiary"
-              mx="$0"
-              onPress={() => setIsShowingRiskWarning(true)}
-            >
-              Continue Anyway
-            </Button>
-          ) : (
-            <Stack
-              key="risk-warning"
-              p="$5"
-              space="$5"
-              bg="$bgCautionSubdued"
-              borderRadius="$3"
-              borderCurve="continuous"
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="$borderCautionSubdued"
-            >
-              <SizableText>
-                We're currently unable to verify your device. Continuing may
-                pose security risks.
-              </SizableText>
-              <Button
-                $md={
-                  {
-                    size: 'large',
-                  } as IButtonProps
-                }
-              >
-                I Understand
-              </Button>
-            </Stack>
-          )}
-        </Stack>
-      )}
-    </Stack>
-  );
-}
-
-export function Verification() {
-  const [verified, setVerified] = useState(false);
-  // const [unUnofficial, setUnofficial] = useState(false);
-  const [unUnofficial] = useState(false);
-  const returnVerified = () => {
-    setVerified(true);
-    Toast.success({
-      title: 'Verified',
-      message: 'You are good to go',
-    });
-  };
+export function Verification({ device }: { device?: IDBDevice | undefined }) {
+  // const returnVerified = () => {
+  //   setVerified(true);
+  //   Toast.success({
+  //     title: 'Verified',
+  //     message: 'You are good to go',
+  //   });
+  // };
 
   // const returnUnofficial = () => {
   //   setUnofficial(true);
@@ -115,14 +25,15 @@ export function Verification() {
     iconName: IKeyOfIcons;
     iconColor: IIconProps['color'];
   } => {
-    if (verified) {
+    if (device?.verifiedAtVersion) {
       return {
         iconName: 'BadgeVerifiedSolid',
         iconColor: '$iconSuccess',
       };
     }
 
-    if (unUnofficial) {
+    if (device?.verifiedAtVersion === '') {
+      // unUnofficial device cannot create a wallet
       return {
         iconName: 'ErrorSolid',
         iconColor: '$iconCritical',
@@ -137,22 +48,27 @@ export function Verification() {
 
   const { iconColor, iconName } = getIconNameAndIconColor();
 
+  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog({
+    noContinue: true,
+  });
+
   return (
     <WalletOptionItem
       icon={iconName}
       iconColor={iconColor}
+      // icon="BadgeVerifiedSolid"
+      // iconColor="$iconSuccess"
       label="Device Authentication"
-      onPress={() => {
-        const dialog = Dialog.show({
-          tone: 'success',
-          icon: 'DocumentSearch2Outline',
-          title: 'Device Authentication',
-          description:
-            'Confirm on your device to verify its authenticity and secure your connection.',
-          renderContent: <Content />,
-          showFooter: false,
+      onPress={async () => {
+        if (!device) {
+          return;
+        }
+        await showFirmwareVerifyDialog({
+          device,
+          onContinue: async ({ checked }) => {
+            console.log(checked);
+          },
         });
-
         // setTimeout(async () => {
         //   // TODO: dialog.close().then(() => doDomeThing())
         //   await dialog.close();
