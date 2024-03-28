@@ -10,6 +10,7 @@ import CoreChainDoge from '../chains/doge';
 import CoreChainEvm from '../chains/evm';
 // import CoreChainFil from '../chains/fil';
 // import CoreChainKaspa from '../chains/kaspa';
+import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
 // import CoreChainNear from '../chains/near';
 // import CoreChainNexa from '../chains/nexa';
@@ -34,6 +35,8 @@ export class CoreChainApiHub {
   ltc = new CoreChainLtc();
 
   doge = new CoreChainDoge();
+
+  lightning = new CoreChainLightning();
 
   // algo = new CoreChainAlgo();
 

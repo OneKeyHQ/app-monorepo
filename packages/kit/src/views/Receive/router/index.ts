@@ -1,6 +1,7 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import CreateInvoice from '@onekeyhq/kit/src/views/LightningNetwork/pages/CreateInvoice';
 
-import { LightingInvoice, QrCode } from '../pages';
+import { QrCode } from '../pages';
 
 import { EModalReceiveRoutes } from './type';
 
@@ -15,7 +16,7 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
     component: QrCode,
   },
   {
-    name: EModalReceiveRoutes.LightingInvoice,
-    component: LightingInvoice,
+    name: EModalReceiveRoutes.LightningCreateInvoice,
+    component: CreateInvoice,
   },
 ];

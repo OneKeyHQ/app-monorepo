@@ -98,7 +98,7 @@ export function TokenDetails() {
 
   const handleReceivePress = useCallback(() => {
     navigation.pushFullModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.LightingInvoice,
+      screen: EModalReceiveRoutes.LightningCreateInvoice,
     });
   }, [navigation]);
 

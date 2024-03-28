@@ -11,6 +11,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_LIGHTNING,
   IMPL_LTC,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -79,6 +80,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_BCH]: () => import('./impls/bch/Vault') as any,
     [IMPL_LTC]: () => import('./impls/ltc/Vault') as any,
     [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
+    [IMPL_LIGHTNING]: () => import('./impls/lightning/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

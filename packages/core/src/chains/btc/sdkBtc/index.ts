@@ -4,12 +4,13 @@ import {
   Transaction,
   crypto,
   initEccLib,
+  payments
 } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
 
-import { ecc, generateRootFingerprint, secp256k1 } from '../../../secret';
+import { CKDPub, IBip32ExtendedKey, ecc, generateRootFingerprint, secp256k1 } from '../../../secret';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -19,7 +20,7 @@ import {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { BIP32API } from 'bip32/types/bip32';
-import type { Psbt, networks } from 'bitcoinjs-lib';
+import type { Payment, Psbt, networks } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 import type { ECPairAPI } from 'ecpair/src/ecpair';
 import { isNil, omit } from 'lodash';
@@ -437,4 +438,131 @@ export function buildBtcXpubSegwit({
     }
   }
   return xpubSegwit;
+}
+
+export function getAddressFromXpub({
+  curve,
+  network,
+  xpub,
+  relativePaths,
+  addressEncoding,
+  encodeAddress,
+}: {
+  curve: ICurveName;
+  network: IBtcForkNetwork;
+  xpub: string;
+  relativePaths: Array<string>;
+  addressEncoding?: EAddressEncodings;
+  encodeAddress: (address: string) => string;
+}): Promise<{
+  addresses: Record<string, string>;
+  xpubSegwit: string;
+}> {
+  // Only used to generate addresses locally.
+  const decodedXpub = bs58check.decode(xpub);
+
+  let encoding = addressEncoding;
+  if (!encoding) {
+    const { supportEncodings } = getBtcXpubSupportedAddressEncodings({
+      network,
+      xpub,
+    });
+    if (supportEncodings.length > 1) {
+      throw new Error(
+        'getAddressFromXpub ERROR: supportEncodings length > 1, you should specify addressEncoding by params',
+      );
+    }
+    encoding = supportEncodings[0];
+  }
+
+  let xpubSegwit = buildBtcXpubSegwit({
+    xpub,
+    addressEncoding: encoding,
+  });
+
+  const ret: Record<string, string> = {};
+
+  const startExtendedKey: IBip32ExtendedKey = {
+    chainCode: bufferUtils.toBuffer(decodedXpub.slice(13, 45)),
+    key: bufferUtils.toBuffer(decodedXpub.slice(45, 78)),
+  };
+
+  const cache = new Map();
+  // const leaf = null;
+  for (const path of relativePaths) {
+    let extendedKey = startExtendedKey;
+    let relPath = '';
+
+    const parts = path.split('/');
+    for (const part of parts) {
+      relPath += relPath === '' ? part : `/${part}`;
+      if (cache.has(relPath)) {
+        extendedKey = cache.get(relPath);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
+      const index = part.endsWith("'")
+        ? parseInt(part.slice(0, -1)) + 2 ** 31
+        : parseInt(part);
+      extendedKey = CKDPub(curve, extendedKey, index);
+      cache.set(relPath, extendedKey);
+    }
+
+    // const pubkey = taproot && inscribe ? fixedPublickey : extendedKey.key;
+    let { address } = pubkeyToPayment({
+      network,
+      pubkey: extendedKey.key,
+      encoding,
+    });
+    if (typeof address === 'string' && address.length > 0) {
+      address = encodeAddress(address);
+      ret[path] = address;
+    }
+  }
+  return Promise.resolve({ addresses: ret, xpubSegwit });
+}
+
+export function pubkeyToPayment({
+  pubkey,
+  encoding,
+  network,
+}: {
+  pubkey: Buffer;
+  encoding: EAddressEncodings;
+  network: IBtcForkNetwork;
+}): Payment {
+  initBitcoinEcc();
+  let payment: Payment = {
+    pubkey,
+    network,
+  };
+
+  switch (encoding) {
+    case EAddressEncodings.P2PKH:
+      payment = payments.p2pkh(payment);
+      break;
+
+    case EAddressEncodings.P2WPKH:
+      payment = payments.p2wpkh(payment);
+      break;
+
+    case EAddressEncodings.P2SH_P2WPKH:
+      payment = payments.p2sh({
+        redeem: payments.p2wpkh(payment),
+        network,
+      });
+      break;
+    case EAddressEncodings.P2TR:
+      payment = payments.p2tr({
+        internalPubkey: pubkey.slice(1, 33),
+        network,
+      });
+      break;
+
+    default:
+      throw new Error(`Invalid encoding: ${encoding as string}`);
+  }
+
+  return payment;
 }
