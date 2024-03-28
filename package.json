@@ -103,7 +103,7 @@
     "@open-wc/webpack-import-meta-loader": "^0.4.7",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
     "@tamagui/babel-plugin": "1.79.7",
-    "@types/chrome": "^0.0.248",
+    "@types/chrome": "^0.0.263",
     "@types/elliptic": "^6.4.16",
     "@types/ethjs-util": "^0.1.2",
     "@types/jest": "^29.5.6",
