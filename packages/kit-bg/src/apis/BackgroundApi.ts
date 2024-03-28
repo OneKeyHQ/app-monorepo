@@ -252,6 +252,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceDappSide() {
+    const ServiceDappSide =
+      require('../services/ServiceDappSide') as typeof import('../services/ServiceDappSide');
+    const value = new ServiceDappSide.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDappSide', { value });
+    return value;
+  }
+
   get serviceWalletConnect() {
     const ServiceWalletConnect =
       require('../services/ServiceWalletConnect') as typeof import('../services/ServiceWalletConnect');

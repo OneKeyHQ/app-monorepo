@@ -141,12 +141,21 @@ function BasicAccountAvatar({
     const finalAccount = account || dbAccount;
     if (finalAccount) {
       if (accountUtils.isExternalAccount({ accountId: finalAccount.id })) {
-        const wcPeerMeta = (finalAccount as IDBExternalAccount).wcInfo
-          ?.peerMeta;
+        const externalAccount = finalAccount as IDBExternalAccount;
+        const wcPeerMeta = externalAccount?.wcInfo?.peerMeta;
         const wcSrc = wcPeerMeta?.icons?.[0];
         if (wcSrc) {
           return <Image.Source src={wcSrc} />;
         }
+
+        // TODO move account avatar icon calculation to getAccount() in background
+        const evmEIP6963WalletIcon =
+          externalAccount?.externalInfo?.evmEIP6963?.info?.icon ||
+          externalAccount?.externalInfo?.evmInjected?.icon;
+        if (evmEIP6963WalletIcon) {
+          return <Image.Source src={evmEIP6963WalletIcon} />;
+        }
+
         // some dapps don't provide icons, fallback to walletconnect icon
         // TODO use wcPeerMeta.name or wcPeerMeta.url to find wallet icon
         if (wcPeerMeta) {

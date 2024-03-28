@@ -22,6 +22,7 @@ import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredentia
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
+import type { IEIP6963ProviderInfo } from '../../services/ServiceDappSide/providers/evm/EvmEIP6963Provider';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { DBSchema, IDBPObjectStore } from 'idb';
@@ -166,7 +167,9 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   indexedAccountId?: string;
   coinType: string;
   impl: string; // single chain account belongs to network impl
-  networks?: string[]; // single chain account belongs to certain networks
+  // single chain account belongs to certain networks, check keyring options: onlyAvailableOnCertainNetworks
+  networks?: string[];
+  // single chain account auto change to createAtNetwork when network not compatible and networks not defined
   createAtNetwork?: string;
   template?: string;
 };
@@ -190,26 +193,40 @@ export type IDBVariantAccount = IDBBaseAccount & {
   // UTXO: relPath -> address
   addresses: Record<string, string>;
 };
-export type IDBExternalAccountWalletConnectInfo = {
+export type IDBExternalConnectionInfoWalletConnect = {
   topic: string;
   peerMeta: SignClientTypes.Metadata | undefined;
   // how to check this account is connected by deeplink redirect at same device,
-  //      but not qrcode scan from another device
+  //     but not qrcode scan from another device
+  //     use peerMeta?.redirect instead
   mobileLink?: string; // StorageUtil.setDeepLinkWallet(data?.wallet?.mobile_link);
-  connectedAddresses: {
-    [networkId: string]: string; // TODO change to string[]
-  };
-  selectedAddress: {
-    [networkId: string]: number;
-  };
+};
+export type IDBExternalConnectionInfoEvmEIP6963 = {
+  info: IEIP6963ProviderInfo;
+};
+export type IDBExternalConnectionInfoEvmInjected = {
+  global: 'ethereum'; // window.ethereum, nested object use `lodash.get(window, '$onekey.ethereum');`
+  icon: string;
+};
+export type IDBExternalConnectionInfo = {
+  walletConnect?: IDBExternalConnectionInfoWalletConnect;
+  evmEIP6963?: IDBExternalConnectionInfoEvmEIP6963;
+  evmInjected?: IDBExternalConnectionInfoEvmInjected;
 };
 export type IDBExternalAccount = IDBVariantAccount & {
   address: string; // always be empty if walletconnect account
+
+  // TODO rename to connectionInfo
+  externalInfoRaw: string | undefined;
+  externalInfo?: IDBExternalConnectionInfo; // readonly field, json parse from externalInfoRaw
+
   wcInfoRaw?: string;
-  wcInfo?: IDBExternalAccountWalletConnectInfo; // readonly field, json parse from wcInfoRaw
+  wcInfo?: IDBExternalConnectionInfoWalletConnect; // readonly field, json parse from wcInfoRaw
   wcTopic?: string;
+
+  // TODO merge with addresses
   connectedAddresses: {
-    [networkId: string]: string; // multiple address join(',')
+    [networkIdOrImpl: string]: string; // multiple address join(',')
   };
   selectedAddress: {
     [networkId: string]: number;

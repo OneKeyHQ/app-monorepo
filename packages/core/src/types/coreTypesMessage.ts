@@ -8,6 +8,10 @@ import type {
 
 import type { SignatureOptions } from 'bitcoinjs-message';
 
+// dapp -> onekey -> external wallet
+// dapp -> onekey -> hd, hw, privateKey
+// onekey -> external wallet
+// onekey -> hd, hw, privateKey
 export type IUnsignedMessageEth = {
   type: EMessageTypesEth;
   message: string;

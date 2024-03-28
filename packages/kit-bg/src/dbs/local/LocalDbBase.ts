@@ -1631,6 +1631,11 @@ ssphrase wallet
     if (externalAccount && externalAccount.wcInfoRaw) {
       externalAccount.wcInfo = JSON.parse(externalAccount.wcInfoRaw);
     }
+    if (externalAccount && externalAccount.externalInfoRaw) {
+      externalAccount.externalInfo = JSON.parse(
+        externalAccount.externalInfoRaw,
+      );
+    }
     return account;
   }
 
@@ -1710,6 +1715,7 @@ ssphrase wallet
     addressMap,
     selectedMap,
     networkIds,
+    createAtNetwork,
   }: {
     accountId: string;
     addressMap?: {
@@ -1719,6 +1725,7 @@ ssphrase wallet
       [networkId: string]: number;
     };
     networkIds?: string[];
+    createAtNetwork?: string;
   }) {
     const db = await this.readyDb;
     await db.withTransaction(async (tx) => {
@@ -1736,6 +1743,9 @@ ssphrase wallet
           }
           if (networkIds) {
             updatedAccount.networks = networkIds;
+          }
+          if (createAtNetwork) {
+            updatedAccount.createAtNetwork = createAtNetwork;
           }
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return updatedAccount as any;

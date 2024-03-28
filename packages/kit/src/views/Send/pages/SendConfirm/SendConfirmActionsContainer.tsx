@@ -85,9 +85,6 @@ function SendConfirmActionsContainer(props: IProps) {
       navigation.popStack();
     } catch (e: any) {
       setIsSubmitting(false);
-      Toast.error({
-        title: (e as Error).message,
-      });
       onFail?.(e as Error);
       void dappApprove.reject(e);
       throw e;
