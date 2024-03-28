@@ -66,6 +66,7 @@ import type {
   IDBSetAccountTemplateParams,
   IDBSetWalletNameAndAvatarParams,
   IDBUpdateDeviceSettingsParams,
+  IDBUpdateFirmwareVerifiedParams,
   IDBWallet,
   IDBWalletId,
   IDBWalletIdSingleton,
@@ -434,6 +435,58 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       id: credentialId,
     });
     return credential;
+  }
+
+  // insert lightning network credential
+  async updateLightningCredential({
+    credentialId,
+    credential,
+  }: {
+    credentialId: string;
+    credential: string;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateLightningCredential({
+        tx,
+        credentialId,
+        credential,
+        updater: (record) => {
+          record.credential = credential;
+          return record;
+        },
+      });
+    });
+  }
+
+  async txUpdateLightningCredential({
+    tx,
+    credentialId,
+    credential,
+    updater,
+  }: {
+    tx: ILocalDBTransaction;
+    credentialId: string;
+    credential: string;
+    updater: ILocalDBRecordUpdater<ELocalDBStoreNames.Credential>;
+  }) {
+    await this.txAddRecords({
+      tx,
+      skipIfExists: true,
+      name: ELocalDBStoreNames.Credential,
+      records: [
+        {
+          id: credentialId,
+          credential,
+        },
+      ],
+    });
+    await this.txUpdateRecords({
+      tx,
+      name: ELocalDBStoreNames.Credential,
+      ids: [credentialId],
+      updater,
+    });
   }
 
   // ---------------------------------------------- wallet
@@ -901,6 +954,37 @@ ssphrase wallet
     });
   }
 
+  async updateFirmwareVerified(params: IDBUpdateFirmwareVerifiedParams) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      const { device, verifyResult } = params;
+      const { id, featuresInfo, features } = device;
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [id],
+        updater: (item) => {
+          if (verifyResult === 'official') {
+            const versionText = deviceUtils.getDeviceVersionStr({
+              device,
+              features: checkIsDefined(featuresInfo),
+            });
+            // official firmware verified
+            item.verifiedAtVersion = versionText;
+          }
+          if (verifyResult === 'unofficial') {
+            // unofficial firmware
+            item.verifiedAtVersion = '';
+          }
+          if (verifyResult === 'unknown') {
+            item.verifiedAtVersion = undefined;
+          }
+          return item;
+        },
+      });
+    });
+  }
+
   // TODO remove unused hidden wallet first
   async createHWWallet(params: IDBCreateHWWalletParams) {
     const db = await this.readyDb;
@@ -977,8 +1061,15 @@ ssphrase wallet
           item.features = featuresStr;
           item.updatedAt = now;
           if (isFirmwareVerified) {
-            const versionText = deviceUtils.getDeviceVersionStr(device);
+            const versionText = deviceUtils.getDeviceVersionStr({
+              device,
+              features,
+            });
+            // official firmware verified
             item.verifiedAtVersion = versionText;
+          } else {
+            // skip firmware verify
+            item.verifiedAtVersion = undefined;
           }
           return item;
         },

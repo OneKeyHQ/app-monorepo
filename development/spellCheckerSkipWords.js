@@ -661,4 +661,6 @@ module.exports = [
   'punycode',
   'unicode',
   'ascii',
+  'keysend',
+  'preimage',
 ];

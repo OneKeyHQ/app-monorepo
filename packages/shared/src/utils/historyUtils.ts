@@ -41,6 +41,7 @@ export function getOnChainHistoryTxAssetInfo({
   let isNFT = false;
   let isNative = false;
   let price = '0';
+  let decimals = 0;
   nft = nfts[tokenAddress];
   token = tokens[tokenAddress || 'native'];
 
@@ -60,6 +61,7 @@ export function getOnChainHistoryTxAssetInfo({
     isNFT = false;
     isNative = !!info.isNative;
     price = token.price ?? '0';
+    decimals = info.decimals;
   }
   return {
     name,
@@ -69,6 +71,7 @@ export function getOnChainHistoryTxAssetInfo({
     isNFT,
     isNative,
     price,
+    decimals,
   };
 }
 

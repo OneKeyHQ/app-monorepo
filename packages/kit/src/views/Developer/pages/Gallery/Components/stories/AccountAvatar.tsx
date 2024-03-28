@@ -25,6 +25,7 @@ const account: INetworkAccount = {
     normalizedAddress: '0x1111111',
     displayAddress: '0x1111111',
     isValid: true,
+    allowEmptyAddress: false,
   },
 };
 

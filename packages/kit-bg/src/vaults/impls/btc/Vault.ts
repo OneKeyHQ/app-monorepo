@@ -97,6 +97,7 @@ export default class VaultBtc extends VaultBase {
       address,
       baseAddress: address,
       isValid: true,
+      allowEmptyAddress: false,
     };
   }
 
@@ -111,6 +112,7 @@ export default class VaultBtc extends VaultBase {
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
       tokenIdOnNetwork: '',
+      accountAddress: account.address,
     });
 
     if (!nativeToken) {

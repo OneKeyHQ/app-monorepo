@@ -136,6 +136,7 @@ export default class Vault extends VaultBase {
       address: displayAddress,
       baseAddress: normalizedAddress,
       isValid,
+      allowEmptyAddress: false,
     };
   }
 
@@ -680,10 +681,12 @@ export default class Vault extends VaultBase {
     txDesc: ethers.utils.TransactionDescription;
   }) {
     const { encodedTx, txDesc } = params;
+    const accountAddress = await this.getAccountAddress();
 
     const token = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
       tokenIdOnNetwork: encodedTx.to,
+      accountAddress,
     });
 
     if (!token) return;
@@ -819,6 +822,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
+      accountAddress,
       tokenIdOnNetwork: '',
     });
 

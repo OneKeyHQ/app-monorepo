@@ -46,6 +46,7 @@ import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
+import WalletContentWithAuth from './WalletContentWithAuth';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
@@ -73,19 +74,19 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
 
-  const isNFTEnabled = usePromiseResult(async () => {
-    if (network) {
-      const NFTEnabled = (
-        await backgroundApiProxy.serviceNetwork.getVaultSettings({
-          networkId: network?.id ?? '',
-        })
-      )?.NFTEnabled;
-
-      return NFTEnabled && getEnabledNFTNetworkIds().includes(network.id);
-    }
-
-    return Promise.resolve(undefined);
-  }, [network]).result;
+  const vaultSettings = usePromiseResult(
+    async () =>
+      network
+        ? backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId: network?.id ?? '',
+          })
+        : Promise.resolve(undefined),
+    [network],
+  ).result;
+  const isNFTEnabled =
+    vaultSettings?.NFTEnabled &&
+    getEnabledNFTNetworkIds().includes(network?.id ?? '');
+  const isRequiredValidation = vaultSettings?.validationRequired;
 
   const tabs = useMemo(
     () =>
@@ -181,6 +182,65 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [openExtensionExpandTab, onScanButtonPressed, openSettingPage],
   );
 
+  const renderTabs = useCallback(
+    () => (
+      <Tab
+        data={tabs}
+        ListHeaderComponent={<HomeHeaderContainer />}
+        initialScrollIndex={0}
+        contentItemWidth={CONTENT_ITEM_WIDTH}
+        contentWidth={screenWidth}
+        showsVerticalScrollIndicator={false}
+      />
+    ),
+    [tabs, screenWidth],
+  );
+
+  const renderHomePageContent = useCallback(() => {
+    if (!account) {
+      return (
+        <YStack height="100%">
+          <HomeSelector padding="$5" />
+          <Stack flex={1} justifyContent="center">
+            <EmptyAccount
+              name={accountName}
+              chain={network?.name ?? ''}
+              type={
+                (deriveInfo?.labelKey
+                  ? intl.formatMessage({
+                      id: deriveInfo?.labelKey,
+                    })
+                  : deriveInfo?.label) ?? ''
+              }
+            />
+          </Stack>
+        </YStack>
+      );
+    }
+    if (isRequiredValidation) {
+      return (
+        <WalletContentWithAuth
+          networkId={network?.id ?? ''}
+          accountId={account?.id ?? ''}
+        >
+          <>{renderTabs()}</>
+        </WalletContentWithAuth>
+      );
+    }
+
+    return <>{renderTabs()}</>;
+  }, [
+    account,
+    accountName,
+    network?.id,
+    network?.name,
+    deriveInfo?.labelKey,
+    deriveInfo?.label,
+    intl,
+    isRequiredValidation,
+    renderTabs,
+  ]);
+
   const renderHomePage = useCallback(() => {
     if (!ready) return null;
     if (wallet) {
@@ -215,33 +275,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                 home-hide-test
               </Button>
             ) : null} */}
-            {account ? (
-              <Tab
-                data={tabs}
-                ListHeaderComponent={<HomeHeaderContainer />}
-                initialScrollIndex={0}
-                contentItemWidth={CONTENT_ITEM_WIDTH}
-                contentWidth={screenWidth}
-                showsVerticalScrollIndicator={false}
-              />
-            ) : (
-              <YStack height="100%">
-                <HomeSelector padding="$5" />
-                <Stack flex={1} justifyContent="center">
-                  <EmptyAccount
-                    name={accountName}
-                    chain={network?.name ?? ''}
-                    type={
-                      (deriveInfo?.labelKey
-                        ? intl.formatMessage({
-                            id: deriveInfo?.labelKey,
-                          })
-                        : deriveInfo?.label) ?? ''
-                    }
-                  />
-                </Stack>
-              </YStack>
-            )}
+            {renderHomePageContent()}
           </Page.Body>
         </>
       );
@@ -272,14 +306,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     headerLeft,
     renderHeaderRight,
     top,
-    account,
-    tabs,
-    screenWidth,
-    accountName,
-    network?.name,
-    deriveInfo?.labelKey,
-    deriveInfo?.label,
-    intl,
+    renderHomePageContent,
   ]);
 
   return useMemo(

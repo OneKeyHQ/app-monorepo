@@ -15,6 +15,10 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
   CoreSDKLoader,
   generateConnectSrc,
   getHardwareSDKInstance,
@@ -41,6 +45,7 @@ import ServiceBase from './ServiceBase';
 import type {
   IDBDevice,
   IDBDeviceSettings as IDBDeviceDbSettings,
+  IDBUpdateFirmwareVerifiedParams,
 } from '../dbs/local/types';
 import type { IHardwareUiPayload } from '../states/jotai/atoms';
 import type {
@@ -299,16 +304,23 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateFirmwareVerified(params: IDBUpdateFirmwareVerifiedParams) {
+    const result = await localDb.updateFirmwareVerified(params);
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    return result;
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async firmwareAuthenticate({
     device,
     skipDeviceCancel,
   }: {
-    device: SearchDevice;
+    device: SearchDevice | IDBDevice;
     skipDeviceCancel?: boolean;
   }): Promise<{
     verified: boolean;
-    device: SearchDevice;
+    device: SearchDevice | IDBDevice;
     payload: {
       deviceType: IDeviceType;
       data: string;
@@ -380,6 +392,14 @@ class ServiceHardware extends ServiceBase {
         const verified = result.code === 0;
 
         console.log('firmwareAuthenticate result: ', result, connectId);
+
+        const dbDevice = device as IDBDevice | undefined;
+        if (dbDevice?.id) {
+          void this.updateFirmwareVerified({
+            device: dbDevice,
+            verifyResult: verified ? 'official' : 'unofficial',
+          });
+        }
 
         return {
           verified,

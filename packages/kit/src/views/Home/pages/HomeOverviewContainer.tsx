@@ -16,10 +16,15 @@ function HomeOverviewContainer() {
   const { result: overview, isLoading } = usePromiseResult(
     async () => {
       if (!account || !network) return;
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId: account.id,
+          networkId: network.id,
+        });
       const r =
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId: network.id,
-          accountAddress: account.address,
+          accountAddress,
           xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
             accountId: account.id,
             networkId: network.id,

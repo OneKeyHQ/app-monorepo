@@ -35,6 +35,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -985,7 +986,9 @@ class ServiceAccount extends ServiceBase {
           index,
           template, // from networkId
           idSuffix,
-          isUtxo: settings.isUtxo,
+          isUtxo:
+            settings.isUtxo ||
+            networkUtils.isLightningNetworkByImpl(settings.impl),
         });
         return this.getAccount({ accountId: realDBAccountId, networkId });
       }),
@@ -1093,8 +1096,6 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async createHWWallet(params: IDBCreateHWWalletParamsBase) {
-    // TODO verify device
-
     // createHWWallet
     return this.backgroundApi.serviceHardware.withHardwareProcessing(
       () => this.createHWWalletBase(params),
@@ -1272,7 +1273,22 @@ class ServiceAccount extends ServiceBase {
     return vault.getAccountXpub();
   }
 
+  // Get Address for each chain when request the API
   @backgroundMethod()
+  async getAccountAddressForApi({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const account = await this.getAccount({ accountId, networkId });
+    if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+      return account.addressDetail.normalizedAddress;
+    }
+    return account.address;
+  }
+
   async getHDAccountMnemonic({ walletId }: { walletId: string }) {
     if (!accountUtils.isHdWallet({ walletId })) {
       throw new Error('getHDAccountMnemonic ERROR: Not a HD account');
