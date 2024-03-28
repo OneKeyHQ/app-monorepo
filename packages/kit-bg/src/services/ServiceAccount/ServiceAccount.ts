@@ -1093,8 +1093,6 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async createHWWallet(params: IDBCreateHWWalletParamsBase) {
-    // TODO verify device
-
     // createHWWallet
     return this.backgroundApi.serviceHardware.withHardwareProcessing(
       () => this.createHWWalletBase(params),
