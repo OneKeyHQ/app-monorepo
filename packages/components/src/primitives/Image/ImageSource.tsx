@@ -36,8 +36,8 @@ export function ImageSource({
     const diff = Date.now() - startTime.current;
     setTimeout(
       () => {
-        setLoading(false);
-        setLoadedSuccessfully(true);
+        setLoading?.(false);
+        setLoadedSuccessfully?.(true);
       },
       diff > delayMs ? 0 : delayMs - diff,
     );
