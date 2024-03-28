@@ -15,6 +15,7 @@ export enum EScopeName {
   app = 'app',
   demo = 'demo',
   setting = 'setting',
+  addressInput = 'addressInput',
 }
 export interface IScope {
   getName: () => EScopeName;
@@ -22,7 +23,7 @@ export interface IScope {
 
 export type IMethodDecoratorMetadata = {
   level: ILogLevel;
-  type?: 'local' | 'server';
+  type?: 'local' | 'server' | 'console';
 };
 
 export class Metadata {
