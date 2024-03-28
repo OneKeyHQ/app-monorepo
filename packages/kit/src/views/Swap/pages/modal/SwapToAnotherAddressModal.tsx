@@ -18,7 +18,7 @@ import type {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -86,6 +86,13 @@ const SwapToAnotherAddressPage = () => {
     [accountInfo, navigation, networkId, setSettings, setSwapToAddress],
   );
 
+  const handleOnCancel = useCallback(() => {
+    setSettings((v) => ({
+      ...v,
+      swapToAnotherAccountSwitchOn: false,
+    }));
+  }, [setSettings]);
+
   return accountInfo && accountInfo?.network?.id ? (
     <Page>
       <Page.Body px="$5" space="$4">
@@ -128,6 +135,8 @@ const SwapToAnotherAddressPage = () => {
         onConfirmText={intl.formatMessage({
           id: 'action__confirm',
         })}
+        onCancelText={intl.formatMessage({ id: 'action__reset' })}
+        onCancel={handleOnCancel}
       />
     </Page>
   ) : (

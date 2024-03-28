@@ -25,8 +25,8 @@ import {
   useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
 
+import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
-import { useSwapAddressInfo } from './uswSwapAccount';
 
 export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();

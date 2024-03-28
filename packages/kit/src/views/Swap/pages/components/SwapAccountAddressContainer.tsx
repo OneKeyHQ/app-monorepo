@@ -18,7 +18,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 
 function AddressButton({
   address,

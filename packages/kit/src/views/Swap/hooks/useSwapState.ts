@@ -30,7 +30,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
 } from '../../../states/jotai/contexts/swap';
 
-import { useSwapAddressInfo } from './uswSwapAccount';
+import { useSwapAddressInfo } from './useSwapAccount';
 
 function useSwapWarningCheck() {
   const [fromToken] = useSwapSelectFromTokenAtom();
