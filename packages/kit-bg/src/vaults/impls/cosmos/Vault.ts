@@ -101,6 +101,7 @@ export default class VaultCosmos extends VaultBase {
       address,
       baseAddress,
       isValid: true,
+      allowEmptyAddress: false,
     };
   }
 
