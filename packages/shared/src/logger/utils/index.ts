@@ -3,7 +3,10 @@ import platformEnv from '../../platformEnv';
 import type { IUtilsType } from './types';
 
 const consoleFunc = (msg: string) => {
-  console.log(msg);
+  if (platformEnv.isDev) {
+    // eslint-disable-next-line no-console
+    console.log(msg);
+  }
   // eslint-disable-next-line
   global.$backgroundApiProxy.serviceLogger.addMsg(`${msg}\r\n`);
 };
