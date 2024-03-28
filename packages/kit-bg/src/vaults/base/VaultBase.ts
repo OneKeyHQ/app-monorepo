@@ -573,7 +573,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     // always use addressDetail.address as account.address, which is normalized and validated
     const address = addressDetail?.address || '';
 
-    if (!address || !addressDetail.isValid) {
+    if (
+      (!address && !addressDetail.allowEmptyAddress) ||
+      !addressDetail.isValid
+    ) {
       throw new Error('VaultBase.getAccount ERROR: address is invalid');
     }
     return {
