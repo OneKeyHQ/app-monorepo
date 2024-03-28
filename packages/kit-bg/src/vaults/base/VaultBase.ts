@@ -35,11 +35,15 @@ import type {
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
+  IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
-import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTransferType,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
@@ -365,13 +369,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
   }) {
+    if (tx.type === EOnChainHistoryTxType.Approve && tx.tokenApprove) {
+      return this.buildHistoryTxApproveAction({
+        tx,
+        tokens,
+        nfts,
+        tokenApprove: tx.tokenApprove,
+      });
+    }
+
     if (isEmpty(tx.sends) && isEmpty(tx.receives)) {
       if (tx.type) return this.buildHistoryTxFunctionCallAction({ tx });
       return this.buildHistoryTxUnknownAction({ tx });
-    }
-
-    if (tx.sends[0]?.type === EOnChainHistoryTransferType.Approve) {
-      return this.buildHistoryTxApproveAction({ tx, tokens, nfts });
     }
 
     return this.buildHistoryTransferAction({ tx, tokens, nfts });
@@ -481,28 +490,30 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tx,
     tokens,
     nfts,
+    tokenApprove,
   }: {
     tx: IOnChainHistoryTx;
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
+    tokenApprove: IOnChainHistoryTxApprove;
   }): IDecodedTxAction {
-    const approve = tx.sends[0];
-    const transfer = this.buildHistoryTransfer({
-      transfer: approve,
+    const { icon, symbol, name, decimals } = getOnChainHistoryTxAssetInfo({
+      tokenAddress: tokenApprove.token,
       tokens,
       nfts,
     });
     return {
       type: EDecodedTxActionType.TOKEN_APPROVE,
       tokenApprove: {
-        label: approve.label ?? tx.label,
-        from: approve.from,
-        to: approve.to,
-        icon: transfer.icon,
-        name: transfer.name,
-        symbol: transfer.symbol,
-        tokenIdOnNetwork: transfer.tokenIdOnNetwork,
-        amount: new BigNumber(approve.amount).abs().toFixed(),
+        from: tx.from,
+        to: tokenApprove.spender,
+        icon,
+        name,
+        symbol,
+        tokenIdOnNetwork: tokenApprove.token,
+        amount: new BigNumber(tokenApprove.amount)
+          .shiftedBy(-decimals)
+          .toFixed(),
         // TODO: isMax from server
         isMax: false,
       },

@@ -31,7 +31,7 @@ import type { IWalletDetailsProps } from '..';
 
 type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 
-export function WalletOptions({ wallet }: IWalletOptionsProps) {
+export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const liteCard = useLiteCard();
@@ -68,7 +68,7 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
 
       return (
         <>
-          <Verification />
+          <Verification device={device} />
           <HomeScreen />
           <Advance wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
@@ -110,7 +110,7 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
         }
       />
     );
-  }, [handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
+  }, [device, handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
 
   return (
     <HeightTransition>

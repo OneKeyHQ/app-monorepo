@@ -40,6 +40,12 @@ export type IFetchAccountDetailsResp = {
     addressType: string;
   };
 };
+
+export type IValidateAddressResp = {
+  isValid: boolean;
+  addressType?: string;
+};
+
 export type IXpubValidation = {
   isValid: boolean;
 };
@@ -75,3 +81,5 @@ export type IAddressInteractionStatus =
   | 'interacted'
   | 'not-interacted'
   | 'unknown';
+
+export type IAddressValidateStatus = 'valid' | 'invalid' | 'unknown';

@@ -112,6 +112,7 @@ export default class VaultBtc extends VaultBase {
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
       networkId: this.networkId,
       tokenIdOnNetwork: '',
+      accountAddress: account.address,
     });
 
     if (!nativeToken) {
