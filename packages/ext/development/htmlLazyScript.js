@@ -76,13 +76,16 @@ function doTaskInFolder({ folder }) {
   // TODO body data-filename replacement
   fse.copySync(
     path.resolve(folder, 'ui-popup.html'),
-    path.resolve(folder, 'ui-side-panel.html'),
     path.resolve(folder, 'ui-standalone-window.html'),
     { overwrite: true },
   );
   fse.copySync(
     path.resolve(folder, 'ui-popup.html'),
     path.resolve(folder, 'ui-side-panel.html'),
+    { overwrite: true },
+  );
+  fse.copySync(
+    path.resolve(folder, 'ui-popup.html'),
     path.resolve(folder, 'ui-expand-tab.html'),
     { overwrite: true },
   );
