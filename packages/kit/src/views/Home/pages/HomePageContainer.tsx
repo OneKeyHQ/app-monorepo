@@ -165,11 +165,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
           />
         )}
         <HeaderIconButton
-          title="Expand View"
-          icon="CameraExposureSquareOutline"
-          onPress={openExtensionExpandTab}
-        />
-        <HeaderIconButton
           title="Settings"
           icon="SettingsOutline"
           testID="setting"
@@ -177,7 +172,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         />
       </HeaderButtonGroup>
     ),
-    [openSettingPage, onScanButtonPressed],
+    [openExtensionExpandTab, onScanButtonPressed, openSettingPage],
   );
 
   const renderTabs = useCallback(
