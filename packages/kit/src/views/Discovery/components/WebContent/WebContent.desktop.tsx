@@ -114,7 +114,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
       if (favicons.length > 0) {
         onNavigation({
           id,
-          favicon: favicons[0],
+          favicon: favicons[favicons.length - 1],
         });
       }
     },

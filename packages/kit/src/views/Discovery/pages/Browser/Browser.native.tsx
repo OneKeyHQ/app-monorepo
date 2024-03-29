@@ -105,10 +105,12 @@ function MobileBrowser() {
         screen: EDiscoveryModalRoutes.SearchModal,
         params: {
           url,
+          tabId: activeTabId ?? undefined,
+          useCurrentWindow: !!activeTabId,
         },
       });
     },
-    [navigation],
+    [navigation, activeTabId],
   );
 
   const { top } = useSafeAreaInsets();
