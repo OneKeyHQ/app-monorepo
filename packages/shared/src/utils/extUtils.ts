@@ -1,6 +1,6 @@
 import { isNil } from 'lodash';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import platformEnv, { isExtensionUiSidePanel } from '@onekeyhq/shared/src/platformEnv';
 
 import { getAllowPathFromScreenNames } from './routeUtils';
 
@@ -145,13 +145,26 @@ export function getExtensionIndexHtml() {
   return EXT_HTML_FILES.uiExpandTab;
 }
 
-function openUrlInSidePanel(url: string): Promise<chrome.tabs.Tab | undefined> {
-  return new Promise((resolve, reject) => {
+let expandTabId: number | undefined;
+async function openExpandTab(
+  routeInfo: IOpenUrlRouteInfo,
+): Promise<chrome.tabs.Tab | undefined> {
+  const url = buildExtRouteUrl(EXT_HTML_FILES.uiExpandTab, routeInfo);
+  const tab = await openUrlInTab(url, { tabId: expandTabId });
+  expandTabId = tab?.id;
+  return tab;
+}
+
+function openSidePanel(
+  routeInfo: IOpenUrlRouteInfo,
+): Promise<chrome.tabs.Tab | undefined> {
+  return new Promise((resolve) => {
     if (
       chrome.sidePanel &&
       chrome.sidePanel.open &&
       chrome.sidePanel.setOptions
     ) {
+      const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0];
         if (tab && tab.id) {
@@ -166,19 +179,9 @@ function openUrlInSidePanel(url: string): Promise<chrome.tabs.Tab | undefined> {
         }
       });
     } else {
-      reject(new Error('chrome.sidePanel is not available'));
+      return openExpandTab(routeInfo);
     }
   });
-}
-
-let expandTabId: number | undefined;
-async function openExpandTab(
-  routeInfo: IOpenUrlRouteInfo,
-): Promise<chrome.tabs.Tab | undefined> {
-  const url = buildExtRouteUrl('ui-expand-tab.html', routeInfo);
-  const tab = await openUrlInTab(url, { tabId: expandTabId });
-  expandTabId = tab?.id;
-  return tab;
 }
 
 export default {
@@ -186,5 +189,5 @@ export default {
   openUrlInTab,
   openStandaloneWindow,
   openExpandTab,
-  openUrlInSidePanel,
+  openSidePanel,
 };
