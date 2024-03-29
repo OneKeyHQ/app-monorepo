@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { CanceledError } from 'axios';
 
@@ -32,10 +32,8 @@ function TokenListContainer(props: ITabPageProps) {
   const { isFocused } = useTabIsRefreshingFocused();
 
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-
-  const currentAccountId = useRef<string>('');
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -57,25 +55,8 @@ function TokenListContainer(props: ITabPageProps) {
     async () => {
       try {
         if (!account || !network) return;
-        if (currentAccountId.current !== account.id) {
-          currentAccountId.current = account.id;
-          updateTokenListState({
-            initialized: false,
-            isRefreshing: true,
-            address: account.address,
-          });
-        } else {
-          updateTokenListState({
-            isRefreshing: true,
-            address: account.address,
-          });
-        }
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
-        // const unblockedTokens =
-        //   await backgroundApiProxy.serviceToken.getUnblockedTokens({
-        //     networkId: network.id,
-        //   });
         const accountAddress =
           await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
             accountId: account.id,
@@ -127,7 +108,6 @@ function TokenListContainer(props: ITabPageProps) {
             });
           }
           updateTokenListState({
-            address: account.address,
             initialized: true,
             isRefreshing: false,
           });
@@ -160,6 +140,15 @@ function TokenListContainer(props: ITabPageProps) {
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
   );
+
+  useEffect(() => {
+    if (account?.id && network?.id && wallet?.id) {
+      updateTokenListState({
+        initialized: false,
+        isRefreshing: true,
+      });
+    }
+  }, [account?.id, network?.id, updateTokenListState, wallet?.id]);
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
