@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { ImageProps, ImageSourcePropType } from 'react-native';
+import type { FastImageStaticProperties } from 'react-native-fast-image';
 
 export type IImageContext = {
   loading?: boolean;
@@ -35,3 +36,5 @@ export type IUseSource = (
   source?: ImageSourcePropType,
   src?: string,
 ) => ImageSourcePropType | undefined;
+
+export type IPreloadFunc = FastImageStaticProperties['preload'];

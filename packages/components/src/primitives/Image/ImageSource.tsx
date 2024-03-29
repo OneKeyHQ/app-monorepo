@@ -1,15 +1,17 @@
-import { useCallback, useContext, useRef } from 'react';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 
 import { usePropsAndStyle } from '@tamagui/core';
 import { Image as NativeImage } from 'react-native';
+import FastImage from 'react-native-fast-image';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ImageContext } from './context';
 import { useSource } from './hooks';
+import { ImageNet } from './ImageNet';
 
 import type { IImageSourceProps } from './type';
-import type { ImageStyle, StyleProp } from 'react-native';
+import type { ImageStyle, ImageURISource, StyleProp } from 'react-native';
 
 export function ImageSource({
   source,
@@ -50,13 +52,23 @@ export function ImageSource({
   }, [handleLoadEnd]);
 
   const imageSource = useSource(source, src);
-  if (!imageSource) {
+
+  const ImageComponent = useMemo(() => {
+    if (!imageSource) {
+      return null;
+    }
+    const uri = (imageSource as ImageURISource).uri;
+    return uri && uri.startsWith('http') ? ImageNet : NativeImage;
+  }, [imageSource]);
+
+  if (!ImageComponent) {
     return null;
   }
   style.width = style.width ? (style.width as number) : '100%';
   style.height = style.height ? (style.height as number) : '100%';
+
   return (
-    <NativeImage
+    <ImageComponent
       source={imageSource}
       {...restProps}
       borderRadius={style.borderRadius as number}
