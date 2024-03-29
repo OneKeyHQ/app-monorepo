@@ -140,11 +140,9 @@ export function getExtensionIndexHtml() {
   if (platformEnv.isExtensionUiStandaloneWindow) {
     return EXT_HTML_FILES.uiStandAloneWindow;
   }
-  console.log('isExtensionUiSidePanel---', platformEnv.isExtensionUiSidePanel);
   if (platformEnv.isExtensionUiSidePanel) {
     return EXT_HTML_FILES.uiSidePanel;
   }
-  addresy();
   return EXT_HTML_FILES.uiExpandTab;
 }
 
