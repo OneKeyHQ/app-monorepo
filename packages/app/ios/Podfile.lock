@@ -432,11 +432,6 @@ PODS:
     - React-Core
   - react-native-document-picker (9.0.1):
     - React-Core
-  - react-native-flipper-performance-plugin (0.4.0):
-    - React-Core
-    - react-native-flipper-performance-plugin/FBDefines (= 0.4.0)
-  - react-native-flipper-performance-plugin/FBDefines (0.4.0):
-    - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
   - react-native-in-app-review (4.3.3):
@@ -705,7 +700,6 @@ DEPENDENCIES:
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - react-native-config (from `../../../node_modules/react-native-config`)
   - react-native-document-picker (from `../../../node_modules/react-native-document-picker`)
-  - react-native-flipper-performance-plugin (from `../../../node_modules/react-native-flipper-performance-plugin`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - react-native-in-app-review (from `../../../node_modules/react-native-in-app-review`)
   - react-native-metrix (from `../../../node_modules/react-native-metrix`)
@@ -892,8 +886,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-config"
   react-native-document-picker:
     :path: "../../../node_modules/react-native-document-picker"
-  react-native-flipper-performance-plugin:
-    :path: "../../../node_modules/react-native-flipper-performance-plugin"
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-in-app-review:
@@ -1068,7 +1060,6 @@ SPEC CHECKSUMS:
   react-native-cloud-fs: cd21282c5cecaf285225e447dd7f3cf2f9015496
   react-native-config: 86038147314e2e6d10ea9972022aa171e6b1d4d8
   react-native-document-picker: 2b8f18667caee73a96708a82b284a4f40b30a156
-  react-native-flipper-performance-plugin: 42ec5017abd26e7c5a1f527f2db92c14a90cabdb
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-in-app-review: db8bb167a5f238e7ceca5c242d6b36ce8c4404a4
   react-native-metrix: d65e435f30b0d303fff85b01794c33ad349dd329
