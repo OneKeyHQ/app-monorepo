@@ -6833,7 +6833,6 @@ __metadata:
     react-native-exit-app: ^2.0.0
     react-native-fast-image: ^8.6.3
     react-native-file-logger: ^0.4.1
-    react-native-flipper: 0.162.0
     react-native-flipper-performance-plugin: ^0.4.0
     react-native-fs: ^2.20.0
     react-native-gesture-handler: ^2.10.1
@@ -30202,16 +30201,6 @@ __metadata:
   version: 0.4.0
   resolution: "react-native-flipper-performance-plugin@npm:0.4.0"
   checksum: 938583c8cba48f2206cbcecdee6067f11b83c46fe3b51371defd6783d71587c8980a6df1bdb1522294a6126f49dd0936de4e3b3fd5df817a028fab1ebcf9e28e
-  languageName: node
-  linkType: hard
-
-"react-native-flipper@npm:0.162.0":
-  version: 0.162.0
-  resolution: "react-native-flipper@npm:0.162.0"
-  peerDependencies:
-    react: ^16.8.0 || ^17.0.0 || ^18.0.0
-    react-native: ">0.62.0"
-  checksum: d7a9206a165489c93aa0855c74d3a40ba43dcf3f219cb88b522c83beb69c2d02052bd6a4f2d9b5c6586d6dfb3bb3c44937ba9dc514acab5dc4e0dc6b74b1db6c
   languageName: node
   linkType: hard
 
