@@ -119,6 +119,7 @@ target 'OneKeyWallet' do
       end
     end
 
+
     # Enable the workaround below if you need flipper
     if !ENV['CI']
       # Enable the workaround below if you need flipper
@@ -138,7 +139,8 @@ target 'OneKeyWallet' do
           end
         end
       end
-
+    else
+      __xcode_15_workaround(installer)
     end
   end
 
