@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
   Form,
   Input,
   SegmentControl,
@@ -112,35 +113,7 @@ function FeeEditor(props: IProps) {
 
   const renderFeeEditorForm = useCallback(() => {
     if (currentFeeType !== EFeeType.Custom) return null;
-
-    if (customFee.gas) {
-      return (
-        <YStack space="$5">
-          <Form.Field
-            label={`${intl.formatMessage({
-              id: 'content__gas_price',
-            })}(${feeSymbol})`}
-            name="gasPrice"
-            rules={{
-              required: true,
-            }}
-          >
-            <Input flex={1} />
-          </Form.Field>
-          <Form.Field
-            label={intl.formatMessage({
-              id: 'content__gas_limit',
-            })}
-            name="gasLimit"
-            rules={{
-              required: true,
-            }}
-          >
-            <Input flex={1} />
-          </Form.Field>
-        </YStack>
-      );
-    }
+    console.log('customFee', customFee);
 
     if (customFee.gasEIP1559) {
       const maxPriorityFeeInNative = new BigNumber(
@@ -158,7 +131,7 @@ function FeeEditor(props: IProps) {
           <Form.Field
             label={`${intl.formatMessage({
               id: 'form__priority_fee',
-            })}(${feeSymbol})`}
+            })}`}
             name="priorityFee"
             rules={{
               required: true,
@@ -168,7 +141,7 @@ function FeeEditor(props: IProps) {
               flex={1}
               addOns={[
                 {
-                  label: `${maxPriorityFeeInNative} ${nativeSymbol}`,
+                  label: feeSymbol,
                 },
               ]}
             />
@@ -176,7 +149,7 @@ function FeeEditor(props: IProps) {
           <Form.Field
             label={`${intl.formatMessage({
               id: 'form__max_fee',
-            })}(${feeSymbol})`}
+            })}`}
             name="maxFee"
             rules={{
               required: true,
@@ -186,10 +159,39 @@ function FeeEditor(props: IProps) {
               flex={1}
               addOns={[
                 {
-                  label: `${maxFeeInNative} ${nativeSymbol}`,
+                  label: feeSymbol,
                 },
               ]}
             />
+          </Form.Field>
+          <Form.Field
+            label={intl.formatMessage({
+              id: 'content__gas_limit',
+            })}
+            name="gasLimit"
+            rules={{
+              required: true,
+            }}
+          >
+            <Input flex={1} />
+          </Form.Field>
+        </YStack>
+      );
+    }
+
+    if (customFee.gas) {
+      return (
+        <YStack space="$5">
+          <Form.Field
+            label={`${intl.formatMessage({
+              id: 'content__gas_price',
+            })}(${feeSymbol})`}
+            name="gasPrice"
+            rules={{
+              required: true,
+            }}
+          >
+            <Input flex={1} />
           </Form.Field>
           <Form.Field
             label={intl.formatMessage({
@@ -225,13 +227,10 @@ function FeeEditor(props: IProps) {
     }
   }, [
     currentFeeType,
-    customFee.feeUTXO,
-    customFee.gas,
-    customFee.gasEIP1559,
+    customFee,
     feeDecimals,
     feeSymbol,
     intl,
-    nativeSymbol,
     watchAllFields.gasLimit,
     watchAllFields.maxFee,
     watchAllFields.priorityFee,
@@ -240,9 +239,12 @@ function FeeEditor(props: IProps) {
   const renderFeeOverview = useCallback(() => {}, []);
 
   return (
-    <Stack p="$5">
-      {renderFeeTypeSelector()}
-      {renderFeeEditorForm()}
+    <Stack space="$4">
+      <Stack space="$5" p="$5">
+        {renderFeeTypeSelector()}
+        <Form form={form}>{renderFeeEditorForm()}</Form>
+      </Stack>
+      <Divider />
       {renderFeeOverview()}
     </Stack>
   );
