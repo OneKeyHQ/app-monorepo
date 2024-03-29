@@ -14,11 +14,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAddressBookList } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import { useAddressBookPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
   EModalRoutes,
   EModalSettingRoutes,
   EOnboardingPages,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -26,9 +28,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { ETabRoutes } from '../type';
-
-import type { ITabMeParamList } from './type';
 
 const AddressBookButton = () => {
   const intl = useIntl();

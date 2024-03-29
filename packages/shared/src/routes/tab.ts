@@ -1,9 +1,11 @@
-import type { ITabDiscoveryParamList } from './Discovery/type';
-import type { ITabMeParamList } from './Me/type';
-import type { IMultiTabBrowserParamList } from './MultiTabBrowser/type';
-import type { ITabSwapParamList } from './Swap/type';
-import type { IDemoDeveloperTabParamList } from '../../views/Developer/pages/Gallery/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
-import type { ITabHomeParamList } from '../../views/Home/router';
+import type { IDemoDeveloperTabParamList } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
+import type {
+  IMultiTabBrowserParamList,
+  ITabDiscoveryParamList,
+  ITabHomeParamList,
+  ITabMeParamList,
+  ITabSwapParamList,
+} from '@onekeyhq/shared/src/routes';
 
 export enum ETabRoutes {
   Home = 'Home',

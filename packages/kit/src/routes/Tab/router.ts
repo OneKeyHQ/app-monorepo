@@ -8,6 +8,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
@@ -16,7 +17,6 @@ import { discoveryRouters } from './Discovery/router';
 import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { swapRouters } from './Swap/router';
-import { ETabRoutes } from './type';
 
 const discoverRouterConfig: ITabNavigatorConfig<ETabRoutes> = {
   name: ETabRoutes.Discovery,
