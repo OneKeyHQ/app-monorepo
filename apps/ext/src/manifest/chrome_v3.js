@@ -100,7 +100,7 @@ module.exports = {
       : null,
   ].filter(Boolean),
   'side_panel': {
-    'default_path': 'ui-expand-tab.html',
+    'default_path': 'ui-side-panel.html',
   },
   'permissions': [
     'offscreen',

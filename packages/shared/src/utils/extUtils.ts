@@ -123,6 +123,7 @@ export const EXT_HTML_FILES = {
   background: 'background.html',
   uiPopup: 'ui-popup.html',
   uiExpandTab: 'ui-expand-tab.html',
+  uiSidePanel: 'ui-side-panel.html',
   uiStandAloneWindow: 'ui-standalone-window.html',
 };
 
@@ -139,6 +140,11 @@ export function getExtensionIndexHtml() {
   if (platformEnv.isExtensionUiStandaloneWindow) {
     return EXT_HTML_FILES.uiStandAloneWindow;
   }
+  console.log('isExtensionUiSidePanel---', platformEnv.isExtensionUiSidePanel);
+  if (platformEnv.isExtensionUiSidePanel) {
+    return EXT_HTML_FILES.uiSidePanel;
+  }
+  addresy();
   return EXT_HTML_FILES.uiExpandTab;
 }
 
