@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { SegmentControl } from '@onekeyhq/components';
+import { SegmentControl, SizableText, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -39,6 +39,69 @@ const SegmentControlExample2 = () => {
   );
 };
 
+const SegmentControlExample3 = () => {
+  const [value, setValue] = useState(1);
+  return (
+    <SegmentControl
+      fullWidth
+      value={value}
+      onChange={(v) => {
+        setValue(v as number);
+      }}
+      options={[
+        {
+          label: (
+            <YStack>
+              <SizableText
+                textAlign="center"
+                color={value === 1 ? '$text' : '$textSubdued'}
+              >
+                a
+              </SizableText>
+              <SizableText color="$textSubdued" textAlign="center">
+                1
+              </SizableText>
+            </YStack>
+          ),
+          value: 1,
+        },
+        {
+          label: (
+            <YStack>
+              <SizableText
+                textAlign="center"
+                color={value === 2 ? '$text' : '$textSubdued'}
+              >
+                b
+              </SizableText>
+              <SizableText color="$textSubdued" textAlign="center">
+                2
+              </SizableText>
+            </YStack>
+          ),
+          value: 2,
+        },
+        {
+          label: (
+            <YStack>
+              <SizableText
+                textAlign="center"
+                color={value === 3 ? '$text' : '$textSubdued'}
+              >
+                c
+              </SizableText>
+              <SizableText color="$textSubdued" textAlign="center">
+                3
+              </SizableText>
+            </YStack>
+          ),
+          value: 3,
+        },
+      ]}
+    />
+  );
+};
+
 const SegmentControlGallery = () => (
   <Layout
     description=".."
@@ -52,6 +115,10 @@ const SegmentControlGallery = () => (
       {
         title: 'Full Width',
         element: <SegmentControlExample2 />,
+      },
+      {
+        title: 'Custom Label',
+        element: <SegmentControlExample3 />,
       },
     ]}
   />
