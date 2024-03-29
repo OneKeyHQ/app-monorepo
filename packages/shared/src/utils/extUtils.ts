@@ -177,7 +177,7 @@ async function openExpandTab(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
   const url = buildExtRouteUrl('ui-expand-tab.html', routeInfo);
-  const tab = await openUrlInSidePanel(url);
+  const tab = await openUrlInTab(url, { tabId: expandTabId });
   expandTabId = tab?.id;
   return tab;
 }
