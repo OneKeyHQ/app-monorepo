@@ -143,20 +143,28 @@ export function getExtensionIndexHtml() {
 }
 
 function openUrlInSidePanel(url: string): Promise<chrome.tabs.Tab | undefined> {
-  return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tab = tabs[0];
-      if (tab && tab.id) {
-        chrome.sidePanel.open({ tabId: tab.id }, () => {
-          void chrome.sidePanel.setOptions({
-            tabId: tab.id,
-            path: url,
-            enabled: true,
+  return new Promise((resolve, reject) => {
+    if (
+      chrome.sidePanel &&
+      chrome.sidePanel.open &&
+      chrome.sidePanel.setOptions
+    ) {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tab = tabs[0];
+        if (tab && tab.id) {
+          chrome.sidePanel.open({ tabId: tab.id }, () => {
+            void chrome.sidePanel.setOptions({
+              tabId: tab.id,
+              path: url,
+              enabled: true,
+            });
           });
-        });
-        resolve(tab);
-      }
-    });
+          resolve(tab);
+        }
+      });
+    } else {
+      reject(new Error('chrome.sidePanel is not available'));
+    }
   });
 }
 
