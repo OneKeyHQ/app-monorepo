@@ -18,10 +18,10 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-#ifdef FB_SONARKIT_ENABLED
-  FlipperClient *client = [FlipperClient sharedClient];
-  [client addPlugin:[FlipperPerformancePlugin new]];
-#endif
+// #ifdef FB_SONARKIT_ENABLED
+//   FlipperClient *client = [FlipperClient sharedClient];
+//   [client addPlugin:[FlipperPerformancePlugin new]];
+// #endif
 
   [JPushManager shareInstance];
   
