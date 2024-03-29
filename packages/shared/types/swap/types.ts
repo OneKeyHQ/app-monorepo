@@ -1,13 +1,8 @@
+import type { IServerNetwork } from '..';
+
 export enum EProtocolOfExchange {
   SWAP = 'swap',
   LIMIT = 'limit', // TODO
-}
-
-export enum ESwapProviders {
-  ONE_INCH = 'swap_1inch',
-  ZERO_X = 'swap_0x',
-  SWFT = 'swap_swft',
-  SOCKET_BRIDGE = 'swap_socket_bridge',
 }
 
 export enum ESwapReceiveAddressType {
@@ -28,15 +23,14 @@ export enum ESwapRateDifferenceUnit {
 }
 
 // token & network
-export interface ISwapNetwork {
-  networkId: string;
-  name?: string;
-  symbol?: string;
-  shortcode?: string;
-  logoURI?: string;
+
+export interface ISwapNetworkBase {
   protocol: string;
-  explorer?: string; // '..../{transaction}' need replace {transaction} to txId
+  providers: string;
+  networkId: string;
 }
+
+export type ISwapNetwork = IServerNetwork & ISwapNetworkBase;
 export interface ISwapToken {
   networkId: string;
   providers: string;
@@ -87,7 +81,7 @@ export interface IFetchTokensParams {
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
-  provider: ESwapProviders;
+  provider: string;
   useAddress: string;
   spenderAddress: string;
   amount: string;
@@ -100,7 +94,8 @@ export interface IFetchQuotesParams {
   toTokenAddress: string;
   fromTokenAmount: string;
   protocol: string;
-  providers: string;
+  fromProviders: string;
+  toProviders: string;
   fromTokenDecimals: number;
   toTokenDecimals: number;
   fromTokenSwftCode?: string;
@@ -153,7 +148,7 @@ export interface IAllowanceResult {
 }
 
 export interface IFetchQuoteInfo {
-  provider: ESwapProviders;
+  provider: string;
   providerName: string;
   providerLogo?: string;
 }
@@ -214,6 +209,7 @@ export interface IFetchBuildTxResponse {
   tx?: ITransaction;
   swftOrder?: IFetchBuildTxOrderResponse;
   ctx?: any;
+  socketBridgeScanUrl?: string;
 }
 
 export interface ISwapInfoSide {
@@ -287,6 +283,7 @@ export interface ISwapTxHistory {
   };
   swapInfo: {
     provider: IFetchQuoteInfo;
+    socketBridgeScanUrl?: string;
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
@@ -298,10 +295,6 @@ export interface ISwapTxHistory {
 }
 
 // component -----------------
-export interface ISwapFromAmountPercentageItem {
-  label: string;
-  value: number;
-}
 
 export interface ISwapSlippageSegmentItem {
   key: ESwapSlippageSegmentKey;

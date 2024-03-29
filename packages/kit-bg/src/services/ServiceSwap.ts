@@ -5,7 +5,6 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { CrossChainSwapProviders } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -14,13 +13,13 @@ import type {
   IFetchSwapTxHistoryStatusResponse,
   IFetchTokensParams,
   ISwapNetwork,
+  ISwapNetworkBase,
   ISwapToken,
   ISwapTokenDetailInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapFetchCancelCause,
-  ESwapProviders,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -61,18 +60,35 @@ export default class ServiceSwap extends ServiceBase {
       protocol,
     };
     const client = await this.getClient();
-    const { data } = await client.get<IFetchResponse<ISwapNetwork[]>>(
+    const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
       '/swap/v1/networks',
       { params },
     );
-    return data.data ?? [];
+    const allNetworks =
+      await this.backgroundApi.serviceNetwork.getAllNetworks();
+    const swapNetworks = data?.data
+      ?.map((network) => {
+        const serverNetwork = allNetworks.networks.find(
+          (n) => n.id === network.networkId,
+        );
+        if (serverNetwork) {
+          return {
+            ...serverNetwork,
+            networkId: network.networkId,
+            protocol: network.protocol,
+            providers: network.providers,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
+    return swapNetworks ?? [];
   }
 
   @backgroundMethod()
   async fetchSwapTokens({
     networkId,
     keywords,
-    fromToken,
     type,
     limit = 50,
     next,
@@ -81,19 +97,10 @@ export default class ServiceSwap extends ServiceBase {
     accountXpub,
   }: IFetchTokensParams): Promise<{ result: ISwapToken[]; next?: string }> {
     await this.cancelFetchTokenList();
-    const providersArr = fromToken?.providers.split(',');
     const params = {
-      fromTokenNetworkId: fromToken?.networkId,
-      fromTokenProviders: fromToken?.providers,
-      fromTokenAddress: fromToken?.contractAddress,
       protocol: EProtocolOfExchange.SWAP,
       networkId: networkId === 'all' ? undefined : networkId,
       keywords,
-      fromTokenSwapSwftUnSupportCode: providersArr?.every(
-        (item) => item === ESwapProviders.SWFT,
-      )
-        ? fromToken?.swapSwftUnSupportCode
-        : undefined,
       type,
       limit,
       next,
@@ -170,16 +177,6 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage: number;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
-    const fromProvidersArr = fromToken.providers.split(',');
-    const toProvidersArr = toToken.providers.split(',');
-    let supportedProviders = fromProvidersArr.filter((item) =>
-      toProvidersArr.includes(item),
-    ) as ESwapProviders[];
-    if (fromToken.networkId !== toToken.networkId) {
-      supportedProviders = supportedProviders.filter((item: ESwapProviders) =>
-        CrossChainSwapProviders.includes(item),
-      );
-    }
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -193,7 +190,8 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenSwftCode: fromToken.swapSwftCode,
       toTokenSwftCode: toToken.swapSwftCode,
       protocol: EProtocolOfExchange.SWAP,
-      providers: supportedProviders.join(','),
+      fromProviders: fromToken.providers,
+      toProviders: toToken.providers,
       userAddress,
       slippagePercentage,
     };
@@ -243,7 +241,7 @@ export default class ServiceSwap extends ServiceBase {
     toToken: ISwapToken;
     toTokenAmount: string;
     fromTokenAmount: string;
-    provider: ESwapProviders;
+    provider: string;
     userAddress: string;
     receivingAddress: string;
     slippagePercentage: number;
@@ -288,7 +286,7 @@ export default class ServiceSwap extends ServiceBase {
     receivedAddress?: string;
     networkId: string;
     protocol?: EProtocolOfExchange;
-    provider?: ESwapProviders;
+    provider?: string;
     ctx?: any;
   }): Promise<IFetchSwapTxHistoryStatusResponse> {
     const params = {

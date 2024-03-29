@@ -1,4 +1,3 @@
-import { isOnlySupportSingleChainProvider } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import {
   ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
@@ -65,16 +64,6 @@ export const {
   atom: swapFromTokenAmountAtom,
   use: useSwapFromTokenAmountAtom,
 } = contextAtom<string>('');
-
-export const {
-  atom: swapOnlySupportSingleChainAtom,
-  use: useSwapOnlySupportSingleChainAtom,
-} = contextAtomComputed((get) => {
-  const fromToken = get(swapSelectFromTokenAtom());
-  return fromToken && isOnlySupportSingleChainProvider(fromToken)
-    ? fromToken.networkId
-    : undefined;
-});
 
 export const {
   atom: swapSelectedFromTokenBalanceAtom,

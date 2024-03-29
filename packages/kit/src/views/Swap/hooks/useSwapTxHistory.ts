@@ -165,10 +165,10 @@ export function useSwapTxHistoryActions() {
             fromToken: swapTxInfo.sender.token,
             toToken: swapTxInfo.receiver.token,
             fromNetwork: swapNetworks.find(
-              (item) => item?.networkId === swapTxInfo.sender.token.networkId,
+              (item) => item?.id === swapTxInfo.sender.token.networkId,
             ),
             toNetwork: swapNetworks.find(
-              (item) => item?.networkId === swapTxInfo.receiver.token.networkId,
+              (item) => item?.id === swapTxInfo.receiver.token.networkId,
             ),
           },
           txInfo: {
@@ -186,6 +186,8 @@ export function useSwapTxHistoryActions() {
           swapInfo: {
             instantRate: swapTxInfo.swapBuildResData.result.instantRate ?? '0',
             provider: swapTxInfo.swapBuildResData.result.info,
+            socketBridgeScanUrl:
+              swapTxInfo.swapBuildResData.socketBridgeScanUrl,
             oneKeyFee:
               swapTxInfo.swapBuildResData.result.fee?.percentageFee ?? 0,
           },

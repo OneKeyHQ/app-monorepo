@@ -1,7 +1,5 @@
 import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
-import { SingleChainSwapProviders } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
-  ESwapProviders,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -29,11 +27,6 @@ export function swapTokenPairsSupportedProviders(
   return {
     providers: providers.join(','),
   };
-}
-
-export function isOnlySupportSingleChainProvider(value: ISwapToken) {
-  const providers = value.providers.split(',') as ESwapProviders[];
-  return providers.every((item) => SingleChainSwapProviders.includes(item));
 }
 
 export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
