@@ -19,7 +19,14 @@ import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppCon
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
+  ETabRoutes,
+  ETabSwapRoutes,
+} from '@onekeyhq/shared/src/routes';
+import { getAllowPathFromScreenNames } from '@onekeyhq/shared/src/utils/routeUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

@@ -13,11 +13,10 @@ import {
   usePageUnMounted,
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import type { ITabHomeParamList } from '@onekeyhq/shared/src/routes';
 import { ETestModalPages } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-
-import type { ITabHomeParamList } from '../../Home/router';
 
 function CustomConfirmButton() {
   return (

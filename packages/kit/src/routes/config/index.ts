@@ -17,14 +17,14 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
+import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
+import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 
 import { rootRouter } from '../router';
 
-import { buildAllowList } from './allowList';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 
-import type { IScreenPathConfig } from './allowList';
 import type { LinkingOptions } from '@react-navigation/native';
 
 const routerPrefix = createURL('/');

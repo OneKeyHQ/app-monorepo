@@ -1,9 +1,7 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
+import { ETabMeRoutes } from '@onekeyhq/shared/src/routes/tabMe';
 
-// import TabMe from './TabMe';
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-
-import { ETabMeRoutes } from './type';
 
 const TabMe = LazyLoadPage(() => import('./TabMe'));
 

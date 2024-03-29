@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapApproveTransaction } from '@onekeyhq/shared/types/swap/types';
 
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import { ETabRoutes } from '../../../routes/Tab/type';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,

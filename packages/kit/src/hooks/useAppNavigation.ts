@@ -10,11 +10,11 @@ import type {
 } from '@onekeyhq/components/src/layouts/Navigation';
 import type {
   EModalRoutes,
+  ETabRoutes,
   IModalParamList,
+  ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
-
-import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/type';
 
 function useAppNavigation<
   P extends

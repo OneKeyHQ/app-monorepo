@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import { ETabRoutes } from '../../../routes/Tab/type';
 import {
   useSwapActions,
   useSwapApprovingTransactionAtom,

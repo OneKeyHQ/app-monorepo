@@ -1,8 +1,8 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
 
 import { galleryScreenList } from './pages/Gallery';
-import { ETabDeveloperRoutes } from './type';
 
 const TabDeveloper = LazyLoadPage(() => import('./pages/TabDeveloper'));
 const DevHome = LazyLoadPage(() => import('./pages/DevHome'));

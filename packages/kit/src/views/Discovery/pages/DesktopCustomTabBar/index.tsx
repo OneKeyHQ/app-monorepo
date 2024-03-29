@@ -8,7 +8,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
@@ -22,6 +21,7 @@ import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';

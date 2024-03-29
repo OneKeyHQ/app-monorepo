@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ITabHomeParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -25,8 +26,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 
 import HeaderView from './HeaderView';
-
-import type { ITabHomeParamList } from '../../Home/router';
 
 const FirstRoute = ({
   onContentSizeChange,

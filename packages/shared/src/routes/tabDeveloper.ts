@@ -1,4 +1,4 @@
-import { EGalleryRoutes } from './pages/routes';
+import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 
 export enum ETabDeveloperRoutes {
   TabDeveloper = 'TabDeveloper',

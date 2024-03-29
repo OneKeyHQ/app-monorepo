@@ -1,7 +1,6 @@
 import { useOnRouterChange } from '@onekeyhq/components';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
-
-import type { ETabRoutes } from '../routes/Tab/type';
 
 export default function useListenTabFocusState(
   tabName: ETabRoutes | ETabRoutes[],

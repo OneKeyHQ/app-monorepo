@@ -1,8 +1,7 @@
 import { TabStackNavigator } from '@onekeyhq/components';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { tabExtraConfig, tabRouter } from './router';
-
-import type { ETabRoutes } from './type';
 
 export function TabNavigator() {
   return (

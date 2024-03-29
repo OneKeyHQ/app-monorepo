@@ -6,7 +6,6 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import type {
@@ -26,6 +25,7 @@ import {
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';

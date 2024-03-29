@@ -5,7 +5,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const notifier = require('node-notifier');
-const { createtResolveExtensions } = require('./utils');
+const { createResolveExtensions } = require('./utils');
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 
 class BuildDoneNotifyPlugin {
@@ -302,7 +302,7 @@ module.exports = ({ platform, basePath, configName }) => ({
   resolve: {
     mainFields: ['browser', 'module', 'main'],
     aliasFields: ['browser', 'module', 'main'],
-    extensions: createtResolveExtensions({ platform, configName }),
+    extensions: createResolveExtensions({ platform, configName }),
     symlinks: true,
     alias: {
       'react-native$': 'react-native-web',
