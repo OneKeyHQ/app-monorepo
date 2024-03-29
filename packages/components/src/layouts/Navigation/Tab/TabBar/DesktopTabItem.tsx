@@ -4,6 +4,7 @@ import {
   Icon,
   Image,
   SizableText,
+  Skeleton,
   XStack,
 } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons, Stack } from '@onekeyhq/components/src/primitives';
@@ -57,6 +58,9 @@ export function DesktopTabItem(
               color={selected ? '$iconActive' : '$iconSubdued'}
             />
           </Image.Fallback>
+          <Image.Loading>
+            <Skeleton width="100%" height="100%" />
+          </Image.Loading>
         </Image>
       ) : null}
       {label ? (

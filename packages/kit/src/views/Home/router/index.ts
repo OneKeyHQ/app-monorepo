@@ -1,10 +1,7 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
+import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-
-import { ETabHomeRoutes } from './types';
-
-export * from './types';
 
 const HomePageContainer = LazyLoadPage(
   () => import('../pages/HomePageContainer'),

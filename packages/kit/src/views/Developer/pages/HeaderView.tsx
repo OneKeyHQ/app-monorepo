@@ -2,9 +2,11 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
+  ETabDeveloperRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -16,9 +18,6 @@ import {
   AccountSelectorTriggerLegacy,
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { ETabDeveloperRoutes } from '../type';
-
-import type { ITabDeveloperParamList } from '../type';
 
 function HomeAccountSelectorInfoDemo() {
   return (
