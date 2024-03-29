@@ -72,7 +72,7 @@
     "react": "18.2.0",
     "react-content-loader": "^6.2.1",
     "react-dom": "18.2.0",
-    "react-native": "0.71.8",
+    "react-native": "0.71.14",
     "react-native-auto-size-text": "^1.1.1",
     "react-native-ble-manager": "^10.0.2",
     "react-native-camera-kit": "14.0.0-beta2",
