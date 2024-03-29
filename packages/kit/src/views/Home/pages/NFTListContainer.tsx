@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -15,21 +15,17 @@ import { NFTListView } from '../components/NFTListView';
 function NFTListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
   const { isFocused } = useTabIsRefreshingFocused();
-  const [initialized, setInitialized] = useState(false);
-
+  const [nftListState, setNftListState] = useState({
+    initialized: false,
+    isRefreshing: false,
+  });
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-
-  const currentAccountId = useRef<string>('');
 
   const nfts = usePromiseResult(
     async () => {
       if (!account || !network) return;
-      if (currentAccountId.current !== account.id) {
-        currentAccountId.current = account.id;
-        setInitialized(false);
-      }
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         networkId: network.id,
         accountAddress: account.address,
@@ -39,25 +35,36 @@ function NFTListContainer(props: ITabPageProps) {
         }),
       });
 
-      setInitialized(true);
+      setNftListState({
+        initialized: true,
+        isRefreshing: false,
+      });
 
       return r.data;
     },
     [account, network],
     {
-      watchLoading: true,
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_NFT,
     },
   );
 
+  useEffect(() => {
+    if (account?.id && network?.id && wallet?.id) {
+      setNftListState({
+        initialized: false,
+        isRefreshing: true,
+      });
+    }
+  }, [account?.id, network?.id, wallet?.id]);
+
   return (
     <NFTListView
       data={nfts.result ?? []}
-      isLoading={nfts.isLoading}
+      isLoading={nftListState.isRefreshing}
       onContentSizeChange={onContentSizeChange}
-      initialized={initialized}
+      initialized={nftListState.initialized}
     />
   );
 }
