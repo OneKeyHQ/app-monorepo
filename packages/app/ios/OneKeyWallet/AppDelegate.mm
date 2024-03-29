@@ -9,10 +9,10 @@
 #import <Firebase/Firebase.h>
 #endif
 
-#ifdef FB_SONARKIT_ENABLED
-#import <FlipperKit/FlipperClient.h>
-#import <FlipperPerformancePlugin.h>
-#endif
+// #ifdef FB_SONARKIT_ENABLED
+// #import <FlipperKit/FlipperClient.h>
+// #import <FlipperPerformancePlugin.h>
+// #endif
 
 @implementation AppDelegate
 
