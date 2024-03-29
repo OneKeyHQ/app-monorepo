@@ -13,10 +13,10 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapApproving } from '../../hooks/useSwapAproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import { useSwapNetworkList } from '../../hooks/useSwapTokens';
-import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { validateAmountInput } from '../../utils/utils';
 
 import SwapInputContainer from './SwapInputContainer';
