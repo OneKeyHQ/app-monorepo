@@ -116,7 +116,7 @@
     "@open-wc/webpack-import-meta-loader": "^0.4.7",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
     "@types/babel__preset-env": "^7",
-    "@types/chrome": "^0.0.161",
+    "@types/chrome": "^0.0.263",
     "@types/jest": "^29.2.3",
     "@types/json-stringify-safe": "^5",
     "@types/jsrsasign": "^10",

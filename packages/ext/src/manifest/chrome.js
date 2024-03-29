@@ -55,7 +55,9 @@ module.exports = {
       'all_frames': true, // including iframe inject
     },
   ],
-
+  'side_panel': {
+    'default_path': 'ui-side-panel.html',
+  },
   'permissions': [
     'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
     // 'http://localhost:8545/',
@@ -71,6 +73,7 @@ module.exports = {
     'notifications',
     // 'activeTab',
     // 'webRequest',
+    'sidePanel',
   ],
 };
 /*

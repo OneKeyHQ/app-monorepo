@@ -6657,7 +6657,7 @@ __metadata:
     "@pmmmwh/react-refresh-webpack-plugin": ^0.5.10
     "@starcoin/starcoin": 2.1.5
     "@types/babel__preset-env": ^7
-    "@types/chrome": ^0.0.161
+    "@types/chrome": ^0.0.263
     "@types/jest": ^29.2.3
     "@types/json-stringify-safe": ^5
     "@types/jsrsasign": ^10
@@ -10142,13 +10142,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/chrome@npm:^0.0.161":
-  version: 0.0.161
-  resolution: "@types/chrome@npm:0.0.161"
+"@types/chrome@npm:^0.0.263":
+  version: 0.0.263
+  resolution: "@types/chrome@npm:0.0.263"
   dependencies:
     "@types/filesystem": "*"
     "@types/har-format": "*"
-  checksum: cf22d0e5ea51d9632ae57b52f8e2ed9abfac5249df4badc83e0148e13011baff7e9b7bfca804a0566fa110e2fa28c3a1639f0a8c799d54191cc0c8f06384442f
+  checksum: 2f58d719aae104f987c939cf2c6e5a9d893355e199f70dbab61f17335a9617b60c34b35a87f5f1389314c43784320305289633b9aecbf4cee077dbea2bc4b9bd
   languageName: node
   linkType: hard
 
