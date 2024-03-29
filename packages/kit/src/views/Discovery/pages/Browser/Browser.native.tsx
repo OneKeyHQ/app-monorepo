@@ -116,10 +116,12 @@ function MobileBrowser() {
   return (
     <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header headerShown={false} />
+      {/* custom header */}
       <XStack
         pt={top}
         mx="$5"
         alignItems="center"
+        my="$1"
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
       >
         {!displayHomePage ? (
