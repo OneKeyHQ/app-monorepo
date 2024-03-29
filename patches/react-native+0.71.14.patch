@@ -1,56 +1,3 @@
-diff --git a/node_modules/react-native/.gradle/8.0.2/checksums/checksums.lock b/node_modules/react-native/.gradle/8.0.2/checksums/checksums.lock
-new file mode 100644
-index 0000000..f14a8c8
-Binary files /dev/null and b/node_modules/react-native/.gradle/8.0.2/checksums/checksums.lock differ
-diff --git a/node_modules/react-native/.gradle/8.0.2/checksums/sha1-checksums.bin b/node_modules/react-native/.gradle/8.0.2/checksums/sha1-checksums.bin
-new file mode 100644
-index 0000000..3e1fca4
-Binary files /dev/null and b/node_modules/react-native/.gradle/8.0.2/checksums/sha1-checksums.bin differ
-diff --git a/node_modules/react-native/.gradle/8.0.2/dependencies-accessors/dependencies-accessors.lock b/node_modules/react-native/.gradle/8.0.2/dependencies-accessors/dependencies-accessors.lock
-new file mode 100644
-index 0000000..1a0075b
-Binary files /dev/null and b/node_modules/react-native/.gradle/8.0.2/dependencies-accessors/dependencies-accessors.lock differ
-diff --git a/node_modules/react-native/.gradle/8.0.2/dependencies-accessors/gc.properties b/node_modules/react-native/.gradle/8.0.2/dependencies-accessors/gc.properties
-new file mode 100644
-index 0000000..e69de29
-diff --git a/node_modules/react-native/.gradle/8.0.2/fileChanges/last-build.bin b/node_modules/react-native/.gradle/8.0.2/fileChanges/last-build.bin
-new file mode 100644
-index 0000000..f76dd23
-Binary files /dev/null and b/node_modules/react-native/.gradle/8.0.2/fileChanges/last-build.bin differ
-diff --git a/node_modules/react-native/.gradle/8.0.2/fileHashes/fileHashes.lock b/node_modules/react-native/.gradle/8.0.2/fileHashes/fileHashes.lock
-new file mode 100644
-index 0000000..80940a1
-Binary files /dev/null and b/node_modules/react-native/.gradle/8.0.2/fileHashes/fileHashes.lock differ
-diff --git a/node_modules/react-native/.gradle/8.0.2/gc.properties b/node_modules/react-native/.gradle/8.0.2/gc.properties
-new file mode 100644
-index 0000000..e69de29
-diff --git a/node_modules/react-native/.gradle/buildOutputCleanup/buildOutputCleanup.lock b/node_modules/react-native/.gradle/buildOutputCleanup/buildOutputCleanup.lock
-new file mode 100644
-index 0000000..d76d4e1
-Binary files /dev/null and b/node_modules/react-native/.gradle/buildOutputCleanup/buildOutputCleanup.lock differ
-diff --git a/node_modules/react-native/.gradle/buildOutputCleanup/cache.properties b/node_modules/react-native/.gradle/buildOutputCleanup/cache.properties
-new file mode 100644
-index 0000000..87e5e64
---- /dev/null
-+++ b/node_modules/react-native/.gradle/buildOutputCleanup/cache.properties
-@@ -0,0 +1,2 @@
-+#Fri Mar 29 15:25:21 CST 2024
-+gradle.version=8.0.2
-diff --git a/node_modules/react-native/.gradle/buildOutputCleanup/outputFiles.bin b/node_modules/react-native/.gradle/buildOutputCleanup/outputFiles.bin
-new file mode 100644
-index 0000000..0d7059f
-Binary files /dev/null and b/node_modules/react-native/.gradle/buildOutputCleanup/outputFiles.bin differ
-diff --git a/node_modules/react-native/.gradle/vcs-1/gc.properties b/node_modules/react-native/.gradle/vcs-1/gc.properties
-new file mode 100644
-index 0000000..e69de29
-diff --git a/node_modules/react-native/.gradle/workspace-id.txt b/node_modules/react-native/.gradle/workspace-id.txt
-new file mode 100644
-index 0000000..510e1bd
-Binary files /dev/null and b/node_modules/react-native/.gradle/workspace-id.txt differ
-diff --git a/node_modules/react-native/.gradle/workspace-id.txt.lock b/node_modules/react-native/.gradle/workspace-id.txt.lock
-new file mode 100644
-index 0000000..97a22cb
-Binary files /dev/null and b/node_modules/react-native/.gradle/workspace-id.txt.lock differ
 diff --git a/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts b/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
 index b06d1cb..6c2e083 100644
 --- a/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
@@ -81,10 +28,10 @@ index 6c7116e..eb32fdc 100644
    } catch (err) {
      // Catch all errors because it is unsafe to throw during initialization.
 diff --git a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp b/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
-index 38ebeda..4d6142f 100644
+index 38ebeda..1c3fee5 100644
 --- a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
 +++ b/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
-@@ -417,13 +417,16 @@ JSCRuntime::~JSCRuntime() {
+@@ -417,12 +417,15 @@ JSCRuntime::~JSCRuntime() {
    // has started.
    ctxInvalid_ = true;
    JSGlobalContextRelease(ctx_);
@@ -94,7 +41,6 @@ index 38ebeda..4d6142f 100644
 -  assert(
 -      stringCounter_ == 0 && "JSCRuntime destroyed with a dangling API string");
 -#endif
--}
 +  
 +// fix issue that app crashes on reload in development mode with JSC engine. 
 +// details: https://github.com/software-mansion/react-native-reanimated/issues/4783
@@ -104,7 +50,6 @@ index 38ebeda..4d6142f 100644
 +//   assert(
 +//       stringCounter_ == 0 && "JSCRuntime destroyed with a dangling API string");
 +// #endif
-+// }
+ }
  
  std::shared_ptr<const jsi::PreparedJavaScript> JSCRuntime::prepareJavaScript(
-     const std::shared_ptr<const jsi::Buffer> &buffer,
