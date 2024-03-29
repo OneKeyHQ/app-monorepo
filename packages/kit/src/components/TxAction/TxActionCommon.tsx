@@ -26,7 +26,7 @@ function TxActionCommonAvatar({
 }: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout'>) {
   const containerSize = '$10';
 
-  if (typeof avatar?.src === 'string') {
+  if (!avatar.src || typeof avatar.src === 'string') {
     return <Token size="lg" isNFT={avatar.isNFT} tokenImageUri={avatar.src} />;
   }
 

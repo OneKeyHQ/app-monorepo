@@ -172,7 +172,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         />
       </HeaderButtonGroup>
     ),
-    [openSettingPage, onScanButtonPressed],
+    [openExtensionExpandTab, onScanButtonPressed, openSettingPage],
   );
 
   const renderTabs = useCallback(
