@@ -1,18 +1,17 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EGalleryRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
+  ETabDeveloperRoutes,
+  ETabDiscoveryRoutes,
+  ETabHomeRoutes,
+  ETabMeRoutes,
+  ETabRoutes,
+  ETabSwapRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
-
-import { EGalleryRoutes } from '../../views/Developer/pages/routes';
-import { ETabDeveloperRoutes } from '../../views/Developer/type';
-import { ETabHomeRoutes } from '../../views/Home/router';
-import { ETabDiscoveryRoutes } from '../Tab/Discovery/type';
-import { ETabMeRoutes } from '../Tab/Me/type';
-import { ETabSwapRoutes } from '../Tab/Swap/type';
-import { ETabRoutes } from '../Tab/type';
 
 interface IAllowSettingItem {
   /** whether to show URL parameters, it is false in default. */
@@ -44,6 +43,13 @@ const addPath = (prev: string, path: string) => {
   return `${prev}/${path}`;
 };
 
+const allowListMap = new Map<string, string>();
+
+const buildAllowListMapKey = (screenNames: string[]) => screenNames.join(',');
+
+export const getAllowPathFromScreenNames = (screenNames: string[]) =>
+  allowListMap.get(buildAllowListMapKey(screenNames)) || '/';
+
 export const buildAllowList = (screens: IScreenPathConfig) => {
   function pagePath(_: TemplateStringsArray, ...screenNames: string[]): string {
     let screenConfig = screens;
@@ -65,7 +71,9 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       // if the path is rewritten path, the full path will be rewritten.
       return screen.exact ? screenPath : addPath(prev, screenPath);
     }, '');
-    return `/${path}`;
+    const fullPath = `/${path}`;
+    allowListMap.set(buildAllowListMapKey(screenNames), fullPath);
+    return fullPath;
   }
 
   // fill in the route name as the key according to the route stacks order
