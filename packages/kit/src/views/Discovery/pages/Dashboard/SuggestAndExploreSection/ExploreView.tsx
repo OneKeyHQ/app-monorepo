@@ -46,7 +46,7 @@ function ItemsContainer({
   }
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} {...rest}>
+    <ScrollView showsHorizontalScrollIndicator={false} {...rest}>
       {children}
     </ScrollView>
   );
@@ -80,7 +80,12 @@ export function ExploreView({
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
   const media = useMedia();
-  const chunkSize = media.gtMd && media.lg ? 2 : 3;
+  const chunkSize = useMemo(() => {
+    if (!media.gtMd) {
+      return 2;
+    }
+    return media.lg ? 2 : 3;
+  }, [media]);
 
   const selectOptions = useMemo(
     () =>
@@ -110,6 +115,9 @@ export function ExploreView({
       <ItemsContainer key={categoryId} mx="$-5">
         <XStack
           px="$2"
+          $md={{
+            flexDirection: 'column',
+          }}
           $gtMd={{
             flexDirection: 'column',
           }}
@@ -118,7 +126,8 @@ export function ExploreView({
             <Stack
               key={chunkIndex}
               $md={{
-                w: '$96',
+                flexDirection: 'row',
+                flexWrap: 'wrap',
               }}
               $gtMd={{
                 flexDirection: 'row',
@@ -131,6 +140,9 @@ export function ExploreView({
                   p="$3"
                   space="$3"
                   alignItems="center"
+                  $md={{
+                    flexBasis: '50%',
+                  }}
                   $gtMd={{
                     flexBasis: '50%',
                   }}
@@ -157,6 +169,9 @@ export function ExploreView({
                     <XStack alignItems="center">
                       <SizableText
                         size="$bodyLgMedium"
+                        $md={{
+                          size: '$bodyMdMedium',
+                        }}
                         $gtMd={{
                           size: '$bodyMdMedium',
                         }}
