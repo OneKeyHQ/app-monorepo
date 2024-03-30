@@ -2030,6 +2030,71 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+   const kujira: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'kaiyo-1',
+    'code': 'kujira',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'kuji',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'high': '0.00681',
+          'low': '0.0034',
+          'min': '0.0034',
+          'normal': '0.0051',
+        },
+        'mainCoinDenom': 'ukuji',
+      },
+    },
+    'id': 'cosmos--kaiyo-1',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/kujira/kujira.png',
+    'name': 'Kujira',
+    'rpcURLs': [
+      {
+        'url': 'https://kujira-rpc.polkachu.com/',
+      },
+      {
+        'url': 'https://rpc-kujira.ecostake.com/',
+      },
+      {
+        'url': 'https://kujira-rpc.ibs.team',
+      },
+      {
+        'url': 'https://rpc.kujira.rektdao.club',
+      },
+    ],
+    'shortcode': 'kujira',
+    'shortname': 'Kujira',
+    'symbol': 'KUJI',
+    'feeMeta': {
+      'code': 'kujira',
+      'decimals': 6,
+      'symbol': 'KUJI',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'kujira',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://finder.kujira.network/kaiyo-1/address/{address}',
+        'block': 'https://finder.kujira.network/kaiyo-1/block/{block}',
+        'name': 'https://finder.kujira.network/kaiyo-1/',
+        'transaction': 'https://finder.kujira.network/kaiyo-1/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-03-30T04:29:24.951Z',
+    'updatedAt': '2024-03-30T04:29:24.951Z',
+  };
+  
   const chainsOnlyEnabledInDev = [
     osmosis,
     cosmoshub,
