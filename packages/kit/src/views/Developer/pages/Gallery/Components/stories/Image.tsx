@@ -40,6 +40,20 @@ const ImageGallery = () => (
         ),
       },
       {
+        title: 'uri is empty string',
+        element: (
+          <YStack space={10}>
+            <Image w="$5" h="$5">
+              <Image.Source
+                source={{
+                  uri: '',
+                }}
+              />
+            </Image>
+          </YStack>
+        ),
+      },
+      {
         title: 'Loading Fallback',
         element: (
           <YStack space={10}>
