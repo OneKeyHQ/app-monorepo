@@ -7,7 +7,7 @@ import FastImage from 'react-native-fast-image';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ImageContext } from './context';
-import { useSource } from './hooks';
+import { useImageComponent, useSource } from './hooks';
 import { ImageNet } from './ImageNet';
 
 import type { IImageSourceProps } from './type';
@@ -53,13 +53,7 @@ export function ImageSource({
 
   const imageSource = useSource(source, src);
 
-  const ImageComponent = useMemo(() => {
-    if (!imageSource) {
-      return null;
-    }
-    const uri = (imageSource as ImageURISource).uri;
-    return uri && uri.startsWith('http') ? ImageNet : NativeImage;
-  }, [imageSource]);
+  const ImageComponent = useImageComponent(imageSource);
 
   if (!ImageComponent) {
     return null;
