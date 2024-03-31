@@ -11,6 +11,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ImageSource } from '@onekeyhq/components/src/primitives/Image/ImageSource';
+import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
@@ -36,13 +37,12 @@ export function ExploreView({
   categoryResult:
     | {
         categoryList: ICategory[];
-        networks: IServerNetwork[];
       }
     | undefined;
   selectedCategory: string;
   setSelectedCategory: Dispatch<SetStateAction<string>>;
-  selectedNetwork: string;
-  setSelectedNetwork: Dispatch<SetStateAction<string>>;
+  selectedNetwork: IServerNetwork | undefined;
+  setSelectedNetwork: Dispatch<SetStateAction<IServerNetwork | undefined>>;
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
   const media = useMedia();
@@ -63,17 +63,6 @@ export function ExploreView({
         : [],
     [categoryResult?.categoryList],
   );
-  const networkOptions = useMemo(
-    () =>
-      Array.isArray(categoryResult?.networks)
-        ? categoryResult.networks.map((i) => ({
-            value: i.id,
-            label: i.name,
-            logoURI: i.logoURI,
-          }))
-        : [],
-    [categoryResult?.networks],
-  );
   const isEmpty = !dAppList?.data || dAppList?.data.length === 0;
 
   const renderChunkItemView = useCallback(
@@ -87,7 +76,7 @@ export function ExploreView({
     ),
     [handleOpenWebSite],
   );
-
+  const openChainSelector = useConfigurableChainSelector();
   return (
     <>
       <XStack py="$2">
@@ -123,7 +112,42 @@ export function ExploreView({
             </XStack>
           )}
         />
-        <Select
+        <XStack
+          py="$1.5"
+          px="$2"
+          bg="$bgStrong"
+          borderRadius="$3"
+          userSelect="none"
+          borderCurve="continuous"
+          hoverStyle={{
+            bg: '$bgStrongHover',
+          }}
+          pressStyle={{
+            bg: '$bgStrongActive',
+          }}
+          onPress={() => {
+            openChainSelector({
+              onSelect: (network) => {
+                if (!network) return;
+                console.log('=====>', network);
+                setSelectedNetwork(network);
+              },
+            });
+          }}
+        >
+          <Image w="$5" h="$5">
+            <ImageSource
+              source={{
+                uri: selectedNetwork?.logoURI ?? '',
+              }}
+            />
+          </Image>
+          <SizableText size="$bodyMdMedium" px="$1">
+            {selectedNetwork?.name ?? ''}
+          </SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+        </XStack>
+        {/* <Select
           title="Categories"
           items={networkOptions}
           value={selectedNetwork}
@@ -162,7 +186,7 @@ export function ExploreView({
               />
             </XStack>
           )}
-        />
+        /> */}
       </XStack>
       {isEmpty ? (
         <Empty icon="SearchOutline" title="No Results" />

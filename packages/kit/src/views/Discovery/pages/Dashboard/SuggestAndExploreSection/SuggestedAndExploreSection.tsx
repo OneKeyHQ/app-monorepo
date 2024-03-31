@@ -5,9 +5,12 @@ import { isNil } from 'lodash';
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICategory } from '@onekeyhq/shared/types/discovery';
 
 import { DashboardSectionHeader } from '../DashboardSectionHeader';
+
 import { ItemsContainer } from './ChunkedItemsView';
 import { ExploreView } from './ExploreView';
 import { SuggestedView } from './SuggestedView';
@@ -25,19 +28,19 @@ export function SuggestedAndExploreSection({
 }) {
   const [isExploreView, setIsExploreView] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedNetwork, setSelectedNetwork] = useState('');
+  const [selectedNetwork, setSelectedNetwork] = useState<IServerNetwork>();
 
   const { result } = usePromiseResult(async () => {
-    const [categoryList, allNetworks] = await Promise.all([
+    const [categoryList, defaultNetwork] = await Promise.all([
       backgroundApiProxy.serviceDiscovery.fetchCategoryList(),
-      backgroundApiProxy.serviceNetwork.getAllNetworks(),
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId: getNetworkIdsMap().eth,
+      }),
     ]);
-    const { networks } = allNetworks;
     setSelectedCategory(categoryList[0].categoryId);
-    setSelectedNetwork(networks[0].id);
+    setSelectedNetwork(defaultNetwork);
     return {
       categoryList,
-      networks,
     };
   }, []);
 
@@ -51,7 +54,7 @@ export function SuggestedAndExploreSection({
     }
     return backgroundApiProxy.serviceDiscovery.fetchDAppListByCategory({
       category: selectedCategory,
-      network: selectedNetwork,
+      network: selectedNetwork.id,
     });
   }, [selectedCategory, selectedNetwork]);
 
