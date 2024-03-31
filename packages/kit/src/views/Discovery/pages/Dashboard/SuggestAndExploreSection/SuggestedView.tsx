@@ -29,6 +29,7 @@ export function SuggestedView({
     (dataChunks: IDApp[][], categoryId: string) => (
       <ChunkedItemsView
         key={categoryId}
+        isExploreView={false}
         dataChunks={dataChunks}
         handleOpenWebSite={handleOpenWebSite}
       />

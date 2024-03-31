@@ -29,10 +29,12 @@ export const chunkArray = (array: ICategory['dapps'], chunkSize: number) => {
 type IChunkedItemsViewProps = {
   dataChunks: IDApp[][];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
+  isExploreView: boolean;
 };
 
 export function ItemsContainer({
   children,
+  horizontal,
   ...rest
 }: {
   children: ReactNode;
@@ -45,20 +47,28 @@ export function ItemsContainer({
   }
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} {...rest}>
+    <ScrollView
+      horizontal={horizontal}
+      showsHorizontalScrollIndicator={false}
+      {...rest}
+    >
       {children}
     </ScrollView>
   );
 }
 
 export function ChunkedItemsView({
+  isExploreView,
   dataChunks,
   handleOpenWebSite,
 }: IChunkedItemsViewProps) {
   return (
-    <ItemsContainer mx="$-5">
+    <ItemsContainer mx="$-5" horizontal={!isExploreView}>
       <XStack
         px="$2"
+        $md={{
+          flexDirection: isExploreView ? 'column' : 'row',
+        }}
         $gtMd={{
           flexDirection: 'column',
         }}
@@ -66,9 +76,16 @@ export function ChunkedItemsView({
         {dataChunks.map((chunk, chunkIndex) => (
           <Stack
             key={chunkIndex}
-            $md={{
-              w: '$96',
-            }}
+            $md={
+              isExploreView
+                ? {
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                  }
+                : {
+                    w: '$96',
+                  }
+            }
             $gtMd={{
               flexDirection: 'row',
               flexWrap: 'wrap',
@@ -80,6 +97,13 @@ export function ChunkedItemsView({
                 p="$3"
                 space="$3"
                 alignItems="center"
+                $md={
+                  isExploreView
+                    ? {
+                        flexBasis: '50%',
+                      }
+                    : undefined
+                }
                 $gtMd={{
                   flexBasis: '50%',
                 }}

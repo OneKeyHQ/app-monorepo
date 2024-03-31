@@ -1,46 +1,19 @@
-import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 
 import { isNil } from 'lodash';
 
-import type { IScrollViewProps, IStackProps } from '@onekeyhq/components';
-import {
-  ScrollView,
-  Skeleton,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { ICategory } from '@onekeyhq/shared/types/discovery';
 
-import { DashboardSectionHeader } from './DashboardSectionHeader';
-import { ExploreView } from './SuggestAndExploreSection/ExploreView';
-import { SuggestedView } from './SuggestAndExploreSection/SuggestedView';
+import { DashboardSectionHeader } from '../DashboardSectionHeader';
 
-import type { IMatchDAppItemType } from '../../types';
+import { ItemsContainer } from './ChunkedItemsView';
+import { ExploreView } from './ExploreView';
+import { SuggestedView } from './SuggestedView';
 
-function ItemsContainer({
-  children,
-  ...rest
-}: {
-  children: ReactNode;
-} & IStackProps &
-  IScrollViewProps) {
-  const media = useMedia();
-
-  if (media.gtMd) {
-    return <Stack {...rest}>{children}</Stack>;
-  }
-
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} {...rest}>
-      {children}
-    </ScrollView>
-  );
-}
+import type { IMatchDAppItemType } from '../../../types';
 
 export function SuggestedAndExploreSection({
   suggestedData,

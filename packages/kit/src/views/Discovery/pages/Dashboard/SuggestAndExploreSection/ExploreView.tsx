@@ -1,20 +1,12 @@
-import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import type {
-  IBadgeType,
-  IScrollViewProps,
-  IStackProps,
-} from '@onekeyhq/components';
 import {
-  Badge,
   Empty,
   Icon,
   Image,
-  ScrollView,
   Select,
   SizableText,
-  Stack,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -22,35 +14,9 @@ import { ImageSource } from '@onekeyhq/components/src/primitives/Image/ImageSour
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
+import { ChunkedItemsView, chunkArray } from './ChunkedItemsView';
+
 import type { IMatchDAppItemType } from '../../../types';
-
-const chunkArray = (array: ICategory['dapps'], chunkSize: number) => {
-  const chunks = [];
-  for (let i = 0; i < array.length; i += chunkSize) {
-    chunks.push(array.slice(i, i + chunkSize));
-  }
-  return chunks;
-};
-
-function ItemsContainer({
-  children,
-  ...rest
-}: {
-  children: ReactNode;
-} & IStackProps &
-  IScrollViewProps) {
-  const media = useMedia();
-
-  if (media.gtMd) {
-    return <Stack {...rest}>{children}</Stack>;
-  }
-
-  return (
-    <ScrollView showsHorizontalScrollIndicator={false} {...rest}>
-      {children}
-    </ScrollView>
-  );
-}
 
 export function ExploreView({
   dAppList,
@@ -112,102 +78,12 @@ export function ExploreView({
 
   const renderChunkItemView = useCallback(
     (dataChunks: IDApp[][], categoryId: string) => (
-      <ItemsContainer key={categoryId} mx="$-5">
-        <XStack
-          px="$2"
-          $md={{
-            flexDirection: 'column',
-          }}
-          $gtMd={{
-            flexDirection: 'column',
-          }}
-        >
-          {dataChunks.map((chunk, chunkIndex) => (
-            <Stack
-              key={chunkIndex}
-              $md={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-              }}
-              $gtMd={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-              }}
-            >
-              {chunk.map((item) => (
-                <XStack
-                  key={item.dappId}
-                  p="$3"
-                  space="$3"
-                  alignItems="center"
-                  $md={{
-                    flexBasis: '50%',
-                  }}
-                  $gtMd={{
-                    flexBasis: '50%',
-                  }}
-                  $gtLg={{
-                    flexBasis: '33.3333%',
-                  }}
-                  onPress={() => {
-                    handleOpenWebSite({
-                      webSite: {
-                        url: item.url,
-                        title: item.name,
-                      },
-                    });
-                  }}
-                >
-                  <Image w="$14" h="$14" borderRadius="$3">
-                    <Image.Source
-                      source={{
-                        uri: item.logo,
-                      }}
-                    />
-                  </Image>
-                  <Stack flex={1}>
-                    <XStack alignItems="center">
-                      <SizableText
-                        size="$bodyLgMedium"
-                        $md={{
-                          size: '$bodyMdMedium',
-                        }}
-                        $gtMd={{
-                          size: '$bodyMdMedium',
-                        }}
-                        numberOfLines={1}
-                      >
-                        {item.name}
-                      </SizableText>
-                      {Array.isArray(item.tags) && item.tags.length ? (
-                        <Badge
-                          badgeSize="sm"
-                          badgeType={item.tags[0].type as IBadgeType}
-                          ml="$2"
-                        >
-                          {item.tags[0].name}
-                        </Badge>
-                      ) : null}
-                    </XStack>
-                    <SizableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                      $gtMd={{
-                        size: '$bodySm',
-                        numberOfLines: 2,
-                        whiteSpace: 'break-spaces',
-                      }}
-                    >
-                      {item.description}
-                    </SizableText>
-                  </Stack>
-                </XStack>
-              ))}
-            </Stack>
-          ))}
-        </XStack>
-      </ItemsContainer>
+      <ChunkedItemsView
+        key={categoryId}
+        isExploreView
+        dataChunks={dataChunks}
+        handleOpenWebSite={handleOpenWebSite}
+      />
     ),
     [handleOpenWebSite],
   );
