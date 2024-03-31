@@ -113,8 +113,6 @@
     "react-render-tracker": "npm:react-native-render-tracker@0.0.1",
     "readable-stream": "^3.6.0",
     "realm": "^11.9.0",
-    "realm-flipper-plugin-device": "^1.1.0",
-    "redux-flipper": "^2.0.2",
     "stream-http": "^3.2.0",
     "text-encoding": "^0.7.0",
     "v8-android-jit": "11.1000.3"

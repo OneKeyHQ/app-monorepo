@@ -6859,8 +6859,6 @@ __metadata:
     react-render-tracker: "npm:react-native-render-tracker@0.0.1"
     readable-stream: ^3.6.0
     realm: ^11.9.0
-    realm-flipper-plugin-device: ^1.1.0
-    redux-flipper: ^2.0.2
     rimraf: ^3
     stream-http: ^3.2.0
     text-encoding: ^0.7.0
@@ -16765,13 +16763,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cycle@npm:^1.0.3":
-  version: 1.0.3
-  resolution: "cycle@npm:1.0.3"
-  checksum: b9f131094fb832a8c4ba18c6d2dc9c87fc80d3242847a45f0a5f70911b2acab68abc1c25eb23e5155fcf2135a27d8fcc3635556745b03b488c4f360cfbc352df
-  languageName: node
-  linkType: hard
-
 "d3-array@npm:2 - 3, d3-array@npm:2.10.0 - 3":
   version: 3.1.6
   resolution: "d3-array@npm:3.1.6"
@@ -16925,7 +16916,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dayjs@npm:^1.8.15, dayjs@npm:^1.8.29":
+"dayjs@npm:^1.8.15":
   version: 1.11.3
   resolution: "dayjs@npm:1.11.3"
   checksum: c87e06b562a51ae6568cc5b840c7579d82a0f8af7163128c858fe512d3d71d07bd8e8e464b8cc41b8698a9e26b80ab2c082d14a1cd4c33df5692d77ccdfc5a43
@@ -30948,19 +30939,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"realm-flipper-plugin-device@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "realm-flipper-plugin-device@npm:1.1.0"
-  dependencies:
-    flatted: ^3.2.7
-  peerDependencies:
-    react: ">=17"
-    react-native-flipper: ">=0.162.0"
-    realm: ">=11.0.0"
-  checksum: e142d6d9c8b681eec832bf9caa90faee96006abd44bea69b8f21440bfa2d6cd680493cc7d0f4f2bc5a7060d2941164e904a54b4760a85e181cfae9d6af3c445a
-  languageName: node
-  linkType: hard
-
 "realm@npm:^11.9.0":
   version: 11.9.0
   resolution: "realm@npm:11.9.0"
@@ -31035,20 +31013,6 @@ __metadata:
     react: ">= 15.2.1"
     react-native: ">= 0.30.0"
   checksum: 6cba6a99fb487067c509112b94e3d4d3905d782bbcb7af2cffbd57c601a4650d670e4eee5fec18d195d58ff6ec01a47288c5510379a2f37da3c5fc0a58860441
-  languageName: node
-  linkType: hard
-
-"redux-flipper@npm:^2.0.2":
-  version: 2.0.2
-  resolution: "redux-flipper@npm:2.0.2"
-  dependencies:
-    cycle: ^1.0.3
-    dayjs: ^1.8.29
-  peerDependencies:
-    react-native: ">=0.63.0"
-    react-native-flipper: ">=0.100.0"
-    redux: ^4
-  checksum: 6638e73f565d443bd8df3e65b0f6559b24aab9ccda747857238659c82e0978f0aa6f0fd9a554047f4824f0cf42c8d834f1efefbcf4295df466d7b9d7cda68a1c
   languageName: node
   linkType: hard
 
