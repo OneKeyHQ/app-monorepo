@@ -22,3 +22,4 @@ export function Video(rawProps: IVideoProps) {
 }
 
 export type * from './type';
+export * from './enum';
