@@ -1182,6 +1182,7 @@ export function useAccountSelectorActions() {
   const actions = createActions();
   const reloadActiveAccountInfo = actions.reloadActiveAccountInfo.use();
   const getSelectedAccount = actions.getSelectedAccount.use();
+  const getActiveAccount = actions.getActiveAccount.use();
   const initFromStorage = actions.initFromStorage.use();
   const saveToStorage = actions.saveToStorage.use();
   const updateSelectedAccount = actions.updateSelectedAccount.use();
@@ -1212,6 +1213,7 @@ export function useAccountSelectorActions() {
   return useRef({
     reloadActiveAccountInfo,
     getSelectedAccount,
+    getActiveAccount,
     refresh,
     initFromStorage,
     saveToStorage,
