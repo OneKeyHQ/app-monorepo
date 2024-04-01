@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { Linking, StyleSheet } from 'react-native';
 
 import {
+  EResizeMode,
   Heading,
   Icon,
   LinearGradient,
@@ -40,7 +41,7 @@ export function OneKeyHardwareWallet() {
           repeat
           source={source}
           flex={1}
-          resizeMode="cover"
+          resizeMode={EResizeMode.COVER}
           controls={false}
           playInBackground={false}
         />
