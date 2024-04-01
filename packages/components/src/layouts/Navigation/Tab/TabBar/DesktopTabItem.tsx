@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { ActionList, IconButton } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import {
@@ -14,6 +16,7 @@ import type { AvatarImage, GetProps } from 'tamagui';
 
 export interface IDesktopTabItemProps {
   icon?: IKeyOfIcons;
+  showAvatar?: boolean;
   avatarSrc?: GetProps<typeof AvatarImage>['src'];
   label?: string;
   selected?: boolean;
@@ -24,8 +27,28 @@ export interface IDesktopTabItemProps {
 export function DesktopTabItem(
   props: IDesktopTabItemProps & GetProps<typeof Stack>,
 ) {
-  const { icon, label, selected, tabBarStyle, actionList, avatarSrc, ...rest } =
-    props;
+  const {
+    icon,
+    label,
+    selected,
+    tabBarStyle,
+    actionList,
+    avatarSrc,
+    showAvatar = false,
+    ...rest
+  } = props;
+  const renderFallbackImage = useCallback(
+    () => (
+      <Image.Fallback>
+        <Icon
+          size="$4.5"
+          name="GlobusOutline"
+          color={selected ? '$iconActive' : '$iconSubdued'}
+        />
+      </Image.Fallback>
+    ),
+    [selected],
+  );
   return (
     <XStack
       alignItems="center"
@@ -48,19 +71,21 @@ export function DesktopTabItem(
           size="$5"
         />
       ) : null}
-      {avatarSrc ? (
+      {showAvatar ? (
         <Image borderRadius="$1" size="$4.5" m="$px">
-          <Image.Source src={avatarSrc} />
-          <Image.Fallback>
+          {avatarSrc ? <Image.Source src={avatarSrc} /> : null}
+          <Image.Fallback bg="$bgSidebar">
             <Icon
               size="$4.5"
               name="GlobusOutline"
               color={selected ? '$iconActive' : '$iconSubdued'}
             />
           </Image.Fallback>
-          <Image.Loading>
-            <Skeleton width="100%" height="100%" />
-          </Image.Loading>
+          {avatarSrc ? (
+            <Image.Loading>
+              <Skeleton width="100%" height="100%" />
+            </Image.Loading>
+          ) : null}
         </Image>
       ) : null}
       {label ? (
