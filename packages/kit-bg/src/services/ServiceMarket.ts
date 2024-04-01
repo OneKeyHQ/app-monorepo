@@ -307,13 +307,27 @@ export default class ServiceMarket extends ServiceBase {
     const coingeckoIds = favorites.map((f) => f.coingeckoId);
     this.backgroundApi.dispatch(saveMarketFavorite(coingeckoIds));
     for (const f of favorites) {
-      await this.marketTokenAddFavoriteForNtf(
-        f.coingeckoId,
-        f.symbol ?? 'UNKOWN',
-      );
+      if (f.symbol) {
+        await this.marketTokenAddFavoriteForNtf(f.coingeckoId, f.symbol);
+      }
     }
     this.backgroundApi.serviceCloudBackup.requestBackup();
     return simpleDb.market.saveFavoriteMarketTokens(coingeckoIds);
+  }
+
+  @backgroundMethod()
+  async getTokensDetail(coingeckoIds: string[]) {
+    const path = '/market/tokens';
+    const ids = coingeckoIds.join(',');
+    const data = await fetchData<MarketTokenItem[]>(
+      path,
+      {
+        vs_currency: 'usd',
+        ids,
+      },
+      [],
+    );
+    return data;
   }
 
   @backgroundMethod()
