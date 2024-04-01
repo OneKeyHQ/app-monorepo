@@ -5287,6 +5287,7 @@ __metadata:
     react-native-camera-kit: "npm:14.0.0-beta2"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
+    react-native-fast-image: "npm:8.6.3"
     react-native-file-logger: "npm:^0.4.1"
     react-native-fs: "npm:^2.20.0"
     react-native-gesture-handler: "npm:2.14.1"
@@ -5307,7 +5308,7 @@ __metadata:
     react-native-tcp-socket: "npm:^6.0.6"
     react-native-video: "npm:6.0.0-beta.6"
     react-native-view-shot: "npm:3.1.2"
-    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115"
+    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#35c21f1ea9ffd9cfa513d744cce8f13bb6c6acba"
     react-native-zip-archive: "npm:^6.0.9"
     readable-stream: "npm:^3.6.0"
     realm: "npm:12.3.0"
@@ -25474,6 +25475,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-fast-image@npm:8.6.3":
+  version: 8.6.3
+  resolution: "react-native-fast-image@npm:8.6.3"
+  peerDependencies:
+    react: ^17 || ^18
+    react-native: ">=0.60.0"
+  checksum: ed340c2b6c2e76658fa0a899a45132871017018bec0a03423b7456610810e79b2844dfa16063c05d98b89a7613eeb0de2fdf3ad978cdfa4d488a4e01228a7349
+  languageName: node
+  linkType: hard
+
 "react-native-file-logger@npm:^0.4.1":
   version: 0.4.1
   resolution: "react-native-file-logger@npm:0.4.1"
@@ -25944,16 +25955,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#5036d59cba4f5609c32b7eb5dec560e738ce7115":
-  version: 11.24.0
-  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=5036d59cba4f5609c32b7eb5dec560e738ce7115"
+"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#35c21f1ea9ffd9cfa513d744cce8f13bb6c6acba":
+  version: 13.8.1
+  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=35c21f1ea9ffd9cfa513d744cce8f13bb6c6acba"
   dependencies:
     escape-string-regexp: "npm:2.0.0"
     invariant: "npm:2.2.4"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: a2cea04eb5d2d37a3ba0399042978a8c7a2e87b450be52b13a12975a72aa60bf64f1ba88c0878a982ce193e5b50820ae4a18b9f2ace9d264436bbe8d3c23d514
+  checksum: 99a905feca4c3b0a901ab64826c1e5ed8419d8175686b090c912ddf7527b12fed3241120fc291acde81a004a4f9bb146c9d5373964558a44356896499cd9be35
   languageName: node
   linkType: hard
 

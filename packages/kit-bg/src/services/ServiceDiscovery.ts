@@ -104,7 +104,7 @@ class ServiceDiscovery extends ServiceBase {
     }>('/utility/v1/discover/dapp/list', {
       params: {
         cursor: listParams.cursor,
-        limit: listParams.limit ?? 20,
+        limit: listParams.limit ?? 30,
         category: listParams.category,
         network: listParams.network,
       },

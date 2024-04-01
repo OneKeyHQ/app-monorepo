@@ -18,7 +18,7 @@ import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
 import { Banner } from './Banner';
 import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
-import { SuggestedAndExploreSection } from './SuggestedAndExploreSection';
+import { SuggestedAndExploreSection } from './SuggestAndExploreSection';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
