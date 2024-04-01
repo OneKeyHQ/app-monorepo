@@ -98,7 +98,7 @@
     "mime-types": "^2.1.35",
     "path-browserify": "^1.0.1",
     "react-dom": "18.2.0",
-    "react-native": "0.71.8",
+    "react-native": "0.71.14",
     "react-native-web": "~0.18.11",
     "react-render-tracker": "0.7.3",
     "react-use-cookie": "^1.4.0",
