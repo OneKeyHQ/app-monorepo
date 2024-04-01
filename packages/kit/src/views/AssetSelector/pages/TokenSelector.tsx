@@ -107,7 +107,7 @@ function TokenSelector() {
     updateTokenListState,
   ]);
 
-  const debounceUpdateSearchKey = useDebouncedCallback(updateSearchKey, 800);
+  const debounceUpdateSearchKey = useDebouncedCallback(updateSearchKey, 200);
 
   const tokensLength = tokenList.tokens.length;
   const headerSearchBarOptions = useMemo(
