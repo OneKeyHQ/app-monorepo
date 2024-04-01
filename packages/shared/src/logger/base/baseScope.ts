@@ -34,16 +34,20 @@ export abstract class BaseScope implements IScope {
           const result = instance[prop].call(instance, ...args);
           const obj = isPromiseObject(result) ? await result : result;
           if (obj instanceof Metadata) {
+            const level = obj.metadata.level;
             if (obj.metadata.type === 'local') {
               const extensionName = `${this.scopeName}`;
               const logger = getLoggerExtension(extensionName);
               const msg = `${
                 this.scopeName
               } -> ${sceneName} -> ${prop}: ${stringifyFunc(...obj.args)}`;
-              logger[obj.metadata.level](msg);
+              logger[level](msg);
+              if (level === 'error') {
+                console.error(msg);
+              }
             } else if (obj.metadata.type === 'console') {
               // eslint-disable-next-line no-console
-              console[obj.metadata.level](...obj.args);
+              console[level](...obj.args);
             } else if (obj.metadata.type === 'server') {
               // eslint-disable-next-line no-console
               console.error('Server logging is not implemented'); // mix panel, sentry, etc
