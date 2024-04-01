@@ -31,16 +31,21 @@ export function SuggestedAndExploreSection({
   const [selectedNetwork, setSelectedNetwork] = useState<IServerNetwork>();
 
   const { result } = usePromiseResult(async () => {
-    const [categoryList, defaultNetwork] = await Promise.all([
+    const [categoryList, defaultNetwork, allNetworks] = await Promise.all([
       backgroundApiProxy.serviceDiscovery.fetchCategoryList(),
       backgroundApiProxy.serviceNetwork.getNetwork({
         networkId: getNetworkIdsMap().eth,
       }),
+      backgroundApiProxy.serviceNetwork.getAllNetworks(),
     ]);
+    const networkList = allNetworks.networks
+      .filter((n) => !n.isTestnet)
+      .map((n) => n.id);
     setSelectedCategory(categoryList[0].categoryId);
     setSelectedNetwork(defaultNetwork);
     return {
       categoryList,
+      networkList,
     };
   }, []);
 
@@ -146,6 +151,7 @@ export function SuggestedAndExploreSection({
           selectedNetwork={selectedNetwork}
           setSelectedCategory={setSelectedCategory}
           setSelectedNetwork={setSelectedNetwork}
+          networkList={result?.networkList ?? []}
           handleOpenWebSite={handleOpenWebSite}
         />
       );

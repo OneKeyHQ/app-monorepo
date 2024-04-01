@@ -27,6 +27,7 @@ export function ExploreView({
   setSelectedCategory,
   selectedNetwork,
   setSelectedNetwork,
+  networkList,
 }: {
   dAppList:
     | {
@@ -43,6 +44,7 @@ export function ExploreView({
   setSelectedCategory: Dispatch<SetStateAction<string>>;
   selectedNetwork: IServerNetwork | undefined;
   setSelectedNetwork: Dispatch<SetStateAction<IServerNetwork | undefined>>;
+  networkList: string[];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
   const media = useMedia();
@@ -132,6 +134,8 @@ export function ExploreView({
                 console.log('=====>', network);
                 setSelectedNetwork(network);
               },
+              defaultNetworkId: selectedNetwork?.id,
+              networkIds: networkList,
             });
           }}
         >

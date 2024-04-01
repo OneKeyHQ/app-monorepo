@@ -25,12 +25,6 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async sampleMethod() {
-    console.log('sampleMethod');
-    return 'sampleMethod';
-  }
-
-  @backgroundMethod()
   async getAllNetworks(): Promise<{ networks: IServerNetwork[] }> {
     // TODO save to simpleDB
     const networks = getPresetNetworks();
