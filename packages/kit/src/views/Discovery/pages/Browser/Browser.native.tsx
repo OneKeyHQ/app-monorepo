@@ -44,7 +44,7 @@ import { withBrowserProvider } from './WithBrowserProvider';
 function MobileBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { closeWebTab } = useBrowserTabActions().current;
+  const { closeWebTab, setCurrentWebTab } = useBrowserTabActions().current;
   // const { tab } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
@@ -79,6 +79,14 @@ function MobileBrowser() {
     async () => (activeTabId ? closeWebTab(activeTabId) : Promise.resolve()),
     [activeTabId, closeWebTab],
   );
+
+  const onCloseCurrentWebTabAndGoHomePage = useCallback(() => {
+    if (activeTabId) {
+      closeWebTab(activeTabId);
+      setCurrentWebTab(null);
+    }
+    return Promise.resolve();
+  }, [activeTabId, closeWebTab, setCurrentWebTab]);
 
   // For risk detection
   useEffect(() => {
@@ -127,7 +135,7 @@ function MobileBrowser() {
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
       >
         {!displayHomePage ? (
-          <Stack onPress={closeCurrentWebTab}>
+          <Stack onPress={onCloseCurrentWebTabAndGoHomePage}>
             <Icon name="CrossedLargeOutline" mr="$4" />
           </Stack>
         ) : null}
