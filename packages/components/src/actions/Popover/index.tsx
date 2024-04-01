@@ -214,7 +214,6 @@ function RawPopover({
         }}
         exitStyle={{ scale: 0.95, opacity: 0 }}
         w="$96"
-        $md={{ w: '100%' }}
         bg="$bg"
         borderRadius="$3"
         elevation={20}
