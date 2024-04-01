@@ -31,7 +31,7 @@ import type { IBrowserHistory } from '../../types';
 function groupDataByDate(data: IBrowserHistory[]) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(
     (result, item) => {
-      const date = formatRelativeDate(item.createdAt);
+      const date = formatRelativeDate(new Date(item.createdAt));
       if (result[date]) {
         result[date].push(item);
       } else {

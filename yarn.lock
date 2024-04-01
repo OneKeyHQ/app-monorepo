@@ -5287,6 +5287,7 @@ __metadata:
     react-native-camera-kit: "npm:14.0.0-beta2"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
+    react-native-fast-image: "npm:8.6.3"
     react-native-file-logger: "npm:^0.4.1"
     react-native-fs: "npm:^2.20.0"
     react-native-gesture-handler: "npm:2.14.1"
@@ -25471,6 +25472,16 @@ __metadata:
     react-native-gesture-handler: ">=2.0.0"
     react-native-reanimated: ">=2.8.0"
   checksum: 4d9c8bfef6185ab51ebef8d00a0a06f8fd57c96a5a9e60cb6e7cd56ec6222d37643c53fc998cc93efcb8be88d32c2e5e43788f1816d8cded4eb2b60076001749
+  languageName: node
+  linkType: hard
+
+"react-native-fast-image@npm:8.6.3":
+  version: 8.6.3
+  resolution: "react-native-fast-image@npm:8.6.3"
+  peerDependencies:
+    react: ^17 || ^18
+    react-native: ">=0.60.0"
+  checksum: ed340c2b6c2e76658fa0a899a45132871017018bec0a03423b7456610810e79b2844dfa16063c05d98b89a7613eeb0de2fdf3ad978cdfa4d488a4e01228a7349
   languageName: node
   linkType: hard
 

@@ -4,6 +4,8 @@ import {
   formatDistanceToNow as fnsFormatDistanceToNow,
   formatDuration as fnsFormatDuration,
   formatRelative,
+  isToday,
+  isYesterday,
   parseISO,
 } from 'date-fns';
 
@@ -140,28 +142,26 @@ export function formatDuration(duration: Duration) {
   return distance ?? '';
 }
 
-export function formatRelativeDate(date: Date | number) {
-  const parsedLocal = parseLocal(appLocale.getLocale());
+export function formatRelativeDate(date: Date) {
   const formatRelativeLocale: Record<string, string> = {
-    yesterday: `'${appLocale.intl.formatMessage({
+    yesterday: `${appLocale.intl.formatMessage({
       id: 'content__yesterday',
-    })}'`,
-    today: `'${appLocale.intl.formatMessage({ id: 'content__today' })}'`,
+    })}`,
+    today: `${appLocale.intl.formatMessage({ id: 'content__today' })}`,
     other: 'LLL dd yyyy',
   };
 
-  const locale = {
-    ...parsedLocal,
-    formatRelative: (token: string) => formatRelativeLocale[token],
-  };
+  let formattedDate;
 
-  try {
-    const relativeDate = formatRelative(date, new Date(), { locale });
-    return relativeDate ?? '';
-  } catch (error) {
-    console.error(error);
-    return `ParseError:${date.toString()}`;
+  if (isToday(date)) {
+    formattedDate = formatRelativeLocale.today;
+  } else if (isYesterday(date)) {
+    formattedDate = formatRelativeLocale.yesterday;
+  } else {
+    formattedDate = format(date, formatRelativeLocale.other);
   }
+
+  return formattedDate;
 }
 
 export function formatTime(date: Date | string, options?: IFormatDateOptions) {

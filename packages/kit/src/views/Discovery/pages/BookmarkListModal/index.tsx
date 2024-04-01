@@ -58,7 +58,23 @@ function BookmarkListModal() {
               defaultValues: { name: item.title },
             }}
           >
-            <Dialog.FormField name="name">
+            <Dialog.FormField
+              name="name"
+              rules={{
+                required: {
+                  value: true,
+                  message: 'Please enter the bookmark name',
+                },
+                minLength: {
+                  value: 1,
+                  message: 'Bookmark must be at least 1 characters',
+                },
+                maxLength: {
+                  value: 24,
+                  message: 'Bookmark cannot exceed 24 characters',
+                },
+              }}
+            >
               <Input autoFocus flex={1} />
             </Dialog.FormField>
           </Dialog.Form>
