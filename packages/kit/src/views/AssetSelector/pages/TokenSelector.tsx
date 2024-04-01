@@ -21,6 +21,8 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
+import { useDebounce } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
 function TokenSelector() {
   const intl = useIntl();
@@ -106,6 +108,8 @@ function TokenSelector() {
     updateTokenListState,
   ]);
 
+  const debounceUpdateSearchKey = useDebouncedCallback(updateSearchKey, 800);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -114,16 +118,13 @@ function TokenSelector() {
           tokenList.tokens.length > 10
             ? {
                 placeholder: 'Search symbol or contract address',
-                onChangeText: debounce(
-                  ({
-                    nativeEvent,
-                  }: {
-                    nativeEvent: TextInputFocusEventData;
-                  }) => {
-                    updateSearchKey(nativeEvent.text);
-                  },
-                  800,
-                ),
+                onChangeText: ({
+                  nativeEvent,
+                }: {
+                  nativeEvent: TextInputFocusEventData;
+                }) => {
+                  debounceUpdateSearchKey(nativeEvent.text);
+                },
               }
             : undefined
         }
