@@ -188,7 +188,7 @@ function WebContent({
         onLoadEnd={onLoadEnd as any}
         onScroll={(e) => {
           setEnabled(e.nativeEvent.contentOffset.y === 0);
-          onScroll?.(e);
+          void onScroll?.(e);
         }}
         displayProgressBar={false}
         onProgress={(p) => setProgress(p)}
