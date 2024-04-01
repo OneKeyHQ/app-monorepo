@@ -204,14 +204,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const activeTabId = get(activeTabIdAtom());
     const targetIndex = tabs.findIndex((t) => t.id === tabId);
     if (targetIndex !== -1) {
-      if (tabs[targetIndex].id === activeTabId) {
-        const prev = tabs[targetIndex - 1];
-        if (prev) {
-          prev.isActive = true;
-          this.setCurrentWebTab.call(set, prev.id);
+      const isClosingActiveTab = tabs[targetIndex].id === activeTabId;
+      tabs.splice(targetIndex, 1);
+
+      if (isClosingActiveTab) {
+        let newActiveTabIndex = targetIndex - 1;
+        // If the first tab is closed and there are other tabs
+        if (newActiveTabIndex < 0 && tabs.length > 0) {
+          newActiveTabIndex = 0;
+        }
+
+        if (newActiveTabIndex >= 0) {
+          const newActiveTab = tabs[newActiveTabIndex];
+          newActiveTab.isActive = true;
+          this.setCurrentWebTab.call(set, newActiveTab.id);
         }
       }
-      tabs.splice(targetIndex, 1);
     }
     this.buildWebTabs.call(set, { data: [...tabs] });
   });
