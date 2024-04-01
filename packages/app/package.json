@@ -72,7 +72,7 @@
     "react": "18.2.0",
     "react-content-loader": "^6.2.1",
     "react-dom": "18.2.0",
-    "react-native": "0.71.8",
+    "react-native": "0.71.14",
     "react-native-auto-size-text": "^1.1.1",
     "react-native-ble-manager": "^10.0.2",
     "react-native-camera-kit": "14.0.0-beta2",
@@ -87,7 +87,6 @@
     "react-native-exit-app": "^2.0.0",
     "react-native-fast-image": "^8.6.3",
     "react-native-file-logger": "^0.4.1",
-    "react-native-flipper": "0.162.0",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.10.1",
     "react-native-get-random-values": "^1.9.0",
@@ -114,8 +113,6 @@
     "react-render-tracker": "npm:react-native-render-tracker@0.0.1",
     "readable-stream": "^3.6.0",
     "realm": "^11.9.0",
-    "realm-flipper-plugin-device": "^1.1.0",
-    "redux-flipper": "^2.0.2",
     "stream-http": "^3.2.0",
     "text-encoding": "^0.7.0",
     "v8-android-jit": "11.1000.3"
@@ -124,7 +121,6 @@
     "@babel/core": "^7.20.0",
     "@types/levelup": "^5",
     "@types/react-native-canvas": "^0.1.9",
-    "react-native-flipper-performance-plugin": "^0.4.0",
     "rimraf": "^3"
   },
   "expo": {

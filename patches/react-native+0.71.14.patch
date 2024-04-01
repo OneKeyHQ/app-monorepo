@@ -1,0 +1,55 @@
+diff --git a/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts b/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
+index b06d1cb..6c2e083 100644
+--- a/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
++++ b/node_modules/react-native/Libraries/Components/View/ViewAccessibility.d.ts
+@@ -97,7 +97,7 @@ export interface AccessibilityProps
+    * A value indicating whether the accessibility elements contained within
+    * this accessibility element are hidden.
+    */
+-  'aria-hidden'?: boolean | undefined;
++  'aria-hidden'?: boolean | undefined | string;
+ 
+   'aria-live'?: ('polite' | 'assertive' | 'off') | undefined;
+   'aria-modal'?: boolean | undefined;
+diff --git a/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js b/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js
+index 6c7116e..eb32fdc 100644
+--- a/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js
++++ b/node_modules/react-native/Libraries/Renderer/implementations/ReactNativeRenderer-dev.js
+@@ -4333,7 +4333,10 @@ function injectInternals(internals) {
+     }
+ 
+     rendererID = hook.inject(internals); // We have successfully injected, so now it is safe to set up hooks.
+-
++    // For support react-render-tracker on iOS
++    globalThis.__REACT_DEVTOOLS_GLOBAL_INTERNALS__ = internals;
++    globalThis.__REACT_DEVTOOLS_GLOBAL_INTERNALS_RENDERER_ID__  = rendererID;
++     injectedHook = hook;
+     injectedHook = hook;
+   } catch (err) {
+     // Catch all errors because it is unsafe to throw during initialization.
+diff --git a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp b/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
+index 38ebeda..1c3fee5 100644
+--- a/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
++++ b/node_modules/react-native/ReactCommon/jsc/JSCRuntime.cpp
+@@ -417,12 +417,15 @@ JSCRuntime::~JSCRuntime() {
+   // has started.
+   ctxInvalid_ = true;
+   JSGlobalContextRelease(ctx_);
+-#ifndef NDEBUG
+-  assert(
+-      objectCounter_ == 0 && "JSCRuntime destroyed with a dangling API object");
+-  assert(
+-      stringCounter_ == 0 && "JSCRuntime destroyed with a dangling API string");
+-#endif
++  
++// fix issue that app crashes on reload in development mode with JSC engine. 
++// details: https://github.com/software-mansion/react-native-reanimated/issues/4783
++// #ifndef NDEBUG
++//   assert(
++//       objectCounter_ == 0 && "JSCRuntime destroyed with a dangling API object");
++//   assert(
++//       stringCounter_ == 0 && "JSCRuntime destroyed with a dangling API string");
++// #endif
+ }
+ 
+ std::shared_ptr<const jsi::PreparedJavaScript> JSCRuntime::prepareJavaScript(
