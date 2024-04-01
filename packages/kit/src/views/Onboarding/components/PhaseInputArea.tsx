@@ -44,16 +44,18 @@ import { useShowCopyPasteButton, useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
 import type { ITutorialsListItemProps } from './Tutorials';
-import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
+import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
 
 const KeyDownView = View as unknown as ComponentType<
-  PropsWithChildren<{
-    onKeyDown: (e: {
-      keyCode: number;
-      preventDefault: () => void;
-      stopPropagation: () => void;
-    }) => void;
-  }>
+  PropsWithChildren<
+    {
+      onKeyDown: (e: {
+        keyCode: number;
+        preventDefault: () => void;
+        stopPropagation: () => void;
+      }) => void;
+    } & ViewProps
+  >
 >;
 
 const phraseLengthOptions = [
