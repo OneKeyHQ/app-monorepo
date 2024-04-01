@@ -142,51 +142,13 @@ export function ExploreView({
               }}
             />
           </Image>
-          <SizableText size="$bodyMdMedium" px="$1">
-            {selectedNetwork?.name ?? ''}
-          </SizableText>
+          <XStack maxWidth={119}>
+            <SizableText size="$bodyMdMedium" px="$1" numberOfLines={1}>
+              {selectedNetwork?.name ?? ''}
+            </SizableText>
+          </XStack>
           <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
         </XStack>
-        {/* <Select
-          title="Categories"
-          items={networkOptions}
-          value={selectedNetwork}
-          onChange={setSelectedNetwork}
-          renderTrigger={({ label, value }) => (
-            <XStack
-              py="$1.5"
-              px="$2"
-              bg="$bgStrong"
-              borderRadius="$3"
-              userSelect="none"
-              borderCurve="continuous"
-              hoverStyle={{
-                bg: '$bgStrongHover',
-              }}
-              pressStyle={{
-                bg: '$bgStrongActive',
-              }}
-            >
-              <Image w="$5" h="$5">
-                <ImageSource
-                  source={{
-                    uri:
-                      networkOptions.find((i) => i.value === value)?.logoURI ??
-                      '',
-                  }}
-                />
-              </Image>
-              <SizableText size="$bodyMdMedium" px="$1">
-                {label}
-              </SizableText>
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
-            </XStack>
-          )}
-        /> */}
       </XStack>
       {isEmpty ? (
         <Empty icon="SearchOutline" title="No Results" />
