@@ -2,9 +2,11 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
+  ETabDeveloperRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -16,9 +18,6 @@ import {
   AccountSelectorTriggerLegacy,
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { ETabDeveloperRoutes } from '../type';
-
-import type { ITabDeveloperParamList } from '../type';
 
 function HomeAccountSelectorInfoDemo() {
   return (
@@ -91,7 +90,7 @@ export default function HomePageHeaderView() {
         </AccountSelectorProviderMirror>
         <SizableText>Header View Simple</SizableText>
         <SizableText>{`Header Height ${headerHighMode.toString()}`}</SizableText>
-        {headerHighMode && <SizableText py="$10">Very high</SizableText>}
+        {headerHighMode ? <SizableText py="$10">Very high</SizableText> : null}
         <Button onPress={headerHeightCall}>切换高度</Button>
         {/* <Button onPress={switchDemoVisibleCall}>切换 Demo3 显示</Button> */}
         <Button onPress={onNextPageCall}>下一页</Button>

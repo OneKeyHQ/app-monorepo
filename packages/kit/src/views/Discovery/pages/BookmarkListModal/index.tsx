@@ -58,7 +58,23 @@ function BookmarkListModal() {
               defaultValues: { name: item.title },
             }}
           >
-            <Dialog.FormField name="name">
+            <Dialog.FormField
+              name="name"
+              rules={{
+                required: {
+                  value: true,
+                  message: 'Please enter the bookmark name',
+                },
+                minLength: {
+                  value: 1,
+                  message: 'Bookmark must be at least 1 characters',
+                },
+                maxLength: {
+                  value: 24,
+                  message: 'Bookmark cannot exceed 24 characters',
+                },
+              }}
+            >
               <Input autoFocus flex={1} />
             </Dialog.FormField>
           </Dialog.Form>
@@ -154,7 +170,7 @@ function BookmarkListModal() {
                   }),
               })}
             >
-              {isEditing && (
+              {isEditing ? (
                 <ListItem.IconButton
                   title="Remove"
                   key="remove"
@@ -179,7 +195,7 @@ function BookmarkListModal() {
                   }}
                   testID="action-list-item-rename"
                 />
-              )}
+              ) : null}
               <ListItem.Avatar
                 src={item.logo}
                 fallbackProps={{
@@ -197,7 +213,7 @@ function BookmarkListModal() {
                 }}
                 flex={1}
               />
-              {isEditing && (
+              {isEditing ? (
                 <XStack space="$6">
                   <ListItem.IconButton
                     title="Rename"
@@ -223,7 +239,7 @@ function BookmarkListModal() {
                     onPressIn={drag}
                   />
                 </XStack>
-              )}
+              ) : null}
             </ListItem>
           )}
         />

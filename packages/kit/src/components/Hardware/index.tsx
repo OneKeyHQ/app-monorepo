@@ -1,14 +1,16 @@
 import { Dialog, Toast } from '@onekeyhq/components';
 
 import {
-  ConfirmOnClassic,
   ConfirmOnDevice,
+  ConfirmOnDeviceToastContent,
   ConfirmPassphrase,
   EnterPassphraseOnDevice,
   EnterPhase,
   EnterPin,
   EnterPinOnDevice,
 } from './Hardware';
+
+import type { IConfirmOnDeviceToastContentProps } from './Hardware';
 
 const mockListenDeviceResult = () => {
   const actions: (() => void | undefined)[] = [];
@@ -27,19 +29,22 @@ const mockListenDeviceResult = () => {
   };
 };
 
-export const confirmOnClassic = async () => {
+export const ConfirmOnDeviceToast = async ({
+  deviceType,
+}: IConfirmOnDeviceToastContentProps) => {
   const event = mockListenDeviceResult();
-
   const toast = Toast.show({
-    children: <ConfirmOnClassic />,
+    dismissOnOverlayPress: false,
+    disableSwipeGesture: false,
+    children: <ConfirmOnDeviceToastContent deviceType={deviceType} />,
     onClose: (extra) => {
       console.log('close flag:', extra?.flag);
-      console.log('close ConfirmOnClassic');
+      console.log('close ConfirmOnDeviceToastContent');
     },
   });
   setTimeout(async () => {
     event.confirm();
-    await toast.close({ flag: 'confirmOnClassic closeFlag' });
+    await toast.close({ flag: 'ConfirmOnDeviceToastContent closeFlag' });
   }, 3500);
   await event.run();
 };
@@ -47,12 +52,10 @@ export const confirmOnClassic = async () => {
 export const confirmOnDevice = async () => {
   const event = mockListenDeviceResult();
   const dialog = Dialog.show({
-    title: 'Confirm on Device',
+    title: 'Confirm on Device Sample',
+    dismissOnOverlayPress: false,
     showFooter: false,
     renderContent: <ConfirmOnDevice />,
-    onCancel: () => {
-      event.cancel();
-    },
   });
   setTimeout(async () => {
     event.confirm();
@@ -84,6 +87,7 @@ export const confirmByPin = async () => {
   const event = mockListenDeviceResult();
   const dialog = Dialog.show({
     title: 'Enter PIN',
+    description: 'Check device screen for keypad layout.',
     showFooter: false,
     dismissOnOverlayPress: false,
     renderContent: (

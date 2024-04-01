@@ -41,6 +41,7 @@ export function getOnChainHistoryTxAssetInfo({
   let isNFT = false;
   let isNative = false;
   let price = '0';
+  let decimals = 0;
   nft = nfts[tokenAddress];
   token = tokens[tokenAddress || 'native'];
 
@@ -60,6 +61,7 @@ export function getOnChainHistoryTxAssetInfo({
     isNFT = false;
     isNative = !!info.isNative;
     price = token.price ?? '0';
+    decimals = info.decimals;
   }
   return {
     name,
@@ -69,6 +71,7 @@ export function getOnChainHistoryTxAssetInfo({
     isNFT,
     isNative,
     price,
+    decimals,
   };
 }
 
@@ -91,25 +94,25 @@ export function getFilteredHistoryBySearchKey({
       tx.decodedTx.txid.toLowerCase() === searchKey ||
       tx.decodedTx.actions.some(
         (action) =>
-          action.assetTransfer?.from.toLowerCase().includes(searchKey) ||
-          action.assetTransfer?.to.toLowerCase().includes(searchKey) ||
-          action.tokenApprove?.from.toLowerCase().includes(searchKey) ||
-          action.tokenApprove?.to.toLowerCase().includes(searchKey) ||
-          action.functionCall?.from.toLowerCase().includes(searchKey) ||
-          action.functionCall?.to.toLowerCase().includes(searchKey) ||
-          action.unknownAction?.from.toLowerCase().includes(searchKey) ||
-          action.unknownAction?.to.toLowerCase().includes(searchKey) ||
+          action.assetTransfer?.from?.toLowerCase().includes(searchKey) ||
+          action.assetTransfer?.to?.toLowerCase().includes(searchKey) ||
+          action.tokenApprove?.from?.toLowerCase().includes(searchKey) ||
+          action.tokenApprove?.to?.toLowerCase().includes(searchKey) ||
+          action.functionCall?.from?.toLowerCase().includes(searchKey) ||
+          action.functionCall?.to?.toLowerCase().includes(searchKey) ||
+          action.unknownAction?.from?.toLowerCase().includes(searchKey) ||
+          action.unknownAction?.to?.toLowerCase().includes(searchKey) ||
           action.assetTransfer?.sends.some(
             (send) =>
               send.symbol.toLowerCase() === searchKey ||
-              send.from.toLowerCase().includes(searchKey) ||
-              send.to.toLowerCase().includes(searchKey),
+              send.from?.toLowerCase().includes(searchKey) ||
+              send.to?.toLowerCase().includes(searchKey),
           ) ||
           action.assetTransfer?.receives.some(
             (receive) =>
               receive.symbol.toLowerCase() === searchKey ||
-              receive.from.toLowerCase().includes(searchKey) ||
-              receive.to.toLowerCase().includes(searchKey),
+              receive.from?.toLowerCase().includes(searchKey) ||
+              receive.to?.toLowerCase().includes(searchKey),
           ) ||
           action.tokenApprove?.symbol.toLowerCase() === searchKey,
       ),

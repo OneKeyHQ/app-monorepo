@@ -81,8 +81,7 @@ function Items({
           }
         >
           <Image
-            w="$14"
-            h="$14"
+            size="$14"
             borderRadius="$3"
             $gtLg={{
               w: '$12',
@@ -103,6 +102,9 @@ function Items({
                 name="GlobusOutline"
               />
             </Image.Fallback>
+            <Image.Loading>
+              <Skeleton width="100%" height="100%" />
+            </Image.Loading>
           </Image>
           <SizableText
             size="$bodyLgMedium"
@@ -145,7 +147,7 @@ export function BookmarksAndHistoriesSection({
     : isNil(bookmarksData);
 
   return (
-    <Stack px="$5">
+    <Stack px="$5" minHeight="$40">
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading
           selected={!isHistoriesView}
@@ -159,7 +161,7 @@ export function BookmarksAndHistoriesSection({
         >
           History
         </DashboardSectionHeader.Heading>
-        {dataSource.length > 0 && (
+        {dataSource.length > 0 ? (
           <DashboardSectionHeader.Button
             onPress={() => {
               onPressMore(isHistoriesView);
@@ -167,7 +169,7 @@ export function BookmarksAndHistoriesSection({
           >
             See All
           </DashboardSectionHeader.Button>
-        )}
+        ) : null}
       </DashboardSectionHeader>
       {dataSource.length > 0 ? (
         <Items dataSource={dataSource} handleOpenWebSite={handleOpenWebSite} />
@@ -175,13 +177,13 @@ export function BookmarksAndHistoriesSection({
         <Stack
           bg="$bgSubdued"
           py="$6"
+          flex={1}
           borderRadius="$3"
-          style={{
-            borderCurve: 'continuous',
-          }}
+          borderCurve="continuous"
+          justifyContent="center"
         >
           {isNilDataSource ? (
-            <Skeleton w="100%" h="100%" />
+            <Skeleton w="100%" />
           ) : (
             <SizableText
               size="$bodyLg"

@@ -10,11 +10,11 @@ import type {
 } from '@onekeyhq/components/src/layouts/Navigation';
 import type {
   EModalRoutes,
+  ETabRoutes,
   IModalParamList,
+  ITabStackParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
-
-import type { ETabRoutes, ITabStackParamList } from '../routes/Tab/type';
 
 function useAppNavigation<
   P extends
@@ -66,6 +66,20 @@ function useAppNavigation<
       },
     ) => {
       const navigationInstance = navigationRef.current;
+
+      let rootNavigation = navigationInstance;
+      while (rootNavigation?.getParent()) {
+        rootNavigation = rootNavigation.getParent();
+      }
+
+      const existPageIndex = rootNavigation?.getState?.()?.routes?.findIndex(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        (rootRoute) => params?.screen === rootRoute?.params?.params?.screen,
+      );
+      if ((existPageIndex ?? -1) !== -1) {
+        return;
+      }
+
       // eslint-disable-next-line no-extra-boolean-cast
       if (!!navigationInstance.push) {
         navigationInstance.push(modalType, {

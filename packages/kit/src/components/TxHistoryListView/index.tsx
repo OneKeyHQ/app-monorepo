@@ -1,8 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ListView, SectionList, Stack } from '@onekeyhq/components';
+import {
+  ListView,
+  SectionList,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -21,6 +28,7 @@ type IProps = {
   isLoading?: boolean;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
+  ListHeaderComponent?: ReactElement;
   showHeader?: boolean;
   showIcon?: boolean;
   onPressHistory?: (history: IAccountHistoryTx) => void;
@@ -35,6 +43,7 @@ function TxHistoryListView(props: IProps) {
     data,
     isLoading,
     showHeader,
+    ListHeaderComponent,
     showIcon,
     onPressHistory,
     tableLayout,
@@ -54,12 +63,27 @@ function TxHistoryListView(props: IProps) {
     (tx: IAccountHistoryTx, index: number) => {
       const nextTx = data[index + 1];
       if (tx.decodedTx.status === EDecodedTxStatus.Pending) {
+        if (index === 0) {
+          currentDate.current = '';
+        }
         return (
           <>
             {index === 0 ? (
-              <SectionList.SectionHeader
-                title={intl.formatMessage({ id: 'transaction__pending' })}
-              />
+              <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" space="$2">
+                <Stack
+                  w="$2"
+                  height="$2"
+                  backgroundColor="$textCaution"
+                  borderRadius="$full"
+                />
+                <SizableText
+                  numberOfLines={1}
+                  size="$headingSm"
+                  color="$textCaution"
+                >
+                  {intl.formatMessage({ id: 'transaction__pending' })}
+                </SizableText>
+              </XStack>
             ) : null}
             <TxHistoryListItem
               key={index}
@@ -69,9 +93,9 @@ function TxHistoryListView(props: IProps) {
               onPress={onPressHistory}
               tableLayout={tableLayout}
             />
-            {nextTx.decodedTx.status !== EDecodedTxStatus.Pending && (
+            {nextTx?.decodedTx.status !== EDecodedTxStatus.Pending ? (
               <Stack mb="$5" />
-            )}
+            ) : null}
           </>
         );
       }
@@ -109,7 +133,7 @@ function TxHistoryListView(props: IProps) {
               onPress={onPressHistory}
               tableLayout={tableLayout}
             />
-            {nextDate !== date && <Stack mb="$5" />}
+            {nextDate !== date ? <Stack mb="$5" /> : null}
           </>
         );
       }
@@ -123,7 +147,7 @@ function TxHistoryListView(props: IProps) {
             onPress={onPressHistory}
             tableLayout={tableLayout}
           />
-          {nextDate !== date && <Stack mb="$5" />}
+          {nextDate !== date ? <Stack mb="$5" /> : null}
         </>
       );
     },
@@ -132,10 +156,13 @@ function TxHistoryListView(props: IProps) {
 
   if (!initialized && isLoading) {
     return (
-      <HistoryLoadingView
-        tableLayout={tableLayout}
-        onContentSizeChange={onContentSizeChange}
-      />
+      <Stack py="$3">
+        {ListHeaderComponent}
+        <HistoryLoadingView
+          tableLayout={tableLayout}
+          onContentSizeChange={onContentSizeChange}
+        />
+      </Stack>
     );
   }
 
@@ -143,8 +170,8 @@ function TxHistoryListView(props: IProps) {
     <ListView
       py="$3"
       h="100%"
-      scrollEnabled={platformEnv.isWebTouchable}
-      disableScrollViewPanResponder
+      scrollEnabled={onContentSizeChange ? platformEnv.isWebTouchable : true}
+      disableScrollViewPanResponder={!!onContentSizeChange}
       onContentSizeChange={onContentSizeChange}
       data={filteredHistory}
       ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
@@ -157,6 +184,7 @@ function TxHistoryListView(props: IProps) {
         index: number;
       }) => renderListItem(item, index)}
       ListFooterComponent={ListFooterComponent}
+      ListHeaderComponent={ListHeaderComponent}
       {...(showHeader &&
         data?.length > 0 && {
           ListHeaderComponent: (

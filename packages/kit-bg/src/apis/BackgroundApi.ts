@@ -122,6 +122,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceSwap() {
+    const ServiceSwap =
+      require('../services/ServiceSwap') as typeof import('../services/ServiceSwap');
+    const value = new ServiceSwap.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceSwap', { value });
+    return value;
+  }
+
   get serviceBootstrap() {
     const Service =
       require('../services/ServiceBootstrap') as typeof import('../services/ServiceBootstrap');
@@ -289,6 +299,36 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceAddressBook', { value });
+    return value;
+  }
+
+  get serviceE2E() {
+    const Service =
+      require('../services/ServiceE2E') as typeof import('../services/ServiceE2E');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceE2E', { value });
+    return value;
+  }
+
+  get serviceLightning() {
+    const Service =
+      require('../services/ServiceLightning') as typeof import('../services/ServiceLightning');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceLightning', { value });
+    return value;
+  }
+
+  get serviceLogger() {
+    const ServiceLogger =
+      require('../services/ServiceLogger') as typeof import('../services/ServiceLogger');
+    const value = new ServiceLogger.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceLogger', { value });
     return value;
   }
 }

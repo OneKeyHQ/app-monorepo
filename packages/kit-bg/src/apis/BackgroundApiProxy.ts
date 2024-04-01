@@ -16,10 +16,13 @@ import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
+import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
+import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -30,6 +33,7 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
+import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
@@ -67,6 +71,8 @@ class BackgroundApiProxy
   serviceApp = this._createProxyService('serviceApp') as ServiceApp;
 
   serviceSend = this._createProxyService('serviceSend') as ServiceSend;
+
+  serviceSwap = this._createProxyService('serviceSwap') as ServiceSwap;
 
   serviceToken = this._createProxyService('serviceToken') as ServiceToken;
 
@@ -125,6 +131,14 @@ class BackgroundApiProxy
   serviceAddressBook = this._createProxyService(
     'serviceAddressBook',
   ) as ServiceAddressBook;
+
+  serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
+
+  serviceLightning = this._createProxyService(
+    'serviceLightning',
+  ) as ServiceLightning;
+
+  serviceLogger = this._createProxyService('serviceLogger') as ServiceLogger;
 }
 
 export default BackgroundApiProxy;

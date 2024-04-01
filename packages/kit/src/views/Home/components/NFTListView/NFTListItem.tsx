@@ -12,6 +12,7 @@ function NFTListItem(props: IProps) {
   return (
     <Stack
       key={nft.itemId}
+      group="nftItem"
       flexBasis="50%"
       $gtSm={{
         flexBasis: '33.333333%',
@@ -53,10 +54,10 @@ function NFTListItem(props: IProps) {
               justifyContent="center"
               alignItems="center"
             >
-              <Icon name="ImageSquareWavesOutline" />
+              <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
             </Image.Fallback>
           </Image>
-          {Number.parseInt(nft.amount, 10) > 1 && (
+          {Number.parseInt(nft.amount, 10) > 1 ? (
             <SizableText
               position="absolute"
               right="$0"
@@ -71,7 +72,7 @@ function NFTListItem(props: IProps) {
             >
               x{nft.amount}
             </SizableText>
-          )}
+          ) : null}
         </Stack>
       </Stack>
       <Stack mt="$2">

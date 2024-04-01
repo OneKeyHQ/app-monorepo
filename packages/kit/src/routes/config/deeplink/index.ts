@@ -5,8 +5,10 @@ import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/src-electron/ap
 import {
   ONEKEY_APP_DEEP_LINK,
   ONEKEY_APP_DEEP_LINK_NAME,
+  ONEKEY_UNIVERSAL_LINK_HOST,
   WALLET_CONNECT_DEEP_LINK,
   WALLET_CONNECT_DEEP_LINK_NAME,
+  WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -19,8 +21,6 @@ type IDeepLinkUrlParsedResult = {
   url: string;
   urlExtracted: string;
 };
-export const WalletConnectUniversalLinkPath = 'wc/connect/wc';
-export const WalletConnectUniversalLinkPathSchema = `/wc/connect/wc`;
 const processDeepLinkUrl = memoizee(
   // parameter should be flatten, as memoizee primitive=true
   async (
@@ -48,8 +48,10 @@ const processDeepLinkUrl = memoizee(
 
       // ** ios UniversalLink
       //        https://app.onekey.so/wc/connect/wc?uri=wc%3Aeb16df1f-1d3b-4018-9d18-28ef610cc1a4%401%3Fbridge%3Dhttps%253A%252F%252Fj.bridge.walletconnect.org%26key%3D0037246aefb211f98a8386d4bf7fd2a5344960bf98cb39c57fb312a098f2eb77
+      // check UniversalLink allowed path here:
+      //    https://app.onekey.so/.well-known/apple-app-site-association
       if (
-        hostname === 'app.onekey.so' &&
+        hostname === ONEKEY_UNIVERSAL_LINK_HOST &&
         path === WalletConnectUniversalLinkPath
       ) {
         if (queryParams?.uri) {
@@ -106,8 +108,7 @@ const processDeepLinkUrl = memoizee(
       if (wcUri) {
         console.log('Create walletConnect connection by DeepLink: ', wcUri);
 
-        await backgroundApiProxy.walletConnect.initialize();
-        await backgroundApiProxy.walletConnect.connect(wcUri);
+        await backgroundApiProxy.walletConnect.connectToDapp(wcUri);
         return {
           type: 'walletConnect',
           url,

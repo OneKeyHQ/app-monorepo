@@ -1,5 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import { useTabIsRefreshingFocused } from '@onekeyhq/components';
+import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -10,27 +12,20 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { NFTListView } from '../components/NFTListView';
 
-type IProps = {
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
-};
-
-function NFTListContainer(props: IProps) {
+function NFTListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
-  const [initialized, setInitialized] = useState(false);
-
+  const { isFocused } = useTabIsRefreshingFocused();
+  const [nftListState, setNftListState] = useState({
+    initialized: false,
+    isRefreshing: false,
+  });
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-
-  const currentAccountId = useRef<string>('');
 
   const nfts = usePromiseResult(
     async () => {
       if (!account || !network) return;
-      if (currentAccountId.current !== account.id) {
-        currentAccountId.current = account.id;
-        setInitialized(false);
-      }
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
         networkId: network.id,
         accountAddress: account.address,
@@ -40,24 +35,36 @@ function NFTListContainer(props: IProps) {
         }),
       });
 
-      setInitialized(true);
+      setNftListState({
+        initialized: true,
+        isRefreshing: false,
+      });
 
       return r.data;
     },
     [account, network],
     {
-      watchLoading: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_NFT,
     },
   );
 
+  useEffect(() => {
+    if (account?.id && network?.id && wallet?.id) {
+      setNftListState({
+        initialized: false,
+        isRefreshing: true,
+      });
+    }
+  }, [account?.id, network?.id, wallet?.id]);
+
   return (
     <NFTListView
       data={nfts.result ?? []}
-      isLoading={nfts.isLoading}
+      isLoading={nftListState.isRefreshing}
       onContentSizeChange={onContentSizeChange}
-      initialized={initialized}
+      initialized={nftListState.initialized}
     />
   );
 }

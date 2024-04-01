@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
@@ -21,6 +21,10 @@ export type IFooterActionsProps = {
   onCancelText?: string;
   confirmButtonProps?: IActionButtonProps;
   cancelButtonProps?: IActionButtonProps;
+  /** use Page.cancelButton */
+  cancelButton?: ReactElement;
+  /** use Page.confirmButton */
+  confirmButton?: ReactElement;
   buttonContainerProps?: IStackProps;
 } & IStackProps;
 
@@ -44,6 +48,67 @@ const usePageNavigation = () => {
   };
 };
 
+export function FooterCancelButton({
+  children,
+  onCancel,
+  ...props
+}: IButtonProps & {
+  onCancel: IFooterActionsProps['onCancel'];
+}) {
+  const { pop, popStack } = usePageNavigation();
+  const handleCancel = useCallback(async () => {
+    await onCancel?.(pop, popStack);
+    if (!onCancel?.length) {
+      pop();
+    }
+  }, [onCancel, pop, popStack]);
+  return (
+    <Button
+      $md={
+        {
+          flex: 1,
+          size: 'large',
+        } as IButtonProps
+      }
+      onPress={handleCancel}
+      testID="page-footer-cancel"
+      {...props}
+    >
+      {children || 'Cancel'}
+    </Button>
+  );
+}
+
+export function FooterConfirmButton({
+  onConfirm,
+  children,
+  ...props
+}: IButtonProps & {
+  onConfirm: IFooterActionsProps['onConfirm'];
+}) {
+  const { pop, popStack } = usePageNavigation();
+
+  const handleConfirm = useCallback(() => {
+    onConfirm?.(pop, popStack);
+  }, [onConfirm, pop, popStack]);
+  return (
+    <Button
+      $md={
+        {
+          flex: 1,
+          size: 'large',
+        } as IButtonProps
+      }
+      variant="primary"
+      onPress={handleConfirm}
+      testID="page-footer-confirm"
+      {...props}
+    >
+      {children || 'Confirm'}
+    </Button>
+  );
+}
+
 export function FooterActions({
   onCancel,
   onCancelText,
@@ -53,19 +118,30 @@ export function FooterActions({
   cancelButtonProps,
   buttonContainerProps,
   children,
+  cancelButton,
+  confirmButton,
   ...restProps
 }: PropsWithChildren<IFooterActionsProps>) {
-  const { pop, popStack } = usePageNavigation();
-  const handleCancel = useCallback(async () => {
-    await onCancel?.(pop, popStack);
-    if (!onCancel?.length) {
-      pop();
+  const renderCancelButton = useCallback(() => {
+    if (cancelButton) {
+      return cancelButton;
     }
-  }, [onCancel, pop, popStack]);
-
-  const handleConfirm = useCallback(() => {
-    onConfirm?.(pop, popStack);
-  }, [onConfirm, pop, popStack]);
+    return !!cancelButtonProps || !!onCancel ? (
+      <FooterCancelButton onCancel={onCancel} {...cancelButtonProps}>
+        {onCancelText}
+      </FooterCancelButton>
+    ) : null;
+  }, [cancelButton, cancelButtonProps, onCancel, onCancelText]);
+  const renderConfirmButton = useCallback(() => {
+    if (confirmButton) {
+      return confirmButton;
+    }
+    return !!confirmButtonProps || !!onConfirm ? (
+      <FooterConfirmButton onConfirm={onConfirm} {...confirmButtonProps}>
+        {onConfirmText}
+      </FooterConfirmButton>
+    ) : null;
+  }, [confirmButton, confirmButtonProps, onConfirm, onConfirmText]);
   return (
     <Stack
       p="$5"
@@ -76,35 +152,8 @@ export function FooterActions({
     >
       {children}
       <XStack justifyContent="flex-end" space="$2.5" {...buttonContainerProps}>
-        {(!!cancelButtonProps || !!onCancel) && (
-          <Button
-            $md={
-              {
-                flex: 1,
-                size: 'large',
-              } as IButtonProps
-            }
-            onPress={handleCancel}
-            {...cancelButtonProps}
-          >
-            {onCancelText || 'Cancel'}
-          </Button>
-        )}
-        {(!!confirmButtonProps || !!onConfirm) && (
-          <Button
-            $md={
-              {
-                flex: 1,
-                size: 'large',
-              } as IButtonProps
-            }
-            variant="primary"
-            onPress={handleConfirm}
-            {...confirmButtonProps}
-          >
-            {onConfirmText || 'Confirm'}
-          </Button>
-        )}
+        {renderCancelButton()}
+        {renderConfirmButton()}
       </XStack>
     </Stack>
   );

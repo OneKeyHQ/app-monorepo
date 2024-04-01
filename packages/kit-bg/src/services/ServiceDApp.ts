@@ -21,6 +21,7 @@ import {
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import {
   EAccountSelectorSceneName,
   type IDappSourceInfo,
@@ -281,9 +282,17 @@ class ServiceDApp extends ServiceBase {
       storageType === 'walletConnect' &&
       rawData?.data.injectedProvider?.[origin]
     ) {
-      await this.disconnectWebsite({ origin, storageType: 'injectedProvider' });
+      await this.disconnectWebsite({
+        origin,
+        storageType: 'injectedProvider',
+        beforeConnect: true,
+      });
     } else if (rawData?.data.walletConnect?.[origin]) {
-      await this.disconnectWebsite({ origin, storageType: 'walletConnect' });
+      await this.disconnectWebsite({
+        origin,
+        storageType: 'walletConnect',
+        beforeConnect: true,
+      });
     }
   }
 
@@ -367,9 +376,11 @@ class ServiceDApp extends ServiceBase {
   async disconnectWebsite({
     origin,
     storageType,
+    beforeConnect = false,
   }: {
     origin: string;
     storageType: IConnectionStorageType;
+    beforeConnect?: boolean;
   }) {
     const { simpleDb, serviceWalletConnect } = this.backgroundApi;
     // disconnect walletConnect
@@ -384,6 +395,9 @@ class ServiceDApp extends ServiceBase {
     }
     await simpleDb.dappConnection.deleteConnection(origin, storageType);
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
+    if (!beforeConnect) {
+      await this.backgroundApi.serviceDApp.notifyDAppAccountsChanged(origin);
+    }
   }
 
   @backgroundMethod()
@@ -482,8 +496,8 @@ class ServiceDApp extends ServiceBase {
 
   @backgroundMethod()
   async getAllConnectedList(): Promise<IConnectionItemWithStorageType[]> {
-    const rawData =
-      await this.backgroundApi.simpleDb.dappConnection.getRawData();
+    const { simpleDb, serviceWalletConnect } = this.backgroundApi;
+    const rawData = await simpleDb.dappConnection.getRawData();
     const injectedProviders: IConnectionItemWithStorageType[] = rawData?.data
       ?.injectedProvider
       ? Object.values(rawData.data.injectedProvider).map((i) => ({
@@ -492,8 +506,7 @@ class ServiceDApp extends ServiceBase {
         }))
       : [];
 
-    const activeSessions =
-      await this.backgroundApi.serviceWalletConnect.getActiveSessions();
+    const activeSessions = await serviceWalletConnect.getActiveSessions();
     const activeSessionTopics = new Set(Object.keys(activeSessions ?? {}));
 
     let walletConnects: IConnectionItemWithStorageType[] = [];
@@ -515,11 +528,31 @@ class ServiceDApp extends ServiceBase {
     for (const item of allConnectedList) {
       const networksMap: Record<string, { networkIds: string[] }> = {};
       for (const [num, accountInfo] of Object.entries(item.connectionMap)) {
-        const { networkIds } =
-          await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
-            impls: [accountInfo.networkImpl],
-          });
-        networksMap[num] = { networkIds };
+        // build walletconnect networkIds
+        if (item.walletConnectTopic) {
+          const namespace =
+            implToNamespaceMap[
+              accountInfo.networkImpl as keyof typeof implToNamespaceMap
+            ];
+          const namespaces = activeSessions?.[item.walletConnectTopic ?? ''];
+          if (namespaces) {
+            const { requiredNamespaces, optionalNamespaces } = namespaces;
+            const networkIds =
+              await this.backgroundApi.serviceWalletConnect.getAvailableNetworkIdsForNamespace(
+                requiredNamespaces,
+                optionalNamespaces,
+                namespace,
+              );
+            networksMap[num] = { networkIds };
+          }
+        } else {
+          // build injected provider networkIds
+          const { networkIds } =
+            await this.backgroundApi.serviceNetwork.getNetworkIdsByImpls({
+              impls: [accountInfo.networkImpl],
+            });
+          networksMap[num] = { networkIds };
+        }
       }
       item.availableNetworksMap = networksMap;
     }

@@ -24,26 +24,9 @@ import type {
 function TxActionCommonAvatar({
   avatar,
 }: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout'>) {
-  const icon = avatar?.fallbackIcon;
   const containerSize = '$10';
-  const borderRadius = avatar.isNFT ? '$full' : '$2';
 
-  if (!avatar?.src) {
-    return (
-      <Stack
-        w={containerSize}
-        h={containerSize}
-        bg="$bgStrong"
-        alignItems="center"
-        justifyContent="center"
-        borderRadius={borderRadius}
-      >
-        <Icon name={icon} color="$iconSubdued" />
-      </Stack>
-    );
-  }
-
-  if (typeof avatar?.src === 'string') {
+  if (!avatar.src || typeof avatar.src === 'string') {
     return <Token size="lg" isNFT={avatar.isNFT} tokenImageUri={avatar.src} />;
   }
 
@@ -97,14 +80,14 @@ function TxActionCommonDescription({
           {description?.prefix}
         </SizableText>
       ) : null}
-      {description?.icon && (
+      {description?.icon ? (
         <Icon
           color="$iconSubdued"
           mr="$0.5"
           size="$4"
           name={description.icon}
         />
-      )}
+      ) : null}
       <SizableText size="$bodyMd" color="$textSubdued">
         {description?.children || '-'}
       </SizableText>
@@ -217,13 +200,13 @@ function TxActionCommonListView(
             flexBasis: 1,
           })}
         >
-          {showIcon && (
+          {showIcon ? (
             <TxActionCommonAvatar avatar={avatar} tableLayout={tableLayout} />
-          )}
+          ) : null}
           <Stack>
             <TxActionCommonTitle title={title} tableLayout={tableLayout} />
             <XStack>
-              {tableLayout && timestamp && (
+              {tableLayout && timestamp ? (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {formatTime(new Date(timestamp), {
@@ -234,7 +217,7 @@ function TxActionCommonListView(
                     •
                   </SizableText>
                 </>
-              )}
+              ) : null}
               <TxActionCommonDescription
                 description={description}
                 tableLayout={tableLayout}
@@ -263,25 +246,25 @@ function TxActionCommonListView(
             changeDescription
           )}
         </Stack>
-        {tableLayout && (
+        {tableLayout ? (
           <TxActionCommonFee
             fee={fee}
             feeFiatValue={feeFiatValue}
             feeSymbol={feeSymbol}
             currencySymbol={currencySymbol}
           />
-        )}
+        ) : null}
       </XStack>
 
       {/* Actions */}
-      {pending && (
+      {pending ? (
         <XStack pl={52} space="$3">
           <Button size="small" variant="primary">
             Speed Up
           </Button>
           <Button size="small">Cancel</Button>
         </XStack>
-      )}
+      ) : null}
     </ListItem>
   );
 }
@@ -295,41 +278,28 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
         title={overview.title}
         content={
           <XStack alignItems="center" space="$1">
-            <ListItem.Avatar
-              src={overview.avatar?.fallbackIcon}
-              size="$7"
-              circular={overview.avatar?.circular}
-              fallbackProps={{
-                bg: '$bgStrong',
-                justifyContent: 'center',
-                alignItems: 'center',
-                children: (
-                  <Icon
-                    name={
-                      overview.avatar?.fallbackIcon ?? 'QuestionmarkOutline'
-                    }
-                    color="$iconSubdued"
-                  />
-                ),
-              }}
+            <Token
+              size="md"
+              isNFT={overview.avatar?.isNFT}
+              tokenImageUri={overview.avatar?.src}
             />
             <SizableText size="$headingLg">{overview.content}</SizableText>
           </XStack>
         }
       />
-      {target && (
+      {target ? (
         <Container.Item
           title={target.title ?? intl.formatMessage({ id: 'content__to' })}
           content={target.content}
         />
-      )}
+      ) : null}
 
-      {source && (
+      {source ? (
         <Container.Item
           title={source.title ?? intl.formatMessage({ id: 'content__from' })}
           content={source.content}
         />
-      )}
+      ) : null}
     </Container.Box>
   );
 }

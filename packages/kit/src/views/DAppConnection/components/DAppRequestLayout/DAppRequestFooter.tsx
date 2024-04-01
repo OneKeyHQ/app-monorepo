@@ -31,6 +31,7 @@ function DAppRequestFooter({
       space="$2.5"
       onConfirm={onConfirm}
       onCancel={onCancel}
+      onConfirmText="Approve"
       confirmButtonProps={{
         variant:
           riskLevel === EHostSecurityLevel.High ? 'destructive' : 'primary',
@@ -45,15 +46,17 @@ function DAppRequestFooter({
       }}
       buttonContainerProps={{
         w: media.md ? '100%' : 'auto',
+        flexDirection:
+          riskLevel === EHostSecurityLevel.High ? 'row-reverse' : 'row',
       }}
     >
-      {showContinueOperateCheckbox && (
+      {showContinueOperateCheckbox ? (
         <Checkbox
           label="Proceed at my own risk"
           value={continueOperate}
           onChange={setContinueOperate}
         />
-      )}
+      ) : null}
     </Page.FooterActions>
   );
 }

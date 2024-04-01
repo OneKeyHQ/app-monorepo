@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Alert, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import type { IAlertType } from '@onekeyhq/components/src/actions/Alert';
 import {
   EHostSecurityLevel,
   type IHostSecurity,
@@ -13,10 +15,11 @@ function DAppRiskyAlert({
   origin: string;
   urlSecurityInfo?: IHostSecurity;
 }) {
-  const isScamLevel = urlSecurityInfo?.level === EHostSecurityLevel.High;
   const riskStyle = useMemo(() => {
     const defaultStyle = {
-      titleTextColor: '$text',
+      type: 'success',
+      alertIcon: 'InfoCircleSolid',
+      titleTextColor: '$textSuccess',
       descTextColor: '$textSubdued',
     };
     if (!urlSecurityInfo?.level) {
@@ -24,14 +27,26 @@ function DAppRiskyAlert({
     }
     if (urlSecurityInfo?.level === EHostSecurityLevel.High) {
       return {
+        type: 'critical',
+        alertIcon: 'ErrorSolid',
         titleTextColor: '$textCritical',
         descTextColor: '$textCriticalStrong',
       };
     }
     if (urlSecurityInfo?.level === EHostSecurityLevel.Medium) {
       return {
+        type: 'warning',
+        alertIcon: 'InfoSquareSolid',
         titleTextColor: '$textCaution',
         descTextColor: '$textCautionStrong',
+      };
+    }
+    if (urlSecurityInfo?.level === EHostSecurityLevel.Unknown) {
+      return {
+        type: 'default',
+        alertIcon: 'InfoCircleSolid',
+        titleTextColor: '$text',
+        descTextColor: '$textSubdued',
       };
     }
     return defaultStyle;
@@ -41,15 +56,18 @@ function DAppRiskyAlert({
     () => (
       <YStack space="$1">
         <SizableText size="$bodyLgMedium" color={riskStyle.titleTextColor}>
-          疑似恶意网站
+          {urlSecurityInfo?.detail?.title ?? ''}
         </SizableText>
         <SizableText size="$bodyMd" color={riskStyle.descTextColor}>
-          恶意的 setApprovalForAll 操作使用户的 ERC-721
-          资产暴露给恶意行为者，从而可能导致资产被盗
+          {urlSecurityInfo?.detail?.content ?? ''}
         </SizableText>
       </YStack>
     ),
-    [riskStyle],
+    [
+      riskStyle.descTextColor,
+      riskStyle.titleTextColor,
+      urlSecurityInfo?.detail,
+    ],
   );
 
   if (!urlSecurityInfo?.alert) {
@@ -59,9 +77,9 @@ function DAppRiskyAlert({
   return (
     <Alert
       fullBleed
-      type={isScamLevel ? 'critical' : 'warning'}
-      title={urlSecurityInfo.alert}
-      icon={isScamLevel ? 'ErrorSolid' : 'InfoSquareSolid'}
+      type={riskStyle.type as IAlertType}
+      title={urlSecurityInfo?.alert ?? ''}
+      icon={riskStyle.alertIcon as IKeyOfIcons}
       action={{
         primary: 'Details',
         onPrimaryPress: () => {

@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
 import { SizableText, styled } from 'tamagui';
@@ -10,7 +11,7 @@ interface ISegmentControlProps {
   fullWidth?: boolean;
   value: string | number;
   options: {
-    label: string;
+    label: string | ReactElement;
     value: string | number;
   }[];
   onChange: (value: string | number) => void;
@@ -24,7 +25,7 @@ function SegmentControlItem({
   disabled,
   ...rest
 }: {
-  label: string;
+  label: string | ReactElement;
   value: string | number;
   active: boolean;
   disabled?: boolean;
@@ -40,6 +41,7 @@ function SegmentControlItem({
       flex={1}
       onPress={handleChange}
       borderRadius="$2"
+      userSelect="none"
       focusable={!disabled}
       focusStyle={{
         outlineWidth: 2,
@@ -64,13 +66,17 @@ function SegmentControlItem({
       })}
       {...rest}
     >
-      <SizableText
-        size="$bodyMdMedium"
-        textAlign="center"
-        color={active ? '$text' : '$textSubdued'}
-      >
-        {label}
-      </SizableText>
+      {typeof label === 'string' ? (
+        <SizableText
+          size="$bodyMdMedium"
+          textAlign="center"
+          color={active ? '$text' : '$textSubdued'}
+        >
+          {label}
+        </SizableText>
+      ) : (
+        label
+      )}
     </YStack>
   );
 }

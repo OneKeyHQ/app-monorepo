@@ -19,13 +19,25 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
   @backgroundMethod()
   public async saveLocalHistoryPendingTxs(txs: IAccountHistoryTx[]) {
     if (!txs || !txs.length) return;
+    const now = Date.now();
     const rawData = await this.getRawData();
 
     let pendingTxs = rawData?.pendingTxs ?? [];
 
-    pendingTxs = uniqBy([...txs, ...pendingTxs], (tx) => tx.id).filter(
-      (tx) => tx.decodedTx.status === EDecodedTxStatus.Pending,
-    );
+    pendingTxs = uniqBy(
+      [
+        ...txs.map((tx) => ({
+          ...tx,
+          decodedTx: {
+            ...tx.decodedTx,
+            createdAt: now,
+            updatedAt: now,
+          },
+        })),
+        ...pendingTxs,
+      ],
+      (tx) => tx.id,
+    ).filter((tx) => tx.decodedTx.status === EDecodedTxStatus.Pending);
 
     return this.setRawData({
       ...rawData,

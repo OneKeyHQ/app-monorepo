@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';

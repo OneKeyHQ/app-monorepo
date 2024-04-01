@@ -1,6 +1,6 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { WalletConnectStartAccountSelectorNumber } from '@onekeyhq/shared/src/walletConnect/constant';
+import { WalletConnectAccountSelectorNumStartAt } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
   IConnectionAccountInfo,
   IConnectionAccountInfoWithNum,
@@ -26,7 +26,7 @@ function generateAccountSelectorNumber(
   let accountSelectorNumber =
     storageType === 'injectedProvider'
       ? 0
-      : WalletConnectStartAccountSelectorNumber;
+      : WalletConnectAccountSelectorNumStartAt;
   // Use a while loop to ensure finding an unused `accountSelectorNumber`
   while (connectionMap[accountSelectorNumber]) {
     accountSelectorNumber += 1;
@@ -278,8 +278,9 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   @backgroundMethod()
   async getAccountSelectorMap({ sceneUrl }: { sceneUrl: string }) {
     const rawData = await this.getRawData();
-    // TODO find from wallet connect connectionMap
-    const map = rawData?.data?.injectedProvider?.[sceneUrl]?.connectionMap;
+    const map =
+      rawData?.data?.injectedProvider?.[sceneUrl]?.connectionMap ||
+      rawData?.data?.walletConnect?.[sceneUrl]?.connectionMap;
     return map;
   }
 

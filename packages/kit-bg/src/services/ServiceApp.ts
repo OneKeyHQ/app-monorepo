@@ -14,15 +14,13 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDbInstance';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
-import {
-  settingsIsLightCNAtom,
-  settingsPersistAtom,
-  settingsTimeNowAtom,
-} from '../states/jotai/atoms';
+import { settingsPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -36,30 +34,22 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async demoJotaiGetSettings() {
-    const now = await settingsTimeNowAtom.get();
     const settings = await settingsPersistAtom.get();
 
-    const isLightCN = await settingsIsLightCNAtom.get();
     return {
-      now,
       settings,
-      isLightCN,
     };
   }
 
   @backgroundMethod()
   async demoJotaiUpdateSettings() {
-    const now = await settingsTimeNowAtom.set((v) => `${v}: hello world`);
     const settings = await settingsPersistAtom.set((v) => ({
       ...v,
       locale: v.locale !== 'zh-CN' ? 'zh-CN' : 'en-US',
       theme: v.theme !== 'dark' ? 'dark' : 'light',
     }));
-    const isLightCN = await settingsIsLightCNAtom.get();
     return {
-      now,
       settings,
-      isLightCN,
     };
   }
 
@@ -194,6 +184,11 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async showToast(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
     appEventBus.emit(EAppEventBusNames.ShowToast, params);
+  }
+
+  @backgroundMethod()
+  async openExtensionExpandTab(routeInfo: IOpenUrlRouteInfo) {
+    await extUtils.openExpandTab(routeInfo);
   }
 }
 

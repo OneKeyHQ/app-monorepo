@@ -3,8 +3,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
+  IAddressInteractionStatus,
+  IAddressValidateStatus,
+  IAddressValidation,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
 } from '@onekeyhq/shared/types/address';
@@ -19,10 +23,11 @@ type IAddressNetworkIdParams = {
 type IQueryAddressArgs = {
   networkId: string;
   address: string;
+  accountId?: string;
   enableNameResolve?: boolean;
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
-  enableFirstTransferCheck?: boolean;
+  enableAddressInteractionStatus?: boolean;
 };
 
 @backgroundClass()
@@ -45,19 +50,86 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async validateAddress({
-    networkId,
-    address,
-  }: IAddressNetworkIdParams): Promise<boolean> {
+  public async validateAddress(
+    params: IAddressNetworkIdParams,
+  ): Promise<IAddressValidateStatus> {
+    const { networkId, address } = params;
     try {
-      const result = await this.fetchAccountDetails({
-        networkId,
-        accountAddress: address,
-        withValidate: true,
+      const client = await this.getClient();
+      const resp = await client.get<{
+        data: IAddressValidation;
+      }>('/wallet/v1/account/validate-address', {
+        params: { networkId, accountAddress: address },
       });
-      return Boolean(result.validateInfo?.isValid);
+      return resp.data.data.isValid ? 'valid' : 'invalid';
+    } catch (serverError) {
+      try {
+        const localValidation =
+          await this.backgroundApi.serviceValidator.validateAddress({
+            networkId,
+            address,
+          });
+        return localValidation.isValid ? 'valid' : 'invalid';
+      } catch (localError) {
+        console.error('failed to validateAddress', serverError, localError);
+        defaultLogger.addressInput.validation.failWithUnknownError({
+          networkId,
+          address,
+          serverError: (serverError as Error).message,
+          localError: (localError as Error).message,
+        });
+        return 'unknown';
+      }
+    }
+  }
+
+  private async getAddressInteractionStatus({
+    networkId,
+    fromAddress,
+    toAddress,
+  }: {
+    networkId: string;
+    fromAddress: string;
+    toAddress: string;
+  }): Promise<IAddressInteractionStatus> {
+    try {
+      const client = await this.getClient();
+      const resp = await client.get<{
+        data: {
+          interacted: boolean;
+        };
+      }>('/wallet/v1/account/interacted', {
+        params: {
+          networkId,
+          accountAddress: fromAddress,
+          toAccountAddress: toAddress,
+        },
+      });
+      return resp.data.data.interacted ? 'interacted' : 'not-interacted';
     } catch {
-      return false;
+      return 'unknown';
+    }
+  }
+
+  private async checkAccountInteractionStatus({
+    networkId,
+    accountId,
+    toAddress,
+  }: {
+    networkId: string;
+    accountId: string;
+    toAddress: string;
+  }): Promise<IAddressInteractionStatus | undefined> {
+    const acc = await this.backgroundApi.serviceAccount.getAccount({
+      networkId,
+      accountId,
+    });
+    if (acc.address.toLowerCase() !== toAddress.toLowerCase()) {
+      return this.getAddressInteractionStatus({
+        networkId,
+        fromAddress: acc.address,
+        toAddress,
+      });
     }
   }
 
@@ -65,15 +137,17 @@ class ServiceAccountProfile extends ServiceBase {
   public async queryAddress({
     networkId,
     address,
+    accountId,
     enableNameResolve,
     enableAddressBook,
     enableWalletName,
+    enableAddressInteractionStatus,
   }: IQueryAddressArgs) {
     const result: IAddressQueryResult = { input: address };
     if (!networkId) {
       return result;
     }
-    result.isValid = await this.validateAddress({
+    result.validStatus = await this.validateAddress({
       networkId,
       address,
     });
@@ -81,7 +155,7 @@ class ServiceAccountProfile extends ServiceBase {
     if (isDomain && enableNameResolve) {
       await this.handleNameSolve(networkId, address, result);
     }
-    if (!result.isValid) {
+    if (result.validStatus !== 'valid') {
       return result;
     }
     const resolveAddress = result.resolveAddress ?? result.input;
@@ -101,7 +175,19 @@ class ServiceAccountProfile extends ServiceBase {
           networkId,
           address: resolveAddress,
         });
-      result.walletAccountName = walletAccountItems?.[0]?.accountName;
+
+      if (walletAccountItems.length > 0) {
+        const item = walletAccountItems[0];
+        result.walletAccountName = `${item.walletName} / ${item.accountName}`;
+      }
+    }
+    if (enableAddressInteractionStatus && resolveAddress && accountId) {
+      result.addressInteractionStatus =
+        await this.checkAccountInteractionStatus({
+          networkId,
+          accountId,
+          toAddress: resolveAddress,
+        });
     }
     return result;
   }
@@ -119,8 +205,8 @@ class ServiceAccountProfile extends ServiceBase {
     if (resolveNames && resolveNames.names?.length) {
       result.resolveAddress = resolveNames.names?.[0].value;
       result.resolveOptions = resolveNames.names?.map((o) => o.value);
-      if (!result.isValid) {
-        result.isValid = await this.validateAddress({
+      if (result.validStatus !== 'valid') {
+        result.validStatus = await this.validateAddress({
           networkId,
           address: result.resolveAddress,
         });

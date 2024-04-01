@@ -4,6 +4,7 @@ import { throttle } from 'lodash';
 
 import { useIsMounted } from '@onekeyhq/components/src/hocs/Provider/hooks/useIsMounted';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IConnectionAccountInfo,
   IConnectionStorageType,
@@ -11,7 +12,6 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import { ETabRoutes } from '../../../routes/Tab/type';
 import { getWebviewWrapperRef } from '../utils/explorerUtils';
 
 import { useWebTabDataById } from './useWebTabs';
@@ -145,19 +145,19 @@ export function useShouldUpdateConnectedAccount() {
       origin,
       accountSelectorNum,
       prevAccountInfo,
-      selectedAccount,
+      accountChangedParams,
       storageType,
       afterUpdate,
     }: {
       origin: string;
       accountSelectorNum: number;
       prevAccountInfo: IConnectionAccountInfo;
-      selectedAccount: IHandleAccountChangedParams;
+      accountChangedParams: IHandleAccountChangedParams;
       storageType: IConnectionStorageType;
       afterUpdate: () => void;
     }) => {
       const willUpdateAccountInfo =
-        getAccountInfoByActiveAccount(selectedAccount);
+        getAccountInfoByActiveAccount(accountChangedParams);
       if (
         !shouldUpdateConnectedAccount(prevAccountInfo, willUpdateAccountInfo)
       ) {
@@ -175,7 +175,7 @@ export function useShouldUpdateConnectedAccount() {
         'useShouldUpdateConnectedAccount handleAccountChanged: ',
         accountSelectorNum,
         prevAccountInfo,
-        selectedAccount,
+        accountChangedParams,
       );
 
       afterUpdate();

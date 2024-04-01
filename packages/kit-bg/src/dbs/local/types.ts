@@ -22,7 +22,8 @@ import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredentia
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
-import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
+import type { SignClientTypes } from '@walletconnect/types';
 import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
@@ -97,9 +98,9 @@ export type IDBWalletType =
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
-  nextIndex: number; // TODO optional
+  nextIndex: number; // TODO optional, merge with nextAccountIds
   // only for singleton wallet
-  accounts: Array<string>;
+  accounts: string[];
   // only for singleton wallet
   nextAccountIds: {
     // 'global': 1, // imported, external, watching,
@@ -109,6 +110,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   associatedDevice?: string; // alias to `dbDeviceId`
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
+  hiddenWallets?: IDBWallet[]; // readonly field
   deviceType?: string;
   isTemp?: boolean;
   passphraseState?: string;
@@ -128,6 +130,7 @@ export type IDBCreateHWWalletParamsBase = {
   features: IOneKeyDeviceFeatures;
   isFirmwareVerified?: boolean;
   skipDeviceCancel?: boolean;
+  hideCheckingDeviceLoading?: boolean;
 };
 export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
   passphraseState?: string;
@@ -139,15 +142,15 @@ export type IDBSetWalletNameAndAvatarParams = {
 };
 export type IDBRemoveWalletParams = {
   walletId: string;
-  password: string;
-  isHardware: boolean;
 };
 export type IDBSetAccountNameParams = {
   accountId?: string;
   indexedAccountId?: string;
   name: string;
 };
-
+export type IDBGetWalletsParams = {
+  nestedHiddenWallets?: boolean | undefined;
+};
 // ---------------------------------------------- account
 export type IDBAvatar = string; // stringify(IAvatarInfo)
 // IAvatar;
@@ -159,7 +162,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   type: EDBAccountType | undefined;
   path: string;
   pathIndex?: number;
-  relPath?: string;
+  relPath?: string; // 0/0
   indexedAccountId?: string;
   coinType: string;
   impl: string; // single chain account belongs to network impl
@@ -167,6 +170,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   createAtNetwork?: string;
   template?: string;
 };
+
 export type IDBSimpleAccount = IDBBaseAccount & {
   pub: string;
   address: string;
@@ -177,16 +181,45 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   xpubSegwit?: string; // wrap regular xpub into bitcoind native descriptor
   address: string; // Display/selected address
   addresses: Record<string, string>;
-  customAddresses?: Record<string, string>; // for btc custom address
+  customAddresses?: Record<string, string>; // for btc dynamic custom address
 };
 export type IDBVariantAccount = IDBBaseAccount & {
   pub: string;
   address: string; // Base address
-  // VARIANT: Network -> address
+  // VARIANT: networkId -> address
   // UTXO: relPath -> address
   addresses: Record<string, string>;
 };
-export type IDBAccount = IDBSimpleAccount | IDBUtxoAccount | IDBVariantAccount;
+export type IDBExternalAccountWalletConnectInfo = {
+  topic: string;
+  peerMeta: SignClientTypes.Metadata | undefined;
+  // how to check this account is connected by deeplink redirect at same device,
+  //      but not qrcode scan from another device
+  mobileLink?: string; // StorageUtil.setDeepLinkWallet(data?.wallet?.mobile_link);
+  connectedAddresses: {
+    [networkId: string]: string; // TODO change to string[]
+  };
+  selectedAddress: {
+    [networkId: string]: number;
+  };
+};
+export type IDBExternalAccount = IDBVariantAccount & {
+  address: string; // always be empty if walletconnect account
+  wcInfoRaw?: string;
+  wcInfo?: IDBExternalAccountWalletConnectInfo; // readonly field, json parse from wcInfoRaw
+  wcTopic?: string;
+  connectedAddresses: {
+    [networkId: string]: string; // multiple address join(',')
+  };
+  selectedAddress: {
+    [networkId: string]: number;
+  };
+};
+export type IDBAccount =
+  | IDBSimpleAccount
+  | IDBUtxoAccount
+  | IDBVariantAccount
+  | IDBExternalAccount;
 export type IDBIndexedAccount = IDBBaseObjectWithName & {
   walletId: string;
   index: number;
@@ -216,27 +249,32 @@ export type IDBSetNextAccountIdsParams = {
 };
 
 // ---------------------------------------------- device
-export type IDBDevicePayload = {
-  onDeviceInputPin?: boolean;
+export type IDBDeviceSettings = {
+  inputPinOnSoftware?: boolean;
+  inputPinOnSoftwareSupport?: boolean;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
-  features: string;
-  featuresInfo?: IOneKeyDeviceFeatures; // readonly field
+  features: string; // TODO rename to featuresRaw
+  featuresInfo?: IOneKeyDeviceFeatures; // readonly field // TODO rename to features
   connectId: string; // alias mac\sn, never changed
   name: string;
   uuid: string;
   deviceId: string; // deviceId changed after device reset
-  deviceType: string;
-  payloadJson: string;
-  payloadJsonInfo?: any;
+  deviceType: IDeviceType;
+  settingsRaw: string;
+  settings?: IDBDeviceSettings;
   createdAt: number;
   updatedAt: number;
   verifiedAtVersion?: string;
 };
-export type IDBDevicePro = Omit<IDBDevice, 'payloadJson'> & {
-  payload: IDBDevicePayload;
+export type IDBUpdateDeviceSettingsParams = {
+  dbDeviceId: string;
+  settings: IDBDeviceSettings;
 };
-
+export type IDBUpdateFirmwareVerifiedParams = {
+  device: IDBDevice;
+  verifyResult: 'official' | 'unofficial' | 'unknown';
+};
 // ---------------------------------------------- address
 export type IDBAddress = IDBBaseObject & {
   // id: networkId--address, impl--address
@@ -409,6 +447,7 @@ export type ILocalDBGetAllRecordsParams<T extends ELocalDBStoreNames> = {
 } & ILocalDBGetRecordsQuery;
 export interface ILocalDBGetAllRecordsResult<T extends ELocalDBStoreNames> {
   records: ILocalDBRecord<T>[];
+  // recordPairs is only available of txGetAllRecords()
 }
 
 // UpdateRecords
@@ -440,6 +479,7 @@ export interface ILocalDBTxRemoveRecordsParams<T extends ELocalDBStoreNames> {
   name: T;
   recordPairs?: ILocalDBRecordPair<T>[];
   ids?: string[];
+  ignoreNotFound?: boolean;
 }
 
 export type ILocalDBRecordUpdater<T extends ELocalDBStoreNames> = <
@@ -460,6 +500,8 @@ export interface ILocalDBAgent {
     task: ILocalDBWithTransactionTask<T>,
     options?: ILocalDBWithTransactionOptions,
   ): Promise<T>;
+
+  clearRecords(params: { name: ELocalDBStoreNames }): Promise<void>;
 
   getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,

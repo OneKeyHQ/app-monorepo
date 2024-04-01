@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { Divider, Icon, NumberSizeableText, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EModalAssetListRoutes,
   EModalRoutes,
@@ -13,6 +14,7 @@ import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useRiskyTokenListAtom,
   useRiskyTokenListMapAtom,
+  useSearchKeyAtom,
   useSmallBalanceTokenListAtom,
   useSmallBalanceTokenListMapAtom,
   useSmallBalanceTokensFiatValueAtom,
@@ -40,10 +42,14 @@ function TokenListFooter(props: IProps) {
   const [riskyTokenList] = useRiskyTokenListAtom();
   const [riskyTokenListMap] = useRiskyTokenListMapAtom();
 
+  const [searchKey] = useSearchKeyAtom();
+
   const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
 
   const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
     smallBalanceTokenList;
+
+  const isSearchMode = searchKey.length >= SEARCH_KEY_MIN_LENGTH;
 
   const handleOnPressLowValueTokens = useCallback(() => {
     if (!account || !network || smallBalanceTokens.length === 0) return;
@@ -98,10 +104,11 @@ function TokenListFooter(props: IProps) {
   return (
     <Stack>
       {tableLayout &&
-        (smallBalanceTokens.length > 0 || riskyTokens.length > 0) && (
-          <Divider mx="$5" my="$2" />
-        )}
-      {smallBalanceTokens.length > 0 && (
+      !isSearchMode &&
+      (smallBalanceTokens.length > 0 || riskyTokens.length > 0) ? (
+        <Divider mx="$5" my="$2" />
+      ) : null}
+      {!isSearchMode && smallBalanceTokens.length > 0 ? (
         <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
           <Stack
             p={tableLayout ? '$1' : '$1.5'}
@@ -129,8 +136,8 @@ function TokenListFooter(props: IProps) {
             {smallBalanceTokensFiatValue}
           </NumberSizeableText>
         </ListItem>
-      )}
-      {riskyTokens.length > 0 && (
+      ) : null}
+      {!isSearchMode && riskyTokens.length > 0 ? (
         <ListItem onPress={handleOnPressBlockedTokens} userSelect="none">
           <Stack
             p={tableLayout ? '$1' : '$1.5'}
@@ -151,7 +158,7 @@ function TokenListFooter(props: IProps) {
             })}
           />
         </ListItem>
-      )}
+      ) : null}
     </Stack>
   );
 }

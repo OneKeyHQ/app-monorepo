@@ -18,6 +18,7 @@ import type {
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IAmountInputFormItemProps = IFormFieldProps<
   string,
@@ -26,11 +27,12 @@ type IAmountInputFormItemProps = IFormFieldProps<
       loading?: boolean;
     };
     enableMaxAmount?: boolean;
-    currency?: string;
     valueProps?: {
       value?: string;
       onPress?: () => void;
       loading?: boolean;
+      currency?: string;
+      moreComponent?: React.ReactNode;
     };
     balanceProps?: {
       value?: string;
@@ -58,7 +60,6 @@ export function AmountInput({
   hasError,
   valueProps,
   balanceProps,
-  currency = '$',
   ...rest
 }: IAmountInputFormItemProps) {
   const sharedStyles = getSharedInputStyles({
@@ -75,19 +76,15 @@ export function AmountInput({
 
     return (
       <Input
-        keyboardType="number-pad"
+        keyboardType={platformEnv.isNativeIOS ? 'numeric' : 'number-pad'}
         height="$14"
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
-        borderTopWidth="$0"
-        borderRightWidth="$0"
-        borderBottomWidth="$0"
-        borderLeftWidth="$0"
         size="large"
-        bg="$transparent"
         focusStyle={undefined}
         containerProps={{
           flex: 1,
+          borderWidth: 0,
         }}
         value={value}
         onChangeText={onChange}
@@ -111,20 +108,21 @@ export function AmountInput({
     return (
       <>
         <NumberSizeableText
-          formatter="price"
-          formatterOptions={{ currency }}
+          formatter="value"
+          formatterOptions={{ currency: valueProps.currency ?? '$' }}
           size="$bodyMd"
           color="$textSubdued"
-          pr="$1.5"
+          pr="$0.5"
         >
           {valueProps.value || '0.00'}
         </NumberSizeableText>
-        {reversible && (
+        {valueProps.moreComponent}
+        {reversible ? (
           <Icon name="SwitchVerOutline" size="$4" color="$iconSubdued" />
-        )}
+        ) : null}
       </>
     );
-  }, [valueProps, currency, reversible]);
+  }, [valueProps, reversible]);
 
   const TokenSelectorTrigger = useMemo(() => {
     if (tokenSelectorTriggerProps?.loading) {
@@ -147,6 +145,7 @@ export function AmountInput({
           maxWidth: '$48',
         })}
         {...(tokenSelectorTriggerProps?.onPress && {
+          role: 'button',
           hoverStyle: {
             bg: '$bgHover',
           },
@@ -158,13 +157,13 @@ export function AmountInput({
       >
         <Stack>
           <Image height="$7" width="$7" borderRadius="$full">
-            {tokenSelectorTriggerProps?.selectedTokenImageUri && (
+            {tokenSelectorTriggerProps?.selectedTokenImageUri ? (
               <Image.Source
                 source={{
                   uri: tokenSelectorTriggerProps?.selectedTokenImageUri,
                 }}
               />
-            )}
+            ) : null}
           </Image>
           <Stack
             position="absolute"
@@ -174,7 +173,7 @@ export function AmountInput({
             borderRadius="$full"
             bg="$bgApp"
           >
-            {tokenSelectorTriggerProps?.selectedNetworkImageUri && (
+            {tokenSelectorTriggerProps?.selectedNetworkImageUri ? (
               <Image height="$3" width="$3" borderRadius="$full">
                 <Image.Source
                   source={{
@@ -182,13 +181,13 @@ export function AmountInput({
                   }}
                 />
               </Image>
-            )}
+            ) : null}
           </Stack>
         </Stack>
         <SizableText size="$headingXl" pl="$2" numberOfLines={1}>
           {tokenSelectorTriggerProps?.selectedTokenSymbol || 'Select Token'}
         </SizableText>
-        {tokenSelectorTriggerProps?.onPress && (
+        {tokenSelectorTriggerProps?.onPress ? (
           <Icon
             flexShrink={0}
             name="ChevronDownSmallOutline"
@@ -196,7 +195,7 @@ export function AmountInput({
             mr="$-1"
             color="$iconSubdued"
           />
-        )}
+        ) : null}
       </XStack>
     );
   }, [
@@ -231,7 +230,7 @@ export function AmountInput({
         })}
       >
         <SizableText size="$bodyMd" color="$textSubdued">
-          Balance:
+          {`Balance: `}
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
@@ -240,11 +239,11 @@ export function AmountInput({
             {balanceProps.value}
           </NumberSizeableText>
         </SizableText>
-        {enableMaxAmount && (
+        {enableMaxAmount ? (
           <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
             Max
           </SizableText>
-        )}
+        ) : null}
       </XStack>
     );
   }, [balanceProps, enableMaxAmount]);
@@ -255,9 +254,7 @@ export function AmountInput({
       borderWidth={sharedStyles.borderWidth}
       borderColor={sharedStyles.borderColor}
       overflow="hidden"
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       {...rest}
     >
       <XStack>

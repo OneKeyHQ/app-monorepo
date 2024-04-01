@@ -11,9 +11,8 @@ import type {
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
-  IEstimateGasResp,
   IFeeInfoUnit,
-  IFeeUTXO,
+  ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
@@ -21,7 +20,8 @@ import type {
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
-import type { ENFTType, IAccountNFT } from '@onekeyhq/shared/types/nft';
+import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type {
@@ -36,6 +36,7 @@ import type {
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
@@ -43,6 +44,7 @@ export enum EVaultKeyringTypes {
   hardware = 'hardware',
   imported = 'imported',
   watching = 'watching',
+  external = 'external',
 }
 
 // AccountNameInfo
@@ -50,6 +52,7 @@ export type IAccountDeriveInfoItems = {
   value: string;
   label: string;
   item: IAccountDeriveInfo;
+  description: string | undefined;
 };
 export interface IAccountDeriveInfo {
   // because the first account path of ledger live template is the same as the bip44 account path, so we should set idSuffix to uniq them
@@ -66,20 +69,14 @@ export interface IAccountDeriveInfo {
 
   labelKey?: MessageDescriptor['id'];
   label?: string;
-  // label?:
-  //   | {
-  //       // LocaleIds
-  //       id: MessageDescriptor['id'];
-  //     }
-  //   | string;
-  desc?:
-    | {
-        // LocaleIds
-        id: MessageDescriptor['id'];
-        placeholder?: any;
-      }
-    | string;
-  // subDesc?: string;
+
+  descI18n?: {
+    id: MessageDescriptor['id'];
+    data: Record<string | number, string>;
+  };
+  desc?: string;
+  subDesc?: string;
+
   // recommended?: boolean;
   // notRecommended?: boolean;
   enableConditions?: {
@@ -119,12 +116,16 @@ export type IVaultSettings = {
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
 
+  minTransferAmount?: string;
+  utxoDustAmount?: string;
+
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
   networkInfo: {
     default: IVaultSettingsNetworkInfo;
     [networkId: string]: IVaultSettingsNetworkInfo;
   };
+  validationRequired?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -146,6 +147,12 @@ export type IGetPrivateKeysParams = {
 export type IGetPrivateKeysResult = {
   [path: string]: Buffer;
 };
+export type IPrepareExternalAccountsParams = {
+  name: string;
+  networks?: string[];
+  wcTopic?: string;
+  wcPeerMeta?: SignClientTypes.Metadata;
+};
 export type IPrepareWatchingAccountsParams = {
   // target: string; // address, xpub TODO remove
   address: string;
@@ -155,6 +162,7 @@ export type IPrepareWatchingAccountsParams = {
   xpub?: string;
   name: string;
   template?: string; // TODO use deriveInfo, for BTC taproot address importing
+  deriveInfo?: IAccountDeriveInfo;
 };
 export type IPrepareImportedAccountsParams = {
   password: string;
@@ -174,7 +182,6 @@ export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
 };
 export type IPrepareHdAccountsOptions = {
-  addressEncoding?: EAddressEncodings;
   checkIsAccountUsed?: (query: {
     xpub: string;
     xpubSegwit?: string;
@@ -191,7 +198,8 @@ export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
   | IPrepareImportedAccountsParams
   | IPrepareHdAccountsParams
-  | IPrepareHardwareAccountsParams;
+  | IPrepareHardwareAccountsParams
+  | IPrepareExternalAccountsParams;
 
 // PrepareAccountByAddressIndex
 export type IPrepareAccountByAddressIndexParams = {
@@ -219,6 +227,7 @@ export type IBuildAccountAddressDetailParams = {
   networkId: string;
   networkInfo: IVaultSettingsNetworkInfo;
   account: IDBAccount;
+  externalAccountAddress?: string;
 };
 
 // Internal txInfo ----------------------------------------------
@@ -244,6 +253,7 @@ export type IApproveInfo = {
   owner: string;
   spender: string;
   amount: string;
+  isMax?: boolean;
   tokenInfo?: IToken;
 };
 
@@ -275,24 +285,6 @@ export type INativeAmountInfo = {
 };
 
 // Send ------------
-export interface IBuildTxHelperParams {
-  getToken: ({
-    networkId,
-    tokenIdOnNetwork,
-  }: {
-    networkId: string;
-    tokenIdOnNetwork: string;
-  }) => Promise<IToken | undefined>;
-  getNFT: ({
-    networkId,
-    nftId,
-    collectionAddress,
-  }: {
-    networkId: string;
-    collectionAddress: string;
-    nftId: string;
-  }) => Promise<IAccountNFT | undefined>;
-}
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
@@ -301,6 +293,7 @@ export interface IBuildEncodedTxParams {
 }
 export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
+  feeInfo?: ISendSelectedFeeInfo;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
@@ -308,6 +301,7 @@ export interface IBuildUnsignedTxParams {
   transfersInfo?: ITransferInfo[];
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
+  swapInfo?: ISwapTxInfo;
   specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {
@@ -325,6 +319,8 @@ export interface IBroadcastTransactionParams {
 
 export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
+  // TODO rename externalSignOnly
+  signOnly: boolean; // external account use this field to indicate sign only or sign and send
 }
 
 export type ISignAndSendTransactionParams = ISignTransactionParams;
@@ -335,7 +331,7 @@ export type ISignTransactionParams = ISignTransactionParamsBase & {
 
 export interface IBatchSignTransactionParamsBase {
   unsignedTxs: IUnsignedTxPro[];
-  feeInfo?: IFeeInfoUnit;
+  feeInfo?: ISendSelectedFeeInfo;
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
 }
@@ -360,4 +356,11 @@ export type IGetPrivateKeyFromImportedParams = {
 };
 export type IGetPrivateKeyFromImportedResult = {
   privateKey: string;
+};
+export type IValidateGeneralInputParams = {
+  input: string;
+  validateAddress?: boolean;
+  validateXpub?: boolean;
+  validateXprvt?: boolean;
+  validatePrivateKey?: boolean;
 };

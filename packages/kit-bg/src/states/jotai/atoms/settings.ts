@@ -14,6 +14,7 @@ export type ISettingsPersistAtom = {
   version: string;
   buildNumber?: string;
   instanceId: string;
+  sensitiveEncodeKey: string;
   isBiologyAuthSwitchOn: boolean;
   protectCreateTransaction: boolean;
   protectCreateOrRemoveWallet: boolean;
@@ -37,8 +38,9 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       version: process.env.VERSION ?? '1.0.0',
       buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
       instanceId: generateUUID(),
+      sensitiveEncodeKey: generateUUID(),
       swapToAnotherAccountSwitchOn: false,
-      isBiologyAuthSwitchOn: false,
+      isBiologyAuthSwitchOn: true,
       protectCreateTransaction: false,
       protectCreateOrRemoveWallet: false,
       spendDustUTXO: false,
@@ -65,23 +67,6 @@ export const {
 });
 
 // extract high frequency refresh data to another atom
-export type ISettingsTimeNowAtom = string;
-export const { target: settingsTimeNowAtom, use: useSettingsTimeNowAtom } =
-  globalAtom<ISettingsTimeNowAtom>({
-    name: EAtomNames.settingsTimeNowAtom,
-    initialValue: new Date().toISOString(),
-  });
-
-export const { target: settingsIsLightCNAtom, use: useSettingsIsLightCNAtom } =
-  globalAtomComputed<boolean>((get) => {
-    const settings = get(settingsPersistAtom.atom());
-    const timeNow = get(settingsTimeNowAtom.atom());
-    return (
-      settings.locale === 'zh-CN' &&
-      settings.theme === 'light' &&
-      timeNow.length > 0
-    );
-  });
 
 export const {
   target: swapToAnotherAccountSwitchOnAtom,

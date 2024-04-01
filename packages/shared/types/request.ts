@@ -1,5 +1,5 @@
-export type IOneKeyAPIBaseResponse = {
+export type IOneKeyAPIBaseResponse<T = any> = {
   code: number;
   message: string;
-  data: any;
+  data: T;
 };

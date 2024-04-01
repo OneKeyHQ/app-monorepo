@@ -8,13 +8,40 @@ import {
   Switch,
   XStack,
   YStack,
+  usePageLifeCycle,
+  usePageMounted,
+  usePageUnMounted,
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import type { ITabHomeParamList } from '@onekeyhq/shared/src/routes';
 import { ETestModalPages } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-import type { ITabHomeParamList } from '../../Home/router';
+function CustomConfirmButton() {
+  return (
+    <Page.ConfirmButton
+      onConfirm={(close) => {
+        alert('confirm');
+        close();
+      }}
+    >
+      custom confirm button
+    </Page.ConfirmButton>
+  );
+}
+
+function CustomCancelButton() {
+  return (
+    <Page.CancelButton
+      onCancel={() => {
+        console.log('cancel');
+      }}
+    >
+      custom cancel button
+    </Page.CancelButton>
+  );
+}
 
 export function TestSimpleModal() {
   const headerRightCall = useCallback(
@@ -23,12 +50,31 @@ export function TestSimpleModal() {
   );
   const [showHeader, changeHeaderStatus] = useState(true);
   const [showFooter, changeFooterStatus] = useState(true);
+  const [showConfirmAndCancelButton, changeConfirmAndCancelButtonStatus] =
+    useState(false);
   const [showCustomFooter, changeCustomFooterStatus] = useState(false);
   const [showNewHeader, changeNewHeaderStatus] = useState(false);
   const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
   const navigateToNextPage = useCallback(() => {
     navigation.push(ETestModalPages.TestSimpleModal);
   }, [navigation]);
+
+  usePageMounted(() => {
+    console.log('PageLifeCycle----page Mounted');
+  });
+
+  usePageUnMounted(() => {
+    console.log('PageLifeCycle----Page UnMounted');
+  });
+
+  usePageLifeCycle({
+    onMounted: () => {
+      console.log('usePageLifeCycle----page Mounted');
+    },
+    onUnmounted: () => {
+      console.log('usePageLifeCycle----page UnMounted');
+    },
+  });
 
   const [, setVal] = useState('');
 
@@ -57,6 +103,17 @@ export function TestSimpleModal() {
           <Switch value={showFooter} onChange={changeFooterStatus} />
           <SizableText>
             {showFooter ? 'Show Footer' : 'Hide Fotter'}
+          </SizableText>
+        </XStack>
+        <XStack>
+          <Switch
+            value={showConfirmAndCancelButton}
+            onChange={changeConfirmAndCancelButtonStatus}
+          />
+          <SizableText>
+            {showConfirmAndCancelButton
+              ? 'Show ConfirmAndCancelButton'
+              : 'Hide ConfirmAndCancelButton'}
           </SizableText>
         </XStack>
         <XStack>
@@ -120,6 +177,12 @@ export function TestSimpleModal() {
             alert('confirmed');
             close();
           }}
+          confirmButton={
+            showConfirmAndCancelButton ? <CustomConfirmButton /> : undefined
+          }
+          cancelButton={
+            showConfirmAndCancelButton ? <CustomCancelButton /> : undefined
+          }
           onConfirmText="YES"
           confirmButtonProps={{
             w: '$40',

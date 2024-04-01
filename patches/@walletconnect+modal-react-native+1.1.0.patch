@@ -1,0 +1,95 @@
+diff --git a/node_modules/@walletconnect/modal-react-native/lib/module/controllers/ApiCtrl.js b/node_modules/@walletconnect/modal-react-native/lib/module/controllers/ApiCtrl.js
+index 08c5c34..d838f00 100644
+--- a/node_modules/@walletconnect/modal-react-native/lib/module/controllers/ApiCtrl.js
++++ b/node_modules/@walletconnect/modal-react-native/lib/module/controllers/ApiCtrl.js
+@@ -104,7 +104,7 @@ export const ApiCtrl = {
+         }
+       });
+       const walletImages = data.map(d => d.image_id).filter(Boolean);
+-      await Promise.allSettled(walletImages.map(id => ApiCtrl._fetchWalletImage(id)));
++      await Promise.all(walletImages.map(id => ApiCtrl._fetchWalletImage(id)));
+       state.installed = data;
+     }
+   },
+@@ -140,7 +140,7 @@ export const ApiCtrl = {
+     });
+     const recent = await StorageUtil.getRecentWallet();
+     const recommendedImages = data.map(d => d.image_id).filter(Boolean);
+-    await Promise.allSettled([...recommendedImages, recent ? recent.image_id : undefined].map(id => ApiCtrl._fetchWalletImage(id)));
++    await Promise.all([...recommendedImages, recent ? recent.image_id : undefined].map(id => ApiCtrl._fetchWalletImage(id)));
+     state.recommended = data;
+     state.count = count ?? 0;
+   },
+@@ -177,7 +177,7 @@ export const ApiCtrl = {
+       }
+     });
+     const images = data.map(w => w.image_id).filter(Boolean);
+-    await Promise.allSettled([...images.map(id => ApiCtrl._fetchWalletImage(id)), CoreHelperUtil.wait(300)]);
++    await Promise.all([...images.map(id => ApiCtrl._fetchWalletImage(id)), CoreHelperUtil.wait(300)]);
+     state.wallets = [...state.wallets, ...data];
+     state.count = count > state.count ? count : state.count;
+     state.page = page;
+@@ -205,12 +205,12 @@ export const ApiCtrl = {
+       }
+     });
+     const images = data.map(w => w.image_id).filter(Boolean);
+-    await Promise.allSettled([...images.map(id => ApiCtrl._fetchWalletImage(id)), CoreHelperUtil.wait(300)]);
++    await Promise.all([...images.map(id => ApiCtrl._fetchWalletImage(id)), CoreHelperUtil.wait(300)]);
+     state.search = data;
+   },
+   async prefetch() {
+     await ApiCtrl.fetchInstalledWallets();
+-    state.prefetchPromise = Promise.race([Promise.allSettled([ApiCtrl.fetchRecommendedWallets()]), CoreHelperUtil.wait(3000)]);
++    state.prefetchPromise = Promise.race([Promise.all([ApiCtrl.fetchRecommendedWallets()]), CoreHelperUtil.wait(3000)]);
+   }
+ };
+ //# sourceMappingURL=ApiCtrl.js.map
+diff --git a/node_modules/@walletconnect/modal-react-native/src/controllers/ApiCtrl.ts b/node_modules/@walletconnect/modal-react-native/src/controllers/ApiCtrl.ts
+index d0d4422..ec05a7a 100644
+--- a/node_modules/@walletconnect/modal-react-native/src/controllers/ApiCtrl.ts
++++ b/node_modules/@walletconnect/modal-react-native/src/controllers/ApiCtrl.ts
+@@ -119,7 +119,7 @@ export const ApiCtrl = {
+       });
+ 
+       const walletImages = data.map((d) => d.image_id).filter(Boolean);
+-      await Promise.allSettled(
++      await Promise.all(
+         (walletImages as string[]).map((id) => ApiCtrl._fetchWalletImage(id))
+       );
+ 
+@@ -160,7 +160,7 @@ export const ApiCtrl = {
+ 
+     const recent = await StorageUtil.getRecentWallet();
+     const recommendedImages = data.map((d) => d.image_id).filter(Boolean);
+-    await Promise.allSettled(
++    await Promise.all(
+       (
+         [...recommendedImages, recent ? recent.image_id : undefined] as string[]
+       ).map((id) => ApiCtrl._fetchWalletImage(id))
+@@ -193,7 +193,7 @@ export const ApiCtrl = {
+     });
+ 
+     const images = data.map((w) => w.image_id).filter(Boolean);
+-    await Promise.allSettled([
++    await Promise.all([
+       ...(images as string[]).map((id) => ApiCtrl._fetchWalletImage(id)),
+       CoreHelperUtil.wait(300),
+     ]);
+@@ -220,7 +220,7 @@ export const ApiCtrl = {
+       },
+     });
+     const images = data.map((w) => w.image_id).filter(Boolean);
+-    await Promise.allSettled([
++    await Promise.all([
+       ...(images as string[]).map((id) => ApiCtrl._fetchWalletImage(id)),
+       CoreHelperUtil.wait(300),
+     ]);
+@@ -231,7 +231,7 @@ export const ApiCtrl = {
+     await ApiCtrl.fetchInstalledWallets();
+ 
+     state.prefetchPromise = Promise.race([
+-      Promise.allSettled([ApiCtrl.fetchRecommendedWallets()]),
++      Promise.all([ApiCtrl.fetchRecommendedWallets()]),
+       CoreHelperUtil.wait(3000),
+     ]);
+   },

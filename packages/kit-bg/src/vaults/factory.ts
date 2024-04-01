@@ -6,13 +6,18 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
+  IMPL_BCH,
   IMPL_BTC,
   IMPL_COSMOS,
+  IMPL_DOGE,
   IMPL_EVM,
+  IMPL_LIGHTNING,
+  IMPL_LTC,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { VaultFactory } from './base/VaultFactory';
 
@@ -54,7 +59,10 @@ export async function createKeyringInstance(vault: VaultBase) {
 
 export async function createVaultInstance(options: IVaultOptions) {
   ensureRunOnBackground();
-  const network = await options.backgroundApi.serviceNetwork.getNetwork({
+  if (!options.networkId) {
+    throw new Error('createVaultInstance ERROR: networkId is required');
+  }
+  const impl = networkUtils.getNetworkImpl({
     networkId: options.networkId,
   });
   let vault: VaultBase | null = null as unknown as VaultBase;
@@ -68,11 +76,15 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_EVM]: () => import('./impls/evm/Vault') as any,
     [IMPL_BTC]: () => import('./impls/btc/Vault') as any,
     [IMPL_TBTC]: () => import('./impls/tbtc/Vault') as any,
+    [IMPL_DOGE]: () => import('./impls/doge/Vault') as any,
+    [IMPL_BCH]: () => import('./impls/bch/Vault') as any,
+    [IMPL_LTC]: () => import('./impls/ltc/Vault') as any,
     [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
+    [IMPL_LIGHTNING]: () => import('./impls/lightning/Vault') as any,
   };
-  const loader = vaultsLoader[network.impl];
+  const loader = vaultsLoader[impl];
   if (!loader) {
-    throw new Error(`no vault found: impl=${network.impl}`);
+    throw new Error(`no vault found: impl=${impl}`);
   }
   const VaultClass = (await loader()).default;
 

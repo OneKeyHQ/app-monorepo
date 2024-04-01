@@ -11,15 +11,17 @@ export interface IPasswordSetupForm {
   confirmPassword: string;
 }
 interface IPasswordSetupProps {
-  biologyAuthSwitchContainer: React.ReactNode;
   loading: boolean;
   onSetupPassword: (data: IPasswordSetupForm) => void;
+  biologyAuthSwitchContainer?: React.ReactNode;
+  confirmBtnText?: string;
 }
 
 const PasswordSetup = ({
   loading,
-  biologyAuthSwitchContainer,
   onSetupPassword,
+  confirmBtnText,
+  biologyAuthSwitchContainer,
 }: IPasswordSetupProps) => {
   const intl = useIntl();
   const form = useForm<IPasswordSetupForm>({
@@ -36,6 +38,7 @@ const PasswordSetup = ({
   return (
     <Form form={form}>
       <Form.Field
+        label="New Password"
         name="password"
         rules={{
           required: { value: true, message: 'Please enter a password' },
@@ -48,16 +51,18 @@ const PasswordSetup = ({
             message: 'Password cannot exceed 128 characters',
           },
           onChange: () => {
-            form.clearErrors('confirmPassword');
+            form.clearErrors();
           },
         }}
       >
         <Input
           size="large"
+          $gtMd={{
+            size: 'medium',
+          }}
           placeholder="Create a strong password"
           disabled={loading}
           autoFocus
-          flex={1}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
           onChangeText={(text) => text.replace(PasswordRegex, '')}
           secureTextEntry={secureEntry}
@@ -74,6 +79,7 @@ const PasswordSetup = ({
         />
       </Form.Field>
       <Form.Field
+        label="Confirm Password"
         name="confirmPassword"
         rules={{
           validate: {
@@ -94,9 +100,11 @@ const PasswordSetup = ({
       >
         <Input
           size="large"
+          $gtMd={{
+            size: 'medium',
+          }}
           placeholder="Re-enter your password"
           disabled={loading}
-          flex={1}
           keyboardType={getPasswordKeyboardType(!secureReentry)}
           onChangeText={(text) => text.replace(PasswordRegex, '')}
           secureTextEntry={secureReentry}
@@ -115,10 +123,11 @@ const PasswordSetup = ({
       {biologyAuthSwitchContainer}
       <Button
         variant="primary"
+        loading={loading}
         onPress={form.handleSubmit(onSetupPassword)}
         testID="set-password"
       >
-        {intl.formatMessage({ id: 'title__set_password' })}
+        {confirmBtnText ?? intl.formatMessage({ id: 'title__set_password' })}
       </Button>
     </Form>
   );

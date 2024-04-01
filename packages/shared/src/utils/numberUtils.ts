@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { appLocale } from '../locale/appLocale';
+import platformEnv from '../platformEnv';
 
 import hexUtils from './hexUtils';
 
@@ -294,6 +295,11 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   const startsNumberIndex = isNegativeNumber ? 1 : 0;
 
   if (invalid) {
+    if (platformEnv.isDev) {
+      console.error(
+        `fail to format invalid number: ${rawValue}, please check it again`,
+      );
+    }
     return formattedValue;
   }
   const strings = [];
@@ -331,4 +337,54 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     strings.push(tokenSymbol);
   }
   return leadingZeros && leadingZeros > 4 ? strings : strings.join('');
+};
+
+export const NUMBER_FORMATTER = {
+  /** Balance/Amount */
+  balance: formatBalance,
+  /** Price/USD */
+  price: formatPrice,
+  /** PriceChange */
+  priceChange: formatPriceChange,
+  /** DeFi */
+  value: formatValue,
+  /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
+  marketCap: formatMarketCap,
+};
+
+export interface INumberFormatProps {
+  formatter?: keyof typeof NUMBER_FORMATTER;
+  formatterOptions?: IFormatterOptions;
+}
+
+export const numberFormat = (
+  value: string,
+  { formatter, formatterOptions }: INumberFormatProps,
+  isRaw = false,
+) => {
+  const result =
+    formatter && value
+      ? formatDisplayNumber(
+          NUMBER_FORMATTER[formatter](String(value), formatterOptions),
+        )
+      : '';
+  if (isRaw) {
+    return result;
+  }
+
+  if (typeof result === 'string') {
+    return result;
+  }
+
+  return result
+    .map((r) => {
+      if (typeof r === 'string') {
+        return r;
+      }
+      if (r.type === 'sub') {
+        return new Array(r.value).fill(0).join('');
+      }
+      return '';
+    })
+    .join('');
 };

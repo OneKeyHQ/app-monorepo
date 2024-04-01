@@ -1,10 +1,9 @@
-// import { openURL as LinkingOpenURL } from 'expo-linking';
+import punycode from 'punycode';
 
 import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
-// import platformEnv from '../platformEnv';
 
 import type { IServerNetwork } from '../../types';
 
@@ -133,11 +132,53 @@ export function buildExplorerAddressUrl({
   return addressUrl.replace('{address}', address);
 }
 
+export function buildTransactionDetailsUrl({
+  network,
+  txid,
+}: {
+  network: IServerNetwork | undefined;
+  txid: string | undefined;
+}) {
+  if (!network || !txid) return '';
+
+  const transactionUrl = network.explorers[0]?.transaction;
+
+  if (!transactionUrl) return '';
+
+  return transactionUrl.replace('{transaction}', txid);
+}
 export function isValidDeepLink(url: string) {
   return VALID_DEEP_LINK.some((protocol) =>
     url.toLowerCase().startsWith(`${protocol.toLowerCase()}//`),
   );
 }
+
+export const isValidWebUrl = (url: string) =>
+  /^[^/\s]+\.(?:ai|app|art|co|com|club|dev|ee|fi|finance|game|im|info|io|is|it|net|network|news|org|so|xyz)(?:\/[^/\s]*)*$/.test(
+    url,
+  );
+
+export const validateUrl = (url: string): string => {
+  let validatedUrl;
+  try {
+    validatedUrl = new URL(url);
+  } catch (e) {
+    if (isValidWebUrl(url)) {
+      return `https://${url}`;
+    }
+    return `https://www.google.com/search?q=${url}`;
+  }
+
+  return validatedUrl?.href ?? url;
+};
+
+export const containsPunycode = (url: string) => {
+  const validatedUrl = validateUrl(url);
+  if (!validatedUrl) return false;
+  const { hostname } = new URL(validatedUrl);
+  const unicodeHostname = punycode.toUnicode(hostname);
+  return hostname !== unicodeHostname;
+};
 
 export default {
   getOriginFromUrl,
@@ -145,4 +186,6 @@ export default {
   parseDappRedirect,
   isValidDeepLink,
   EDAppOpenActionEnum,
+  validateUrl,
+  containsPunycode,
 };

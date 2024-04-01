@@ -148,11 +148,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    const { addressEncoding } = params.deriveInfo;
     const chainId = await this.getNetworkChainId();
 
     return this.basePrepareHdNormalAccounts(params, {
-      addressEncoding,
       buildAddressesInfo: async ({ usedIndexes }) => {
         const publicKeys = await this.baseGetDeviceAccountPublicKeys({
           params,
@@ -184,6 +182,8 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response;
           },
         });
+
+        console.log('evm-buildAddressesInfo', publicKeys);
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {

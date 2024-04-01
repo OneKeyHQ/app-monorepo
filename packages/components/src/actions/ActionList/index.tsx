@@ -18,7 +18,7 @@ import type { IIconProps, IKeyOfIcons } from '../../primitives';
 import type { IPopoverProps } from '../Popover';
 import type { GestureResponderEvent } from 'react-native';
 
-interface IActionListItemProps {
+export interface IActionListItemProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
   label: string;
@@ -62,9 +62,7 @@ export function ActionListItem({
         py: '$2.5',
         borderRadius: '$3',
       }}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
       {...(!disabled && {
@@ -80,7 +78,7 @@ export function ActionListItem({
       onPress={handlePress}
       testID={testID}
     >
-      {icon && (
+      {icon ? (
         <Icon
           name={icon}
           size="$5"
@@ -89,8 +87,9 @@ export function ActionListItem({
           color={destructive ? '$iconCritical' : '$icon'}
           {...iconProps}
         />
-      )}
+      ) : null}
       <SizableText
+        textAlign="left"
         size="$bodyMd"
         $md={{ size: '$bodyLg' }}
         color={destructive ? '$textCritical' : '$text'}
@@ -173,8 +172,8 @@ function BasicActionList({
 
           {sections?.map((section, sectionIdx) => (
             <YStack key={sectionIdx}>
-              {sectionIdx > 0 && <Divider mx="$2" my="$1" />}
-              {section.title && (
+              {sectionIdx > 0 ? <Divider mx="$2" my="$1" /> : null}
+              {section.title ? (
                 <Heading
                   size="$headingXs"
                   $md={{ size: '$headingSm', paddingVertical: '$2.5' }}
@@ -184,7 +183,7 @@ function BasicActionList({
                 >
                   {section.title}
                 </Heading>
-              )}
+              ) : null}
               {section.items.map(renderActionListItem)}
             </YStack>
           ))}

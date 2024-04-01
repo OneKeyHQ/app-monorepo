@@ -48,14 +48,10 @@ function OthersWalletItem({
   } = useSelectedAccount({ num });
   return (
     <WalletListItem
-      walletName="Others"
-      selected={focusedWallet === '$$others'}
+      isOthers
       wallet={undefined}
-      onPress={() => onWalletPress && onWalletPress('$$others')}
-      walletAvatarProps={{
-        img: 'cardDividers',
-        wallet: undefined,
-      }}
+      focusedWallet={focusedWallet}
+      onWalletPress={onWalletPress}
     />
   );
 }
@@ -68,7 +64,10 @@ export function WalletList({ num }: IWalletListProps) {
   const { selectedAccount } = useSelectedAccount({ num });
 
   const { result: walletsResult, run: reloadWallets } = usePromiseResult(
-    () => serviceAccount.getHDAndHWWallets(),
+    () =>
+      serviceAccount.getHDAndHWWallets({
+        nestedHiddenWallets: true,
+      }),
     [serviceAccount],
     {
       checkIsFocused: false,
@@ -104,44 +103,43 @@ export function WalletList({ num }: IWalletListProps) {
       $gtMd={{
         w: '$32',
       }}
-      py="$2"
       bg="$bgSubdued"
       borderRightWidth={StyleSheet.hairlineWidth}
       borderRightColor="$neutral3"
     >
       {/* Close action */}
-      {(platformEnv.isExtension ||
-        platformEnv.isNativeAndroid ||
-        platformEnv.isWeb) && (
-        <XStack px="$5" py="$3.5">
+      {platformEnv.isExtension || platformEnv.isNativeAndroid ? (
+        <XStack py="$4" justifyContent="center">
           <Page.Close>
             <HeaderIconButton icon="CrossedLargeOutline" />
           </Page.Close>
         </XStack>
-      )}
+      ) : null}
       {/* Primary wallets */}
       <ListView
+        p="$2"
         estimatedItemSize="$10"
         data={wallets}
         extraData={selectedAccount.focusedWallet}
         renderItem={({ item }: { item: IDBWallet }) => (
           <WalletListItem
             key={item.id}
-            walletName={item.name}
             wallet={item}
-            selected={item.id === selectedAccount.focusedWallet}
-            onPress={() => onWalletPress && onWalletPress(item.id)}
-            walletAvatarProps={{
-              wallet: item,
-              status: 'default', // 'default' | 'connected';
-            }}
+            focusedWallet={selectedAccount.focusedWallet}
+            onWalletPress={onWalletPress}
+            testID={`wallet-${item.id}`}
           />
         )}
         ItemSeparatorComponent={ListItemSeparator}
-        ListFooterComponent={<AccountSelectorCreateWalletButton />}
       />
+      <AccountSelectorCreateWalletButton />
       {/* Others */}
-      <Stack pb={bottom}>
+      <Stack
+        p="$2"
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderTopColor="$borderSubdued"
+        mb={bottom}
+      >
         <OthersWalletItem onWalletPress={onWalletPress} num={num} />
       </Stack>
     </Stack>

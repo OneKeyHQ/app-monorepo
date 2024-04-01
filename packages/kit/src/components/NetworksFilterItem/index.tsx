@@ -25,9 +25,7 @@ export function NetworksFilterItem({
       bg={isSelected ? '$bgPrimary' : '$bgStrong'}
       borderRadius="$2"
       userSelect="none"
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       {...(!isSelected &&
         !disabled && {
           focusable: true,
@@ -48,7 +46,7 @@ export function NetworksFilterItem({
       })}
       {...rest}
     >
-      {networkImageUri && (
+      {networkImageUri ? (
         <Image
           height="$6"
           width="$6"
@@ -64,8 +62,8 @@ export function NetworksFilterItem({
             }}
           />
         </Image>
-      )}
-      {networkName && (
+      ) : null}
+      {networkName ? (
         <SizableText
           color={isSelected ? '$textOnColor' : '$textSubdued'}
           size="$bodyLgMedium"
@@ -75,7 +73,7 @@ export function NetworksFilterItem({
         >
           {networkName}
         </SizableText>
-      )}
+      ) : null}
     </XStack>
   );
 

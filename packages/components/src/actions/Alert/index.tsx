@@ -16,7 +16,12 @@ import { IconButton } from '../IconButton';
 import type { IKeyOfIcons } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
-type IAlertType = 'info' | 'warning' | 'critical' | 'success' | 'default';
+export type IAlertType =
+  | 'info'
+  | 'warning'
+  | 'critical'
+  | 'success'
+  | 'default';
 
 type IAlertActionProps = {
   primary: string;
@@ -54,9 +59,7 @@ const AlertFrame = styled(XStack, {
   borderColor: '$borderSubdued',
   borderRadius: '$3',
   borderWidth: StyleSheet.hairlineWidth,
-  style: {
-    borderCurve: 'continuous',
-  },
+  borderCurve: 'continuous',
   variants: {
     type: {
       info: {
@@ -132,12 +135,12 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
         </Stack>
       ) : null}
       <YStack flex={1} space="$1">
-        {title && <SizableText size="$bodyMd">{title}</SizableText>}
-        {description && (
+        {title ? <SizableText size="$bodyMd">{title}</SizableText> : null}
+        {description ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             {description}
           </SizableText>
-        )}
+        ) : null}
       </YStack>
       {action ? (
         <XStack space="$4" alignItems="center">

@@ -1,27 +1,17 @@
-import { useState } from 'react';
-
 import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
-import {
-  Dialog,
-  SizableText,
-  Spinner,
-  Stack,
-  Toast,
-} from '@onekeyhq/components';
+import { useFirmwareVerifyDialog } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
+import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
-export function Verification() {
-  const [verified, setVerified] = useState(false);
-  // const [unUnofficial, setUnofficial] = useState(false);
-  const [unUnofficial] = useState(false);
-  const returnVerified = () => {
-    setVerified(true);
-    Toast.success({
-      title: 'Verified',
-      message: 'You are good to go',
-    });
-  };
+export function Verification({ device }: { device?: IDBDevice | undefined }) {
+  // const returnVerified = () => {
+  //   setVerified(true);
+  //   Toast.success({
+  //     title: 'Verified',
+  //     message: 'You are good to go',
+  //   });
+  // };
 
   // const returnUnofficial = () => {
   //   setUnofficial(true);
@@ -35,14 +25,15 @@ export function Verification() {
     iconName: IKeyOfIcons;
     iconColor: IIconProps['color'];
   } => {
-    if (verified) {
+    if (device?.verifiedAtVersion) {
       return {
         iconName: 'BadgeVerifiedSolid',
         iconColor: '$iconSuccess',
       };
     }
 
-    if (unUnofficial) {
+    if (device?.verifiedAtVersion === '') {
+      // unUnofficial device cannot create a wallet
       return {
         iconName: 'ErrorSolid',
         iconColor: '$iconCritical',
@@ -57,35 +48,37 @@ export function Verification() {
 
   const { iconColor, iconName } = getIconNameAndIconColor();
 
+  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog({
+    noContinue: true,
+  });
+
   return (
     <WalletOptionItem
       icon={iconName}
       iconColor={iconColor}
-      label="Verification"
-      onPress={() => {
-        const dialog = Dialog.show({
-          title: 'Verification',
-          renderContent: (
-            <Stack borderRadius="$3" bg="$bgSubdued" p="$5">
-              <Spinner size="large" />
-              <SizableText textAlign="center" mb="$2" mt="$5">
-                Confirming if the firmware is officially released by OneKey
-              </SizableText>
-            </Stack>
-          ),
-          showFooter: false,
+      // icon="BadgeVerifiedSolid"
+      // iconColor="$iconSuccess"
+      label="Device Authentication"
+      onPress={async () => {
+        if (!device) {
+          return;
+        }
+        await showFirmwareVerifyDialog({
+          device,
+          onContinue: async ({ checked }) => {
+            console.log(checked);
+          },
         });
+        // setTimeout(async () => {
+        //   // TODO: dialog.close().then(() => doDomeThing())
+        //   await dialog.close();
 
-        setTimeout(async () => {
-          // TODO: dialog.close().then(() => doDomeThing())
-          await dialog.close();
+        //   // if official
+        //   returnVerified();
 
-          // if official
-          returnVerified();
-
-          // if unofficial
-          // returnUnofficial();
-        }, 1500);
+        //   // if unofficial
+        //   // returnUnofficial();
+        // }, 1500);
       }}
     />
   );

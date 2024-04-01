@@ -1,8 +1,14 @@
-import { Icon, Page, SizableText, Stack } from '@onekeyhq/components';
+import { useRoute } from '@react-navigation/core';
+
 import type { ColorTokens, IIconProps } from '@onekeyhq/components';
+import { Icon, Page, SizableText, Stack } from '@onekeyhq/components';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+
+import type { RouteProp } from '@react-navigation/core';
 
 interface IWaningMessage {
   icon?: IIconProps['name'];
@@ -43,8 +49,19 @@ const messages: IWaningMessage[] = [
 export function BeforeShowRecoveryPhrase() {
   const navigation = useAppNavigation();
 
+  const route =
+    useRoute<
+      RouteProp<IOnboardingParamList, EOnboardingPages.BeforeShowRecoveryPhrase>
+    >();
+
   const handleShowRecoveryPhrasePress = () => {
-    navigation.push(EOnboardingPages.RecoveryPhrase);
+    const mnemonic = route.params?.mnemonic;
+    if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
+
+    navigation.push(EOnboardingPages.RecoveryPhrase, {
+      mnemonic,
+      isBackup: route.params?.isBackup,
+    });
   };
 
   return (
@@ -60,9 +77,7 @@ export function BeforeShowRecoveryPhrase() {
               p="$2"
               borderRadius="$3"
               bg={item.iconContainerColor}
-              style={{
-                borderCurve: 'continuous',
-              }}
+              borderCurve="continuous"
             >
               <Icon name={item.icon} color={item.iconColor} />
             </Stack>
@@ -79,6 +94,7 @@ export function BeforeShowRecoveryPhrase() {
       <Page.Footer
         onConfirmText="Show Recovery Phrase"
         onConfirm={handleShowRecoveryPhrasePress}
+        confirmButtonProps={{ testID: 'show-recovery-phrase' }}
       />
     </Page>
   );

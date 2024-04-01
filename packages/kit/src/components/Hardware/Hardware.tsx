@@ -19,37 +19,37 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 
-export function ConfirmOnClassic() {
+export const CONFIRM_ON_DEVICES = {
+  classic: require('@onekeyhq/kit/assets/animations/confirm-on-classic.json'),
+  mini: require('@onekeyhq/kit/assets/animations/confirm-on-mini.json'),
+  proDark: require('@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'),
+  proLight: require('@onekeyhq/kit/assets/animations/confirm-on-pro-light.json'),
+  touch: require('@onekeyhq/kit/assets/animations/confirm-on-touch.json'),
+};
+
+export interface IConfirmOnDeviceToastContentProps {
+  deviceType: keyof typeof CONFIRM_ON_DEVICES;
+}
+export function ConfirmOnDeviceToastContent({
+  deviceType,
+}: IConfirmOnDeviceToastContentProps) {
   return (
-    <XStack
-      $gtMd={{ minWidth: '$80' }}
-      $md={{ px: '$1' }}
-      py="$3"
-      justifyContent="space-around"
-    >
-      <XStack alignItems="center">
-        <Stack
-          w="$16"
-          h="$16"
-          bg="$bgStrong"
-          borderRadius="$2"
-          style={{ borderCurve: 'continuous' }}
-          justifyContent="center"
-          alignItems="center"
-        >
-          <LottieView
-            width="$16"
-            height="$16"
-            source={require('../../../assets/animations/confirm-on-classic.json')}
-          />
-        </Stack>
-        <SizableText size="$bodyLgMedium" textAlign="center" pl="$4">
+    <XStack alignItems="center">
+      <Stack bg="$bgStrong" btlr="$2" bblr="$2">
+        <LottieView
+          width={72}
+          height={72}
+          source={CONFIRM_ON_DEVICES[deviceType]}
+        />
+      </Stack>
+      <XStack flex={1} alignItems="center" px="$3" space="$5">
+        <SizableText flex={1} size="$bodyLgMedium">
           Confirm on Device
         </SizableText>
+        <Toast.Close>
+          <IconButton size="small" icon="CrossedSmallOutline" />
+        </Toast.Close>
       </XStack>
-      <Toast.Close>
-        <IconButton icon="CrossedSmallOutline" />
-      </Toast.Close>
     </XStack>
   );
 }
@@ -79,7 +79,7 @@ export function CommonDeviceLoading({
       borderRadius="$3"
       p="$5"
       bg={bg ?? '$bgSubdued'}
-      style={{ borderCurve: 'continuous' }}
+      borderCurve="continuous"
     >
       <Spinner size="large" />
       {children}
@@ -127,9 +127,7 @@ export function EnterPin({
         borderColor="$borderSubdued"
         borderRadius="$2"
         overflow="hidden"
-        style={{
-          borderCurve: 'continuous',
-        }}
+        borderCurve="continuous"
       >
         <XStack
           h="$12"

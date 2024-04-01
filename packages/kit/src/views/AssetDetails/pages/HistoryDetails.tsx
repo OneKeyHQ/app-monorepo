@@ -10,6 +10,7 @@ import type { IStackProps, IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   Divider,
+  IconButton,
   Image,
   NumberSizeableText,
   Page,
@@ -17,6 +18,8 @@ import {
   Spinner,
   Stack,
   XStack,
+  YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -27,6 +30,7 @@ import {
   getHistoryTxDetailInfo,
   getOnChainHistoryTxAssetInfo,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import { type IOnChainHistoryTxTransfer } from '@onekeyhq/shared/types/history';
 import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
 import {
@@ -38,6 +42,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { openUrl } from '../../../utils/openUrl';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
@@ -66,7 +71,7 @@ function getTxStatusTextProps(status: EDecodedTxStatus): {
   };
 }
 
-function InfoItemGroup({ children, ...rest }: IXStackProps) {
+export function InfoItemGroup({ children, ...rest }: IXStackProps) {
   return (
     <XStack p="$2.5" flexWrap="wrap" {...rest}>
       {children}
@@ -74,7 +79,7 @@ function InfoItemGroup({ children, ...rest }: IXStackProps) {
   );
 }
 
-function InfoItem({
+export function InfoItem({
   label,
   renderContent,
   compact = false,
@@ -109,7 +114,7 @@ function InfoItem({
   );
 }
 
-function AssetItem({
+export function AssetItem({
   asset,
   index,
   direction,
@@ -183,6 +188,8 @@ function HistoryDetails() {
       >
     >();
 
+  const { copyText } = useClipboard();
+
   const { networkId, accountAddress, historyTx } = route.params;
 
   const navigation = useAppNavigation();
@@ -198,7 +205,10 @@ function HistoryDetails() {
           txid: historyTx.decodedTx.txid,
           status: historyTx.decodedTx.status,
         }),
-        backgroundApiProxy.serviceToken.getNativeToken({ networkId }),
+        backgroundApiProxy.serviceToken.getNativeToken({
+          networkId,
+          accountAddress,
+        }),
       ]),
     [
       accountAddress,
@@ -214,6 +224,7 @@ function HistoryDetails() {
 
   const { data: txDetails, tokens = {}, nfts = {} } = txDetailsResp ?? {};
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleOnViewUTXOsPress = useCallback(() => {
     if (!txDetails) return;
     const { inputs: onChainInputs, outputs: onChainOutputs } = txDetails;
@@ -294,7 +305,7 @@ function HistoryDetails() {
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {historyTx.decodedTx.status === EDecodedTxStatus.Pending && (
+        {historyTx.decodedTx.status === EDecodedTxStatus.Pending ? (
           <XStack ml="$5">
             <Button size="small" variant="primary">
               Speed Up
@@ -303,10 +314,40 @@ function HistoryDetails() {
               Cancel
             </Button>
           </XStack>
-        )}
+        ) : null}
       </XStack>
     );
   }, [historyTx.decodedTx.status, intl]);
+
+  const renderTxId = useCallback(
+    (txid: string) => (
+      <YStack space="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {txid}
+        </SizableText>
+        <XStack space="$2">
+          <IconButton
+            icon="Copy2Outline"
+            size="small"
+            onPress={() => copyText(txid)}
+          />
+          <IconButton
+            icon="OpenOutline"
+            size="small"
+            onPress={() =>
+              openUrl(
+                buildTransactionDetailsUrl({
+                  network,
+                  txid,
+                }),
+              )
+            }
+          />
+        </XStack>
+      </YStack>
+    ),
+    [copyText, network],
+  );
 
   const transfersToRender = useMemo(() => {
     let transfers: {
@@ -458,29 +499,32 @@ function HistoryDetails() {
           <InfoItemGroup>
             <InfoItem label="From" renderContent={txAddresses.from} />
             <InfoItem label="To" renderContent={txAddresses.to} />
-            <InfoItem label="Transaction ID" renderContent={txInfo.txid} />
+            <InfoItem
+              label="Transaction ID"
+              renderContent={renderTxId(txInfo.txid)}
+            />
             <InfoItem
               label="Network Fee"
               renderContent={renderFeeInfo()}
               compact
             />
-            {!isNil(txInfo.nonce) && (
+            {vaultSettings?.nonceRequired && !isNil(txInfo.nonce) ? (
               <InfoItem
                 label="Nonce"
                 renderContent={String(txInfo.nonce)}
                 compact
               />
-            )}
-            {!isNil(txInfo.confirmations) && (
+            ) : null}
+            {!isNil(txInfo.confirmations) ? (
               <InfoItem
                 label="Confirmations"
                 renderContent={String(txInfo.confirmations)}
                 compact
               />
-            )}
+            ) : null}
           </InfoItemGroup>
           {/* Tertiary */}
-          {txInfo.swapInfo && (
+          {txInfo.swapInfo ? (
             <>
               <Divider mx="$5" />
               <InfoItemGroup>
@@ -517,13 +561,14 @@ function HistoryDetails() {
                 />
               </InfoItemGroup>
             </>
-          )}
+          ) : null}
         </Stack>
       </>
     );
   }, [
     renderAssetsChange,
     renderFeeInfo,
+    renderTxId,
     renderTxStatus,
     resp.isLoading,
     transfersToRender,
@@ -534,11 +579,12 @@ function HistoryDetails() {
     txInfo.nonce,
     txInfo.swapInfo,
     txInfo.txid,
+    vaultSettings?.nonceRequired,
   ]);
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={txDetails?.label.label} />
+      <Page.Header headerTitle={txDetails?.label} />
       <Page.Body>{renderHistoryDetails()}</Page.Body>
     </Page>
   );

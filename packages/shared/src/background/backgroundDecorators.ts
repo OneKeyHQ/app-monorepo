@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/restrict-template-expressions */
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   throwCrossError,
   warningIfNotRunInBackground,
@@ -40,7 +42,13 @@ function backgroundClass() {
   };
 }
 
-function createBackgroundMethodDecorator({ prefix }: { prefix: string }) {
+function createBackgroundMethodDecorator({
+  prefix,
+  devOnly = false,
+}: {
+  prefix: string;
+  devOnly?: boolean;
+}) {
   return function (
     target: IBackgroundUnknownTarget,
     methodName: string,
@@ -52,6 +60,14 @@ function createBackgroundMethodDecorator({ prefix }: { prefix: string }) {
         methodName,
       );
     }
+
+    if (devOnly && platformEnv.isProduction && !platformEnv.isE2E) {
+      throwCrossError(
+        '@backgroundMethodForDev() / providerApiMethod only available in development.',
+        methodName,
+      );
+    }
+
     target[`${prefix}${methodName}`] = descriptor.value;
     // return PropertyDescriptor
     // descriptor.value.$isBackgroundMethod = true;
@@ -62,6 +78,13 @@ function createBackgroundMethodDecorator({ prefix }: { prefix: string }) {
 function backgroundMethod() {
   return createBackgroundMethodDecorator({
     prefix: INTERNAL_METHOD_PREFIX,
+  });
+}
+
+function backgroundMethodForDev() {
+  return createBackgroundMethodDecorator({
+    prefix: INTERNAL_METHOD_PREFIX,
+    devOnly: true,
   });
 }
 
@@ -159,6 +182,7 @@ export {
   PROVIDER_API_METHOD_PREFIX,
   backgroundClass,
   backgroundMethod,
+  backgroundMethodForDev,
   bindThis,
   permissionRequired,
   providerApiMethod,

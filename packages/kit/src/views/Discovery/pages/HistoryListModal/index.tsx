@@ -31,7 +31,7 @@ import type { IBrowserHistory } from '../../types';
 function groupDataByDate(data: IBrowserHistory[]) {
   const groups = data.reduce<{ [date: string]: IBrowserHistory[] }>(
     (result, item) => {
-      const date = formatRelativeDate(item.createdAt);
+      const date = formatRelativeDate(new Date(item.createdAt));
       if (result[date]) {
         result[date].push(item);
       } else {
@@ -88,7 +88,7 @@ function HistoryListModal() {
   const headerRight = useCallback(
     () => (
       <XStack>
-        {isEditing && (
+        {isEditing ? (
           <>
             <IconButton
               variant="tertiary"
@@ -109,7 +109,7 @@ function HistoryListModal() {
             />
             <Divider vertical mx="$3" />
           </>
-        )}
+        ) : null}
         <Button
           variant="tertiary"
           size="medium"
@@ -168,7 +168,7 @@ function HistoryListModal() {
                 },
               })}
             >
-              {isEditing && (
+              {isEditing ? (
                 <ListItem.IconButton
                   icon="DeleteOutline"
                   onPress={() => {
@@ -182,7 +182,7 @@ function HistoryListModal() {
                     });
                   }}
                 />
-              )}
+              ) : null}
             </ListItem>
           )}
           onEndReached={() => {

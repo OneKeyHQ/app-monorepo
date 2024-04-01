@@ -1,8 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { useMedia } from '@onekeyhq/components';
+import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
+import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -18,20 +18,19 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
-type IProps = {
-  onContentSizeChange?: ((w: number, h: number) => void) | undefined;
-};
-
-function TxHistoryListContainer(props: IProps) {
+function TxHistoryListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
+  const { isFocused } = useTabIsRefreshingFocused();
 
-  const [initialized, setInitialized] = useState(false);
+  const [historyState, setHistoryState] = useState({
+    initialized: false,
+    isRefreshing: false,
+  });
   const media = useMedia();
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
-  const currentAccountId = useRef<string>('');
 
   const handleHistoryItemPress = useCallback(
     (history: IAccountHistoryTx) => {
@@ -51,25 +50,34 @@ function TxHistoryListContainer(props: IProps) {
   const history = usePromiseResult(
     async () => {
       if (!account || !network) return;
-      if (currentAccountId.current !== account.id) {
-        currentAccountId.current = account.id;
-        setInitialized(false);
-      }
+
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
         accountAddress: account.address,
       });
-      setInitialized(true);
+      setHistoryState({
+        initialized: true,
+        isRefreshing: false,
+      });
       return r;
     },
     [account, network],
     {
-      watchLoading: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
   );
+
+  useEffect(() => {
+    if (account?.id && network?.id && wallet?.id) {
+      setHistoryState({
+        initialized: false,
+        isRefreshing: true,
+      });
+    }
+  }, [account?.id, network?.id, wallet?.id]);
 
   return (
     <TxHistoryListView
@@ -77,8 +85,8 @@ function TxHistoryListContainer(props: IProps) {
       data={history.result ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
-      isLoading={history.isLoading}
-      initialized={initialized}
+      isLoading={historyState.isRefreshing}
+      initialized={historyState.initialized}
       onContentSizeChange={onContentSizeChange}
       {...(media.gtLg && {
         tableLayout: true,

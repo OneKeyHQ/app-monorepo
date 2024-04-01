@@ -56,6 +56,7 @@ const usePopoverValue = (
       onOpenChange?.(true);
     } else {
       setIsOpen(true);
+      onOpenChange?.(true);
     }
   }, [isControlled, onOpenChange]);
   const closePopover = useCallback(() => {
@@ -63,6 +64,7 @@ const usePopoverValue = (
       onOpenChange?.(false);
     } else {
       setIsOpen(false);
+      onOpenChange?.(false);
     }
   }, [isControlled, onOpenChange]);
   return {
@@ -228,7 +230,7 @@ function RawPopover({
         <TMPopover.ScrollView>{content}</TMPopover.ScrollView>
       </TMPopover.Content>
       {/* sheet */}
-      {usingSheet && (
+      {usingSheet ? (
         <TMPopover.Adapt when="md">
           <TMPopover.Sheet
             dismissOnSnapToBottom
@@ -254,9 +256,7 @@ function RawPopover({
                 paddingVertical="$4"
                 justifyContent="space-between"
                 alignItems="center"
-                style={{
-                  borderCurve: 'continuous',
-                }}
+                borderCurve="continuous"
               >
                 <SizableText size="$headingXl" color="$text">
                   {title}
@@ -288,16 +288,14 @@ function RawPopover({
                 showsVerticalScrollIndicator={false}
                 marginHorizontal="$5"
                 marginBottom={bottom || '$5'}
-                style={{
-                  borderCurve: 'continuous',
-                }}
+                borderCurve="continuous"
               >
                 <TMPopover.Adapt.Contents />
               </TMPopover.Sheet.ScrollView>
             </TMPopover.Sheet.Frame>
           </TMPopover.Sheet>
         </TMPopover.Adapt>
-      )}
+      ) : null}
     </TMPopover>
   );
 }

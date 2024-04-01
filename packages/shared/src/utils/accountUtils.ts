@@ -1,6 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 import { isNil } from 'lodash';
 
+import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IDBAccount,
   IDBWallet,
@@ -13,7 +14,14 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 
-import { INDEX_PLACEHOLDER, SEPERATOR } from '../engine/engineConsts';
+import {
+  COINTYPE_BTC,
+  COINTYPE_LIGHTNING,
+  COINTYPE_LIGHTNING_TESTNET,
+  COINTYPE_TBTC,
+  INDEX_PLACEHOLDER,
+  SEPERATOR,
+} from '../engine/engineConsts';
 
 import networkUtils from './networkUtils';
 
@@ -91,18 +99,67 @@ function isHwAccount({ accountId }: { accountId: string }) {
   return isHwWallet({ walletId });
 }
 
+function buildWatchingAccountId({
+  coinType,
+  address,
+  xpub,
+  addressEncoding,
+}: {
+  coinType: string;
+  address?: string;
+  xpub?: string;
+  addressEncoding?: EAddressEncodings | undefined;
+}) {
+  const publicKey = xpub || address;
+  if (!publicKey) {
+    throw new Error('buildWatchingAccountId ERROR: publicKey is not defined');
+  }
+  let id = `${WALLET_TYPE_WATCHING}--${coinType}--${publicKey}`;
+  if (addressEncoding) {
+    id += `--${addressEncoding}`;
+  }
+  return id;
+}
+
+function buildImportedAccountId({
+  coinType,
+  pub,
+  xpub,
+  addressEncoding,
+}: {
+  coinType: string;
+  pub?: string;
+  xpub?: string;
+  addressEncoding?: EAddressEncodings | undefined;
+}) {
+  const publicKey = xpub || pub;
+  if (!publicKey) {
+    throw new Error('buildImportedAccountId ERROR: publicKey is not defined');
+  }
+  let id = `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
+  if (addressEncoding) {
+    id += `--${addressEncoding}`;
+  }
+  return id;
+}
+
+function isExternalAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isExternalWallet({ walletId });
+}
+
 function buildHDAccountId({
   walletId,
-  index,
-  template,
   path,
+  template,
+  index,
   idSuffix,
   isUtxo,
 }: {
   walletId: string;
-  index?: number;
-  template?: string;
   path?: string;
+  template?: string;
+  index?: number;
   idSuffix?: string;
   isUtxo?: boolean;
 }): string {
@@ -194,15 +251,10 @@ function isAccountCompatibleWithNetwork({
       'isAccountCompatibleWithNetwork ERROR: networkId is not defined',
     );
   }
-  if (!account.impl) {
-    throw new Error(
-      'isAccountCompatibleWithNetwork ERROR: account.impl is not defined',
-    );
-  }
 
   const impl = networkUtils.getNetworkImpl({ networkId });
   // check if impl matched
-  if (impl !== account.impl) {
+  if (impl !== account.impl && account.impl) {
     return false;
   }
 
@@ -223,29 +275,34 @@ function getAccountCompatibleNetwork({
   networkId,
 }: {
   account: IDBAccount;
-  networkId: string;
+  networkId: string | undefined;
 }) {
   let accountNetworkId = networkId;
 
-  const activeNetworkImpl = networkUtils.getNetworkImpl({
-    networkId,
-  });
+  if (networkId) {
+    const activeNetworkImpl = networkUtils.getNetworkImpl({
+      networkId,
+    });
 
-  // if impl not matched, use createAtNetwork
-  if (activeNetworkImpl !== account.impl) {
-    accountNetworkId = account.createAtNetwork || ''; // should fallback to ''
+    // if impl not matched, use createAtNetwork
+    if (activeNetworkImpl !== account.impl && account.impl) {
+      accountNetworkId = account.createAtNetwork || ''; // should fallback to ''
+    }
   }
 
   // if accountNetworkId not in account available networks, use first networkId of available networks
   if (account.networks && account.networks.length) {
-    if (!account.networks.includes(accountNetworkId)) {
+    if (!accountNetworkId || !account.networks.includes(accountNetworkId)) {
       [accountNetworkId] = account.networks;
     }
   }
-  return accountNetworkId || '';
+  return accountNetworkId || undefined;
 }
 
 function isOthersWallet({ walletId }: { walletId: string }) {
+  if (!walletId) {
+    return false;
+  }
   return (
     walletId === WALLET_TYPE_WATCHING ||
     walletId === WALLET_TYPE_EXTERNAL ||
@@ -267,10 +324,91 @@ function buildHwWalletId({
   return dbWalletId;
 }
 
+function buildExternalAccountId({
+  wcSessionTopic,
+}: {
+  wcSessionTopic: string;
+}) {
+  const accountId = `${WALLET_TYPE_EXTERNAL}--wc--${wcSessionTopic}`;
+  // accountId = `${WALLET_TYPE_EXTERNAL}--injected--${walletKey}`;
+  return accountId;
+}
+
+// m/84'/0'/0' -> m/44'/81297820149147'/0'
+function buildBtcToLnPath({
+  path,
+  isTestnet,
+}: {
+  path: string;
+  isTestnet: boolean;
+}) {
+  // purpose 84' -> 44'
+  let transformedPath = path.replace(/84'/, "44'");
+  const targetCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  const replacementCoinType = isTestnet
+    ? COINTYPE_LIGHTNING_TESTNET
+    : COINTYPE_LIGHTNING;
+  transformedPath = transformedPath.replace(
+    new RegExp(`(^m/44'/${targetCoinType})'`, 'g'),
+    `m/44'/${replacementCoinType}'`,
+  );
+  return transformedPath;
+}
+
+// m/44'/81297820149147'/0' -> m/84'/0'/0'
+function buildLnToBtcPath({
+  path,
+  isTestnet,
+}: {
+  path: string;
+  isTestnet: boolean;
+}) {
+  // purpose 44' -> 84'
+  let transformedPath = path.replace(/44'/, "84'");
+  const targetCoinType = isTestnet
+    ? COINTYPE_LIGHTNING_TESTNET
+    : COINTYPE_LIGHTNING;
+  const replacementCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  transformedPath = transformedPath.replace(
+    new RegExp(`(^m/84'/${targetCoinType})'`, 'g'),
+    `m/84'/${replacementCoinType}'`,
+  );
+  return transformedPath;
+}
+
+// hd-1--m/84'/0'/0' -> hd-1--m/44'/81297820149147'/0'
+function buildLightningAccountId({
+  accountId,
+  isTestnet,
+}: {
+  accountId: string;
+  isTestnet: boolean;
+}) {
+  const parts = accountId.split(SEPERATOR);
+  if (parts.length < 2) {
+    throw new Error('buildLightningAccountId ERROR: invalid accountId');
+  }
+  const newPath = buildBtcToLnPath({
+    path: parts[1],
+    isTestnet,
+  });
+  return `${parts[0]}--${newPath}`;
+}
+
+function buildLightingCredentialId({ address }: { address: string }) {
+  return `lighting--${address}`;
+}
+
 export default {
+  buildImportedAccountId,
+  buildWatchingAccountId,
   buildLocalTokenId,
   buildLocalHistoryId,
   buildHdWalletId,
+  buildHDAccountId,
+  buildIndexedAccountId,
+  buildHwWalletId,
+  buildExternalAccountId,
   isHdWallet,
   isHwWallet,
   isHwHiddenWallet,
@@ -279,9 +417,7 @@ export default {
   isExternalWallet,
   isHdAccount,
   isHwAccount,
-  buildHDAccountId,
-  buildIndexedAccountId,
-  buildHwWalletId,
+  isExternalAccount,
   parseIndexedAccountId,
   shortenAddress,
   beautifyPathTemplate,
@@ -290,4 +426,8 @@ export default {
   isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
   isOthersWallet,
+  buildBtcToLnPath,
+  buildLnToBtcPath,
+  buildLightningAccountId,
+  buildLightingCredentialId,
 };

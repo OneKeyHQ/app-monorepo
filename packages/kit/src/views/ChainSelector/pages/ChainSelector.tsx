@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, Page } from '@onekeyhq/components';
 import type {
@@ -36,7 +34,6 @@ function ChainSelector({ num }: { num: number }) {
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
-  const intl = useIntl();
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
   const selectedChain = network?.id;

@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
   useBrowserAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
-import PhishingView from '../PhishingView';
+import BlockAccessView from '../BlockAccessView';
 import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
 import type { IElectronWebView } from '../WebView/types';
-import type {
-  DidStartNavigationEvent,
-  PageFaviconUpdatedEvent,
-  PageTitleUpdatedEvent,
-} from 'electron';
+import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 import type { WebViewProps } from 'react-native-webview';
 
 type IWebContentProps = IWebTab &
@@ -29,18 +26,19 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');
-  const [showPhishingView, setShowPhishingView] = useState(false);
+  const [showBlockAccessView, setShowBlockAccessView] = useState(false);
+  const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
-
-  const { onNavigation, addUrlToPhishingCache, validateWebviewSrc } =
-    useBrowserAction().current;
+  const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
 
   useEffect(() => {
-    const isValidate = validateWebviewSrc(url);
-    if (!isValidate) {
-      setShowPhishingView(true);
-    }
+    const validateState = validateWebviewSrc(url);
+    setUrlValidateState(validateState);
+    setShowBlockAccessView(
+      validateState !== EValidateUrlEnum.Valid &&
+        validateState !== EValidateUrlEnum.ValidDeeplink,
+    );
   }, [url, validateWebviewSrc]);
 
   const getNavStatusInfo = useCallback(() => {
@@ -77,7 +75,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
           ...getNavStatusInfo(),
           handlePhishingUrl: (illegalUrl) => {
             console.log('=====>>>>: handlePhishingUrl', illegalUrl);
-            setShowPhishingView(true);
+            setShowBlockAccessView(true);
             phishingUrlRef.current = illegalUrl;
           },
         });
@@ -107,17 +105,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     },
     [id, addBrowserHistory, onNavigation],
   );
-  const onPageFaviconUpdated = useCallback(
-    ({ favicons }: PageFaviconUpdatedEvent) => {
-      if (favicons.length > 0) {
-        onNavigation({
-          id,
-          favicon: favicons[0],
-        });
-      }
-    },
-    [id, onNavigation],
-  );
+  const onPageFaviconUpdated = useCallback(() => {}, []);
   const onDomReady = useCallback(() => {
     const ref = webviewRefs[id] as IElectronWebView;
     // @ts-expect-error
@@ -168,27 +156,28 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     ],
   );
 
-  const phishingView = useMemo(
+  const blockAccessView = useMemo(
     () => (
-      <PhishingView
+      <BlockAccessView
+        urlValidateState={urlValidateState}
         onCloseTab={() => {
           closeWebTab(id);
           setCurrentWebTab(null);
           navigation.switchTab(ETabRoutes.Discovery);
         }}
-        onContinue={() => {
-          addUrlToPhishingCache({ url: phishingUrlRef.current });
-          setShowPhishingView(false);
-        }}
+        // onContinue={() => {
+        //   addUrlToPhishingCache({ url: phishingUrlRef.current });
+        //   setShowPhishingView(false);
+        // }}
       />
     ),
-    [closeWebTab, setCurrentWebTab, addUrlToPhishingCache, id, navigation],
+    [closeWebTab, setCurrentWebTab, id, navigation, urlValidateState],
   );
 
   return (
     <>
       {webview}
-      {showPhishingView && phishingView}
+      {showBlockAccessView ? blockAccessView : null}
     </>
   );
 }

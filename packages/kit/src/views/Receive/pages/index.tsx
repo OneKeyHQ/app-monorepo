@@ -81,7 +81,7 @@ export function Receive() {
         headerRight={isHardwareWallet ? headerRight : undefined}
       />
       <Page.Body>
-        {isShowAddress && addressState === 'forceShow' && (
+        {isShowAddress && addressState === 'forceShow' ? (
           <Alert
             fullBleed
             icon="InfoCircleOutline"
@@ -93,7 +93,7 @@ export function Receive() {
             }}
             mb="$5"
           />
-        )}
+        ) : null}
         <Stack p="$5" pt="$0" my="auto" alignItems="center">
           <SizableText textAlign="center">
             Receive Only on{' '}
@@ -106,9 +106,7 @@ export function Receive() {
             borderColor="$borderSubdued"
             borderRadius="$6"
             overflow="hidden"
-            style={{
-              borderCurve: 'continuous',
-            }}
+            borderCurve="continuous"
           >
             <QRCode
               value="https://onekey.so/"
@@ -117,7 +115,7 @@ export function Receive() {
               }}
               size={240}
             />
-            {!isShowQRCode && (
+            {!isShowQRCode ? (
               <Stack
                 position="absolute"
                 top="$0"
@@ -146,12 +144,12 @@ export function Receive() {
                   description="Verify address on device to prevent phishing"
                 />
               </Stack>
-            )}
+            ) : null}
           </Stack>
 
           <XStack space="$2" alignItems="center">
             <Heading size="$headingMd">Account 1</Heading>
-            {addressType && <Badge>{addressType}</Badge>}
+            {addressType ? <Badge>{addressType}</Badge> : null}
           </XStack>
           <Stack alignItems="center">
             <ConfirmHighlighter
@@ -162,9 +160,7 @@ export function Receive() {
               borderWidth={StyleSheet.hairlineWidth}
               borderColor="$borderSubdued"
               borderRadius="$3"
-              style={{
-                borderCurve: 'continuous',
-              }}
+              borderCurve="continuous"
             >
               <SizableText
                 textAlign="center"
@@ -176,7 +172,7 @@ export function Receive() {
                 37rdQk3XANNVuTvvyonUHW2eFKEHDUPCTG
               </SizableText>
 
-              {!isShowAddress && (
+              {!isShowAddress ? (
                 <BlurView
                   // Setting both inner and outer borderRadius is for the compatibility of Web and Native styles.
                   borderRadius="$3"
@@ -193,7 +189,7 @@ export function Receive() {
                   right="$0"
                   bottom="$0"
                 />
-              )}
+              ) : null}
             </ConfirmHighlighter>
 
             {isHardwareWallet &&

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   ActionList,
   IconButton,
@@ -8,11 +9,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 export function AccountSelectorCreateWalletButton() {
   const media = useMedia();
+  const liteCard = useLiteCard();
 
   const navigation = useAppNavigation();
 
@@ -35,39 +38,68 @@ export function AccountSelectorCreateWalletButton() {
   }, [navigation]);
 
   return (
-    <Stack p="$1" alignItems="center" mt="$3">
+    <Stack p="$1" my="$2" alignItems="center">
       <ActionList
         placement="right-start"
         renderTrigger={
-          <IconButton
-            testID="AccountSelectorCreateWalletButton"
-            icon="PlusSmallOutline"
-          />
+          <IconButton icon="PlusSmallOutline" testID="add-wallet" />
         }
         title="Add wallet"
-        items={[
+        floatingPanelProps={{
+          w: '$64',
+        }}
+        sections={[
           {
-            label: 'Connect Hardware Wallet',
-            icon: platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline',
-            onPress: handleConnectHardwareWalletPress,
+            items: [
+              {
+                label: 'Connect Hardware Wallet',
+                icon: platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline',
+                onPress: handleConnectHardwareWalletPress,
+                testID: 'hardware-wallet',
+              },
+            ],
           },
           {
-            label: 'Create Recovery Phrase',
-            icon: 'PlusCircleOutline',
-            onPress: handleCreateWalletPress,
+            items: [
+              {
+                label: 'Create Recovery Phrase',
+                icon: 'PlusCircleOutline',
+                onPress: handleCreateWalletPress,
+                testID: 'create-wallet',
+              },
+            ],
           },
           {
-            label: 'Import Recovery Phrase',
-            icon: 'ArrowBottomCircleOutline',
-            onPress: handleImportWalletPress,
+            items: [
+              {
+                label: 'Enter Recovery Phrase',
+                icon: 'Document2Outline',
+                onPress: handleImportWalletPress,
+                testID: 'import-wallet',
+              },
+              ...(platformEnv.isNative
+                ? [
+                    {
+                      label: 'Import with OneKey Lite',
+                      icon: 'OnekeyLiteOutline' as IKeyOfIcons,
+                      onPress: liteCard.importWallet,
+                    },
+                  ]
+                : []),
+              {
+                label: 'Import with OneKey KeyTag',
+                icon: 'OnekeyKeytagOutline',
+                onPress: () => console.log('clicked'),
+              },
+            ],
           },
         ]}
       />
-      {media.gtMd && (
+      {media.gtMd ? (
         <SizableText size="$bodySm" color="$textSubdued" mt="$1">
           Add wallet
         </SizableText>
-      )}
+      ) : null}
     </Stack>
   );
 }

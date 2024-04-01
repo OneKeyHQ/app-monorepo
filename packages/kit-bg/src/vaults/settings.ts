@@ -1,7 +1,11 @@
 import {
+  IMPL_BCH,
   IMPL_BTC,
   IMPL_COSMOS,
+  IMPL_DOGE,
   IMPL_EVM,
+  IMPL_LIGHTNING,
+  IMPL_LTC,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -26,6 +30,11 @@ function validateVaultSettings({
         `no default accountDeriveInfo found in vault settings: ${networkId}`,
       );
     }
+    if (!Object.isFrozen(settings)) {
+      throw new Error(
+        `VaultSettings should be frozen, please use Object.freeze() >>>> networkId=${networkId}`,
+      );
+    }
   }
 }
 
@@ -41,7 +50,11 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_EVM]: () => import('./impls/evm/settings'),
     [IMPL_BTC]: () => import('./impls/btc/settings'),
     [IMPL_TBTC]: () => import('./impls/tbtc/settings'),
+    [IMPL_DOGE]: () => import('./impls/doge/settings'),
+    [IMPL_BCH]: () => import('./impls/bch/settings'),
+    [IMPL_LTC]: () => import('./impls/ltc/settings'),
     [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
+    [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

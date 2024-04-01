@@ -1,7 +1,6 @@
 import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
-import type { RealmSchemaDevice } from './RealmSchemaDevice';
 import type { IDBWallet, IDBWalletType } from '../../types';
 import type Realm from 'realm';
 
@@ -24,7 +23,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public nextAccountIds?: Realm.Dictionary<number>;
 
-  public associatedDevice?: RealmSchemaDevice;
+  public associatedDevice?: string;
 
   public deviceType?: string;
 
@@ -49,7 +48,7 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
         default: {},
         objectType: 'int',
       },
-      associatedDevice: 'Device?',
+      associatedDevice: 'string?',
       deviceType: 'string?',
       isTemp: { type: 'bool', default: false },
       passphraseState: 'string?',
@@ -63,13 +62,14 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       avatar: this.avatar,
       type: this.type,
       backuped: this.backuped || false,
+      // convert RealmDB list to array
       accounts: Array.from(this.accounts || []),
       nextIndex: this.nextIndex,
       walletNo: this.walletNo,
       nextAccountIds: Object.fromEntries(
         Object.entries(Object(this.nextAccountIds)),
       ),
-      associatedDevice: this.associatedDevice?.id,
+      associatedDevice: this.associatedDevice,
       deviceType: this.deviceType,
       isTemp: this.isTemp,
       passphraseState: this.passphraseState,

@@ -13,6 +13,8 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import { ChainSelectorInput } from '../../ChainSelectorInput';
+import { Token } from '../../Token';
 import { useAccountSelectorAvailableNetworks } from '../hooks/useAccountSelectorAvailableNetworks';
 
 function useNetworkSelectorItems() {
@@ -165,6 +167,23 @@ export function ControlledNetworkSelectorTrigger({
 }) {
   const items = useNetworkSelectorItems();
   return (
-    <Select items={items} value={value} onChange={onChange} title="网络" />
+    <ChainSelectorInput
+      testID="network-selector"
+      title="Network"
+      value={value}
+      onChange={onChange}
+      networkIds={items.map((o) => o.value)}
+      borderRadius="$3"
+      borderWidth={1}
+      borderCurve="continuous"
+      borderColor="$borderSubdued"
+      userSelect="none"
+      px="$3"
+      py="$2.5"
+      $gtMd={{
+        borderRadius: '$2',
+        py: '$2',
+      }}
+    />
   );
 }

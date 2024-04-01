@@ -3,6 +3,7 @@ import { forwardRef } from 'react';
 
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
+import { useSelectionColor } from '../../hooks';
 import { getSharedInputStyles } from '../Input/sharedStyles';
 
 import type { IInputProps } from '../Input';
@@ -25,6 +26,8 @@ function BaseTextArea(
     size,
   });
 
+  const selectionColor = useSelectionColor();
+
   return (
     <TMTextArea
       unstyled
@@ -41,10 +44,9 @@ function BaseTextArea(
       placeholderTextColor={sharedStyles.placeholderTextColor}
       focusStyle={sharedStyles.focusStyle}
       disabled={disabled}
+      selectionColor={selectionColor}
       cursor={sharedStyles.cursor}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      borderCurve="continuous"
       {...props}
     />
   );

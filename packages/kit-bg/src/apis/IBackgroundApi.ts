@@ -18,10 +18,13 @@ import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
+import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
+import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -31,6 +34,7 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
+import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
@@ -79,6 +83,7 @@ export interface IBackgroundApiBridge {
 export interface IBackgroundApi extends IBackgroundApiBridge {
   simpleDb: SimpleDb;
 
+  // TODO move to serviceWalletConnect.walletSide
   // **** WalletConnect
   walletConnect: ProviderApiWalletConnect;
 
@@ -89,6 +94,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
+  serviceSwap: ServiceSwap;
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;
   serviceAccount: ServiceAccount;
@@ -105,9 +111,12 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceWalletConnect: ServiceWalletConnect;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
-
+  serviceLightning: ServiceLightning;
   serviceOnboarding: ServiceOnboarding;
   serviceScanQRCode: ServiceScanQRCode;
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
+
+  serviceE2E: ServiceE2E;
+  serviceLogger: ServiceLogger;
 }

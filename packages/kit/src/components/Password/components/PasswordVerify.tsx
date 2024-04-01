@@ -10,12 +10,12 @@ import {
 
 import { AuthenticationType } from 'expo-local-authentication';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import { Form, Input, useForm } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
-import { AppStatusActiveListener } from '../../AppStatusActiveListener';
+import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import { PasswordRegex, getPasswordKeyboardType } from '../utils';
 
 interface IPasswordVerifyProps {
@@ -54,17 +54,17 @@ const PasswordVerify = ({
   const [{ manualLocking }] = usePasswordPersistAtom();
 
   const rightActions = useMemo(() => {
-    const actions: {
+    const actions: IPropsWithTestId<{
       iconName?: IKeyOfIcons;
       onPress?: () => void;
       loading?: boolean;
-    }[] = [];
+    }>[] = [];
     if (isEnable && !passwordInput) {
       actions.push({
         iconName:
           authType && authType.includes(AuthenticationType.FACIAL_RECOGNITION)
             ? 'FaceArcSolid'
-            : 'FinderOutline',
+            : 'TouchId2Outline',
         onPress: onBiologyAuth,
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
       });
@@ -79,6 +79,7 @@ const PasswordVerify = ({
         iconName: 'ArrowRightOutline',
         onPress: form.handleSubmit(onInputPasswordAuth),
         loading: status.value === EPasswordVerifyStatus.VERIFYING,
+        testID: 'verifying-password',
       });
     }
 
@@ -113,7 +114,7 @@ const PasswordVerify = ({
       void onBiologyAuth();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEnable, manualLocking, status.value]);
+  }, [isEnable, manualLocking]);
 
   // Perform biology verification upon returning to the backend after a 1-second interval.
   const onActive = useCallback(() => {
@@ -130,6 +131,8 @@ const PasswordVerify = ({
       }
     }
   }, [isEnable, passwordInput, status.value, manualLocking, onBiologyAuth]);
+
+  useHandleAppStateActive(isEnable ? onActive : undefined);
 
   return (
     <Form form={form}>
@@ -152,9 +155,9 @@ const PasswordVerify = ({
           secureTextEntry={secureEntry}
           onSubmitEditing={form.handleSubmit(onInputPasswordAuth)}
           addOns={rightActions}
+          testID="enter-password"
         />
       </Form.Field>
-      {isEnable && <AppStatusActiveListener onActive={onActive} />}
     </Form>
   );
 };

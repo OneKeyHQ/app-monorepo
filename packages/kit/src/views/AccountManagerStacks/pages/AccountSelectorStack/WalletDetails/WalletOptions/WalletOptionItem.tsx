@@ -5,7 +5,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
 export function WalletOptionItem({
   label,
-  labelColor,
+  description,
   icon,
   iconColor = '$iconSubdued',
   isLoading,
@@ -14,26 +14,23 @@ export function WalletOptionItem({
   ...rest
 }: Omit<IListItemProps, 'icon'> & {
   label: ISizableTextProps['children'];
+  description?: string;
   labelColor?: ISizableTextProps['color'];
-  icon: IIconProps['name'];
+  icon?: IIconProps['name'];
   iconColor?: IIconProps['color'];
   isLoading?: boolean;
   drillIn?: boolean;
 }) {
   return (
-    <ListItem drillIn={drillIn ?? !isLoading} {...rest}>
-      <Stack px="$2">
-        <Icon name={icon} color={iconColor} />
-      </Stack>
-      <ListItem.Text
-        primary={label}
-        flex={1}
-        primaryTextProps={{
-          color: labelColor || '$text',
-        }}
-      />
+    <ListItem userSelect="none" {...rest}>
+      {icon ? (
+        <Stack px="$2">
+          <Icon name={icon} color={iconColor} />
+        </Stack>
+      ) : null}
+      <ListItem.Text primary={label} secondary={description} flex={1} />
       {children}
-      {isLoading && <Spinner />}
+      {isLoading ? <Spinner /> : null}
     </ListItem>
   );
 }

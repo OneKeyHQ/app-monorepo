@@ -1,22 +1,26 @@
 import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
-import {
-  Image,
-  Skeleton,
-  Stack,
-  withStaticProperties,
-} from '@onekeyhq/components';
 import type {
   IImageFallbackProps,
   IImageProps,
   ISkeletonProps,
   SizeTokens,
 } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  Skeleton,
+  Stack,
+  withStaticProperties,
+} from '@onekeyhq/components';
 import type {
   IDBAccount,
+  IDBExternalAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -46,7 +50,8 @@ export interface IAccountAvatarProps extends IImageProps {
   address?: string;
   size?: IKeyOfVariantSize | SizeTokens;
   networkId?: string;
-  account?: IDBAccount;
+  account?: INetworkAccount;
+  dbAccount?: IDBAccount;
   indexedAccount?: IDBIndexedAccount;
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
@@ -96,6 +101,7 @@ function BasicAccountAvatar({
   source,
   account,
   indexedAccount,
+  dbAccount,
   fallback,
   fallbackProps,
   circular,
@@ -110,7 +116,19 @@ function BasicAccountAvatar({
           ...VARIANT_SIZE.default,
           containerSize: size || VARIANT_SIZE.default.containerSize,
         };
-  const content = useMemo(() => {
+
+  const renderContent = useMemo(() => {
+    const emptyAccountAvatar = (
+      <Stack
+        flex={1}
+        bg="$bgStrong"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name="CrossedSmallSolid" size="$6" />
+      </Stack>
+    );
+
     if (address) {
       return <MemoHashImageSource id={address} />;
     }
@@ -119,11 +137,64 @@ function BasicAccountAvatar({
         <MemoHashImageSource id={indexedAccount.idHash || indexedAccount.id} />
       );
     }
-    if (account) {
-      return <MemoHashImageSource id={account.address} />;
+    // dbAccount exists, but network not compatible, so account is undefined
+    const finalAccount = account || dbAccount;
+    if (finalAccount) {
+      if (accountUtils.isExternalAccount({ accountId: finalAccount.id })) {
+        const wcPeerMeta = (finalAccount as IDBExternalAccount).wcInfo
+          ?.peerMeta;
+        const wcSrc = wcPeerMeta?.icons?.[0];
+        if (wcSrc) {
+          return <Image.Source src={wcSrc} />;
+        }
+        // some dapps don't provide icons, fallback to walletconnect icon
+        // TODO use wcPeerMeta.name or wcPeerMeta.url to find wallet icon
+        if (wcPeerMeta) {
+          return (
+            <Image.Source
+              source={require('@onekeyhq/kit/assets/onboarding/logo_walletconnect.png')}
+            />
+          );
+        }
+      }
+      return finalAccount.address ? (
+        <MemoHashImageSource id={finalAccount.address} />
+      ) : (
+        emptyAccountAvatar
+      );
     }
-    return <Image.Source src={src} source={source} />;
-  }, [account, address, indexedAccount, source, src]);
+    if (source || src) {
+      return <Image.Source src={src} source={source} />;
+    }
+    return emptyAccountAvatar;
+  }, [account, address, dbAccount, indexedAccount, source, src]);
+
+  const renderFallback = useMemo(() => {
+    if (address || indexedAccount || account || source || src) {
+      return (
+        fallback ||
+        (fallbackProps ? (
+          <Image.Fallback {...fallbackProps} />
+        ) : (
+          <Fallback w={containerSize} h={containerSize} />
+        ))
+      );
+    }
+    return null;
+  }, [
+    account,
+    address,
+    containerSize,
+    fallback,
+    fallbackProps,
+    indexedAccount,
+    source,
+    src,
+  ]);
+
+  // return <Image.Source src={src} source={source} />;
+  // }, [account, address, dbAccount, indexedAccount, source, src]);
+
   return (
     <Stack
       w={containerSize}
@@ -141,13 +212,8 @@ function BasicAccountAvatar({
         borderRadius={size === 'small' ? '$1' : '$2'}
         {...restProps}
       >
-        {content}
-        {fallback ||
-          (fallbackProps ? (
-            <Image.Fallback {...fallbackProps} />
-          ) : (
-            <Fallback w={containerSize} h={containerSize} />
-          ))}
+        {renderContent}
+        {renderFallback}
       </Image>
 
       {networkId ? (

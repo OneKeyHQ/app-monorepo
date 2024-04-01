@@ -79,7 +79,6 @@ function TxActionFunctionCallDetailView(props: ITxActionProps) {
         content: functionName,
         avatar: {
           src: functionIcon,
-          circular: true,
         },
       }}
       target={{ title: 'To Contract', content: functionTo }}

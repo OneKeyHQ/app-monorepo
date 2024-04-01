@@ -61,14 +61,15 @@ function TokenSelector() {
 
   const fetchAccountTokens = useCallback(async () => {
     updateTokenListState({ initialized: false, isRefreshing: true });
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    const accountAddress =
+      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
 
     const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
       networkId,
-      accountAddress: account.address,
+      accountAddress,
       mergeTokens: true,
       flag: 'token-selector',
     });
@@ -128,7 +129,7 @@ function TokenSelector() {
         }
       />
       <Page.Body>
-        {networkName && <SectionList.SectionHeader title={networkName} />}
+        {networkName ? <SectionList.SectionHeader title={networkName} /> : null}
         <TokenListView onPressToken={handleTokenOnPress} />
       </Page.Body>
     </Page>

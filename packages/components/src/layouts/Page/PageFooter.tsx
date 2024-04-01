@@ -1,18 +1,13 @@
 import type { PropsWithChildren } from 'react';
 import { memo, useContext, useEffect, useMemo, useState } from 'react';
 
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import Animated from 'react-native-reanimated';
 
 import { EPageType, usePageType } from '../../hocs';
-import { useKeyboardEvent, useSafeAreaInsets } from '../../hooks';
+import { useSafeAreaInsets } from '../../hooks';
 import { View } from '../../optimization';
 
+import { useSafeKeyboardAnimationStyle } from './hooks';
 import { PageContext } from './PageContext';
 import { FooterActions } from './PageFooterActions';
 
@@ -30,32 +25,10 @@ const Placeholder = () => {
   return bottom > 0 ? <View style={{ height: bottom }} /> : null;
 };
 
-const useSafeKeyboardAnimationStyle = () => {
-  const { bottom: safeBottomHeight } = useSafeAreaInsets();
-  const keyboardHeightValue = useSharedValue(0);
-  const animatedStyles = useAnimatedStyle(() => ({
-    paddingBottom: keyboardHeightValue.value + safeBottomHeight,
-  }));
-  useKeyboardEvent({
-    keyboardWillShow: (e) => {
-      const keyboardHeight = e.endCoordinates.height;
-      keyboardHeightValue.value = withTiming(keyboardHeight - safeBottomHeight);
-    },
-    keyboardWillHide: () => {
-      keyboardHeightValue.value = withTiming(0);
-    },
-  });
-  return animatedStyles;
-};
-
 const PageFooterContainer = ({ children }: PropsWithChildren) => {
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
   return (
-    <Animated.View
-      style={platformEnv.isNativeIOS ? safeKeyboardAnimationStyle : undefined}
-    >
-      {children}
-    </Animated.View>
+    <Animated.View style={safeKeyboardAnimationStyle}>{children}</Animated.View>
   );
 };
 
@@ -70,6 +43,12 @@ function PageFooterContext(props: IPageFooterProps) {
   useEffect(() => {
     footerRef.current.props = props;
     footerRef.current.notifyUpdate?.();
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      footerRef.current.props = undefined;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      footerRef.current.notifyUpdate?.();
+    };
   }, [footerRef, props]);
   return null;
 }
@@ -78,11 +57,16 @@ export function BasicPageFooter() {
   const { footerRef } = useContext(PageContext);
   const [, setCount] = useState(0);
   const { props: footerProps } = footerRef.current;
-  useMemo(() => {
+  useEffect(() => {
     footerRef.current.notifyUpdate = () => {
       setCount((i) => i + 1);
     };
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      footerRef.current.notifyUpdate = undefined;
+    };
   }, [footerRef]);
+
   return footerProps ? (
     <PageFooterContainer>
       {footerProps.children ? (

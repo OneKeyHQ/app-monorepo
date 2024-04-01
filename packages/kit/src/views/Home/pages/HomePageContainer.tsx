@@ -1,16 +1,32 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing, RefreshControl } from 'react-native';
+import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, Tab, XStack, YStack } from '@onekeyhq/components';
+import {
+  Page,
+  Stack,
+  Tab,
+  XStack,
+  YStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
+import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
+  ETabRoutes,
+  ETabSwapRoutes,
+} from '@onekeyhq/shared/src/routes';
+import { getAllowPathFromScreenNames } from '@onekeyhq/shared/src/utils/routeUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -30,9 +46,11 @@ import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainer } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainer } from './TxHistoryContainer';
+import WalletContentWithAuth from './WalletContentWithAuth';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const { screenWidth, pageWidth } = useHomePageWidth();
   if (CONTENT_ITEM_WIDTH == null) {
@@ -53,19 +71,22 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
   } = useActiveAccount({ num: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
 
-  const onRefresh = useCallback(() => {
-    // tabsViewRef?.current?.setRefreshing(true);
-  }, []);
-
-  const isNFTEnabled = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId: network?.id ?? '',
-      }),
+  const vaultSettings = usePromiseResult(
+    async () =>
+      network
+        ? backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId: network?.id ?? '',
+          })
+        : Promise.resolve(undefined),
     [network],
-  ).result?.NFTEnabled;
+  ).result;
+  const isNFTEnabled =
+    vaultSettings?.NFTEnabled &&
+    getEnabledNFTNetworkIds().includes(network?.id ?? '');
+  const isRequiredValidation = vaultSettings?.validationRequired;
 
   const tabs = useMemo(
     () =>
@@ -98,6 +119,8 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [intl, isNFTEnabled],
   );
 
+  const { top } = useSafeAreaInsets();
+
   const headerLeft = useCallback(
     () =>
       isHide ? null : (
@@ -126,25 +149,97 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [scanQrCode],
   );
 
+  const openExtensionExpandTab = useCallback(async () => {
+    await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+      routes: '',
+    });
+  }, []);
+
   const renderHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup testID="Wallet-Page-Header-Right">
+        {platformEnv.isExtensionUiPopup ? (
+          <HeaderIconButton
+            title="Expand View"
+            icon="CameraExposureSquareOutline"
+            onPress={openExtensionExpandTab}
+          />
+        ) : (
+          <HeaderIconButton
+            title="Scan"
+            icon="ScanOutline"
+            onPress={onScanButtonPressed}
+          />
+        )}
         <HeaderIconButton
-          title="Scan"
-          icon="ScanOutline"
-          onPress={onScanButtonPressed}
-        />
-        {/* <HeaderIconButton title="Lock Now" icon="LockOutline" /> */}
-
-        <HeaderIconButton
-          title="Scan"
+          title="Settings"
           icon="SettingsOutline"
+          testID="setting"
           onPress={openSettingPage}
         />
       </HeaderButtonGroup>
     ),
-    [openSettingPage, onScanButtonPressed],
+    [openExtensionExpandTab, onScanButtonPressed, openSettingPage],
   );
+
+  const renderTabs = useCallback(
+    () => (
+      <Tab
+        data={tabs}
+        ListHeaderComponent={<HomeHeaderContainer />}
+        initialScrollIndex={0}
+        contentItemWidth={CONTENT_ITEM_WIDTH}
+        contentWidth={screenWidth}
+        showsVerticalScrollIndicator={false}
+      />
+    ),
+    [tabs, screenWidth],
+  );
+
+  const renderHomePageContent = useCallback(() => {
+    if (!account) {
+      return (
+        <YStack height="100%">
+          <HomeSelector padding="$5" />
+          <Stack flex={1} justifyContent="center">
+            <EmptyAccount
+              name={accountName}
+              chain={network?.name ?? ''}
+              type={
+                (deriveInfo?.labelKey
+                  ? intl.formatMessage({
+                      id: deriveInfo?.labelKey,
+                    })
+                  : deriveInfo?.label) ?? ''
+              }
+            />
+          </Stack>
+        </YStack>
+      );
+    }
+    if (isRequiredValidation) {
+      return (
+        <WalletContentWithAuth
+          networkId={network?.id ?? ''}
+          accountId={account?.id ?? ''}
+        >
+          <>{renderTabs()}</>
+        </WalletContentWithAuth>
+      );
+    }
+
+    return <>{renderTabs()}</>;
+  }, [
+    account,
+    accountName,
+    network?.id,
+    network?.name,
+    deriveInfo?.labelKey,
+    deriveInfo?.label,
+    intl,
+    isRequiredValidation,
+    renderTabs,
+  ]);
 
   const renderHomePage = useCallback(() => {
     if (!ready) return null;
@@ -158,16 +253,17 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
             headerRight={renderHeaderRight}
           />
           <Page.Body>
-            {platformEnv.isNative && (
+            {platformEnv.isNative ? (
               <XStack
                 justifyContent="space-between"
                 px="$4"
-                pt={platformEnv.isNativeIOS ? '$20' : 0}
+                pt={top}
+                mt={platformEnv.isNativeAndroid ? '$3' : undefined}
               >
                 <Stack flex={1}>{headerLeft()}</Stack>
                 {renderHeaderRight()}
               </XStack>
-            )}
+            ) : null}
             {/* {process.env.NODE_ENV !== 'production' ? (
               <Button
                 onPress={async () => {
@@ -179,65 +275,44 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
                 home-hide-test
               </Button>
             ) : null} */}
-            {account ? (
-              <Tab
-                data={tabs}
-                ListHeaderComponent={<HomeHeaderContainer />}
-                initialScrollIndex={0}
-                contentItemWidth={CONTENT_ITEM_WIDTH}
-                contentWidth={screenWidth}
-                refreshControl={
-                  <RefreshControl refreshing={false} onRefresh={onRefresh} />
-                }
-                showsVerticalScrollIndicator={false}
-              />
-            ) : (
-              <YStack height="100%">
-                <HomeSelector padding="$5" />
-                <Stack flex={1} justifyContent="center">
-                  <EmptyAccount
-                    name={accountName}
-                    chain={network?.name ?? ''}
-                    type={
-                      (deriveInfo?.labelKey
-                        ? intl.formatMessage({
-                            id: deriveInfo?.labelKey,
-                          })
-                        : deriveInfo?.label) ?? ''
-                    }
-                  />
-                </Stack>
-              </YStack>
-            )}
+            {renderHomePageContent()}
           </Page.Body>
         </>
       );
     }
 
     return (
-      <Page.Body>
-        <Stack h="100%" justifyContent="center">
-          <EmptyWallet />
-        </Stack>
-      </Page.Body>
+      <>
+        <Page.Header
+          headerShown={!platformEnv.isNative}
+          headerRight={renderHeaderRight}
+        />
+        <Page.Body>
+          {platformEnv.isNative ? (
+            <XStack justifyContent="space-between" px="$4" pt={top}>
+              <Stack flex={1} />
+              {renderHeaderRight()}
+            </XStack>
+          ) : null}
+          <Stack h="100%" justifyContent="center">
+            <EmptyWallet />
+          </Stack>
+        </Page.Body>
+      </>
     );
   }, [
     ready,
     wallet,
     headerLeft,
     renderHeaderRight,
-    account,
-    tabs,
-    screenWidth,
-    onRefresh,
-    accountName,
-    network?.name,
-    deriveInfo?.labelKey,
-    deriveInfo?.label,
-    intl,
+    top,
+    renderHomePageContent,
   ]);
 
-  return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
+  return useMemo(
+    () => <Page skipLoading={platformEnv.isNativeIOS}>{renderHomePage()}</Page>,
+    [renderHomePage],
+  );
 }
 
 function HomePageContainer() {
@@ -256,6 +331,7 @@ function HomePageContainer() {
       enabledNum={[0]}
     >
       <HomePage onPressHide={() => setIsHide((v) => !v)} />
+      <DAppConnectExtensionFloatingTrigger />
       <OnboardingOnMount />
     </AccountSelectorProviderMirror>
   );

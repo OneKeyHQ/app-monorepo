@@ -1,6 +1,10 @@
 import { Platform } from 'react-native';
 
 import {
+  ONEKEY_APP_DEEP_LINK,
+  WalletConnectUniversalLinkFull,
+} from '../consts/deeplinkConsts';
+import {
   IMPL_COSMOS,
   IMPL_DOT,
   IMPL_EVM,
@@ -11,13 +15,17 @@ import platformEnv from '../platformEnv';
 
 import type {
   ICaipsInfo,
-  INamespaceNetworkImplMapping,
   INamespaceUnion,
-  INetworkImplNamespaceMapping,
+  IWalletConnectLoggerLevel,
 } from './types';
 
-export const WALLET_CONNECT_V2_PROJECT_ID =
-  process.env.WALLETCONNECT_PROJECT_ID;
+export const DAPP_SIDE_SINGLE_WALLET_MODE = false;
+
+export const WALLET_CONNECT_V2_PROJECT_ID = '5e21f5018bfdeb78af03187a432a301d';
+// checkIsDefined(process.env.WALLETCONNECT_PROJECT_ID); // not working
+
+export const WALLET_CONNECT_RELAY_URL = 'wss://relay.walletconnect.com';
+export const WALLET_CONNECT_LOGGER_LEVEL: IWalletConnectLoggerLevel = 'error';
 
 const platformName = [
   process.env.ONEKEY_PLATFORM ?? '',
@@ -56,9 +64,16 @@ export const WALLET_CONNECT_CLIENT_META = {
     'https://web.onekey-asset.com/portal/b688e1435d0d1e2e92581eb8dd7442c88da36049/icons/icon-256x256.png',
     'https://www.onekey.so/favicon.ico',
   ],
+  // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
+  redirect: platformEnv.isNative
+    ? {
+        native: ONEKEY_APP_DEEP_LINK, // 'onekey-wallet://',
+        universal: WalletConnectUniversalLinkFull, // 'https://app.onekey.so/wc/connect',
+      }
+    : (undefined as any),
 };
 
-export const namespaceToImplsMap: INamespaceNetworkImplMapping = {
+export const namespaceToImplsMap: Record<INamespaceUnion, string> = {
   eip155: IMPL_EVM,
   solana: IMPL_SOL,
   cosmos: IMPL_COSMOS,
@@ -66,7 +81,9 @@ export const namespaceToImplsMap: INamespaceNetworkImplMapping = {
   tron: IMPL_TRON,
 };
 
-export const implToNamespaceMap: INetworkImplNamespaceMapping = {
+export const implToNamespaceMap: {
+  [impl: string]: INamespaceUnion;
+} = {
   [IMPL_EVM]: 'eip155',
   [IMPL_SOL]: 'solana',
   [IMPL_COSMOS]: 'cosmos',
@@ -105,6 +122,22 @@ export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
     },
   ],
 };
+
+// https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L60
+// https://github.com/WalletConnect/web-examples/blob/main/advanced/wallets/react-wallet-v2/src/data/EIP155Data.ts#L126
+export const WC_DAPP_SIDE_METHODS_EVM = [
+  'eth_sendTransaction',
+  'eth_sendRawTransaction',
+  'eth_signTransaction',
+  'eth_sign',
+  'personal_sign',
+  'eth_signTypedData',
+  'eth_signTypedData_v3',
+  'eth_signTypedData_v4',
+  // 'eth_signTypedData_v1',
+];
+// https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L72
+export const WC_DAPP_SIDE_EVENTS_EVM = ['chainChanged', 'accountsChanged'];
 
 /**
  * eip155
@@ -149,4 +182,4 @@ export const supportEventsMap: Record<INamespaceUnion, string[]> = {
   tron: [],
 };
 
-export const WalletConnectStartAccountSelectorNumber = 1000;
+export const WalletConnectAccountSelectorNumStartAt = 1000;

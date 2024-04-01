@@ -15,12 +15,11 @@ import {
   homeTab,
   useBrowserAction,
   useBrowserTabActions,
-  usePhishingLruCacheAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
-import PhishingView from '../PhishingView';
+import BlockAccessView from '../BlockAccessView';
 import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
@@ -53,7 +52,7 @@ function WebContent({
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
   const [progress, setProgress] = useState(5);
-  const [showPhishingView, setShowPhishingView] = useState(false);
+  const [showBlockAccessView, setShowBlockAccessView] = useState(false);
 
   const [height, setHeight] = useState(Dimensions.get('screen').height);
   const [isEnabled, setEnabled] = useState(true);
@@ -61,9 +60,8 @@ function WebContent({
   const onRefresh = useCallback(() => {
     webviewRefs[id]?.innerRef?.reload();
   }, [id]);
-  const [phishingCache] = usePhishingLruCacheAtom();
-  const phishingUrlRef = useRef<string>('');
-  const { onNavigation, gotoSite, addUrlToPhishingCache } =
+  const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
+  const { onNavigation, gotoSite, validateWebviewSrc } =
     useBrowserAction().current;
   const { setWebTabData, closeWebTab, setCurrentWebTab } =
     useBrowserTabActions().current;
@@ -135,27 +133,19 @@ function WebContent({
   const onShouldStartLoadWithRequest = useCallback(
     (navigationStateChangeEvent: WebViewNavigation) => {
       const { url: navUrl } = navigationStateChangeEvent;
-      const maybeDeepLink =
-        !navUrl.startsWith('https') && navUrl !== 'about:blank';
-      if (maybeDeepLink) {
-        const { action } = uriUtils.parseDappRedirect(
-          navUrl,
-          Array.from(phishingCache.keys()),
-        );
-        const forbiddenRequest = action === uriUtils.EDAppOpenActionEnum.DENY;
-        if (forbiddenRequest) {
-          phishingUrlRef.current = navUrl;
-          setShowPhishingView(true);
-          return false;
-        }
-        if (uriUtils.isValidDeepLink(navUrl)) {
-          handleDeepLinkUrl({ url: navUrl });
-          return false;
-        }
+      const validateState = validateWebviewSrc(navUrl);
+      if (validateState === EValidateUrlEnum.Valid) {
+        return true;
       }
-      return true;
+      if (validateState === EValidateUrlEnum.ValidDeeplink) {
+        handleDeepLinkUrl({ url: navUrl });
+        return false;
+      }
+      setShowBlockAccessView(true);
+      setUrlValidateState(validateState);
+      return false;
     },
-    [phishingCache],
+    [validateWebviewSrc],
   );
 
   useBackHandler(
@@ -198,7 +188,7 @@ function WebContent({
         onLoadEnd={onLoadEnd as any}
         onScroll={(e) => {
           setEnabled(e.nativeEvent.contentOffset.y === 0);
-          onScroll?.(e);
+          void onScroll?.(e);
         }}
         displayProgressBar={false}
         onProgress={(p) => setProgress(p)}
@@ -226,23 +216,24 @@ function WebContent({
     return null;
   }, [progress]);
 
-  const phishingView = useMemo(
+  const blockAccessView = useMemo(
     () => (
       <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
-        <PhishingView
+        <BlockAccessView
+          urlValidateState={urlValidateState}
           onCloseTab={() => {
             closeWebTab(id);
             setCurrentWebTab(null);
           }}
-          onContinue={() => {
-            addUrlToPhishingCache({ url: phishingUrlRef.current });
-            setShowPhishingView(false);
-            onRefresh();
-          }}
+          // onContinue={() => {
+          //   addUrlToPhishingCache({ url: phishingUrlRef.current });
+          //   setShowPhishingView(false);
+          //   onRefresh();
+          // }}
         />
       </Stack>
     ),
-    [id, closeWebTab, setCurrentWebTab, addUrlToPhishingCache, onRefresh],
+    [id, closeWebTab, setCurrentWebTab, urlValidateState],
   );
 
   return (
@@ -263,7 +254,7 @@ function WebContent({
       >
         {webview}
       </ScrollView>
-      {showPhishingView && phishingView}
+      {showBlockAccessView ? blockAccessView : null}
     </>
   );
 }

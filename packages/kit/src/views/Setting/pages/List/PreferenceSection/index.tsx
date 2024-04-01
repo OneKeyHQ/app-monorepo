@@ -11,7 +11,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
-import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useLocaleOptions } from '../../../hooks';
 import { Section } from '../Section';
@@ -83,6 +83,7 @@ const LanguageListItem = () => {
       value={locale}
       onChange={onChange}
       placement="bottom-end"
+      floatingPanelProps={{ maxHeight: 300 }}
       renderTrigger={({ label }) => (
         <ListItem
           icon="GlobusOutline"
@@ -102,9 +103,7 @@ const CurrencyListItem = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingCurrencyModal,
-    });
+    navigation.push(EModalSettingRoutes.SettingCurrencyModal);
   }, [navigation]);
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();

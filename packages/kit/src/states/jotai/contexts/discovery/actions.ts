@@ -2,10 +2,10 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import type {
@@ -21,17 +21,20 @@ import {
   crossWebviewLoadUrl,
   injectToPauseWebsocket,
   injectToResumeWebsocket,
-  validateUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import {
   activeTabIdAtom,
   contextAtomMethod,
+  disabledAddedNewTabAtom,
   displayHomePageAtom,
   phishingLruCacheAtom,
   webTabsAtom,
@@ -201,14 +204,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const activeTabId = get(activeTabIdAtom());
     const targetIndex = tabs.findIndex((t) => t.id === tabId);
     if (targetIndex !== -1) {
-      if (tabs[targetIndex].id === activeTabId) {
-        const prev = tabs[targetIndex - 1];
-        if (prev) {
-          prev.isActive = true;
-          this.setCurrentWebTab.call(set, prev.id);
+      const isClosingActiveTab = tabs[targetIndex].id === activeTabId;
+      tabs.splice(targetIndex, 1);
+
+      if (isClosingActiveTab) {
+        let newActiveTabIndex = targetIndex - 1;
+        // If the first tab is closed and there are other tabs
+        if (newActiveTabIndex < 0 && tabs.length > 0) {
+          newActiveTabIndex = 0;
+        }
+
+        if (newActiveTabIndex >= 0) {
+          const newActiveTab = tabs[newActiveTabIndex];
+          newActiveTab.isActive = true;
+          this.setCurrentWebTab.call(set, newActiveTab.id);
         }
       }
-      tabs.splice(targetIndex, 1);
     }
     this.buildWebTabs.call(set, { data: [...tabs] });
   });
@@ -393,7 +404,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       const tab = this.getWebTabById.call(set, id ?? '');
       if (url) {
-        const validatedUrl = validateUrl(url);
+        const validatedUrl = uriUtils.validateUrl(url);
         if (!validatedUrl) {
           return;
         }
@@ -496,7 +507,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   handleOpenWebSite = contextAtomMethod(
     (
-      _,
+      get,
       set,
       {
         useCurrentWindow,
@@ -515,6 +526,19 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       },
     ) => {
       const isNewWindow = !useCurrentWindow;
+
+      if (!useCurrentWindow) {
+        const disabledAddedNewTab = get(disabledAddedNewTabAtom());
+        if (disabledAddedNewTab) {
+          Toast.message({
+            title: appLocale.intl.formatMessage(
+              { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
+              { 0: '20' },
+            ),
+          });
+          return;
+        }
+      }
       this.setDisplayHomePage.call(set, false);
       void this.openMatchDApp.call(set, {
         webSite,
@@ -679,19 +703,23 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   );
 
   validateWebviewSrc = contextAtomMethod((get, _, url: string) => {
-    if (!url) return false;
+    if (!url) return EValidateUrlEnum.InvalidUrl;
+    if (url === BLANK_PAGE_URL) return EValidateUrlEnum.Valid;
     const cache = get(phishingLruCacheAtom());
     const { action } = uriUtils.parseDappRedirect(
       url,
       Array.from(cache.keys()),
     );
     if (action === uriUtils.EDAppOpenActionEnum.DENY) {
-      return false;
+      return EValidateUrlEnum.NotSupportProtocol;
+    }
+    if (uriUtils.containsPunycode(url)) {
+      return EValidateUrlEnum.InvalidPunycode;
     }
     if (uriUtils.isValidDeepLink(url)) {
-      return true;
+      return EValidateUrlEnum.ValidDeeplink;
     }
-    return true;
+    return EValidateUrlEnum.Valid;
   });
 }
 

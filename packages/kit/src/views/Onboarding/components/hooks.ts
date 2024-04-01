@@ -4,7 +4,7 @@ import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
 import { InteractionManager, Keyboard } from 'react-native';
 
-import { type useForm, useKeyboardEvent } from '@onekeyhq/components';
+import { Toast, type useForm, useKeyboardEvent } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -59,7 +59,10 @@ export const useSearchWords = () => {
   };
 };
 
-export const useSuggestion = (form: ReturnType<typeof useForm>) => {
+export const useSuggestion = (
+  form: ReturnType<typeof useForm>,
+  phraseLength = 12,
+) => {
   const {
     fetchSuggestions,
     suggestions,
@@ -84,7 +87,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
     const key = `phrase${selectInputIndex + 2}`;
     await new Promise<void>((resolve) => {
       setTimeout(() => {
-        if (platformEnv.isNative && selectInputIndex === 11) {
+        if (platformEnv.isNative && selectInputIndex === phraseLength - 1) {
           Keyboard.dismiss();
         } else {
           form.setFocus(key);
@@ -92,7 +95,7 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
         resolve();
       }, 300);
     });
-  }, [form, selectInputIndex]);
+  }, [form, phraseLength, selectInputIndex]);
 
   const updateInputValue = useCallback(
     (word: string) => {
@@ -111,6 +114,9 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
       }
       if (!value) {
         resetSuggestions();
+      }
+      if (value.length > 4) {
+        Toast.message({ title: 'Max 4 chars' });
       }
       const text = value.toLowerCase().trim().slice(0, 4);
       const words = fetchSuggestions(text);
@@ -138,7 +144,8 @@ export const useSuggestion = (form: ReturnType<typeof useForm>) => {
       updateByPressLock.current = true;
       updateInputValue(word);
       resetSuggestions();
-      if (word.length > 0) {
+      // the value of invalid word is undefined
+      if (word && word.length > 0) {
         await focusNextInput();
         setTimeout(
           () => {

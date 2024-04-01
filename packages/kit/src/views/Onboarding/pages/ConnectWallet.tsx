@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useState } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
@@ -5,9 +7,25 @@ import {
   Image,
   Page,
   SizableText,
+  Spinner,
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import {
+  useAccountSelectorActions,
+  useSelectedAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 
 type IWalletItem = {
   name?: string;
@@ -23,6 +41,7 @@ const wallets: IWalletGroup[] = [
   {
     data: [
       {
+        // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=metamask
         name: 'MetaMask',
         logo: require('@onekeyhq/kit/assets/onboarding/logo_metamask.png'),
       },
@@ -39,10 +58,9 @@ const wallets: IWalletGroup[] = [
         logo: require('@onekeyhq/kit/assets/onboarding/logo_imtoken.png'),
       },
       {
+        // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=okx
         name: 'OKX Wallet',
-        logo: {
-          uri: 'https://registry.walletconnect.org/v2/logo/sm/45f2f08e-fc0c-4d62-3e63-404e72170500',
-        },
+        logo: require('@onekeyhq/kit/assets/onboarding/logo_okx.png'),
       },
       {
         name: 'TokenPocket',
@@ -50,9 +68,7 @@ const wallets: IWalletGroup[] = [
       },
       {
         name: 'Zerion',
-        logo: {
-          uri: 'https://registry.walletconnect.org/v2/logo/sm/73f6f52f-7862-49e7-bb85-ba93ab72cc00',
-        },
+        logo: require('@onekeyhq/kit/assets/onboarding/logo_zerion.png'),
       },
       {
         name: 'Walletconnect',
@@ -65,9 +81,7 @@ const wallets: IWalletGroup[] = [
     data: [
       {
         name: 'Fireblocks',
-        logo: {
-          uri: 'https://registry.walletconnect.org/v2/logo/sm/7e1514ba-932d-415d-1bdb-bccb6c2cbc00',
-        },
+        logo: require('@onekeyhq/kit/assets/onboarding/logo_fireblocks.png'),
       },
       {
         name: 'Amber',
@@ -79,78 +93,144 @@ const wallets: IWalletGroup[] = [
       },
       {
         name: 'Jade Wallet',
-        logo: {
-          uri: 'https://registry.walletconnect.org/v2/logo/sm/280cd57b-24f4-4700-8d53-94fe292fab00',
-        },
+        logo: require('@onekeyhq/kit/assets/onboarding/logo_jade.png'),
       },
     ],
   },
 ];
+
+function WalletItem({ logo, name }: { name?: string; logo: any }) {
+  const [loading, setLoading] = useState(false);
+  const navigation = useAppNavigation();
+  const actions = useAccountSelectorActions();
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+
+  useEffect(() => {
+    if (!loading) {
+      return;
+    }
+    const fn = (state: { open: boolean }) => {
+      if (state.open === false) {
+        setLoading(false);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
+    };
+  }, [loading]);
+
+  const connectToWallet = useCallback(async () => {
+    try {
+      console.log('WalletItem onPress');
+      if (loading) {
+        return;
+      }
+
+      setLoading(true);
+
+      const session =
+        await backgroundApiProxy.serviceWalletConnect.connectToWallet();
+      console.log('connected', session?.namespaces);
+      if (!session) {
+        setLoading(false);
+        return;
+      }
+      const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
+        wcSession: session,
+      });
+      const account = r.accounts[0];
+      const usedNetworkId = accountUtils.getAccountCompatibleNetwork({
+        account,
+        networkId: selectedAccount.networkId,
+      });
+      await actions.current.updateSelectedAccount({
+        num: 0,
+        builder: (v) => ({
+          ...v,
+          networkId: usedNetworkId,
+          focusedWallet: '$$others',
+          walletId: WALLET_TYPE_EXTERNAL,
+          othersWalletAccountId: account.id,
+          indexedAccountId: undefined,
+        }),
+      });
+      navigation.popStack();
+    } finally {
+      setLoading(false);
+    }
+  }, [actions, loading, navigation, selectedAccount.networkId]);
+
+  return (
+    <Stack
+      flexBasis="50%"
+      $gtMd={{
+        flexBasis: '25%',
+      }}
+      p="$1"
+    >
+      <Stack
+        justifyContent="center"
+        alignItems="center"
+        bg="$bgSubdued"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius="$3"
+        borderCurve="continuous"
+        p="$4"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        onPress={connectToWallet}
+        focusable
+        focusStyle={{
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+          outlineWidth: 2,
+          outlineOffset: 2,
+        }}
+      >
+        <Stack
+          w="$8"
+          h="$8"
+          borderRadius="$2"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          borderCurve="continuous"
+          overflow="hidden"
+        >
+          <Image w="100%" h="100%" source={logo} />
+        </Stack>
+        <XStack alignItems="center">
+          {loading ? <Spinner size="small" /> : null}
+
+          <SizableText userSelect="none" mt="$2" size="$bodyMdMedium">
+            {name}
+          </SizableText>
+        </XStack>
+      </Stack>
+    </Stack>
+  );
+}
 
 export function ConnectWallet() {
   return (
     <Page scrollEnabled>
       <Page.Header title="Connect 3rd-party Wallet" />
       <Page.Body>
-        {wallets.map(({ title, data }) => (
-          <Stack p="$5">
-            {title && (
+        {wallets.map(({ title, data }, index) => (
+          <Stack key={index} p="$5">
+            {title ? (
               <Heading pb="$2.5" color="$textSubdued" size="$headingSm">
                 {title}
               </Heading>
-            )}
+            ) : null}
             <XStack flexWrap="wrap" mx="$-1">
-              {data.map(({ name, logo }) => (
-                <Stack
-                  flexBasis="50%"
-                  $gtMd={{
-                    flexBasis: '25%',
-                  }}
-                  p="$1"
-                >
-                  <Stack
-                    justifyContent="center"
-                    alignItems="center"
-                    bg="$bgSubdued"
-                    borderWidth={StyleSheet.hairlineWidth}
-                    borderColor="$borderSubdued"
-                    borderRadius="$3"
-                    style={{
-                      borderCurve: 'continuous',
-                    }}
-                    p="$4"
-                    hoverStyle={{
-                      bg: '$bgHover',
-                    }}
-                    pressStyle={{
-                      bg: '$bgActive',
-                    }}
-                    focusable
-                    focusStyle={{
-                      outlineColor: '$focusRing',
-                      outlineStyle: 'solid',
-                      outlineWidth: 2,
-                      outlineOffset: 2,
-                    }}
-                  >
-                    <Stack
-                      w="$8"
-                      h="$8"
-                      borderRadius="$2"
-                      borderWidth={StyleSheet.hairlineWidth}
-                      borderColor="$borderSubdued"
-                      style={{
-                        borderCurve: 'continuous',
-                      }}
-                      overflow="hidden"
-                    >
-                      <Image w="100%" h="100%" source={logo} />
-                    </Stack>
-                    <SizableText userSelect="none" mt="$2" size="$bodyMdMedium">
-                      {name}
-                    </SizableText>
-                  </Stack>
-                </Stack>
+              {data.map(({ name, logo }, i) => (
+                <WalletItem name={name} logo={logo} key={i} />
               ))}
             </XStack>
           </Stack>
@@ -160,4 +240,17 @@ export function ConnectWallet() {
   );
 }
 
-export default ConnectWallet;
+function ConnectWalletPage() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <ConnectWallet />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default ConnectWalletPage;

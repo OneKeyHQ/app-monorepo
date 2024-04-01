@@ -24,7 +24,7 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
-import { AccountListItem } from '../../../DAppConnection/components/DAppAccountList';
+import { DAppAccountListItem } from '../../../DAppConnection/components/DAppAccountList';
 import { useHandleDiscoveryAccountChanged } from '../../../DAppConnection/hooks/useHandleAccountChanged';
 import { useShouldUpdateConnectedAccount } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
@@ -45,12 +45,12 @@ function SingleAccountAndNetworkSelectorTrigger({
 }) {
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
   const handleAccountChanged = useCallback(
-    async (selectedAccount: IHandleAccountChangedParams) => {
+    async (accountChangedParams: IHandleAccountChangedParams) => {
       await handleAccountInfoChanged({
         origin,
         accountSelectorNum: num,
         prevAccountInfo: account,
-        selectedAccount,
+        accountChangedParams,
         storageType: account.storageType,
         afterUpdate: afterChangeAccount,
       });
@@ -99,7 +99,7 @@ function AvatarStackTrigger({
           />
         </Stack>
       ))}
-      {accountsInfo.length > 2 && (
+      {accountsInfo.length > 2 ? (
         <XStack
           w="$6"
           h="$6"
@@ -113,7 +113,7 @@ function AvatarStackTrigger({
             +{accountsInfo.length - 2}
           </SizableText>
         </XStack>
-      )}
+      ) : null}
     </XStack>
   );
 }
@@ -155,17 +155,17 @@ function AccountSelectorPopoverContent({
     >
       <YStack p="$5" space="$2">
         {accountsInfo.map((account) => (
-          <AccountListItem
+          <DAppAccountListItem
             key={account.num}
             num={account.num}
             compressionUiMode
             beforeShowTrigger={beforeShowTrigger}
-            handleAccountChanged={async (selectedAccount) => {
+            handleAccountChanged={async (accountChangedParams) => {
               await handleAccountInfoChanged({
                 origin,
                 accountSelectorNum: account.num,
                 prevAccountInfo: account,
-                selectedAccount,
+                accountChangedParams,
                 storageType: account.storageType,
                 afterUpdate: afterChangeAccount,
               });

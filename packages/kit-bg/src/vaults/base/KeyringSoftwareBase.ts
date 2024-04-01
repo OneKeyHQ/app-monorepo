@@ -9,6 +9,7 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -202,9 +203,13 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         privateKeyRaw,
       });
 
+    const accountId = accountUtils.buildImportedAccountId({
+      coinType,
+      pub: publicKey,
+    });
     return Promise.resolve([
       {
-        id: `imported--${coinType}--${publicKey}`,
+        id: accountId,
         name: name || '',
         type: accountType,
         path: '',
@@ -220,42 +225,52 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
   async basePrepareAccountsImportedUtxo(
     params: IPrepareImportedAccountsParams,
-    options: {
-      coinType: string;
-      accountType: EDBAccountType;
-    },
+    // options: {
+    //   coinType: string;
+    //   accountType: EDBAccountType;
+    // },
   ): Promise<Array<IDBUtxoAccount>> {
     if (!this.coreApi) {
       throw new Error('coreApi is not defined');
     }
-    const { name, importedCredential, password } = params;
+    const { name, importedCredential, password, createAtNetwork, deriveInfo } =
+      params;
     const { privateKey } = decryptImportedCredential({
       credential: importedCredential,
       password,
     });
 
-    const { coinType, accountType } = options;
+    const addressEncoding = deriveInfo?.addressEncoding;
 
     const settings = await this.getVaultSettings();
+    const { coinTypeDefault: coinType, accountType } = settings;
+
     const networkInfo = await this.getCoreApiNetworkInfo();
 
     const privateKeyRaw = privateKey;
-    const { address, addresses, publicKey, xpub, path, xpubSegwit } =
+    const { address, addresses, publicKey, xpub, relPath, xpubSegwit } =
       await this.coreApi.getAddressFromPrivate({
         networkInfo,
         privateKeyRaw,
+        addressEncoding,
       });
 
-    if (isNil(path) || isNil(xpub) || !addresses) {
-      throw new Error('path or xpub or addresses is undefined');
+    if (isNil(xpub) || !addresses) {
+      throw new Error('xpub or addresses is undefined');
     }
 
+    const accountId = accountUtils.buildImportedAccountId({
+      coinType,
+      xpub,
+      addressEncoding,
+    });
     return Promise.resolve([
       {
-        id: `imported--${coinType}--${xpub || address}`,
+        id: accountId,
         name: name || '',
         type: accountType,
-        path,
+        path: '',
+        relPath,
         coinType,
         impl: settings.impl,
         xpub,
@@ -263,6 +278,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         pub: publicKey,
         address,
         addresses,
+        createAtNetwork,
       },
     ]);
   }
@@ -270,12 +286,11 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
   async basePrepareAccountsHd(
     params: IPrepareHdAccountsParams,
   ): Promise<Array<IDBSimpleAccount | IDBVariantAccount>> {
-    const { addressEncoding, template } = params.deriveInfo;
+    const { template } = params.deriveInfo;
     const { password } = params;
     const networkInfo = await this.getCoreApiNetworkInfo();
 
     return this.basePrepareHdNormalAccounts(params, {
-      addressEncoding,
       buildAddressesInfo: async ({ usedIndexes }) => {
         if (!this.coreApi) {
           throw new Error('coreApi is not defined');
@@ -304,7 +319,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { password, indexes, deriveInfo, names, skipCheckAccountExist } =
           params;
-        const { addressEncoding } = options;
+        const addressEncoding = params?.deriveInfo?.addressEncoding;
         checkIsDefined(addressEncoding);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { coinType, template, namePrefix } = deriveInfo;

@@ -149,13 +149,13 @@ function SessionProposalModal() {
           urlSecurityInfo={urlSecurityInfo}
           favicon={favicon}
         >
-          {Array.isArray(sessionAccountsInfo) && (
+          {Array.isArray(sessionAccountsInfo) ? (
             <WalletConnectAccountTriggerList
               sceneUrl={origin}
               sessionAccountsInfo={sessionAccountsInfo}
               handleAccountChanged={handleAccountChanged}
             />
-          )}
+          ) : null}
           <DAppRequestedPermissionContent />
         </DAppRequestLayout>
       </Page.Body>

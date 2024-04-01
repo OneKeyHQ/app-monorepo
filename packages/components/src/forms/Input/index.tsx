@@ -1,28 +1,38 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
 } from 'react';
-import type { ForwardedRef, RefObject } from 'react';
+import type { CompositionEventHandler, ForwardedRef, RefObject } from 'react';
 
-import { Group, Input as TMInput, getFontSize, useThemeName } from 'tamagui';
+import { InteractionManager } from 'react-native';
+import {
+  Group,
+  Input as TMInput,
+  getFontSize,
+  useProps,
+  useThemeName,
+} from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../hooks';
-import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
+import { useSelectionColor } from '../../hooks';
+import { Icon } from '../../primitives';
 
+import { type IInputAddOnProps, InputAddOnItem } from './InputAddOnItem';
 import { getSharedInputStyles } from './sharedStyles';
 
-import type { IInputAddOnProps } from './InputAddOnItem';
-import type { IKeyOfIcons } from '../../primitives';
+import type { IGroupProps, IKeyOfIcons } from '../../primitives';
 import type {
   HostComponent,
   MeasureLayoutOnSuccessCallback,
   MeasureOnSuccessCallback,
+  NativeSyntheticEvent,
   TextInput,
+  TextInputFocusEventData,
 } from 'react-native';
 import type { GetProps } from 'tamagui';
 
@@ -35,9 +45,14 @@ export type IInputProps = {
   error?: boolean;
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
-  containerProps?: GetProps<typeof Group>;
+  containerProps?: IGroupProps;
   onChangeText?: ((text: string) => string | void) | undefined;
-} & Omit<ITMInputProps, 'size' | 'onChangeText'>;
+} & Omit<ITMInputProps, 'size' | 'onChangeText'> & {
+    /** Web only */
+    onCompositionStart?: CompositionEventHandler<any>;
+    /** Web only */
+    onCompositionEnd?: CompositionEventHandler<any>;
+  };
 
 export type IInputRef = {
   focus: () => void;
@@ -46,17 +61,17 @@ export type IInputRef = {
 const SIZE_MAPPINGS = {
   'large': {
     paddingLeftWithIcon: '$10',
-    height: 46,
+    height: 44,
     iconLeftPosition: 13,
   },
   'medium': {
     paddingLeftWithIcon: '$9',
-    height: 38,
+    height: 36,
     iconLeftPosition: 9,
   },
   'small': {
     paddingLeftWithIcon: '$8',
-    height: 30,
+    height: 28,
     iconLeftPosition: 5,
   },
 };
@@ -96,8 +111,8 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
   return shouldReloadAutoFocus ? false : autoFocus;
 };
 
-function BaseInput(
-  {
+function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
+  const {
     size = 'medium',
     leftAddOnProps,
     leftIconName,
@@ -108,10 +123,11 @@ function BaseInput(
     containerProps,
     readonly,
     autoFocus,
+    selectTextOnFocus,
+    onFocus,
+    value,
     ...props
-  }: IInputProps,
-  ref: ForwardedRef<IInputRef>,
-) {
+  } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({
@@ -145,67 +161,55 @@ function BaseInput(
       inputRef.current?.measure(callback),
   }));
 
-  const selectionColor = useThemeValue('bgPrimary');
+  const selectionColor = useSelectionColor();
+
+  const valueRef = useRef(value);
+  if (valueRef.current !== value) {
+    valueRef.current = value;
+  }
+
+  // workaround for selectTextOnFocus={true} not working on Native App
+  const handleFocus = useCallback(
+    async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      onFocus?.(e);
+      if (platformEnv.isNative && selectTextOnFocus) {
+        const { currentTarget } = e;
+        await InteractionManager.runAfterInteractions(() => {
+          currentTarget.setNativeProps({
+            selection: { start: 0, end: valueRef.current?.length || 0 },
+          });
+        });
+      }
+    },
+    [onFocus, selectTextOnFocus],
+  );
+
   return (
     <Group
       orientation="horizontal"
+      borderWidth={sharedStyles.borderWidth}
+      borderColor={sharedStyles.borderColor}
+      bg={sharedStyles.backgroundColor}
       borderRadius={sharedStyles.borderRadius}
-      disablePassBorderRadius={!addOns?.length && !leftAddOnProps}
       disabled={disabled}
+      borderCurve="continuous"
       {...containerProps}
     >
       {/* left addon */}
-      {leftAddOnProps && (
+      {leftAddOnProps ? (
         <Group.Item>
-          <XStack
-            bg="$bgSubdued"
-            borderWidth={sharedStyles.borderWidth}
-            borderColor={sharedStyles.borderColor}
-            alignItems="center"
-            px={size === 'large' ? '$2.5' : '$2'}
-            style={{
-              borderCurve: 'continuous',
-            }}
-            {...(leftAddOnProps.onPress &&
-              !disabled && {
-                hoverStyle: {
-                  bg: '$bgHover',
-                },
-                pressStyle: {
-                  bg: '$bgActive',
-                },
-              })}
-            {...(leftAddOnProps.onPress && {
-              focusable: !disabled || !leftAddOnProps.loading,
-            })}
-            focusStyle={sharedStyles.focusStyle}
-            {...leftAddOnProps}
-          >
-            {leftAddOnProps.loading ? (
-              <YStack {...(size !== 'small' && { p: '$0.5' })}>
-                <Spinner size="small" />
-              </YStack>
-            ) : (
-              leftAddOnProps.iconName && (
-                <Icon
-                  name={leftAddOnProps.iconName}
-                  color={leftAddOnProps.iconColor}
-                  size={size === 'small' ? '$5' : '$6'}
-                />
-              )
-            )}
-            {leftAddOnProps.label && (
-              <SizableText
-                size={size === 'small' ? '$bodyMd' : '$bodyLg'}
-                ml={leftAddOnProps.iconName ? '$2' : '$0'}
-                color={disabled ? '$textDisabled' : '$textSubdued'}
-              >
-                {leftAddOnProps.label}
-              </SizableText>
-            )}
-          </XStack>
+          <InputAddOnItem
+            size={size}
+            error={error}
+            loading={leftAddOnProps.loading}
+            label={leftAddOnProps.label}
+            iconName={leftAddOnProps.iconName}
+            iconColor={leftAddOnProps.iconColor}
+            onPress={leftAddOnProps.onPress}
+            testID={leftAddOnProps.testID}
+          />
         </Group.Item>
-      )}
+      ) : null}
 
       {/* input */}
       <Group.Item>
@@ -228,27 +232,21 @@ function BaseInput(
           }
           color={sharedStyles.color}
           placeholderTextColor={sharedStyles.placeholderTextColor}
-          borderWidth={sharedStyles.borderWidth}
-          borderColor={sharedStyles.borderColor}
-          bg={sharedStyles.backgroundColor}
           selectionColor={selectionColor}
-          borderRadius={size === 'large' ? '$3' : '$2'}
-          borderRightWidth={addOns?.length ? '$0' : '$px'}
-          borderLeftWidth={leftAddOnProps ? '$0' : '$px'}
-          focusStyle={sharedStyles.focusStyle}
           cursor={sharedStyles.cursor}
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
-          style={{
-            borderCurve: 'continuous',
-          }}
+          borderCurve="continuous"
           autoFocus={reloadAutoFocus}
+          value={value}
+          onFocus={handleFocus}
+          selectTextOnFocus={selectTextOnFocus}
           {...readOnlyStyle}
           {...props}
         />
       </Group.Item>
 
       {/* left icon */}
-      {leftIconName && (
+      {leftIconName ? (
         <Icon
           position="absolute"
           name={leftIconName}
@@ -259,18 +257,14 @@ function BaseInput(
           color={disabled ? '$iconDisabled' : '$iconSubdued'}
           pointerEvents="none"
         />
-      )}
+      ) : null}
 
       {/* right elements */}
-      {addOns?.length && (
+      {addOns?.length ? (
         <Group.Item>
           <Group
-            borderRadius={size === 'large' ? '$3' : '$2'}
+            borderRadius={sharedStyles.borderRadius}
             orientation="horizontal"
-            borderWidth="$px"
-            borderLeftWidth="$0"
-            borderColor={sharedStyles.borderColor}
-            bg={sharedStyles.backgroundColor}
             disabled={disabled}
             disablePassBorderRadius="start"
           >
@@ -291,59 +285,24 @@ function BaseInput(
 
                 return (
                   <Group.Item key={`${iconName || index}-${label || index}`}>
-                    <XStack
-                      onPress={onPress}
-                      key={`${iconName || ''}-${label || ''}`}
-                      alignItems="center"
-                      px={size === 'large' ? '$2.5' : '$2'}
-                      {...(onPress &&
-                        !disabled &&
-                        !loading && {
-                          userSelect: 'none',
-                          hoverStyle: {
-                            bg: '$bgHover',
-                          },
-                          pressStyle: {
-                            bg: '$bgActive',
-                          },
-                          focusable: !(disabled || loading),
-                          focusStyle: sharedStyles.focusStyle,
-                        })}
-                      style={{
-                        borderCurve: 'continuous',
-                      }}
+                    <InputAddOnItem
                       testID={testID}
-                    >
-                      {loading ? (
-                        <YStack {...(size !== 'small' && { p: '$0.5' })}>
-                          <Spinner size="small" />
-                        </YStack>
-                      ) : (
-                        iconName && (
-                          <Icon
-                            name={iconName}
-                            color={getIconColor()}
-                            size={size === 'small' ? '$5' : '$6'}
-                          />
-                        )
-                      )}
-                      {label && (
-                        <SizableText
-                          size={size === 'small' ? '$bodyMd' : '$bodyLg'}
-                          ml={iconName ? '$2' : '$0'}
-                          color={disabled ? '$textDisabled' : '$textSubdued'}
-                        >
-                          {label}
-                        </SizableText>
-                      )}
-                    </XStack>
+                      key={`${iconName || ''}-${label || ''}`}
+                      label={label}
+                      loading={loading}
+                      size={size}
+                      iconName={iconName}
+                      iconColor={getIconColor()}
+                      error={error}
+                      onPress={onPress}
+                    />
                   </Group.Item>
                 );
               },
             )}
           </Group>
         </Group.Item>
-      )}
+      ) : null}
     </Group>
   );
 }

@@ -11,19 +11,22 @@ type IProps = {
 };
 
 function TxHistoryListItem(props: IProps) {
-  const { historyTx, tableLayout, onPress, index, showIcon } = props;
-  const { decodedTx } = historyTx;
+  const { historyTx, tableLayout, onPress, showIcon } = props;
+
+  if (!historyTx || !historyTx.decodedTx) return null;
 
   return (
     <TxActionsListView
-      decodedTx={decodedTx}
+      decodedTx={historyTx.decodedTx}
       tableLayout={tableLayout}
       showIcon={showIcon}
       componentType={ETxActionComponentType.ListView}
       componentProps={{
-        backgroundColor:
-          tableLayout && index % 2 === 1 ? '$bgSubdued' : undefined,
         onPress: () => onPress?.(historyTx),
+        // ...(tableLayout &&
+        //   index % 2 && {
+        //     bg: '$bgSubdued',
+        //   }),
       }}
     />
   );

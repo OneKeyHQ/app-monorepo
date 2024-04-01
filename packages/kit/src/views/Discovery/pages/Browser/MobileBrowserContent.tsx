@@ -14,14 +14,14 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
 import DiscoveryDashboard from '../Dashboard/DashboardContent';
 
-import type { WebViewScrollEvent } from 'react-native-webview/lib/WebViewTypes';
+import type { IWebViewOnScrollEvent } from '../../components/WebView/types';
 
 function MobileBrowserContent({
   id,
   onScroll,
 }: {
   id: string;
-  onScroll?: (event: WebViewScrollEvent) => void;
+  onScroll?: (event: IWebViewOnScrollEvent) => void;
 }) {
   const { tab } = useWebTabDataById(id);
   const { addBrowserHistory } = useBrowserHistoryAction().current;
@@ -60,6 +60,7 @@ function MobileBrowserContent({
           <Stack
             ref={initCaptureViewRef}
             flex={1}
+            mt="$3"
             // https://github.com/gre/react-native-view-shot/issues/7
             collapsable={platformEnv.isNativeAndroid ? false : undefined}
             bg={platformEnv.isNativeAndroid ? '$bgApp' : undefined}

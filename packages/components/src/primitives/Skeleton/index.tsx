@@ -5,7 +5,6 @@ import { Skeleton as MotiSkeleton } from 'moti/skeleton';
 import { styled, withStaticProperties } from 'tamagui';
 
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
-import { Stack } from '../Stack';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { MotiSkeletonProps } from 'moti/build/skeleton/types';
@@ -16,17 +15,15 @@ export type ISkeletonProps = Omit<
 > &
   StackStyleProps;
 
-function BasicSkeleton({ children, ...props }: ISkeletonProps, ref: any) {
+function BasicSkeleton({ children, ...props }: ISkeletonProps) {
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
   const { theme } = useSettingConfig();
   return (
-    <Stack ref={ref} flex={1}>
-      <MotiSkeleton colorMode={theme} {...(style as any)} {...restProps}>
-        {children}
-      </MotiSkeleton>
-    </Stack>
+    <MotiSkeleton colorMode={theme} {...(style as any)} {...restProps}>
+      {children}
+    </MotiSkeleton>
   );
 }
 

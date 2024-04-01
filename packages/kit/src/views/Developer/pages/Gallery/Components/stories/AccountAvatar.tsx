@@ -1,10 +1,10 @@
 import { YStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
-import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { Layout } from './utils/Layout';
 
-const account: IDBAccount = {
+const account: INetworkAccount = {
   type: undefined,
   path: '',
   coinType: '',
@@ -16,6 +16,17 @@ const account: IDBAccount = {
   name: '1',
   pub: '',
   addresses: { 'aaaa': '1' },
+  connectedAddresses: {},
+  selectedAddress: {},
+  addressDetail: {
+    networkId: 'tbtc--0',
+    address: '0x1111111',
+    baseAddress: '0x1111111',
+    normalizedAddress: '0x1111111',
+    displayAddress: '0x1111111',
+    isValid: true,
+    allowEmptyAddress: false,
+  },
 };
 
 const ToastGallery = () => (
@@ -37,6 +48,16 @@ const ToastGallery = () => (
             <AccountAvatar account={account} networkId="tbtc--0" />
             <AccountAvatar size="small" networkId="tbtc--0" />
             <AccountAvatar size="small" account={account} networkId="tbtc--0" />
+            {/* always loading */}
+            <AccountAvatar
+              size="small"
+              src="https://onekey-asset.com/assets/btc/btc.pn"
+            />
+            <AccountAvatar
+              size="small"
+              src="https://onekey-asset.com/assets/btc/btc.png"
+            />
+            <AccountAvatar src="https://onekey-asset.com/assets/btc/btc.png" />
           </YStack>
         ),
       },

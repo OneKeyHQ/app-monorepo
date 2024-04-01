@@ -1,5 +1,4 @@
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import {
   Icon,
@@ -13,12 +12,11 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
 interface ICustomHeaderTitleProps {
-  handleSearchBarPress: () => void;
+  handleSearchBarPress: (url: string) => void;
 }
 function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const intl = useIntl();
   const media = useMedia();
-  const screenWidth = useWindowDimensions().width;
   const { activeTabId } = useActiveTabId();
   const { tab } = useWebTabDataById(activeTabId ?? '');
   const displayUrl = activeTabId && tab?.url;
@@ -34,8 +32,6 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       borderRadius="$3"
       $md={{
         flex: 1,
-        maxWidth: screenWidth - 40,
-        ml: '$-1.5',
       }}
       hoverStyle={{
         bg: '$bgHover',
@@ -43,10 +39,8 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       pressStyle={{
         bg: '$bgActive',
       }}
-      onPress={handleSearchBarPress}
-      style={{
-        borderCurve: 'continuous',
-      }}
+      onPress={() => handleSearchBarPress(tab?.url ?? '')}
+      borderCurve="continuous"
     >
       <Icon
         name={displayUrl ? 'LockOutline' : 'SearchOutline'}
@@ -62,12 +56,12 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       >
         {displayUrl ? tab?.url : intl.formatMessage({ id: 'form__search' })}
       </SizableText>
-      {media.gtMd && (
+      {media.gtMd ? (
         <Shortcut>
           <Shortcut.Key>⌘</Shortcut.Key>
           <Shortcut.Key>T</Shortcut.Key>
         </Shortcut>
-      )}
+      ) : null}
     </XStack>
   );
 }

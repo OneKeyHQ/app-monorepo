@@ -1,6 +1,8 @@
 import { styled } from '@tamagui/core';
 import { createStyledContext, withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SizableText, XStack } from '../../primitives';
 
 export type IBadgeType =
@@ -25,9 +27,7 @@ const BadgeFrame = styled(XStack, {
   paddingHorizontal: '$2',
   paddingVertical: '$0.5',
   borderRadius: '$1',
-  style: {
-    borderCurve: 'continuous',
-  },
+  borderCurve: 'continuous',
   variants: {
     badgeType: {
       success: {
@@ -91,7 +91,11 @@ const BadgeComponent = BadgeFrame.styleable((props, ref) => {
   const isString = typeof children === 'string';
 
   return (
-    <BadgeFrame ref={ref} {...props}>
+    <BadgeFrame
+      ref={ref}
+      {...props}
+      role={!platformEnv.isNative && props.onPress ? 'button' : undefined}
+    >
       {!isString ? children : <BadgeText>{children}</BadgeText>}
     </BadgeFrame>
   );

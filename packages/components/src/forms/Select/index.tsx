@@ -1,5 +1,6 @@
 import { useCallback, useContext, useMemo, useRef, useState } from 'react';
 
+import { InteractionManager } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
 import { Popover, Trigger } from '../../actions';
@@ -104,9 +105,7 @@ function SelectItem({
           py: '$2.5',
           borderRadius: '$3',
         }}
-        style={{
-          borderCurve: 'continuous',
-        }}
+        borderCurve="continuous"
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}
         onPress={handleSelect}
@@ -125,11 +124,11 @@ function SelectItem({
           >
             {label}
           </SizableText>
-          {description && (
+          {description ? (
             <SizableText mt="$0.5" size="$bodyMd" color="$textSubdued">
               {description}
             </SizableText>
-          )}
+          ) : null}
         </Stack>
         {selectedValue === value ? (
           <Icon
@@ -288,7 +287,7 @@ function SelectContent() {
       onOpenChange={handleOpenChange}
       keepChildrenMounted
       sheetProps={{
-        dismissOnSnapToBottom: false,
+        dismissOnSnapToBottom: true,
         snapPointsMode: 'fit',
         ...sheetProps,
       }}
@@ -309,6 +308,7 @@ function SelectFrame<T extends string | ISelectItem>({
   placeholder,
   value,
   onChange,
+  onOpenChange,
   children,
   title,
   disabled,
@@ -327,7 +327,15 @@ function SelectFrame<T extends string | ISelectItem>({
         },
   );
   const [isOpen, setIsOpen] = useState(false);
-  const changeOpenStatus = setIsOpen;
+  const changeOpenStatus = useCallback(
+    (openStatus: boolean) => {
+      setIsOpen(openStatus);
+      void InteractionManager.runAfterInteractions(() => {
+        onOpenChange?.(openStatus);
+      });
+    },
+    [onOpenChange],
+  );
   // eslint-disable-next-line no-bitwise
   const context = useMemo(
     () => ({

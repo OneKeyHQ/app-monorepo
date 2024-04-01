@@ -3,10 +3,21 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
 
-import { Page, Stack } from '@onekeyhq/components';
+import {
+  Icon,
+  Page,
+  Stack,
+  XStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -33,6 +44,7 @@ import { withBrowserProvider } from './WithBrowserProvider';
 function MobileBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
+  const { closeWebTab, setCurrentWebTab } = useBrowserTabActions().current;
   // const { tab } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
@@ -63,6 +75,30 @@ function MobileBrowser() {
     void checkAndCreateFolder();
   }, []);
 
+  const closeCurrentWebTab = useCallback(
+    async () => (activeTabId ? closeWebTab(activeTabId) : Promise.resolve()),
+    [activeTabId, closeWebTab],
+  );
+
+  const onCloseCurrentWebTabAndGoHomePage = useCallback(() => {
+    if (activeTabId) {
+      closeWebTab(activeTabId);
+      setCurrentWebTab(null);
+    }
+    return Promise.resolve();
+  }, [activeTabId, closeWebTab, setCurrentWebTab]);
+
+  // For risk detection
+  useEffect(() => {
+    const listener = () => {
+      void closeCurrentWebTab();
+    };
+    appEventBus.on(EAppEventBusNames.CloseCurrentBrowserTab, listener);
+    return () => {
+      appEventBus.off(EAppEventBusNames.CloseCurrentBrowserTab, listener);
+    };
+  }, [closeCurrentWebTab]);
+
   const content = useMemo(
     () =>
       tabs.map((t) => (
@@ -71,28 +107,47 @@ function MobileBrowser() {
     [tabs, handleScroll],
   );
 
-  const handleSearchBarPress = useCallback(() => {
-    navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
-  }, [navigation]);
-  const headerTitle = useCallback(
-    () => <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />,
-    [handleSearchBarPress],
+  const handleSearchBarPress = useCallback(
+    (url: string) => {
+      navigation.pushFullModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.SearchModal,
+        params: {
+          url,
+          tabId: activeTabId ?? undefined,
+          useCurrentWindow: !!activeTabId,
+        },
+      });
+    },
+    [navigation, activeTabId],
   );
-  const headerRight = useCallback(() => <HeaderRightToolBar />, []);
+
+  const { top } = useSafeAreaInsets();
 
   return (
-    <Page>
-      <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+    <Page skipLoading={platformEnv.isNativeIOS}>
+      <Page.Header headerShown={false} />
+      {/* custom header */}
+      <XStack
+        pt={top}
+        mx="$5"
+        alignItems="center"
+        my="$1"
+        mt={platformEnv.isNativeAndroid ? '$3' : undefined}
+      >
+        {!displayHomePage ? (
+          <Stack onPress={onCloseCurrentWebTabAndGoHomePage}>
+            <Icon name="CrossedLargeOutline" mr="$4" />
+          </Stack>
+        ) : null}
+        <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
+        <HeaderRightToolBar />
+      </XStack>
       <Page.Body>
         <Stack flex={1} zIndex={3}>
           <HandleRebuildBrowserData />
-          {displayHomePage ? (
-            <Stack flex={1}>
-              <DashboardContent onScroll={handleScroll} />
-            </Stack>
-          ) : null}
+          <Stack flex={1} display={displayHomePage ? 'flex' : 'none'}>
+            <DashboardContent onScroll={handleScroll} />
+          </Stack>
           <Freeze freeze={displayHomePage}>{content}</Freeze>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
