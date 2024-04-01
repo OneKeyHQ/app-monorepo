@@ -3,7 +3,13 @@ import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import type { IIconProps } from '@onekeyhq/components';
-import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -92,6 +98,9 @@ function DAppSiteMark({
         <Image.Fallback>
           <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
         </Image.Fallback>
+        <Image.Loading>
+          <Skeleton width="100%" height="100%" />
+        </Image.Loading>
       </Image>
       <SizableText size="$bodyLgMedium" color={riskyStyle.textColor} px="$1">
         {content}

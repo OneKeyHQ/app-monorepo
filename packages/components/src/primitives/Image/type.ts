@@ -1,11 +1,19 @@
 import type { PropsWithChildren } from 'react';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
-import type { ImageProps, ImageSourcePropType } from 'react-native';
+import type {
+  Image,
+  ImageProps,
+  ImageSourcePropType,
+  ImageURISource,
+} from 'react-native';
+import type { FastImageStaticProperties } from 'react-native-fast-image';
 
 export type IImageContext = {
   loading?: boolean;
   setLoading?: (loading: boolean) => void;
+  loadedSuccessfully?: boolean;
+  setLoadedSuccessfully?: (isSuccessful: boolean) => void;
 };
 
 export type IImageFallbackProps = PropsWithChildren<
@@ -33,3 +41,9 @@ export type IUseSource = (
   source?: ImageSourcePropType,
   src?: string,
 ) => ImageSourcePropType | undefined;
+
+export type IUseImageComponent = (
+  imageSource?: ImageSourcePropType,
+) => typeof Image | null;
+
+export type IPreloadFunc = FastImageStaticProperties['preload'];
