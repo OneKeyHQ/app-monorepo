@@ -1,8 +1,9 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { Page, SectionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -21,8 +22,6 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { TextInputFocusEventData } from 'react-native';
-import { useDebounce } from 'tamagui';
-import { useDebouncedCallback } from 'use-debounce';
 
 function TokenSelector() {
   const intl = useIntl();
@@ -110,24 +109,29 @@ function TokenSelector() {
 
   const debounceUpdateSearchKey = useDebouncedCallback(updateSearchKey, 800);
 
+  const tokensLength = tokenList.tokens.length;
+  const headerSearchBarOptions = useMemo(
+    () =>
+      tokensLength > 10
+        ? {
+            placeholder: 'Search symbol or contract address',
+            onChangeText: ({
+              nativeEvent,
+            }: {
+              nativeEvent: TextInputFocusEventData;
+            }) => {
+              debounceUpdateSearchKey(nativeEvent.text);
+            },
+          }
+        : undefined,
+    [debounceUpdateSearchKey, tokensLength],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: 'action__select_token' })}
-        headerSearchBarOptions={
-          tokenList.tokens.length > 10
-            ? {
-                placeholder: 'Search symbol or contract address',
-                onChangeText: ({
-                  nativeEvent,
-                }: {
-                  nativeEvent: TextInputFocusEventData;
-                }) => {
-                  debounceUpdateSearchKey(nativeEvent.text);
-                },
-              }
-            : undefined
-        }
+        headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>
         {networkName ? <SectionList.SectionHeader title={networkName} /> : null}
