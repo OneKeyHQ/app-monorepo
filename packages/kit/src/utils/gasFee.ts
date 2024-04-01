@@ -218,3 +218,17 @@ export function getFeeConfidenceLevelStyle(confidence: number) {
     badgeType: 'success',
   };
 }
+
+export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
+  if (feeInfo.gasEIP1559) {
+    return feeInfo.gasEIP1559.maxFeePerGas;
+  }
+
+  if (feeInfo.gas) {
+    return feeInfo.gas.gasPrice;
+  }
+
+  if (feeInfo.feeUTXO) {
+    return feeInfo.feeUTXO.feeRate;
+  }
+}

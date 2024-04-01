@@ -4,12 +4,15 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Divider,
   Form,
   Input,
+  NumberSizeableText,
   SegmentControl,
   SizableText,
   Stack,
+  XStack,
   YStack,
   useForm,
 } from '@onekeyhq/components';
@@ -18,6 +21,8 @@ import {
   useSendSelectedFeeAtom,
   useSendSelectedFeeInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { getFeePriceNumber } from '@onekeyhq/kit/src/utils/gasFee';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IFeeInfoUnit,
   IFeeSelectorItem,
@@ -33,6 +38,7 @@ function FeeEditor(props: IProps) {
   const { networkId, feeSelectorItems } = props;
   const intl = useIntl();
 
+  const [settings] = useSettingsPersistAtom();
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [originalCustomFee] = useCustomFeeAtom();
   const [selectedFee] = useSendSelectedFeeInfoAtom();
@@ -46,7 +52,8 @@ function FeeEditor(props: IProps) {
   );
   const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
 
-  const { feeDecimals, feeSymbol, nativeSymbol } = customFee.common;
+  const { feeDecimals, feeSymbol, nativeSymbol, nativeTokenPrice } =
+    customFee.common;
 
   const form = useForm({
     defaultValues: {
@@ -56,10 +63,14 @@ function FeeEditor(props: IProps) {
       gasPrice: customFee.gas?.gasPrice ?? '0',
       // gas eip1559
       priorityFee: customFee.gasEIP1559?.maxPriorityFeePerGas ?? '0',
-      maxFee: customFee.gasEIP1559?.maxFeePerGas ?? '0',
+      maxBaseFee: new BigNumber(customFee.gasEIP1559?.maxFeePerGas ?? '0')
+        .minus(customFee.gasEIP1559?.maxPriorityFeePerGas ?? '0')
+        .toFixed(),
       // fee utxo
       feeRate: customFee.feeUTXO?.feeRate ?? '0',
     },
+    mode: 'onChange',
+    reValidateMode: 'onBlur',
   });
 
   const watchAllFields = form.watch();
@@ -75,7 +86,9 @@ function FeeEditor(props: IProps) {
       gasEIP1559: customFee.gasEIP1559 && {
         baseFeePerGas: customFee.gasEIP1559?.baseFeePerGas ?? '0',
         maxPriorityFeePerGas: watchAllFields.priorityFee,
-        maxFeePerGas: watchAllFields.maxFee,
+        maxFeePerGas: new BigNumber(watchAllFields.maxBaseFee ?? '0')
+          .plus(watchAllFields.priorityFee ?? '0')
+          .toFixed(),
         gasLimit: watchAllFields.gasLimit,
         gasLimitForDisplay: watchAllFields.gasLimit,
       },
@@ -91,10 +104,24 @@ function FeeEditor(props: IProps) {
       watchAllFields.feeRate,
       watchAllFields.gasLimit,
       watchAllFields.gasPrice,
-      watchAllFields.maxFee,
+      watchAllFields.maxBaseFee,
       watchAllFields.priorityFee,
     ],
   );
+
+  const handleValidateMaxBaseFee = useCallback(
+    (value: string) => {
+      if (
+        new BigNumber(value ?? 0).isLessThan(
+          customFee.gasEIP1559?.baseFeePerGas ?? '0',
+        )
+      )
+        return 'Max base fee is low for current network conditions';
+    },
+    [customFee.gasEIP1559?.baseFeePerGas],
+  );
+
+  const handleApplyFeeInfo = useCallback(() => {}, []);
 
   const renderFeeTypeSelector = useCallback(
     () => (
@@ -105,7 +132,27 @@ function FeeEditor(props: IProps) {
           setCurrentFeeIndex(Number(v));
           setCurrentFeeType(feeSelectorItems[Number(v)].type);
         }}
-        options={feeSelectorItems}
+        options={feeSelectorItems.map((item, index) => ({
+          ...item,
+          label: (
+            <YStack>
+              <SizableText
+                color={currentFeeIndex === index ? '$text' : '$textSubdued'}
+                size="$bodyMdMedium"
+                textAlign="center"
+              >
+                {item.label}
+              </SizableText>
+              <SizableText
+                color={currentFeeIndex === index ? '$text' : '$textSubdued'}
+                size="$bodySm"
+                textAlign="center"
+              >
+                {getFeePriceNumber({ feeInfo: item.feeInfo })}
+              </SizableText>
+            </YStack>
+          ),
+        }))}
       />
     ),
     [currentFeeIndex, feeSelectorItems],
@@ -116,25 +163,15 @@ function FeeEditor(props: IProps) {
     console.log('customFee', customFee);
 
     if (customFee.gasEIP1559) {
-      const maxPriorityFeeInNative = new BigNumber(
-        watchAllFields.priorityFee || 0,
-      )
-        .times(watchAllFields.gasLimit || 0)
-        .shiftedBy(-feeDecimals)
-        .toFixed(8);
-      const maxFeeInNative = new BigNumber(watchAllFields.maxFee || 0)
-        .times(watchAllFields.gasLimit || 0)
-        .shiftedBy(-feeDecimals)
-        .toFixed(8);
       return (
         <YStack space="$5">
           <Form.Field
-            label={`${intl.formatMessage({
-              id: 'form__priority_fee',
-            })}`}
-            name="priorityFee"
+            label="Max Base Fee"
+            name="maxBaseFee"
+            description={`Current: ${customFee.gasEIP1559.baseFeePerGas}${feeSymbol}`}
             rules={{
               required: true,
+              validate: handleValidateMaxBaseFee,
             }}
           >
             <Input
@@ -148,9 +185,9 @@ function FeeEditor(props: IProps) {
           </Form.Field>
           <Form.Field
             label={`${intl.formatMessage({
-              id: 'form__max_fee',
+              id: 'form__priority_fee',
             })}`}
-            name="maxFee"
+            name="priorityFee"
             rules={{
               required: true,
             }}
@@ -225,18 +262,82 @@ function FeeEditor(props: IProps) {
         </YStack>
       );
     }
+  }, [currentFeeType, customFee, feeSymbol, handleValidateMaxBaseFee, intl]);
+
+  const renderFeeOverview = useCallback(() => {
+    let feeInfoItems: {
+      label: string;
+      nativeValue: string;
+      fiatValue: string;
+    }[] = [];
+    if (customFee.gasEIP1559) {
+      const expectedFeeInNative = new BigNumber(watchAllFields.priorityFee || 0)
+        .times(watchAllFields.gasLimit || 0)
+        .shiftedBy(-feeDecimals);
+      const maxFeeInNative = new BigNumber(watchAllFields.maxBaseFee || 0)
+        .plus(watchAllFields.priorityFee || 0)
+        .times(watchAllFields.gasLimit || 0)
+        .shiftedBy(-feeDecimals);
+
+      feeInfoItems = [
+        {
+          label: 'Expected Fee',
+          nativeValue: expectedFeeInNative.toFixed(),
+          fiatValue: expectedFeeInNative.times(nativeTokenPrice ?? 0).toFixed(),
+        },
+        {
+          label: 'Max Fee',
+          nativeValue: maxFeeInNative.toFixed(),
+          fiatValue: maxFeeInNative.times(nativeTokenPrice ?? 0).toFixed(),
+        },
+      ];
+    }
+
+    return (
+      <Stack space="$4" p="$5" pt="0">
+        <YStack>
+          {feeInfoItems.map((feeInfo, index) => (
+            <XStack key={index}>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {feeInfo.label}
+              </SizableText>
+              <XStack>
+                <NumberSizeableText
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol: nativeSymbol }}
+                  size="$bodyMd"
+                  color="$textSubdued"
+                >
+                  {feeInfo.fiatValue}
+                </NumberSizeableText>
+                <NumberSizeableText
+                  formatter="value"
+                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
+                  size="$bodyMdMedium"
+                >
+                  {feeInfo.fiatValue}
+                </NumberSizeableText>
+              </XStack>
+            </XStack>
+          ))}
+        </YStack>
+        <Button variant="primary" size="medium" onPress={handleApplyFeeInfo}>
+          {intl.formatMessage({ id: 'action__save' })}
+        </Button>
+      </Stack>
+    );
   }, [
-    currentFeeType,
-    customFee,
+    customFee.gasEIP1559,
     feeDecimals,
-    feeSymbol,
+    handleApplyFeeInfo,
     intl,
+    nativeSymbol,
+    nativeTokenPrice,
+    settings.currencyInfo.symbol,
     watchAllFields.gasLimit,
-    watchAllFields.maxFee,
+    watchAllFields.maxBaseFee,
     watchAllFields.priorityFee,
   ]);
-
-  const renderFeeOverview = useCallback(() => {}, []);
 
   return (
     <Stack space="$4">
