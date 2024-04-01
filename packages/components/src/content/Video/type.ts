@@ -6,4 +6,9 @@ export type IVideoProps = ReactVideoProps &
     autoPlay?: boolean;
   };
 
-export { default as EResizeMode } from 'react-native-video/src/types/ResizeMode';
+export enum EVideoResizeMode {
+  NONE = 'none',
+  CONTAIN = 'contain',
+  COVER = 'cover',
+  STRETCH = 'stretch',
+};
