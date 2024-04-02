@@ -29,10 +29,10 @@ export default function useReadMnemonic() {
       if (!walletId) {
         walletId = await readWalletIdFromSelectWallet();
       }
+      void backgroundApiProxy.servicePassword.clearCachedPassword();
       const { password } =
         await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet({
           walletId,
-          reason: EReasonForNeedPassword.CreateOrRemoveWallet,
         });
 
       const { mnemonic } =
