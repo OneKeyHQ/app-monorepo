@@ -7,6 +7,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
@@ -30,13 +31,19 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       py="$1.5"
       bg="$bgStrong"
       borderRadius="$3"
-      $md={{
-        // TODO: should path react-navigation Header Element on Web
-        // quick fix react-navigation header on md size of web
-        width: 'calc(100vw - 40px)',
-        flex: 1,
-        mt: '$4',
-      }}
+      // TODO: should path react-navigation Header Element on Web
+      $md={
+        platformEnv.isRuntimeBrowser
+          ? {
+              // quick fix react-navigation header on md size of web
+              width: 'calc(100vw - 40px)',
+              flex: 1,
+              mt: '$4',
+            }
+          : {
+              flex: 1,
+            }
+      }
       hoverStyle={{
         bg: '$bgHover',
       }}
