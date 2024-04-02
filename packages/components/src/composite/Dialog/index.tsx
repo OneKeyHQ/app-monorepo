@@ -235,6 +235,7 @@ function DialogFrame({
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
+          zIndex={sheetProps?.zIndex ? sheetProps.zIndex - 1 : undefined}
         />
         <Sheet.Frame
           unstyled

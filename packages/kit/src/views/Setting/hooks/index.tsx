@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Input } from '@onekeyhq/components';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -29,6 +30,9 @@ export function useResetApp() {
   const intl = useIntl();
   return useCallback(() => {
     Dialog.show({
+      sheetProps: {
+        zIndex: RESET_OVERLAY_Z_INDEX,
+      },
       title: intl.formatMessage({ id: 'action__reset' }),
       icon: 'ErrorOutline',
       tone: 'destructive',
