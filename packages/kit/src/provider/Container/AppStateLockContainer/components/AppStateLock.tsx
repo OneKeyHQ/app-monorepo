@@ -69,6 +69,7 @@ const AppStateLock = ({
         fullscreen
         // keep the lock screen interface at the top by the z-index on Web & Android
         zIndex={APP_STATE_LOCK_Z_INDEX}
+        elevation={platformEnv.isNativeAndroid ? -1 : undefined}
         flex={1}
         bg="$bgApp"
         {...props}
