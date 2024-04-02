@@ -15,6 +15,18 @@ import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 interface ICustomHeaderTitleProps {
   handleSearchBarPress: (url: string) => void;
 }
+
+const mdHeaderStyle = platformEnv.isNative
+  ? {
+      flex: 1,
+    }
+  : {
+      // quick fix react-navigation header on md size of web
+      width: 'calc(100vw - 40px)',
+      flex: 1,
+      mt: '$4',
+    };
+
 function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const intl = useIntl();
   const media = useMedia();
@@ -32,18 +44,7 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       bg="$bgStrong"
       borderRadius="$3"
       // TODO: should path react-navigation Header Element on Web
-      $md={
-        platformEnv.isRuntimeBrowser
-          ? {
-              // quick fix react-navigation header on md size of web
-              width: 'calc(100vw - 40px)',
-              flex: 1,
-              mt: '$4',
-            }
-          : {
-              flex: 1,
-            }
-      }
+      $md={mdHeaderStyle}
       hoverStyle={{
         bg: '$bgHover',
       }}
