@@ -4970,7 +4970,7 @@ __metadata:
     "@tamagui/static": "npm:1.79.7"
     "@tamagui/themes": "npm:1.79.7"
     "@tamagui/toast": "npm:1.79.7"
-    "@types/chrome": "npm:^0.0.248"
+    "@types/chrome": "npm:^0.0.263"
     "@types/elliptic": "npm:^6.4.16"
     "@types/ethjs-util": "npm:^0.1.2"
     "@types/jest": "npm:^29.5.6"
@@ -8781,13 +8781,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/chrome@npm:^0.0.248":
-  version: 0.0.248
-  resolution: "@types/chrome@npm:0.0.248"
+"@types/chrome@npm:^0.0.263":
+  version: 0.0.263
+  resolution: "@types/chrome@npm:0.0.263"
   dependencies:
     "@types/filesystem": "npm:*"
     "@types/har-format": "npm:*"
-  checksum: 228d901fcb8a84949c2bd023106697d074987cffc74e5260bcf56bf1c96ed859a04a176da12b9910ad8c1538aad2315909a6fe16c91fb2ec3ca4f501ef50226f
+  checksum: ecffc799c2c8df057457fb79be0ac69d2d3327e53343d6727f1633a4782037613e7392ede6541284a9fa771d4d63352d61889882328c95e0ea9af4c65d8c98c5
   languageName: node
   linkType: hard
 
