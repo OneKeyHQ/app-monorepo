@@ -415,6 +415,9 @@ function createMainWindow() {
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
     browserWindow.webContents.send(ipcMessageKeys.APP_STATE, undefined);
+    registerShortcuts((event) => {
+      browserWindow.webContents.send(ipcMessageKeys.APP_SHORCUT, event);
+    });
   });
 
   // reset appState to undefined  to avoid screen lock.
@@ -436,7 +439,6 @@ function createMainWindow() {
 
   browserWindow.on('hide', () => {
     browserWindow.webContents.send(ipcMessageKeys.APP_STATE, 'background');
-    unregisterShortcuts();
   });
 
   // Prevents clicking on links to open new Windows

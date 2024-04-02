@@ -180,8 +180,12 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
   );
 
   const handleCloseTab = useCallback(async () => {
-    closeWebTab(id);
-    setCurrentWebTab(null);
+    // a workaround to fix this issue
+    //  that remove page includes Popover from screen before closing popover
+    setTimeout(() => {
+      closeWebTab(id);
+      setCurrentWebTab(null);
+    });
   }, [closeWebTab, setCurrentWebTab, id]);
 
   const handleGoBackHome = useCallback(async () => {
