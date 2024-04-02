@@ -13,7 +13,7 @@ async function createOffscreen() {
   // @ts-ignore
   await chrome.offscreen.createDocument({
     url: 'offscreen.html',
-    reasons: ['BLOBS'],
+    reasons: ['BLOBS'] as chrome.offscreen.Reason[],
     justification: 'keep background service worker running and alive',
   });
 }
