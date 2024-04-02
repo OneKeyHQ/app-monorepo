@@ -100,7 +100,7 @@ export function ChunkedItemsView({
                 $md={
                   isExploreView
                     ? {
-                        flexBasis: '50%',
+                        flexBasis: '100%',
                       }
                     : undefined
                 }

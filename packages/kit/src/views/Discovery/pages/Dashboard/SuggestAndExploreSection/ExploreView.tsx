@@ -50,7 +50,7 @@ export function ExploreView({
   const media = useMedia();
   const chunkSize = useMemo(() => {
     if (!media.gtMd) {
-      return 2;
+      return 1;
     }
     return media.lg ? 2 : 3;
   }, [media]);
