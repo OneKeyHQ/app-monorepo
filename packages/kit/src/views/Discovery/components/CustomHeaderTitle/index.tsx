@@ -21,6 +21,7 @@ const mdHeaderStyle = platformEnv.isNative
       flex: 1,
     }
   : {
+      // TODO: should path react-navigation Header Element on Web
       // quick fix react-navigation header on md size of web
       width: 'calc(100vw - 40px)',
       flex: 1,
@@ -43,7 +44,6 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       py="$1.5"
       bg="$bgStrong"
       borderRadius="$3"
-      // TODO: should path react-navigation Header Element on Web
       $md={mdHeaderStyle}
       hoverStyle={{
         bg: '$bgHover',
