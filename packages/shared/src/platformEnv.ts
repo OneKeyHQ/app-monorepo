@@ -96,6 +96,7 @@ export type IPlatformEnv = {
   isExtensionUi?: boolean;
   isExtensionUiPopup?: boolean;
   isExtensionUiExpandTab?: boolean;
+  isExtensionUiSidePanel?: boolean;
   isExtensionUiStandaloneWindow?: boolean;
 
   isRuntimeBrowser?: boolean;
@@ -327,6 +328,9 @@ export const isExtensionUiPopup: boolean =
 export const isExtensionUiExpandTab: boolean =
   isExtensionUi && window.location.pathname.startsWith('/ui-expand-tab.html');
 
+export const isExtensionUiSidePanel: boolean =
+  isExtensionUi && window.location.pathname.startsWith('/ui-side-panel.html');
+
 export const isExtensionUiStandaloneWindow: boolean =
   isExtensionUi &&
   window.location.pathname.startsWith('/ui-standalone-window.html');
@@ -394,6 +398,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionUi,
   isExtensionUiPopup,
   isExtensionUiExpandTab,
+  isExtensionUiSidePanel,
   isExtensionUiStandaloneWindow,
   isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup,
 

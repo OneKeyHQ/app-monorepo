@@ -42,6 +42,7 @@ function createHtmlPlugin({ name, chunks }) {
 let uiHtml = [
   'ui-popup', // main ui
   'ui-expand-tab',
+  'ui-side-panel',
   'ui-standalone-window',
   'ui-content-script-iframe', // allow site load iframe html force service-worker update
   // 'ui-options',
