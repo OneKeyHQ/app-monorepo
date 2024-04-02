@@ -44,16 +44,18 @@ import { useShowCopyPasteButton, useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
 import type { ITutorialsListItemProps } from './Tutorials';
-import type { ReturnKeyTypeOptions, TextInput } from 'react-native';
+import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
 
 const KeyDownView = View as unknown as ComponentType<
-  PropsWithChildren<{
-    onKeyDown: (e: {
-      keyCode: number;
-      preventDefault: () => void;
-      stopPropagation: () => void;
-    }) => void;
-  }>
+  PropsWithChildren<
+    {
+      onKeyDown: (e: {
+        keyCode: number;
+        preventDefault: () => void;
+        stopPropagation: () => void;
+      }) => void;
+    } & ViewProps
+  >
 >;
 
 const phraseLengthOptions = [
@@ -383,15 +385,26 @@ function BasicPhaseInput(
           ? selectInputIndex === index && suggestions.length > 0
           : false
       }
+      floatingPanelProps={{
+        $md: {
+          px: '$4',
+          width: '100vw',
+          outlineWidth: 0,
+          bg: '$transparent',
+          borderWidth: 0,
+        },
+      }}
       renderContent={
-        <KeyDownView onKeyDown={handleSelectSuggestionByNumber}>
-          <SuggestionList
-            firstButtonRef={firstButtonRef}
-            suggestions={suggestions}
-            onPressItem={updateInputValue}
-            isFocusable={tabFocusable}
-          />
-        </KeyDownView>
+        <Stack $md={{ bg: '$bg', borderRadius: '$3' }}>
+          <KeyDownView onKeyDown={handleSelectSuggestionByNumber}>
+            <SuggestionList
+              firstButtonRef={firstButtonRef}
+              suggestions={suggestions}
+              onPressItem={updateInputValue}
+              isFocusable={tabFocusable}
+            />
+          </KeyDownView>
+        </Stack>
       }
       renderTrigger={
         <Stack>
