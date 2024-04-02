@@ -16,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type ProviderApiEthereum from './ProviderApiEthereum';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -27,7 +28,8 @@ export interface IOneKeyWalletInfo {
   version?: string;
   buildNumber?: string;
   disableExt: boolean;
-  walletSwitchConfig: Record<string, string[]>;
+  isDefaultWallet?: boolean;
+  excludeDappList: string[];
   isLegacy: boolean;
   platformEnv: {
     isRuntimeBrowser?: boolean;
@@ -65,6 +67,14 @@ class ProviderApiPrivate extends ProviderApiBase {
     // noop
   }
 
+  public notifyExtSwitchChanged(info: IProviderBaseBackgroundNotifyInfo) {
+    const params = this.getWalletInfo();
+    info.send(
+      { method: 'wallet_events_ext_switch_changed', params },
+      info.targetOrigin,
+    );
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public rpcCall(request: IJsonRpcRequest): any {
     // noop
@@ -72,44 +82,16 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   // ----------------------------------------------
   getWalletInfo(): IOneKeyWalletInfo {
-    // TODO: get config from global jotai
-    // const disableExt = !!this.backgroundApi.appSelector(
-    //   (s) => s.settings.disableExt,
-    // );
-    // const walletSwitchData = this.backgroundApi.appSelector(
-    //   (s) => s.settings.walletSwitchData,
-    // );
-    // const showContentScriptReloadButton = this.backgroundApi.appSelector(
-    //   (s) => s.settings?.devMode?.showContentScriptReloadButton,
-    // );
-
-    const disableExt = false;
-    const walletSwitchConfig: Record<string, string[]> = {
-      enable: [],
-      disable: [],
-    };
-    // if (walletSwitchData && Object.values(walletSwitchData).length) {
-    //   Object.values(walletSwitchData).forEach((item) => {
-    //     if (item.enable) {
-    //       walletSwitchConfig.enable = [
-    //         ...walletSwitchConfig.enable,
-    //         ...item.propertyKeys,
-    //       ];
-    //     } else {
-    //       walletSwitchConfig.disable = [
-    //         ...walletSwitchConfig.disable,
-    //         ...item.propertyKeys,
-    //       ];
-    //     }
-    //   });
-    // }
+    const isDefaultWallet = false;
+    const excludeDappList = ['https://app.uniswap.org'];
     return {
       enableExtContentScriptReloadButton: false,
       platform: process.env.ONEKEY_PLATFORM,
       version: process.env.VERSION,
       buildNumber: process.env.BUILD_NUMBER,
-      disableExt,
-      walletSwitchConfig,
+      disableExt: false,
+      isDefaultWallet,
+      excludeDappList,
       isLegacy: false,
       platformEnv: {
         isRuntimeBrowser: platformEnv.isRuntimeBrowser,
@@ -131,6 +113,46 @@ class ProviderApiPrivate extends ProviderApiBase {
         isDesktopLinux: platformEnv.isDesktopLinux,
         isDesktopMac: platformEnv.isDesktopMac,
       },
+    };
+  }
+
+  // $onekey.$private.request({method:'wallet_getConnectWalletInfo'})
+  @providerApiMethod()
+  async wallet_getConnectWalletInfo(
+    request: IJsBridgeMessagePayload,
+    { time = 0 }: { time?: number } = {},
+  ) {
+    // const manifest = chrome.runtime.getManifest();
+    // pass debugLoggerSettings to dapp injected provider
+    // TODO: (await getDebugLoggerSettings())
+    const debugLoggerSettings = '';
+    // const ethereum = this.backgroundApi.providers
+    //   .ethereum as ProviderApiEthereum;
+    // const providerState = await ethereum.metamask_getProviderState(request);
+    return {
+      pong: true,
+      time: Date.now(),
+      delay: Date.now() - time,
+      debugLoggerConfig: {
+        // ** pass full logger settings string to Dapp
+        config: debugLoggerSettings,
+
+        // ** or you can enable some Dapp logger keys manually
+        enabledKeys: platformEnv.isDev
+          ? [
+              // 'jsBridge', 'extInjected', 'providerBase'
+            ]
+          : [],
+
+        // ** or you can update logger settings in Dapp console directly
+        //    ** (all logger settings in Wallet should be disabled first)
+        /*
+          window.localStorage.setItem('$$ONEKEY_DEBUG_LOGGER', 'jsBridge,ethereum');
+          window.location.reload();
+           */
+      },
+      walletInfo: this.getWalletInfo(),
+      providerState: {},
     };
   }
 
