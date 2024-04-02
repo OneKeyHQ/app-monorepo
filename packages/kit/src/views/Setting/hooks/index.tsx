@@ -33,6 +33,9 @@ export function useResetApp() {
       sheetProps: {
         zIndex: RESET_OVERLAY_Z_INDEX,
       },
+      floatingPanelProps: {
+        zIndex: RESET_OVERLAY_Z_INDEX,
+      },
       title: intl.formatMessage({ id: 'action__reset' }),
       icon: 'ErrorOutline',
       tone: 'destructive',
