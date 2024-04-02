@@ -80,5 +80,5 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
         void backgroundApiProxy.serviceApp.resetApp();
       },
     });
-  }, [intl]);
+  }, [inAppStateLock, intl]);
 }
