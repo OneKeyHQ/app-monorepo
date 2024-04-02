@@ -31,7 +31,11 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       bg="$bgStrong"
       borderRadius="$3"
       $md={{
+        // TODO: should path react-navigation Header Element on Web
+        // quick fix react-navigation header on md size of web
+        width: 'calc(100vw - 40px)',
         flex: 1,
+        mt: '$4',
       }}
       hoverStyle={{
         bg: '$bgHover',
