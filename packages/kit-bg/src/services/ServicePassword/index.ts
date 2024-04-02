@@ -320,9 +320,10 @@ export default class ServicePassword extends ServiceBase {
 
   // ui ------------------------------
   @backgroundMethod()
-  async promptPasswordVerify(
-    reason?: EReasonForNeedPassword,
-  ): Promise<IPasswordRes> {
+  async promptPasswordVerify(options?: {
+    reason?: EReasonForNeedPassword;
+  }): Promise<IPasswordRes> {
+    const { reason } = options || {};
     // check ext ui open
     if (
       platformEnv.isExtension &&
@@ -384,7 +385,7 @@ export default class ServicePassword extends ServiceBase {
       accountUtils.isHdWallet({ walletId }) ||
       accountUtils.isImportedWallet({ walletId })
     ) {
-      ({ password } = await this.promptPasswordVerify(reason));
+      ({ password } = await this.promptPasswordVerify({ reason }));
     }
     return {
       password,
