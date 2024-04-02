@@ -26,16 +26,20 @@ export function useLocaleOptions() {
   return localeOptions;
 }
 
-export function useResetApp() {
+const inAppStateLockStyle = {
+  sheetProps: {
+    zIndex: RESET_OVERLAY_Z_INDEX,
+  },
+  floatingPanelProps: {
+    zIndex: RESET_OVERLAY_Z_INDEX,
+  },
+};
+export function useResetApp(params?: { inAppStateLock: boolean }) {
+  const { inAppStateLock = false } = params || {};
   const intl = useIntl();
   return useCallback(() => {
     Dialog.show({
-      sheetProps: {
-        zIndex: RESET_OVERLAY_Z_INDEX,
-      },
-      floatingPanelProps: {
-        zIndex: RESET_OVERLAY_Z_INDEX,
-      },
+      ...(inAppStateLock ? inAppStateLockStyle : undefined),
       title: intl.formatMessage({ id: 'action__reset' }),
       icon: 'ErrorOutline',
       tone: 'destructive',

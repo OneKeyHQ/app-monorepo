@@ -56,7 +56,7 @@ const AppStateLock = ({
   ...props
 }: IAppStateLockProps) => {
   const { bottom } = useSafeAreaInsets();
-  const resetApp = useResetApp();
+  const resetApp = useResetApp({ inAppStateLock: true });
 
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
