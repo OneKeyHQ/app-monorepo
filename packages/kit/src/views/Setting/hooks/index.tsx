@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Input } from '@onekeyhq/components';
+import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
@@ -26,7 +27,10 @@ export function useLocaleOptions() {
   return localeOptions;
 }
 
-const inAppStateLockStyle = {
+const inAppStateLockStyle: {
+  sheetProps: IDialogProps['sheetProps'];
+  floatingPanelProps: IDialogProps['floatingPanelProps'];
+} = {
   sheetProps: {
     zIndex: RESET_OVERLAY_Z_INDEX,
   },
