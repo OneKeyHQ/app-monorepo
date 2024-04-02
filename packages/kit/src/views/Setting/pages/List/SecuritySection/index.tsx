@@ -63,6 +63,7 @@ const SetPasswordItem = () => {
       onPress={() => backgroundApiProxy.servicePassword.promptPasswordVerify()}
       icon="KeyOutline"
       title={intl.formatMessage({ id: 'title__set_password' })}
+      drillIn
     />
   );
 };
@@ -94,6 +95,7 @@ const ChangePasswordItem = () => {
       onPress={onPress}
       icon="KeyOutline"
       title={intl.formatMessage({ id: 'form__change_password' })}
+      drillIn
     />
   );
 };
