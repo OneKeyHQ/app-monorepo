@@ -66,7 +66,7 @@ const SocialButtonGroup = () => (
         onPress={handleOpenDevMode}
         testID="setting-version"
       >
-        Version: {platformEnv.version ?? 'Unknown'}
+        Version: {platformEnv.version ?? 'Unknown'} - {platformEnv.buildNumber}
       </SizableText>
     </XStack>
   </YStack>

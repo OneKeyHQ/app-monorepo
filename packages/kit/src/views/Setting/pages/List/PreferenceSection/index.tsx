@@ -84,6 +84,7 @@ const LanguageListItem = () => {
       onChange={onChange}
       placement="bottom-end"
       floatingPanelProps={{ maxHeight: 300 }}
+      sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
         <ListItem
           icon="GlobusOutline"

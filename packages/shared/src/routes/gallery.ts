@@ -59,4 +59,5 @@ export enum EGalleryRoutes {
   ComponentImage = 'component-Image',
   ComponentAddressInput = 'component-AddressInput',
   ComponentLogger = 'component-Logger',
+  ComponentChainSelector = 'component-ChainSelector',
 }

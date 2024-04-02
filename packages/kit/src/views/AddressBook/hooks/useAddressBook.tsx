@@ -40,13 +40,3 @@ export const useAddressBookPick = () => {
     [navigation],
   );
 };
-
-export const useAddressBookList = () => {
-  const navigation = useAppNavigation();
-  return useCallback(async () => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    navigation.pushModal(EModalRoutes.AddressBookModal, {
-      screen: EModalAddressBookRoutes.ListItemModal,
-    });
-  }, [navigation]);
-};

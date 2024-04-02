@@ -367,6 +367,13 @@ const LoggerGallery = LazyLoadPage(
     ),
 );
 
+const ChainSelectorGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ChainSelector'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -521,5 +528,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentLogger,
     component: LoggerGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentChainSelector,
+    component: ChainSelectorGallery,
   },
 ];
