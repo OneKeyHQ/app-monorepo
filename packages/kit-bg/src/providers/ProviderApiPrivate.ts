@@ -29,7 +29,7 @@ export interface IOneKeyWalletInfo {
   buildNumber?: string;
   disableExt: boolean;
   isDefaultWallet?: boolean;
-  excludeDappList: string[];
+  excludedDappList: string[];
   isLegacy: boolean;
   platformEnv: {
     isRuntimeBrowser?: boolean;
@@ -81,9 +81,9 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   // ----------------------------------------------
-  getWalletInfo(): IOneKeyWalletInfo {
-    const isDefaultWallet = false;
-    const excludeDappList = ['https://app.uniswap.org'];
+  async getWalletInfo(): Promise<IOneKeyWalletInfo> {
+    const { isDefaultWallet, excludedDappList } =
+      await this.backgroundApi.serviceDApp.getDefaultWalletSettings();
     return {
       enableExtContentScriptReloadButton: false,
       platform: process.env.ONEKEY_PLATFORM,
@@ -91,7 +91,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       buildNumber: process.env.BUILD_NUMBER,
       disableExt: false,
       isDefaultWallet,
-      excludeDappList,
+      excludedDappList,
       isLegacy: false,
       platformEnv: {
         isRuntimeBrowser: platformEnv.isRuntimeBrowser,
@@ -151,7 +151,7 @@ class ProviderApiPrivate extends ProviderApiBase {
           window.location.reload();
            */
       },
-      walletInfo: this.getWalletInfo(),
+      walletInfo: await this.getWalletInfo(),
       providerState: {},
     };
   }

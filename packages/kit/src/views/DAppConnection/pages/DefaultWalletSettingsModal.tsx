@@ -6,7 +6,13 @@ import { ListItem } from '../../../components/ListItem';
 
 function EmptyGuide() {
   return (
-    <Stack px={22} py="$2.5">
+    <Stack
+      w="100%"
+      px={22}
+      py="$2.5"
+      alignItems="center"
+      justifyContent="center"
+    >
       <Image
         w="$80"
         h={341}
