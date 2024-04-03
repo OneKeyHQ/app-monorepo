@@ -54,6 +54,8 @@ export default class ServicePassword extends ServiceBase {
     hour: 2,
   });
 
+  private reasonForPasswordRefs: Record<string, number> = {};
+
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
     return Promise.resolve(encodeSensitiveText({ text }));
@@ -333,8 +335,7 @@ export default class ServicePassword extends ServiceBase {
       throw new OneKeyError.OneKeyInternalError();
     }
 
-    const needReenterPassword =
-      await this.backgroundApi.serviceSetting.isAlwaysReenterPassword(reason);
+    const needReenterPassword = await this.isAlwaysReenterPassword(reason);
     if (!needReenterPassword) {
       const cachedPassword = await this.getCachedPassword();
       if (cachedPassword) {
@@ -487,5 +488,30 @@ export default class ServicePassword extends ServiceBase {
     if (idleDuration >= appLockDuration) {
       await passwordAtom.set((v) => ({ ...v, unLock: false }));
     }
+  }
+
+  @backgroundMethod()
+  public async isAlwaysReenterPassword(
+    reason?: EReasonForNeedPassword,
+  ): Promise<boolean> {
+    const isPasswordSet = await this.checkPasswordSet();
+    if (!reason || !isPasswordSet) {
+      return false;
+    }
+    const { protectCreateOrRemoveWallet, protectCreateTransaction } =
+      await settingsPersistAtom.get();
+
+    // always reenter password for change password
+    if (reason === EReasonForNeedPassword.ChangePassword) {
+      return true;
+    }
+
+    const result =
+      (reason === EReasonForNeedPassword.CreateOrRemoveWallet &&
+        protectCreateOrRemoveWallet) ||
+      (reason === EReasonForNeedPassword.CreateTransaction &&
+        protectCreateTransaction);
+
+    return result;
   }
 }
