@@ -243,8 +243,6 @@ export abstract class KeyringBase extends VaultContext {
   abstract prepareAccounts(
     params: IPrepareAccountsParams,
   ): Promise<IDBAccount[]>;
-
-  abstract getAddress(params: IGetAddressParams): Promise<string>;
 }
 
 // @ts-ignore

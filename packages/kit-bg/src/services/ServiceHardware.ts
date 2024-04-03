@@ -60,12 +60,6 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import { vaultFactory } from '../vaults/factory';
-import {
-  IAccountDeriveTypes,
-  IPrepareHardwareAccountsParams,
-} from '../vaults/types';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -790,44 +784,6 @@ class ServiceHardware extends ServiceBase {
     } catch (error) {
       // closeHardwareUiStateDialog should be called safely, do not block caller
     }
-  }
-
-  @backgroundMethod()
-  async getAddresses(params: {
-    walletId: string | undefined;
-    networkId: string | undefined;
-    indexes?: Array<number>;
-    indexedAccountId: string | undefined;
-    deriveType: IAccountDeriveTypes;
-  }) {
-    const { accountId, networkId, walletId } = params;
-    const vault = await vaultFactory.getWalletOnlyVault({
-      networkId,
-      walletId,
-    });
-    const { deviceParams } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
-      });
-    const params: IPrepareHardwareAccountsParams = {
-      deviceParams: {
-        ...checkIsDefined(deviceParams),
-        confirmOnDevice: false,
-      },
-
-      indexes: usedIndexes,
-      deriveInfo,
-    };
-    return this.backgroundApi.serviceHardware.withHardwareProcessing(
-      async () => {
-        const accounts = await vault.keyring.prepareAccounts(params);
-      },
-      {
-        deviceParams,
-        skipDeviceCancel,
-        hideCheckingDeviceLoading,
-      },
-    );
   }
 
   async withHardwareProcessing<T>(

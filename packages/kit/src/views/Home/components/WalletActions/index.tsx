@@ -115,7 +115,7 @@ function WalletActionSend() {
 function WalletActionReceive() {
   const intl = useIntl();
   const {
-    activeAccount: { account, network, wallet, deriveInfo },
+    activeAccount: { account, network, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
   const addressType = deriveInfo?.labelKey
     ? intl.formatMessage({
@@ -134,9 +134,10 @@ function WalletActionReceive() {
         accountId: account.id,
         walletId: wallet.id,
         addressType,
+        deriveType,
       },
     });
-  }, [account, addressType, navigation, network, wallet]);
+  }, [account, addressType, deriveType, navigation, network, wallet]);
 
   return (
     <RawActions.Receive

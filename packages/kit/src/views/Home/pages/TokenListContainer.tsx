@@ -34,7 +34,7 @@ function TokenListContainer(props: ITabPageProps) {
   const { isFocused } = useTabIsRefreshingFocused();
 
   const {
-    activeAccount: { account, network, wallet, deriveInfo },
+    activeAccount: { account, network, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
 
   const addressType = deriveInfo?.labelKey
@@ -168,11 +168,12 @@ function TokenListContainer(props: ITabPageProps) {
           networkId: network.id,
           walletId: wallet.id,
           addressType,
+          deriveType,
           tokenInfo: token,
         },
       });
     },
-    [account, addressType, navigation, network, wallet],
+    [account, addressType, deriveType, navigation, network, wallet],
   );
 
   return (

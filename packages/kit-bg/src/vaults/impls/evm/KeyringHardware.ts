@@ -204,22 +204,4 @@ export class KeyringHardware extends KeyringHardwareBase {
       },
     });
   }
-
-  async getAddress(params: IGetAddressParams): Promise<string> {
-    const HardwareSDK = await this.getHardwareSDKInstance();
-    const chainId = await this.getNetworkChainId();
-    const { connectId, deviceId } = await this.getHardwareInfo();
-    const passphraseState = await this.getWalletPassphraseState();
-    const address = await OneKeyHardware.ethereumGetAddress(
-      HardwareSDK,
-      connectId,
-      deviceId,
-      params.path,
-      params.showOnOneKey,
-      passphraseState,
-      Number(chainId),
-    );
-
-    return address;
-  }
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -20,24 +21,28 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
 
 function ReceiveToken() {
+  const intl = useIntl();
   const route =
     useRoute<
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, addressType } = route.params;
+  const { networkId, accountId, walletId, addressType, deriveType } =
+    route.params;
 
   const { account, network, wallet } = useAccountData({
     accountId,
@@ -54,16 +59,49 @@ function ReceiveToken() {
   const isShowAddress =
     !isHardwareWallet ||
     addressState === EAddressState.ForceShow ||
-    addressState === EAddressState.Verifying;
+    addressState === EAddressState.Verifying ||
+    addressState === EAddressState.Verified;
 
   const isShowQRCode =
     !isHardwareWallet ||
     addressState === EAddressState.ForceShow ||
     addressState === EAddressState.Verified;
 
-  const handleVerifyOnDevicePress = () => {
+  const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
-  };
+    try {
+      const addresses =
+        await backgroundApiProxy.serviceAccount.getHWAccountAddresses({
+          walletId,
+          networkId,
+          indexedAccountId: account?.indexedAccountId,
+          deriveType,
+        });
+
+      const isSameAddress =
+        addresses[0].toLowerCase() === account?.address?.toLowerCase();
+      if (!isSameAddress) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: 'msg__address_is_inconsistent_please_check_manually',
+          }),
+        });
+      }
+      setAddressState(
+        isSameAddress ? EAddressState.Verified : EAddressState.Unverified,
+      );
+    } catch (e: any) {
+      uiDeviceUtils.showErrorToast(e);
+      setAddressState(EAddressState.Unverified);
+    }
+  }, [
+    account?.address,
+    account?.indexedAccountId,
+    deriveType,
+    intl,
+    networkId,
+    walletId,
+  ]);
 
   const handleCopyAddressPress = () => {
     Toast.success({
@@ -73,6 +111,8 @@ function ReceiveToken() {
 
   const headerRight = () => {
     const isForceShowAction = addressState !== EAddressState.ForceShow;
+
+    if (addressState === EAddressState.Verified) return null;
 
     return (
       <ActionList
@@ -210,14 +250,8 @@ function ReceiveToken() {
               ) : null}
             </ConfirmHighlighter>
 
-            {isHardwareWallet &&
-            (addressState === EAddressState.Unverified ||
-              addressState !== EAddressState.ForceShow) ? (
-              <Button
-                variant="primary"
-                onPress={handleVerifyOnDevicePress}
-                disabled={addressState === EAddressState.Verifying}
-              >
+            {isHardwareWallet && addressState === EAddressState.Unverified ? (
+              <Button variant="primary" onPress={handleVerifyOnDevicePress}>
                 Verify on Device
               </Button>
             ) : (
@@ -233,6 +267,7 @@ function ReceiveToken() {
     account,
     addressState,
     addressType,
+    handleVerifyOnDevicePress,
     isHardwareWallet,
     isShowAddress,
     isShowQRCode,

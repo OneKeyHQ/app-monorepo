@@ -1,4 +1,5 @@
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -15,6 +16,7 @@ export type IModalAssetDetailsParamList = {
     networkId: string;
     walletId: string;
     addressType: string;
+    deriveType: IAccountDeriveTypes;
     tokenInfo: IToken;
     isBlocked?: boolean;
     riskyTokens?: string[];
