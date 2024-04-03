@@ -14,6 +14,7 @@ import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
@@ -116,6 +117,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceScanQRCode: ServiceScanQRCode;
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
+  serviceContextMenu: ServiceContextMenu;
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;

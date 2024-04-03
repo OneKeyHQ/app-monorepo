@@ -724,6 +724,22 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getIsDefaultWalletByOrigin(origin: string) {
+    const rawData =
+      await this.backgroundApi.simpleDb.defaultWalletSettings.getRawData();
+    if (!rawData) {
+      return true;
+    }
+    if (!rawData.isDefaultWallet) {
+      return false;
+    }
+    if (rawData.excludeDappMap[origin]) {
+      return false;
+    }
+    return true;
+  }
+
+  @backgroundMethod()
   async addExcludedDApp(origin: string) {
     if (!origin) {
       throw new Error('origin is required');
