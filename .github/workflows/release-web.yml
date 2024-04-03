@@ -14,7 +14,7 @@ jobs:
     env:
       HOST_PATH: '${{ github.event.repository.name }}/${{ github.sha }}/'
       PUBLIC_URL: 'https://asset.onekey-asset.com/${{ github.event.repository.name }}/${{ github.sha }}/'
-      TEST_ENDPOINT: app.onekeytest.com
+      TEST_ENDPOINT: wallet.onekeytest.com
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
       - uses: actions/checkout@v3
@@ -90,14 +90,14 @@ jobs:
         run: |
           yarn app:web:build
 
-      # - name: Deploy to CDN
-      #   uses: OneKeyHQ/actions/s3-upload@main
-      #   with:
-      #     aws_key_id: ${{ secrets.AWS_KEY_ID }}
-      #     aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws_bucket: ${{ secrets.AWS_BUCKET }}
-      #     source_dir: './apps/web/web-build/'
-      #     destination_dir: ${{ env.HOST_PATH }}
+      - name: Deploy to CDN
+        uses: OneKeyHQ/actions/s3-upload@main
+        with:
+          aws_key_id: ${{ secrets.AWS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_bucket: ${{ secrets.AWS_BUCKET }}
+          source_dir: './apps/web/web-build/'
+          destination_dir: ${{ env.HOST_PATH }}
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
@@ -106,23 +106,23 @@ jobs:
           path: |
             ./apps/web/web-build/
 
-      # - name: Deploy Github Pages
-      #   uses: OneKeyHQ/actions/gh-pages@main
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     publish_dir: ./apps/web/web-build
-      #     cname: ${{ env.TEST_ENDPOINT }}
-      #     force_orphan: true
+      - name: Deploy Github Pages
+        uses: OneKeyHQ/actions/gh-pages@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./apps/web/web-build
+          cname: ${{ env.TEST_ENDPOINT }}
+          force_orphan: true
 
-      # - name: 'Notify to Slack'
-      # if: ${{ github.event.workflow_run }}:w
-      # uses: onekeyhq/actions/slack-notify-webhook@main
-      #   with:
-      #     web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
-      #     secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-      #     artifact-type: WEB
-      #     artifact-name: OneKey-Desktop-WEB
-      #     artifact-bundle-id: 'so.onekey.wallet.web'
-      #     artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
-      #     artifact-version-code: '${{ env.BUILD_NUMBER }}'
-      #     artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+      - name: 'Notify to Slack'
+        if: ${{ github.event.workflow_run }}
+        uses: onekeyhq/actions/slack-notify-webhook@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Web
+          artifact-name: OneKey-Web
+          artifact-bundle-id: 'so.onekey.wallet.web'
+          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
