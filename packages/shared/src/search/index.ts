@@ -1,15 +1,18 @@
+import { useMemo } from 'react';
+
 import Fuse from 'fuse.js';
 
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
-import timerUtils from '../utils/timerUtils';
-
-import type { FuseIndex, IFuseOptions } from 'fuse.js';
+import type {
+  FuseIndex,
+  FuseResult,
+  FuseResultMatch,
+  IFuseOptions,
+} from 'fuse.js';
 
 const defaultFuseOptions: IFuseOptions<any> = {
   location: 0,
   isCaseSensitive: false,
-  includeMatches: false,
+  includeMatches: true,
   shouldSort: true,
   findAllMatches: true,
   minMatchCharLength: 2,
@@ -21,7 +24,10 @@ const defaultFuseOptions: IFuseOptions<any> = {
   includeScore: true,
 };
 
-function _buildFuse<T>(
+export type IFuseResult<T> = FuseResult<T>;
+export type IFuseResultMatch = FuseResultMatch;
+
+function buildFuse<T>(
   list: ReadonlyArray<T>,
   options?: IFuseOptions<T>,
   index?: FuseIndex<T>,
@@ -36,7 +42,11 @@ function _buildFuse<T>(
   );
 }
 
-export const buildFuse = memoizee(_buildFuse, {
-  max: 50,
-  maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
-});
+export function useFuse<T>(
+  list?: ReadonlyArray<T>,
+  options?: IFuseOptions<T>,
+  index?: FuseIndex<T>,
+) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => buildFuse(list || [], options, index), [list]);
+}

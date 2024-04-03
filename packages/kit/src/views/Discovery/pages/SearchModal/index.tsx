@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { Keyboard } from 'react-native';
@@ -23,6 +23,8 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IFuseResult } from '@onekeyhq/shared/src/search';
+import { useFuse } from '@onekeyhq/shared/src/search';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
@@ -79,7 +81,17 @@ function SearchModal() {
     }
   });
 
-  const [searchList, setSearchList] = useState<IDApp[]>([]);
+  const [searchList, setSearchList] = useState<(IDApp | IFuseResult<IDApp>)[]>(
+    [],
+  );
+
+  const fuseRemoteDataSearch = useFuse(searchResult?.remoteData, {
+    keys: ['name'],
+  });
+
+  const fuseLocalHistoryDataSearch = useFuse(localData?.historyData, {
+    keys: ['title'],
+  });
   useEffect(() => {
     void (async () => {
       if (!searchValue) {
@@ -98,15 +110,63 @@ function SearchModal() {
           url: '',
           logo,
         } as IDApp,
-        ...(searchResult?.remoteData ?? []),
+        ...fuseRemoteDataSearch.search(searchValue),
       ]);
     })();
-  }, [searchValue, searchResult]);
+  }, [searchValue, searchResult, fuseRemoteDataSearch]);
 
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
   const displayBookmarkList =
     (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
   const displayHistoryList = (localData?.historyData ?? []).length > 0;
+
+  const renderList = useCallback(
+    (list: (IDApp | IFuseResult<IDApp>)[]) =>
+      list.map((rawItem, index) => {
+        const item = (rawItem as IFuseResult<IDApp>).item
+          ? (rawItem as IFuseResult<IDApp>).item
+          : (rawItem as IDApp);
+        return (
+          <ListItem
+            key={index}
+            avatarProps={{
+              src: item.logo || item.originLogo,
+              fallbackProps: {
+                children: <Skeleton w="$10" h="$10" />,
+              },
+            }}
+            title={item.name}
+            match={(rawItem as IFuseResult<IDApp>).matches?.find(
+              (v) => v.key === 'name',
+            )}
+            subtitleProps={{
+              numberOfLines: 1,
+            }}
+            onPress={() => {
+              if (item.dappId === SEARCH_ITEM_ID) {
+                handleOpenWebSite({
+                  navigation,
+                  useCurrentWindow,
+                  tabId,
+                  webSite: {
+                    url: searchValue,
+                    title: searchValue,
+                  },
+                });
+              } else {
+                handleOpenWebSite({
+                  navigation,
+                  useCurrentWindow,
+                  tabId,
+                  dApp: item,
+                });
+              }
+            }}
+          />
+        );
+      }),
+    [handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
+  );
 
   return (
     <Page safeAreaEnabled>
@@ -140,43 +200,7 @@ function SearchModal() {
           onScrollBeginDrag={Keyboard.dismiss}
         >
           {displaySearchList ? (
-            <Stack pb="$5">
-              {searchList.map((item, index) => (
-                <ListItem
-                  key={index}
-                  avatarProps={{
-                    src: item.logo || item.originLogo,
-                    fallbackProps: {
-                      children: <Skeleton w="$10" h="$10" />,
-                    },
-                  }}
-                  title={item.name}
-                  subtitleProps={{
-                    numberOfLines: 1,
-                  }}
-                  onPress={() => {
-                    if (item.dappId === SEARCH_ITEM_ID) {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        webSite: {
-                          url: searchValue,
-                          title: searchValue,
-                        },
-                      });
-                    } else {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        dApp: item,
-                      });
-                    }
-                  }}
-                />
-              ))}
-            </Stack>
+            <Stack pb="$5">{renderList(searchList)}</Stack>
           ) : null}
 
           {displayBookmarkList ? (
@@ -247,31 +271,34 @@ function SearchModal() {
                   });
                 }}
               />
-              {localData?.historyData?.map((item, index) => (
-                <ListItem
-                  key={index}
-                  avatarProps={{
-                    src: item.logo,
-                  }}
-                  title={item.title}
-                  subtitle={item.url}
-                  subtitleProps={{
-                    numberOfLines: 1,
-                  }}
-                  testID={`search-modal-${item.title.toLowerCase()}`}
-                  onPress={() => {
-                    handleOpenWebSite({
-                      navigation,
-                      useCurrentWindow,
-                      tabId,
-                      webSite: {
-                        url: item.url,
-                        title: item.title,
-                      },
-                    });
-                  }}
-                />
-              ))}
+              {fuseLocalHistoryDataSearch
+                .search(searchValue)
+                .map(({ item, matches }, index) => (
+                  <ListItem
+                    key={index}
+                    avatarProps={{
+                      src: item.logo,
+                    }}
+                    title={item.title}
+                    match={matches?.find((v) => v.key === 'title')}
+                    subtitle={item.url}
+                    subtitleProps={{
+                      numberOfLines: 1,
+                    }}
+                    testID={`search-modal-${item.title.toLowerCase()}`}
+                    onPress={() => {
+                      handleOpenWebSite({
+                        navigation,
+                        useCurrentWindow,
+                        tabId,
+                        webSite: {
+                          url: item.url,
+                          title: item.title,
+                        },
+                      });
+                    }}
+                  />
+                ))}
             </Stack>
           ) : null}
         </ScrollView>

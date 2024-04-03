@@ -12,6 +12,7 @@ import {
   Icon,
   IconButton,
   Image,
+  MatchSizeableText,
   SizableText,
   Stack,
   Unspaced,
@@ -29,6 +30,7 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/search';
 
 import { AccountAvatar } from '../AccountAvatar';
 
@@ -122,6 +124,7 @@ interface IListItemTextProps extends IStackProps {
   align?: 'left' | 'center' | 'right';
   primaryTextProps?: ISizableTextProps;
   secondaryTextProps?: ISizableTextProps;
+  match?: IFuseResultMatch;
 }
 
 const ListItemText = (props: IListItemTextProps) => {
@@ -131,6 +134,7 @@ const ListItemText = (props: IListItemTextProps) => {
     align = 'left',
     primaryTextProps,
     secondaryTextProps,
+    match,
     ...rest
   } = props;
 
@@ -144,21 +148,28 @@ const ListItemText = (props: IListItemTextProps) => {
     return 'flex-end';
   };
 
-  const renderPrimary = useCallback(
-    () =>
-      isValidElement(primary) ? (
-        primary
-      ) : (
-        <SizableText
+  const renderPrimary = useCallback(() => {
+    if (isValidElement(primary)) {
+      return primary;
+    }
+    if (match) {
+      return (
+        <MatchSizeableText
           textAlign={align}
           size="$bodyLgMedium"
+          match={match}
           {...primaryTextProps}
         >
-          {primary}
-        </SizableText>
-      ),
-    [align, primary, primaryTextProps],
-  );
+          {primary as string}
+        </MatchSizeableText>
+      );
+    }
+    return (
+      <SizableText textAlign={align} size="$bodyLgMedium" {...primaryTextProps}>
+        {primary}
+      </SizableText>
+    );
+  }, [align, match, primary, primaryTextProps]);
 
   const renderSecondary = useCallback(
     () =>
@@ -224,6 +235,7 @@ const ListItemSeparator = () => <Divider mx="$5" />;
 /* ListItem */
 export type IListItemProps = PropsWithChildren<{
   title?: string;
+  match?: IFuseResultMatch;
   titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
   subtitleProps?: IListItemTextProps['secondaryTextProps'];
@@ -273,6 +285,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
     renderAvatar,
     renderIcon,
     renderItemText,
+    match,
     ...rest
   } = props;
 
@@ -337,6 +350,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
             ...subtitleProps,
             testID: `list-item-subtitle-${rest.testID || ''}`,
           },
+          match,
         },
         renderItemText,
       )}
