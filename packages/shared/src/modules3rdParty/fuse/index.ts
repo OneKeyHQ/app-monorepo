@@ -27,7 +27,7 @@ const defaultFuseOptions: IFuseOptions<any> = {
 export type IFuseResult<T> = FuseResult<T>;
 export type IFuseResultMatch = FuseResultMatch;
 
-function buildFuse<T>(
+export function buildFuse<T>(
   list: ReadonlyArray<T>,
   options?: IFuseOptions<T>,
   index?: FuseIndex<T>,

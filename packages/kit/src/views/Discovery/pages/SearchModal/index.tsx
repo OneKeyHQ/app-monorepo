@@ -18,13 +18,13 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IFuseResult } from '@onekeyhq/shared/src/search';
-import { useFuse } from '@onekeyhq/shared/src/search';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';

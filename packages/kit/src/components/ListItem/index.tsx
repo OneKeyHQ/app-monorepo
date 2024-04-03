@@ -30,7 +30,7 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IFuseResultMatch } from '@onekeyhq/shared/src/search';
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 
 import { AccountAvatar } from '../AccountAvatar';
 
