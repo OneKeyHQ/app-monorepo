@@ -38,6 +38,25 @@ type IChunkedItemsViewProps = {
 const CARD_WIDTH_IN_MD = Dimensions.get('window').width - 48;
 const SPACING_FOR_CARD_INSET = 100;
 
+const paginationStyle: IScrollViewProps = {
+  horizontal: true,
+  showsHorizontalScrollIndicator: false,
+  decelerationRate: 0,
+  snapToInterval: CARD_WIDTH_IN_MD,
+  contentInset: platformEnv.isNativeIOS
+    ? {
+        top: 0,
+        left: SPACING_FOR_CARD_INSET, // Left spacing for the very first card
+        bottom: 0,
+        right: SPACING_FOR_CARD_INSET, // Right spacing for the very last card
+      }
+    : undefined,
+  contentContainerStyle: {
+    // contentInset alternative for Android
+    paddingHorizontal: platformEnv.isNativeAndroid ? SPACING_FOR_CARD_INSET : 0, // Horizontal spacing before and after the ScrollView
+  },
+};
+
 export function ItemsContainer({
   children,
   horizontal,
@@ -55,26 +74,7 @@ export function ItemsContainer({
   return (
     <ScrollView
       pagingEnabled
-      horizontal={horizontal}
-      showsHorizontalScrollIndicator={false}
-      decelerationRate={0}
-      snapToInterval={CARD_WIDTH_IN_MD}
-      contentInset={
-        platformEnv.isNativeIOS
-          ? {
-              top: 0,
-              left: SPACING_FOR_CARD_INSET, // Left spacing for the very first card
-              bottom: 0,
-              right: SPACING_FOR_CARD_INSET, // Right spacing for the very last card
-            }
-          : undefined
-      }
-      contentContainerStyle={{
-        // contentInset alternative for Android
-        paddingHorizontal: platformEnv.isNativeAndroid
-          ? SPACING_FOR_CARD_INSET
-          : 0, // Horizontal spacing before and after the ScrollView
-      }}
+      {...(horizontal ? paginationStyle : undefined)}
       {...rest}
     >
       {children}
