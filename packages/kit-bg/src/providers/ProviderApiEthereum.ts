@@ -86,9 +86,21 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public async rpcCall(request: IJsonRpcRequest): Promise<any> {
+  public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
+    const { data } = request;
+    const { accountInfo: { networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    const rpcRequest = data as IJsonRpcRequest;
+
     console.log(`${this.providerName} RpcCall=====>>>> : BgApi:`, request);
-    return Promise.resolve();
+
+    const result = await this.backgroundApi.serviceDApp.proxyRPCCall({
+      networkId: networkId ?? '',
+      request: rpcRequest,
+    });
+
+    return result;
   }
 
   @providerApiMethod()

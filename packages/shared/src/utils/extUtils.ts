@@ -1,6 +1,8 @@
 import { isNil } from 'lodash';
 
-import platformEnv, { isExtensionUiSidePanel } from '@onekeyhq/shared/src/platformEnv';
+import platformEnv, {
+  isExtensionUiSidePanel,
+} from '@onekeyhq/shared/src/platformEnv';
 
 import { getAllowPathFromScreenNames } from './routeUtils';
 
