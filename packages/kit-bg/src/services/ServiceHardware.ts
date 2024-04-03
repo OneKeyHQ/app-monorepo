@@ -61,7 +61,10 @@ import type {
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
 import { vaultFactory } from '../vaults/factory';
-import { IPrepareHardwareAccountsParams } from '../vaults/types';
+import {
+  IAccountDeriveTypes,
+  IPrepareHardwareAccountsParams,
+} from '../vaults/types';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 @backgroundClass()
@@ -790,10 +793,12 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAddress(params: {
-    accountId: string;
-    networkId: string;
-    walletId: string;
+  async getAddresses(params: {
+    walletId: string | undefined;
+    networkId: string | undefined;
+    indexes?: Array<number>;
+    indexedAccountId: string | undefined;
+    deriveType: IAccountDeriveTypes;
   }) {
     const { accountId, networkId, walletId } = params;
     const vault = await vaultFactory.getWalletOnlyVault({
