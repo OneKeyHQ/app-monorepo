@@ -43,13 +43,8 @@ import {
 import ServiceBase from './ServiceBase';
 
 import type {
-  IDBDevice,
-  IDBDeviceSettings as IDBDeviceDbSettings,
-  IDBUpdateFirmwareVerifiedParams,
-} from '../dbs/local/types';
-import type { IHardwareUiPayload } from '../states/jotai/atoms';
-import type {
   CoreApi,
+  CoreMessage,
   DeviceSettingsParams,
   DeviceUploadResourceParams,
   DeviceVerifySignature,
@@ -59,6 +54,12 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import type {
+  IDBDevice,
+  IDBDeviceSettings as IDBDeviceDbSettings,
+  IDBUpdateFirmwareVerifiedParams,
+} from '../dbs/local/types';
+import type { IHardwareUiPayload } from '../states/jotai/atoms';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -140,6 +141,12 @@ class ServiceHardware extends ServiceBase {
         console.log('todo: features cache');
       });
     }
+  }
+
+  @backgroundMethod()
+  async passHardwareEventsFromOffscreenToBackground(eventMessage: CoreMessage) {
+    const sdk = await this.getSDKInstance();
+    sdk.emit(eventMessage.event, eventMessage);
   }
 
   // startDeviceScan

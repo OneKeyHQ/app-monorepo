@@ -15,6 +15,7 @@ import urlParse from 'url-parse';
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
+import offscreenApiProxy from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApiProxy';
 
 import { setupKeepAlive } from '../background/keepAlive';
 import serviceWorker from '../background/serviceWorker';
@@ -101,8 +102,8 @@ if (!platformEnv.isManifestV3) {
 
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
-  // global.$$offscreenApiProxy = offscreenApiProxy;
-  // offscreenApiProxy.adaSdk.sayHello().then(console.log);
-  // offscreenApiProxy.xmrSdk.showMe().then(console.log);
+  global.$$offscreenApiProxy = offscreenApiProxy;
+  void offscreenApiProxy.adaSdk.sayHello().then(console.log);
+  void offscreenApiProxy.xmrSdk.showMe().then(console.log);
 }
 export {};

@@ -5,7 +5,19 @@ import type {
   IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type {
+  IInjectedProviderNames,
+  IInjectedProviderNamesStrings,
+  IJsBridgeMessagePayload,
+  IJsBridgeReceiveHandler,
+  IJsonRpcRequest,
+  IJsonRpcResponse,
+} from '@onekeyfe/cross-inpage-provider-types';
+import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
+import { IOffscreenApi } from '../offscreens/instance/IOffscreenApi';
+import { OFFSCREEN_API_MESSAGE_TYPE } from '../offscreens/types';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
@@ -25,9 +37,9 @@ import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
+import type ServiceNFT from '../services/ServiceNFT';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
-import type ServiceNFT from '../services/ServiceNFT';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
@@ -39,20 +51,15 @@ import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type { EAtomNames } from '../states/jotai/atomNames';
-import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-import type {
-  IInjectedProviderNames,
-  IInjectedProviderNamesStrings,
-  IJsBridgeMessagePayload,
-  IJsBridgeReceiveHandler,
-  IJsonRpcRequest,
-  IJsonRpcResponse,
-} from '@onekeyfe/cross-inpage-provider-types';
-import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 // import type ServiceCronJob from '../services/ServiceCronJob';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
   service: string;
+};
+
+export type IOffscreenApiMessagePayload = IJsonRpcRequest & {
+  type: typeof OFFSCREEN_API_MESSAGE_TYPE;
+  module: keyof IOffscreenApi;
 };
 
 export interface IBackgroundApiBridge {
