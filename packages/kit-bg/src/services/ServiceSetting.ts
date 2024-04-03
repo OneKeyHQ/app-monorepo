@@ -110,7 +110,7 @@ class ServiceSetting extends ServiceBase {
     async () => {
       const client = await this.getClient();
       const res = await client.get<{ data: ICurrencyItem[] }>(
-        '/gateway/v1/currency/list',
+        '/utility/v1/currency/exchange-rates',
       );
       return res.data.data;
     },
