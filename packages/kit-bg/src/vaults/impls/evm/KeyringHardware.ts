@@ -24,6 +24,7 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignTransactionParams,
 } from '../../types';
@@ -202,5 +203,23 @@ export class KeyringHardware extends KeyringHardwareBase {
         return ret;
       },
     });
+  }
+
+  async getAddress(params: IGetAddressParams): Promise<string> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const chainId = await this.getNetworkChainId();
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+    const address = await OneKeyHardware.ethereumGetAddress(
+      HardwareSDK,
+      connectId,
+      deviceId,
+      params.path,
+      params.showOnOneKey,
+      passphraseState,
+      Number(chainId),
+    );
+
+    return address;
   }
 }

@@ -19,6 +19,7 @@ import type {
   IDBVariantAccount,
 } from '../../dbs/local/types';
 import type {
+  IGetAddressParams,
   IPrepareAccountsParams,
   IPrepareHdAccountsOptions,
   IPrepareHdAccountsParamsBase,
@@ -242,6 +243,8 @@ export abstract class KeyringBase extends VaultContext {
   abstract prepareAccounts(
     params: IPrepareAccountsParams,
   ): Promise<IDBAccount[]>;
+
+  abstract getAddress(params: IGetAddressParams): Promise<string>;
 }
 
 // @ts-ignore
