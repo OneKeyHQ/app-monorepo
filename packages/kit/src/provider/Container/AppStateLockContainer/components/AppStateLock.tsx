@@ -21,6 +21,7 @@ import {
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import type { View as IView } from 'react-native';
 
@@ -55,7 +56,7 @@ const AppStateLock = ({
   ...props
 }: IAppStateLockProps) => {
   const { bottom } = useSafeAreaInsets();
-  const resetApp = useResetApp();
+  const resetApp = useResetApp({ inAppStateLock: true });
 
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
@@ -67,7 +68,8 @@ const AppStateLock = ({
         position="absolute"
         fullscreen
         // keep the lock screen interface at the top by the z-index on Web & Android
-        zIndex={1e8}
+        zIndex={APP_STATE_LOCK_Z_INDEX}
+        elevation={platformEnv.isNativeAndroid ? -1 : undefined}
         flex={1}
         bg="$bgApp"
         {...props}

@@ -3,7 +3,9 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Input } from '@onekeyhq/components';
+import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -25,10 +27,23 @@ export function useLocaleOptions() {
   return localeOptions;
 }
 
-export function useResetApp() {
+const inAppStateLockStyle: {
+  sheetProps: IDialogProps['sheetProps'];
+  floatingPanelProps: IDialogProps['floatingPanelProps'];
+} = {
+  sheetProps: {
+    zIndex: RESET_OVERLAY_Z_INDEX,
+  },
+  floatingPanelProps: {
+    zIndex: RESET_OVERLAY_Z_INDEX,
+  },
+};
+export function useResetApp(params?: { inAppStateLock: boolean }) {
+  const { inAppStateLock = false } = params || {};
   const intl = useIntl();
   return useCallback(() => {
     Dialog.show({
+      ...(inAppStateLock ? inAppStateLockStyle : undefined),
       title: intl.formatMessage({ id: 'action__reset' }),
       icon: 'ErrorOutline',
       tone: 'destructive',
@@ -65,5 +80,5 @@ export function useResetApp() {
         void backgroundApiProxy.serviceApp.resetApp();
       },
     });
-  }, [intl]);
+  }, [inAppStateLock, intl]);
 }
