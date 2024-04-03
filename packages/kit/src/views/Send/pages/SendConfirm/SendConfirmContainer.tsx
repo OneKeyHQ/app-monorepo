@@ -21,6 +21,7 @@ import SendConfirmActionsContainer from './SendConfirmActionsContainer';
 import TxActionsContainer from './TxActionsContainer';
 import TxFeeContainer from './TxFeeContainer';
 import TxSimulationContainer from './TxSimulationContainer';
+import { TxSourceInfoContainer } from './TxSourceInfoContainer';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -125,7 +126,8 @@ function SendConfirmContainer() {
 
     return (
       <>
-        <Page.Body px="$5">
+        <Page.Body px="$5" space="$4">
+          <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer accountId={accountId} networkId={networkId} />
           <TxFeeContainer accountId={accountId} networkId={networkId} />
           <TxSimulationContainer networkId={networkId} />

@@ -38,7 +38,10 @@ import type {
 import ServiceBase from './ServiceBase';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
-import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 function buildModalRouteParams({
   screens = [],
@@ -713,6 +716,31 @@ class ServiceDApp extends ServiceBase {
       },
     );
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async proxyRPCCall({
+    networkId,
+    request,
+  }: {
+    networkId: string;
+    request: IJsonRpcRequest;
+  }) {
+    const client = await this.getClient();
+    const results = await client.post<{
+      data: {
+        data: {
+          jsonrpc: string;
+          id: number;
+          result: unknown;
+        };
+      };
+    }>('/wallet/v1/network/proxy', {
+      networkId,
+      body: [request.id ? request : { ...request, id: 0 }],
+    });
+
+    return results.data.data.data.result;
   }
 }
 
