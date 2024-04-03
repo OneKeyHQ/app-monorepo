@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type { IPasswordSecuritySession } from '@onekeyhq/shared/types/password';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
@@ -54,7 +55,7 @@ export default class ServicePassword extends ServiceBase {
     hour: 2,
   });
 
-  private reasonForPasswordRefs: Record<string, number> = {};
+  private securitySession?: IPasswordSecuritySession;
 
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
@@ -512,6 +513,37 @@ export default class ServicePassword extends ServiceBase {
       (reason === EReasonForNeedPassword.CreateTransaction &&
         protectCreateTransaction);
 
+    /**
+     *
+     */
+
+    const now = Date.now();
+    if (
+      !result ||
+      !this.securitySession ||
+      now - this.securitySession.startAt > this.securitySession.timeout
+    ) {
+      return result;
+    }
+    const lastVisit = this.securitySession.lastVisit[reason];
+    if (lastVisit) {
+      return now - lastVisit > this.securitySession.timeout;
+    }
+    this.securitySession.lastVisit[reason] = now;
     return result;
+  }
+
+  @backgroundMethod()
+  async openPasswordSecuritySession(params?: { timeout?: number }) {
+    this.securitySession = {
+      startAt: Date.now(),
+      timeout: params?.timeout ?? 1000 * 60 * 30,
+      lastVisit: {},
+    };
+  }
+
+  @backgroundMethod()
+  async closePasswordSecuritySession() {
+    this.securitySession = undefined;
   }
 }
