@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { trim } from 'lodash';
+
 import {
   Form,
   Input,
   Page,
+  SizableText,
   useForm,
   useFormWatch,
   useMedia,
 } from '@onekeyhq/components';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
@@ -15,7 +19,6 @@ import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/A
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -43,21 +46,24 @@ export function ImportPrivateKey() {
     IGeneralInputValidation | undefined
   >();
 
+  const fixInput = useCallback((text: string) => trim(text), []);
+
+
+  const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'input' });
   const inputTextDebounced = useDebounce(inputText, 600);
   const validateFn = useCallback(async () => {
     setValue('deriveType', undefined);
-    const values = getValues();
-    if (inputTextDebounced && values.networkId) {
+    if (inputTextDebounced && networkIdText) {
       const input =
         await backgroundApiProxy.servicePassword.encodeSensitiveText({
-          text: inputTextDebounced,
+          text: fixInput(inputTextDebounced),
         });
       const result =
         await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
           {
             input,
-            networkId: values.networkId,
+            networkId: networkIdText,
             validateXprvt: true,
             validatePrivateKey: true,
           },
@@ -67,16 +73,15 @@ export function ImportPrivateKey() {
     } else {
       setValidateResult(undefined);
     }
-  }, [getValues, inputTextDebounced, setValue]);
+  }, [inputTextDebounced, networkIdText, setValue, fixInput]);
 
   useEffect(() => {
     void validateFn();
   }, [validateFn]);
 
-  const networkIdText = useFormWatch({ control, name: 'networkId' });
   useEffect(() => {
     if (networkIdText) {
-      setValue('input', '');
+      // setValue('input', '');
     }
   }, [networkIdText, setValue]);
 
@@ -115,6 +120,10 @@ export function ImportPrivateKey() {
           ) : null}
         </Form>
 
+        {!validateResult?.isValid && inputTextDebounced ? (
+          <SizableText color="$textCritical">Invalid private key</SizableText>
+        ) : null}
+
         <Tutorials
           list={[
             {
@@ -142,7 +151,7 @@ export function ImportPrivateKey() {
           console.log('add imported account', values);
           const input =
             await backgroundApiProxy.servicePassword.encodeSensitiveText({
-              text: values.input,
+              text: fixInput(values.input),
             });
           const r = await backgroundApiProxy.serviceAccount.addImportedAccount({
             input,

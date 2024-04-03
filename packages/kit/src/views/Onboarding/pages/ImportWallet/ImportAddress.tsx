@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { Form, Input, Page, useForm, useFormWatch } from '@onekeyhq/components';
+import { trim } from 'lodash';
+
+import {
+  Form,
+  Input,
+  Page,
+  SizableText,
+  useForm,
+  useFormWatch,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
@@ -26,6 +35,7 @@ function ImportAddress() {
     values: {
       networkId: getNetworkIdsMap().btc,
       input: '',
+      deriveType: undefined,
     },
   });
 
@@ -34,21 +44,23 @@ function ImportAddress() {
     IGeneralInputValidation | undefined
   >();
 
+  const fixInput = useCallback((text: string) => trim(text), []);
+
+  const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'input' });
   const inputTextDebounced = useDebounce(inputText, 600);
   const validateFn = useCallback(async () => {
     setValue('deriveType', undefined);
-    const values = getValues();
-    if (inputTextDebounced && values.networkId) {
+    if (inputTextDebounced && networkIdText) {
       const input =
         await backgroundApiProxy.servicePassword.encodeSensitiveText({
-          text: inputTextDebounced,
+          text: fixInput(inputTextDebounced),
         });
       const result =
         await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
           {
             input,
-            networkId: values.networkId,
+            networkId: networkIdText,
             validateAddress: true,
             validateXpub: true,
           },
@@ -58,16 +70,15 @@ function ImportAddress() {
     } else {
       setValidateResult(undefined);
     }
-  }, [getValues, inputTextDebounced, setValue]);
+  }, [inputTextDebounced, networkIdText, setValue, fixInput]);
 
   useEffect(() => {
     void validateFn();
   }, [validateFn]);
 
-  const networkIdText = useFormWatch({ control, name: 'networkId' });
   useEffect(() => {
     if (networkIdText) {
-      setValue('input', '');
+      // setValue('input', '');
     }
   }, [networkIdText, setValue]);
 
@@ -104,6 +115,13 @@ function ImportAddress() {
             </Form.Field>
           ) : null}
         </Form>
+
+        {!validateResult?.isValid && inputTextDebounced ? (
+          <SizableText color="$textCritical">
+            Invalid address, domain or xpub
+          </SizableText>
+        ) : null}
+
         <Tutorials
           list={[
             {
@@ -124,7 +142,7 @@ function ImportAddress() {
             return;
           }
           const r = await backgroundApiProxy.serviceAccount.addWatchingAccount({
-            input: values.input,
+            input: fixInput(values.input),
             networkId: values.networkId,
             deriveType: values.deriveType,
           });
