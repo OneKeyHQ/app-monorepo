@@ -48,6 +48,7 @@ export function ItemsContainer({
 
   return (
     <ScrollView
+      pagingEnabled
       horizontal={horizontal}
       showsHorizontalScrollIndicator={false}
       {...rest}
