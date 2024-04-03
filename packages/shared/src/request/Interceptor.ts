@@ -46,10 +46,11 @@ export async function getRequestHeaders() {
   return {
     [normalizeHeaderKey('X-Onekey-Request-ID')]: generateUUID(),
     [normalizeHeaderKey('X-Onekey-Request-Currency')]: settings.currencyInfo.id,
-    [normalizeHeaderKey('X-Onekey-Locale')]: locale,
-    [normalizeHeaderKey('X-Onekey-Theme')]: theme,
-    [normalizeHeaderKey('X-Onekey-Platform')]: headerPlatform,
-    [normalizeHeaderKey('X-Onekey-Version')]: platformEnv.version,
-    [normalizeHeaderKey('X-Onekey-Build-Number')]: platformEnv.buildNumber,
+    [normalizeHeaderKey('X-Onekey-Request-Locale')]: locale,
+    [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
+    [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
+    [normalizeHeaderKey('X-Onekey-Request-Version')]: platformEnv.version,
+    [normalizeHeaderKey('X-Onekey-Request-Build-Number')]:
+      platformEnv.buildNumber,
   };
 }
