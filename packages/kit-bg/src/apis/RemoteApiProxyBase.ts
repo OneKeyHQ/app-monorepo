@@ -31,6 +31,7 @@ export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
   };
 }
 
+// used for offscreenApi and webEmbedApi
 abstract class RemoteApiProxyBase {
   abstract checkEnvAvailable(): void;
 

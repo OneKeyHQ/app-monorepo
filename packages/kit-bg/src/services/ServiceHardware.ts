@@ -43,6 +43,12 @@ import {
 import ServiceBase from './ServiceBase';
 
 import type {
+  IDBDevice,
+  IDBDeviceSettings as IDBDeviceDbSettings,
+  IDBUpdateFirmwareVerifiedParams,
+} from '../dbs/local/types';
+import type { IHardwareUiPayload } from '../states/jotai/atoms';
+import type {
   CoreApi,
   CoreMessage,
   DeviceSettingsParams,
@@ -54,12 +60,6 @@ import type {
   UiResponseEvent,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import type {
-  IDBDevice,
-  IDBDeviceSettings as IDBDeviceDbSettings,
-  IDBUpdateFirmwareVerifiedParams,
-} from '../dbs/local/types';
-import type { IHardwareUiPayload } from '../states/jotai/atoms';
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
@@ -525,6 +525,7 @@ class ServiceHardware extends ServiceBase {
     inputPinOnSoftware: boolean;
   }) {
     const device = await localDb.getWalletDevice({ walletId });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: dbDeviceId, deviceId, connectId } = device;
 
     let minSupportVersion: string | undefined = '';
