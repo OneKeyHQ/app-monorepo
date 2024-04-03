@@ -320,6 +320,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async batchSignAndSendTransaction(
     params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
   ) {
@@ -525,6 +526,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async signMessage({
     unsignedMessage,
     networkId,
