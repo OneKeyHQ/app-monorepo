@@ -513,10 +513,6 @@ export default class ServicePassword extends ServiceBase {
       (reason === EReasonForNeedPassword.CreateTransaction &&
         protectCreateTransaction);
 
-    /**
-     *
-     */
-
     const now = Date.now();
     if (
       !result ||
@@ -537,7 +533,7 @@ export default class ServicePassword extends ServiceBase {
   async openPasswordSecuritySession(params?: { timeout?: number }) {
     this.securitySession = {
       startAt: Date.now(),
-      timeout: params?.timeout ?? 1000 * 60 * 30,
+      timeout: params?.timeout ?? 1000 * 60, // default 1 minute
       lastVisit: {},
     };
   }
