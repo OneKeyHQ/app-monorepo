@@ -6,41 +6,35 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
 
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
+
+const MenuId = 'OneKeyDefaultWalletItem';
 @backgroundClass()
 class ServiceContextMenu extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     if (platformEnv.isExtensionBackground) {
-      console.log('=====>: isExtensionBackground');
       chrome.contextMenus.onClicked.addListener(this.listener);
-      // 当标签页激活（切换）时，获取当前标签页并更新菜单
+      // update context menu when tab changed
       chrome.tabs.onActivated.addListener((activeInfo) => {
-        console.log('chrome.tabs.onActivated.addListener');
         chrome.tabs.get(activeInfo.tabId, (tab) => {
-          console.log('chrome.tabs.get: ', tab);
+          if (tab?.url) {
+            void this.updateContextMenu(new URL(tab.url).origin);
+          }
         });
-      });
-
-      chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-        console.log('=====>: tabId', tabId);
-        console.log('=====>: changeInfo', changeInfo);
-        console.log('=====>: tab', tab);
       });
     }
   }
 
   async init() {
     this.removeAll();
-    console.log('====>>>Create menu');
     chrome.contextMenus.create(
       {
-        id: 'OneKeyWalletItem',
+        id: MenuId,
         title: await this.getContextMenuTitle(null),
         contexts: ['all'],
       },
-      () => {
-        console.log('=====>>>: MENU CLICK');
-      },
+      () => {},
     );
   }
 
@@ -52,23 +46,136 @@ class ServiceContextMenu extends ServiceBase {
     info: chrome.contextMenus.OnClickData,
     tab?: chrome.tabs.Tab,
   ) => {
-    // if (!info.menuItemId) {
-    //   return;
-    // }
-    console.log('===>info: ', info);
-    console.log('===>tab ??===>: ', tab);
+    if (!info.menuItemId) {
+      return;
+    }
+    if (tab?.url) {
+      try {
+        const origin = new URL(tab.url).origin;
+        void this.update(origin);
+      } catch {
+        // ignore
+      }
+    }
   };
 
+  private async updateContextMenu(origin: string, isDefaultWallet?: boolean) {
+    chrome.contextMenus.update(MenuId, {
+      title: await this.getContextMenuTitle(origin, isDefaultWallet),
+    });
+  }
+
   @backgroundMethod()
-  public async getContextMenuTitle(origin: string | null) {
+  async update(origin: string) {
+    const { simpleDb } = this.backgroundApi;
+    const rawData = await simpleDb.defaultWalletSettings.getRawData();
+    if (!rawData) {
+      await this.addExcludedDApp(origin);
+      await this.updateContextMenu(origin, false);
+    } else {
+      if (!rawData.isDefaultWallet) {
+        await this.setIsDefaultWallet(true);
+      }
+
+      const isExcluded = rawData.excludeDappMap[origin];
+      if (isExcluded) {
+        await this.removeExcludedDApp(origin);
+      } else {
+        await this.addExcludedDApp(origin);
+      }
+      await this.updateContextMenu(origin, isExcluded);
+    }
+
+    void this.notifyExtSwitchChanged(origin);
+  }
+
+  @backgroundMethod()
+  public async getContextMenuTitle(
+    origin: string | null,
+    isDefaultWallet?: boolean,
+  ) {
     if (!origin) {
       return 'Prefer Not Using OneKey on This dApp';
     }
-    const isDefaultWallet =
-      await this.backgroundApi.serviceDApp.getIsDefaultWalletByOrigin(origin);
-    return isDefaultWallet
+    let defaultWallet: boolean;
+    if (typeof isDefaultWallet === 'boolean') {
+      defaultWallet = isDefaultWallet;
+    } else {
+      defaultWallet = await this.getIsDefaultWalletByOrigin(origin);
+    }
+    return defaultWallet
       ? 'Prefer Not Using OneKey on This dApp'
       : 'Set OneKey as Default Wallet';
+  }
+
+  @backgroundMethod()
+  async notifyExtSwitchChanged(origin: string) {
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    privateProvider.notifyExtSwitchChanged({
+      send: this.backgroundApi.sendForProvider('$private'),
+      targetOrigin: origin,
+    });
+  }
+
+  // --------------------- Default Wallet Settings --------------------
+  @backgroundMethod()
+  async setIsDefaultWallet(value: boolean) {
+    return this.backgroundApi.simpleDb.defaultWalletSettings.setIsDefaultWallet(
+      value,
+    );
+  }
+
+  @backgroundMethod()
+  async getIsDefaultWalletByOrigin(origin: string) {
+    const rawData =
+      await this.backgroundApi.simpleDb.defaultWalletSettings.getRawData();
+    if (!rawData) {
+      return true;
+    }
+    if (!rawData.isDefaultWallet) {
+      return false;
+    }
+    if (rawData.excludeDappMap[origin]) {
+      return false;
+    }
+    return true;
+  }
+
+  @backgroundMethod()
+  async addExcludedDApp(origin: string) {
+    if (!origin) {
+      throw new Error('origin is required');
+    }
+    return this.backgroundApi.simpleDb.defaultWalletSettings.addExcludeDapp(
+      origin,
+    );
+  }
+
+  @backgroundMethod()
+  async removeExcludedDApp(origin: string) {
+    if (!origin) {
+      throw new Error('origin is required');
+    }
+    return this.backgroundApi.simpleDb.defaultWalletSettings.removeExcludeDapp(
+      origin,
+    );
+  }
+
+  @backgroundMethod()
+  async getDefaultWalletSettings() {
+    const rawData =
+      await this.backgroundApi.simpleDb.defaultWalletSettings.getRawData();
+    if (!rawData) {
+      return {
+        isDefaultWallet: true,
+        excludedDappList: [],
+      };
+    }
+    return {
+      isDefaultWallet: rawData.isDefaultWallet,
+      excludedDappList: Object.keys(rawData.excludeDappMap),
+    };
   }
 }
 

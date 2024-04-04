@@ -67,8 +67,8 @@ class ProviderApiPrivate extends ProviderApiBase {
     // noop
   }
 
-  public notifyExtSwitchChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    const params = this.getWalletInfo();
+  public async notifyExtSwitchChanged(info: IProviderBaseBackgroundNotifyInfo) {
+    const params = await this.getWalletInfo();
     info.send(
       { method: 'wallet_events_ext_switch_changed', params },
       info.targetOrigin,
@@ -83,7 +83,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   // ----------------------------------------------
   async getWalletInfo(): Promise<IOneKeyWalletInfo> {
     const { isDefaultWallet, excludedDappList } =
-      await this.backgroundApi.serviceDApp.getDefaultWalletSettings();
+      await this.backgroundApi.serviceContextMenu.getDefaultWalletSettings();
     return {
       enableExtContentScriptReloadButton: false,
       platform: process.env.ONEKEY_PLATFORM,

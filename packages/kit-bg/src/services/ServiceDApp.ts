@@ -714,66 +714,6 @@ class ServiceDApp extends ServiceBase {
     );
     return Promise.resolve();
   }
-
-  // --------------------- Default Wallet Settings --------------------
-  @backgroundMethod()
-  async setIsDefaultWallet(value: boolean) {
-    return this.backgroundApi.simpleDb.defaultWalletSettings.setIsDefaultWallet(
-      value,
-    );
-  }
-
-  @backgroundMethod()
-  async getIsDefaultWalletByOrigin(origin: string) {
-    const rawData =
-      await this.backgroundApi.simpleDb.defaultWalletSettings.getRawData();
-    if (!rawData) {
-      return true;
-    }
-    if (!rawData.isDefaultWallet) {
-      return false;
-    }
-    if (rawData.excludeDappMap[origin]) {
-      return false;
-    }
-    return true;
-  }
-
-  @backgroundMethod()
-  async addExcludedDApp(origin: string) {
-    if (!origin) {
-      throw new Error('origin is required');
-    }
-    return this.backgroundApi.simpleDb.defaultWalletSettings.addExcludeDapp(
-      origin,
-    );
-  }
-
-  @backgroundMethod()
-  async removeExcludedDApp(origin: string) {
-    if (!origin) {
-      throw new Error('origin is required');
-    }
-    return this.backgroundApi.simpleDb.defaultWalletSettings.removeExcludeDapp(
-      origin,
-    );
-  }
-
-  @backgroundMethod()
-  async getDefaultWalletSettings() {
-    const rawData =
-      await this.backgroundApi.simpleDb.defaultWalletSettings.getRawData();
-    if (!rawData) {
-      return {
-        isDefaultWallet: true,
-        excludedDappList: [],
-      };
-    }
-    return {
-      isDefaultWallet: rawData.isDefaultWallet,
-      excludedDappList: Object.keys(rawData.excludeDappMap),
-    };
-  }
 }
 
 export default ServiceDApp;
