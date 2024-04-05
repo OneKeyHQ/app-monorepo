@@ -52,7 +52,7 @@ class ServiceContextMenu extends ServiceBase {
     if (tab?.url) {
       try {
         const origin = new URL(tab.url).origin;
-        void this.update(origin);
+        void this.toggleDefaultWallet(origin);
       } catch {
         // ignore
       }
@@ -66,7 +66,7 @@ class ServiceContextMenu extends ServiceBase {
   }
 
   @backgroundMethod()
-  async update(origin: string) {
+  async toggleDefaultWallet(origin: string) {
     const { simpleDb } = this.backgroundApi;
     const rawData = await simpleDb.defaultWalletSettings.getRawData();
     if (!rawData) {
@@ -86,6 +86,17 @@ class ServiceContextMenu extends ServiceBase {
       await this.updateContextMenu(origin, isExcluded);
     }
 
+    void this.notifyExtSwitchChanged(origin);
+  }
+
+  @backgroundMethod()
+  async updateAndNotify(origin: string) {
+    const { simpleDb } = this.backgroundApi;
+    const rawData = await simpleDb.defaultWalletSettings.getRawData();
+    if (!rawData) {
+      return;
+    }
+    await this.updateContextMenu(origin, rawData.isDefaultWallet);
     void this.notifyExtSwitchChanged(origin);
   }
 
@@ -175,6 +186,21 @@ class ServiceContextMenu extends ServiceBase {
     return {
       isDefaultWallet: rawData.isDefaultWallet,
       excludedDappList: Object.keys(rawData.excludeDappMap),
+    };
+  }
+
+  @backgroundMethod()
+  async getDefaultWalletSettingsWithIcon() {
+    const result = await this.getDefaultWalletSettings();
+    const excludedDappListWithLogo = await Promise.all(
+      result.excludedDappList.map(async (i) => ({
+        origin: i,
+        logo: await this.backgroundApi.serviceDiscovery.buildWebsiteIconUrl(i),
+      })),
+    );
+    return {
+      isDefaultWallet: result.isDefaultWallet,
+      excludedDappListWithLogo,
     };
   }
 }
