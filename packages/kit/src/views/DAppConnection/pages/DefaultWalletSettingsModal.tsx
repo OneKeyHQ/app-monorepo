@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { isNil } from 'lodash';
 
@@ -9,7 +9,9 @@ import {
   Skeleton,
   Stack,
   Switch,
+  Toast,
 } from '@onekeyhq/components';
+import type { IDefaultWalletSettingsWithLogo } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDefaultWalletSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -40,34 +42,85 @@ function DefaultWalletSettingsModal() {
       backgroundApiProxy.serviceContextMenu.getDefaultWalletSettingsWithIcon(),
     [],
   );
+  const previousResultRef = useRef<IDefaultWalletSettingsWithLogo | null>(null);
+  useEffect(() => {
+    if (result) {
+      previousResultRef.current = result;
+    }
+  }, [result]);
 
   const setIsDefaultWallet = useCallback(async (val: boolean) => {
     await backgroundApiProxy.serviceContextMenu.setIsDefaultWallet(val);
   }, []);
 
-  const refreshContextMenu = useCallback(() => {
-    if (!platformEnv.isExtension) return;
+  const getCurrentOrigin = useCallback(
+    () =>
+      new Promise<string>((resolve, reject) => {
+        chrome.tabs.query(
+          { active: true, currentWindow: true },
+          async (tabs) => {
+            if (tabs[0]) {
+              try {
+                const currentOrigin = new URL(tabs[0]?.url ?? '').origin;
+                resolve(currentOrigin);
+              } catch (e) {
+                reject(e);
+              }
+            }
+          },
+        );
+      }),
+    [],
+  );
 
-    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      if (tabs[0]) {
-        try {
-          const currentOrigin = new URL(tabs[0]?.url ?? '').origin;
-          void backgroundApiProxy.serviceContextMenu.updateAndNotify(
-            currentOrigin,
-          );
-        } catch (e) {
-          console.error('refreshContextMenu error:', e);
-        }
+  const refreshContextMenu = useCallback(
+    async (origin?: string) => {
+      if (!platformEnv.isExtension) return;
+      if (!previousResultRef.current) return;
+
+      const currentOrigin = await getCurrentOrigin();
+      if (origin && origin !== currentOrigin) {
+        return;
       }
+
+      return backgroundApiProxy.serviceContextMenu.updateAndNotify({
+        origin: currentOrigin,
+        previousResult: previousResultRef.current,
+      });
+    },
+    [getCurrentOrigin],
+  );
+
+  const onToggleDefaultWallet = useCallback(async () => {
+    const isDefaultWallet = !result?.isDefaultWallet;
+    await setIsDefaultWallet(isDefaultWallet);
+    Toast.success({
+      title: isDefaultWallet
+        ? 'Default Changed to OneKey'
+        : 'OneKey Default Canceled',
+      message: isDefaultWallet
+        ? 'OneKey is now your default wallet for this dApp.'
+        : 'Refresh the page to retry with a different wallet.',
     });
-  }, []);
+    await refreshContextMenu();
+    setTimeout(() => {
+      void run();
+    }, 200);
+  }, [refreshContextMenu, result?.isDefaultWallet, run, setIsDefaultWallet]);
 
   const removeExcludedDApp = useCallback(
     async (origin: string) => {
       await backgroundApiProxy.serviceContextMenu.removeExcludedDApp(origin);
+      if (result?.isDefaultWallet) {
+        Toast.success({
+          title: 'Default Changed to OneKey',
+          message: 'OneKey is now your default wallet for this dApp.',
+        });
+      }
+      await refreshContextMenu(origin);
       void run();
     },
-    [run],
+    [run, result?.isDefaultWallet, refreshContextMenu],
   );
 
   const renderList = useCallback(() => {
@@ -110,13 +163,7 @@ function DefaultWalletSettingsModal() {
           <Switch
             size="small"
             value={result?.isDefaultWallet ?? true}
-            onChange={async () => {
-              await setIsDefaultWallet(!result?.isDefaultWallet);
-              void run();
-              setTimeout(() => {
-                void refreshContextMenu();
-              }, 200);
-            }}
+            onChange={onToggleDefaultWallet}
           />
         </ListItem>
         <Divider my="$2.5" />

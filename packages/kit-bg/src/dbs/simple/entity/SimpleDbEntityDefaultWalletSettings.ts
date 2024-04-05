@@ -5,6 +5,14 @@ export interface IDefaultWalletSettingsDB {
   excludeDappMap: Record<string, boolean>;
 }
 
+export interface IDefaultWalletSettingsWithLogo {
+  isDefaultWallet: boolean;
+  excludedDappListWithLogo: {
+    origin: string;
+    logo: string;
+  }[];
+}
+
 export class SimpleDbEntityDefaultWalletSettings extends SimpleDbEntityBase<IDefaultWalletSettingsDB> {
   entityName = 'defaultWalletSettings';
 

@@ -6,6 +6,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
 
+import type {
+  IDefaultWalletSettingsDB,
+  IDefaultWalletSettingsWithLogo,
+} from '../dbs/simple/entity/SimpleDbEntityDefaultWalletSettings';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 
 const MenuId = 'OneKeyDefaultWalletItem';
@@ -89,15 +93,64 @@ class ServiceContextMenu extends ServiceBase {
     void this.notifyExtSwitchChanged(origin);
   }
 
+  private shouldUpdate({
+    origin,
+    previousResult,
+    currentResult,
+  }: {
+    origin: string;
+    previousResult: IDefaultWalletSettingsWithLogo;
+    currentResult: IDefaultWalletSettingsDB;
+  }) {
+    if (!previousResult || !currentResult) {
+      return false;
+    }
+    // if rawData.isDefaultWallet is changed
+    // 如果当前不是默认钱包 并且 dApp 已经在排除列表里，不需要更新
+    if (previousResult.isDefaultWallet !== currentResult.isDefaultWallet) {
+      if (
+        currentResult.isDefaultWallet &&
+        Object.keys(currentResult.excludeDappMap).find((i) => i === origin)
+      ) {
+        return false;
+      }
+      return true;
+    }
+    // 如果当前 result 和 previousResult 中的 excludedDappList 中针对当前 origin 的状态不一致，需要更新
+    if (
+      currentResult.isDefaultWallet &&
+      previousResult.excludedDappListWithLogo.find(
+        (i) => i.origin === origin,
+      ) !== Object.keys(currentResult.excludeDappMap).find((i) => i === origin)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
   @backgroundMethod()
-  async updateAndNotify(origin: string) {
+  async updateAndNotify({
+    origin,
+    previousResult,
+  }: {
+    origin: string;
+    previousResult: IDefaultWalletSettingsWithLogo;
+  }) {
     const { simpleDb } = this.backgroundApi;
     const rawData = await simpleDb.defaultWalletSettings.getRawData();
     if (!rawData) {
       return;
     }
-    await this.updateContextMenu(origin, rawData.isDefaultWallet);
-    void this.notifyExtSwitchChanged(origin);
+    if (
+      this.shouldUpdate({
+        origin,
+        previousResult,
+        currentResult: rawData,
+      })
+    ) {
+      await this.updateContextMenu(origin, rawData.isDefaultWallet);
+      void this.notifyExtSwitchChanged(origin);
+    }
   }
 
   @backgroundMethod()
@@ -190,7 +243,7 @@ class ServiceContextMenu extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getDefaultWalletSettingsWithIcon() {
+  async getDefaultWalletSettingsWithIcon(): Promise<IDefaultWalletSettingsWithLogo> {
     const result = await this.getDefaultWalletSettings();
     const excludedDappListWithLogo = await Promise.all(
       result.excludedDappList.map(async (i) => ({
