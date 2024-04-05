@@ -17,6 +17,7 @@ import { OneKeyHardwareError, OneKeyInternalError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByTemplate } from '../../../managers/impl';
 import { AccountType } from '../../../types/account';
+import { BtcMessageTypes } from '../../../types/message';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
 import { getAccountDefaultByPurpose } from './utils';
@@ -454,17 +455,28 @@ export class KeyringHardware extends KeyringHardwareBase {
     await this.getHardwareSDKInstance();
     const result = await Promise.all(
       messages.map(async (payload: IUnsignedMessageBtc) => {
-        const response = await HardwareSDK.btcSignMessage(connectId, deviceId, {
-          ...passphraseState,
-          path: `${dbAccount.path}/0/0`,
-          coin: coinName,
-          messageHex: Buffer.from(payload.message).toString('hex'),
-          noScriptType: payload.sigOptions?.noScriptType,
-        });
-        if (!response.success) {
-          throw convertDeviceError(response.payload);
+        const { message, type, sigOptions } = payload;
+        if (type === BtcMessageTypes.BIP322_SIMPLE) {
+          throw new OneKeyInternalError(
+            'Sign message of type bip322-simple is not supported on hardware.',
+          );
+        } else {
+          const response = await HardwareSDK.btcSignMessage(
+            connectId,
+            deviceId,
+            {
+              ...passphraseState,
+              path: `${dbAccount.path}/0/0`,
+              coin: coinName,
+              messageHex: Buffer.from(message).toString('hex'),
+              noScriptType: sigOptions?.noScriptType,
+            },
+          );
+          if (!response.success) {
+            throw convertDeviceError(response.payload);
+          }
+          return response.payload;
         }
-        return response.payload;
       }),
     );
     return result.map((ret) => ret.signature);

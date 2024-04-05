@@ -344,14 +344,7 @@ class ProviderApiBtc extends ProviderApiBase {
   ) {
     const { message, type } = params;
 
-    const { network, account, wallet } = getActiveWalletAccount();
-
-    if (wallet?.type === 'hw') {
-      throw web3Errors.provider.custom({
-        code: 4003,
-        message: 'Sign message is not supported on hardware.',
-      });
-    }
+    const { network, account } = getActiveWalletAccount();
 
     if (!network || !account) {
       throw web3Errors.provider.custom({
