@@ -124,7 +124,8 @@ interface IListItemTextProps extends IStackProps {
   align?: 'left' | 'center' | 'right';
   primaryTextProps?: ISizableTextProps;
   secondaryTextProps?: ISizableTextProps;
-  match?: IFuseResultMatch;
+  primaryMatch?: IFuseResultMatch;
+  secondaryMatch?: IFuseResultMatch;
 }
 
 const ListItemText = (props: IListItemTextProps) => {
@@ -134,7 +135,8 @@ const ListItemText = (props: IListItemTextProps) => {
     align = 'left',
     primaryTextProps,
     secondaryTextProps,
-    match,
+    primaryMatch,
+    secondaryMatch,
     ...rest
   } = props;
 
@@ -152,12 +154,12 @@ const ListItemText = (props: IListItemTextProps) => {
     if (isValidElement(primary)) {
       return primary;
     }
-    if (match) {
+    if (primaryMatch) {
       return (
         <MatchSizeableText
           textAlign={align}
           size="$bodyLgMedium"
-          match={match}
+          match={primaryMatch}
           {...primaryTextProps}
         >
           {primary as string}
@@ -169,24 +171,35 @@ const ListItemText = (props: IListItemTextProps) => {
         {primary}
       </SizableText>
     );
-  }, [align, match, primary, primaryTextProps]);
+  }, [align, primary, primaryMatch, primaryTextProps]);
 
-  const renderSecondary = useCallback(
-    () =>
-      isValidElement(secondary) ? (
-        secondary
-      ) : (
-        <SizableText
+  const renderSecondary = useCallback(() => {
+    if (isValidElement(secondary)) {
+      return secondary;
+    }
+    if (secondaryMatch) {
+      return (
+        <MatchSizeableText
           size="$bodyMd"
           color="$textSubdued"
           textAlign={align}
           {...secondaryTextProps}
         >
-          {secondary}
-        </SizableText>
-      ),
-    [align, secondary, secondaryTextProps],
-  );
+          {primary as string}
+        </MatchSizeableText>
+      );
+    }
+    return (
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        textAlign={align}
+        {...secondaryTextProps}
+      >
+        {secondary}
+      </SizableText>
+    );
+  }, [align, primary, secondary, secondaryMatch, secondaryTextProps]);
 
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
@@ -235,9 +248,10 @@ const ListItemSeparator = () => <Divider mx="$5" />;
 /* ListItem */
 export type IListItemProps = PropsWithChildren<{
   title?: string;
-  match?: IFuseResultMatch;
+  titleMatch?: IFuseResultMatch;
   titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
+  subTitleMatch?: IFuseResultMatch;
   subtitleProps?: IListItemTextProps['secondaryTextProps'];
   avatarProps?: IListItemAvatarProps;
   renderAvatar?: ComponentType | ReactElement;
@@ -285,7 +299,8 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
     renderAvatar,
     renderIcon,
     renderItemText,
-    match,
+    titleMatch,
+    subTitleMatch,
     ...rest
   } = props;
 
@@ -350,7 +365,8 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
             ...subtitleProps,
             testID: `list-item-subtitle-${rest.testID || ''}`,
           },
-          match,
+          primaryMatch: titleMatch,
+          secondaryMatch: subTitleMatch,
         },
         renderItemText,
       )}
