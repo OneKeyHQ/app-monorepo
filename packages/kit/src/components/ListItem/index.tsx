@@ -185,7 +185,7 @@ const ListItemText = (props: IListItemTextProps) => {
           textAlign={align}
           {...secondaryTextProps}
         >
-          {primary as string}
+          {secondary as string}
         </MatchSizeableText>
       );
     }
@@ -354,19 +354,19 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
         (title || subtitle) && {
           flex: 1,
           primary: title,
+          primaryMatch: titleMatch,
           primaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...titleProps,
             testID: `list-item-title-${rest.testID || ''}`,
           },
           secondary: subtitle,
+          secondaryMatch: subTitleMatch,
           secondaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...subtitleProps,
             testID: `list-item-subtitle-${rest.testID || ''}`,
           },
-          primaryMatch: titleMatch,
-          secondaryMatch: subTitleMatch,
         },
         renderItemText,
       )}
