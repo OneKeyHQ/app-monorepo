@@ -176,7 +176,7 @@ class ServiceContextMenu extends ServiceBase {
   async notifyExtSwitchChanged(origin: string) {
     const privateProvider = this.backgroundApi.providers
       .$private as ProviderApiPrivate;
-    privateProvider.notifyExtSwitchChanged({
+    void privateProvider.notifyExtSwitchChanged({
       send: this.backgroundApi.sendForProvider('$private'),
       targetOrigin: origin,
     });
