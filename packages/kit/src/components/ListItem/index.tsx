@@ -183,6 +183,7 @@ const ListItemText = (props: IListItemTextProps) => {
           size="$bodyMd"
           color="$textSubdued"
           textAlign={align}
+          match={secondaryMatch}
           {...secondaryTextProps}
         >
           {secondary as string}
