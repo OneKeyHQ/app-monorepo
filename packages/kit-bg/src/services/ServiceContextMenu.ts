@@ -77,17 +77,20 @@ class ServiceContextMenu extends ServiceBase {
       await this.addExcludedDApp(origin);
       await this.updateContextMenu(origin, false);
     } else {
+      let shouldBeDefaultWallet = rawData.isDefaultWallet;
       if (!rawData.isDefaultWallet) {
         await this.setIsDefaultWallet(true);
+        shouldBeDefaultWallet = true;
       }
 
       const isExcluded = rawData.excludeDappMap[origin];
-      if (isExcluded) {
+      shouldBeDefaultWallet = isExcluded || !rawData.isDefaultWallet;
+      if (shouldBeDefaultWallet) {
         await this.removeExcludedDApp(origin);
       } else {
         await this.addExcludedDApp(origin);
       }
-      await this.updateContextMenu(origin, isExcluded);
+      await this.updateContextMenu(origin, shouldBeDefaultWallet);
     }
 
     void this.notifyExtSwitchChanged(origin);
@@ -106,17 +109,14 @@ class ServiceContextMenu extends ServiceBase {
       return false;
     }
     // if rawData.isDefaultWallet is changed
-    // 如果当前不是默认钱包 并且 dApp 已经在排除列表里，不需要更新
+    // Do not update if the current wallet is not the default and the dApp is already in the exclusion list
     if (previousResult.isDefaultWallet !== currentResult.isDefaultWallet) {
-      if (
-        currentResult.isDefaultWallet &&
-        Object.keys(currentResult.excludeDappMap).find((i) => i === origin)
-      ) {
+      if (Object.keys(currentResult.excludeDappMap).find((i) => i === origin)) {
         return false;
       }
       return true;
     }
-    // 如果当前 result 和 previousResult 中的 excludedDappList 中针对当前 origin 的状态不一致，需要更新
+    // Update if the status for the current origin in the excludedDappList differs between the current result and the previousResult
     if (
       currentResult.isDefaultWallet &&
       previousResult.excludedDappListWithLogo.find(
