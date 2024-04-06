@@ -48,6 +48,7 @@ const NativeWebView = forwardRef(
       onLoad,
       onLoadEnd,
       onScroll,
+      pullToRefreshEnabled = true,
       ...props
     }: INativeWebViewProps,
     ref,
@@ -165,16 +166,26 @@ const NativeWebView = forwardRef(
         onLoadEnd={onLoadEnd}
         renderError={renderError}
         renderLoading={renderLoading}
-        pullToRefreshEnabled
+        pullToRefreshEnabled={pullToRefreshEnabled}
         onScroll={(e) => {
-          if (platformEnv.isNativeAndroid) {
+          if (platformEnv.isNativeAndroid && pullToRefreshEnabled) {
+            const {
+              contentOffset,
+              contentSize,
+              contentInset,
+              layoutMeasurement,
+            } = e.nativeEvent;
             // @ts-expect-error
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
             refreshControlRef?.current?._nativeRef?.setNativeProps?.({
               enabled:
-                e?.nativeEvent?.contentOffset?.y === 0 &&
-                // @ts-expect-error
-                e?.nativeEvent?.velocity?.y <= 0,
+                contentOffset?.y === 0 &&
+                Math.round(contentSize.height) >
+                  Math.round(
+                    layoutMeasurement.height +
+                      contentInset.top +
+                      contentInset.bottom,
+                  ),
             });
           }
           void onScroll?.(e);
@@ -185,7 +196,7 @@ const NativeWebView = forwardRef(
       />
     );
 
-    return platformEnv.isNativeAndroid ? (
+    return platformEnv.isNativeAndroid && pullToRefreshEnabled ? (
       <RefreshControl
         ref={refreshControlRef}
         style={{ flex: 1 }}

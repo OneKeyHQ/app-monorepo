@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { createRef, useCallback, useEffect, useMemo, useRef } from 'react';
+import type { Component } from 'react';
 
 import {
   useAnimatedStyle,
@@ -14,8 +15,14 @@ import {
 } from '../config/Animation.constants';
 
 import type { IWebViewOnScrollEvent } from '../components/WebView/types';
+import type { ViewProps } from 'react-native';
+import type { AnimateProps } from 'react-native-reanimated';
 
 function useMobileBottomBarAnimation(activeTabId: string | null) {
+  const toolbarRef = useMemo(
+    () => createRef<Component<AnimateProps<ViewProps>, any, any>>(),
+    [],
+  );
   const toolbarHeight = useSharedValue(BROWSER_BOTTOM_BAR_HEIGHT);
   const toolbarOpacity = useSharedValue(MAX_OPACITY_BOTTOM_BAR);
   const lastScrollY = useRef<number | undefined>(undefined);
@@ -27,13 +34,36 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
         nativeEvent;
       const contentOffsetY = contentOffset.y;
       if (
-        Math.round(contentSize.height) <=
-        Math.round(
-          layoutMeasurement.height + contentInset.top + contentInset.bottom,
-        )
+        contentOffsetY < 0 ||
+        Math.round(contentOffsetY) >
+          Math.round(
+            contentSize.height -
+              (layoutMeasurement.height +
+                contentInset.top +
+                contentInset.bottom),
+          )
       ) {
+        lastScrollY.current = undefined;
+        lastTurnScrollY.current = undefined;
         return;
       }
+      const webViewCanScroll =
+        Math.round(contentSize.height) >
+        Math.round(
+          layoutMeasurement.height + contentInset.top + contentInset.bottom,
+        );
+
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      toolbarRef?.current?.setNativeProps?.({
+        position: webViewCanScroll ? 'absolute' : 'relative',
+      });
+      if (!webViewCanScroll) {
+        toolbarHeight.value = withTiming(BROWSER_BOTTOM_BAR_HEIGHT);
+        toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
+        return;
+      }
+
       if (
         lastScrollY.current === undefined ||
         lastTurnScrollY.current === undefined ||
@@ -60,7 +90,7 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
         duration: DISPLAY_BOTTOM_BAR_DURATION,
       }); // No gradual animation
     },
-    [toolbarHeight, toolbarOpacity],
+    [toolbarHeight, toolbarOpacity, toolbarRef],
   );
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
     height: toolbarHeight.value,
@@ -73,11 +103,18 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
     toolbarOpacity.value = withTiming(MAX_OPACITY_BOTTOM_BAR);
     lastScrollY.current = undefined;
     lastTurnScrollY.current = undefined;
+
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    toolbarRef?.current?.setNativeProps?.({
+      position: 'relative',
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId]);
 
   return {
     handleScroll,
+    toolbarRef,
     toolbarAnimatedStyle,
   };
 }
