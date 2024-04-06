@@ -5,7 +5,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
-import '../utils/axiosInterceptor';
 
 import { Container } from './Container';
 import { SplashProvider } from './SplashProvider';

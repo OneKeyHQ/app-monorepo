@@ -7,6 +7,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -58,6 +59,10 @@ function SendConfirmActionsContainer(props: IProps) {
     closeWindowAfterResolved: true,
   });
 
+  const vaultSettings = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+    [networkId],
+  ).result;
   const handleOnConfirm = useCallback(async () => {
     setIsSubmitting(true);
 
@@ -81,7 +86,19 @@ function SendConfirmActionsContainer(props: IProps) {
       Toast.success({
         title: intl.formatMessage({ id: 'msg__transaction_submitted' }),
       });
-      void dappApprove.resolve();
+
+      const signedTx = result[0].signedTx;
+
+      if (signOnly) {
+        if (vaultSettings?.signOnlyFullTxRequired) {
+          void dappApprove.resolve({ result: signedTx });
+        } else {
+          void dappApprove.resolve({ result: signedTx.rawTx });
+        }
+      } else {
+        void dappApprove.resolve({ result: signedTx.txid });
+      }
+
       navigation.popStack();
     } catch (e: any) {
       setIsSubmitting(false);
@@ -105,6 +122,7 @@ function SendConfirmActionsContainer(props: IProps) {
     sendSelectedFeeInfo,
     signOnly,
     unsignedTxs,
+    vaultSettings?.signOnlyFullTxRequired,
   ]);
 
   const handleOnCancel = useCallback(
