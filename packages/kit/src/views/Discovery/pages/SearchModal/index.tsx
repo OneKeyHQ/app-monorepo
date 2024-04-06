@@ -89,9 +89,6 @@ function SearchModal() {
     keys: ['name'],
   });
 
-  const fuseLocalHistoryDataSearch = useFuse(localData?.historyData, {
-    keys: ['title'],
-  });
   useEffect(() => {
     void (async () => {
       if (!searchValue) {
@@ -271,34 +268,32 @@ function SearchModal() {
                   });
                 }}
               />
-              {fuseLocalHistoryDataSearch
-                .search(searchValue)
-                .map(({ item, matches }, index) => (
-                  <ListItem
-                    key={index}
-                    avatarProps={{
-                      src: item.logo,
-                    }}
-                    title={item.title}
-                    match={matches?.find((v) => v.key === 'title')}
-                    subtitle={item.url}
-                    subtitleProps={{
-                      numberOfLines: 1,
-                    }}
-                    testID={`search-modal-${item.title.toLowerCase()}`}
-                    onPress={() => {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        webSite: {
-                          url: item.url,
-                          title: item.title,
-                        },
-                      });
-                    }}
-                  />
-                ))}
+              {localData?.historyData.map((item, index) => (
+                <ListItem
+                  key={index}
+                  avatarProps={{
+                    src: item.logo,
+                  }}
+                  title={item.title}
+                  match={item.titleMatch}
+                  subtitle={item.url}
+                  subtitleProps={{
+                    numberOfLines: 1,
+                  }}
+                  testID={`search-modal-${item.title.toLowerCase()}`}
+                  onPress={() => {
+                    handleOpenWebSite({
+                      navigation,
+                      useCurrentWindow,
+                      tabId,
+                      webSite: {
+                        url: item.url,
+                        title: item.title,
+                      },
+                    });
+                  }}
+                />
+              ))}
             </Stack>
           ) : null}
         </ScrollView>
