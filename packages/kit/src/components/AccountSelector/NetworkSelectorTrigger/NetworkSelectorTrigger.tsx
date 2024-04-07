@@ -14,7 +14,6 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { ChainSelectorInput } from '../../ChainSelectorInput';
-import { Token } from '../../Token';
 import { useAccountSelectorAvailableNetworks } from '../hooks/useAccountSelectorAvailableNetworks';
 
 function useNetworkSelectorItems() {
