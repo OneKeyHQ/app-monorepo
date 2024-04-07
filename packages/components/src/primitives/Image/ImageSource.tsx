@@ -1,17 +1,14 @@
-import { useCallback, useContext, useMemo, useRef } from 'react';
+import { useCallback, useContext, useRef } from 'react';
 
 import { usePropsAndStyle } from '@tamagui/core';
-import { Image as NativeImage } from 'react-native';
-import FastImage from 'react-native-fast-image';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ImageContext } from './context';
 import { useImageComponent, useSource } from './hooks';
-import { ImageNet } from './ImageNet';
 
 import type { IImageSourceProps } from './type';
-import type { ImageStyle, ImageURISource, StyleProp } from 'react-native';
+import type { ImageStyle, StyleProp } from 'react-native';
 
 export function ImageSource({
   source,
@@ -55,9 +52,6 @@ export function ImageSource({
 
   const ImageComponent = useImageComponent(imageSource);
 
-  if (!ImageComponent) {
-    return null;
-  }
   style.width = style.width ? (style.width as number) : '100%';
   style.height = style.height ? (style.height as number) : '100%';
 

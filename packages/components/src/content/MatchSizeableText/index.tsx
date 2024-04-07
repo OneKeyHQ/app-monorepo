@@ -13,7 +13,7 @@ export type IMatchSizeableTextProps = Omit<ISizableTextProps, 'children'> & {
 };
 
 const defaultMatchTextStyle: ISizableTextProps = {
-  color: '#0029ff',
+  color: '$textInfo',
 };
 
 export function MatchSizeableText({

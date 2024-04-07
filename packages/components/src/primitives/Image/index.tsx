@@ -73,4 +73,5 @@ export type {
   IImageSourceProps,
   IImageProps,
   IImageSkeletonProps,
+  IImageLoadingProps,
 } from './type';
