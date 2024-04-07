@@ -239,31 +239,18 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async addHDOrHWAccounts({
+  async getPrepareHDOrHWAccountsParams({
     walletId,
     networkId,
     indexes,
     indexedAccountId,
     deriveType,
-    skipDeviceCancel,
-    hideCheckingDeviceLoading,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
-    indexes?: Array<number>; // multiple add by indexes
-    indexedAccountId: string | undefined; // single add by indexedAccountId
+    indexes?: Array<number>;
+    indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
-    skipDeviceCancel?: boolean;
-    hideCheckingDeviceLoading?: boolean;
-    // names?: Array<string>;
-    // purpose?: number;
-    // skipRepeat?: boolean;
-    // callback?: (_account: Account) => Promise<boolean>;
-    // isAddInitFirstAccountOnly?: boolean;
-    // template?: string;
-    // skipCheckAccountExist?: boolean;
   }) {
     if (!walletId) {
       throw new Error('walletId is required');
@@ -309,10 +296,6 @@ class ServiceAccount extends ServiceBase {
         deriveType,
       });
 
-    const vault = await vaultFactory.getWalletOnlyVault({
-      networkId,
-      walletId,
-    });
     let prepareParams:
       | IPrepareHdAccountsParams
       | IPrepareHardwareAccountsParams;
@@ -341,7 +324,50 @@ class ServiceAccount extends ServiceBase {
       prepareParams = hdParams;
     }
 
+    return {
+      deviceParams,
+      prepareParams,
+      walletId,
+      networkId,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHDOrHWAccounts(params: {
+    walletId: string | undefined;
+    networkId: string | undefined;
+    indexes?: Array<number>; // multiple add by indexes
+    indexedAccountId: string | undefined; // single add by indexedAccountId
+    deriveType: IAccountDeriveTypes;
+    skipDeviceCancel?: boolean;
+    hideCheckingDeviceLoading?: boolean;
+    // names?: Array<string>;
+    // purpose?: number;
+    // skipRepeat?: boolean;
+    // callback?: (_account: Account) => Promise<boolean>;
+    // isAddInitFirstAccountOnly?: boolean;
+    // template?: string;
+    // skipCheckAccountExist?: boolean;
+  }) {
     // addHDOrHWAccounts
+
+    const {
+      indexes,
+      indexedAccountId,
+      deriveType,
+      skipDeviceCancel,
+      hideCheckingDeviceLoading,
+    } = params;
+
+    const { prepareParams, deviceParams, networkId, walletId } =
+      await this.getPrepareHDOrHWAccountsParams(params);
+
+    const vault = await vaultFactory.getWalletOnlyVault({
+      networkId,
+      walletId,
+    });
+
     return this.backgroundApi.serviceHardware.withHardwareProcessing(
       async () => {
         // TODO move to vault
@@ -1126,9 +1152,9 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async createHDWallet({ mnemonic }: { mnemonic: string }) {
     const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify(
-      EReasonForNeedPassword.CreateOrRemoveWallet,
-    );
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
 
     await timerUtils.wait(100);
 
@@ -1303,6 +1329,32 @@ class ServiceAccount extends ServiceBase {
       text: mnemonic,
     });
     return { mnemonic };
+  }
+
+  @backgroundMethod()
+  async getHWAccountAddresses(params: {
+    walletId: string;
+    networkId: string;
+    indexes?: Array<number>;
+    indexedAccountId: string | undefined;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    const { prepareParams, deviceParams, networkId, walletId } =
+      await this.getPrepareHDOrHWAccountsParams(params);
+
+    const vault = await vaultFactory.getWalletOnlyVault({
+      networkId,
+      walletId,
+    });
+    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+      async () => {
+        const accounts = await vault.keyring.prepareAccounts(prepareParams);
+        return accounts.map((account) => account.address);
+      },
+      {
+        deviceParams,
+      },
+    );
   }
 }
 
