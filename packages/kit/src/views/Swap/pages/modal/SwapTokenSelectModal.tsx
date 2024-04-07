@@ -89,26 +89,25 @@ const SwapTokenSelectPage = () => {
 
   const onSelectToken = useCallback(
     async (item: ISwapToken) => {
+      navigation.popStack();
       if (type === ESwapDirectionType.FROM) {
         void selectFromToken(item);
       } else {
         void selectToToken(item);
       }
-      navigation.popStack();
     },
     [navigation, selectFromToken, selectToToken, type],
   );
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
+      setCurrentSelectNetwork(network);
       if (type === ESwapDirectionType.FROM && network.networkId !== 'all') {
         void updateSelectedAccountNetwork({
           num: 0,
           networkId: network.networkId,
         });
       }
-      setSearchKeyword('');
-      setCurrentSelectNetwork(network);
     },
     [type, updateSelectedAccountNetwork],
   );
@@ -203,13 +202,7 @@ const SwapTokenSelectPage = () => {
                   (net) => net.networkId === network.id,
                 );
                 if (!findSwapNetwork) return;
-                const swapNetwork: ISwapNetwork = {
-                  ...network,
-                  networkId: network.id,
-                  protocol: findSwapNetwork.protocol,
-                  providers: findSwapNetwork.providers,
-                };
-                onSelectCurrentNetwork(swapNetwork);
+                onSelectCurrentNetwork(findSwapNetwork);
               },
             });
           }}

@@ -1,4 +1,4 @@
-import type { IServerNetwork } from '..';
+import type { INetworkExplorerConfig } from '..';
 
 export enum EProtocolOfExchange {
   SWAP = 'swap',
@@ -25,31 +25,32 @@ export enum ESwapRateDifferenceUnit {
 // token & network
 
 export interface ISwapNetworkBase {
-  protocol: string;
-  providers: string;
   networkId: string;
+  defaultSelectToken?: { from?: string; to?: string };
 }
 
-export type ISwapNetwork = IServerNetwork & ISwapNetworkBase;
+export interface ISwapNetwork extends ISwapNetworkBase {
+  name: string;
+  symbol: string;
+  shortcode?: string;
+  logoURI?: string;
+  explorers?: INetworkExplorerConfig[];
+}
 export interface ISwapToken {
   networkId: string;
-  providers: string;
-  protocol: string;
   contractAddress: string;
+  isNative?: boolean;
   symbol: string;
   decimals: number;
   name?: string;
   logoURI?: string;
-  networkLogoURI?: string;
-  swapSwftCode?: string;
-  swapSwftUnSupportCode?: string;
-  balance?: string;
+
   balanceParsed?: string;
-  price: number;
-  price24h?: number;
+  price: string;
   fiatValue?: string;
+
   accountAddress?: string;
-  isNative?: boolean;
+  networkLogoURI?: string;
 }
 
 export interface ISwapTokenCatch {
@@ -57,20 +58,19 @@ export interface ISwapTokenCatch {
   updatedAt: number;
 }
 
-export interface ISwapTokenDetailInfo {
-  price: string;
-  balance: string;
-  balanceParsed: string;
-  fiatValue: string;
+interface IFetchSwapQuoteBaseParams {
+  fromNetworkId: string;
+  toNetworkId: string;
+  fromTokenAddress: string;
+  toTokenAddress: string;
+  fromTokenAmount: string;
+  protocol: string;
 }
 
 export interface IFetchTokensParams {
-  type: ESwapDirectionType;
   networkId?: string;
   keywords?: string;
-  fromToken?: ISwapToken;
   limit?: number;
-  next?: string;
   accountAddress?: string;
   accountNetworkId?: string;
   accountXpub?: string;
@@ -87,24 +87,10 @@ export interface ISwapApproveTransaction {
   amount: string;
   txId?: string;
 }
-export interface IFetchQuotesParams {
-  fromNetworkId: string;
-  toNetworkId: string;
-  fromTokenAddress: string;
-  toTokenAddress: string;
-  fromTokenAmount: string;
-  protocol: string;
-  fromProviders: string;
-  toProviders: string;
-  fromTokenDecimals: number;
-  toTokenDecimals: number;
-  fromTokenSwftCode?: string;
-  toTokenSwftCode?: string;
+export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
   slippagePercentage?: number;
-  fromTokenIsNative?: boolean;
-  toTokenIsNative?: boolean;
 }
 interface ISocketAsset {
   address: string;
@@ -200,6 +186,13 @@ export interface ISwapAlertState {
 }
 
 // build_tx
+export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
+  userAddress: string;
+  receivingAddress: string;
+  slippagePercentage: number;
+  toTokenAmount: string;
+  provider: string;
+}
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
 }

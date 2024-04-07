@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -41,16 +41,20 @@ function useSwapWarningCheck() {
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [swapSelectFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
-
+  const [alerts, setAlerts] = useState<ISwapAlertState[]>([]);
+  const [rateDifference, setRateDifference] = useState<
+    { value: string; unit: ESwapRateDifferenceUnit } | undefined
+  >();
   const checkSwapWarning = useCallback(() => {
-    let alerts: ISwapAlertState[] = [];
-    let rateDifference:
+    let alertsRes: ISwapAlertState[] = [];
+    let rateDifferenceRes:
       | { value: string; unit: ESwapRateDifferenceUnit }
       | undefined;
+    if (!networks.length) return;
     // check account
     if (!swapFromAddressInfo.accountInfo?.wallet) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: 'No connected wallet.',
           alertLevel: ESwapAlertLevel.ERROR,
@@ -69,8 +73,8 @@ function useSwapWarningCheck() {
         })) ||
         swapFromAddressInfo.networkId !== fromToken.networkId)
     ) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: `The connected wallet do not support ${
             networks.find((net) => net.networkId === fromToken.networkId)
@@ -92,8 +96,8 @@ function useSwapWarningCheck() {
         })) ||
         swapToAddressInfo.networkId !== toToken.networkId)
     ) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: `The connected wallet do not support ${
             networks.find((net) => net.networkId === toToken.networkId)?.name ??
@@ -110,8 +114,8 @@ function useSwapWarningCheck() {
         walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
       })
     ) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: `The connected wallet do not support swap. Try switch to another one.`,
           alertLevel: ESwapAlertLevel.ERROR,
@@ -129,8 +133,8 @@ function useSwapWarningCheck() {
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
         }))
     ) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: `${
             swapFromAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
@@ -155,8 +159,8 @@ function useSwapWarningCheck() {
         })) &&
       swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
     ) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: `${
             swapToAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
@@ -172,8 +176,8 @@ function useSwapWarningCheck() {
 
     // provider toAmount check
     if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: 'No provider supports this trade.',
           alertLevel: ESwapAlertLevel.ERROR,
@@ -183,8 +187,8 @@ function useSwapWarningCheck() {
 
     // provider best check
     if (quoteResult?.toAmount && !quoteResult.isBest) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message:
             'The current provider does not offer the best rate for this trade.',
@@ -195,8 +199,8 @@ function useSwapWarningCheck() {
 
     // price check
     if ((fromToken && !fromToken?.price) || (toToken && !toToken?.price)) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: `Failed to fetch ${
             !fromToken?.price
@@ -229,7 +233,7 @@ function useSwapWarningCheck() {
             unit = ESwapRateDifferenceUnit.DEFAULT;
           }
         }
-        rateDifference = {
+        rateDifferenceRes = {
           value: `(${difference.isPositive() ? '+' : ''}${
             numberFormat(difference.toFixed(), {
               formatter: 'priceChange',
@@ -239,16 +243,16 @@ function useSwapWarningCheck() {
         };
       }
       if (quoteRateBN.isZero()) {
-        alerts = [
-          ...alerts,
+        alertsRes = [
+          ...alertsRes,
           {
             message: `100% value drop! High price impact may cause your asset loss.`,
             alertLevel: ESwapAlertLevel.WARNING,
           },
         ];
       } else if (difference.lt(swapRateDifferenceMax)) {
-        alerts = [
-          ...alerts,
+        alertsRes = [
+          ...alertsRes,
           {
             message: `${
               numberFormat(difference.absoluteValue().toFixed(), {
@@ -266,8 +270,8 @@ function useSwapWarningCheck() {
     if (quoteResult && quoteResult.limit?.min) {
       const minAmountBN = new BigNumber(quoteResult.limit.min);
       if (fromTokenAmountBN.lt(minAmountBN)) {
-        alerts = [
-          ...alerts,
+        alertsRes = [
+          ...alertsRes,
           {
             message: `The minimum amount for this swap is ${minAmountBN.toFixed()} ${
               fromToken?.symbol ?? 'unknown'
@@ -281,8 +285,8 @@ function useSwapWarningCheck() {
     if (quoteResult && quoteResult.limit?.max) {
       const maxAmountBN = new BigNumber(quoteResult.limit.max);
       if (fromTokenAmountBN.gt(maxAmountBN)) {
-        alerts = [
-          ...alerts,
+        alertsRes = [
+          ...alertsRes,
           {
             message: `The maximum amount for this swap is ${maxAmountBN.toFixed()} ${
               fromToken?.symbol ?? 'unknown'
@@ -304,8 +308,8 @@ function useSwapWarningCheck() {
       !(tokenFiatValueBN.isNaN() || tokenFiatValueBN.isZero()) &&
       gasFeeBN.gt(tokenFiatValueBN)
     ) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: 'Est Network fee exceeds swap amount, proceed with caution.',
           alertLevel: ESwapAlertLevel.WARNING,
@@ -319,15 +323,16 @@ function useSwapWarningCheck() {
         new BigNumber(swapSelectFromTokenBalance ?? 0),
       )
     ) {
-      alerts = [
-        ...alerts,
+      alertsRes = [
+        ...alertsRes,
         {
           message: `Network fee in ${fromToken.symbol} deducted automatically in the next step.`,
           alertLevel: ESwapAlertLevel.INFO,
         },
       ];
     }
-    return { alerts, rateDifference };
+    setAlerts(alertsRes);
+    setRateDifference(rateDifferenceRes);
   }, [
     fromToken,
     fromTokenAmount,
@@ -347,9 +352,11 @@ function useSwapWarningCheck() {
     swapToAddressInfo.networkId,
     toToken,
   ]);
-  return {
-    checkSwapWarning,
-  };
+
+  useEffect(() => {
+    checkSwapWarning();
+  }, [checkSwapWarning]);
+  return { alerts, rateDifference };
 }
 
 export function useSwapActionState() {
@@ -361,12 +368,11 @@ export function useSwapActionState() {
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
-  const { checkSwapWarning } = useSwapWarningCheck();
+  const { alerts, rateDifference } = useSwapWarningCheck();
 
   const [selectedFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const isCrossChain = fromToken?.networkId !== toToken?.networkId;
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
-  const { alerts, rateDifference } = checkSwapWarning();
   const hasError = alerts.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );

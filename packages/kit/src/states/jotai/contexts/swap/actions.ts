@@ -78,6 +78,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const swapTokenMap = get(swapTokenMapAtom());
       const swapNetworksList = get(swapNetworks());
       const catchTokens = swapTokenMap.tokenCatch?.[key];
+      const dateNow = Date.now();
+      let catchCount = 0;
       const newTokens = tokens.map((token) => {
         const network = swapNetworksList.find(
           (n) => n.networkId === token.networkId,
@@ -87,8 +89,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         return token;
       });
-      const dateNow = Date.now();
-      let catchCount = 0;
       if (swapTokenMap.tokenCatch && catchTokens?.data) {
         // have catch
         if (JSON.stringify(catchTokens.data) !== JSON.stringify(newTokens)) {
@@ -135,7 +135,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       await this.syncNetworksSort.call(set, token.networkId);
     }
     set(swapSelectFromTokenAtom(), token);
-    set(swapSelectToTokenAtom(), undefined);
   });
 
   selectToToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
@@ -200,25 +199,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   tokenListFetchAction = contextAtomMethod(
     async (get, set, params: IFetchTokensParams) => {
-      try {
-        set(swapTokenFetchingAtom(), true);
-        const { result } = await backgroundApiProxy.serviceSwap.fetchSwapTokens(
-          params,
-        );
-        if (result.length > 0) {
-          await this.catchSwapTokensMap.call(
-            set,
-            JSON.stringify(params),
-            result,
-          );
-        }
-        set(swapTokenFetchingAtom(), false);
-      } catch (e: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
-          set(swapTokenFetchingAtom(), false);
-        }
+      set(swapTokenFetchingAtom(), true);
+      const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
+        ...params,
+      });
+      if (result.length > 0) {
+        await this.catchSwapTokensMap.call(set, JSON.stringify(params), result);
       }
+      set(swapTokenFetchingAtom(), false);
     },
   );
 

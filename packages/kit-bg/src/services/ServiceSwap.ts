@@ -6,6 +6,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
+  IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchQuoteResult,
   IFetchQuotesParams,
@@ -15,7 +16,6 @@ import type {
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapToken,
-  ISwapTokenDetailInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
@@ -28,8 +28,6 @@ import ServiceBase from './ServiceBase';
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
-
-  private _tokenListAbortController?: AbortController;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -45,14 +43,6 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelFetchTokenList() {
-    if (this._tokenListAbortController) {
-      this._tokenListAbortController.abort();
-      this._tokenListAbortController = undefined;
-    }
-  }
-
-  @backgroundMethod()
   @toastIfError()
   async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
     const protocol = EProtocolOfExchange.SWAP;
@@ -64,19 +54,30 @@ export default class ServiceSwap extends ServiceBase {
       '/swap/v1/networks',
       { params },
     );
-    const allNetworks =
+    const allClientSupportNetworks =
       await this.backgroundApi.serviceNetwork.getAllNetworks();
     const swapNetworks = data?.data
       ?.map((network) => {
-        const serverNetwork = allNetworks.networks.find(
+        const clientNetwork = allClientSupportNetworks.networks.find(
           (n) => n.id === network.networkId,
         );
-        if (serverNetwork) {
+        if (clientNetwork) {
           return {
-            ...serverNetwork,
+            name: clientNetwork.name,
+            symbol: clientNetwork.symbol,
+            shortcode: clientNetwork.shortcode,
+            logoURI: clientNetwork.logoURI,
             networkId: network.networkId,
-            protocol: network.protocol,
-            providers: network.providers,
+            defaultSelectToken: network.defaultSelectToken,
+            explorers: clientNetwork.explorers,
+          };
+        }
+        if (network.networkId === 'all') {
+          return {
+            ...network,
+            name: 'All Network',
+            symbol: 'All Net',
+            shortcode: 'All',
           };
         }
         return null;
@@ -89,50 +90,37 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSwapTokens({
     networkId,
     keywords,
-    type,
     limit = 50,
-    next,
     accountAddress,
     accountNetworkId,
     accountXpub,
-  }: IFetchTokensParams): Promise<{ result: ISwapToken[]; next?: string }> {
-    await this.cancelFetchTokenList();
+  }: IFetchTokensParams): Promise<ISwapToken[]> {
     const params = {
       protocol: EProtocolOfExchange.SWAP,
       networkId: networkId === 'all' ? undefined : networkId,
       keywords,
-      type,
       limit,
-      next,
       accountAddress,
       accountNetworkId,
       accountXpub,
     };
-    this._tokenListAbortController = new AbortController();
     const client = await this.getClient();
     try {
-      const { data } = await client.get<
-        IFetchResponse<{ next?: string; data: ISwapToken[] }>
-      >('/swap/v1/tokens', {
-        params,
-        signal: this._tokenListAbortController.signal,
-      });
-      this._tokenListAbortController = undefined;
-      return { result: data?.data?.data ?? [], next: data?.data?.next };
+      const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
+        '/swap/v1/tokens',
+        {
+          params,
+        },
+      );
+      return data?.data ?? [];
     } catch (e) {
-      if (axios.isCancel(e)) {
-        throw new Error('swap fetch tokens cancel', {
-          cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
-        });
-      } else {
-        const error = e as { message: string };
-        void this.backgroundApi.serviceApp.showToast({
-          method: 'error',
-          title: 'error',
-          message: error?.message,
-        });
-        return { result: [], next: undefined };
-      }
+      const error = e as { message: string };
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: 'error',
+        message: error?.message,
+      });
+      return [];
     }
   }
 
@@ -144,18 +132,19 @@ export default class ServiceSwap extends ServiceBase {
     contractAddress,
   }: {
     networkId: string;
-    accountAddress: string;
+    accountAddress?: string;
     xpub?: string;
     contractAddress: string;
-  }): Promise<ISwapTokenDetailInfo | undefined> {
+  }): Promise<ISwapToken[] | undefined> {
     const params = {
+      protocol: EProtocolOfExchange.SWAP,
       networkId,
       accountAddress,
       xpub,
       contractAddress,
     };
     const client = await this.getClient();
-    const { data } = await client.get<IFetchResponse<ISwapTokenDetailInfo>>(
+    const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
       '/swap/v1/token/detail',
       { params },
     );
@@ -182,16 +171,8 @@ export default class ServiceSwap extends ServiceBase {
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
-      fromTokenIsNative: fromToken.isNative,
-      toTokenIsNative: toToken.isNative,
       toNetworkId: toToken.networkId,
-      fromTokenDecimals: fromToken.decimals,
-      toTokenDecimals: toToken.decimals,
-      fromTokenSwftCode: fromToken.swapSwftCode,
-      toTokenSwftCode: toToken.swapSwftCode,
       protocol: EProtocolOfExchange.SWAP,
-      fromProviders: fromToken.providers,
-      toProviders: toToken.providers,
       userAddress,
       slippagePercentage,
     };
@@ -246,17 +227,13 @@ export default class ServiceSwap extends ServiceBase {
     receivingAddress: string;
     slippagePercentage: number;
   }): Promise<IFetchBuildTxResponse | undefined> {
-    const params = {
+    const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
       fromTokenAmount,
       toTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      fromTokenDecimals: fromToken.decimals,
-      toTokenDecimals: toToken.decimals,
-      fromTokenSwftCode: fromToken.swapSwftCode,
-      toTokenSwftCode: toToken.swapSwftCode,
       protocol: EProtocolOfExchange.SWAP,
       provider,
       userAddress,
