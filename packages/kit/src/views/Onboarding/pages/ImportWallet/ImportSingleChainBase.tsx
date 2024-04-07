@@ -64,7 +64,7 @@ export function ImportSingleChainBase({
     },
   });
 
-  const { setValue, control, getValues } = form;
+  const { setValue, control } = form;
   const [validateResult, setValidateResult] = useState<
     IGeneralInputValidation | undefined
   >();
