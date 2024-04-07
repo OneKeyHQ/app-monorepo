@@ -8,6 +8,7 @@ export type IModalAssetListParamList = {
   [EModalAssetListRoutes.TokenList]: {
     accountId: string;
     networkId: string;
+    walletId: string;
     tokenList: {
       tokens: IAccountToken[];
       keys: string;
