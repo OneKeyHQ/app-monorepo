@@ -15,7 +15,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
 import {
@@ -111,7 +110,7 @@ class ServiceSetting extends ServiceBase {
     async () => {
       const client = await this.getClient();
       const res = await client.get<{ data: ICurrencyItem[] }>(
-        '/gateway/v1/currency/list',
+        '/utility/v1/currency/exchange-rates',
       );
       return res.data.data;
     },
@@ -215,27 +214,6 @@ class ServiceSetting extends ServiceBase {
       }, {} as IAccountSelectorAvailableNetworksMap),
       items: config,
     };
-  }
-
-  @backgroundMethod()
-  public async isAlwaysReenterPassword(
-    reason?: EReasonForNeedPassword,
-  ): Promise<boolean> {
-    const isPasswordSet =
-      await this.backgroundApi.servicePassword.checkPasswordSet();
-    if (!reason || !isPasswordSet) {
-      return false;
-    }
-    const { protectCreateOrRemoveWallet, protectCreateTransaction } =
-      await settingsPersistAtom.get();
-
-    return (
-      reason === EReasonForNeedPassword.ChangePassword ||
-      (reason === EReasonForNeedPassword.CreateOrRemoveWallet &&
-        protectCreateOrRemoveWallet) ||
-      (reason === EReasonForNeedPassword.CreateTransaction &&
-        protectCreateTransaction)
-    );
   }
 }
 

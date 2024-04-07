@@ -549,9 +549,9 @@ class ServiceSend extends ServiceBase {
     }
 
     const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify(
-        EReasonForNeedPassword.CreateTransaction,
-      );
+      await this.backgroundApi.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.CreateTransaction,
+      });
     const [signedMessage] = await vault.keyring.signMessage({
       messages: [validUnsignedMessage],
       password,
