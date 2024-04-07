@@ -4,6 +4,7 @@ import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { Keyboard } from 'react-native';
 
 import {
+  Icon,
   Image,
   Page,
   ScrollView,
@@ -128,8 +129,16 @@ function SearchModal() {
             key={index}
             avatarProps={{
               src: item.logo || item.originLogo,
+              loading: (
+                <Image.Loading>
+                  <Skeleton width="100%" height="100%" />
+                </Image.Loading>
+              ),
               fallbackProps: {
-                children: <Skeleton w="$10" h="$10" />,
+                bg: '$bgStrong',
+                justifyContent: 'center',
+                alignItems: 'center',
+                children: <Icon name="GlobusOutline" />,
               },
             }}
             title={item.name}
@@ -273,6 +282,17 @@ function SearchModal() {
                   key={index}
                   avatarProps={{
                     src: item.logo,
+                    loading: (
+                      <Image.Loading>
+                        <Skeleton width="100%" height="100%" />
+                      </Image.Loading>
+                    ),
+                    fallbackProps: {
+                      bg: '$bgStrong',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      children: <Icon name="GlobusOutline" />,
+                    },
                   }}
                   title={item.title}
                   titleMatch={item.titleMatch}
