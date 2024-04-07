@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
