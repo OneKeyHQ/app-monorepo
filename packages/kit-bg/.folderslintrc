@@ -8,6 +8,8 @@
     "providers/*",
     "offscreens/**",
     "services/*",
+    "services/**",
+    "connectors/**",
     "services/*/utils/**",
     "states/**",
     "vaults/base/*",

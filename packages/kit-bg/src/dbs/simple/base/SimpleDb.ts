@@ -4,6 +4,7 @@ import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserB
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
+import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
@@ -33,6 +34,8 @@ export class SimpleDb {
   localHistory = new SimpleDbEntityLocalHistory();
 
   riskyTokens = new SimpleDbEntityRiskyTokens();
+
+  defaultWalletSettings = new SimpleDbEntityDefaultWalletSettings();
 
   networkSelector = new SimpleDbEntityNetworkSelector();
 }

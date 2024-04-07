@@ -93,9 +93,9 @@ export interface IOneKeyWalletInfo {
 
 if (process.env.NODE_ENV !== 'production') {
   try {
-    if (consts.WALLET_INFO_LOACAL_KEY) {
+    if (consts.WALLET_INFO_LOACAL_KEY_V5) {
       const walletInfo: IOneKeyWalletInfo = JSON.parse(
-        localStorage.getItem(consts.WALLET_INFO_LOACAL_KEY) || '{}',
+        localStorage.getItem(consts.WALLET_INFO_LOACAL_KEY_V5) || '{}',
       );
       console.log(walletInfo);
       if (walletInfo && walletInfo.enableExtContentScriptReloadButton) {

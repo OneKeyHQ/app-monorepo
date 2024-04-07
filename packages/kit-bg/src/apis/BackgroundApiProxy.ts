@@ -12,7 +12,9 @@ import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
+import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
@@ -106,6 +108,10 @@ class BackgroundApiProxy
 
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
 
+  serviceDappSide = this._createProxyService(
+    'serviceDappSide',
+  ) as ServiceDappSide;
+
   serviceWalletConnect = this._createProxyService(
     'serviceWalletConnect',
   ) as ServiceWalletConnect;
@@ -139,6 +145,10 @@ class BackgroundApiProxy
   ) as ServiceLightning;
 
   serviceLogger = this._createProxyService('serviceLogger') as ServiceLogger;
+
+  serviceContextMenu = this._createProxyService(
+    'serviceContextMenu',
+  ) as ServiceContextMenu;
 }
 
 export default BackgroundApiProxy;

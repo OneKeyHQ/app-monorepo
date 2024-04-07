@@ -65,6 +65,19 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getNetworkSafe({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<IServerNetwork | undefined> {
+    try {
+      return await this.getNetwork({ networkId });
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  @backgroundMethod()
   async getNetworksByIds({
     networkIds,
   }: {

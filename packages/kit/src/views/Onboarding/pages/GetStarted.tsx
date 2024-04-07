@@ -38,8 +38,8 @@ function ActionsGroup({ items }: IActionsProp) {
       }}
       separator={<Divider />}
     >
-      {items.map((item) => (
-        <Group.Item>
+      {items.map((item, index) => (
+        <Group.Item key={index}>
           <XStack
             flexDirection="row"
             py="$3.5"
