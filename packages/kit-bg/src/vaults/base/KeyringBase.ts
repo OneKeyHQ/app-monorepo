@@ -19,6 +19,7 @@ import type {
   IDBVariantAccount,
 } from '../../dbs/local/types';
 import type {
+  IGetAddressParams,
   IPrepareAccountsParams,
   IPrepareHdAccountsOptions,
   IPrepareHdAccountsParamsBase,
