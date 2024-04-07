@@ -12,6 +12,7 @@ import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
@@ -139,6 +140,10 @@ class BackgroundApiProxy
   ) as ServiceLightning;
 
   serviceLogger = this._createProxyService('serviceLogger') as ServiceLogger;
+
+  serviceContextMenu = this._createProxyService(
+    'serviceContextMenu',
+  ) as ServiceContextMenu;
 }
 
 export default BackgroundApiProxy;

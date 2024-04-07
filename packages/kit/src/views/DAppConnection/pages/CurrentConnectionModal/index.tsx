@@ -77,6 +77,12 @@ function CurrentConnectionModal() {
     });
   }, [navigation]);
 
+  const onPressDefaultWalletSettings = useCallback(() => {
+    navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+      screen: EDAppConnectionModal.DefaultWalletSettingsModal,
+    });
+  }, [navigation]);
+
   const onDisconnect = useCallback(async () => {
     if (accountsInfo?.[0].storageType) {
       await backgroundApiProxy.serviceDApp.disconnectWebsite({
@@ -145,6 +151,12 @@ function CurrentConnectionModal() {
         <YStack bg="$bgSubdued" py="$3" space="$2">
           <ListItem key="manage-connection" onPress={onPressManageConnection}>
             <SizableText size="$bodyMd">Manage dApp Connections</SizableText>
+          </ListItem>
+          <ListItem
+            key="default-wallet-settings"
+            onPress={onPressDefaultWalletSettings}
+          >
+            <SizableText size="$bodyMd">Default Wallet Settings</SizableText>
           </ListItem>
           <Divider mx="$5" />
           <ListItem key="disconnection" onPress={onDisconnect}>
