@@ -51,9 +51,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public template?: string;
 
-  public wcTopic?: string;
-
-  public wcInfoRaw?: string;
+  public connectionInfoRaw?: string;
 
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Account,
@@ -90,8 +88,7 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
         default: {},
         objectType: 'int',
       },
-      wcTopic: 'string?',
-      wcInfoRaw: 'string?',
+      connectionInfoRaw: 'string?',
       template: 'string?',
     },
   };
@@ -139,11 +136,8 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       (ret as IDBExternalAccount).selectedAddress =
         (this.selectedAddress.toJSON() as any) || {};
     }
-    if (this.wcTopic) {
-      (ret as IDBExternalAccount).wcTopic = this.wcTopic;
-    }
-    if (this.wcInfoRaw) {
-      (ret as IDBExternalAccount).wcInfoRaw = this.wcInfoRaw;
+    if (this.connectionInfoRaw) {
+      (ret as IDBExternalAccount).connectionInfoRaw = this.connectionInfoRaw;
     }
 
     return ret;

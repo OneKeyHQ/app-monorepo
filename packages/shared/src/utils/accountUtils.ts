@@ -16,6 +16,7 @@ import {
 
 import {
   COINTYPE_BTC,
+  COINTYPE_ETH,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
   COINTYPE_TBTC,
@@ -24,6 +25,8 @@ import {
 } from '../engine/engineConsts';
 
 import networkUtils from './networkUtils';
+
+import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -296,6 +299,17 @@ function getAccountCompatibleNetwork({
       [accountNetworkId] = account.networks;
     }
   }
+
+  if (
+    accountNetworkId &&
+    !networkUtils.parseNetworkId({ networkId: accountNetworkId }).chainId
+  ) {
+    throw new Error(
+      `getAccountCompatibleNetwork ERROR: chainId not found in networkId: ${accountNetworkId}` ||
+        '',
+    );
+  }
+
   return accountNetworkId || undefined;
 }
 
@@ -326,10 +340,26 @@ function buildHwWalletId({
 
 function buildExternalAccountId({
   wcSessionTopic,
+  connectionInfo,
 }: {
-  wcSessionTopic: string;
+  wcSessionTopic: string | undefined;
+  connectionInfo: IExternalConnectionInfo | undefined;
 }) {
-  const accountId = `${WALLET_TYPE_EXTERNAL}--wc--${wcSessionTopic}`;
+  let accountId = '';
+  // eslint-disable-next-line no-param-reassign
+  wcSessionTopic = wcSessionTopic || connectionInfo?.walletConnect?.topic;
+  if (wcSessionTopic) {
+    accountId = `${WALLET_TYPE_EXTERNAL}--wc--${wcSessionTopic}`;
+  }
+  if (connectionInfo?.evmEIP6963?.info?.rdns) {
+    accountId = `${WALLET_TYPE_EXTERNAL}--${COINTYPE_ETH}--eip6963--${connectionInfo?.evmEIP6963?.info?.rdns}`;
+  }
+  if (connectionInfo?.evmInjected?.global) {
+    accountId = `${WALLET_TYPE_EXTERNAL}--${COINTYPE_ETH}--injected--${connectionInfo?.evmInjected?.global}`;
+  }
+  if (!accountId) {
+    throw new Error('buildExternalAccountId ERROR: accountId is empty');
+  }
   // accountId = `${WALLET_TYPE_EXTERNAL}--injected--${walletKey}`;
   return accountId;
 }

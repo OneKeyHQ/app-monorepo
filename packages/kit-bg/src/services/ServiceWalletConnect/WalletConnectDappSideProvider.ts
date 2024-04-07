@@ -6,6 +6,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import type {
   NamespaceConfig,
+  RequestArguments,
   UniversalProviderOpts,
 } from '@walletconnect/universal-provider';
 
@@ -16,9 +17,18 @@ export type IWalletConnectDappProviderOpts = UniversalProviderOpts & {
 // TODO check UniversalProvider.registerEventListeners for topic specified events
 // create multiple providers for different topics, delete one topic may cleanup all session of shared client
 
-export class WalletConnectDappProvider extends UniversalProvider {
+export class WalletConnectDappSideProvider extends UniversalProvider {
   // use shared events, as it may be setGlobal() and getGlobal() at universal-provider
   // public events: EventEmitter = new EventEmitter();
+
+  // @ts-ignore
+  override async request(
+    args: RequestArguments,
+    chain: string,
+    expiry?: number | undefined,
+  ): Promise<unknown> {
+    return super.request(args, chain, expiry);
+  }
 
   getFromStorePro(key: string): Promise<NamespaceConfig | undefined> {
     // @ts-ignore
@@ -72,7 +82,7 @@ export class WalletConnectDappProvider extends UniversalProvider {
   }
 
   static async initPro(opts: IWalletConnectDappProviderOpts) {
-    const provider = new WalletConnectDappProvider(opts);
+    const provider = new WalletConnectDappSideProvider(opts);
     await provider.initializePro(opts);
     return provider;
   }

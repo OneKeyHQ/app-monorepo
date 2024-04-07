@@ -64,6 +64,7 @@
     "@tamagui/toast": "1.79.19",
     "@ungap/structured-clone": "^1.2.0",
     "@vespaiach/axios-fetch-adapter": "^0.3.1",
+    "@wagmi/core": "2.6.9",
     "@walletconnect/modal": "2.6.2",
     "@walletconnect/universal-provider": "2.11.2",
     "@walletconnect/web3wallet": "1.10.2",
@@ -76,6 +77,7 @@
     "jotai": "^2.5.0",
     "lru-cache": "^10.2.0",
     "memoizee": "^0.4.15",
+    "mipd": "^0.0.7",
     "natsort": "^2.0.3",
     "prettier": "^2.8.1",
     "punycode": "^2.3.1",
@@ -90,6 +92,7 @@
     "superagent": "6.1.0",
     "tamagui": "1.79.19",
     "use-suspender": "^2.0.0-beta.0"
+    "viem": "^2.9.2"
   },
   "devDependencies": {
     "@babel/plugin-proposal-class-static-block": "^7.21.0",

@@ -13,7 +13,7 @@ export type IMatchSizeableTextProps = Omit<ISizableTextProps, 'children'> & {
 };
 
 const defaultMatchTextStyle: ISizableTextProps = {
-  color: '#0029ff',
+  color: '$textInfo',
 };
 
 export function MatchSizeableText({
@@ -50,8 +50,12 @@ export function MatchSizeableText({
     <SizableText {...props}>{result}</SizableText>
   ) : (
     <SizableText {...props}>
-      {result.map(({ text, isMatch }) => (
-        <SizableText {...props} {...(isMatch ? matchTextStyle : undefined)}>
+      {result.map(({ text, isMatch }, index) => (
+        <SizableText
+          key={index}
+          {...props}
+          {...(isMatch ? matchTextStyle : undefined)}
+        >
           {text}
         </SizableText>
       ))}

@@ -543,6 +543,7 @@ class ServiceSend extends ServiceBase {
 
     let validUnsignedMessage = unsignedMessage;
     if (unsignedMessage) {
+      // TODO fix message format and params in vault
       validUnsignedMessage = getValidUnsignedMessage(unsignedMessage);
     }
 
@@ -551,7 +552,8 @@ class ServiceSend extends ServiceBase {
     }
 
     const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify({
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
       });
     const [signedMessage] = await vault.keyring.signMessage({

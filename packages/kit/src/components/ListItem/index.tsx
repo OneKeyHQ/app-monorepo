@@ -22,6 +22,7 @@ import type { IIconButtonProps } from '@onekeyhq/components/src/actions';
 import type {
   IIconProps,
   IImageFallbackProps,
+  IImageLoadingProps,
   IImageProps,
   ISizableTextProps,
   IStackProps,
@@ -92,6 +93,8 @@ export type IListItemAvatarProps = PropsWithChildren<
   {
     account?: IDBIndexedAccount | IDBAccount;
     avatar?: ReactElement;
+    loading?: ReactElement;
+    loadingProps?: IImageLoadingProps;
     fallback?: ReactElement;
     fallbackProps?: IImageFallbackProps;
     cornerIconProps?: IListItemAvatarCornerIconProps;
