@@ -1,3 +1,4 @@
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 export type IBrowserType = 'StandardBrowser' | 'MultiTabBrowser';
@@ -8,6 +9,8 @@ export interface IBrowserHistory {
   url: string;
   createdAt: number;
   logo?: string;
+  titleMatch?: IFuseResultMatch;
+  urlMatch?: IFuseResultMatch;
 }
 
 export interface IBrowserBookmark {
