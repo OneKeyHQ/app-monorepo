@@ -8,6 +8,7 @@ import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBro
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
+import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
@@ -76,6 +77,10 @@ export class SimpleDbProxy
   riskyTokens = this._createProxyService(
     'riskyTokens',
   ) as SimpleDbEntityRiskyTokens;
+
+  defaultWalletSettings = this._createProxyService(
+    'defaultWalletSettings',
+  ) as SimpleDbEntityDefaultWalletSettings;
 
   networkSelector = this._createProxyService(
     'networkSelector',
