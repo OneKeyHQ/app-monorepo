@@ -12,6 +12,10 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import type { IDefaultWalletSettingsWithLogo } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDefaultWalletSettings';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -48,6 +52,15 @@ function DefaultWalletSettingsModal() {
       previousResultRef.current = result;
     }
   }, [result]);
+  useEffect(() => {
+    appEventBus.addListener(EAppEventBusNames.ExtensionContextMenuUpdate, run);
+    return () => {
+      appEventBus.removeListener(
+        EAppEventBusNames.ExtensionContextMenuUpdate,
+        run,
+      );
+    };
+  }, [run]);
 
   const setIsDefaultWallet = useCallback(async (val: boolean) => {
     await backgroundApiProxy.serviceContextMenu.setIsDefaultWallet(val);

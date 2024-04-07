@@ -2,6 +2,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ServiceBase from './ServiceBase';
@@ -36,7 +40,13 @@ class ServiceContextMenu extends ServiceBase {
       {
         id: MenuId,
         title: await this.getContextMenuTitle(null),
-        contexts: ['all'],
+        contexts: ['page'],
+        documentUrlPatterns: [
+          'https://*/*',
+          'https://*/',
+          'http://*/*',
+          'http://*/',
+        ],
       },
       () => {},
     );
@@ -67,6 +77,9 @@ class ServiceContextMenu extends ServiceBase {
     chrome.contextMenus.update(MenuId, {
       title: await this.getContextMenuTitle(origin, isDefaultWallet),
     });
+    setTimeout(() => {
+      appEventBus.emit(EAppEventBusNames.ExtensionContextMenuUpdate, undefined);
+    }, 100);
   }
 
   @backgroundMethod()
