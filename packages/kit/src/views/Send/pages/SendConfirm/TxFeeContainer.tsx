@@ -118,6 +118,8 @@ function TxFeeContainer(props: IProps) {
     [accountId, networkId, unsignedTxs, updateSendFeeStatus],
     {
       pollingInterval: 6000,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
     },
   );
 
