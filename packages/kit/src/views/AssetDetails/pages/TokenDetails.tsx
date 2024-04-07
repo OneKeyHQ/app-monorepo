@@ -19,7 +19,11 @@ import {
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalReceiveRoutes,
+  EModalRoutes,
+  EModalSendRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -30,7 +34,6 @@ import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { RawActions } from '../../Home/components/WalletActions/RawActions';
-import { EModalReceiveRoutes } from '../../Receive/router/type';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -50,6 +53,9 @@ export function TokenDetails() {
   const {
     accountId,
     networkId,
+    walletId,
+    deriveInfo,
+    deriveType,
     tokenInfo,
     isBlocked: tokenIsBlocked,
   } = route.params;
@@ -98,9 +104,16 @@ export function TokenDetails() {
 
   const handleReceivePress = useCallback(() => {
     navigation.pushFullModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.LightningCreateInvoice,
+      screen: EModalReceiveRoutes.ReceiveToken,
+      params: {
+        networkId,
+        accountId,
+        walletId,
+        deriveInfo,
+        deriveType,
+      },
     });
-  }, [navigation]);
+  }, [accountId, deriveInfo, deriveType, navigation, networkId, walletId]);
 
   const handleHistoryItemPress = useCallback(
     (tx: IAccountHistoryTx) => {
