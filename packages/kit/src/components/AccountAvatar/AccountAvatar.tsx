@@ -146,15 +146,26 @@ function BasicAccountAvatar({
     const finalAccount = account || dbAccount;
     if (finalAccount) {
       if (accountUtils.isExternalAccount({ accountId: finalAccount.id })) {
-        const wcPeerMeta = (finalAccount as IDBExternalAccount).wcInfo
-          ?.peerMeta;
+        const externalAccount = finalAccount as IDBExternalAccount;
+        const wcPeerMeta =
+          externalAccount?.connectionInfo?.walletConnect?.peerMeta;
         const wcSrc = wcPeerMeta?.icons?.[0];
         if (wcSrc) {
           return <Image.Source src={wcSrc} />;
         }
+
+        // TODO move account avatar icon calculation to getAccount() in background
+        const externalWalletIcon =
+          externalAccount?.connectionInfo?.evmEIP6963?.info?.icon ||
+          externalAccount?.connectionInfo?.evmInjected?.icon ||
+          externalAccount?.connectionInfo?.walletConnect?.peerMeta?.icons?.[0];
+        if (externalWalletIcon) {
+          return <Image.Source src={externalWalletIcon} />;
+        }
+
         // some dapps don't provide icons, fallback to walletconnect icon
         // TODO use wcPeerMeta.name or wcPeerMeta.url to find wallet icon
-        if (wcPeerMeta) {
+        if (wcPeerMeta || externalAccount?.connectionInfo?.walletConnect) {
           return (
             <Image.Source
               source={require('@onekeyhq/kit/assets/onboarding/logo_walletconnect.png')}

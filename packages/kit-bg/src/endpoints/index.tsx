@@ -22,13 +22,18 @@ export async function getEndpointDomainWhitelist() {
       const url = new URL(endpoint);
       whitelist.push(url.host);
     } catch (e) {
-      // pass
+      (e as Error).$$autoPrintErrorIgnore = true;
     }
   });
   return filter(whitelist, Boolean);
 }
 
 export async function checkIsOneKeyDomain(url: string) {
-  const whitelist = await getEndpointDomainWhitelist();
-  return whitelist.includes(new URL(url).host);
+  try {
+    const whitelist = await getEndpointDomainWhitelist();
+    return whitelist.includes(new URL(url).host);
+  } catch (e) {
+    (e as Error).$$autoPrintErrorIgnore = true;
+    return false;
+  }
 }

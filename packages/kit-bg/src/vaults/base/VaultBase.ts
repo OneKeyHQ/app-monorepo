@@ -555,12 +555,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const externalAccount = account as IDBExternalAccount;
     let externalAccountAddress = '';
     if (externalAccount.connectedAddresses) {
-      const index = externalAccount.selectedAddress?.[this.networkId] ?? 0;
-      const addresses =
-        externalAccount.connectedAddresses?.[this.networkId]
-          ?.split(',')
-          .filter(Boolean) || [];
-      externalAccountAddress = addresses?.[index] || addresses?.[0] || '';
+      const buildExternalAccountAddress = (key: string) => {
+        const index = externalAccount.selectedAddress?.[key] ?? 0;
+        const addresses =
+          externalAccount.connectedAddresses?.[key]
+            ?.split(',')
+            .filter(Boolean) || [];
+        return addresses?.[index] || addresses?.[0] || '';
+      };
+
+      externalAccountAddress = buildExternalAccountAddress(this.networkId);
+      if (!externalAccountAddress) {
+        externalAccountAddress = buildExternalAccountAddress(
+          await this.getNetworkImpl(),
+        );
+      }
     }
 
     const addressDetail = await this.buildAccountAddressDetail({
