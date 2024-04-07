@@ -194,7 +194,9 @@ function DesktopCustomTabBar() {
           testID={`tab-list-stack-pinned-${t.id}`}
         />
       ))}
-      {pinnedData.length > 0 ? <Divider m="$1.5" /> : null}
+      {pinnedData.length > 0 ? (
+        <Divider m="$1.5" testID="pin-tab-divider" />
+      ) : null}
       {/* New Tab */}
       <DesktopTabItem
         key="AddTabButton"
