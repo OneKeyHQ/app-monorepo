@@ -136,6 +136,9 @@ function SearchModal() {
             titleMatch={(rawItem as IFuseResult<IDApp>).matches?.find(
               (v) => v.key === 'name',
             )}
+            titleProps={{
+              numberOfLines: 1,
+            }}
             subtitleProps={{
               numberOfLines: 1,
             }}
@@ -276,6 +279,9 @@ function SearchModal() {
                   }}
                   title={item.title}
                   titleMatch={item.titleMatch}
+                  titleProps={{
+                    numberOfLines: 1,
+                  }}
                   subtitle={item.url}
                   subTitleMatch={item.urlMatch}
                   subtitleProps={{
