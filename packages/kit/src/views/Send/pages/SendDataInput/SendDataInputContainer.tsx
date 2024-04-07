@@ -158,22 +158,31 @@ function SendDataInputContainer() {
 
     const tokenPrice = tokenDetails?.price;
 
-    if (isNil(tokenPrice)) return '0';
+    if (isNil(tokenPrice))
+      return {
+        amount: '0',
+        originalAmount: '0',
+      };
 
     if (isUseFiat) {
-      return (
-        getFormattedNumber(amountBN.dividedBy(tokenPrice), { decimal: 4 }) ??
-        '0'
-      );
+      const originalAmount = amountBN.dividedBy(tokenPrice).toFixed();
+      return {
+        amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
+        originalAmount,
+      };
     }
-    return (
-      getFormattedNumber(amountBN.times(tokenPrice), { decimal: 4 }) ?? '0'
-    );
+
+    const originalAmount = amountBN.times(tokenPrice).toFixed();
+    return {
+      originalAmount,
+      amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
+    };
   }, [amount, isUseFiat, tokenDetails?.price]);
 
   const handleOnChangeAmountMode = useCallback(() => {
     setIsUseFiat((prev) => !prev);
-    form.setValue('amount', linkedAmount);
+
+    form.setValue('amount', linkedAmount.originalAmount);
   }, [form, linkedAmount]);
   const handleOnSelectToken = useCallback(
     () =>
@@ -208,7 +217,7 @@ function SendDataInputContainer() {
         if (new BigNumber(amount).isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
           realAmount = tokenDetails?.balanceParsed ?? '0';
         } else {
-          realAmount = linkedAmount;
+          realAmount = linkedAmount.originalAmount;
         }
       }
 
@@ -295,8 +304,8 @@ function SendDataInputContainer() {
   const maxAmount = useMemo(
     () =>
       isUseFiat
-        ? `${getFormattedNumber(tokenDetails?.fiatValue ?? 0) ?? 0}`
-        : `${getFormattedNumber(tokenDetails?.balanceParsed ?? 0) ?? 0}`,
+        ? tokenDetails?.fiatValue ?? '0'
+        : tokenDetails?.balanceParsed ?? '0',
     [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
   );
 
@@ -342,8 +351,8 @@ function SendDataInputContainer() {
           }}
           valueProps={{
             value: isUseFiat
-              ? `${linkedAmount} ${tokenSymbol}`
-              : `${currencySymbol}${linkedAmount}`,
+              ? `${linkedAmount.amount} ${tokenSymbol}`
+              : `${currencySymbol}${linkedAmount.amount}`,
             onPress: handleOnChangeAmountMode,
           }}
           tokenSelectorTriggerProps={{
