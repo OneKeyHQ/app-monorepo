@@ -91,7 +91,7 @@
     "stream-browserify": "^3.0.0",
     "superagent": "6.1.0",
     "tamagui": "1.79.19",
-    "use-suspender": "^2.0.0-beta.0"
+    "use-suspender": "^2.0.0-beta.0",
     "viem": "^2.9.2"
   },
   "devDependencies": {
