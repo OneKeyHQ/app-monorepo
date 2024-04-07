@@ -1152,9 +1152,9 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async createHDWallet({ mnemonic }: { mnemonic: string }) {
     const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify(
-      EReasonForNeedPassword.CreateOrRemoveWallet,
-    );
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
 
     await timerUtils.wait(100);
 

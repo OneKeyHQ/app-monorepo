@@ -60,7 +60,7 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
               autoFocus
               flex={1}
               testID="erase-data-input"
-              placeholder={intl.formatMessage({ id: 'action__reset' })}
+              placeholder="RESET"
             />
           </Dialog.FormField>
         </Dialog.Form>
