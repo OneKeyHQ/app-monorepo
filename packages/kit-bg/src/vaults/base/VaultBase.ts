@@ -514,8 +514,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         amount: new BigNumber(tokenApprove.amount)
           .shiftedBy(-decimals)
           .toFixed(),
-        // TODO: isMax from server
-        isMax: false,
+        isInfiniteAmount: tokenApprove.isInfiniteAmount,
       },
     };
   }
