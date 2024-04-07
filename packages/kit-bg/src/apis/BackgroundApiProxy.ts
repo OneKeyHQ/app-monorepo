@@ -14,6 +14,7 @@ import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
+import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
@@ -106,6 +107,10 @@ class BackgroundApiProxy
   ) as ServiceDiscovery;
 
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
+
+  serviceDappSide = this._createProxyService(
+    'serviceDappSide',
+  ) as ServiceDappSide;
 
   serviceWalletConnect = this._createProxyService(
     'serviceWalletConnect',
