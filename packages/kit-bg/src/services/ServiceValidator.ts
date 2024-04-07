@@ -24,10 +24,7 @@ class ServiceValidator extends ServiceBase {
     address: string;
   }): Promise<IAddressValidation> {
     noopObject(networkId);
-    const vault = await vaultFactory.getVault({
-      networkId: 'evm--5',
-      accountId: "hd-1--m/44'/60'/0'/0/0",
-    });
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
     const validation = await vault.validateAddress(address);
     return validation;
   }

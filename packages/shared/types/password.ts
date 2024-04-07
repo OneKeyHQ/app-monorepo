@@ -4,3 +4,9 @@ export enum EPasswordVerifyStatus {
   VERIFIED = 'verified',
   ERROR = 'error',
 }
+
+export type IPasswordSecuritySession = {
+  startAt: number;
+  timeout: number;
+  lastVisit: Record<string, number>;
+};

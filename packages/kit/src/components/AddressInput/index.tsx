@@ -239,9 +239,11 @@ export function AddressInput(props: IAddressInputProps) {
 
   const onChangeText = useCallback(
     (text: string) => {
-      textRef.current = text;
-      setInputText(text);
-      onChange?.({ raw: text, pending: true });
+      if (textRef.current !== text) {
+        textRef.current = text;
+        setInputText(text);
+        onChange?.({ raw: text, pending: text.length > 0 });
+      }
     },
     [onChange],
   );

@@ -25,6 +25,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 
 function FinalizeWalletSetupPage({
   route,
@@ -53,8 +54,12 @@ function FinalizeWalletSetupPage({
     void (async () => {
       try {
         if (mnemonic && !created.current) {
-          await actions.current.createHDWallet({
-            mnemonic,
+          await withPromptPasswordVerify({
+            run: async () => {
+              await actions.current.createHDWallet({
+                mnemonic,
+              });
+            },
           });
           created.current = true;
         } else {

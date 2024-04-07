@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, Page } from '@onekeyhq/components';
@@ -6,7 +6,6 @@ import type {
   EChainSelectorPages,
   IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -43,17 +42,24 @@ function ChainSelector({ num }: { num: number }) {
   const { networkIds } = useAccountSelectorAvailableNetworks({ num });
 
   const {
-    result: { networks },
+    result: [{ networks }, pinnedNetworks],
+    run: refreshLocalData,
   } = usePromiseResult(
-    () =>
-      serviceNetwork.getNetworksByIds({
+    () => {
+      const networksData = serviceNetwork.getNetworksByIds({
         networkIds: networkIds || [],
-      }),
+      });
+      const pinnedNetworksData = serviceNetwork.getPinnedNetworks();
+      return Promise.all([networksData, pinnedNetworksData]);
+    },
     [networkIds, serviceNetwork],
     {
-      initResult: {
-        networks: [],
-      },
+      initResult: [
+        {
+          networks: [],
+        },
+        [],
+      ],
     },
   );
 
@@ -68,15 +74,7 @@ function ChainSelector({ num }: { num: number }) {
   const handleEditButtonPress = () => {
     setIsEditMode(!isEditMode);
   };
-
-  const [topNetworks, setTopNetworks] = useState<IServerNetwork[]>([]);
   const [searchText, setSearchText] = useState('');
-
-  useEffect(() => {
-    if (networks.length) {
-      setTopNetworks(networks.slice(0, 4));
-    }
-  }, [networks]);
 
   return (
     <Page>
@@ -94,11 +92,12 @@ function ChainSelector({ num }: { num: number }) {
         <ListNetworkView
           searchText={searchText.trim()}
           isEditMode={isEditMode}
-          topNetworks={topNetworks}
+          topNetworks={pinnedNetworks}
           allNetworks={networks}
           selectNetworkId={selectedChain}
-          onChangeTopNetworks={(items) => {
-            setTopNetworks(items);
+          onChangeTopNetworks={async (items) => {
+            await backgroundApiProxy.serviceNetwork.setPinnedNetworks(items);
+            await refreshLocalData();
           }}
           onPressItem={(item) => handleListItemPress(item.id)}
         />

@@ -123,7 +123,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       ]}
       renderTrigger={
         <IconButton
-          title="Paste"
+          title="Contacts"
           variant="tertiary"
           icon="DotVerOutline"
           testID={testID}
