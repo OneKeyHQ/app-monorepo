@@ -24,6 +24,7 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignTransactionParams,
 } from '../../types';

@@ -71,6 +71,13 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
   } = useActiveAccount({ num: 0 });
+
+  const addressType = deriveInfo?.labelKey
+    ? intl.formatMessage({
+        id: deriveInfo?.labelKey,
+      })
+    : deriveInfo?.label ?? '';
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
 
@@ -303,8 +310,8 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   }, [
     ready,
     wallet,
-    headerLeft,
     renderHeaderRight,
+    headerLeft,
     top,
     renderHomePageContent,
   ]);

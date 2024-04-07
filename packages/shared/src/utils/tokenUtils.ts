@@ -78,9 +78,9 @@ export function getFilteredTokenBySearchKey({
 
   const filteredTokens = tokens.filter(
     (token) =>
-      token.name.toLowerCase().includes(searchKey) ||
-      token.symbol.toLowerCase().includes(searchKey) ||
-      token.address.toLowerCase().includes(searchKey),
+      token.name?.toLowerCase().includes(searchKey) ||
+      token.symbol?.toLowerCase().includes(searchKey) ||
+      token.address?.toLowerCase().includes(searchKey),
   );
 
   return filteredTokens;

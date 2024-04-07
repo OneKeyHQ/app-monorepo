@@ -28,7 +28,7 @@ function TokenListFooter(props: IProps) {
   const { tableLayout } = props;
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
@@ -52,7 +52,8 @@ function TokenListFooter(props: IProps) {
   const isSearchMode = searchKey.length >= SEARCH_KEY_MIN_LENGTH;
 
   const handleOnPressLowValueTokens = useCallback(() => {
-    if (!account || !network || smallBalanceTokens.length === 0) return;
+    if (!account || !network || !wallet || smallBalanceTokens.length === 0)
+      return;
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenList,
       params: {
@@ -61,6 +62,7 @@ function TokenListFooter(props: IProps) {
           'Assets valued below 0.1% of your total holdings and less than $1,000 fall into this category.',
         accountId: account.id,
         networkId: network.id,
+        walletId: wallet.id,
         tokenList: {
           tokens: smallBalanceTokens,
           keys: smallBalanceTokenKeys,
@@ -75,16 +77,18 @@ function TokenListFooter(props: IProps) {
     smallBalanceTokenKeys,
     smallBalanceTokenListMap,
     smallBalanceTokens,
+    wallet,
   ]);
 
   const handleOnPressBlockedTokens = useCallback(() => {
-    if (!account || !network || riskyTokens.length === 0) return;
+    if (!account || !network || !wallet || riskyTokens.length === 0) return;
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetListRoutes.TokenList,
       params: {
         title: 'Blocked Assets',
         accountId: account.id,
         networkId: network.id,
+        walletId: wallet.id,
         tokenList: {
           tokens: riskyTokens,
           keys: riskyTokenKeys,
@@ -100,6 +104,7 @@ function TokenListFooter(props: IProps) {
     riskyTokenKeys,
     riskyTokenListMap,
     riskyTokens,
+    wallet,
   ]);
   return (
     <Stack>

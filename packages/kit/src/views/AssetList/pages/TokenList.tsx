@@ -42,6 +42,7 @@ function TokenList() {
   const {
     accountId,
     networkId,
+    walletId,
     tokenList,
     title,
     helpText,
@@ -78,11 +79,12 @@ function TokenList() {
       navigation.push(EModalAssetDetailRoutes.TokenDetails, {
         accountId,
         networkId,
+        walletId,
         tokenInfo: token,
         isBlocked,
       });
     },
-    [accountId, isBlocked, navigation, networkId],
+    [accountId, isBlocked, navigation, networkId, walletId],
   );
 
   useEffect(() => {
