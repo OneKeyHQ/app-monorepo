@@ -32,10 +32,7 @@ function CreateInvoice() {
   const form = useForm<IFormValues>();
   const route =
     useRoute<
-      RouteProp<
-        IModalReceiveParamList,
-        EModalReceiveRoutes.LightningCreateInvoice
-      >
+      RouteProp<IModalReceiveParamList, EModalReceiveRoutes.CreateInvoice>
     >();
   const { accountId, networkId } = route.params;
   const { serviceLightning } = backgroundApiProxy;
@@ -139,4 +136,4 @@ function CreateInvoice() {
   );
 }
 
-export default CreateInvoice;
+export { CreateInvoice };

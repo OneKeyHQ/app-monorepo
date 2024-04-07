@@ -11,6 +11,7 @@ import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappC
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
@@ -80,4 +81,8 @@ export class SimpleDbProxy
   defaultWalletSettings = this._createProxyService(
     'defaultWalletSettings',
   ) as SimpleDbEntityDefaultWalletSettings;
+
+  networkSelector = this._createProxyService(
+    'networkSelector',
+  ) as SimpleDbEntityNetworkSelector;
 }

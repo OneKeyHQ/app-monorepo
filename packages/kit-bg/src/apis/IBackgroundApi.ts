@@ -6,6 +6,8 @@ import type {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
+import type { IOffscreenApi } from '../offscreens/instance/IOffscreenApi';
+import type { OFFSCREEN_API_MESSAGE_TYPE } from '../offscreens/types';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
@@ -54,6 +56,11 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
   service: string;
+};
+
+export type IOffscreenApiMessagePayload = IJsonRpcRequest & {
+  type: typeof OFFSCREEN_API_MESSAGE_TYPE;
+  module: keyof IOffscreenApi;
 };
 
 export interface IBackgroundApiBridge {

@@ -40,7 +40,6 @@ interface IWebViewProps extends IElectronWebViewEvents {
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
   onScroll?: IWebViewOnScroll;
-  webviewHeight?: number;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
 }

@@ -129,11 +129,7 @@ function TxSimulationContainer({
   if (!swapInfo) return null;
 
   return (
-    <Container.Box
-      contentProps={{
-        mt: '$4',
-      }}
-    >
+    <Container.Box>
       <Container.Item
         title="Total out"
         subtitle="Include fee"

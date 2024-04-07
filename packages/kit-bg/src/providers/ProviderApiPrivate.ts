@@ -16,11 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
-import type ProviderApiEthereum from './ProviderApiEthereum';
-import type {
-  IJsBridgeMessagePayload,
-  IJsonRpcRequest,
-} from '@onekeyfe/cross-inpage-provider-types';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IOneKeyWalletInfo {
   enableExtContentScriptReloadButton?: boolean;
@@ -76,7 +72,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  public rpcCall(request: IJsonRpcRequest): any {
+  public rpcCall(request: IJsBridgeMessagePayload): any {
     // noop
   }
 

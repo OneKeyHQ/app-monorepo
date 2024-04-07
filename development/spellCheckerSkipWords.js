@@ -31,6 +31,7 @@ module.exports = [
   'jsx',
   'Ver',
   'hd',
+  'arbitrum',
   'Jotai',
   'jotai',
   'xprvt',

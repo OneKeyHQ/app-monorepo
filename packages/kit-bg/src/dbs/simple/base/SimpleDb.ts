@@ -7,6 +7,7 @@ import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnec
 import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
@@ -35,4 +36,6 @@ export class SimpleDb {
   riskyTokens = new SimpleDbEntityRiskyTokens();
 
   defaultWalletSettings = new SimpleDbEntityDefaultWalletSettings();
+
+  networkSelector = new SimpleDbEntityNetworkSelector();
 }
