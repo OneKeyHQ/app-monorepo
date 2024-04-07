@@ -15,6 +15,11 @@ import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
 
+function parseNetworkId({ networkId }: { networkId: string }) {
+  const [impl, chainId] = networkId.split(SEPERATOR);
+  return { impl, chainId };
+}
+
 function getNetworkChainId({
   networkId,
   hex = false,
@@ -23,13 +28,13 @@ function getNetworkChainId({
   hex?: boolean;
 }): string {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [impl, chainId] = networkId.split(SEPERATOR);
+  const { impl, chainId } = parseNetworkId({ networkId });
   return hex ? numberUtils.numberToHex(chainId) : chainId;
 }
 
 function getNetworkImpl({ networkId }: { networkId: string }): string {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [impl, chainId] = networkId.split(SEPERATOR);
+  const { impl, chainId } = parseNetworkId({ networkId });
   return impl;
 }
 
@@ -74,6 +79,7 @@ export function getBtcDappNetworkName(network: IServerNetwork) {
 export default {
   getNetworkChainId,
   getNetworkImpl,
+  parseNetworkId,
   isLightningNetwork,
   isLightningNetworkByImpl,
   isLightningNetworkByNetworkId,
