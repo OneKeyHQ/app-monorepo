@@ -32,7 +32,7 @@ function TokenListContainer(props: ITabPageProps) {
   const { isFocused } = useTabIsRefreshingFocused();
 
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
 
   const media = useMedia();
@@ -152,17 +152,20 @@ function TokenListContainer(props: ITabPageProps) {
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
-      if (!account || !network) return;
+      if (!account || !network || !wallet || !deriveInfo) return;
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
           accountId: account.id,
           networkId: network.id,
+          walletId: wallet.id,
+          deriveInfo,
+          deriveType,
           tokenInfo: token,
         },
       });
     },
-    [account, navigation, network],
+    [account, deriveInfo, deriveType, navigation, network, wallet],
   );
 
   return (
