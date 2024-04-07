@@ -154,7 +154,8 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-class-static-block'],
     isDev && !isJest && !isNative && ['react-refresh/babel'],
-    isDev && [
+    // Need to adapt to the new version of the metro build system.
+    isDev && !isJest && !isNative  [
       'babel-plugin-catch-logger',
       {
         source: '@onekeyhq/shared/src/logger/autoLogger',
