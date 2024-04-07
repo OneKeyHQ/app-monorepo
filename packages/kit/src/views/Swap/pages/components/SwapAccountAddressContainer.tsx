@@ -10,11 +10,6 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSwapToAnotherAccountSwitchOnAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  WALLET_TYPE_HD,
-  WALLET_TYPE_HW,
-  WALLET_TYPE_IMPORTED,
-} from '@onekeyhq/shared/src/consts/dbConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -23,7 +18,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapAddressInfo } from '../../hooks/uswSwapAccount';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 
 function AddressButton({
   address,
@@ -132,16 +127,26 @@ const SwapAccountAddressContainer = ({
       return null;
     }
     if (
-      !swapAddressInfo.accountInfo ||
-      (swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_IMPORTED &&
-        !swapAddressInfo.address)
+      !swapAddressInfo.accountInfo?.wallet ||
+      (type === ESwapDirectionType.FROM &&
+        !swapAddressInfo.address &&
+        !accountUtils.isHdWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        }))
     ) {
       return null;
     }
     if (
       !swapAddressInfo.address &&
-      (swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_HD ||
-        swapAddressInfo.accountInfo.wallet?.type === WALLET_TYPE_HW)
+      (accountUtils.isHdWallet({
+        walletId: swapAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        }))
     ) {
       return <AddressButton empty onPress={handleOnCreateAddress} />;
     }

@@ -28,7 +28,15 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId, tokenIdOnNetwork } = params;
-    const onChainHistoryTxs = await this.fetchAccountOnChainHistory(params);
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    const onChainHistoryTxs = await this.fetchAccountOnChainHistory({
+      ...params,
+      accountAddress,
+    });
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
       onChainHistoryTxs,
@@ -156,7 +164,6 @@ class ServiceHistory extends ServiceBase {
       isLocalCreated: true,
     });
     newHistoryTx.decodedTx.feeInfo = newHistoryTx.decodedTx.feeInfo ?? feeInfo;
-
     await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
   }
 }

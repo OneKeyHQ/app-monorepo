@@ -35,6 +35,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -122,14 +123,16 @@ class ServiceAccount extends ServiceBase {
     return localDb.getWalletSafe({ walletId });
   }
 
+  // TODO move to serviceHardware
   @backgroundMethod()
   async getWalletDevice({ walletId }: { walletId: string }) {
     return localDb.getWalletDevice({ walletId });
   }
 
+  // TODO move to serviceHardware
   @backgroundMethod()
-  async getDevice({ deviceId }: { deviceId: string }) {
-    return localDb.getDevice(deviceId);
+  async getDevice({ dbDeviceId }: { dbDeviceId: string }) {
+    return localDb.getDevice(dbDeviceId);
   }
 
   @backgroundMethod()
@@ -236,31 +239,18 @@ class ServiceAccount extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async addHDOrHWAccounts({
+  async getPrepareHDOrHWAccountsParams({
     walletId,
     networkId,
     indexes,
     indexedAccountId,
     deriveType,
-    skipDeviceCancel,
-    hideCheckingDeviceLoading,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
-    indexes?: Array<number>; // multiple add by indexes
-    indexedAccountId: string | undefined; // single add by indexedAccountId
+    indexes?: Array<number>;
+    indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
-    skipDeviceCancel?: boolean;
-    hideCheckingDeviceLoading?: boolean;
-    // names?: Array<string>;
-    // purpose?: number;
-    // skipRepeat?: boolean;
-    // callback?: (_account: Account) => Promise<boolean>;
-    // isAddInitFirstAccountOnly?: boolean;
-    // template?: string;
-    // skipCheckAccountExist?: boolean;
   }) {
     if (!walletId) {
       throw new Error('walletId is required');
@@ -306,10 +296,6 @@ class ServiceAccount extends ServiceBase {
         deriveType,
       });
 
-    const vault = await vaultFactory.getWalletOnlyVault({
-      networkId,
-      walletId,
-    });
     let prepareParams:
       | IPrepareHdAccountsParams
       | IPrepareHardwareAccountsParams;
@@ -338,7 +324,50 @@ class ServiceAccount extends ServiceBase {
       prepareParams = hdParams;
     }
 
+    return {
+      deviceParams,
+      prepareParams,
+      walletId,
+      networkId,
+    };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHDOrHWAccounts(params: {
+    walletId: string | undefined;
+    networkId: string | undefined;
+    indexes?: Array<number>; // multiple add by indexes
+    indexedAccountId: string | undefined; // single add by indexedAccountId
+    deriveType: IAccountDeriveTypes;
+    skipDeviceCancel?: boolean;
+    hideCheckingDeviceLoading?: boolean;
+    // names?: Array<string>;
+    // purpose?: number;
+    // skipRepeat?: boolean;
+    // callback?: (_account: Account) => Promise<boolean>;
+    // isAddInitFirstAccountOnly?: boolean;
+    // template?: string;
+    // skipCheckAccountExist?: boolean;
+  }) {
     // addHDOrHWAccounts
+
+    const {
+      indexes,
+      indexedAccountId,
+      deriveType,
+      skipDeviceCancel,
+      hideCheckingDeviceLoading,
+    } = params;
+
+    const { prepareParams, deviceParams, networkId, walletId } =
+      await this.getPrepareHDOrHWAccountsParams(params);
+
+    const vault = await vaultFactory.getWalletOnlyVault({
+      networkId,
+      walletId,
+    });
+
     return this.backgroundApi.serviceHardware.withHardwareProcessing(
       async () => {
         // TODO move to vault
@@ -983,7 +1012,9 @@ class ServiceAccount extends ServiceBase {
           index,
           template, // from networkId
           idSuffix,
-          isUtxo: settings.isUtxo,
+          isUtxo:
+            settings.isUtxo ||
+            networkUtils.isLightningNetworkByImpl(settings.impl),
         });
         return this.getAccount({ accountId: realDBAccountId, networkId });
       }),
@@ -1091,8 +1122,6 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async createHWWallet(params: IDBCreateHWWalletParamsBase) {
-    // TODO verify device
-
     // createHWWallet
     return this.backgroundApi.serviceHardware.withHardwareProcessing(
       () => this.createHWWalletBase(params),
@@ -1123,9 +1152,9 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async createHDWallet({ mnemonic }: { mnemonic: string }) {
     const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify(
-      EReasonForNeedPassword.CreateOrRemoveWallet,
-    );
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
 
     await timerUtils.wait(100);
 
@@ -1270,7 +1299,22 @@ class ServiceAccount extends ServiceBase {
     return vault.getAccountXpub();
   }
 
+  // Get Address for each chain when request the API
   @backgroundMethod()
+  async getAccountAddressForApi({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const account = await this.getAccount({ accountId, networkId });
+    if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+      return account.addressDetail.normalizedAddress;
+    }
+    return account.address;
+  }
+
   async getHDAccountMnemonic({ walletId }: { walletId: string }) {
     if (!accountUtils.isHdWallet({ walletId })) {
       throw new Error('getHDAccountMnemonic ERROR: Not a HD account');
@@ -1285,6 +1329,32 @@ class ServiceAccount extends ServiceBase {
       text: mnemonic,
     });
     return { mnemonic };
+  }
+
+  @backgroundMethod()
+  async getHWAccountAddresses(params: {
+    walletId: string;
+    networkId: string;
+    indexes?: Array<number>;
+    indexedAccountId: string | undefined;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    const { prepareParams, deviceParams, networkId, walletId } =
+      await this.getPrepareHDOrHWAccountsParams(params);
+
+    const vault = await vaultFactory.getWalletOnlyVault({
+      networkId,
+      walletId,
+    });
+    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+      async () => {
+        const accounts = await vault.keyring.prepareAccounts(prepareParams);
+        return accounts.map((account) => account.address);
+      },
+      {
+        deviceParams,
+      },
+    );
   }
 }
 

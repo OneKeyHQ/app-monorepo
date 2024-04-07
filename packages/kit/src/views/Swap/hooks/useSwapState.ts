@@ -2,12 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import {
-  WALLET_TYPE_HD,
-  WALLET_TYPE_HW,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/shared/src/consts/dbConsts';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swapRateDifferenceMax,
@@ -26,6 +21,7 @@ import {
 import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapNetworksAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteFetchingAtom,
@@ -34,10 +30,11 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
 } from '../../../states/jotai/contexts/swap';
 
-import { useSwapAddressInfo } from './uswSwapAccount';
+import { useSwapAddressInfo } from './useSwapAccount';
 
 function useSwapWarningCheck() {
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [networks] = useSwapNetworksAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -63,14 +60,21 @@ function useSwapWarningCheck() {
 
     if (
       fromToken &&
-      !swapFromAddressInfo.address &&
-      swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED
+      ((!swapFromAddressInfo.address &&
+        !accountUtils.isHdWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        })) ||
+        swapFromAddressInfo.networkId !== fromToken.networkId)
     ) {
       alerts = [
         ...alerts,
         {
           message: `The connected wallet do not support ${
-            swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
+            networks.find((net) => net.networkId === fromToken.networkId)
+              ?.name ?? 'unknown'
           }. Try switch to another one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
@@ -79,14 +83,21 @@ function useSwapWarningCheck() {
 
     if (
       toToken &&
-      !swapToAddressInfo.address &&
-      swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_IMPORTED
+      ((!swapToAddressInfo.address &&
+        !accountUtils.isHdWallet({
+          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        !accountUtils.isHwWallet({
+          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+        })) ||
+        swapToAddressInfo.networkId !== toToken.networkId)
     ) {
       alerts = [
         ...alerts,
         {
           message: `The connected wallet do not support ${
-            swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
+            networks.find((net) => net.networkId === toToken.networkId)?.name ??
+            'unknown'
           }. Try switch to another one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
@@ -95,7 +106,9 @@ function useSwapWarningCheck() {
 
     if (
       fromToken &&
-      swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_WATCHING
+      accountUtils.isWatchingWallet({
+        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      })
     ) {
       alerts = [
         ...alerts,
@@ -109,8 +122,12 @@ function useSwapWarningCheck() {
     if (
       fromToken &&
       !swapFromAddressInfo.address &&
-      (swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HD ||
-        swapFromAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW)
+      (accountUtils.isHdWallet({
+        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }))
     ) {
       alerts = [
         ...alerts,
@@ -120,7 +137,7 @@ function useSwapWarningCheck() {
           } - ${
             swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
           } lacks ${
-            swapFromAddressInfo.accountInfo.network?.name ?? 'unknown'
+            swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
           } address. Please try to create one.`,
           alertLevel: ESwapAlertLevel.ERROR,
         },
@@ -130,8 +147,12 @@ function useSwapWarningCheck() {
     if (
       toToken &&
       !swapToAddressInfo.address &&
-      (swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HD ||
-        swapToAddressInfo.accountInfo?.wallet?.type === WALLET_TYPE_HW) &&
+      (accountUtils.isHdWallet({
+        walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+        })) &&
       swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
     ) {
       alerts = [
@@ -191,9 +212,7 @@ function useSwapWarningCheck() {
     if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
       const fromTokenPrice = new BigNumber(fromToken.price);
       const toTokenPrice = new BigNumber(toToken.price);
-      const marketingRate = fromTokenPrice
-        .dividedBy(toTokenPrice)
-        .decimalPlaces(6);
+      const marketingRate = fromTokenPrice.dividedBy(toTokenPrice);
       const quoteRateBN = new BigNumber(quoteResult.instantRate);
       const difference = quoteRateBN
         .dividedBy(marketingRate)
@@ -310,15 +329,18 @@ function useSwapWarningCheck() {
   }, [
     fromToken,
     fromTokenAmount,
+    networks,
     quoteResult,
-    swapFromAddressInfo.accountInfo,
+    swapFromAddressInfo.accountInfo?.accountName,
+    swapFromAddressInfo.accountInfo?.network?.name,
+    swapFromAddressInfo.accountInfo?.wallet,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
     swapSelectFromTokenBalance,
     swapToAddressInfo.accountInfo?.accountName,
     swapToAddressInfo.accountInfo?.network?.name,
+    swapToAddressInfo.accountInfo?.wallet?.id,
     swapToAddressInfo.accountInfo?.wallet?.name,
-    swapToAddressInfo.accountInfo?.wallet?.type,
     swapToAddressInfo.address,
     swapToAddressInfo.networkId,
     toToken,

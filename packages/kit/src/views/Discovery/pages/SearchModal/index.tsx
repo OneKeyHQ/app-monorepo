@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
-import { InteractionManager, Keyboard } from 'react-native';
+import { Keyboard } from 'react-native';
 
 import {
   Image,
@@ -18,7 +18,8 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -41,6 +42,7 @@ function SearchModal() {
       RouteProp<IDiscoveryModalParamList, EDiscoveryModalRoutes.SearchModal>
     >();
   const { useCurrentWindow, tabId, url = '' } = route.params ?? {};
+
   const [searchValue, setSearchValue] = useState(url);
   const { handleOpenWebSite } = useBrowserAction().current;
 
@@ -79,7 +81,14 @@ function SearchModal() {
     }
   });
 
-  const [searchList, setSearchList] = useState<IDApp[]>([]);
+  const [searchList, setSearchList] = useState<(IDApp | IFuseResult<IDApp>)[]>(
+    [],
+  );
+
+  const fuseRemoteDataSearch = useFuse(searchResult?.remoteData, {
+    keys: ['name'],
+  });
+
   useEffect(() => {
     void (async () => {
       if (!searchValue) {
@@ -98,15 +107,64 @@ function SearchModal() {
           url: '',
           logo,
         } as IDApp,
-        ...(searchResult?.remoteData ?? []),
+        ...fuseRemoteDataSearch.search(searchValue),
       ]);
     })();
-  }, [searchValue, searchResult]);
+  }, [searchValue, searchResult, fuseRemoteDataSearch]);
 
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
   const displayBookmarkList =
     (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
   const displayHistoryList = (localData?.historyData ?? []).length > 0;
+
+  const renderList = useCallback(
+    (list: (IDApp | IFuseResult<IDApp>)[]) =>
+      list.map((rawItem, index) => {
+        const item = (rawItem as IFuseResult<IDApp>).item
+          ? (rawItem as IFuseResult<IDApp>).item
+          : (rawItem as IDApp);
+        return (
+          <ListItem
+            key={index}
+            avatarProps={{
+              src: item.logo || item.originLogo,
+              fallbackProps: {
+                children: <Skeleton w="$10" h="$10" />,
+              },
+            }}
+            title={item.name}
+            titleMatch={(rawItem as IFuseResult<IDApp>).matches?.find(
+              (v) => v.key === 'name',
+            )}
+            subtitleProps={{
+              numberOfLines: 1,
+            }}
+            onPress={() => {
+              if (item.dappId === SEARCH_ITEM_ID) {
+                handleOpenWebSite({
+                  navigation,
+                  useCurrentWindow,
+                  tabId,
+                  webSite: {
+                    url: searchValue,
+                    title: searchValue,
+                  },
+                });
+              } else {
+                handleOpenWebSite({
+                  navigation,
+                  useCurrentWindow,
+                  tabId,
+                  dApp: item,
+                });
+              }
+            }}
+            testID={`dapp-search${index}`}
+          />
+        );
+      }),
+    [handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
+  );
 
   return (
     <Page safeAreaEnabled>
@@ -118,17 +176,6 @@ function SearchModal() {
             zIndex={20}
             selectTextOnFocus
             value={searchValue}
-            onFocus={(e) => {
-              // Workaround for selectTextOnFocus={true} not working
-              if (platformEnv.isNative) {
-                const { currentTarget } = e;
-                void InteractionManager.runAfterInteractions(() => {
-                  currentTarget.setNativeProps({
-                    selection: { start: 0, end: searchValue.length },
-                  });
-                });
-              }
-            }}
             onSearchTextChange={setSearchValue}
             onSubmitEditing={() => {
               handleOpenWebSite({
@@ -151,44 +198,7 @@ function SearchModal() {
           onScrollBeginDrag={Keyboard.dismiss}
         >
           {displaySearchList ? (
-            <Stack pb="$5">
-              {searchList.map((item, index) => (
-                <ListItem
-                  key={index}
-                  avatarProps={{
-                    src: item.logo || item.originLogo,
-                    fallbackProps: {
-                      children: <Skeleton w="$10" h="$10" />,
-                    },
-                  }}
-                  title={item.name}
-                  subtitleProps={{
-                    numberOfLines: 1,
-                  }}
-                  onPress={() => {
-                    if (item.dappId === SEARCH_ITEM_ID) {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        webSite: {
-                          url: searchValue,
-                          title: searchValue,
-                        },
-                      });
-                    } else {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        dApp: item,
-                      });
-                    }
-                  }}
-                  testID={`dapp-search${index}`}
-                />
-              ))}
-            </Stack>
+            <Stack pb="$5">{renderList(searchList)}</Stack>
           ) : null}
 
           {displayBookmarkList ? (
@@ -201,7 +211,6 @@ function SearchModal() {
                     screen: EDiscoveryModalRoutes.BookmarkListModal,
                   });
                 }}
-                testID={`dapp-search${index}`}
               />
               <XStack>
                 {localData?.bookmarkData?.map((item, index) => (
@@ -260,14 +269,16 @@ function SearchModal() {
                   });
                 }}
               />
-              {localData?.historyData?.map((item, index) => (
+              {localData?.historyData.map((item, index) => (
                 <ListItem
                   key={index}
                   avatarProps={{
                     src: item.logo,
                   }}
                   title={item.title}
+                  titleMatch={item.titleMatch}
                   subtitle={item.url}
+                  subTitleMatch={item.urlMatch}
                   subtitleProps={{
                     numberOfLines: 1,
                   }}

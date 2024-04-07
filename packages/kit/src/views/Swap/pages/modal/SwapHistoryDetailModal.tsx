@@ -163,12 +163,12 @@ const SwapHistoryDetailModal = () => {
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory.txInfo;
     const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
-    const gasFeeDisplay = gasFeeInNativeBN
-      .decimalPlaces(6, BigNumber.ROUND_DOWN)
-      .toFixed();
+    const gasFeeDisplay = gasFeeInNativeBN.toFixed();
     return (
       <SizableText size={14} color="$textSubdued">
-        {gasFeeDisplay}
+        <NumberSizeableText color="$textSubdued" formatter="balance">
+          {gasFeeDisplay}
+        </NumberSizeableText>
         {txHistory.baseInfo.fromNetwork?.symbol ?? ''}(
         <NumberSizeableText
           color="$textSubdued"

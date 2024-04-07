@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -18,16 +19,19 @@ import type {
   IAccountDeriveTypes,
 } from '../../vaults/types';
 
+const defaultPinnedNetworkIds = [
+  getNetworkIdsMap().btc,
+  getNetworkIdsMap().eth,
+  getNetworkIdsMap().lightning,
+  getNetworkIdsMap().arbitrum,
+  getNetworkIdsMap().polygon,
+  getNetworkIdsMap().cosmoshub,
+];
+
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
-  }
-
-  @backgroundMethod()
-  public async sampleMethod() {
-    console.log('sampleMethod');
-    return 'sampleMethod';
   }
 
   @backgroundMethod()
@@ -245,6 +249,28 @@ class ServiceNetwork extends ServiceBase {
     deriveType: IAccountDeriveTypes;
   }) {
     return getVaultSettingsAccountDeriveInfo({ networkId, deriveType });
+  }
+
+  @backgroundMethod()
+  async setPinnedNetworks(networks: IServerNetwork[]) {
+    return this.backgroundApi.simpleDb.networkSelector.setPinnedNetworkIds({
+      networkIds: networks.map((o) => o.id),
+    });
+  }
+
+  @backgroundMethod()
+  async getPinnedNetworks(): Promise<IServerNetwork[]> {
+    const pinnedNetworkIds =
+      await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
+    const networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    const networkIdsIndex = networkIds.reduce((result, item, index) => {
+      result[item] = index;
+      return result;
+    }, {} as Record<string, number>);
+    const resp = await this.getNetworksByIds({ networkIds });
+    return resp.networks.sort(
+      (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
+    );
   }
 }
 

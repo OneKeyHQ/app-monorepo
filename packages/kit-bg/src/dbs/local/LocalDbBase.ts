@@ -41,7 +41,6 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { EDBAccountType } from './consts';
@@ -58,7 +57,7 @@ import type {
   IDBCreateHWWalletParams,
   IDBCredentialBase,
   IDBDevice,
-  IDBDevicePayload,
+  IDBDeviceSettings,
   IDBExternalAccount,
   IDBGetWalletsParams,
   IDBIndexedAccount,
@@ -66,6 +65,8 @@ import type {
   IDBSetAccountNameParams,
   IDBSetAccountTemplateParams,
   IDBSetWalletNameAndAvatarParams,
+  IDBUpdateDeviceSettingsParams,
+  IDBUpdateFirmwareVerifiedParams,
   IDBWallet,
   IDBWalletId,
   IDBWalletIdSingleton,
@@ -434,6 +435,58 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       id: credentialId,
     });
     return credential;
+  }
+
+  // insert lightning network credential
+  async updateLightningCredential({
+    credentialId,
+    credential,
+  }: {
+    credentialId: string;
+    credential: string;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateLightningCredential({
+        tx,
+        credentialId,
+        credential,
+        updater: (record) => {
+          record.credential = credential;
+          return record;
+        },
+      });
+    });
+  }
+
+  async txUpdateLightningCredential({
+    tx,
+    credentialId,
+    credential,
+    updater,
+  }: {
+    tx: ILocalDBTransaction;
+    credentialId: string;
+    credential: string;
+    updater: ILocalDBRecordUpdater<ELocalDBStoreNames.Credential>;
+  }) {
+    await this.txAddRecords({
+      tx,
+      skipIfExists: true,
+      name: ELocalDBStoreNames.Credential,
+      records: [
+        {
+          id: credentialId,
+          credential,
+        },
+      ],
+    });
+    await this.txUpdateRecords({
+      tx,
+      name: ELocalDBStoreNames.Credential,
+      ids: [credentialId],
+      updater,
+    });
   }
 
   // ---------------------------------------------- wallet
@@ -901,6 +954,37 @@ ssphrase wallet
     });
   }
 
+  async updateFirmwareVerified(params: IDBUpdateFirmwareVerifiedParams) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      const { device, verifyResult } = params;
+      const { id, featuresInfo, features } = device;
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [id],
+        updater: (item) => {
+          if (verifyResult === 'official') {
+            const versionText = deviceUtils.getDeviceVersionStr({
+              device,
+              features: checkIsDefined(featuresInfo),
+            });
+            // official firmware verified
+            item.verifiedAtVersion = versionText;
+          }
+          if (verifyResult === 'unofficial') {
+            // unofficial firmware
+            item.verifiedAtVersion = '';
+          }
+          if (verifyResult === 'unknown') {
+            item.verifiedAtVersion = undefined;
+          }
+          return item;
+        },
+      });
+    });
+  }
+
   // TODO remove unused hidden wallet first
   async createHWWallet(params: IDBCreateHWWalletParams) {
     const db = await this.readyDb;
@@ -959,7 +1043,9 @@ ssphrase wallet
             deviceId: rawDeviceId,
             deviceType,
             features: featuresStr,
-            payloadJson: `{}`,
+            settingsRaw: JSON.stringify({
+              inputPinOnSoftware: true,
+            } as IDBDeviceSettings),
             createdAt: now,
             updatedAt: now,
           },
@@ -975,8 +1061,15 @@ ssphrase wallet
           item.features = featuresStr;
           item.updatedAt = now;
           if (isFirmwareVerified) {
-            const versionText = deviceUtils.getDeviceVersionStr(device);
+            const versionText = deviceUtils.getDeviceVersionStr({
+              device,
+              features,
+            });
+            // official firmware verified
             item.verifiedAtVersion = versionText;
+          } else {
+            // skip firmware verify
+            item.verifiedAtVersion = undefined;
           }
           return item;
         },
@@ -1303,12 +1396,14 @@ ssphrase wallet
             }
           } catch (error) {
             //
+            (error as Error).$$autoPrintErrorIgnore = true;
           }
         }
         return result;
       }
       return [];
     } catch (error) {
+      (error as Error).$$autoPrintErrorIgnore = true;
       return [];
     }
   }
@@ -1807,25 +1902,42 @@ ssphrase wallet
     throw new Error('wallet associatedDevice not found');
   }
 
-  async getDevice(deviceId: string): Promise<IDBDevice> {
+  async getDeviceByConnectId({ connectId }: { connectId: string }) {
+    const devices = await this.getAllDevices();
+    const device = devices.find((item) => item.connectId === connectId);
+    return device ? this.refillDeviceInfo({ device }) : undefined;
+  }
+
+  async getDevice(dbDeviceId: string): Promise<IDBDevice> {
     const device = await this.getRecordById({
       name: ELocalDBStoreNames.Device,
-      id: deviceId,
+      id: dbDeviceId,
     });
     return this.refillDeviceInfo({ device });
   }
 
   refillDeviceInfo({ device }: { device: IDBDevice }) {
-    device.featuresInfo = JSON.parse(device.features) as IOneKeyDeviceFeatures;
-    device.payloadJsonInfo = JSON.parse(device.payloadJson);
+    device.featuresInfo = JSON.parse(device.features || '{}');
+    device.settings = JSON.parse(device.settingsRaw || '{}');
     return device;
   }
 
-  updateDevicePayload(
-    deviceId: string,
-    payload: IDBDevicePayload,
-  ): Promise<void> {
-    throw new Error('Method not implemented.');
+  async updateDeviceDbSettings({
+    dbDeviceId,
+    settings,
+  }: IDBUpdateDeviceSettingsParams): Promise<void> {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: (item) => {
+          item.settingsRaw = JSON.stringify(settings);
+          return item;
+        },
+      });
+    });
   }
 
   // ---------------------------------------------- demo

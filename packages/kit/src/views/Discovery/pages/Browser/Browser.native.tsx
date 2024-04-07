@@ -4,7 +4,6 @@ import { Freeze } from 'react-freeze';
 import Animated from 'react-native-reanimated';
 
 import {
-  Button,
   Icon,
   Page,
   Stack,
@@ -45,11 +44,11 @@ import { withBrowserProvider } from './WithBrowserProvider';
 function MobileBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
-  const { closeWebTab } = useBrowserTabActions().current;
+  const { closeWebTab, setCurrentWebTab } = useBrowserTabActions().current;
   // const { tab } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { handleScroll, toolbarAnimatedStyle } =
+  const { handleScroll, toolbarRef, toolbarAnimatedStyle } =
     useMobileBottomBarAnimation(activeTabId);
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -81,6 +80,14 @@ function MobileBrowser() {
     [activeTabId, closeWebTab],
   );
 
+  const onCloseCurrentWebTabAndGoHomePage = useCallback(() => {
+    if (activeTabId) {
+      closeWebTab(activeTabId);
+      setCurrentWebTab(null);
+    }
+    return Promise.resolve();
+  }, [activeTabId, closeWebTab, setCurrentWebTab]);
+
   // For risk detection
   useEffect(() => {
     const listener = () => {
@@ -106,10 +113,12 @@ function MobileBrowser() {
         screen: EDiscoveryModalRoutes.SearchModal,
         params: {
           url,
+          tabId: activeTabId ?? undefined,
+          useCurrentWindow: !!activeTabId,
         },
       });
     },
-    [navigation],
+    [navigation, activeTabId],
   );
 
   const { top } = useSafeAreaInsets();
@@ -117,14 +126,16 @@ function MobileBrowser() {
   return (
     <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header headerShown={false} />
+      {/* custom header */}
       <XStack
         pt={top}
         mx="$5"
         alignItems="center"
+        my="$1"
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
       >
         {!displayHomePage ? (
-          <Stack onPress={closeCurrentWebTab}>
+          <Stack onPress={onCloseCurrentWebTabAndGoHomePage}>
             <Icon name="CrossedLargeOutline" mr="$4" />
           </Stack>
         ) : null}
@@ -140,10 +151,10 @@ function MobileBrowser() {
           <Freeze freeze={displayHomePage}>{content}</Freeze>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
+              ref={toolbarRef}
               style={[
                 toolbarAnimatedStyle,
                 {
-                  position: 'absolute',
                   bottom: 0,
                   left: 0,
                   right: 0,

@@ -235,6 +235,7 @@ function DialogFrame({
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
+          zIndex={sheetProps?.zIndex}
         />
         <Sheet.Frame
           unstyled
@@ -269,6 +270,7 @@ function DialogFrame({
             bottom={0}
             alignItems="center"
             justifyContent="center"
+            zIndex={floatingPanelProps?.zIndex}
           >
             <TMDialog.Overlay
               key="overlay"
@@ -282,6 +284,7 @@ function DialogFrame({
                 opacity: 0,
               }}
               onPress={handleBackdropPress}
+              zIndex={floatingPanelProps?.zIndex}
             />
             {
               /* fix missing title warnings in html dialog element on Web */

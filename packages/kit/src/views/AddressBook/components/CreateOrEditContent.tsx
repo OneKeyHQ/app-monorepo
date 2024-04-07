@@ -3,14 +3,12 @@ import { type FC, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Form,
   Icon,
   IconButton,
   Input,
   Page,
   SizableText,
-  Stack,
   XStack,
   useForm,
 } from '@onekeyhq/components';
@@ -26,7 +24,7 @@ import type { IAddressItem } from '../type';
 type ICreateOrEditContentProps = {
   title?: string;
   item: IAddressItem;
-  onSubmit: (item: IAddressItem) => void;
+  onSubmit: (item: IAddressItem) => Promise<void>;
   onRemove?: (item: IAddressItem) => void;
 };
 
@@ -48,6 +46,8 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
       name: item.name,
       address: { raw: item.address, resolved: '' } as IAddressInputValue,
     },
+    mode: 'onChange',
+    reValidateMode: 'onChange',
   });
 
   const headerRight = useCallback(
@@ -55,6 +55,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
       onRemove ? (
         <IconButton
           icon="DeleteOutline"
+          variant="tertiary"
           onPress={() => onRemove(item)}
           testID="address-form-remove"
         />
@@ -66,8 +67,8 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   const pending = form.watch('address.pending');
 
   const onSave = useCallback(
-    (values: IFormValues) => {
-      onSubmit?.({
+    async (values: IFormValues) => {
+      await onSubmit?.({
         id: values.id,
         name: values.name,
         networkId: values.networkId,
@@ -93,8 +94,14 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             label="Name"
             name="name"
             rules={{
-              required: true,
-              maxLength: 24,
+              required: {
+                value: true,
+                message: 'Name cannot be empty.',
+              },
+              maxLength: {
+                value: 24,
+                message: 'The maximum length is 24 characters.',
+              },
               validate: async (text) => {
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({
@@ -119,7 +126,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                   return;
                 }
                 if (!output.resolved) {
-                  return 'Invalid address';
+                  return output.validateError?.message ?? 'Invalid address';
                 }
                 const searched =
                   await backgroundApiProxy.serviceAddressBook.findItem({
@@ -146,25 +153,23 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             <AddressInput
               networkId={networkId}
               placeholder="Address"
+              autoError={false}
               testID="address-form-address"
               enableNameResolve
             />
           </Form.Field>
         </Form>
       </Page.Body>
-      <Page.Footer>
-        <Stack p="$5">
-          <Button
-            variant="primary"
-            loading={form.formState.isSubmitting}
-            disabled={!form.formState.isValid || pending}
-            onPress={form.handleSubmit(onSave)}
-            testID="address-form-save"
-          >
-            {intl.formatMessage({ id: 'action__save' })}
-          </Button>
-        </Stack>
-      </Page.Footer>
+      <Page.Footer
+        onConfirmText={intl.formatMessage({ id: 'action__save' })}
+        confirmButtonProps={{
+          variant: 'primary',
+          loading: form.formState.isSubmitting,
+          disabled: !form.formState.isValid || pending,
+          onPress: form.handleSubmit(onSave),
+          testID: 'address-form-save',
+        }}
+      />
     </Page>
   );
 };

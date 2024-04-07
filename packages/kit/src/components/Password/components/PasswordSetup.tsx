@@ -123,6 +123,7 @@ const PasswordSetup = ({
       {biologyAuthSwitchContainer}
       <Button
         variant="primary"
+        loading={loading}
         onPress={form.handleSubmit(onSetupPassword)}
         testID="set-password"
       >

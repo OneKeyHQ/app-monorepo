@@ -31,6 +31,7 @@ module.exports = [
   'jsx',
   'Ver',
   'hd',
+  'arbitrum',
   'Jotai',
   'jotai',
   'xprvt',
@@ -661,4 +662,6 @@ module.exports = [
   'punycode',
   'unicode',
   'ascii',
+  'keysend',
+  'preimage',
 ];

@@ -118,6 +118,7 @@ export type IVaultSettings = {
 
   minTransferAmount?: string;
   utxoDustAmount?: string;
+  signOnlyFullTxRequired?: boolean;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
@@ -125,6 +126,7 @@ export type IVaultSettings = {
     default: IVaultSettingsNetworkInfo;
     [networkId: string]: IVaultSettingsNetworkInfo;
   };
+  validationRequired?: boolean;
 };
 
 export type IVaultFactoryOptions = {

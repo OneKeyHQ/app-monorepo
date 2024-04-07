@@ -322,11 +322,7 @@ function TxFeeContainer(props: IProps) {
   ]);
 
   return (
-    <Container.Box
-      contentProps={{
-        mt: '$4',
-      }}
-    >
+    <Container.Box>
       <Container.Item
         title="Fee Estimate"
         content={`${selectedFee?.totalNativeForDisplay ?? '0.00'} ${

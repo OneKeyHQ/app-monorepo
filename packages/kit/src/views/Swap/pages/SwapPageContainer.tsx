@@ -6,12 +6,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { AccountSelectorTriggerSwap } from '../../../components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerSwap';
 
-import SwapHeaderRightActionContainer from './components/SwapHeaderRightActionContainer';
 import SwapMainLand from './components/SwapMainLand';
 
 const SwapPageContainer = () => {
-  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
-  const headerTitle = useCallback(
+  const headerLeft = useCallback(
     () => (
       <AccountSelectorProviderMirror
         config={{ sceneName: EAccountSelectorSceneName.swap, sceneUrl: '' }}
@@ -24,7 +22,7 @@ const SwapPageContainer = () => {
   );
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={headerTitle} headerRight={headerRight} />
+      <Page.Header headerLeft={headerLeft} />
       <Page.Body>
         <SwapMainLand />
       </Page.Body>

@@ -28,8 +28,11 @@ export default function useReadMnemonic() {
       if (!walletId) {
         walletId = await readWalletIdFromSelectWallet();
       }
+      await backgroundApiProxy.servicePassword.clearCachedPassword();
       const { password } =
-        await backgroundApiProxy.servicePassword.promptPasswordVerify();
+        await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet({
+          walletId,
+        });
 
       const { mnemonic } =
         await backgroundApiProxy.serviceAccount.getCredentialDecrypt({

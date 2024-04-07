@@ -2,6 +2,7 @@ import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmObjectBase } from '../base/RealmObjectBase';
 
 import type { IDBDevice } from '../../types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type Realm from 'realm';
 
 class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
@@ -38,12 +39,12 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
   /**
    * device type
    */
-  public deviceType!: string;
+  public deviceType!: IDeviceType;
 
   /**
    * device config
    */
-  public payloadJson!: string;
+  public settingsRaw!: string;
 
   /**
    * timestamp of the device bonded with the host device.
@@ -67,8 +68,8 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       uuid: 'string',
       deviceId: 'string',
       deviceType: 'string',
+      settingsRaw: 'string',
       features: 'string',
-      payloadJson: 'string',
       createdAt: 'int',
       updatedAt: 'int',
       verifiedAtVersion: 'string?',
@@ -85,7 +86,7 @@ class RealmSchemaDevice extends RealmObjectBase<IDBDevice> {
       deviceId: this.deviceId,
       deviceType: this.deviceType,
       features: this.features,
-      payloadJson: this.payloadJson,
+      settingsRaw: this.settingsRaw,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
       verifiedAtVersion: this.verifiedAtVersion,

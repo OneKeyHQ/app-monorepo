@@ -82,6 +82,7 @@ function DesktopCustomTabBarItem({
   );
   return (
     <DesktopTabItem
+      showAvatar
       key={id}
       selected={isActive}
       onPress={() => onPress(id)}
