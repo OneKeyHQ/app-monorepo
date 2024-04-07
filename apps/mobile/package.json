@@ -91,7 +91,7 @@
     "react-native-tcp-socket": "^6.0.6",
     "react-native-video": "6.0.0-beta.6",
     "react-native-view-shot": "3.1.2",
-    "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#768329ee90b5cb465215cbad319858b851f45e82",
+    "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#491965afd5198c152b5dda872d30a127e9ef786b",
     "react-native-zip-archive": "^6.0.9",
     "readable-stream": "^3.6.0",
     "realm": "12.3.0",

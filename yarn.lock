@@ -5309,7 +5309,7 @@ __metadata:
     react-native-tcp-socket: "npm:^6.0.6"
     react-native-video: "npm:6.0.0-beta.6"
     react-native-view-shot: "npm:3.1.2"
-    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#768329ee90b5cb465215cbad319858b851f45e82"
+    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#491965afd5198c152b5dda872d30a127e9ef786b"
     react-native-zip-archive: "npm:^6.0.9"
     readable-stream: "npm:^3.6.0"
     realm: "npm:12.3.0"
@@ -26081,16 +26081,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#768329ee90b5cb465215cbad319858b851f45e82":
+"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#491965afd5198c152b5dda872d30a127e9ef786b":
   version: 13.8.1
-  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=768329ee90b5cb465215cbad319858b851f45e82"
+  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=491965afd5198c152b5dda872d30a127e9ef786b"
   dependencies:
     escape-string-regexp: "npm:2.0.0"
     invariant: "npm:2.2.4"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 3a948d08188f4a84ec1cf06ed1a380f7758dc5317e6b0fbe222d93a4e03c39e04ec68f47fbc66147d800de55649cec8fc419ec025302f52972d09f2365b6c7e2
+  checksum: 504df815161e332d018a18686d0c99915527c6f6fad0f67f5d091e177439951c14cd4f954a61e952eaa4d94906768e1703b290313e3597928e73e49b3ec2763d
   languageName: node
   linkType: hard
 
