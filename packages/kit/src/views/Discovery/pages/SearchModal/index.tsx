@@ -36,6 +36,12 @@ import type { RouteProp } from '@react-navigation/core';
 
 const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
 
+const LoadingSkeleton = (
+  <Image.Loading>
+    <Skeleton width="100%" height="100%" />
+  </Image.Loading>
+);
+
 function SearchModal() {
   const navigation = useAppNavigation();
   const route =
@@ -129,11 +135,7 @@ function SearchModal() {
             key={index}
             avatarProps={{
               src: item.logo || item.originLogo,
-              loading: (
-                <Image.Loading>
-                  <Skeleton width="100%" height="100%" />
-                </Image.Loading>
-              ),
+              loading: LoadingSkeleton,
               fallbackProps: {
                 bg: '$bgStrong',
                 justifyContent: 'center',
@@ -282,11 +284,7 @@ function SearchModal() {
                   key={index}
                   avatarProps={{
                     src: item.logo,
-                    loading: (
-                      <Image.Loading>
-                        <Skeleton width="100%" height="100%" />
-                      </Image.Loading>
-                    ),
+                    loading: LoadingSkeleton,
                     fallbackProps: {
                       bg: '$bgStrong',
                       justifyContent: 'center',
