@@ -31,7 +31,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onLoadEnd,
       onScroll,
       androidLayerType,
-      webviewHeight,
       displayProgressBar,
       onProgress,
     }: IInpageProviderWebViewProps,
@@ -123,7 +122,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         <NativeWebView
           ref={setWebViewRef}
           src={src}
-          webviewHeight={webviewHeight}
           onSrcChange={onSrcChange}
           receiveHandler={receiveHandler}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}
