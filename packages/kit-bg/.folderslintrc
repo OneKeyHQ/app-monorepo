@@ -6,6 +6,7 @@
     "endpoints/*",
     "mock/*",
     "providers/*",
+    "offscreens/**",
     "services/*",
     "services/*/utils/**",
     "states/**",

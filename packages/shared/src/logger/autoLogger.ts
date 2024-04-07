@@ -7,7 +7,6 @@ const autoLogger = {
     if (process.env.NODE_ENV !== 'production') {
       if (error.stack !== prevErrorStack) {
         setTimeout(() => {
-          // @ts-ignore
           if (error && error.$$autoPrintErrorIgnore) {
             return;
           }
