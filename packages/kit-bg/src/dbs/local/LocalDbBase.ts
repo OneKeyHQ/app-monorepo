@@ -1396,12 +1396,14 @@ ssphrase wallet
             }
           } catch (error) {
             //
+            (error as Error).$$autoPrintErrorIgnore = true;
           }
         }
         return result;
       }
       return [];
     } catch (error) {
+      (error as Error).$$autoPrintErrorIgnore = true;
       return [];
     }
   }

@@ -50,6 +50,7 @@ import type {
 import type { IHardwareUiPayload } from '../states/jotai/atoms';
 import type {
   CoreApi,
+  CoreMessage,
   DeviceSettingsParams,
   DeviceUploadResourceParams,
   DeviceVerifySignature,
@@ -140,6 +141,12 @@ class ServiceHardware extends ServiceBase {
         console.log('todo: features cache');
       });
     }
+  }
+
+  @backgroundMethod()
+  async passHardwareEventsFromOffscreenToBackground(eventMessage: CoreMessage) {
+    const sdk = await this.getSDKInstance();
+    sdk.emit(eventMessage.event, eventMessage);
   }
 
   // startDeviceScan
@@ -518,6 +525,7 @@ class ServiceHardware extends ServiceBase {
     inputPinOnSoftware: boolean;
   }) {
     const device = await localDb.getWalletDevice({ walletId });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: dbDeviceId, deviceId, connectId } = device;
 
     let minSupportVersion: string | undefined = '';

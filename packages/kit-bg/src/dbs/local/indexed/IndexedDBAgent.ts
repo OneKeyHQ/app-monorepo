@@ -299,7 +299,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       const store = this._getObjectStoreFromTx(tx, name);
       const record = await store.get(id);
       if (!record) {
-        throw new Error(`record not found: ${name} ${id}`);
+        const error = new Error(`record not found: ${name} ${id}`);
+        error.$$autoPrintErrorIgnore = true;
+        throw error;
       }
       return [record as any, null];
     };

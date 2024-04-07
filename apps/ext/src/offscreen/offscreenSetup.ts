@@ -1,20 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unused-vars */
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
-// import type { IOffscreenApiMessagePayload } from '@onekeyhq/kit-bg/src/IBackgroundApi';
-// import offscreenApi from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApi';
-// import { OFFSCREEN_API_MESSAGE_TYPE } from '@onekeyhq/kit-bg/src/offscreens/types';
+import type { IOffscreenApiMessagePayload } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import offscreenApi from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApi';
+import { OFFSCREEN_API_MESSAGE_TYPE } from '@onekeyhq/kit-bg/src/offscreens/types';
 
 export function offscreenSetup() {
   const offscreenBridge = bridgeSetup.offscreen.createOffscreenJsBridge({
     onPortConnect() {},
     async receiveHandler(payload, bridge) {
-      // const msg = payload.data as IOffscreenApiMessagePayload | undefined;
-      // if (msg && msg.type === OFFSCREEN_API_MESSAGE_TYPE) {
-      //   const result = await offscreenApi.callOffscreenApiMethod(msg);
-      //   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      //   return result;
-      // }
+      const msg = payload.data as IOffscreenApiMessagePayload | undefined;
+      if (msg && msg.type === OFFSCREEN_API_MESSAGE_TYPE) {
+        const result = await offscreenApi.callOffscreenApiMethod(msg);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return result;
+      }
     },
   });
   window.extJsBridgeOffscreenToBg = offscreenBridge;

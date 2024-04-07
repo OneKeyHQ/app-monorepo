@@ -8,6 +8,7 @@ import {
   Stack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,7 +26,8 @@ export function AccountSelectorCreateWalletButton() {
     });
   }, [navigation]);
 
-  const handleCreateWalletPress = useCallback(() => {
+  const handleCreateWalletPress = useCallback(async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.BeforeShowRecoveryPhrase,
     });
@@ -64,7 +66,7 @@ export function AccountSelectorCreateWalletButton() {
               {
                 label: 'Create Recovery Phrase',
                 icon: 'PlusCircleOutline',
-                onPress: handleCreateWalletPress,
+                onPress: () => void handleCreateWalletPress(),
                 testID: 'create-wallet',
               },
             ],
