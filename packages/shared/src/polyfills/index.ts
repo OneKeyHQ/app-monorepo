@@ -5,6 +5,8 @@ import './polyfillsPlatform';
 
 import '../modules3rdParty/cross-crypto/verify';
 
+import '../request';
+
 // import { normalizeRequestLibs } from '../request/normalize';
 import timerUtils from '../utils/timerUtils';
 // import { interceptConsoleErrorWithExtraInfo } from '../errors/utils/errorUtils';

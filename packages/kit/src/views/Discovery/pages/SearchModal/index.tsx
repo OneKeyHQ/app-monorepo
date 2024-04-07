@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { Keyboard } from 'react-native';
 
 import {
+  Icon,
   Image,
   Page,
   ScrollView,
@@ -18,6 +19,8 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -32,6 +35,12 @@ import { DappSearchModalSectionHeader } from './DappSearchModalSectionHeader';
 import type { RouteProp } from '@react-navigation/core';
 
 const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
+
+const LoadingSkeleton = (
+  <Image.Loading>
+    <Skeleton width="100%" height="100%" />
+  </Image.Loading>
+);
 
 function SearchModal() {
   const navigation = useAppNavigation();
@@ -79,7 +88,14 @@ function SearchModal() {
     }
   });
 
-  const [searchList, setSearchList] = useState<IDApp[]>([]);
+  const [searchList, setSearchList] = useState<(IDApp | IFuseResult<IDApp>)[]>(
+    [],
+  );
+
+  const fuseRemoteDataSearch = useFuse(searchResult?.remoteData, {
+    keys: ['name'],
+  });
+
   useEffect(() => {
     void (async () => {
       if (!searchValue) {
@@ -98,15 +114,67 @@ function SearchModal() {
           url: '',
           logo,
         } as IDApp,
-        ...(searchResult?.remoteData ?? []),
+        ...fuseRemoteDataSearch.search(searchValue),
       ]);
     })();
-  }, [searchValue, searchResult]);
+  }, [searchValue, searchResult, fuseRemoteDataSearch]);
 
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
   const displayBookmarkList =
     (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
   const displayHistoryList = (localData?.historyData ?? []).length > 0;
+
+  const renderList = useCallback(
+    (list: (IDApp | IFuseResult<IDApp>)[]) =>
+      list.map((rawItem, index) => {
+        const item = (rawItem as IFuseResult<IDApp>).item
+          ? (rawItem as IFuseResult<IDApp>).item
+          : (rawItem as IDApp);
+        return (
+          <ListItem
+            key={index}
+            avatarProps={{
+              src: item.logo || item.originLogo,
+              loading: LoadingSkeleton,
+              fallbackProps: {
+                bg: '$bgStrong',
+                justifyContent: 'center',
+                alignItems: 'center',
+                children: <Icon name="GlobusOutline" />,
+              },
+            }}
+            title={item.name}
+            titleMatch={(rawItem as IFuseResult<IDApp>).matches?.find(
+              (v) => v.key === 'name',
+            )}
+            subtitleProps={{
+              numberOfLines: 1,
+            }}
+            onPress={() => {
+              if (item.dappId === SEARCH_ITEM_ID) {
+                handleOpenWebSite({
+                  navigation,
+                  useCurrentWindow,
+                  tabId,
+                  webSite: {
+                    url: searchValue,
+                    title: searchValue,
+                  },
+                });
+              } else {
+                handleOpenWebSite({
+                  navigation,
+                  useCurrentWindow,
+                  tabId,
+                  dApp: item,
+                });
+              }
+            }}
+          />
+        );
+      }),
+    [handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
+  );
 
   return (
     <Page safeAreaEnabled>
@@ -140,43 +208,7 @@ function SearchModal() {
           onScrollBeginDrag={Keyboard.dismiss}
         >
           {displaySearchList ? (
-            <Stack pb="$5">
-              {searchList.map((item, index) => (
-                <ListItem
-                  key={index}
-                  avatarProps={{
-                    src: item.logo || item.originLogo,
-                    fallbackProps: {
-                      children: <Skeleton w="$10" h="$10" />,
-                    },
-                  }}
-                  title={item.name}
-                  subtitleProps={{
-                    numberOfLines: 1,
-                  }}
-                  onPress={() => {
-                    if (item.dappId === SEARCH_ITEM_ID) {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        webSite: {
-                          url: searchValue,
-                          title: searchValue,
-                        },
-                      });
-                    } else {
-                      handleOpenWebSite({
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
-                        dApp: item,
-                      });
-                    }
-                  }}
-                />
-              ))}
-            </Stack>
+            <Stack pb="$5">{renderList(searchList)}</Stack>
           ) : null}
 
           {displayBookmarkList ? (
@@ -247,14 +279,23 @@ function SearchModal() {
                   });
                 }}
               />
-              {localData?.historyData?.map((item, index) => (
+              {localData?.historyData.map((item, index) => (
                 <ListItem
                   key={index}
                   avatarProps={{
                     src: item.logo,
+                    loading: LoadingSkeleton,
+                    fallbackProps: {
+                      bg: '$bgStrong',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      children: <Icon name="GlobusOutline" />,
+                    },
                   }}
                   title={item.title}
+                  titleMatch={item.titleMatch}
                   subtitle={item.url}
+                  subTitleMatch={item.urlMatch}
                   subtitleProps={{
                     numberOfLines: 1,
                   }}

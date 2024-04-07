@@ -1,6 +1,8 @@
 import { isNil } from 'lodash';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import platformEnv, {
+  isExtensionUiSidePanel,
+} from '@onekeyhq/shared/src/platformEnv';
 
 import { getAllowPathFromScreenNames } from './routeUtils';
 
@@ -122,6 +124,7 @@ export const EXT_HTML_FILES = {
   background: 'background.html',
   uiPopup: 'ui-popup.html',
   uiExpandTab: 'ui-expand-tab.html',
+  uiSidePanel: 'ui-side-panel.html',
   uiStandAloneWindow: 'ui-standalone-window.html',
 };
 
@@ -138,6 +141,9 @@ export function getExtensionIndexHtml() {
   if (platformEnv.isExtensionUiStandaloneWindow) {
     return EXT_HTML_FILES.uiStandAloneWindow;
   }
+  if (platformEnv.isExtensionUiSidePanel) {
+    return EXT_HTML_FILES.uiSidePanel;
+  }
   return EXT_HTML_FILES.uiExpandTab;
 }
 
@@ -145,10 +151,39 @@ let expandTabId: number | undefined;
 async function openExpandTab(
   routeInfo: IOpenUrlRouteInfo,
 ): Promise<chrome.tabs.Tab | undefined> {
-  const url = buildExtRouteUrl('ui-expand-tab.html', routeInfo);
+  const url = buildExtRouteUrl(EXT_HTML_FILES.uiExpandTab, routeInfo);
   const tab = await openUrlInTab(url, { tabId: expandTabId });
   expandTabId = tab?.id;
   return tab;
+}
+
+function openSidePanel(
+  routeInfo: IOpenUrlRouteInfo,
+): Promise<chrome.tabs.Tab | undefined> {
+  return new Promise((resolve) => {
+    if (
+      chrome.sidePanel &&
+      chrome.sidePanel.open &&
+      chrome.sidePanel.setOptions
+    ) {
+      const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tab = tabs[0];
+        if (tab && tab.id) {
+          chrome.sidePanel.open({ tabId: tab.id }, () => {
+            void chrome.sidePanel.setOptions({
+              tabId: tab.id,
+              path: url,
+              enabled: true,
+            });
+          });
+          resolve(tab);
+        }
+      });
+    } else {
+      return openExpandTab(routeInfo);
+    }
+  });
 }
 
 export default {
@@ -156,4 +191,5 @@ export default {
   openUrlInTab,
   openStandaloneWindow,
   openExpandTab,
+  openSidePanel,
 };

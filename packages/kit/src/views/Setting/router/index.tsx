@@ -1,7 +1,13 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
-import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalAddressBookRoutes,
+  IModalAddressBookParamList,
+  IModalSettingParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+
+import { ModalAddressBookRouter } from '../../AddressBook/router';
 
 const SettingAccountDerivationModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/AccountDerivation'),
@@ -26,9 +32,10 @@ const SettingProtectionModal = LazyLoadPage(
 const SettingSpendUTXOModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SpendUTXO'),
 );
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
-  EModalSettingRoutes,
-  IModalSettingParamList
+  EModalSettingRoutes | EModalAddressBookRoutes,
+  IModalSettingParamList & IModalAddressBookParamList
 >[] = [
   {
     name: EModalSettingRoutes.SettingListModal,
@@ -65,4 +72,8 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
     component: SettingProtectionModal,
     translationId: 'action__protection',
   },
+  ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
+    EModalSettingRoutes | EModalAddressBookRoutes,
+    IModalSettingParamList & IModalAddressBookParamList
+  >[]),
 ];

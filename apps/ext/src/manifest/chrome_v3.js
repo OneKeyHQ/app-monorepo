@@ -28,6 +28,7 @@ module.exports = {
   // browser_action
   'action': {
     'default_icon': {
+      '48': 'icon-48.png',
       '128': 'icon-128.png',
     },
     'default_title': 'OneKey',
@@ -99,7 +100,9 @@ module.exports = {
         }
       : null,
   ].filter(Boolean),
-
+  'side_panel': {
+    'default_path': 'ui-side-panel.html',
+  },
   'permissions': [
     'offscreen',
     // 'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
@@ -119,5 +122,7 @@ module.exports = {
     // 'activeTab',
     // 'webRequest',
     'idle',
+    'sidePanel',
+    'contextMenus',
   ],
 };

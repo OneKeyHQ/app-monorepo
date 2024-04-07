@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ELiteCardRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
@@ -29,10 +28,10 @@ export default function useReadMnemonic() {
       if (!walletId) {
         walletId = await readWalletIdFromSelectWallet();
       }
+      await backgroundApiProxy.servicePassword.clearCachedPassword();
       const { password } =
         await backgroundApiProxy.servicePassword.promptPasswordVerifyByWallet({
           walletId,
-          reason: EReasonForNeedPassword.CreateOrRemoveWallet,
         });
 
       const { mnemonic } =

@@ -48,7 +48,7 @@ function MobileBrowser() {
   // const { tab } = useWebTabDataById(activeTabId ?? '');
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-  const { handleScroll, toolbarAnimatedStyle } =
+  const { handleScroll, toolbarRef, toolbarAnimatedStyle } =
     useMobileBottomBarAnimation(activeTabId);
   useDAppNotifyChanges({ tabId: activeTabId });
 
@@ -151,10 +151,10 @@ function MobileBrowser() {
           <Freeze freeze={displayHomePage}>{content}</Freeze>
           <Freeze freeze={!displayBottomBar}>
             <Animated.View
+              ref={toolbarRef}
               style={[
                 toolbarAnimatedStyle,
                 {
-                  position: 'absolute',
                   bottom: 0,
                   left: 0,
                   right: 0,

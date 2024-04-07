@@ -6,6 +6,8 @@ import type {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
+import type { IOffscreenApi } from '../offscreens/instance/IOffscreenApi';
+import type { OFFSCREEN_API_MESSAGE_TYPE } from '../offscreens/types';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
@@ -14,7 +16,9 @@ import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
+import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
@@ -53,6 +57,11 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
   service: string;
+};
+
+export type IOffscreenApiMessagePayload = IJsonRpcRequest & {
+  type: typeof OFFSCREEN_API_MESSAGE_TYPE;
+  module: keyof IOffscreenApi;
 };
 
 export interface IBackgroundApiBridge {
@@ -108,6 +117,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceGas: ServiceGas;
   serviceDiscovery: ServiceDiscovery;
   serviceDApp: ServiceDApp;
+  serviceDappSide: ServiceDappSide;
   serviceWalletConnect: ServiceWalletConnect;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
@@ -116,6 +126,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceScanQRCode: ServiceScanQRCode;
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
+  serviceContextMenu: ServiceContextMenu;
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;

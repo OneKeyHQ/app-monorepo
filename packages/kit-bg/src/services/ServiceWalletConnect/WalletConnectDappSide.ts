@@ -1,3 +1,4 @@
+import { isString } from 'lodash';
 import { Linking } from 'react-native';
 
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -6,6 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import {
   DAPP_SIDE_SINGLE_WALLET_MODE,
@@ -19,6 +21,7 @@ import type {
   IWalletConnectEventSessionDeleteParams,
   IWalletConnectEventSessionEventParams,
   IWalletConnectEventSessionUpdateParams,
+  IWalletConnectNamespaces,
   IWalletConnectSignClient,
 } from '@onekeyhq/shared/src/walletConnect/types';
 import {
@@ -26,8 +29,10 @@ import {
   EWalletConnectSessionEvents,
 } from '@onekeyhq/shared/src/walletConnect/types';
 
+import localDb from '../../dbs/local/localDb';
+
 import walletConnectClient from './walletConnectClient';
-import { WalletConnectDappProvider } from './WalletConnectDappProvider';
+import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 import walletConnectStorage from './walletConnectStorage';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -74,19 +79,18 @@ export class WalletConnectDappSide {
 
   handleSessionEvent = async (p: IWalletConnectEventSessionEventParams) => {
     console.log('***** session_event', p);
-    await this.backgroundApi.serviceAccount.updateExternalAccountSelectedAddress(
-      {
-        wcSessionTopic: p.topic,
-        wcSessionEvent: p,
-      },
-    );
+    await this.updateAccountSelectedAddress({
+      wcSessionTopic: p.topic,
+      wcSessionEvent: p,
+    });
   };
 
   handleSessionDelete = async (p: IWalletConnectEventSessionDeleteParams) => {
     console.log('***** session_delete', p);
     console.log('remove account by topic', p.topic);
     try {
-      await this.backgroundApi.serviceAccount.removeExternalAccount({
+      // TODO keep account when peer wallet remove this session
+      await this.removeAccount({
         wcSessionTopic: p.topic,
       });
     } catch (error) {
@@ -101,18 +105,147 @@ export class WalletConnectDappSide {
       p,
     });
     // only handle matched topic
-    await this.backgroundApi.serviceAccount.updateWalletConnectExternalAccount({
+    await this.updateAccount({
       wcSessionTopic: p.topic,
       wcNamespaces: p.params.namespaces,
     });
   };
+
+  async removeAccount({ wcSessionTopic }: { wcSessionTopic: string }) {
+    const accountId = accountUtils.buildExternalAccountId({
+      wcSessionTopic,
+      connectionInfo: undefined,
+    });
+    const account = await this.backgroundApi.serviceAccount.getDBAccount({
+      accountId,
+    });
+    return this.backgroundApi.serviceAccount.removeAccount({ account });
+  }
+
+  async updateAccount({
+    wcSessionTopic,
+    wcNamespaces,
+  }: {
+    wcSessionTopic: string;
+    wcNamespaces: IWalletConnectNamespaces;
+  }) {
+    const accountId = accountUtils.buildExternalAccountId({
+      wcSessionTopic,
+      connectionInfo: undefined,
+    });
+    const { addressMap, networkIds } =
+      await this.backgroundApi.serviceWalletConnect.parseWalletSessionNamespace(
+        {
+          namespaces: wcNamespaces,
+        },
+      );
+    const r = await localDb.updateExternalAccount({
+      accountId,
+      addressMap,
+      networkIds,
+    });
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    return r;
+  }
+
+  async updateAccountSelectedAddress({
+    wcSessionTopic,
+    wcSessionEvent,
+  }: {
+    wcSessionTopic: string;
+    wcSessionEvent: IWalletConnectEventSessionEventParams;
+  }) {
+    // const params = {
+    //   'id': 1710226674065096,
+    //   'topic':
+    //     '7452725652a616ebc2554ee049b026d56f537177c969fe5c07f92f75ee5e8bb6',
+    //   'params': {
+    //     'event': { 'name': 'chainChanged', 'data': 137 },
+    //     'chainId': 'eip155:137',
+    //   },
+    // };
+
+    // const params = {
+    //   'id': 1710226817544891,
+    //   'topic':
+    //     '7452725652a616ebc2554ee049b026d56f537177c969fe5c07f92f75ee5e8bb6',
+    //   'params': {
+    //     'event': {
+    //       'name': 'accountsChanged',
+    //       'data': ['eip155:137:0x111'],
+    //     },
+    //     'chainId': 'eip155:137',
+    //   },
+    // };
+
+    const accountId = accountUtils.buildExternalAccountId({
+      wcSessionTopic,
+      connectionInfo: undefined,
+    });
+    const account = (await localDb.getAccount({
+      accountId,
+    })) as IDBExternalAccount;
+
+    const eventName = wcSessionEvent?.params?.event?.name;
+    const wcChain = wcSessionEvent?.params?.chainId;
+
+    // handle EVM
+    if (wcChain.startsWith(`${EWalletConnectNamespaceType.evm}:`)) {
+      // handle accountsChanged
+      if (eventName === 'accountsChanged') {
+        const chainData =
+          await this.backgroundApi.serviceWalletConnect.getChainData(wcChain);
+        if (chainData) {
+          const addresses =
+            account.connectedAddresses[chainData.networkId]
+              .split(',')
+              .filter(Boolean) || [];
+          const eventAddress = (
+            wcSessionEvent?.params?.event?.data as string[] | undefined
+          )?.[0];
+          if (eventAddress && isString(eventAddress)) {
+            const result =
+              this.backgroundApi.serviceWalletConnect.parseWalletConnectFullAddress(
+                {
+                  wcAddress: eventAddress,
+                },
+              );
+            const addressIndex = addresses.indexOf(result.address);
+            if (addressIndex >= 0) {
+              await localDb.updateExternalAccount({
+                accountId,
+                selectedMap: {
+                  ...account.selectedAddress,
+                  [chainData.networkId]: addressIndex,
+                },
+              });
+              appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+            }
+          }
+        }
+      }
+
+      // handle chainChanged
+      if (eventName === 'chainChanged') {
+        // emit event bus, change chain from AccountSelectorEffects
+        throw new Error(
+          'WalletConnectEventSessionEvent chainChanged not support yet',
+        );
+      }
+    }
+
+    // handle non-EVM
+    else {
+      throw new Error('WalletConnectEventSessionEvent only support EVM now');
+    }
+  }
 
   async disconnectProvider({ topic }: { topic: string }) {
     if (!topic) return;
 
     const provider = await this.getOrCreateProvider({ topic });
 
-    const destroy = async (p: WalletConnectDappProvider | undefined) => {
+    const destroy = async (p: WalletConnectDappSideProvider | undefined) => {
       try {
         await p?.disconnect();
       } catch (error) {
@@ -149,8 +282,9 @@ export class WalletConnectDappSide {
     delete this.providers[topic];
   }
 
+  // TODO rename to providersCache
   providers: {
-    [topic: string]: WalletConnectDappProvider;
+    [topic: string]: WalletConnectDappSideProvider;
   } = {};
 
   async getOrCreateProvider({
@@ -161,8 +295,8 @@ export class WalletConnectDappSide {
     topic: string | undefined;
     createNewTopic?: boolean;
     updateDB?: boolean; // set true if sign tx or connect new session
-  }): Promise<WalletConnectDappProvider> {
-    let provider: WalletConnectDappProvider | undefined;
+  }): Promise<WalletConnectDappSideProvider> {
+    let provider: WalletConnectDappSideProvider | undefined;
 
     if (!topic && !createNewTopic) {
       throw new Error('topic or createNewTopic is required');
@@ -182,7 +316,7 @@ export class WalletConnectDappSide {
 
     if (!provider) {
       const client = await this.getSharedClient();
-      provider = await WalletConnectDappProvider.initPro({
+      provider = await WalletConnectDappSideProvider.initPro({
         ...walletConnectClient.sharedOptions,
         logger: WALLET_CONNECT_LOGGER_LEVEL,
         metadata: WALLET_CONNECT_CLIENT_META,
@@ -195,12 +329,10 @@ export class WalletConnectDappSide {
     // sync walletconnect session data to db
     if (provider?.session && updateDB) {
       try {
-        await this.backgroundApi.serviceAccount.updateWalletConnectExternalAccount(
-          {
-            wcSessionTopic: provider.session?.topic,
-            wcNamespaces: provider.session?.namespaces,
-          },
-        );
+        await this.updateAccount({
+          wcSessionTopic: provider.session?.topic,
+          wcNamespaces: provider.session?.namespaces,
+        });
       } catch (error) {
         console.error(error);
       }
@@ -243,7 +375,8 @@ export class WalletConnectDappSide {
       // TODO how to check this account is connected by deeplink redirect at same device,
       //      but not qrcode scan from another device
       // StorageUtil.setDeepLinkWallet()   StorageUtil.removeDeepLinkWallet()
-      const redirect = account.wcInfo?.peerMeta?.redirect;
+      const redirect =
+        account.connectionInfo?.walletConnect?.peerMeta?.redirect;
       const openApp = async (url: string | undefined) => {
         if (url && (await Linking.canOpenURL(url))) {
           await Linking.openURL(url);
@@ -269,18 +402,20 @@ export class WalletConnectDappSide {
     topic: string;
     account: IDBExternalAccount;
   }) {
-    const message = `My email is john@doe.com - ${Date.now()}`;
-    const hexMsg = bufferUtils.textToHex(message, 'utf-8');
-    // personal_sign params
-    const params = [hexMsg, address];
     const provider = await this.getOrCreateProvider({
       topic,
       updateDB: true,
     });
+
+    const message = `My email is john@doe.com - ${Date.now()}`;
+    const hexMsg = bufferUtils.textToHex(message, 'utf-8');
+    // personal_sign params
+    const params = [hexMsg, address];
     const payload = {
       method: 'personal_sign',
       params,
     };
+
     console.log(
       'testExternalAccountPersonalSign',
       payload,
@@ -426,7 +561,11 @@ export class WalletConnectDappSide {
         walletId: WALLET_TYPE_EXTERNAL,
       });
     const accountTopics: string[] = accounts
-      .map((item) => (item as IDBExternalAccount | undefined)?.wcTopic)
+      .map(
+        (item) =>
+          (item as IDBExternalAccount | undefined)?.connectionInfo
+            ?.walletConnect?.topic,
+      )
       .filter(Boolean);
 
     const sessions = await walletConnectStorage.dappSideStorage.getSessions();

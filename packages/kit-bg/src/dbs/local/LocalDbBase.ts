@@ -1088,7 +1088,6 @@ ssphrase wallet
             type: WALLET_TYPE_HW,
             backuped: true,
             associatedDevice: dbDeviceId,
-            deviceType,
             isTemp: false,
             passphraseState,
             nextIndex: firstAccountIndex,
@@ -1396,12 +1395,14 @@ ssphrase wallet
             }
           } catch (error) {
             //
+            (error as Error).$$autoPrintErrorIgnore = true;
           }
         }
         return result;
       }
       return [];
     } catch (error) {
+      (error as Error).$$autoPrintErrorIgnore = true;
       return [];
     }
   }
@@ -1628,8 +1629,10 @@ ssphrase wallet
 
   refillAccountInfo({ account }: { account: IDBAccount }) {
     const externalAccount = account as IDBExternalAccount;
-    if (externalAccount && externalAccount.wcInfoRaw) {
-      externalAccount.wcInfo = JSON.parse(externalAccount.wcInfoRaw);
+    if (externalAccount && externalAccount.connectionInfoRaw) {
+      externalAccount.connectionInfo = JSON.parse(
+        externalAccount.connectionInfoRaw,
+      );
     }
     return account;
   }
@@ -1710,6 +1713,7 @@ ssphrase wallet
     addressMap,
     selectedMap,
     networkIds,
+    createAtNetwork,
   }: {
     accountId: string;
     addressMap?: {
@@ -1719,6 +1723,7 @@ ssphrase wallet
       [networkId: string]: number;
     };
     networkIds?: string[];
+    createAtNetwork?: string;
   }) {
     const db = await this.readyDb;
     await db.withTransaction(async (tx) => {
@@ -1736,6 +1741,9 @@ ssphrase wallet
           }
           if (networkIds) {
             updatedAccount.networks = networkIds;
+          }
+          if (createAtNetwork) {
+            updatedAccount.createAtNetwork = createAtNetwork;
           }
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return updatedAccount as any;
