@@ -13,6 +13,7 @@ class ServiceBootstrap extends ServiceBase {
       this.backgroundApi.serviceSetting.refreshLocaleMessages(),
       this.backgroundApi.walletConnect.initializeOnStart(),
       this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
+      this.backgroundApi.serviceContextMenu.init(),
     ]);
   }
 }

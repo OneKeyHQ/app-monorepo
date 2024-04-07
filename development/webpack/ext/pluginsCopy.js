@@ -35,6 +35,7 @@ const copy1 = createCopyPlugin({
     // createPattern('src/entry/offscreen.html'),
     // createPattern('src/entry/offscreen.js'),
 
+    createPattern('src/assets/img/icon-48.png'),
     createPattern('src/assets/img/icon-128.png'),
     createPattern('src/assets/img/icon-128-disable.png'),
     createPattern('src/assets/ui-popup-boot.html'),

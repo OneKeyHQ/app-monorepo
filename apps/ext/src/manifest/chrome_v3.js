@@ -28,6 +28,7 @@ module.exports = {
   // browser_action
   'action': {
     'default_icon': {
+      '48': 'icon-48.png',
       '128': 'icon-128.png',
     },
     'default_title': 'OneKey',
@@ -122,5 +123,6 @@ module.exports = {
     // 'webRequest',
     'idle',
     'sidePanel',
+    'contextMenus',
   ],
 };
