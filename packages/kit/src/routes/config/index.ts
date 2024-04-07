@@ -128,19 +128,6 @@ export const useRouterConfig = () => {
   return useMemo(() => {
     // Execute it before component mount.
     registerDeepLinking();
-
-    // Fix the issue where the path route is automatically changed to a window.location.hash value
-    //  when the extension is initialized
-    if (platformEnv.isExtension) {
-      setTimeout(() => {
-        const { href, hash } = window.location;
-        if (!href.includes(extHtmlFileUrl)) {
-          window.location.replace(
-            href.replace(`/${hash.slice(1)}#`, `${extHtmlFileUrl}#`),
-          );
-        }
-      }, 500);
-    }
     return {
       routerConfig: rootRouter,
       containerProps: {
