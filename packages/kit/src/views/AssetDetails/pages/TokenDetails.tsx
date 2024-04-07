@@ -54,7 +54,7 @@ export function TokenDetails() {
     accountId,
     networkId,
     walletId,
-    addressType,
+    deriveInfo,
     deriveType,
     tokenInfo,
     isBlocked: tokenIsBlocked,
@@ -109,11 +109,11 @@ export function TokenDetails() {
         networkId,
         accountId,
         walletId,
-        addressType,
+        deriveInfo,
         deriveType,
       },
     });
-  }, [accountId, addressType, deriveType, navigation, networkId, walletId]);
+  }, [accountId, deriveInfo, deriveType, navigation, networkId, walletId]);
 
   const handleHistoryItemPress = useCallback(
     (tx: IAccountHistoryTx) => {

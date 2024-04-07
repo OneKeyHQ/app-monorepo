@@ -1,4 +1,7 @@
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 
 export enum EModalReceiveRoutes {
   ReceiveToken = 'ReceiveToken',
@@ -15,7 +18,7 @@ export type IModalReceiveParamList = {
     networkId: string;
     accountId: string;
     walletId: string;
-    addressType: string;
+    deriveInfo: IAccountDeriveInfo;
     deriveType: IAccountDeriveTypes;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: undefined;

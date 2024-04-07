@@ -41,8 +41,14 @@ function ReceiveToken() {
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
     >();
 
-  const { networkId, accountId, walletId, addressType, deriveType } =
+  const { networkId, accountId, walletId, deriveInfo, deriveType } =
     route.params;
+
+  const addressType = deriveInfo?.labelKey
+    ? intl.formatMessage({
+        id: deriveInfo?.labelKey,
+      })
+    : deriveInfo?.label ?? '';
 
   const { account, network, wallet } = useAccountData({
     accountId,
