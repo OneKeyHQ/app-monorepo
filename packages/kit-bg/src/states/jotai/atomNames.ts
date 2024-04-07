@@ -11,4 +11,5 @@ export enum EAtomNames {
   jotaiContextStoreMapAtom = 'jotaiContextStoreMapAtom',
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',
+  appUpdateAtom = 'appUpdateAtom',
 }
