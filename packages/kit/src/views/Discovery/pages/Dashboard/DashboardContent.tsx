@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
+
 import { ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -28,6 +30,7 @@ function DashboardContent({
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const navigation = useAppNavigation();
+  const isFocused = useIsFocused();
   const { displayHomePage } = useDisplayHomePageFlag();
   const { handleOpenWebSite } = useBrowserAction().current;
   const { result: [bookmarksData, historiesData] = [], run: refreshLocalData } =
@@ -152,7 +155,10 @@ function DashboardContent({
 
   if (platformEnv.isNative) {
     return (
-      <ScrollView onScroll={onScroll as any} scrollEventThrottle={16}>
+      <ScrollView
+        onScroll={isFocused ? (onScroll as any) : undefined}
+        scrollEventThrottle={16}
+      >
         {content}
       </ScrollView>
     );
