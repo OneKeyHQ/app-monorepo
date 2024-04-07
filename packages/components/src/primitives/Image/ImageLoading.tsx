@@ -4,9 +4,9 @@ import { Stack } from '../Stack';
 
 import { ImageContext } from './context';
 
-import type { IImageFallbackProps } from './type';
+import type { IImageLoadingProps } from './type';
 
-export function ImageLoading({ children, ...props }: IImageFallbackProps) {
+export function ImageLoading({ children, ...props }: IImageLoadingProps) {
   const { loading } = useContext(ImageContext);
   return loading ? (
     <Stack
