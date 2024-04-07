@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import type { EDBAccountType, EDBCredentialType } from './consts';
 import type { ELocalDBStoreNames } from './localDBStoreNames';
@@ -23,7 +24,6 @@ import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
-import type { SignClientTypes } from '@walletconnect/types';
 import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
@@ -111,7 +111,6 @@ export type IDBWallet = IDBBaseObjectWithName & {
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
   hiddenWallets?: IDBWallet[]; // readonly field
-  deviceType?: string;
   isTemp?: boolean;
   passphraseState?: string;
   walletNo: number;
@@ -166,7 +165,9 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   indexedAccountId?: string;
   coinType: string;
   impl: string; // single chain account belongs to network impl
-  networks?: string[]; // single chain account belongs to certain networks
+  // single chain account belongs to certain networks, check keyring options: onlyAvailableOnCertainNetworks
+  networks?: string[];
+  // single chain account auto change to createAtNetwork when network not compatible and networks not defined
   createAtNetwork?: string;
   template?: string;
 };
@@ -190,26 +191,18 @@ export type IDBVariantAccount = IDBBaseAccount & {
   // UTXO: relPath -> address
   addresses: Record<string, string>;
 };
-export type IDBExternalAccountWalletConnectInfo = {
-  topic: string;
-  peerMeta: SignClientTypes.Metadata | undefined;
-  // how to check this account is connected by deeplink redirect at same device,
-  //      but not qrcode scan from another device
-  mobileLink?: string; // StorageUtil.setDeepLinkWallet(data?.wallet?.mobile_link);
-  connectedAddresses: {
-    [networkId: string]: string; // TODO change to string[]
-  };
-  selectedAddress: {
-    [networkId: string]: number;
-  };
+export type IDBAccountAddressesMap = {
+  [networkIdOrImpl: string]: string; // multiple address join(',')
 };
 export type IDBExternalAccount = IDBVariantAccount & {
   address: string; // always be empty if walletconnect account
-  wcInfoRaw?: string;
-  wcInfo?: IDBExternalAccountWalletConnectInfo; // readonly field, json parse from wcInfoRaw
-  wcTopic?: string;
+
+  connectionInfoRaw: string | undefined;
+  connectionInfo?: IExternalConnectionInfo; // readonly field, json parse from connectionInfoRaw
+
+  // TODO merge with addresses
   connectedAddresses: {
-    [networkId: string]: string; // multiple address join(',')
+    [networkIdOrImpl: string]: string; // multiple address join(',')
   };
   selectedAddress: {
     [networkId: string]: number;

@@ -12,16 +12,19 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useSelectedAccount,
@@ -39,6 +42,7 @@ type IWalletGroup = {
 
 const wallets: IWalletGroup[] = [
   {
+    title: 'WalletConnect Wallets',
     data: [
       {
         // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=metamask
@@ -99,68 +103,38 @@ const wallets: IWalletGroup[] = [
   },
 ];
 
-function WalletItem({ logo, name }: { name?: string; logo: any }) {
-  const [loading, setLoading] = useState(false);
-  const navigation = useAppNavigation();
-  const actions = useAccountSelectorActions();
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
+function WalletItemViewSection({
+  title,
+  children,
+}: {
+  title: string | undefined;
+  children: React.ReactNode;
+}) {
+  return (
+    <Stack p="$5">
+      {title ? (
+        <Heading pb="$2.5" color="$textSubdued" size="$headingSm">
+          {title}
+        </Heading>
+      ) : null}
+      <XStack flexWrap="wrap" mx="$-1">
+        {children}
+      </XStack>
+    </Stack>
+  );
+}
 
-  useEffect(() => {
-    if (!loading) {
-      return;
-    }
-    const fn = (state: { open: boolean }) => {
-      if (state.open === false) {
-        setLoading(false);
-      }
-    };
-    appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
-    };
-  }, [loading]);
-
-  const connectToWallet = useCallback(async () => {
-    try {
-      console.log('WalletItem onPress');
-      if (loading) {
-        return;
-      }
-
-      setLoading(true);
-
-      const session =
-        await backgroundApiProxy.serviceWalletConnect.connectToWallet();
-      console.log('connected', session?.namespaces);
-      if (!session) {
-        setLoading(false);
-        return;
-      }
-      const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
-        wcSession: session,
-      });
-      const account = r.accounts[0];
-      const usedNetworkId = accountUtils.getAccountCompatibleNetwork({
-        account,
-        networkId: selectedAccount.networkId,
-      });
-      await actions.current.updateSelectedAccount({
-        num: 0,
-        builder: (v) => ({
-          ...v,
-          networkId: usedNetworkId,
-          focusedWallet: '$$others',
-          walletId: WALLET_TYPE_EXTERNAL,
-          othersWalletAccountId: account.id,
-          indexedAccountId: undefined,
-        }),
-      });
-      navigation.popStack();
-    } finally {
-      setLoading(false);
-    }
-  }, [actions, loading, navigation, selectedAccount.networkId]);
-
+function WalletItemView({
+  onPress,
+  logo,
+  name,
+  loading,
+}: {
+  onPress: () => void;
+  logo: any;
+  name: string;
+  loading: boolean;
+}) {
   return (
     <Stack
       flexBasis="50%"
@@ -184,7 +158,7 @@ function WalletItem({ logo, name }: { name?: string; logo: any }) {
         pressStyle={{
           bg: '$bgActive',
         }}
-        onPress={connectToWallet}
+        onPress={onPress}
         focusable
         focusStyle={{
           outlineColor: '$focusRing',
@@ -216,24 +190,121 @@ function WalletItem({ logo, name }: { name?: string; logo: any }) {
   );
 }
 
+function WalletItem({
+  logo,
+  name,
+  connection,
+}: {
+  name?: string;
+  logo: any;
+  connection: IExternalConnectionInfo;
+}) {
+  const [loading, setLoading] = useState(false);
+  const navigation = useAppNavigation();
+  const actions = useAccountSelectorActions();
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
+
+  useEffect(() => {
+    if (!loading) {
+      return;
+    }
+    const fn = (state: { open: boolean }) => {
+      if (state.open === false) {
+        setLoading(false);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
+    };
+  }, [loading]);
+
+  const connectToWallet = useCallback(async () => {
+    try {
+      console.log('WalletItem onPress');
+      if (loading) {
+        return;
+      }
+
+      setLoading(true);
+      const connectResult =
+        await backgroundApiProxy.serviceDappSide.connectExternalWallet({
+          connectionInfo: connection,
+        });
+
+      const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
+        connectResult,
+      });
+      const account = r.accounts[0];
+      const usedNetworkId = accountUtils.getAccountCompatibleNetwork({
+        account,
+        networkId: account.createAtNetwork || selectedAccount.networkId,
+      });
+      await actions.current.updateSelectedAccount({
+        num: 0,
+        builder: (v) => ({
+          ...v,
+          networkId: usedNetworkId,
+          focusedWallet: '$$others',
+          walletId: WALLET_TYPE_EXTERNAL,
+          othersWalletAccountId: account.id,
+          indexedAccountId: undefined,
+        }),
+      });
+      navigation.popStack();
+    } finally {
+      setLoading(false);
+    }
+  }, [actions, connection, loading, navigation, selectedAccount.networkId]);
+
+  return (
+    <WalletItemView
+      onPress={connectToWallet}
+      loading={loading}
+      logo={logo}
+      name={name || 'unknown'}
+    />
+  );
+}
+
 export function ConnectWallet() {
+  const { result: allWallets = { wallets: {} } } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceDappSide.listAllWallets({ impls: [IMPL_EVM] }),
+    [],
+  );
   return (
     <Page scrollEnabled>
       <Page.Header title="Connect 3rd-party Wallet" />
       <Page.Body>
+        <WalletItemViewSection title="EVM-EIP6963 (injected)">
+          {allWallets?.wallets?.[IMPL_EVM]?.map((item, index) => {
+            const { name, icon, connectionInfo } = item;
+            return (
+              <WalletItem
+                key={index}
+                logo={icon}
+                name={name || 'unknown'}
+                connection={connectionInfo}
+              />
+            );
+          })}
+        </WalletItemViewSection>
+
+        {/* WalletConnect Wallets */}
         {wallets.map(({ title, data }, index) => (
-          <Stack key={index} p="$5">
-            {title ? (
-              <Heading pb="$2.5" color="$textSubdued" size="$headingSm">
-                {title}
-              </Heading>
-            ) : null}
-            <XStack flexWrap="wrap" mx="$-1">
-              {data.map(({ name, logo }, i) => (
-                <WalletItem name={name} logo={logo} key={i} />
-              ))}
-            </XStack>
-          </Stack>
+          <WalletItemViewSection key={index} title={title}>
+            {data.map(({ name, logo }, i) => (
+              <WalletItem
+                name={name}
+                logo={logo}
+                key={i}
+                connection={{
+                  walletConnect: true as any, // use boolean to indicate walletConnect connection
+                }}
+              />
+            ))}
+          </WalletItemViewSection>
         ))}
       </Page.Body>
     </Page>

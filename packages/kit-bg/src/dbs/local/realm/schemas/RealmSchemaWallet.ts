@@ -25,8 +25,6 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public associatedDevice?: string;
 
-  public deviceType?: string;
-
   public isTemp?: boolean;
 
   public passphraseState?: string;
@@ -49,7 +47,6 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
         objectType: 'int',
       },
       associatedDevice: 'string?',
-      deviceType: 'string?',
       isTemp: { type: 'bool', default: false },
       passphraseState: 'string?',
     },
@@ -70,7 +67,6 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
         Object.entries(Object(this.nextAccountIds)),
       ),
       associatedDevice: this.associatedDevice,
-      deviceType: this.deviceType,
       isTemp: this.isTemp,
       passphraseState: this.passphraseState,
     };

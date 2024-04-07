@@ -3,6 +3,7 @@ import { memo, useMemo } from 'react';
 
 import type {
   IImageFallbackProps,
+  IImageLoadingProps,
   IImageProps,
   ISkeletonProps,
   SizeTokens,
@@ -53,6 +54,8 @@ export interface IAccountAvatarProps extends IImageProps {
   account?: INetworkAccount;
   dbAccount?: IDBAccount;
   indexedAccount?: IDBIndexedAccount;
+  loading?: ReactElement;
+  loadingProps?: IImageLoadingProps;
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
 }
@@ -102,6 +105,8 @@ function BasicAccountAvatar({
   account,
   indexedAccount,
   dbAccount,
+  loading,
+  loadingProps,
   fallback,
   fallbackProps,
   circular,
@@ -141,15 +146,26 @@ function BasicAccountAvatar({
     const finalAccount = account || dbAccount;
     if (finalAccount) {
       if (accountUtils.isExternalAccount({ accountId: finalAccount.id })) {
-        const wcPeerMeta = (finalAccount as IDBExternalAccount).wcInfo
-          ?.peerMeta;
+        const externalAccount = finalAccount as IDBExternalAccount;
+        const wcPeerMeta =
+          externalAccount?.connectionInfo?.walletConnect?.peerMeta;
         const wcSrc = wcPeerMeta?.icons?.[0];
         if (wcSrc) {
           return <Image.Source src={wcSrc} />;
         }
+
+        // TODO move account avatar icon calculation to getAccount() in background
+        const externalWalletIcon =
+          externalAccount?.connectionInfo?.evmEIP6963?.info?.icon ||
+          externalAccount?.connectionInfo?.evmInjected?.icon ||
+          externalAccount?.connectionInfo?.walletConnect?.peerMeta?.icons?.[0];
+        if (externalWalletIcon) {
+          return <Image.Source src={externalWalletIcon} />;
+        }
+
         // some dapps don't provide icons, fallback to walletconnect icon
         // TODO use wcPeerMeta.name or wcPeerMeta.url to find wallet icon
-        if (wcPeerMeta) {
+        if (wcPeerMeta || externalAccount?.connectionInfo?.walletConnect) {
           return (
             <Image.Source
               source={require('@onekeyhq/kit/assets/onboarding/logo_walletconnect.png')}
@@ -163,14 +179,32 @@ function BasicAccountAvatar({
         emptyAccountAvatar
       );
     }
-    if (source || src) {
+    if (source || src || fallbackProps) {
       return <Image.Source src={src} source={source} />;
     }
+
     return emptyAccountAvatar;
-  }, [account, address, dbAccount, indexedAccount, source, src]);
+  }, [account, address, dbAccount, fallbackProps, indexedAccount, source, src]);
+
+  const renderLoading = useMemo(() => {
+    if (loading || loadingProps) {
+      return loading || loadingProps ? (
+        <Image.Loading {...loadingProps} />
+      ) : null;
+    }
+    return null;
+  }, [loading, loadingProps]);
 
   const renderFallback = useMemo(() => {
-    if (address || indexedAccount || account || source || src) {
+    if (
+      address ||
+      indexedAccount ||
+      account ||
+      source ||
+      src ||
+      loadingProps ||
+      loading
+    ) {
       return (
         fallback ||
         (fallbackProps ? (
@@ -188,12 +222,11 @@ function BasicAccountAvatar({
     fallback,
     fallbackProps,
     indexedAccount,
+    loading,
+    loadingProps,
     source,
     src,
   ]);
-
-  // return <Image.Source src={src} source={source} />;
-  // }, [account, address, dbAccount, indexedAccount, source, src]);
 
   return (
     <Stack
@@ -214,6 +247,7 @@ function BasicAccountAvatar({
       >
         {renderContent}
         {renderFallback}
+        {renderLoading}
       </Image>
 
       {networkId ? (
