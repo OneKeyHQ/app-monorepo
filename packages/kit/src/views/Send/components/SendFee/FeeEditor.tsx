@@ -143,13 +143,14 @@ function FeeEditor(props: IProps) {
               >
                 {item.label}
               </SizableText>
-              <SizableText
+              <NumberSizeableText
                 color={currentFeeIndex === index ? '$text' : '$textSubdued'}
                 size="$bodySm"
                 textAlign="center"
+                formatter="value"
               >
                 {getFeePriceNumber({ feeInfo: item.feeInfo })}
-              </SizableText>
+              </NumberSizeableText>
             </YStack>
           ),
         }))}
@@ -160,7 +161,6 @@ function FeeEditor(props: IProps) {
 
   const renderFeeEditorForm = useCallback(() => {
     if (currentFeeType !== EFeeType.Custom) return null;
-    console.log('customFee', customFee);
 
     if (customFee.gasEIP1559) {
       return (
@@ -270,13 +270,24 @@ function FeeEditor(props: IProps) {
       nativeValue: string;
       fiatValue: string;
     }[] = [];
-    if (customFee.gasEIP1559) {
+
+    const fee = (
+      sendSelectedFee.feeType === EFeeType.Custom
+        ? customFee
+        : selectedFee?.feeInfo
+    ) as IFeeInfoUnit;
+
+    if (fee.gasEIP1559) {
+      const limit =
+        sendSelectedFee.feeType === EFeeType.Custom
+          ? watchAllFields.gasLimit
+          : fee.gasEIP1559.gasLimitForDisplay;
       const expectedFeeInNative = new BigNumber(watchAllFields.priorityFee || 0)
-        .times(watchAllFields.gasLimit || 0)
+        .times(limit || 0)
         .shiftedBy(-feeDecimals);
       const maxFeeInNative = new BigNumber(watchAllFields.maxBaseFee || 0)
         .plus(watchAllFields.priorityFee || 0)
-        .times(watchAllFields.gasLimit || 0)
+        .times(limit || 0)
         .shiftedBy(-feeDecimals);
 
       feeInfoItems = [
@@ -297,25 +308,29 @@ function FeeEditor(props: IProps) {
       <Stack space="$4" p="$5" pt="0">
         <YStack>
           {feeInfoItems.map((feeInfo, index) => (
-            <XStack key={index}>
+            <XStack
+              key={index}
+              justifyContent="space-between"
+              alignItems="center"
+            >
               <SizableText size="$bodyMd" color="$textSubdued">
                 {feeInfo.label}
               </SizableText>
-              <XStack>
+              <XStack alignItems="center" space="$1">
                 <NumberSizeableText
-                  formatter="balance"
-                  formatterOptions={{ tokenSymbol: nativeSymbol }}
+                  formatter="value"
+                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
                   size="$bodyMd"
                   color="$textSubdued"
                 >
                   {feeInfo.fiatValue}
                 </NumberSizeableText>
                 <NumberSizeableText
-                  formatter="value"
-                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol: nativeSymbol }}
                   size="$bodyMdMedium"
                 >
-                  {feeInfo.fiatValue}
+                  {feeInfo.nativeValue}
                 </NumberSizeableText>
               </XStack>
             </XStack>
@@ -327,12 +342,14 @@ function FeeEditor(props: IProps) {
       </Stack>
     );
   }, [
-    customFee.gasEIP1559,
+    customFee,
     feeDecimals,
     handleApplyFeeInfo,
     intl,
     nativeSymbol,
     nativeTokenPrice,
+    selectedFee?.feeInfo,
+    sendSelectedFee.feeType,
     settings.currencyInfo.symbol,
     watchAllFields.gasLimit,
     watchAllFields.maxBaseFee,

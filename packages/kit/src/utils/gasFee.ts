@@ -106,11 +106,9 @@ export function calculateTotalFeeRange({
 export function calculateTotalFeeNative({
   amount, // in GWEI
   feeInfo,
-  displayDecimal = 8,
 }: {
   amount: string | BigNumber;
   feeInfo: IFeeInfoUnit;
-  displayDecimal?: number;
 }) {
   const { common } = feeInfo;
 
@@ -126,20 +124,16 @@ export function calculateTotalFeeNative({
         nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
       ),
     ) // onChainValue -> nativeAmount
-    .toFixed(displayDecimal);
+    .toFixed();
 }
 
 export function calculateFeeForSend({
   feeInfo,
   nativeTokenPrice,
   txSize,
-  nativeDisplayDecimal = 8,
-  fiatDisplayDecimal = 2,
 }: {
   feeInfo: IFeeInfoUnit;
   nativeTokenPrice: number;
-  nativeDisplayDecimal?: number;
-  fiatDisplayDecimal?: number;
   txSize?: number;
 }) {
   const feeRange = calculateTotalFeeRange({
@@ -151,19 +145,17 @@ export function calculateFeeForSend({
   const totalNative = calculateTotalFeeNative({
     amount: total,
     feeInfo,
-    displayDecimal: nativeDisplayDecimal,
   });
   const totalNativeForDisplay = calculateTotalFeeNative({
     amount: totalForDisplay,
     feeInfo,
-    displayDecimal: nativeDisplayDecimal,
   });
   const totalFiat = new BigNumber(totalNative)
     .multipliedBy(nativeTokenPrice)
-    .toFixed(fiatDisplayDecimal);
+    .toFixed();
   const totalFiatForDisplay = new BigNumber(totalNativeForDisplay)
     .multipliedBy(nativeTokenPrice)
-    .toFixed(fiatDisplayDecimal);
+    .toFixed();
 
   return {
     total,

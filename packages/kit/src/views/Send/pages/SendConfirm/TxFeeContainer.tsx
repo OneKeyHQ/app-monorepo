@@ -5,7 +5,13 @@ import { isEmpty, set } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
-import { Popover, SizableText, Skeleton, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  Popover,
+  SizableText,
+  Skeleton,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -316,19 +322,34 @@ function TxFeeContainer(props: IProps) {
         title="Fee Estimate"
         content={
           txFeeInit.current ? (
-            `${selectedFee?.totalNativeForDisplay ?? '0.00'} ${
-              gasFee?.common.nativeSymbol ?? ''
-            }`
+            <NumberSizeableText
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: gasFee?.common.nativeSymbol,
+              }}
+              size="$bodyMdMedium"
+              color="$text"
+              numberOfLines={2}
+            >
+              {selectedFee?.totalNativeForDisplay ?? '0.00'}
+            </NumberSizeableText>
           ) : (
             <Skeleton height="$5" width="$40" />
           )
         }
         subContent={
-          txFeeInit.current
-            ? `${settings.currencyInfo.symbol}${
-                selectedFee?.totalFiatForDisplay ?? '0.00'
-              }`
-            : ''
+          txFeeInit.current ? (
+            <NumberSizeableText
+              size="$bodyMdMedium"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            >
+              {selectedFee?.totalFiatForDisplay ?? '0.00'}
+            </NumberSizeableText>
+          ) : (
+            ''
+          )
         }
         contentAdd={
           <Popover
