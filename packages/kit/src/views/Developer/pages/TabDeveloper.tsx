@@ -81,13 +81,12 @@ function ExternalAccountSign() {
     <PartContainer title="ExternalAccountSign">
       <Button
         onPress={async () => {
-          const r =
-            await backgroundApiProxy.serviceWalletConnect.testExternalAccountPersonalSign(
-              {
-                networkId: activeAccount.network?.id || '',
-                accountId: activeAccount.account?.id || '',
-              },
-            );
+          const r = await backgroundApiProxy.serviceAccount.testEvmPersonalSign(
+            {
+              networkId: activeAccount.network?.id || '',
+              accountId: activeAccount.account?.id || '',
+            },
+          );
           Toast.success({
             title: `Personal Sign success: ${r}`,
           });

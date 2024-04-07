@@ -103,6 +103,7 @@ function SegmentControlFrame({
     >
       {options.map(({ label, value: v }, index) => (
         <SegmentControlItem
+          key={index}
           label={label}
           value={v}
           active={value === v}

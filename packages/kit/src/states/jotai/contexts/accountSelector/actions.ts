@@ -481,7 +481,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         createWalletFn: async () => {
           let { wallet, device, indexedAccount } =
             await this.createHWWallet.call(set, params);
-          // add hidden wallet if device passphrase enabled
+          // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
           if (device && device.featuresInfo?.passphrase_protection) {
             // wait previous action done, wait device ready
             if (!params.hideCheckingDeviceLoading) {

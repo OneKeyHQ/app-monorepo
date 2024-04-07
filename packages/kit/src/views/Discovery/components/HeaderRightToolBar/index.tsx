@@ -89,7 +89,7 @@ function AvatarStackTrigger({
   return (
     <XStack role="button" testID="multi-avatar">
       {accounts?.slice(0, 2).map((account, index) => (
-        <Stack borderWidth={2} borderColor="$bgApp" ml="$-0.5">
+        <Stack key={index} borderWidth={2} borderColor="$bgApp" ml="$-0.5">
           <AccountAvatar
             key={account?.account.id}
             account={account.account}
@@ -236,8 +236,9 @@ function HeaderRightToolBar() {
     if (connectedAccountsInfo.length === 1) {
       return (
         <>
-          {connectedAccountsInfo.map((accountInfo) => (
+          {connectedAccountsInfo.map((accountInfo, index) => (
             <AccountSelectorProviderMirror
+              key={index}
               config={{
                 sceneName: EAccountSelectorSceneName.discover,
                 sceneUrl: origin ?? '',

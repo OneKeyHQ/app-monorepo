@@ -50,8 +50,12 @@ export function MatchSizeableText({
     <SizableText {...props}>{result}</SizableText>
   ) : (
     <SizableText {...props}>
-      {result.map(({ text, isMatch }) => (
-        <SizableText {...props} {...(isMatch ? matchTextStyle : undefined)}>
+      {result.map(({ text, isMatch }, index) => (
+        <SizableText
+          key={index}
+          {...props}
+          {...(isMatch ? matchTextStyle : undefined)}
+        >
           {text}
         </SizableText>
       ))}

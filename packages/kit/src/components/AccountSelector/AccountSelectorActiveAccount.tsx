@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
   Button,
@@ -92,6 +92,15 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { account } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
+  const logActiveAccount = useCallback(() => {
+    console.log({
+      selectedAccount,
+      addressDetail: activeAccount?.account?.addressDetail,
+      activeAccount,
+      walletAvatar: activeAccount?.wallet?.avatar,
+    });
+    console.log(activeAccount?.wallet?.avatar);
+  }, [activeAccount, selectedAccount]);
 
   // show address if account has an address
   if (account?.address) {
@@ -104,13 +113,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
             alignItems="center"
             onPress={() => {
               copyText(account.address);
-              console.log({
-                selectedAccount,
-                addressDetail: activeAccount?.account?.addressDetail,
-                activeAccount,
-                walletAvatar: activeAccount?.wallet?.avatar,
-              });
-              console.log(activeAccount?.wallet?.avatar);
+              logActiveAccount();
             }}
             py="$1"
             px="$2"
@@ -147,9 +150,23 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     );
   }
 
-  // show nothing if account has not an address
+  // show nothing if account exists, but has not an address
   if (account) {
     return null;
+  }
+
+  if (
+    !account &&
+    selectedAccount.othersWalletAccountId &&
+    !selectedAccount.indexedAccountId
+  ) {
+    return (
+      <XStack onPress={() => logActiveAccount()}>
+        <SizableText size="$bodyMd" color="$textCaution">
+          Network not matched
+        </SizableText>
+      </XStack>
+    );
   }
 
   // show create button if account not exists

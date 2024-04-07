@@ -28,6 +28,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
         const { message } = item;
         return (
           <Alert
+            key={index}
             type="critical"
             description={message}
             {...(index !== 0 && {
@@ -41,6 +42,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     const { message, alertLevel } = item;
     return (
       <Alert
+        key={index}
         type={alertLevel === ESwapAlertLevel.WARNING ? 'warning' : 'default'}
         description={message}
         {...(index !== 0 && {

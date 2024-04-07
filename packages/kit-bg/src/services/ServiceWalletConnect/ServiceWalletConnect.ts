@@ -18,12 +18,13 @@ import {
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
   ICaipsInfo,
-  IChainInfo,
   INamespaceUnion,
   IWalletConnectAddressString,
+  IWalletConnectChainInfo,
   IWalletConnectChainString,
   IWalletConnectOptionalNamespaces,
   IWalletConnectRequiredNamespaces,
+  IWalletConnectSession,
   IWcChainAddress,
 } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
@@ -49,7 +50,7 @@ class ServiceWalletConnect extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  connectToWallet() {
+  connectToWallet(): Promise<IWalletConnectSession> {
     return this.dappSide.connectToWallet();
   }
 
@@ -78,8 +79,9 @@ class ServiceWalletConnect extends ServiceBase {
     return this.dappSide.testExternalAccountPersonalSign({
       address: account.address,
       wcChain: chainData?.wcChain || '',
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      topic: (account as IDBExternalAccount).wcTopic!,
+      topic:
+        (account as IDBExternalAccount).connectionInfo?.walletConnect?.topic ||
+        '',
       account: account as IDBExternalAccount,
     });
   }
@@ -88,7 +90,7 @@ class ServiceWalletConnect extends ServiceBase {
   @backgroundMethod()
   async getChainData(
     walletConnectChainId?: IWalletConnectChainString,
-  ): Promise<IChainInfo | undefined> {
+  ): Promise<IWalletConnectChainInfo | undefined> {
     if (!walletConnectChainId || !walletConnectChainId.includes(':')) {
       throw new Error(
         `WalletConnect ChainId not valid: ${walletConnectChainId || ''}`,
@@ -103,14 +105,14 @@ class ServiceWalletConnect extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllChains(): Promise<IChainInfo[]> {
+  async getAllChains(): Promise<IWalletConnectChainInfo[]> {
     return this._getAllChains();
   }
 
   _getAllChains = memoizee(
     async () => {
       const { serviceNetwork } = this.backgroundApi;
-      let chainInfos: IChainInfo[] = [];
+      let chainInfos: IWalletConnectChainInfo[] = [];
 
       for (const [networkImpl, namespace] of Object.entries(
         implToNamespaceMap,
@@ -118,7 +120,7 @@ class ServiceWalletConnect extends ServiceBase {
         const { networks } = await serviceNetwork.getNetworksByImpls({
           impls: [networkImpl],
         });
-        const infos = networks.map<IChainInfo>((n) => {
+        const infos = networks.map<IWalletConnectChainInfo>((n) => {
           let caipsInfo: ICaipsInfo | undefined;
           const caipsItem = caipsToNetworkMap[namespace];
           if (caipsItem) {
@@ -152,6 +154,20 @@ class ServiceWalletConnect extends ServiceBase {
   async getChainDataByNetworkId({ networkId }: { networkId: string }) {
     const allChains = await this.getAllChains();
     return allChains.find((chain) => chain.networkId === networkId);
+  }
+
+  @backgroundMethod()
+  async getWcChainByNetworkId({ networkId }: { networkId: string }) {
+    const chainData = await this.getChainDataByNetworkId({
+      networkId,
+    });
+    const wcChain = chainData?.wcChain;
+    if (!wcChain) {
+      throw new Error(
+        `getWcChainByNetworkId ERROR: wcChain not found ${networkId}`,
+      );
+    }
+    return wcChain;
   }
 
   // ----------------------------------------------

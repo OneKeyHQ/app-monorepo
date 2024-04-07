@@ -97,6 +97,7 @@ export function WalletListItem({
         {walletElement}
         {hiddenWallets.map((hiddenWallet, index) => (
           <WalletListItem
+            key={index}
             wallet={hiddenWallet}
             focusedWallet={focusedWallet}
             onWalletPress={onWalletPress}
