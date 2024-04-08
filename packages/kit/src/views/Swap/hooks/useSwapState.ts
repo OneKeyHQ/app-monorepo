@@ -32,6 +32,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapSilenceQuoteLoading,
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -483,6 +484,7 @@ function useSwapWarningCheck() {
 
 export function useSwapActionState() {
   const [quoteFetching] = useSwapQuoteFetchingAtom();
+  const [silenceQuoteLoading] = useSwapSilenceQuoteLoading();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [buildTxFetching] = useSwapBuildTxFetchingAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -503,7 +505,7 @@ export function useSwapActionState() {
       disable: !(!hasError && !!quoteCurrentSelect),
       label: 'Swap',
     };
-    if (quoteFetching) {
+    if (quoteFetching || silenceQuoteLoading) {
       infoRes.label = 'Fetching quotes';
     } else {
       if (isCrossChain && fromToken && toToken) {
@@ -540,6 +542,7 @@ export function useSwapActionState() {
     isCrossChain,
     quoteCurrentSelect,
     quoteFetching,
+    silenceQuoteLoading,
     selectedFromTokenBalance,
     swapFromAddressInfo.address,
     swapQuoteApproveAllowanceUnLimit,
@@ -549,7 +552,7 @@ export function useSwapActionState() {
   const stepState: ISwapState = {
     label: actionInfo.label,
     rateDifference,
-    isLoading: quoteFetching || buildTxFetching,
+    isLoading: quoteFetching || buildTxFetching || silenceQuoteLoading,
     disabled: actionInfo.disable,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,

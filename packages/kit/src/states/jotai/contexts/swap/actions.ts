@@ -34,6 +34,7 @@ import {
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSilenceQuoteLoading,
   swapSlippagePercentageAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
@@ -235,13 +236,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), false);
+          set(swapQuoteListAtom(), res);
         } else {
-          set(swapQuoteFetchingAtom(), true);
+          set(swapSilenceQuoteLoading(), true);
           setTimeout(() => {
-            set(swapQuoteFetchingAtom(), false);
+            set(swapSilenceQuoteLoading(), false);
+            set(swapQuoteListAtom(), res);
           }, 800);
         }
-        set(swapQuoteListAtom(), res);
       } catch (e: any) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {

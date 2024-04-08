@@ -5,6 +5,7 @@ import {
   useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSilenceQuoteLoading,
   useSwapSlippagePopoverOpeningAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -33,6 +34,7 @@ const SwapQuoteResult = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
 
   const [quoteFetching] = useSwapQuoteFetchingAtom();
+  const [silenceQuoteLoading] = useSwapSilenceQuoteLoading();
 
   const [, setSwapSlippagePopOverOpening] = useSwapSlippagePopoverOpeningAtom();
 
@@ -42,12 +44,12 @@ const SwapQuoteResult = ({
         <SwapApproveAllowanceSelectContainer
           allowanceResult={quoteResult.allowanceResult}
           fromTokenSymbol={fromToken?.symbol ?? ''}
-          isLoading={quoteFetching}
+          isLoading={quoteFetching || silenceQuoteLoading}
         />
       ) : null}
       <SwapProviderInfoItem
         providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
-        isLoading={quoteFetching}
+        isLoading={quoteFetching || silenceQuoteLoading}
         rate={quoteResult.instantRate}
         fromToken={fromToken}
         toToken={toToken}
@@ -59,7 +61,7 @@ const SwapQuoteResult = ({
       />
       {!quoteResult.allowanceResult ? (
         <SwapSlippageTriggerContainer
-          isLoading={quoteFetching}
+          isLoading={quoteFetching || silenceQuoteLoading}
           renderPopoverContent={() => (
             <SwapProviderMirror>
               <SwapSlippageContentContainer />
@@ -73,7 +75,7 @@ const SwapQuoteResult = ({
       {quoteResult.fee?.estimatedFeeFiatValue ? (
         <SwapCommonInfoItem
           title="Est network fee"
-          isLoading={quoteFetching}
+          isLoading={quoteFetching || silenceQuoteLoading}
           valueComponent={
             <NumberSizeableText
               size="$bodyMdMedium"

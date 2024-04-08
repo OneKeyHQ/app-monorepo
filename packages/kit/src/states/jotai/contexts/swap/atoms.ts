@@ -88,6 +88,11 @@ export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
   contextAtom<boolean>(false);
 
 export const {
+  atom: swapSilenceQuoteLoading,
+  use: useSwapSilenceQuoteLoading,
+} = contextAtom<boolean>(false);
+
+export const {
   atom: swapQuoteCurrentSelectAtom,
   use: useSwapQuoteCurrentSelectAtom,
 } = contextAtomComputed((get) => {

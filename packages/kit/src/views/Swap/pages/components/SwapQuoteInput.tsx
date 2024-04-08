@@ -10,6 +10,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
+  useSwapSilenceQuoteLoading,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { ISwapState } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
@@ -34,6 +35,7 @@ const SwapQuoteInput = ({
   const { fetchLoading } = useSwapNetworkList();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [quoteFetching] = useSwapQuoteFetchingAtom();
+  const [silenceQuoteLoading] = useSwapSilenceQuoteLoading();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const { alternationToken } = useSwapActions().current;
@@ -74,7 +76,7 @@ const SwapQuoteInput = ({
         <SwapInputContainer
           swapActionState={swapActionState}
           token={toToken}
-          inputLoading={quoteFetching}
+          inputLoading={quoteFetching || silenceQuoteLoading}
           selectTokenLoading={fetchLoading}
           direction={ESwapDirectionType.TO}
           amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
