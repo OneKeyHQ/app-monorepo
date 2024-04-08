@@ -23,8 +23,10 @@ const SwapTxHistoryViewInBrowser = ({
 }: ISwapTxHistoryViewInBrowserProps) => {
   const intl = useIntl();
   const isSingleChainSwap = useMemo(
-    () => item.baseInfo.fromNetwork?.id === item.baseInfo.toNetwork?.id,
-    [item.baseInfo.fromNetwork?.id, item.baseInfo.toNetwork?.id],
+    () =>
+      item.baseInfo.fromNetwork?.networkId ===
+      item.baseInfo.toNetwork?.networkId,
+    [item.baseInfo.fromNetwork?.networkId, item.baseInfo.toNetwork?.networkId],
   );
   const isSocketBridgeSwap = useMemo(
     () => !!item.swapInfo.socketBridgeScanUrl,
