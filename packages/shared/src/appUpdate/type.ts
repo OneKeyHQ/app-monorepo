@@ -28,7 +28,7 @@ export interface IExt {
   minVersion?: number[];
 }
 
-export type IChangelog = {
+export type IChangeLog = {
   locale: Record<ILocaleSymbol, string>;
   version: string;
 };
@@ -42,7 +42,7 @@ export interface IDesktop {
   macX64: string;
   macARM: string;
   win: string;
-  changelog: IChangelog[];
+  changelog: IChangeLog[];
   mas: string;
   msStore: string;
   snapStore: string;
@@ -50,7 +50,7 @@ export interface IDesktop {
 
 export interface IPackageChangelog {
   version: string;
-  locale: IChangelog;
+  locale: IChangeLog;
 }
 
 export interface IAppUpdateInfoData {
@@ -77,7 +77,7 @@ export interface IAppUpdateInfo {
   // is force update required
   isForceUpdate: boolean;
   // change log text
-  changeLog?: string;
+  changeLog?: IChangeLog;
 }
 
 export type IHandleReleaseInfo = (

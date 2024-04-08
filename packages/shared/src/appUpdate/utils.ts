@@ -13,10 +13,10 @@ export const getVersionAndChangeLog = (
   changeLogs: IPackageChangelog[],
 ) => {
   const latestVersion = (miniVersion ?? minVersion ?? version)?.join('.');
-  const changelog = changeLogs?.find((v) => v.version === latestVersion);
+  const changeLog = changeLogs?.find((v) => v.version === latestVersion);
   return {
     latestVersion,
-    changelog,
+    changeLog: changeLog?.locale,
     isForceUpdate: !!(miniVersion ?? minVersion),
   };
 };

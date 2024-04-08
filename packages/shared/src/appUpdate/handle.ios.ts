@@ -4,5 +4,5 @@ import type { IHandleReleaseInfo } from './type';
 
 export const handleReleaseInfo: IHandleReleaseInfo = (releaseInfo) => ({
   ...getVersionAndChangeLog(releaseInfo.ios, releaseInfo.changelog),
-  appStoreUrl: releaseInfo.ios.url,
+  storeUrl: releaseInfo.ios.url,
 });
