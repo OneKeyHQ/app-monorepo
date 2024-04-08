@@ -3,9 +3,12 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Input } from '@onekeyhq/components';
+import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useLocaleOptions() {
   const intl = useIntl();
@@ -25,13 +28,27 @@ export function useLocaleOptions() {
   return localeOptions;
 }
 
-export function useResetApp() {
+const inAppStateLockStyle: {
+  sheetProps: IDialogProps['sheetProps'];
+  floatingPanelProps: IDialogProps['floatingPanelProps'];
+} = {
+  sheetProps: {
+    zIndex: RESET_OVERLAY_Z_INDEX,
+  },
+  floatingPanelProps: {
+    zIndex: RESET_OVERLAY_Z_INDEX,
+  },
+};
+export function useResetApp(params?: { inAppStateLock: boolean }) {
+  const { inAppStateLock = false } = params || {};
   const intl = useIntl();
   return useCallback(() => {
     Dialog.show({
+      ...(inAppStateLock ? inAppStateLockStyle : undefined),
       title: intl.formatMessage({ id: 'action__reset' }),
       icon: 'ErrorOutline',
       tone: 'destructive',
+      modal: inAppStateLock && !platformEnv.isNative,
       description:
         'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "RESET" to reset the App',
       renderContent: (
@@ -45,7 +62,7 @@ export function useResetApp() {
               autoFocus
               flex={1}
               testID="erase-data-input"
-              placeholder={intl.formatMessage({ id: 'action__reset' })}
+              placeholder="RESET"
             />
           </Dialog.FormField>
         </Dialog.Form>
@@ -65,5 +82,5 @@ export function useResetApp() {
         void backgroundApiProxy.serviceApp.resetApp();
       },
     });
-  }, [intl]);
+  }, [inAppStateLock, intl]);
 }

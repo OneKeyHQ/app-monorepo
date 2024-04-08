@@ -8,6 +8,7 @@ export enum EDAppConnectionModal {
   'WalletConnectSessionProposalModal' = 'WalletConnectSessionProposalModal',
   'SignMessageModal' = 'SignMessageModal',
   'CurrentConnectionModal' = 'CurrentConnectionModal',
+  'DefaultWalletSettingsModal' = 'DefaultWalletSettingsModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -25,4 +26,5 @@ export type IDAppConnectionModalParamList = {
     origin: string;
     faviconUrl: string;
   };
+  [EDAppConnectionModal.DefaultWalletSettingsModal]: undefined;
 };

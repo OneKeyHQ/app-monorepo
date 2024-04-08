@@ -60,7 +60,7 @@ function DesktopCustomTabBarItem({
         },
         displayDisconnectOption && {
           label: intl.formatMessage({ id: 'action__disconnect' }),
-          icon: 'CrossedLargeOutline',
+          icon: 'BrokenLinkOutline',
           onPress: () => {
             void onDisconnect(tab?.url);
           },
@@ -82,6 +82,7 @@ function DesktopCustomTabBarItem({
   );
   return (
     <DesktopTabItem
+      showAvatar
       key={id}
       selected={isActive}
       onPress={() => onPress(id)}

@@ -1,18 +1,21 @@
 import {
+  createRef,
   forwardRef,
   useCallback,
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { JsBridgeNativeHost } from '@onekeyfe/onekey-cross-webview';
-import { StyleSheet } from 'react-native';
+import { RefreshControl, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
@@ -45,12 +48,17 @@ const NativeWebView = forwardRef(
       onLoad,
       onLoadEnd,
       onScroll,
-      webviewHeight,
+      pullToRefreshEnabled = true,
       ...props
     }: INativeWebViewProps,
     ref,
   ) => {
     const webviewRef = useRef<WebView>();
+    const refreshControlRef = useMemo(() => createRef<RefreshControl>(), []);
+    const [isRefresh] = useState(false);
+    const onRefresh = useCallback(() => {
+      webviewRef.current?.reload();
+    }, []);
 
     const jsBridge = useMemo(
       () =>
@@ -133,9 +141,9 @@ const NativeWebView = forwardRef(
 
     const renderLoading = useCallback(() => <Stack />, []);
 
-    return (
+    const renderWebView = (
       <WebView
-        style={[styles.container, { height: webviewHeight }]}
+        style={styles.container}
         originWhitelist={['*']}
         allowFileAccess
         allowFileAccessFromFileURLs
@@ -158,10 +166,48 @@ const NativeWebView = forwardRef(
         onLoadEnd={onLoadEnd}
         renderError={renderError}
         renderLoading={renderLoading}
-        onScroll={onScroll}
+        pullToRefreshEnabled={pullToRefreshEnabled}
+        onScroll={(e) => {
+          if (platformEnv.isNativeAndroid && pullToRefreshEnabled) {
+            const {
+              contentOffset,
+              contentSize,
+              contentInset,
+              layoutMeasurement,
+            } = e.nativeEvent;
+            // @ts-expect-error
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+            refreshControlRef?.current?._nativeRef?.setNativeProps?.({
+              enabled:
+                contentOffset?.y === 0 &&
+                Math.round(contentSize.height) >
+                  Math.round(
+                    layoutMeasurement.height +
+                      contentInset.top +
+                      contentInset.bottom,
+                  ),
+            });
+          }
+          void onScroll?.(e);
+        }}
         scrollEventThrottle={16}
+        webviewDebuggingEnabled={__DEV__}
         {...props}
       />
+    );
+
+    return platformEnv.isNativeAndroid && pullToRefreshEnabled ? (
+      <RefreshControl
+        ref={refreshControlRef}
+        style={{ flex: 1 }}
+        onRefresh={onRefresh}
+        refreshing={isRefresh}
+        enabled={false}
+      >
+        {renderWebView}
+      </RefreshControl>
+    ) : (
+      renderWebView
     );
   },
 );

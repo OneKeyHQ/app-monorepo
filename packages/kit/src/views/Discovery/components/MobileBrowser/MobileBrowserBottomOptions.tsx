@@ -64,12 +64,14 @@ function MobileBrowserBottomOptions({
         },
         displayDisconnectOption && {
           label: intl.formatMessage({ id: 'action__disconnect' }),
-          icon: 'CompassCircleOutline',
+          icon: 'BrokenLinkOutline',
           onPress: () => onDisconnect(),
           testID: 'action-list-item-disconnect-in-browser',
         },
         {
-          label: intl.formatMessage({ id: 'form__close_tab' }),
+          label: intl.formatMessage({
+            id: isPinned ? 'action__close_pin_tab' : 'form__close_tab',
+          }),
           icon: 'CrossedLargeOutline',
           onPress: () => onCloseTab(),
           testID: 'action-list-item-close-tab-in-browser',

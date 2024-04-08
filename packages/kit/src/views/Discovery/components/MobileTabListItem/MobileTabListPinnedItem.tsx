@@ -1,4 +1,11 @@
-import { Icon, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 
@@ -50,6 +57,9 @@ function MobileTabListPinnedItem({
           <Image.Fallback delayMs={100}>
             <Icon name="GlobusOutline" size="$4" />
           </Image.Fallback>
+          <Image.Loading>
+            <Skeleton width="100%" height="100%" />
+          </Image.Loading>
         </Image>
         <SizableText flex={1} size="$bodySm" numberOfLines={1} ml="$2">
           {tab?.title || ''}

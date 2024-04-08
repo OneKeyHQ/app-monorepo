@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
   type ISwapApproveTransaction,
 } from '@onekeyhq/shared/types/swap/types';
 
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import { ETabRoutes } from '../../../routes/Tab/type';
 import {
   useSwapActions,
   useSwapApproveAllowanceSelectOpenAtom,

@@ -8,16 +8,21 @@ const ConnectionList = LazyLoadPage(() => import('../pages/ConnectionList'));
 
 const ConnectionModal = LazyLoadPage(() => import('../pages/ConnectionModal'));
 
-const CurrentConnectionModal = LazyLoadPage(
-  () => import('../pages/CurrentConnectionModal'),
-);
-
 const SignMessageModal = LazyLoadPage(
   () => import('../pages/SignMessageModal'),
 );
 
 const WalletConnectSessionProposalModal = LazyLoadPage(
   () => import('../pages/WalletConnect/WCSessionProposalModal'),
+);
+
+// For Extension Only
+const CurrentConnectionModal = LazyLoadPage(
+  () => import('../pages/CurrentConnectionModal'),
+);
+
+const DefaultWalletSettingsModal = LazyLoadPage(
+  () => import('../pages/DefaultWalletSettingsModal'),
 );
 
 export const DAppConnectionRouter: IModalFlowNavigatorConfig<
@@ -43,5 +48,9 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.CurrentConnectionModal,
     component: CurrentConnectionModal,
+  },
+  {
+    name: EDAppConnectionModal.DefaultWalletSettingsModal,
+    component: DefaultWalletSettingsModal,
   },
 ];

@@ -38,7 +38,7 @@ abstract class ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ): void;
 
-  public abstract rpcCall(request: IJsonRpcRequest): any;
+  public abstract rpcCall(request: IJsBridgeMessagePayload): any;
 
   async handleMethods(payload: IJsBridgeMessagePayload) {
     const { data } = payload;
@@ -64,7 +64,7 @@ abstract class ProviderApiBase {
     if (methodFunc) {
       return methodFunc.call(this, payload, ...paramsArr);
     }
-    return this.rpcCall(request);
+    return this.rpcCall(payload);
 
     // TODO
     //  exists methods

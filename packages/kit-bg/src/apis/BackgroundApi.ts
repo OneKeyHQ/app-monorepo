@@ -3,6 +3,7 @@
 
 // eslint-disable-next-line import/order
 
+import externalWalletFactory from '../connectors/externalWalletFactory';
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
@@ -14,6 +15,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
     super();
     vaultFactory.setBackgroundApi(this);
+    externalWalletFactory.setBackgroundApi(this);
     void this.serviceBootstrap.init();
   }
 
@@ -252,6 +254,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceDappSide() {
+    const ServiceDappSide =
+      require('../services/ServiceDappSide') as typeof import('../services/ServiceDappSide');
+    const value = new ServiceDappSide.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDappSide', { value });
+    return value;
+  }
+
   get serviceWalletConnect() {
     const ServiceWalletConnect =
       require('../services/ServiceWalletConnect') as typeof import('../services/ServiceWalletConnect');
@@ -329,6 +341,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceLogger', { value });
+    return value;
+  }
+
+  get serviceContextMenu() {
+    const ServiceContextMenu =
+      require('../services/ServiceContextMenu') as typeof import('../services/ServiceContextMenu');
+    const value = new ServiceContextMenu.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceContextMenu', { value });
     return value;
   }
 }

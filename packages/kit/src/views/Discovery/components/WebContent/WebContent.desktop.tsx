@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import {
   useBrowserAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
@@ -14,11 +14,7 @@ import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
 import type { IElectronWebView } from '../WebView/types';
-import type {
-  DidStartNavigationEvent,
-  PageFaviconUpdatedEvent,
-  PageTitleUpdatedEvent,
-} from 'electron';
+import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 import type { WebViewProps } from 'react-native-webview';
 
 type IWebContentProps = IWebTab &
@@ -109,17 +105,7 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     },
     [id, addBrowserHistory, onNavigation],
   );
-  const onPageFaviconUpdated = useCallback(
-    ({ favicons }: PageFaviconUpdatedEvent) => {
-      if (favicons.length > 0) {
-        onNavigation({
-          id,
-          favicon: favicons[0],
-        });
-      }
-    },
-    [id, onNavigation],
-  );
+  const onPageFaviconUpdated = useCallback(() => {}, []);
   const onDomReady = useCallback(() => {
     const ref = webviewRefs[id] as IElectronWebView;
     // @ts-expect-error

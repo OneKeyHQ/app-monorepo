@@ -90,6 +90,7 @@ function HardwareSingletonDialogCmp(
     title.current = 'Enter Passphrase';
     content.current = (
       <EnterPhase
+        isSingleInput={!!state?.payload?.passphraseState}
         onConfirm={async ({ passphrase }) => {
           await serviceHardware.sendPassphraseToDevice({
             passphrase,

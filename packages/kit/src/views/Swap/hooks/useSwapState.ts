@@ -216,9 +216,7 @@ function useSwapWarningCheck() {
     if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
       const fromTokenPrice = new BigNumber(fromToken.price);
       const toTokenPrice = new BigNumber(toToken.price);
-      const marketingRate = fromTokenPrice
-        .dividedBy(toTokenPrice)
-        .decimalPlaces(6);
+      const marketingRate = fromTokenPrice.dividedBy(toTokenPrice);
       const quoteRateBN = new BigNumber(quoteResult.instantRate);
       const difference = quoteRateBN
         .dividedBy(marketingRate)

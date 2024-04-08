@@ -1,8 +1,7 @@
 import type { ComponentType } from 'react';
 
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
-
-import { EGalleryRoutes } from '../routes';
+import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 
 const ComponentsScreen = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components'),
@@ -368,6 +367,13 @@ const LoggerGallery = LazyLoadPage(
     ),
 );
 
+const ChainSelectorGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ChainSelector'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -522,5 +528,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentLogger,
     component: LoggerGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentChainSelector,
+    component: ChainSelectorGallery,
   },
 ];

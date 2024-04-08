@@ -9,6 +9,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  IFuseResult,
+  buildFuse,
+} from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -104,7 +108,7 @@ class ServiceDiscovery extends ServiceBase {
     }>('/utility/v1/discover/dapp/list', {
       params: {
         cursor: listParams.cursor,
-        limit: listParams.limit ?? 20,
+        limit: listParams.limit ?? 30,
         category: listParams.category,
         network: listParams.network,
       },
@@ -183,14 +187,14 @@ class ServiceDiscovery extends ServiceBase {
   ): Promise<IBrowserHistory[]> {
     const { generateIcon, sliceCount, keyword } = options ?? {};
     const data = await this.backgroundApi.simpleDb.browserHistory.getRawData();
-    let dataSource = data?.data ?? [];
+    let dataSource: IBrowserHistory[] = data?.data ?? [];
     if (keyword) {
-      const fuse = new Fuse(dataSource, {
-        keys: ['title', 'url'],
-      });
-      dataSource = fuse
-        .search(options?.keyword ?? 'uniswap')
-        .map((i) => i.item);
+      const fuse = buildFuse(dataSource, { keys: ['title', 'url'] });
+      dataSource = fuse.search(options?.keyword ?? 'uniswap').map((i) => ({
+        ...i.item,
+        titleMatch: i.matches?.find((v) => v.key === 'title'),
+        urlMatch: i.matches?.find((v) => v.key === 'url'),
+      }));
     }
     if (isNumber(sliceCount)) {
       dataSource = dataSource.slice(0, sliceCount);

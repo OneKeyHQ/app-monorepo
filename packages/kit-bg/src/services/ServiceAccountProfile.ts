@@ -53,23 +53,36 @@ class ServiceAccountProfile extends ServiceBase {
   public async validateAddress(
     params: IAddressNetworkIdParams,
   ): Promise<IAddressValidateStatus> {
+    const { networkId, address } = params;
     try {
       const client = await this.getClient();
       const resp = await client.get<{
         data: IAddressValidation;
       }>('/wallet/v1/account/validate-address', {
-        params: { networkId: params.networkId, accountAddress: params.address },
+        params: { networkId, accountAddress: address },
       });
       return resp.data.data.isValid ? 'valid' : 'invalid';
-    } catch (e) {
-      defaultLogger.addressInput.request.logRequestUnknownError(
-        (e as Error).message,
-      );
-      return 'unknown';
+    } catch (serverError) {
+      try {
+        const localValidation =
+          await this.backgroundApi.serviceValidator.validateAddress({
+            networkId,
+            address,
+          });
+        return localValidation.isValid ? 'valid' : 'invalid';
+      } catch (localError) {
+        console.error('failed to validateAddress', serverError, localError);
+        defaultLogger.addressInput.validation.failWithUnknownError({
+          networkId,
+          address,
+          serverError: (serverError as Error).message,
+          localError: (localError as Error).message,
+        });
+        return 'unknown';
+      }
     }
   }
 
-  @backgroundMethod()
   private async getAddressInteractionStatus({
     networkId,
     fromAddress,
@@ -98,7 +111,6 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
   private async checkAccountInteractionStatus({
     networkId,
     accountId,

@@ -12,6 +12,7 @@ import {
   Icon,
   IconButton,
   Image,
+  MatchSizeableText,
   SizableText,
   Stack,
   Unspaced,
@@ -21,6 +22,7 @@ import type { IIconButtonProps } from '@onekeyhq/components/src/actions';
 import type {
   IIconProps,
   IImageFallbackProps,
+  IImageLoadingProps,
   IImageProps,
   ISizableTextProps,
   IStackProps,
@@ -29,6 +31,7 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 
 import { AccountAvatar } from '../AccountAvatar';
 
@@ -90,6 +93,8 @@ export type IListItemAvatarProps = PropsWithChildren<
   {
     account?: IDBIndexedAccount | IDBAccount;
     avatar?: ReactElement;
+    loading?: ReactElement;
+    loadingProps?: IImageLoadingProps;
     fallback?: ReactElement;
     fallbackProps?: IImageFallbackProps;
     cornerIconProps?: IListItemAvatarCornerIconProps;
@@ -122,6 +127,8 @@ interface IListItemTextProps extends IStackProps {
   align?: 'left' | 'center' | 'right';
   primaryTextProps?: ISizableTextProps;
   secondaryTextProps?: ISizableTextProps;
+  primaryMatch?: IFuseResultMatch;
+  secondaryMatch?: IFuseResultMatch;
 }
 
 const ListItemText = (props: IListItemTextProps) => {
@@ -131,6 +138,8 @@ const ListItemText = (props: IListItemTextProps) => {
     align = 'left',
     primaryTextProps,
     secondaryTextProps,
+    primaryMatch,
+    secondaryMatch,
     ...rest
   } = props;
 
@@ -144,38 +153,57 @@ const ListItemText = (props: IListItemTextProps) => {
     return 'flex-end';
   };
 
-  const renderPrimary = useCallback(
-    () =>
-      isValidElement(primary) ? (
-        primary
-      ) : (
-        <SizableText
+  const renderPrimary = useCallback(() => {
+    if (isValidElement(primary)) {
+      return primary;
+    }
+    if (primaryMatch) {
+      return (
+        <MatchSizeableText
           textAlign={align}
           size="$bodyLgMedium"
+          match={primaryMatch}
           {...primaryTextProps}
         >
-          {primary}
-        </SizableText>
-      ),
-    [align, primary, primaryTextProps],
-  );
+          {primary as string}
+        </MatchSizeableText>
+      );
+    }
+    return (
+      <SizableText textAlign={align} size="$bodyLgMedium" {...primaryTextProps}>
+        {primary}
+      </SizableText>
+    );
+  }, [align, primary, primaryMatch, primaryTextProps]);
 
-  const renderSecondary = useCallback(
-    () =>
-      isValidElement(secondary) ? (
-        secondary
-      ) : (
-        <SizableText
+  const renderSecondary = useCallback(() => {
+    if (isValidElement(secondary)) {
+      return secondary;
+    }
+    if (secondaryMatch) {
+      return (
+        <MatchSizeableText
           size="$bodyMd"
           color="$textSubdued"
           textAlign={align}
+          match={secondaryMatch}
           {...secondaryTextProps}
         >
-          {secondary}
-        </SizableText>
-      ),
-    [align, secondary, secondaryTextProps],
-  );
+          {secondary as string}
+        </MatchSizeableText>
+      );
+    }
+    return (
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        textAlign={align}
+        {...secondaryTextProps}
+      >
+        {secondary}
+      </SizableText>
+    );
+  }, [align, primary, secondary, secondaryMatch, secondaryTextProps]);
 
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
@@ -224,8 +252,10 @@ const ListItemSeparator = () => <Divider mx="$5" />;
 /* ListItem */
 export type IListItemProps = PropsWithChildren<{
   title?: string;
+  titleMatch?: IFuseResultMatch;
   titleProps?: IListItemTextProps['primaryTextProps'];
   subtitle?: string;
+  subTitleMatch?: IFuseResultMatch;
   subtitleProps?: IListItemTextProps['secondaryTextProps'];
   avatarProps?: IListItemAvatarProps;
   renderAvatar?: ComponentType | ReactElement;
@@ -273,6 +303,8 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
     renderAvatar,
     renderIcon,
     renderItemText,
+    titleMatch,
+    subTitleMatch,
     ...rest
   } = props;
 
@@ -326,12 +358,14 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
         (title || subtitle) && {
           flex: 1,
           primary: title,
+          primaryMatch: titleMatch,
           primaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...titleProps,
             testID: `list-item-title-${rest.testID || ''}`,
           },
           secondary: subtitle,
+          secondaryMatch: subTitleMatch,
           secondaryTextProps: {
             ...(props.onPress && { userSelect: 'none' }),
             ...subtitleProps,
