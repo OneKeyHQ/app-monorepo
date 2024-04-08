@@ -133,9 +133,11 @@ export function ChunkedItemsView({
                   : undefined
               }
               $gtMd={{
+                p: '$5',
                 flexBasis: '50%',
               }}
               $gtLg={{
+                p: '$5',
                 flexBasis: '33.3333%',
               }}
               onPress={() =>
