@@ -83,7 +83,7 @@ export function ItemsContainer({
 }
 
 // There is a slight issue with the space calculation in tamagui, it needs to be resolved by upgrading the version.
-const patchFixMdBrowserStyleMl = (itemLength: number) =>
+const patchFixMdBrowserMarginLeft = (itemLength: number) =>
   platformEnv.isRuntimeBrowser && itemLength > 1 ? '$-3' : undefined;
 
 export function ChunkedItemsView({
@@ -95,7 +95,7 @@ export function ChunkedItemsView({
     <ItemsContainer
       mx="$-5"
       $md={{
-        ml: patchFixMdBrowserStyleMl(dataChunks.length),
+        ml: patchFixMdBrowserMarginLeft(dataChunks.length),
       }}
       horizontal={!isExploreView}
       contentContainerStyle={{
