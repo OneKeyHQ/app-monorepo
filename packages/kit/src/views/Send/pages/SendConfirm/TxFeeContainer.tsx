@@ -168,10 +168,12 @@ function TxFeeContainer(props: IProps) {
         if (customFee?.gas && gasFee.gas) {
           customFeeInfo.gas = {
             ...customFee.gas,
-            gasLimit: customFee.gas.gasLimit ?? gasFee.gas[0].gasLimit,
+            gasLimit:
+              customFee.gas.gasLimit ??
+              gasFee.gas[sendSelectedFee.presetIndex].gasLimit,
             gasLimitForDisplay:
               customFee.gas.gasLimitForDisplay ??
-              gasFee.gas[0].gasLimitForDisplay,
+              gasFee.gas[sendSelectedFee.presetIndex].gasLimitForDisplay,
           };
         }
 
@@ -179,10 +181,11 @@ function TxFeeContainer(props: IProps) {
           customFeeInfo.gasEIP1559 = {
             ...customFee.gasEIP1559,
             gasLimit:
-              customFee.gasEIP1559.gasLimit ?? gasFee.gasEIP1559[0].gasLimit,
+              customFee.gasEIP1559.gasLimit ??
+              gasFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimit,
             gasLimitForDisplay:
               customFee.gasEIP1559.gasLimitForDisplay ??
-              gasFee.gasEIP1559[0].gasLimitForDisplay,
+              gasFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimitForDisplay,
           };
         }
 
@@ -210,6 +213,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.gasEIP1559,
     gasFee,
     intl,
+    sendSelectedFee.presetIndex,
     vaultSettings?.editFeeEnabled,
   ]);
 

@@ -213,7 +213,9 @@ export function getFeeConfidenceLevelStyle(confidence: number) {
 
 export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
   if (feeInfo.gasEIP1559) {
-    return feeInfo.gasEIP1559.maxFeePerGas;
+    return new BigNumber(feeInfo.gasEIP1559.baseFeePerGas || 0)
+      .plus(feeInfo.gasEIP1559.maxPriorityFeePerGas || 0)
+      .toFixed();
   }
 
   if (feeInfo.gas) {
