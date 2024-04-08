@@ -112,6 +112,28 @@ const SwapTokenSelectPage = () => {
     [type, updateSelectedAccountNetwork],
   );
 
+  const sameTokenDisabled = useCallback(
+    (token: ISwapToken) => {
+      if (type === ESwapDirectionType.FROM) {
+        return (
+          toToken?.contractAddress === token.contractAddress &&
+          toToken?.networkId === token.networkId
+        );
+      }
+      return (
+        fromToken?.contractAddress === token.contractAddress &&
+        fromToken?.networkId === token.networkId
+      );
+    },
+    [
+      fromToken?.contractAddress,
+      fromToken?.networkId,
+      toToken?.contractAddress,
+      toToken?.networkId,
+      type,
+    ],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => {
       const tokenItem: ITokenListItemProps = {
@@ -132,12 +154,16 @@ const SwapTokenSelectPage = () => {
               currency: settingsPersistAtom.currencyInfo.symbol,
             }
           : undefined,
-        onPress: () => onSelectToken(item),
+        onPress: !sameTokenDisabled(item)
+          ? () => onSelectToken(item)
+          : undefined,
+        disabled: sameTokenDisabled(item),
       };
       return <TokenListItem {...tokenItem} />;
     },
     [
       onSelectToken,
+      sameTokenDisabled,
       searchKeyword,
       currentSelectNetwork,
       settingsPersistAtom.currencyInfo.symbol,
@@ -193,7 +219,6 @@ const SwapTokenSelectPage = () => {
       <Page.Body>
         <NetworkToggleGroup
           onMoreNetwork={() => {
-            setSearchKeyword('');
             openChainSelector({
               networkIds: swapNetworks.map((item) => item.networkId),
               onSelect: (network) => {

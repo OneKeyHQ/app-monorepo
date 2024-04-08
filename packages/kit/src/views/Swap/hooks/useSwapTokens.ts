@@ -28,8 +28,8 @@ import { useSwapAddressInfo } from './useSwapAccount';
 
 export function useSwapNetworkList() {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
-  const [, setFromToken] = useSwapSelectFromTokenAtom();
-  const [, setToToken] = useSwapSelectToTokenAtom();
+  const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
+  const [toToken, setToToken] = useSwapSelectToTokenAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [defaultTokenLoading, setDefaultTokenLoading] = useState<boolean>(true);
   const { isLoading } = usePromiseResult(
@@ -70,7 +70,11 @@ export function useSwapNetworkList() {
   );
 
   useEffect(() => {
-    if (!swapAddressInfo.accountInfo?.ready || !swapAddressInfo.networkId) {
+    if (
+      !swapAddressInfo.accountInfo?.ready ||
+      !swapAddressInfo.networkId ||
+      isLoading
+    ) {
       return;
     }
     const accountNetwork = swapNetworks.find(
@@ -112,10 +116,18 @@ export function useSwapNetworkList() {
               (token) =>
                 token.contractAddress === accountNetwork.defaultSelectToken?.to,
             );
-            if (defaultFromToken) {
+            if (
+              defaultFromToken &&
+              (toToken?.networkId !== defaultFromToken.networkId ||
+                toToken?.contractAddress !== defaultFromToken.contractAddress)
+            ) {
               setFromToken(defaultFromToken);
             }
-            if (defaultToToken) {
+            if (
+              defaultToToken &&
+              (fromToken?.networkId !== defaultToToken.networkId ||
+                fromToken?.contractAddress !== defaultToToken.contractAddress)
+            ) {
               setToToken(defaultToToken);
             }
           } catch (e) {
@@ -129,7 +141,7 @@ export function useSwapNetworkList() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swapAddressInfo.accountInfo?.ready, swapNetworks]);
+  }, [swapAddressInfo.accountInfo?.ready, isLoading]);
 
   return { fetchLoading: isLoading || defaultTokenLoading };
 }

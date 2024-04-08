@@ -5,13 +5,12 @@ import BigNumber from 'bignumber.js';
 import { SizableText, YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapState, ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
   ESwapRateDifferenceUnit,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapActionState } from '../../hooks/useSwapState';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
@@ -27,10 +26,12 @@ interface ISwapInputContainerProps {
   inputLoading?: boolean;
   selectTokenLoading?: boolean;
   onBalanceMaxPress?: () => void;
+  swapActionState: ISwapState;
 }
 
 const SwapInputContainer = ({
   onAmountChange,
+  swapActionState,
   direction,
   token,
   amountValue,
@@ -45,7 +46,7 @@ const SwapInputContainer = ({
     type: direction,
   });
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const swapActionState = useSwapActionState();
+
   const amountPrice = useMemo(() => {
     if (!token?.price) return '0.0';
     const tokenPriceBN = new BigNumber(token.price ?? 0);

@@ -29,8 +29,6 @@ import type { IAccountDeriveInfo, IAccountDeriveTypes } from '../vaults/types';
 
 @backgroundClass()
 class ServiceAccountSelector extends ServiceBase {
-  private isSwapNetworkInit: Record<number, boolean> = {};
-
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -100,21 +98,10 @@ class ServiceAccountSelector extends ServiceBase {
           mergedByData: homeData,
         });
         if (swapDataMerged) {
-          let usedNetworkId =
+          const usedNetworkId =
             swapDataMerged.networkId ??
             swapMap[num]?.networkId ??
             homeData?.networkId;
-
-          if (!this.isSwapNetworkInit[num]) {
-            usedNetworkId =
-              homeData?.networkId ??
-              swapDataMerged.networkId ??
-              swapMap[num]?.networkId;
-          }
-
-          this.isSwapNetworkInit[num] = true;
-
-          console.log('usedNetworkId--', usedNetworkId);
           swapMap[num] = swapDataMerged;
           if (swapMap && swapMap[num]) {
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion

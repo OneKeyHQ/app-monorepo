@@ -29,6 +29,8 @@ import ServiceBase from './ServiceBase';
 export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
 
+  private _tokenListAbortController?: AbortController;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -39,6 +41,14 @@ export default class ServiceSwap extends ServiceBase {
     if (this._quoteAbortController) {
       this._quoteAbortController.abort();
       this._quoteAbortController = undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async cancelFetchTokenList() {
+    if (this._tokenListAbortController) {
+      this._tokenListAbortController.abort();
+      this._tokenListAbortController = undefined;
     }
   }
 
@@ -95,6 +105,7 @@ export default class ServiceSwap extends ServiceBase {
     accountNetworkId,
     accountXpub,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
+    await this.cancelFetchTokenList();
     const params = {
       protocol: EProtocolOfExchange.SWAP,
       networkId: networkId === 'all' ? undefined : networkId,
@@ -104,23 +115,31 @@ export default class ServiceSwap extends ServiceBase {
       accountNetworkId,
       accountXpub,
     };
+    this._tokenListAbortController = new AbortController();
     const client = await this.getClient();
     try {
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
         '/swap/v1/tokens',
         {
           params,
+          signal: this._tokenListAbortController.signal,
         },
       );
       return data?.data ?? [];
     } catch (e) {
-      const error = e as { message: string };
-      void this.backgroundApi.serviceApp.showToast({
-        method: 'error',
-        title: 'error',
-        message: error?.message,
-      });
-      return [];
+      if (axios.isCancel(e)) {
+        throw new Error('swap fetch token cancel', {
+          cause: ESwapFetchCancelCause.SWAP_TOKENS_CANCEL,
+        });
+      } else {
+        const error = e as { message: string };
+        void this.backgroundApi.serviceApp.showToast({
+          method: 'error',
+          title: 'error',
+          message: error?.message,
+        });
+        return [];
+      }
     }
   }
 

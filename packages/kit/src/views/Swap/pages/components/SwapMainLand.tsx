@@ -85,7 +85,10 @@ const SwapMainLoad = () => {
         }}
       >
         <SwapHeaderContainer />
-        <SwapQuoteInput onSelectToken={onSelectToken} />
+        <SwapQuoteInput
+          onSelectToken={onSelectToken}
+          swapActionState={swapActionState}
+        />
         {swapActionState.alerts?.length ? (
           <SwapAlertContainer alerts={swapActionState.alerts} />
         ) : null}
@@ -97,6 +100,7 @@ const SwapMainLoad = () => {
         ) : null}
       </YStack>
       <SwapActionsState
+        swapActionState={swapActionState}
         onBuildTx={onBuildTx}
         onApprove={onApprove}
         onWrapped={onWrapped}

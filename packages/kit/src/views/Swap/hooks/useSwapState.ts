@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { debounce } from 'lodash';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -9,8 +10,11 @@ import {
   swapRateDifferenceMin,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchQuoteResult,
   ISwapAlertState,
+  ISwapNetwork,
   ISwapState,
+  ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapAlertLevel,
@@ -45,316 +49,435 @@ function useSwapWarningCheck() {
   const [rateDifference, setRateDifference] = useState<
     { value: string; unit: ESwapRateDifferenceUnit } | undefined
   >();
-  const checkSwapWarning = useCallback(() => {
-    let alertsRes: ISwapAlertState[] = [];
-    let rateDifferenceRes:
-      | { value: string; unit: ESwapRateDifferenceUnit }
-      | undefined;
-    if (!networks.length || !swapFromAddressInfo.accountInfo?.ready) return;
-    // check account
-    if (!swapFromAddressInfo.accountInfo?.wallet) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: 'No connected wallet.',
-          alertLevel: ESwapAlertLevel.ERROR,
-        },
-      ];
-    }
 
+  const refContainer = useRef<{
+    fromToken?: ISwapToken;
+    fromTokenAmount: string;
+    networks: ISwapNetwork[];
+    quoteResult?: IFetchQuoteResult;
+    swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>;
+    swapSelectFromTokenBalance: string | undefined;
+    swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>;
+    toToken?: ISwapToken;
+  }>({
+    fromToken: undefined,
+    fromTokenAmount: '',
+    networks: [],
+    quoteResult: undefined,
+    swapFromAddressInfo: {
+      address: undefined,
+      networkId: undefined,
+      accountInfo: undefined,
+    },
+    swapSelectFromTokenBalance: undefined,
+    swapToAddressInfo: {
+      address: undefined,
+      networkId: undefined,
+      accountInfo: undefined,
+    },
+    toToken: undefined,
+  });
+
+  const asyncRefContainer = useCallback(() => {
+    if (refContainer.current.fromToken !== fromToken) {
+      refContainer.current.fromToken = fromToken;
+    }
+    if (refContainer.current.fromTokenAmount !== fromTokenAmount) {
+      refContainer.current.fromTokenAmount = fromTokenAmount;
+    }
+    if (refContainer.current.networks !== networks) {
+      refContainer.current.networks = networks;
+    }
+    if (refContainer.current.quoteResult !== quoteResult) {
+      refContainer.current.quoteResult = quoteResult;
+    }
+    if (refContainer.current.swapFromAddressInfo !== swapFromAddressInfo) {
+      refContainer.current.swapFromAddressInfo = swapFromAddressInfo;
+    }
+    if (refContainer.current.swapToAddressInfo !== swapToAddressInfo) {
+      refContainer.current.swapToAddressInfo = swapToAddressInfo;
+    }
     if (
-      fromToken &&
-      ((!swapFromAddressInfo.address &&
-        !accountUtils.isHdWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }) &&
-        !accountUtils.isHwWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        })) ||
-        swapFromAddressInfo.networkId !== fromToken.networkId)
+      refContainer.current.swapSelectFromTokenBalance !==
+      swapSelectFromTokenBalance
     ) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: `The connected wallet do not support ${
-            networks.find((net) => net.networkId === fromToken.networkId)
-              ?.name ?? 'unknown'
-          }. Try switch to another one.`,
-          alertLevel: ESwapAlertLevel.ERROR,
-        },
-      ];
+      refContainer.current.swapSelectFromTokenBalance =
+        swapSelectFromTokenBalance;
     }
-
-    if (
-      toToken &&
-      ((!swapToAddressInfo.address &&
-        !accountUtils.isHdWallet({
-          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-        }) &&
-        !accountUtils.isHwWallet({
-          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-        })) ||
-        swapToAddressInfo.networkId !== toToken.networkId)
-    ) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: `The connected wallet do not support ${
-            networks.find((net) => net.networkId === toToken.networkId)?.name ??
-            'unknown'
-          }. Try switch to another one.`,
-          alertLevel: ESwapAlertLevel.ERROR,
-        },
-      ];
+    if (refContainer.current.toToken !== toToken) {
+      refContainer.current.toToken = toToken;
     }
-
-    if (
-      fromToken &&
-      accountUtils.isWatchingWallet({
-        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-      })
-    ) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: `The connected wallet do not support swap. Try switch to another one.`,
-          alertLevel: ESwapAlertLevel.ERROR,
-        },
-      ];
-    }
-
-    if (
-      fromToken &&
-      !swapFromAddressInfo.address &&
-      (accountUtils.isHdWallet({
-        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-      }) ||
-        accountUtils.isHwWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }))
-    ) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: `${
-            swapFromAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
-          } - ${
-            swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
-          } lacks ${
-            swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
-          } address. Please try to create one.`,
-          alertLevel: ESwapAlertLevel.ERROR,
-        },
-      ];
-    }
-
-    if (
-      toToken &&
-      !swapToAddressInfo.address &&
-      (accountUtils.isHdWallet({
-        walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-      }) ||
-        accountUtils.isHwWallet({
-          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-        })) &&
-      swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
-    ) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: `${
-            swapToAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
-          } - ${
-            swapToAddressInfo.accountInfo?.accountName ?? 'unknown'
-          } lacks ${
-            swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
-          } address. Please try to create one.`,
-          alertLevel: ESwapAlertLevel.ERROR,
-        },
-      ];
-    }
-
-    // provider toAmount check
-    if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: 'No provider supports this trade.',
-          alertLevel: ESwapAlertLevel.ERROR,
-        },
-      ];
-    }
-
-    // provider best check
-    if (quoteResult?.toAmount && !quoteResult.isBest) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message:
-            'The current provider does not offer the best rate for this trade.',
-          alertLevel: ESwapAlertLevel.WARNING,
-        },
-      ];
-    }
-
-    // price check
-    if ((fromToken && !fromToken?.price) || (toToken && !toToken?.price)) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: `Failed to fetch ${
-            !fromToken?.price
-              ? fromToken?.name ?? fromToken?.symbol ?? 'unknown'
-              : toToken?.name ?? toToken?.symbol ?? 'unknown'
-          } price.You can still proceed with the trade.`,
-          alertLevel: ESwapAlertLevel.WARNING,
-        },
-      ];
-    }
-
-    // market rate check
-    if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
-      const fromTokenPrice = new BigNumber(fromToken.price);
-      const toTokenPrice = new BigNumber(toToken.price);
-      const marketingRate = fromTokenPrice.dividedBy(toTokenPrice);
-      const quoteRateBN = new BigNumber(quoteResult.instantRate);
-      const difference = quoteRateBN
-        .dividedBy(marketingRate)
-        .minus(1)
-        .multipliedBy(100);
-      if (difference.absoluteValue().gte(swapRateDifferenceMin)) {
-        let unit = ESwapRateDifferenceUnit.POSITIVE;
-        if (difference.isNegative()) {
-          if (difference.lte(swapRateDifferenceMax)) {
-            unit = ESwapRateDifferenceUnit.NEGATIVE;
-          } else {
-            unit = ESwapRateDifferenceUnit.DEFAULT;
-          }
-        }
-        rateDifferenceRes = {
-          value: `(${difference.isPositive() ? '+' : ''}${
-            numberFormat(difference.toFixed(), {
-              formatter: 'priceChange',
-            }) as string
-          })`,
-          unit,
-        };
-      }
-      if (quoteRateBN.isZero()) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `100% value drop! High price impact may cause your asset loss.`,
-            alertLevel: ESwapAlertLevel.WARNING,
-          },
-        ];
-      } else if (difference.lt(swapRateDifferenceMax)) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `${
-              numberFormat(difference.absoluteValue().toFixed(), {
-                formatter: 'priceChange',
-              }) as string
-            } value drop! High price impact may cause your asset loss.`,
-            alertLevel: ESwapAlertLevel.WARNING,
-          },
-        ];
-      }
-    }
-
-    const fromTokenAmountBN = new BigNumber(fromTokenAmount);
-    // check min max amount
-    if (quoteResult && quoteResult.limit?.min) {
-      const minAmountBN = new BigNumber(quoteResult.limit.min);
-      if (fromTokenAmountBN.lt(minAmountBN)) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `The minimum amount for this swap is ${minAmountBN.toFixed()} ${
-              fromToken?.symbol ?? 'unknown'
-            }`,
-            alertLevel: ESwapAlertLevel.ERROR,
-            inputShowError: true,
-          },
-        ];
-      }
-    }
-    if (quoteResult && quoteResult.limit?.max) {
-      const maxAmountBN = new BigNumber(quoteResult.limit.max);
-      if (fromTokenAmountBN.gt(maxAmountBN)) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `The maximum amount for this swap is ${maxAmountBN.toFixed()} ${
-              fromToken?.symbol ?? 'unknown'
-            }`,
-            alertLevel: ESwapAlertLevel.ERROR,
-            inputShowError: true,
-          },
-        ];
-      }
-    }
-
-    const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
-    const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
-
-    const gasFeeBN = new BigNumber(
-      quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
-    );
-    if (
-      !(tokenFiatValueBN.isNaN() || tokenFiatValueBN.isZero()) &&
-      gasFeeBN.gt(tokenFiatValueBN)
-    ) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: 'Est Network fee exceeds swap amount, proceed with caution.',
-          alertLevel: ESwapAlertLevel.WARNING,
-        },
-      ];
-    }
-
-    if (
-      fromToken?.isNative &&
-      fromTokenAmountBN.isEqualTo(
-        new BigNumber(swapSelectFromTokenBalance ?? 0),
-      )
-    ) {
-      alertsRes = [
-        ...alertsRes,
-        {
-          message: `Network fee in ${fromToken.symbol} deducted automatically in the next step.`,
-          alertLevel: ESwapAlertLevel.INFO,
-        },
-      ];
-    }
-    setAlerts(alertsRes);
-    setRateDifference(rateDifferenceRes);
   }, [
     fromToken,
     fromTokenAmount,
     networks,
     quoteResult,
-    swapFromAddressInfo.accountInfo?.accountName,
-    swapFromAddressInfo.accountInfo?.network?.name,
-    swapFromAddressInfo.accountInfo?.ready,
-    swapFromAddressInfo.accountInfo?.wallet,
-    swapFromAddressInfo.address,
-    swapFromAddressInfo.networkId,
+    swapFromAddressInfo,
     swapSelectFromTokenBalance,
-    swapToAddressInfo.accountInfo?.accountName,
-    swapToAddressInfo.accountInfo?.network?.name,
-    swapToAddressInfo.accountInfo?.wallet?.id,
-    swapToAddressInfo.accountInfo?.wallet?.name,
-    swapToAddressInfo.address,
-    swapToAddressInfo.networkId,
+    swapToAddressInfo,
     toToken,
   ]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const checkSwapWarning = useCallback(
+    debounce(() => {
+      let alertsRes: ISwapAlertState[] = [];
+      let rateDifferenceRes:
+        | { value: string; unit: ESwapRateDifferenceUnit }
+        | undefined;
+      if (
+        !refContainer.current.networks.length ||
+        !refContainer.current.swapFromAddressInfo.accountInfo?.ready
+      )
+        return;
+      // check account
+      if (!refContainer.current.swapFromAddressInfo.accountInfo?.wallet) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: 'No connected wallet.',
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ];
+      }
+
+      if (
+        refContainer.current.fromToken &&
+        ((!refContainer.current.swapFromAddressInfo.address &&
+          !accountUtils.isHdWallet({
+            walletId:
+              refContainer.current.swapFromAddressInfo.accountInfo?.wallet?.id,
+          }) &&
+          !accountUtils.isHwWallet({
+            walletId:
+              refContainer.current.swapFromAddressInfo.accountInfo?.wallet?.id,
+          })) ||
+          refContainer.current.swapFromAddressInfo.networkId !==
+            refContainer.current.fromToken.networkId)
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: `The connected wallet do not support ${
+              refContainer.current.networks.find(
+                (net) =>
+                  net.networkId === refContainer.current.fromToken?.networkId,
+              )?.name ?? 'unknown'
+            }. Try switch to another one.`,
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ];
+      }
+
+      if (
+        refContainer.current.toToken &&
+        ((!refContainer.current.swapToAddressInfo.address &&
+          !accountUtils.isHdWallet({
+            walletId:
+              refContainer.current.swapToAddressInfo.accountInfo?.wallet?.id,
+          }) &&
+          !accountUtils.isHwWallet({
+            walletId:
+              refContainer.current.swapToAddressInfo.accountInfo?.wallet?.id,
+          })) ||
+          refContainer.current.swapToAddressInfo.networkId !==
+            refContainer.current.toToken.networkId)
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: `The connected wallet do not support ${
+              refContainer.current.networks.find(
+                (net) =>
+                  net.networkId === refContainer.current.toToken?.networkId,
+              )?.name ?? 'unknown'
+            }. Try switch to another one.`,
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ];
+      }
+
+      if (
+        refContainer.current.fromToken &&
+        accountUtils.isWatchingWallet({
+          walletId:
+            refContainer.current.swapFromAddressInfo.accountInfo?.wallet?.id,
+        })
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: `The connected wallet do not support swap. Try switch to another one.`,
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ];
+      }
+
+      if (
+        refContainer.current.fromToken &&
+        !refContainer.current.swapFromAddressInfo.address &&
+        (accountUtils.isHdWallet({
+          walletId:
+            refContainer.current.swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) ||
+          accountUtils.isHwWallet({
+            walletId:
+              refContainer.current.swapFromAddressInfo.accountInfo?.wallet?.id,
+          }))
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: `${
+              refContainer.current.swapFromAddressInfo.accountInfo?.wallet
+                ?.name ?? 'unknown'
+            } - ${
+              refContainer.current.swapFromAddressInfo.accountInfo
+                ?.accountName ?? 'unknown'
+            } lacks ${
+              refContainer.current.swapFromAddressInfo.accountInfo?.network
+                ?.name ?? 'unknown'
+            } address. Please try to create one.`,
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ];
+      }
+
+      if (
+        refContainer.current.toToken &&
+        !refContainer.current.swapToAddressInfo.address &&
+        (accountUtils.isHdWallet({
+          walletId:
+            refContainer.current.swapToAddressInfo.accountInfo?.wallet?.id,
+        }) ||
+          accountUtils.isHwWallet({
+            walletId:
+              refContainer.current.swapToAddressInfo.accountInfo?.wallet?.id,
+          })) &&
+        refContainer.current.swapFromAddressInfo.networkId !==
+          refContainer.current.swapToAddressInfo.networkId
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: `${
+              refContainer.current.swapToAddressInfo.accountInfo?.wallet
+                ?.name ?? 'unknown'
+            } - ${
+              refContainer.current.swapToAddressInfo.accountInfo?.accountName ??
+              'unknown'
+            } lacks ${
+              refContainer.current.swapToAddressInfo.accountInfo?.network
+                ?.name ?? 'unknown'
+            } address. Please try to create one.`,
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ];
+      }
+
+      // provider toAmount check
+      if (
+        refContainer.current.quoteResult &&
+        !refContainer.current.quoteResult?.toAmount &&
+        !refContainer.current.quoteResult?.limit
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: 'No provider supports this trade.',
+            alertLevel: ESwapAlertLevel.ERROR,
+          },
+        ];
+      }
+
+      // provider best check
+      if (
+        refContainer.current.quoteResult?.toAmount &&
+        !refContainer.current.quoteResult.isBest
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message:
+              'The current provider does not offer the best rate for this trade.',
+            alertLevel: ESwapAlertLevel.WARNING,
+          },
+        ];
+      }
+
+      // price check
+      if (
+        (refContainer.current.fromToken &&
+          !refContainer.current.fromToken?.price) ||
+        (refContainer.current.toToken && !refContainer.current.toToken?.price)
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: `Failed to fetch ${
+              !refContainer.current.fromToken?.price
+                ? refContainer.current.fromToken?.name ??
+                  refContainer.current.fromToken?.symbol ??
+                  'unknown'
+                : refContainer.current.toToken?.name ??
+                  refContainer.current.toToken?.symbol ??
+                  'unknown'
+            } price.You can still proceed with the trade.`,
+            alertLevel: ESwapAlertLevel.WARNING,
+          },
+        ];
+      }
+
+      // market rate check
+      if (
+        refContainer.current.fromToken?.price &&
+        refContainer.current.toToken?.price &&
+        refContainer.current.quoteResult?.instantRate
+      ) {
+        const fromTokenPrice = new BigNumber(
+          refContainer.current.fromToken.price,
+        );
+        const toTokenPrice = new BigNumber(refContainer.current.toToken.price);
+        const marketingRate = fromTokenPrice.dividedBy(toTokenPrice);
+        const quoteRateBN = new BigNumber(
+          refContainer.current.quoteResult.instantRate,
+        );
+        const difference = quoteRateBN
+          .dividedBy(marketingRate)
+          .minus(1)
+          .multipliedBy(100);
+        if (difference.absoluteValue().gte(swapRateDifferenceMin)) {
+          let unit = ESwapRateDifferenceUnit.POSITIVE;
+          if (difference.isNegative()) {
+            if (difference.lte(swapRateDifferenceMax)) {
+              unit = ESwapRateDifferenceUnit.NEGATIVE;
+            } else {
+              unit = ESwapRateDifferenceUnit.DEFAULT;
+            }
+          }
+          rateDifferenceRes = {
+            value: `(${difference.isPositive() ? '+' : ''}${
+              numberFormat(difference.toFixed(), {
+                formatter: 'priceChange',
+              }) as string
+            })`,
+            unit,
+          };
+        }
+        if (quoteRateBN.isZero()) {
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `100% value drop! High price impact may cause your asset loss.`,
+              alertLevel: ESwapAlertLevel.WARNING,
+            },
+          ];
+        } else if (difference.lt(swapRateDifferenceMax)) {
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `${
+                numberFormat(difference.absoluteValue().toFixed(), {
+                  formatter: 'priceChange',
+                }) as string
+              } value drop! High price impact may cause your asset loss.`,
+              alertLevel: ESwapAlertLevel.WARNING,
+            },
+          ];
+        }
+      }
+
+      const fromTokenAmountBN = new BigNumber(
+        refContainer.current.fromTokenAmount,
+      );
+      // check min max amount
+      if (
+        refContainer.current.quoteResult &&
+        refContainer.current.quoteResult.limit?.min
+      ) {
+        const minAmountBN = new BigNumber(
+          refContainer.current.quoteResult.limit.min,
+        );
+        if (fromTokenAmountBN.lt(minAmountBN)) {
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `The minimum amount for this swap is ${minAmountBN.toFixed()} ${
+                refContainer.current.fromToken?.symbol ?? 'unknown'
+              }`,
+              alertLevel: ESwapAlertLevel.ERROR,
+              inputShowError: true,
+            },
+          ];
+        }
+      }
+      if (
+        refContainer.current.quoteResult &&
+        refContainer.current.quoteResult.limit?.max
+      ) {
+        const maxAmountBN = new BigNumber(
+          refContainer.current.quoteResult.limit.max,
+        );
+        if (fromTokenAmountBN.gt(maxAmountBN)) {
+          alertsRes = [
+            ...alertsRes,
+            {
+              message: `The maximum amount for this swap is ${maxAmountBN.toFixed()} ${
+                refContainer.current.fromToken?.symbol ?? 'unknown'
+              }`,
+              alertLevel: ESwapAlertLevel.ERROR,
+              inputShowError: true,
+            },
+          ];
+        }
+      }
+
+      const fromTokenPriceBN = new BigNumber(
+        refContainer.current.fromToken?.price ?? 0,
+      );
+      const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
+
+      const gasFeeBN = new BigNumber(
+        refContainer.current.quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
+      );
+      if (
+        !(tokenFiatValueBN.isNaN() || tokenFiatValueBN.isZero()) &&
+        gasFeeBN.gt(tokenFiatValueBN)
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message:
+              'Est Network fee exceeds swap amount, proceed with caution.',
+            alertLevel: ESwapAlertLevel.WARNING,
+          },
+        ];
+      }
+
+      if (
+        refContainer.current.fromToken?.isNative &&
+        fromTokenAmountBN.isEqualTo(
+          new BigNumber(refContainer.current.swapSelectFromTokenBalance ?? 0),
+        )
+      ) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            message: `Network fee in ${refContainer.current.fromToken.symbol} deducted automatically in the next step.`,
+            alertLevel: ESwapAlertLevel.INFO,
+          },
+        ];
+      }
+      setAlerts(alertsRes);
+      setRateDifference(rateDifferenceRes);
+    }, 300),
+    [],
+  );
+
   useEffect(() => {
+    asyncRefContainer();
     checkSwapWarning();
-  }, [checkSwapWarning]);
+  }, [asyncRefContainer, checkSwapWarning]);
   return { alerts, rateDifference };
 }
 

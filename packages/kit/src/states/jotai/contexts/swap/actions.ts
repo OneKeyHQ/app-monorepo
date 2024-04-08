@@ -219,9 +219,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       fromTokenAmount: string,
       slippagePercentage: number,
       address?: string,
+      loadingDelayEnable?: boolean,
     ) => {
       try {
-        set(swapQuoteFetchingAtom(), true);
+        if (!loadingDelayEnable) {
+          set(swapQuoteFetchingAtom(), true);
+        }
         const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
           fromToken,
           toToken,
@@ -229,8 +232,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           userAddress: address,
           slippagePercentage,
         });
+
+        if (!loadingDelayEnable) {
+          set(swapQuoteFetchingAtom(), false);
+        } else {
+          set(swapQuoteFetchingAtom(), true);
+          setTimeout(() => {
+            set(swapQuoteFetchingAtom(), false);
+          }, 800);
+        }
         set(swapQuoteListAtom(), res);
-        set(swapQuoteFetchingAtom(), false);
       } catch (e: any) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
@@ -271,6 +282,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromTokenAmount,
           swapSlippage.value,
           address,
+          true,
         );
       }, swapQuoteFetchInterval);
     } else {
@@ -334,6 +346,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             fromTokenAmount,
             swapSlippage.value,
             address,
+            true,
           );
         }, swapQuoteFetchInterval);
       }

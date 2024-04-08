@@ -11,6 +11,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { ISwapState } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
@@ -23,9 +24,13 @@ import SwapInputContainer from './SwapInputContainer';
 
 interface ISwapQuoteInputProps {
   onSelectToken: (type: ESwapDirectionType) => void;
+  swapActionState: ISwapState;
 }
 
-const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
+const SwapQuoteInput = ({
+  onSelectToken,
+  swapActionState,
+}: ISwapQuoteInputProps) => {
   const { fetchLoading } = useSwapNetworkList();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [quoteFetching] = useSwapQuoteFetchingAtom();
@@ -42,6 +47,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   return (
     <YStack>
       <SwapInputContainer
+        swapActionState={swapActionState}
         token={fromToken}
         direction={ESwapDirectionType.FROM}
         selectTokenLoading={fetchLoading}
@@ -66,6 +72,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
           mb="$-3"
         />
         <SwapInputContainer
+          swapActionState={swapActionState}
           token={toToken}
           inputLoading={quoteFetching}
           selectTokenLoading={fetchLoading}
