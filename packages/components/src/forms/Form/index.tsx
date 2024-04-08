@@ -126,10 +126,6 @@ function Field({
           <HeightTransition>
             {error?.message ? (
               <SizableText
-                testID={`${testID}-message`}
-                key={error?.message}
-                color="$textCritical"
-                size="$bodyMd"
                 pt="$1.5"
                 animation="quick"
                 enterStyle={{
@@ -141,7 +137,14 @@ function Field({
                   y: -6,
                 }}
               >
-                {error.message}
+                <SizableText
+                  color="$textCritical"
+                  size="$bodyMd"
+                  key={error?.message}
+                  testID={`${testID}-message`}
+                >
+                  {error.message}
+                </SizableText>
               </SizableText>
             ) : null}
           </HeightTransition>
