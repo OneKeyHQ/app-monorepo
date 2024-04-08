@@ -134,16 +134,15 @@ function FinalizeWalletSetupPage({
           </AnimatePresence>
         </Stack>
         <AnimatePresence exitBeforeEnter>
-          <Stack key={currentStep}>
-            <Heading
-              mt="$5"
-              size="$headingMd"
-              animation="quick"
-              enterStyle={{
-                opacity: 0,
-                x: 12,
-              }}
-            >
+          <Stack
+            key={currentStep}
+            animation="quick"
+            enterStyle={{
+              opacity: 0,
+              x: 12,
+            }}
+          >
+            <Heading mt="$5" size="$headingMd">
               {steps[currentStep]}
             </Heading>
           </Stack>
