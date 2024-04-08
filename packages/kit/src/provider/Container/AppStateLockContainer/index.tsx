@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
-import { AnimatePresence, Portal } from '@onekeyhq/components';
+import { AnimatePresence } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -97,9 +97,6 @@ export function AppStateLockContainer({
           />
         ) : null}
       </AnimatePresence>
-      <Portal.Container
-        name={Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY}
-      />
     </>
   );
 }
