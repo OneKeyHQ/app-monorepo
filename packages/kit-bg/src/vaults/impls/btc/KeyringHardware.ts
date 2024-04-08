@@ -70,8 +70,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       refTxs: Object.values(prevTxs).map((i) => this.buildPrevTx(i)),
     };
 
-    console.log(signParams);
-
     const response = await sdk.btcSignTransaction(connectId, deviceId, {
       coin: coinName.toLowerCase(),
       inputs: await Promise.all(
