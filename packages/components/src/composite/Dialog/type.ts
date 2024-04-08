@@ -5,7 +5,7 @@ import type {
   ReactNode,
 } from 'react';
 
-import type { IPortalManager } from '../../hocs';
+import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
@@ -79,6 +79,7 @@ export type IDialogContainerProps = PropsWithChildren<
 
 export interface IDialogShowProps
   extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
+  portalContainer?: EPortalContainerConstantName;
   /* Run it after dialog is closed  */
   onClose?: (extra?: { flag?: string }) => void | Promise<void>;
 }
@@ -109,4 +110,7 @@ export type IDialogFormProps = PropsWithChildren<{
   formProps: UseFormProps;
 }>;
 
-export type IRenderToRoot = (element: ReactElement) => IPortalManager;
+export type IRenderToContainer = (
+  container: EPortalContainerConstantName,
+  element: ReactElement,
+) => IPortalManager;

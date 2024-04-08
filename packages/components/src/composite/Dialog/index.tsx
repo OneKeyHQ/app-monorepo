@@ -27,7 +27,7 @@ import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
-import { renderToRoot } from './renderToRoot';
+import { renderToContainer } from './renderToContainer';
 
 import type {
   IDialogCancelProps,
@@ -400,6 +400,7 @@ export const DialogContainer = forwardRef<
 function dialogShow({
   onClose,
   dialogContainer,
+  portalContainer,
   ...props
 }: IDialogShowProps & {
   dialogContainer?: (o: {
@@ -503,8 +504,8 @@ function dialogShow({
   })();
 
   portalRef = {
-    current: props.modal
-      ? renderToRoot(element)
+    current: portalContainer
+      ? renderToContainer(portalContainer, element)
       : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {

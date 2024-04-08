@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Input } from '@onekeyhq/components';
+import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
@@ -47,7 +47,9 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
       title: intl.formatMessage({ id: 'action__reset' }),
       icon: 'ErrorOutline',
       tone: 'destructive',
-      modal: inAppStateLock,
+      portalContainer: inAppStateLock
+        ? Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY
+        : undefined,
       description:
         'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "RESET" to reset the App',
       renderContent: (

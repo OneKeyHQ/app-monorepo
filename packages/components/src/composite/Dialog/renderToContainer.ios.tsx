@@ -1,9 +1,9 @@
 import { Portal } from '../../hocs';
 import { OverlayContainer } from '../../layouts/OverlayContainer';
 
-import type { IRenderToRoot } from './type';
+import type { IRenderToContainer } from './type';
 
-export const renderToRoot: IRenderToRoot = (element) =>
+export const renderToContainer: IRenderToContainer = (_, element) =>
   Portal.Render(
     Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
     <OverlayContainer>{element}</OverlayContainer>,
