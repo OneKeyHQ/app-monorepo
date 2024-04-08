@@ -1,6 +1,11 @@
 import type { PropsWithChildren } from 'react';
 
-import { SizableText, Stack, useSafeAreaInsets } from '@onekeyhq/components';
+import {
+  SizableText,
+  Stack,
+  YStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 import { DAppRiskyAlert } from './DAppRiskyAlert';
@@ -8,12 +13,14 @@ import { DAppSiteMark } from './DAppSiteMark';
 
 function DAppRequestLayout({
   title,
+  subtitle,
   origin,
   urlSecurityInfo,
   favicon,
   children,
 }: PropsWithChildren<{
   title: string;
+  subtitle: string;
   origin: string;
   urlSecurityInfo?: IHostSecurity;
   favicon?: string; // for WalletConnect
@@ -33,9 +40,14 @@ function DAppRequestLayout({
             urlSecurityInfo={urlSecurityInfo}
             favicon={favicon}
           />
-          <SizableText color="$text" size="$heading3xl">
-            {title}
-          </SizableText>
+          <YStack space="$1">
+            <SizableText color="$text" size="$heading3xl">
+              {title}
+            </SizableText>
+            <SizableText color="$textSubdued" size="$bodyLg">
+              {subtitle}
+            </SizableText>
+          </YStack>
         </Stack>
         {children}
       </Stack>
