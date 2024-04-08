@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import {
   Dialog,
+  ESwitchSize,
   SizableText,
   Spinner,
   Stack,
@@ -29,7 +30,7 @@ function EnterPinOnSoftwareSwitch(
 
   return (
     <Switch
-      size="small"
+      size={ESwitchSize.small}
       value={enterPinOnSoftware}
       onChange={async (v) => {
         try {
@@ -57,7 +58,7 @@ function EnablePassphraseSwitch(
 
   return (
     <Switch
-      size="small"
+      size={ESwitchSize.small}
       value={enablePassphrase}
       onChange={async (v) => {
         try {

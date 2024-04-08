@@ -8,6 +8,7 @@ import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export function useLocaleOptions() {
   const intl = useIntl();
@@ -47,6 +48,7 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
       title: intl.formatMessage({ id: 'action__reset' }),
       icon: 'ErrorOutline',
       tone: 'destructive',
+      modal: inAppStateLock && !platformEnv.isNative,
       description:
         'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "RESET" to reset the App',
       renderContent: (

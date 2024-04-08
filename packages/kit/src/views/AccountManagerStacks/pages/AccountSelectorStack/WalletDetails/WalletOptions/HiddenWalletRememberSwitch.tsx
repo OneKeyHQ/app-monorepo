@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Switch } from '@onekeyhq/components';
+import { ESwitchSize, Switch } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
@@ -19,7 +19,7 @@ export function HiddenWalletRememberSwitch({
       drillIn={false}
     >
       <Switch
-        size="small"
+        size={ESwitchSize.small}
         value={val}
         onChange={async () => {
           if (!wallet?.id) {

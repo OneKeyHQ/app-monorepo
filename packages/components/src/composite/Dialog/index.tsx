@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 
+import { createPortal } from 'react-dom';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
@@ -57,6 +58,7 @@ function DialogFrame({
   onClose,
   title,
   icon,
+  modal,
   description,
   renderContent,
   showFooter = true,
@@ -256,6 +258,7 @@ function DialogFrame({
   return (
     <TMDialog
       open={open}
+      modal={modal}
       // the native dismissOnOverlayPress used on native side,
       //  so it needs to assign a value to onOpenChange.
       onOpenChange={platformEnv.isNative ? handleOpenChange : undefined}
@@ -499,8 +502,17 @@ function dialogShow({
     );
   })();
 
+  // fix modal attributes is invalid in Tamagui
+  let renderElement = element;
+  if (props.modal && !platformEnv.isNative) {
+    const Component = () => createPortal(element, document.body);
+    renderElement = <Component />;
+  }
   portalRef = {
-    current: Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
+    current: Portal.Render(
+      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+      renderElement,
+    ),
   };
   return {
     close: async (extra?: { flag?: string }) =>

@@ -57,7 +57,7 @@ function TxHistoryListHeader({
         //           title="Hide Zero-Value Transfers"
         //           subtitle="Avoid scam attempts by hiding transfers of zero-value tokens."
         //         >
-        //           <Switch size="small" value={val} onChange={setVal} />
+        //           <Switch size={ESwitchSize.small} value={val} onChange={setVal} />
         //         </ListItem>
         //       </Stack>
         //     }
