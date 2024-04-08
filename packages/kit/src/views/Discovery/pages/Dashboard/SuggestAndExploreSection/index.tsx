@@ -2,16 +2,23 @@ import { useCallback, useState } from 'react';
 
 import { isNil } from 'lodash';
 
-import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { ICategory } from '@onekeyhq/shared/types/discovery';
+import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { DashboardSectionHeader } from '../DashboardSectionHeader';
 
-import { ItemsContainer } from './ChunkedItemsView';
+import { ChunkedItemsSkeletonView } from './ChunkedItemsSkeletonView';
+import { ItemsContainer, chunkArray } from './ChunkedItemsView';
 import { ExploreView } from './ExploreView';
 import { SuggestedView } from './SuggestedView';
 
@@ -50,92 +57,51 @@ export function SuggestedAndExploreSection({
   }, []);
 
   // Dependent on networkId and categoryId, a separate usePromiseResult is required.
-  const { result: dAppList } = usePromiseResult(async () => {
-    if (!selectedCategory || !selectedNetwork) {
-      return {
-        data: [],
-        next: '',
-      };
-    }
-    return backgroundApiProxy.serviceDiscovery.fetchDAppListByCategory({
-      category: selectedCategory,
-      network: selectedNetwork.id,
-    });
-  }, [selectedCategory, selectedNetwork]);
+  const { result: dAppList, isLoading: isLoadingDappList } = usePromiseResult(
+    async () => {
+      if (!selectedCategory || !selectedNetwork) {
+        return {
+          data: [],
+          next: '',
+        };
+      }
+      return backgroundApiProxy.serviceDiscovery.fetchDAppListByCategory({
+        category: selectedCategory,
+        network: selectedNetwork.id,
+      });
+    },
+    [selectedCategory, selectedNetwork],
+    {
+      watchLoading: true,
+    },
+  );
 
+  const media = useMedia();
+  const chunkSize = media.gtMd && media.lg ? 2 : 3;
   const renderSkeletonView = useCallback(
     () => (
       <Stack space="$5">
-        {Array.from({ length: 2 }).map((_, index) => (
+        {Array.from({ length: 4 }).map((_, index) => (
           <Stack space="$3" key={index}>
             <Skeleton w="$14" h="$6" />
-
-            <ItemsContainer key="skeleton-view" mx="$-5">
-              <XStack
-                px="$2"
-                $gtMd={{
-                  flexDirection: 'column',
-                }}
-              >
-                {[
-                  Array.from({ length: 3 }),
-                  Array.from({ length: 3 }),
-                  Array.from({ length: 3 }),
-                ].map((chunk, chunkIndex) => (
-                  <Stack
-                    key={chunkIndex}
-                    $md={{
-                      w: '$96',
-                    }}
-                    $gtMd={{
-                      flexDirection: 'row',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    {chunk.map((_chunkItem, chunkItemIndex) => (
-                      <XStack
-                        key={`${chunkIndex}-${chunkItemIndex}`}
-                        p="$3"
-                        space="$3"
-                        alignItems="center"
-                        $gtMd={{
-                          flexBasis: '50%',
-                        }}
-                        $gtLg={{
-                          flexBasis: '33.3333%',
-                        }}
-                      >
-                        <XStack space="$3">
-                          <Skeleton w="$14" h="$14" />
-                          <YStack space="$1">
-                            <Skeleton w="$10" h="$4" />
-                            <Skeleton
-                              w={216}
-                              h="$4"
-                              $md={{
-                                w: 186,
-                              }}
-                            />
-                            <Skeleton
-                              w={216}
-                              h="$4"
-                              $md={{
-                                w: 186,
-                              }}
-                            />
-                          </YStack>
-                        </XStack>
-                      </XStack>
-                    ))}
-                  </Stack>
-                ))}
-              </XStack>
-            </ItemsContainer>
+            <ChunkedItemsSkeletonView
+              key="skeleton-view"
+              isExploreView
+              dataChunks={chunkArray(
+                Array.from({ length: chunkSize }).map(
+                  (_i, idx) =>
+                    ({
+                      dappId: `first-${idx}`,
+                    } as IDApp),
+                ),
+                chunkSize,
+              )}
+            />
           </Stack>
         ))}
       </Stack>
     ),
-    [],
+    [chunkSize],
   );
 
   const renderContent = useCallback(() => {
@@ -145,6 +111,7 @@ export function SuggestedAndExploreSection({
     if (isExploreView) {
       return (
         <ExploreView
+          isLoading={isLoadingDappList}
           dAppList={dAppList}
           categoryResult={result}
           selectedCategory={selectedCategory}
@@ -163,6 +130,7 @@ export function SuggestedAndExploreSection({
       />
     );
   }, [
+    isLoadingDappList,
     isExploreView,
     isLoading,
     renderSkeletonView,
