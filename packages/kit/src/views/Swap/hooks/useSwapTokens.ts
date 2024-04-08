@@ -12,7 +12,6 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapNetworksAtom,
@@ -28,10 +27,11 @@ import {
 import { useSwapAddressInfo } from './useSwapAccount';
 
 export function useSwapNetworkList() {
-  const [, setSwapNetworks] = useSwapNetworksAtom();
-  // const [, setFromToken] = useSwapSelectFromTokenAtom();
-  // const [, setToToken] = useSwapSelectToTokenAtom();
-  // const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
+  const [, setFromToken] = useSwapSelectFromTokenAtom();
+  const [, setToToken] = useSwapSelectToTokenAtom();
+  const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const [defaultTokenLoading, setDefaultTokenLoading] = useState<boolean>(true);
   const { isLoading } = usePromiseResult(
     async () => {
       let networks = await backgroundApiProxy.serviceSwap.fetchSwapNetworks();
@@ -64,59 +64,74 @@ export function useSwapNetworkList() {
         data: networks,
       });
       setSwapNetworks(networks);
-      // if (swapAddressInfo.networkId) {
-      //   const accountNetwork = networks.find(
-      //     (net) => net.networkId === swapAddressInfo.networkId,
-      //   );
-      //   if (accountNetwork) {
-      //     if (
-      //       !isNil(accountNetwork.defaultSelectToken?.from) ||
-      //       !isNil(accountNetwork.defaultSelectToken?.to)
-      //     ) {
-      //       const tokenInfos =
-      //         await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-      //           networkId: accountNetwork.networkId,
-      //           accountAddress: swapAddressInfo.address,
-      //           xpub: (swapAddressInfo.accountInfo?.account as IDBUtxoAccount)
-      //             ?.xpub,
-      //           contractAddress: `${
-      //             !isNil(accountNetwork.defaultSelectToken?.from)
-      //               ? accountNetwork.defaultSelectToken?.from
-      //               : ''
-      //           }${
-      //             !isNil(accountNetwork.defaultSelectToken?.to)
-      //               ? `${
-      //                   !isNil(accountNetwork.defaultSelectToken?.from)
-      //                     ? ','
-      //                     : ''
-      //                 }${accountNetwork.defaultSelectToken?.to}`
-      //               : ''
-      //           }`,
-      //         });
-      //       const defaultFromToken = tokenInfos?.find(
-      //         (token) =>
-      //           token.contractAddress ===
-      //           accountNetwork.defaultSelectToken?.from,
-      //       );
-      //       const defaultToToken = tokenInfos?.find(
-      //         (token) =>
-      //           token.contractAddress === accountNetwork.defaultSelectToken?.to,
-      //       );
-      //       if (defaultFromToken) {
-      //         setFromToken(defaultFromToken);
-      //       }
-      //       if (defaultToToken) {
-      //         setToToken(defaultToToken);
-      //       }
-      // }
-      // }
-      // }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [setSwapNetworks],
     { watchLoading: true },
   );
-  return { fetchLoading: isLoading };
+
+  useEffect(() => {
+    if (!swapAddressInfo.accountInfo?.ready || !swapAddressInfo.networkId) {
+      return;
+    }
+    const accountNetwork = swapNetworks.find(
+      (net) => net.networkId === swapAddressInfo.networkId,
+    );
+    if (accountNetwork) {
+      if (
+        !isNil(accountNetwork.defaultSelectToken?.from) ||
+        !isNil(accountNetwork.defaultSelectToken?.to)
+      ) {
+        void (async () => {
+          try {
+            const tokenInfos =
+              await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+                networkId: accountNetwork.networkId,
+                accountAddress: swapAddressInfo.address,
+                xpub: (swapAddressInfo.accountInfo?.account as IDBUtxoAccount)
+                  ?.xpub,
+                contractAddress: `${
+                  !isNil(accountNetwork.defaultSelectToken?.from)
+                    ? accountNetwork.defaultSelectToken?.from
+                    : ''
+                }${
+                  !isNil(accountNetwork.defaultSelectToken?.to)
+                    ? `${
+                        !isNil(accountNetwork.defaultSelectToken?.from)
+                          ? ','
+                          : ''
+                      }${accountNetwork.defaultSelectToken?.to}`
+                    : ''
+                }`,
+              });
+            const defaultFromToken = tokenInfos?.find(
+              (token) =>
+                token.contractAddress ===
+                accountNetwork.defaultSelectToken?.from,
+            );
+            const defaultToToken = tokenInfos?.find(
+              (token) =>
+                token.contractAddress === accountNetwork.defaultSelectToken?.to,
+            );
+            if (defaultFromToken) {
+              setFromToken(defaultFromToken);
+            }
+            if (defaultToToken) {
+              setToToken(defaultToToken);
+            }
+          } catch (e) {
+            console.error(e);
+          } finally {
+            setDefaultTokenLoading(false);
+          }
+        })();
+      } else {
+        setDefaultTokenLoading(false);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swapAddressInfo.accountInfo?.ready, swapNetworks]);
+
+  return { fetchLoading: isLoading || defaultTokenLoading };
 }
 
 export function useSwapTokenList(

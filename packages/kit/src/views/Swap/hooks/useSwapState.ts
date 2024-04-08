@@ -50,7 +50,7 @@ function useSwapWarningCheck() {
     let rateDifferenceRes:
       | { value: string; unit: ESwapRateDifferenceUnit }
       | undefined;
-    if (!networks.length) return;
+    if (!networks.length || !swapFromAddressInfo.accountInfo?.ready) return;
     // check account
     if (!swapFromAddressInfo.accountInfo?.wallet) {
       alertsRes = [
@@ -340,6 +340,7 @@ function useSwapWarningCheck() {
     quoteResult,
     swapFromAddressInfo.accountInfo?.accountName,
     swapFromAddressInfo.accountInfo?.network?.name,
+    swapFromAddressInfo.accountInfo?.ready,
     swapFromAddressInfo.accountInfo?.wallet,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
