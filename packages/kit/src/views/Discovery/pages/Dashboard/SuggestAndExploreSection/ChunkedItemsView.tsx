@@ -29,14 +29,14 @@ export const chunkArray = (array: ICategory['dapps'], chunkSize: number) => {
   return chunks;
 };
 
-type IChunkedItemsViewProps = {
+export type IChunkedItemsViewProps = {
   dataChunks: IDApp[][];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
   isExploreView: boolean;
 };
 
-const CARD_WIDTH_IN_MD = Dimensions.get('window').width - 48;
-const SPACING_FOR_CARD_INSET = 100;
+export const CARD_WIDTH_IN_MD = Dimensions.get('window').width - 48;
+export const SPACING_FOR_CARD_INSET = 100;
 
 const paginationStyle: IScrollViewProps = {
   horizontal: true,
