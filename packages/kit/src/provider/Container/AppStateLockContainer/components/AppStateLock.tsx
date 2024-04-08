@@ -12,7 +12,6 @@ import {
   Button,
   Heading,
   Image,
-  OverlayContainer,
   Stack,
   ThemeableStack,
   useKeyboardEvent,
@@ -22,6 +21,8 @@ import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
+
+import { AppStateContainer } from './AppStateContainer';
 
 import type { View as IView } from 'react-native';
 
@@ -61,7 +62,7 @@ const AppStateLock = ({
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
   return (
-    <OverlayContainer>
+    <AppStateContainer>
       <ThemeableStack
         testID="unlock-screen"
         ref={lockContainerRef}
@@ -104,7 +105,7 @@ const AppStateLock = ({
           </Button>
         </Stack>
       </ThemeableStack>
-    </OverlayContainer>
+    </AppStateContainer>
   );
 };
 

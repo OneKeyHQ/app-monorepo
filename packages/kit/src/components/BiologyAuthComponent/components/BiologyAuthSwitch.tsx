@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Switch } from '@onekeyhq/components';
+import { ESwitchSize, Switch } from '@onekeyhq/components';
 
 interface IBiologyAuthSwitchProps {
   isSupport: boolean;
@@ -14,7 +14,11 @@ const BiologyAuthSwitch = ({
   onChange,
 }: IBiologyAuthSwitchProps) =>
   isSupport ? (
-    <Switch size="small" value={isBiologyAuthEnable} onChange={onChange} />
+    <Switch
+      size={ESwitchSize.small}
+      value={isBiologyAuthEnable}
+      onChange={onChange}
+    />
   ) : null;
 
 export default memo(BiologyAuthSwitch);
