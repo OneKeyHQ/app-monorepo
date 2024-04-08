@@ -75,7 +75,7 @@ function SendDataInputContainer() {
   const sendConfirm = useSendConfirm({ accountId, networkId });
 
   const {
-    result: [tokenDetails, nftDetails] = [],
+    result: [tokenDetails, nftDetails, vaultSettings] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
@@ -114,7 +114,11 @@ function SendDataInputContainer() {
         });
       }
 
-      return [tokenResp?.[0], nftResp?.[0]];
+      const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId,
+      });
+
+      return [tokenResp?.[0], nftResp?.[0], vs];
     },
     [
       account,
@@ -265,20 +269,49 @@ function SendDataInputContainer() {
     (value: string) => {
       const amountBN = new BigNumber(value ?? 0);
       let isInsufficientBalance = false;
+      let isLessThanMinTransferAmount = false;
       if (isUseFiat) {
         if (amountBN.isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
           isInsufficientBalance = true;
         }
-      } else if (amountBN.isGreaterThan(tokenDetails?.balanceParsed ?? 0)) {
-        isInsufficientBalance = true;
+
+        if (
+          tokenDetails?.price &&
+          amountBN
+            .dividedBy(tokenDetails.price)
+            .isLessThan(vaultSettings?.minTransferAmount ?? 0)
+        ) {
+          isLessThanMinTransferAmount = true;
+        }
+      } else {
+        if (amountBN.isGreaterThan(tokenDetails?.balanceParsed ?? 0)) {
+          isInsufficientBalance = true;
+        }
+
+        if (amountBN.isLessThan(vaultSettings?.minTransferAmount ?? 0)) {
+          isLessThanMinTransferAmount = true;
+        }
       }
 
       if (isInsufficientBalance)
         return intl.formatMessage({ id: 'msg__insufficient_balance' });
 
+      if (isLessThanMinTransferAmount)
+        return intl.formatMessage(
+          { id: 'form__str_minimum_transfer' },
+          { '0': vaultSettings?.minTransferAmount ?? '0' },
+        );
+
       return true;
     },
-    [intl, isUseFiat, tokenDetails],
+    [
+      intl,
+      isUseFiat,
+      tokenDetails?.balanceParsed,
+      tokenDetails?.fiatValue,
+      tokenDetails?.price,
+      vaultSettings?.minTransferAmount,
+    ],
   );
 
   const isSubmitDisabled = useMemo(() => {

@@ -79,6 +79,8 @@ const settings: IVaultSettings = {
   feeUTXORequired: true,
   editFeeEnabled: true,
 
+  minTransferAmount: '0.00000546',
+
   accountDeriveInfo,
   networkInfo: {
     default: {
