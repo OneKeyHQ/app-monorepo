@@ -1,7 +1,8 @@
-import type { PropsWithChildren } from 'react';
+import { type PropsWithChildren, useCallback } from 'react';
 
 import {
   SizableText,
+  Skeleton,
   Stack,
   YStack,
   useSafeAreaInsets,
@@ -14,6 +15,7 @@ import { DAppSiteMark } from './DAppSiteMark';
 function DAppRequestLayout({
   title,
   subtitle,
+  subtitleShown = true,
   origin,
   urlSecurityInfo,
   favicon,
@@ -21,11 +23,27 @@ function DAppRequestLayout({
 }: PropsWithChildren<{
   title: string;
   subtitle: string;
+  subtitleShown?: boolean;
   origin: string;
   urlSecurityInfo?: IHostSecurity;
   favicon?: string; // for WalletConnect
 }>) {
   const { top } = useSafeAreaInsets();
+
+  const renderSubtitle = useCallback(() => {
+    if (!subtitleShown) {
+      return null;
+    }
+    if (!subtitle || !subtitle.length) {
+      return <Skeleton w={118} h="$6" />;
+    }
+    return (
+      <SizableText color="$textSubdued" size="$bodyLg">
+        {subtitle}
+      </SizableText>
+    );
+  }, [subtitle, subtitleShown]);
+
   return (
     <Stack
       $md={{
@@ -44,9 +62,7 @@ function DAppRequestLayout({
             <SizableText color="$text" size="$heading3xl">
               {title}
             </SizableText>
-            <SizableText color="$textSubdued" size="$bodyLg">
-              {subtitle}
-            </SizableText>
+            {renderSubtitle()}
           </YStack>
         </Stack>
         {children}
