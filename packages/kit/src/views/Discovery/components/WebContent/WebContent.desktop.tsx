@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useBrowserAction,
@@ -13,6 +14,7 @@ import BlockAccessView from '../BlockAccessView';
 import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
+import type { PageFaviconUpdatedEvent } from '../WebView/DesktopWebView';
 import type { IElectronWebView } from '../WebView/types';
 import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 import type { WebViewProps } from 'react-native-webview';
@@ -28,10 +30,9 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const phishingUrlRef = useRef<string>('');
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
   const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
-  const { setWebTabData, closeWebTab, setCurrentWebTab } =
+  const { setWebTabData, closeWebTab, setCurrentWebTab, getWebTabById } =
     useBrowserTabActions().current;
   const { onNavigation, validateWebviewSrc } = useBrowserAction().current;
-
   useEffect(() => {
     const validateState = validateWebviewSrc(url);
     setUrlValidateState(validateState);
@@ -105,7 +106,36 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     },
     [id, addBrowserHistory, onNavigation],
   );
-  const onPageFaviconUpdated = useCallback(() => {}, []);
+  const onPageFaviconUpdated = useCallback(
+    async (e: PageFaviconUpdatedEvent) => {
+      // Ensure the e.favicons array is not empty, and there's an existing favicon URL
+      if (e.favicons.length > 0) {
+        let shouldUpdateFavicon = false;
+        const tabData = getWebTabById(id);
+        if (!tabData?.favicon) {
+          shouldUpdateFavicon = true;
+        } else {
+          const newFaviconURL = new URL(e.favicons[0]);
+          const oldFaviconURL = new URL(tabData?.favicon);
+          // Check if the origin of the new and old favicon URLs are different
+          if (newFaviconURL.origin !== oldFaviconURL.origin) {
+            shouldUpdateFavicon = true;
+          }
+        }
+        if (shouldUpdateFavicon) {
+          const newFavicon =
+            await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+              tabData?.url ?? '',
+            );
+          setWebTabData({
+            id,
+            favicon: newFavicon,
+          });
+        }
+      }
+    },
+    [getWebTabById, id, setWebTabData],
+  );
   const onDomReady = useCallback(() => {
     const ref = webviewRefs[id] as IElectronWebView;
     // @ts-expect-error
@@ -151,8 +181,8 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
       onDidStartLoading,
       onDidStartNavigation,
       onDomReady,
-      onPageFaviconUpdated,
-      onPageTitleUpdated,
+      // onPageTitleUpdated,
+      // onPageFaviconUpdated,
     ],
   );
 
