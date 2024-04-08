@@ -7,6 +7,8 @@ import type {
 } from '@onekeyhq/components';
 import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 
+import { useFetchAppUpdateInfo } from './hooks';
+
 export enum EUpdateStatus {
   notify = 'notify',
   downloading = 'downloading',
@@ -139,6 +141,8 @@ const UPDATE_REMINDER_BAR_STYLE: Record<EUpdateStatus, IStackProps> = {
 
 export function UpdateReminder() {
   const style = UPDATE_REMINDER_BAR_STYLE[testStatus];
+  const appUpdateInfo = useFetchAppUpdateInfo();
+  console.log(appUpdateInfo);
   return (
     <XStack
       px="$5"

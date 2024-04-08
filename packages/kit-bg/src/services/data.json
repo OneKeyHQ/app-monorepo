@@ -1,0 +1,980 @@
+{
+  "ios": {
+    "url": "https://apps.apple.com/us/app/onekey-open-source-wallet/id1609559473",
+    "version": [
+      4,
+      23,
+      0
+    ]
+  },
+  "android": {
+    "googlePlay": "https://play.google.com/store/apps/details?id=so.onekey.app.wallet",
+    "url": "https://web.onekey-asset.com/app-monorepo/4.23.0/OneKey-Wallet-4.23.0-android.apk",
+    "version": [
+      4,
+      23,
+      0
+    ],
+    "huawei": {
+      "url": "https://appgallery.huawei.com/app/C107439249",
+      "version": [
+        4,
+        23,
+        0
+      ]
+    },
+    "google": {
+      "url": "https://play.google.com/store/apps/details?id=so.onekey.app.wallet",
+      "version": [
+        4,
+        23,
+        0
+      ]
+    }
+  },
+  "ext": {
+    "chrome": "https://chrome.google.com/webstore/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj",
+    "firefox": "https://addons.mozilla.org/en-US/firefox/addon/onekey/",
+    "edge": "https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac"
+  },
+  "classic": {
+    "firmware-v5": [
+      {
+        "required": false,
+        "version": [
+          3,
+          7,
+          1
+        ],
+        "url": "https://web.onekey-asset.com/hardware/classic/firmware/v3.7.1/classic.3.7.1-Stable-0327-bd4fa4b.signed.bin",
+        "bootloaderResource": "https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin",
+        "bootloaderVersion": [
+          2,
+          0,
+          0
+        ],
+        "bootloaderRelatedFirmwareVersion": [
+          3,
+          0,
+          0
+        ],
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 支持 Manta, Neurai 以及 Nervos 网络\r\n- 支持 LNURL Auth 授权签名\r\n- 支持在设备信息中，查看固件版本号\r\n- 新增在 Celestia 网络下的精度展示\r\n\r\n### 🐞 问题修复\r\n- 修复在 Near 和 Tron 网络下转账时，接收地址展示有误的问题\r\n- 修复 Thorswap 路由下，交易数据显示重叠的问题\r\n- 修复在 Sui 网络下，签名信息展示不完整的问题\r\n\r\n### 💎 改进\r\n- 优化在 Sui 网络下，分包处理签名数据的逻辑\r\n- 在波卡网络下，盲签消息长度增加到 4096\r\n",
+          "en-US": "### ✨ New Features\r\n- Support for Manta, Neurai, and Nervos networks.\r\n- Support for LNURL Auth authorization signing.\r\n- Ability to view firmware version in device information.\r\n- New precision display under the Celestia network.\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed incorrect display of recipient addresses during transfers on Near and Tron networks.\r\n- Fixed overlapping transaction data display in Thorswap routing.\r\n- Fixed incomplete display of signing information on the Sui network.\r\n\r\n### 💎 Improvements\r\n- Optimized packet handling logic for signing data on the Sui network.\r\n- Increased blind signature message length to 4096 on the Polkadot network.\r\n"
+        },
+        "bootloaderChangelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 新的固件验签算法\r\n- 不再支持安装非官方签名的固件\r\n- 升级前的电量检测，低电量或未插电禁止升级固件\r\n- 释放更多存储空间\r\n",
+          "en-US": "### ✨ New Features\r\n- Add new firmware signature verification algorithm\r\n- No longer support installing firmware with unofficial signatures\r\n- Battery level checks before upgrade\r\n- Release more storage capacity\r\n"
+        }
+      }
+    ],
+    "firmware-v4": [
+      {
+        "required": false,
+        "version": [
+          3,
+          4,
+          0
+        ],
+        "url": "https://web.onekey-asset.com/hardware/classic/firmware/v3.4.0/classic.3.4.0-Stable-0917-d38a468.signed.bin",
+        "bootloaderResource": "https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin",
+        "bootloaderVersion": [
+          2,
+          0,
+          0
+        ],
+        "bootloaderRelatedFirmwareVersion": [
+          3,
+          0,
+          0
+        ],
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 优化输入的交互体验，支持长按快捷输入 PIN 码和 Passphrase\r\n- 新增设置项，允许修改上下键的输入方向\r\n\r\n### 🐞 问题修复\r\n- 修复某些场景下设备自动锁定失效的问题\r\n- 修复 Arbitrum 代币转账时信息展示问题\r\n- 修复核对 Electrum 多签地址 xPub 展示问题\r\n- 修复 PIN 码输入错误时无法连接 OneKey Wallet 的问题\r\n- 修复 Fetch.ai 链转账的金额显示问题\r\n- 修复 U2F Register 等待时间过长的问题\r\n- 取消 BTC 派生路径地址 index 索引的限制\r\n- 修复本地化翻译问题\r\n- evm 主币转账时，touch 显示的金额单位与热钱包保持一致\r\n\r\n### 💎 改进\r\n- 核对 Cardano (ADA) 收款地址时，展示地址类型\r\n- 优化 EVM 链交易签名流程\r\n",
+          "en-US": "### ✨ New Features\r\n- Optimize the input interaction experience, try long press for quickly entering PIN code and passphrase\r\n- Now you can reverse input direction of up and down buttons\r\n\r\n### 🐞 Bug Fixes\r\n- Fix the issue of auto-lock failure in certain scenarios\r\n- Fix the display issue of Arbitrum token transfer\r\n- Fixed the xPub display issue of Bitcoin multisig addresses when connecting with Electrum\r\n- Fix the OneKey wallet connect issue when entering a incorrect PIN\r\n- Fix the display issue of Fetch.ai chain token transfer\r\n- Fix the issue of excessive waiting time when U2F Register\r\n- Remove the address-index limit of Bitcoin derivation path\r\n- Fix localization translation issues\r\n- When transferring EVM tokens, the unit of amount keep the same as in the hot wallet\r\n\r\n### 💎 Improvements\r\n- Optimize the transaction signing process for EVM chains\r\n- Show address type when checking Cardano addresses\r\n"
+        },
+        "bootloaderChangelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 新的固件验签算法\r\n- 不再支持安装非官方签名的固件\r\n- 升级前的电量检测，低电量或未插电禁止升级固件\r\n- 释放更多存储空间\r\n",
+          "en-US": "### ✨ New Features\r\n- Add new firmware signature verification algorithm\r\n- No longer support installing firmware with unofficial signatures\r\n- Battery level checks before upgrade\r\n- Release more storage capacity\r\n"
+        }
+      }
+    ],
+    "firmware-v3": [
+      {
+        "required": false,
+        "version": [
+          3,
+          2,
+          0
+        ],
+        "url": "https://web.onekey-asset.com/hardware/classic/firmware/v3.2.0/classic.3.2.0-Stable-0802-a013aec.signed.bin",
+        "bootloaderResource": "https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin",
+        "bootloaderVersion": [
+          2,
+          0,
+          0
+        ],
+        "bootloaderRelatedFirmwareVersion": [
+          3,
+          0,
+          0
+        ],
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- Nexa 链支持\r\n",
+          "en-US": "### ✨ New Features\r\n- Add support for Nexa\r\n"
+        },
+        "bootloaderChangelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 新的固件验签算法\r\n- 不再支持安装非官方签名的固件\r\n- 升级前的电量检测，低电量或未插电禁止升级固件\r\n- 释放更多存储空间\r\n",
+          "en-US": "### ✨ New Features\r\n- Add new firmware signature verification algorithm\r\n- No longer support installing firmware with unofficial signatures\r\n- Battery level checks before upgrade\r\n- Release more storage capacity\r\n"
+        }
+      }
+    ],
+    "firmware-v2": [
+      {
+        "required": false,
+        "version": [
+          3,
+          0,
+          0
+        ],
+        "url": "https://common.onekey-asset.com/hw/legacy/3.0.0/classic.3.0.0-Stable-0511-0bf60dd.signed.bin",
+        "bootloaderResource": "https://common.onekey-asset.com/hw/legacy/bootloader/classic/2.0.0/classic-boot.2.0.0-0510-6d616dc.signed.bin",
+        "bootloaderVersion": [
+          2,
+          0,
+          0
+        ],
+        "bootloaderRelatedFirmwareVersion": [
+          3,
+          0,
+          0
+        ],
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 全新界面\r\n- 新增支持 Kaspa\r\n- 新增支持 SUI\r\n- 新增支持 Cardano (ADA)\r\n- 新增支持 ASTAR, KUSMA\r\n- 新增支持 safety checks\r\n\r\n### 🐞 问题修复\r\n- 修复二维码及地址大小写展示问题\r\n\r\n### 💎 改进\r\n- 改进了盲签提示\r\n",
+          "en-US": "### ✨ New Features\r\n- All new UI with\r\n- Add support for Kaspa\r\n- Add support for SUI\r\n- Add support for Cardano (ADA)\r\n- Add support for ASTAR, KUSMA\r\n- Add support for safety checks\r\n\r\n### 🐞 Bug Fixes\r\n- Fix QR-Code and address display issues\r\n\r\n### 💎 Improvements\r\n- Improved blind signing alert\r\n"
+        },
+        "bootloaderChangelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 新的固件验签算法\r\n- 不再支持安装非官方签名的固件\r\n- 升级前的电量检测，低电量或未插电禁止升级固件\r\n- 释放更多存储空间\r\n",
+          "en-US": "### ✨ New Features\r\n- Add new firmware signature verification algorithm\r\n- No longer support installing firmware with unofficial signatures\r\n- Battery level checks before upgrade\r\n- Release more storage capacity\r\n"
+        }
+      }
+    ],
+    "firmware": [
+      {
+        "required": false,
+        "version": [
+          2,
+          11,
+          0
+        ],
+        "url": "https://common.onekey-asset.com/hw/legacy/2.11.0/classic.2.11.0-Stable-0323-c67044f.bin",
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 现已支持比特币 Taproot 地址格式\r\n\r\n### 🐞 问题修复\r\n- 修复 aptos 签名消息过长无法签名的问题\r\n- UI 问题修复\r\n",
+          "en-US": "### ✨ New Features\r\n- Bitcoin Taproot address now supported\r\n\r\n### 🐞 Bug Fixes\r\n- Fix the issue that may fail to sign when aptos message being to long\r\n- UI issue fixed\r\n"
+        }
+      }
+    ],
+    "ble": [
+      {
+        "required": false,
+        "version": [
+          1,
+          4,
+          1
+        ],
+        "url": "",
+        "webUpdate": "https://web.onekey-asset.com/hardware/classic/bluetooth/v1.4.1/bluetooth-firmware-classic-1.4.1-20230807-648e11a.signed.bin",
+        "fingerprint": "",
+        "fingerprintWeb": "",
+        "changelog": {
+          "zh-CN": "### 🐞 问题修复\r\n- 修复了使用蓝牙时升级固件可能会卡住失败的问题\r\n",
+          "en-US": "### 🐞 Bug Fixes\r\n- Fixed an issue where firmware upgrades might get stuck and fail when using bluetooth\r\n"
+        }
+      }
+    ]
+  },
+  "classic1s": {
+    "firmware-v5": [ ],
+    "firmware": [ ],
+    "ble": [ ]
+  },
+  "mini": {
+    "firmware-v5": [
+      {
+        "required": false,
+        "version": [
+          3,
+          7,
+          1
+        ],
+        "url": "https://web.onekey-asset.com/hardware/mini/firmware/v3.7.1/mini.3.7.1-Stable-0327-cc09ce0.signed.bin",
+        "bootloaderResource": "https://common.onekey-asset.com/hw/legacy/bootloader/mini/2.0.0/mini-boot.2.0.0-0518-b860d10.signed.bin",
+        "bootloaderVersion": [
+          2,
+          0,
+          0
+        ],
+        "bootloaderRelatedFirmwareVersion": [
+          3,
+          0,
+          0
+        ],
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 支持 Manta, Neurai 以及 Nervos 网络\r\n- 支持 LNURL Auth 授权签名\r\n- 支持在设备信息中，查看固件版本号\r\n\r\n### 💎 改进\r\n- 优化在 Sui 网络下，分包处理签名数据的逻辑\r\n- 在波卡网络下，盲签消息长度增加到 4096\r\n",
+          "en-US": "### ✨ New Features\r\n- Support for Manta, Neurai, and Nervos networks.\r\n- Support for LNURL Auth authorization signing.\r\n- Ability to view firmware version in device information.\r\n\r\n### 💎 Improvements\r\n- Optimized packet handling logic for signing data on the Sui network.\r\n- Increased blind signature message length to 4096 on the Polkadot network.\r\n"
+        },
+        "bootloaderChangelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 新的固件验签算法\r\n- 不再支持安装非官方签名的固件\r\n- 升级前的电量检测，低电量或未插电禁止升级固件\r\n- 释放更多存储空间\r\n",
+          "en-US": "### ✨ New Features\r\n- Add new firmware signature verification algorithm\r\n- No longer support installing firmware with unofficial signatures\r\n- Battery level checks before upgrade\r\n- Release more storage capacity\r\n"
+        }
+      },
+      {
+        "required": true,
+        "version": [
+          3,
+          6,
+          0
+        ],
+        "url": "https://web.onekey-asset.com/hardware/mini/firmware/v3.6.0/mini.3.6.0-Stable-1226-ff9efe5.signed.bin",
+        "bootloaderResource": "https://common.onekey-asset.com/hw/legacy/bootloader/mini/2.0.0/mini-boot.2.0.0-0518-b860d10.signed.bin",
+        "bootloaderVersion": [
+          2,
+          0,
+          0
+        ],
+        "bootloaderRelatedFirmwareVersion": [
+          3,
+          0,
+          0
+        ],
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- Joystream 链支持\r\n- nostr 支持\r\n\r\n### 💎 改进\r\n- SUI 盲签支持大小从 4096 改为 6144\r\n- 提升硬件暴露的接口安全等级\r\n",
+          "en-US": "### ✨ New Features\r\n- Add support for Joystream\r\n- Add support for Nostr\r\n\r\n### 💎 Improvements\r\n- SUI blind signing support size changed from 4096 to 6144\r\n- Improve the security level of interfaces exposed by hardware\r\n"
+        },
+        "bootloaderChangelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 新的固件验签算法\r\n- 不再支持安装非官方签名的固件\r\n- 升级前的电量检测，低电量或未插电禁止升级固件\r\n- 释放更多存储空间\r\n",
+          "en-US": "### ✨ New Features\r\n- Add new firmware signature verification algorithm\r\n- No longer support installing firmware with unofficial signatures\r\n- Battery level checks before upgrade\r\n- Release more storage capacity\r\n"
+        }
+      }
+    ],
+    "firmware-v4": [
+      {
+        "required": true,
+        "version": [
+          3,
+          6,
+          0
+        ],
+        "url": "https://web.onekey-asset.com/hardware/mini/firmware/v3.6.0/mini.3.6.0-Stable-1226-ff9efe5.signed.bin",
+        "bootloaderResource": "https://common.onekey-asset.com/hw/legacy/bootloader/mini/2.0.0/mini-boot.2.0.0-0518-b860d10.signed.bin",
+        "bootloaderVersion": [
+          2,
+          0,
+          0
+        ],
+        "bootloaderRelatedFirmwareVersion": [
+          3,
+          0,
+          0
+        ],
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- Joystream 链支持\r\n- nostr 支持\r\n\r\n### 💎 改进\r\n- SUI 盲签支持大小从 4096 改为 6144\r\n- 提升硬件暴露的接口安全等级\r\n",
+          "en-US": "### ✨ New Features\r\n- Add support for Joystream\r\n- Add support for Nostr\r\n\r\n### 💎 Improvements\r\n- SUI blind signing support size changed from 4096 to 6144\r\n- Improve the security level of interfaces exposed by hardware\r\n"
+        },
+        "bootloaderChangelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 新的固件验签算法\r\n- 不再支持安装非官方签名的固件\r\n- 升级前的电量检测，低电量或未插电禁止升级固件\r\n- 释放更多存储空间\r\n",
+          "en-US": "### ✨ New Features\r\n- Add new firmware signature verification algorithm\r\n- No longer support installing firmware with unofficial signatures\r\n- Battery level checks before upgrade\r\n- Release more storage capacity\r\n"
+        }
+      }
+    ],
+    "firmware-v3": [
+      {
+        "required": false,
+        "version": [
+          3,
+          2,
+          0
+        ],
+        "url": "https://web.onekey-asset.com/hardware/mini/firmware/v3.2.0/mini.3.2.0-Stable-0802-6903c73.signed.bin",
+        "bootloaderResource": "https://common.onekey-asset.com/hw/legacy/bootloader/mini/2.0.0/mini-boot.2.0.0-0518-b860d10.signed.bin",
+        "bootloaderVersion": [
+          2,
+          0,
+          0
+        ],
+        "bootloaderRelatedFirmwareVersion": [
+          3,
+          0,
+          0
+        ],
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- Nexa 链支持\r\n",
+          "en-US": "### ✨ New Features\r\n- Add support for Nexa\r\n"
+        },
+        "bootloaderChangelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 新的固件验签算法\r\n- 不再支持安装非官方签名的固件\r\n- 升级前的电量检测，低电量或未插电禁止升级固件\r\n- 释放更多存储空间\r\n",
+          "en-US": "### ✨ New Features\r\n- Add new firmware signature verification algorithm\r\n- No longer support installing firmware with unofficial signatures\r\n- Battery level checks before upgrade\r\n- Release more storage capacity\r\n"
+        }
+      }
+    ],
+    "firmware-v2": [
+      {
+        "required": false,
+        "version": [
+          3,
+          0,
+          0
+        ],
+        "url": "https://common.onekey-asset.com/hw/legacy/3.0.0/mini.3.0.0-Stable-0518-b860d10.signed.bin",
+        "bootloaderResource": "https://common.onekey-asset.com/hw/legacy/bootloader/mini/2.0.0/mini-boot.2.0.0-0518-b860d10.signed.bin",
+        "bootloaderVersion": [
+          2,
+          0,
+          0
+        ],
+        "bootloaderRelatedFirmwareVersion": [
+          3,
+          0,
+          0
+        ],
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 全新界面\r\n- 新增支持 Kaspa\r\n- 新增支持 SUI\r\n- 新增支持 Cardano (ADA)\r\n- 新增支持 ASTAR, KUSMA\r\n- 新增支持 safety checks\r\n\r\n### 🐞 问题修复\r\n- 修复二维码及地址大小写展示问题\r\n\r\n### 💎 改进\r\n- 改进了盲签提示\r\n",
+          "en-US": "### ✨ New Features\r\n- All new UI with\r\n- Add support for Kaspa\r\n- Add support for SUI\r\n- Add support for Cardano (ADA)\r\n- Add support for ASTAR, KUSMA\r\n- Add support for safety checks\r\n\r\n### 🐞 Bug Fixes\r\n- Fix QR-Code and address display issues\r\n\r\n### 💎 Improvements\r\n- Improved blind signing alert\r\n"
+        },
+        "bootloaderChangelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 新的固件验签算法\r\n- 不再支持安装非官方签名的固件\r\n- 升级前的电量检测，低电量或未插电禁止升级固件\r\n- 释放更多存储空间\r\n",
+          "en-US": "### ✨ New Features\r\n- Add new firmware signature verification algorithm\r\n- No longer support installing firmware with unofficial signatures\r\n- Battery level checks before upgrade\r\n- Release more storage capacity\r\n"
+        }
+      }
+    ],
+    "firmware": [
+      {
+        "required": false,
+        "version": [
+          2,
+          11,
+          0
+        ],
+        "url": "https://common.onekey-asset.com/hw/legacy/2.11.0/mini.2.11.0-Stable-0323-19ff5d9-signed.bin",
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- 现已支持比特币 Taproot 地址格式\r\n\r\n### 🐞 问题修复\r\n- 修复 aptos 签名消息过长无法签名的问题\r\n- UI 问题修复\r\n- 设备识别问题修复，现已支持 Electrum 等第三方客户端\r\n",
+          "en-US": "### ✨ New Features\r\n- Bitcoin Taproot address now supported\r\n\r\n### 🐞 Bug Fixes\r\n- Fix the issue that may fail to sign when aptos message being to long\r\n- UI issue fixed\r\n- Fixed device identification issue, now supports third-party applications like Electrum\r\n"
+        }
+      }
+    ],
+    "ble": [ ]
+  },
+  "touch": {
+    "firmware-v5": [
+      {
+        "required": false,
+        "version": [
+          4,
+          7,
+          0
+        ],
+        "bootloaderResource": "https://web.onekey-asset.com/hardware/touch/bootloader/v2.4.9/bootloader.2.4.9-Stable-0807-3e033eb.signed.bin",
+        "bootloaderVersion": [
+          2,
+          4,
+          8
+        ],
+        "fullResource": "https://web.onekey-asset.com/hardware/touch/resource/res-4.7.0.zip",
+        "fullResourceRange": [
+          "3.5.0",
+          "4.0.0"
+        ],
+        "resource": "https://web.onekey-asset.com/hardware/touch/resource/resource-4.0.0-4.7.0.zip",
+        "url": "https://web.onekey-asset.com/hardware/touch/firmware/v4.7.0/touch.4.7.0-Stable-1227-2c4d945-signed.bin",
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- Joystream 链支持\r\n- nostr 支持\r\n",
+          "en-US": "### ✨ New Features\r\n- Add support for Joystream\r\n- Add support for Nostr\r\n"
+        }
+      }
+    ],
+    "firmware-v4": [
+      {
+        "required": false,
+        "version": [
+          4,
+          7,
+          0
+        ],
+        "bootloaderResource": "https://web.onekey-asset.com/hardware/touch/bootloader/v2.4.9/bootloader.2.4.9-Stable-0807-3e033eb.signed.bin",
+        "bootloaderVersion": [
+          2,
+          4,
+          8
+        ],
+        "fullResource": "https://web.onekey-asset.com/hardware/touch/resource/res-4.7.0.zip",
+        "fullResourceRange": [
+          "3.5.0",
+          "4.0.0"
+        ],
+        "resource": "https://web.onekey-asset.com/hardware/touch/resource/resource-4.0.0-4.7.0.zip",
+        "url": "https://web.onekey-asset.com/hardware/touch/firmware/v4.7.0/touch.4.7.0-Stable-1227-2c4d945-signed.bin",
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### ✨ 新功能\r\n- Joystream 链支持\r\n- nostr 支持\r\n",
+          "en-US": "### ✨ New Features\r\n- Add support for Joystream\r\n- Add support for Nostr\r\n"
+        }
+      }
+    ],
+    "firmware-v3": [
+      {
+        "required": false,
+        "version": [
+          4,
+          4,
+          0
+        ],
+        "bootloaderResource": "https://web.onekey-asset.com/hardware/touch/bootloader/v2.4.9/bootloader.2.4.9-Stable-0807-3e033eb.signed.bin",
+        "bootloaderVersion": [
+          2,
+          4,
+          8
+        ],
+        "fullResource": "https://web.onekey-asset.com/hardware/touch/resource/res-4.4.0.zip",
+        "fullResourceRange": [
+          "3.5.0",
+          "4.0.0"
+        ],
+        "resource": "https://web.onekey-asset.com/hardware/touch/resource/resource-4.0.0-4.4.0.zip",
+        "url": "https://web.onekey-asset.com/hardware/touch/firmware/v4.4.0/touch.4.4.0-Stable-0807-3e033eb.signed.bin",
+        "fingerprint": "",
+        "changelog": {
+          "en-US": "### ✨ New Features\r\n- Add support for Nexa\r\n\r\n### 🐞 Bug Fixes\r\n- Fix the issue that KeyTag backup may be interrupted during setup\r\n- Fix the display issue of signing Conflux 0 amount transaction\r\n\r\n### 💎 Improvements\r\n- Adjust the data size limit for signing Ethereum EIP-712 message\r\n",
+          "zh-CN": "### ✨ 新功能\r\n- 支持 Nexa 链\r\n\r\n### 🐞 问题修复\r\n- 修复初始化期间 KeyTag 备份可能中断的问题\r\n- 修复 Conflux 0 金额交易签名时信息展示问题\r\n\r\n### 💎 改进\r\n- 调整以太坊 EIP-712 签名的数据上限\r\n"
+        }
+      }
+    ],
+    "firmware-v2": [
+      {
+        "required": false,
+        "version": [
+          4,
+          0,
+          0
+        ],
+        "fullResourceRange": [
+          "3.5.0",
+          "4.0.0"
+        ],
+        "fullResource": "https://common.onekey-asset.com/hw/assets/res-v1.1.0.zip",
+        "resource": "",
+        "url": "https://common.onekey-asset.com/hw/touch/4.0.0/touch.4.0.0-Stable-0118-e901cef-signed.bin",
+        "fingerprint": "",
+        "changelog": {
+          "en-US": "### ✨ New Features\r\n- All new UI with a fresh chic look\r\n- Add support for SUI Testnet\r\n- Add support for Cosmos (ATOM)\r\n- Add support for Filecoin (FIL)\r\n- Add support gestures to back to the previous page\r\n- Add developer settings options. Added an option to reduce animation effect\r\n- Add language option for Russian and Spanish\r\n- Add support for single NFT transfer parsing\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that swipe gestures would trigger tapping\r\n- Fixed the issue that animation might cause no response\r\n- Fixed the issue that showing fatal error red screen when launching device\r\n\r\n### 💎 Improvements\r\n- Show full information of device in update mode\r\n- Show options for creating 18 or 24 words recovery phrase when creating wallet\r\n- Improved signing experience\r\n- Improved keyboard experience\r\n- Improved performance of connection\r\n- Add duplicate detection for wallpapers and NFTs\r\n- Update tokenlist and chainlist\r\n",
+          "zh-CN": "### ✨ 新功能\r\n- 全新设计的帅气 UI\r\n- 新增 SUI Testnet 的支持\r\n- 新增 Cosmos (ATOM) 的支持\r\n- 新增 Filecoin (FIL) 的支持\r\n- 新增手势返回的支持\r\n- 新增俄语、西班牙语选项\r\n- 新增开发者设置选项，新增减弱动画效果选项\r\n- 新增支持单个NFT转账的解析\r\n\r\n### 🐞 问题修复\r\n- 修复了滑动手势会触发轻触的问题\r\n- 修复了动画可能会导致无响应的问题\r\n- 修复了启动设备时显示错误红屏的问题\r\n\r\n### 💎 改进\r\n- 在更新模式下显示完整的设备信息\r\n- 创建钱包时，显示创建 18 或 24 助记词的选项\r\n- 改进了签名体验\r\n- 改进了键盘体验\r\n- 改进了连接性能\r\n- 在墙纸和 NFT 列表加入了重复检测\r\n- 更新了代币列表和链列表\r\n"
+        }
+      }
+    ],
+    "firmware": [
+      {
+        "required": false,
+        "version": [
+          3,
+          4,
+          0
+        ],
+        "fullResource": "https://common.onekey-asset.com/hw/assets/res-v1.0.0-without-font.zip",
+        "resource": "",
+        "url": "https://common.onekey-asset.com/hw/touch/3.4.0/touch.3.4.0-Stable-1120-38abffd-signed.bin",
+        "fingerprint": "",
+        "changelog": {
+          "en-US": "### ✨ New Features\r\n- Add support for Algorand tokens\r\n - Add support for Ripple\r\n - Add support for Aptos signing method\r\n - Add support for customizing wallpaper\r\n\r\n### 🐞 Bug Fixes\r\n- Fix the issue that can't save large image files\r\n - Fix the issue that did not show boardloader version correctly\r\n\r\n### 💎 Improvements\r\n- Add transitions between pages\r\n- Improved UI of loading states\r\n- Optimized the parameters of the monitor driver\r\n",
+          "zh-CN": "### ✨ 新功能\r\n- 新增 Algorand 代币支持\r\n - 新增 Ripple 支持\r\n - 新增 Aptos 签名方法支持 \r\n - 新增支持自定义墙纸\r\n\r\n### 🐞 问题修复\r\n- 修复不能存储大图文件的问题\r\n - 修复了 Boardloader 版本显示不正确的问题\r\n\r\n### 💎 优化\r\n- 新增页面过渡\r\n- 改进加载状态的 UI\r\n- 优化了屏幕驱动参数\r\n"
+        }
+      }
+    ],
+    "ble": [
+      {
+        "required": false,
+        "version": [
+          2,
+          1,
+          0
+        ],
+        "webUpdate": "https://common.onekey-asset.com/hw/touch/2.1.0/touch_ble_signed-2022-1102_2.1.0.bin",
+        "fingerprint": "",
+        "changelog": {
+          "zh-CN": "### 🐞 问题修复\r\n- 充电电量显示问题\r\n- 关闭蓝牙后，能够正确关机\r\n",
+          "en-US": "### 🐞 Bug Fixes\r\n- Fixed charging power display problem\r\n- After turning off bluetooth, it can shut down properly\r\n"
+        }
+      }
+    ]
+  },
+  "pro": {
+    "firmware-v5": [ ],
+    "firmware": [ ],
+    "ble": [ ]
+  },
+  "bridge": {
+    "version": [
+      2,
+      2,
+      0
+    ],
+    "linux32Rpm": "https://web.onekey-asset.com/bridge/v2.2.0/onekey-bridge-2.2.0-i386.rpm",
+    "linux64Rpm": "https://web.onekey-asset.com/bridge/v2.2.0/onekey-bridge-2.2.0-amd64.rpm",
+    "linux32Deb": "https://web.onekey-asset.com/bridge/v2.2.0/onekey-bridge-2.2.0-i386.deb",
+    "linux64Deb": "https://web.onekey-asset.com/bridge/v2.2.0/onekey-bridge-2.2.0-amd64.deb",
+    "win": "https://web.onekey-asset.com/bridge/v2.2.1/onekey-bridge-2.2.1-install.exe",
+    "mac": "https://web.onekey-asset.com/bridge/v2.2.0/onekey-bridge-2.2.0.signed.pkg",
+    "sha256sumAsc": "",
+    "changelog": {
+      "zh-CN": "### ✨ 新功能\r\n- 支持 Touch 和 Classic 的 'Trezor 兼容模式' 配置\r\n\r\n### 🐞 问题修复\r\n- OneKey Bridge 在 macOS 的后台进程名称更改为 'onekeyd'\r\n",
+      "en-US": "### ✨ New Features\r\n- Supports Trezor Compatibility Mode configurations for Touch and Classic\r\n\r\n### 🐞 Bug Fixes\r\n- Supports Trezor Compatibility Mode configurations for Touch and Classic\r\n"
+    }
+  },
+  "desktop": {
+    "sha256sumAsc": "",
+    "version": [
+      4,
+      23,
+      0
+    ],
+    "linux": "https://web.onekey-asset.com/app-monorepo/4.23.0/OneKey-Wallet-4.23.0-linux-x86_64.AppImage",
+    "macX64": "https://web.onekey-asset.com/app-monorepo/4.23.0/OneKey-Wallet-4.23.0-mac-x64.dmg",
+    "macARM": "https://web.onekey-asset.com/app-monorepo/4.23.0/OneKey-Wallet-4.23.0-mac-arm64.dmg",
+    "win": "https://web.onekey-asset.com/app-monorepo/4.23.0/OneKey-Wallet-4.23.0-win-x64.exe",
+    "mas": {
+      "url": "https://apps.apple.com/us/app/id1609559473",
+      "version": [
+        4,
+        23,
+        0
+      ]
+    },
+    "msStore": {
+      "url": "https://apps.microsoft.com/store/detail/XPFMHZDDF91TNL",
+      "version": [
+        4,
+        23,
+        0
+      ]
+    },
+    "snapStore": {
+      "url": "https://snapcraft.io/onekey-wallet",
+      "version": [
+        4,
+        23,
+        0
+      ]
+    },
+    "changelog": {
+      "zh-CN": "",
+      "en-US": ""
+    }
+  },
+  "changelog": [
+    {
+      "version": "4.23.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Supports OneKey Pro hardware connection and firmware upgrades.\r\n- Supports Nervos and Neurai networks.\r\n- Dapp connection now supports EIP6963.\r\n- Editable transaction fees on the Solana network.\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed missing priority fees when cancelling limit orders with Jupiter on Solana.\r\n- Resolved issues with using market orders with Drift on Solana.\r\n- Fixed transaction fee retrieval failures on EVM networks.\r\n- Corrected transaction status display errors on the DOT network.\r\n- Fixed transfer failures of frozen Dapp balances on Astar network.\r\n- Addressed connection errors with Cellana on Aptos network.\r\n- Resolved account balance display issues on Tron network.\r\n\r\n### 💎 Improvements\r\n- Enhanced accuracy of token details retrieval on Solana.\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 支持新款硬件 OneKey Pro 连接和固件升级\r\n- 支持 Nervos 和 Neurai 网络\r\n- Dapp 连接支持 EIP6963\r\n- 在 Solana 网络下，支持编辑交易手续费\r\n\r\n### 🐞 问题修正\r\n- 修复在 Solana 网络下使用 Jupiter 取消限价单时，未添加优先费用的问题\r\n- 修复在 Solana 网络下使用 Drift 时无法使用市价单的问题\r\n- 修复在 EVM 网络下，交易手续费获取失败的问题\r\n- 修复在 DOT 网络下，交易记录状态显示错误的问题\r\n- 修复在 Astar 网络下， Dapp 冻结的余额转账会失败的问题\r\n- 修复在 Aptos 网络下，连接 Cellana 时报错的问题\r\n- 修复在 Tron 网络下，账户余额的显示问题\r\n\r\n### 💎 改进\r\n- 优化在 Solana 网络下，获取代币详情不准确的情况\r\n"
+      }
+    },
+    {
+      "version": "4.22.0",
+      "locale": {
+        "en-US": "### 🐞 Bug Fixes\r\n- Fixed transaction parsing failure for specific token transfers on Solana.\r\n- Resolved Solana's inability to process token swap transactions.\r\n- Addressed Thorswap order creation errors.\r\n- Corrected transaction fee display issues due to Gas Limit.\r\n- Rectified high fees during Merlinswap transactions.\r\n\r\n### 💎 Improvements\r\n- Default tip addition optimized for Solana transactions.\r\n- Refined fee limit settings for BTC Fork network.\r\n",
+        "zh-CN": "### 🐞 问题修正\r\n- 修复在 Solana 网络下，特定情况下转账 token 时交易解析失败的问题\r\n- 修复在 Solana 网络下，兑换代币交易无法上链的问题\r\n- 修复在 Thorswap 路由下，构建订单时报错的问题\r\n- 修复 Gas Limit 导致的交易费用展示异常问题\r\n- 修复在 Merlinswap 交易时，手续费偏高的问题\r\n\r\n### 💎 改进\r\n- 优化在 Solana 网络下，交易默认添加小费\r\n- 优化 BTC 相关 Fork 链的手续费限制设置\r\n"
+      }
+    },
+    {
+      "version": "4.21.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Support for Blast Network\r\n- Support for Bitcoin Signet Test Network\r\n- Support for Cosmos Babylon Test Network\r\n- Support for Mint Test Network\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed an issue where data synchronization migration fails in multi-end scenarios\r\n- Fixed a UI display issue for cross-chain rewards to Arbitrum Network when using the Socket protocol\r\n\r\n### 💎 Improvements\r\n- Improved the issue where invoices for internal payments under the Lightning Network can be reused\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 支持 Blast 网络\r\n- 支持 Bitcoin Signet 测试网络\r\n- 支持 Cosmos Babylon 测试网络\r\n- 支持 Mint 测试网络\r\n\r\n### 🐞 问题修正\r\n- 修复在多端情况下，数据同步迁移失败的问题\r\n- 修复在使用 Socket 协议时，跨链至 Arbitrum 网络的奖励 UI 显示问题\r\n\r\n### 💎 改进\r\n- 改进在闪电网络下，内部支付的 invoice 可以被再次使用的问题\r\n"
+      }
+    },
+    {
+      "version": "4.20.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\nAdded support for Manta Network\r\nSupported Dapp invocation of the inscribe BRC-20 process\r\n\r\n🐞 Bug Fixes\r\nFixed an issue where NFT could not be displayed on the BTC network\r\nFixed a failure prompt issue with single-chain account signatures on the BTC network\r\nFixed a transfer error issue on the Kusama network\r\nFixed an error issue when blind signing data was too large\r\n\r\n💎 Improvements\r\nRenamed Ethereum Fair (ETHF) network to DIS CHAIN\r\nOptimized the display logic for holdings in the DeFi module\r\n",
+        "zh-CN": "### ✨ 新功能\r\n新增支持 Manta 网络\r\n支持 Dapp 调起铭刻 BRC-20 流程\r\n\r\n🐞 问题修正\r\n修复：在 BTC 网络下，NFT 图片无法显示的问题\r\n修复：在 BTC 网络下，单链账户签名提示失败的问题\r\n修复：在 kusama 网络下，转账报错的问题\r\n修复：盲签数据太大时的报错问题\r\n\r\n💎 改进\r\n修改 Ethereum Fair（ETHF）网络名称为 DIS CHAIN\r\n优化 DeFi 模块的持仓展示逻辑\r\n"
+      }
+    },
+    {
+      "version": "4.19.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added support for Nostr automatic signing in app wallets\r\n- Added support for EIP-6963\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed: issue where DYM airdrops could not be claimed on the Cosmos network\r\n- Fixed: connectivity issue with wallets on the Manta network\r\n- Fixed: issue on the Kaspa network where multiple outputs in an address were only displaying as a single record\r\n\r\n### 💎 Improvements\r\n- Enhanced risk detection logic with dApps\r\n- Added support for Aptos Wallet Standard for dApp connections on the Aptos network\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 软件钱包新增支持 Nostr 自动签名\r\n- 新增支持 EIP-6963\r\n\r\n### 🐞 问题修正\r\n- 修复：在 Cosmos 网络下，DYM 空投无法领取的问题\r\n- 修复：在 Manta 网络下，无法连接钱包的问题\r\n- 修复：在 Kaspa 网络下，地址内有多笔 Output 却仅展示一条记录的问题\r\n\r\n### 💎 改进\r\n- 交互 dApp 时的风险监测逻辑优化\r\n- 在 Aptos 网络下，dApp 连接支持 Aptos Wallet Standard\r\n"
+      }
+    },
+    {
+      "version": "4.18.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added support for Joystream and Celestia\r\n- Hardware wallet now supports Lightning Network and Nostr protocol\r\n- Support for generating multiple Nostr accounts with the same set of mnemonic phrases\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed: An issue where native tokens could not be transferred out after Nexa accounts received spam tokens\r\n- Fixed: Resolved insufficient balance error when sending SNEK tokens on Cardano chain.\r\n- Fixed: Resolved authorization issues with WebLN / Nostr dApp connections\r\n- Fixed: Issues with using Jupiter dApp properly\r\n- Fixed: Errors and timeouts when sending transactions in the Orca dApp\r\n- Fixed: A problem where disabling options in the wallet switch settings did not take effect (Extension)\r\n\r\n### 💎 Improvements\r\n- Upgraded Jupiter Swap API\r\n- Enhanced transfer experience on Kaspa chain\r\n- Improved receiving and sending experience for Ordinals / BRC-20\r\n- Adjusted BTC balance statistics and display rules\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增支持 Joystream、Celestia 网络\r\n- 硬件钱包支持闪电网络和 Nostr 协议\r\n- 同一套助记词支持生成多个 Nostr 账户\r\n\r\n### 🐞 问题修正\r\n- 修复：Nexa 账户被转入垃圾代币后，导致原生代币无法转出的问题\r\n- 修复：用户在Cardano链发送SNEK代币，错误提示余额不足的问题\r\n- 修复：WebLN / Nostr dApp 连接授权问题\r\n- 修复：无法正常使用 Jupiter dApp 的问题\r\n- 修复：在 Orca dApp 中，发送交易时报错和超时的问题\r\n- 修复：在钱包切换设置中，关闭对应选项不生效的问题（插件端）\r\n\r\n### 💎 改进\r\n- 升级 Jupiter Swap 接口\r\n- 优化 Kaspa 链的转账体验\r\n- 优化 Ordinals / BRC-20 接收和发送体验\r\n- 调整 BTC 余额统计及显示规则\r\n"
+      }
+    },
+    {
+      "version": "4.17.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added support: Nostr Protocol\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增支持：Nostr协议\r\n"
+      }
+    },
+    {
+      "version": "4.16.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added support for a new language: Portuguese (Brazilian)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed: Error message regarding nonce when sending transactions\r\n- Fixed: Incorrect value estimation when redeeming sMatic tokens\r\n- Fixed: Inability to add IBC tokens in the Cosmos ecosystem\r\n- Fixed: Issue in Solana ecosystem where sending certain NFTs results in an account frozen error\r\n\r\n### 💎 Improvements\r\n- Enhanced firmware upgrade process\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增支持语言：葡萄牙语（巴西）\r\n\r\n### 🐞 问题修正\r\n- 修复：发送交易时的 nonce 报错信息\r\n- 修复：赎回 sMatic 代币时估算 value 错误\r\n- 修复：Cosmos 生态中，IBC 代币无法添加\r\n- 修复：Solana 生态中，发送某些 NFT 时提示账户被冻结\r\n\r\n### 💎 改进\r\n- 优化固件升级流程\r\n"
+      }
+    },
+    {
+      "version": "4.15.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Swap: Added \"Thorswap\" for router\r\n- Algorand chain now supports atomic transfer\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed: Amount not displayed on the transfer page when switching from fiat currency to cryptocurrency as the default currency\r\n- Fixed: Inability to export private keys for ADA single-chain accounts\r\n- Fixed: Only high network rate working for max ETF token transfer\r\n- Fixed: Display issues for some BRC-20 .sats domain names asset\r\n- Fixed: Error when connecting non-Taproot addresses to list items on Unisat marketplace\r\n\r\n### 💎 Improvements\r\n- Swap: Optimized 1inch router\r\n- Added transfer guidance when BRC-20 transferable balance is 0\r\n- Optimized lightning network account balance display\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 闪兑：新增「Thorswap」路径\r\n- Algorand 链支持原子交易\r\n\r\n### 🐞 问题修正\r\n- 修复：默认货币从法币切换到加密货币后，转账页面金额未显示\r\n- 修复：ADA单链账户无法导出私钥\r\n- 修复：使用ETF代币最大值转账时，仅快速费率可成功\r\n- 修复：部分BRC-20 .sats域名资产显示乱码\r\n- 修复：非Taproot地址连接Unisat市场挂单报错\r\n\r\n### 💎 改进\r\n- 闪兑：优化 1inch 路径\r\n- 当BRC-20可转余额为0时，增加划转引导\r\n- 闪电网络账户余额展示优化\r\n"
+      }
+    },
+    {
+      "version": "4.14.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Introduced a new UI for Discover\r\n- Added support for sending BTC from manually added addresses\r\n\r\n### 💎 Improvements\r\n- Made a series of optimizations for Ordinals and UTXO management\r\n- Swap - Optimized swap channels\r\n- Swap - Removed rebundent options\r\n- Browser - Request camera permission from users when websites require camera access\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed: Reset failed due to the app being terminated by the app manager\r\n- Fixed: Network fee estimate failed when swapping WETH to ETH\r\n- Fixed: WebLN login failed with LNURL\r\n- Fixed: App restart after tapping close button when verifying PIN code\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 为 Discover 引入了全新的用户界面\r\n- 增加了从手动添加的地址发送BTC的支持\r\n\r\n### 💎 改进\r\n- 我们对 Ordinals 和 UTXO 管理进行了大量优化\r\n- 闪兑 - 优化 Swap 路径\r\n- 闪兑 - 移除多余的选项\r\n- 浏览器 - 当网站需要使用摄像头时，询问用户批准摄像头权限\r\n\r\n### 🐞 问题修正\r\n- 修复：应用管理器终止 App 导致的重置失败\r\n- 修复：将 WETH 兑换成 ETH 时网络费用估算失败\r\n- 修复：使用 LNURL 时 WebLN 登录失败\r\n- 修复：验证 PIN 码时点击关闭按钮会让 App 重启\r\n"
+      }
+    },
+    {
+      "version": "4.13.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added support for Bitcoin Lightning Network\r\n- Integrated with STAR domains\r\n\r\n### 💎 Improvements\r\n- Display details of Limit Order in Swap History\r\n- Optimized state logs\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed: Bulksender - Many to One - Failure could occur when transferring maximum amount of a token in accounts\r\n- Fixed: BRC20 token transfer history would abnormally show sent BTC\r\n- Fixed: All Network - BTC - Inscriptions were still displayed in the NFT list, even after destroying and refreshing token details\r\n- Fixed: Switch Network dialog did not prompt when connecting to Unisat while it was focused on All Network\r\n- Fixed: Batch copy address - Failed to export after setting range 100\r\n- Fixed: Avalanche Network - After jumping to swap it should show the native coin / USDC pair, not pairs of other chains\r\n- Fixed: Swap - The refresh button does not work when the amount was less than minimum swap amount\r\n- Fixed: Showed error \"pubkey is not allowed to be empty\" when connecting to Unisat (Mobile)\r\n- Fixed: Entering the BRC20 token details page would cause flashing a few times (Desktop)\r\n- Fixed: Bulksender - Unresponsiveness issue when clicking check or uncheck accounts during Bulk transfer (Android)\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 添加了对比特币闪电网络的支持\r\n- 集成了 STAR 域名\r\n\r\n### 💎 改进\r\n- 在闪兑历史中显示限价订单的详细信息\r\n- 优化状态日志\r\n\r\n### 🐞 问题修正\r\n- 修复：批量发送 - 多对一 - 全部转出代币时可能会出现失败的问题\r\n- 修复：BRC20 代币传输历史记录异常更改为显示已发送的 BTC\r\n- 修复：所有网络 - BTC - 铭文在销毁和刷新令牌详细信息后仍显示在 NFT 列表中\r\n- 修复：当在所有网络中聚焦时，连接到 Unisat 时切换网络对话框没有提示\r\n- 修复：批量复制地址 - 设置范围为 100 后，导出失败\r\n- 修复：Avalance 网络 - 跳转到交换后应显示本币/USDC交易对，而不是其他链的交易对\r\n- 修复：闪兑 - 当输入金额小于最小闪兑金额时刷新按钮无响应\r\n- 修复：连接到 Unisat 时，出现错误 \"Pubkey 不允许为空\" (移动端)\r\n- 修复：进入 BRC20 代币详情页面可能会闪烁几次 (桌面端)\r\n- 修复：批量发送 - 点击选中或取消选中账户时反应迟钝 (Android)\r\n"
+      }
+    },
+    {
+      "version": "4.12.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added support for BRC-20 token display, transfer, and receiving; supports inscription destruction\r\n- Enabled 0x RFQ functionality\r\n- Added Quick favorite buttons overlay search results (Desktop / Browser Extension)\r\n\r\n### 💎 Improvements\r\n- Optimized rendering of the Token Management page* \r\n- Market - Improdved tokens sorting\r\n- Adjusted List Layout for Market (Desktop)\r\n- Utilized React 18 createRoot API for rendering the root component (Browser Extension)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed: Explore - Tags Tab - UI display issue with add and delete buttons\r\n- Fixed: Token details page price history chart initially displayed No Data and lacked loading process prompt\r\n- Fixed: Data migration - incomplete display of imported data text on mobile\r\n- Fixed: Lagging issue in the sending process\r\n- Fixed: Deployment failure of contracts for hardware wallets\r\n- Fixed: Token details page - Incomplete display when the highest or lowest point is on the far left of the line chart\r\n- Fixed: Explore - Tags Tab window switch - Failure to scroll to the just collapsed window upon collapsing again (iOS)\r\n- Fixed: Homepage - Sliding on Tab triggers item click event unintentionally (iOS)\r\n- Fixed: Account verification page - No response when clicking the back button (iOS)\r\n- Fixed: Confirming password change took a relatively long time to succeed (iOS)\r\n- Fixed: Market: In the Watchlist, the \"Add Token\" button is not fully displayed (on small screen models like iPhone SE2)\r\n- Fixed: Account page - Occasional layout abnormalities causing the collapse of various controls (Android)\r\n- Fixed: Sliding up and down on the homepage also shifts the top part of the page, resulting in a blank area (Android)\r\n- Fixed: Market - Occasionally encountered failures when removing tokens from the Watchlist (Desktop)\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 支持BRC-20展示和收发；支持铭文销毁\r\n- 启用 0x RFQ 功能\r\n- 搜索结果加入悬浮显示的快捷收藏按钮(桌面端 / 浏览器插件)\r\n\r\n### 💎 改进\r\n- 优化 Token 管理页渲染\r\n- 优化行情代币排序\r\n- 行情 - 列表布局调整（桌面端）\r\n- 使用 React 18 createRoot API 来渲染根组件（浏览器插件）\r\n\r\n### 🐞 问题修正\r\n- 修复：发现 - 标签页 - 修复了添加按钮跟删除按钮 UI 显示问题\r\n- 修复：代币详情页价格历史图表，首次加载完成前显示「暂无数据」，缺少加载过程提示\r\n- 修复：数据迁移 - 修复了手机端导入的数据文案展示不全的问题\r\n- 修复：发送流程卡顿问题\r\n- 修复：硬件钱包部署合约失败\r\n- 修复：代币详情页，最高点或最低点在图标的最左侧时,显示不完整\r\n- 修复：发现 - 标签页切换窗口-再次收起时没滚动显示到刚收起的窗口（iOS）\r\n- 修复：首页滑动Tab会误触发Item点击事件（iOS）\r\n- 修复：删除账户验证页面页面，点击返回无反应。（iOS）\r\n- 修复：修改密码进行确认需加载比较长的时间才可成功的问题（iOS）\r\n- 修复：行情 - 观察列表中，添加代币按钮显示不完整（在类似iPhone SE2小屏幕设备上发生）\r\n- 修复：账户页,页面布局偶现布局异常,各控件出现折叠（安卓）\r\n- 修复：在首页上下滑动-页面最上方部分也进行了上下滑动-出现空白区域（安卓）\r\n- 修复：行情 - 观察列表移除收藏时偶尔会出现失败 （桌面端）\r\n"
+      }
+    },
+    {
+      "version": "4.11.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Bulksender: Supports \"Many-to-Many\" and \"Many-to-One\" sending\r\n- Staking: Added support for Lido Polygon Staking\r\n- View Assets in All Networks: Allows manual selection of networks to expedite loading times\r\n- Backup & Migration: Enhanced support for backing up or migrating more content\r\n- Swap: Added 0x channel support for the Base network\r\n- Added Linea, Base, and Mantle networks\r\n\r\n### 🐞 Bug Fixes\r\n- Hardware SDK: Adapted to both new and old versions of Messages, resolving Message ID conflicts\r\n- Fixed the issue where spaces couldn't be input while entering Passphrase\r\n- Swap: Fixed the issue where clicking \"Max\" did not respond or responded slowly\r\n- Batch Sending NFTs: Resolved the problem of continuous loading after filling in the address and clicking \"Next\" (Browser Extension)\r\n- Fixed the issue of insufficient balance error when sending the maximum value of BTC\r\n- Fixed Linea Bridge issue where there was no prompt or error message when cross-chain transferring to the ETH network\r\n- Fixed the error that occurred when sending a small amount of funds to a new account\r\n- Resolved the issue where a successful Swap on the OpenOcean channel to Xdai resulted in a failed history record\r\n- Fixed the price display issue for Kaspa\r\n- Addressed the issue where switching to the All Networks page with a large account_index would cause freezing\r\n- Fixed the issue of BTC fiat valuation not updating\r\n- Fixed the problem in the Explore module where clicking on suggested autocomplete results did not open web pages\r\n- Various UI minor issue fixes\r\n\r\n### 💎 Improvements\r\n- Updated the maximum message length supported by EVM sign_typed_data to 1.5KB\r\n- Language packs are now loaded on-demand\r\n- Improved information display on the Account Token details page\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 批量发送：支持「多对多」和「多对一」发送\r\n- 质押：新增对 Lido Polygon 质押的支持\r\n- 在所有网络中查看资产：允许手动选择网络以加快加载时间\r\n- 备份和迁移：增强对备份或迁移更多内容的支持\r\n- 闪兑：为 Base 网络添加了 0x 通道支持\r\n- 添加了 Linea、Base 和 Mantle 网络\r\n\r\n### 🐞 问题修正\r\n- 硬件 SDK：适配新旧版本的消息，解决了消息 ID 冲突问题\r\n- 修复了输入密码时无法输入空格的问题\r\n- 闪兑：修复了点击「最大」时未响应或响应缓慢的问题\r\n- 批量发送 NFT：解决了填写地址后点击「下一步」后持续加载的问题（浏览器插件）\r\n- 修复了发送 BTC 最大值时的余额不足错误问题\r\n- 修复了 Linea Bridge 跨链到 ETH 网络时无提示或错误消息的问题\r\n- 修复了向新账户发送少额资金时出现的错误问题\r\n- 解决了在 OpenOcean 渠道上从 Xdai 进行成功交换后导致历史记录显示失败的问题\r\n- 修复了 Kaspa 的价格显示问题\r\n- 解决了切换到所有网络页面时出现卡死问题的问题\r\n- 修复了 BTC 法定估值不更新的问题\r\n- 修复了在 Explore 模块中点击建议的自动完成结果无法打开网页的问题\r\n- 各种 UI 小问题修复\r\n\r\n### 💎 改进\r\n- 将 EVM sign_typed_data 支持的最大消息长度更新为 1.5KB\r\n- 语言包现在按需加载\r\n- 改进了账户代币详情页面的信息显示\r\n"
+      }
+    },
+    {
+      "version": "4.10.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- All networks - View account assets on different networks in one view\r\n- Add support for showing, inscribing, and transferring Ordinals NFTs\r\n- Add support for rapid staking on Kelepool\r\n- Add support for BTC multisignature address transfer\r\n- Add support for Nexa network\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue of the update wizard not prompting for boot upgrade when upgrading across major version to 3.1.0\r\n- Fixed the issue of Kaspa transaction history\r\n- Fixed display issue caused by address caching\r\n- Fixed the issue that promting \"Transaction failed\" when swapping on Osmosis (Extension)\r\n- Fixed the issue that swiping up on the account view may trigger a left swipe, which sometimes gets stuck halfway through (Android)\r\n- Fixed the issue that showing blank screen after scanning the address QR Code (Android)\r\n\r\n### 💎 Improvements\r\n- When dApps pass in a value without a 0x prefix, it will be processed as hex\r\n- Improved transaction history details view - Show the full address and recognize address type\r\n- You can now send transactions with optional Hex data\r\n- Improved swap prompts\r\n- Improved NFT list paging\r\n- Optimized state logs\r\n- Refinement of EVM-related message signing methods\r\n- Improved data transfer - ignore version limitations between 0.0.x\r\n- Added more RPCs of 1rpc and bloxroute\r\n- Swap - Add an adjustment to the balance reservation according to the current gas price based on Blocknative realtime data\r\n- Adjusted rules of BTC account balance calculation and added account balance modal\r\n- Use revoke.cash as the tool for contract approval management\r\n- Changed Passkey name of fingerprint from UUID to \"OneKey Extension\" (Extension)\r\n- Performance optimization - Removed lazy loading of routing jumps (Android)\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 所有网络 - 一览不同网络上的账户资产\r\n- 新增支持 Ordinals NFT 显示、铭刻、发送\r\n- 新增 Kelepool 快速质押\r\n- 新增对 BTC 多签地址的转账支持\r\n- 新增支持 Nexa 网络\r\n\r\n### 🐞 问题修正\r\n- 修复了跨主版本升级到3.1.0时，没有提示Boot升级的问题\r\n- 修复了 Kaspa 交易记录显示问题\r\n- 修复了在 Osmosis 闪兑时提示 “交易失败” 的问题\r\n- 修复了缓存导致的地址显示问题\r\n- 修复了向上滑动可能会触发左滑事件会导致中途卡住的问题 (安卓)\r\n- 修复了扫描地址二维码后显示空白屏幕的问题(安卓)\r\n\r\n### 💎 改进\r\n- 改进了账户详情页 - 显示完整地址和地址识别标签\r\n- 您现在可以发送交易时带上十六进制数据了\r\n- 改进了闪兑的提示\r\n- 改进了 NFT 列表的分页\r\n- 改进了日志记录\r\n- 完善了 EVM 相关的签名方法\r\n- 改进了数据传输 - 忽略 0.0.x 之间的版本限制\r\n- 新增更多 1rpc 和 bloxroute 的 RPC\r\n- 闪兑 - 根据 Blocknative 实时数据，按照当前 Gas 价格调整余额预留量\r\n- 调整 BTC 账户余额计算规则并添加账户余额弹窗\r\n- 使用 revoke.cash 作为合约管理工具\r\n- 将指纹的 Passkey 名称从 UUID 改为 \"OneKey Extension\" (浏览器插件)\r\n- 性能优化 - 去掉路由跳转懒加载 (安卓)\r\n"
+      }
+    },
+    {
+      "version": "4.9.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add support for OneKey Lite Gen.2\r\n- You can check token contract address when choosing target token in Swap\r\n- Make native tokens highlighted with a label\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that stuck at loading screen when making CFX transfer\r\n- Fixed the issue that the app may crash when transferring some SUI tokens\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- Gas Monitor - Remember whether the EIP-1559 option is on\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增支持 OneKey Lite Gen.2\r\n- 您可以在闪兑选择代币的时候查看代币合约地址\r\n- 用一个小标签突出了原生代币\r\n\r\n### 🐞 问题修正\r\n- 修复了在转账 CFX 时卡住在加载界面的问题\r\n- 修复了在转账某些 SUI 代币时 App 可能会闪退的问题\r\n- 修复了一些 UI 问题\r\n\r\n### 💎 改进\r\n- Gas 查看器 - 记住上次是否打开 EIP-1559 的选项\r\n"
+      }
+    },
+    {
+      "version": "4.8.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add Gas display widget to \"Discover\"\r\n- Add support for WalletConnect V2\r\n- Add Opside testnet\r\n- Add BTC support for Bulksender\r\n\r\n### 🐞 Bug Fixes\r\n- Swap - optimized interface display for Swap details and history\r\n- Optimized token allowance settings for Bulksender\r\n- Trimmed precision of push notification token values for improved readability\r\n- Refactored SOL and CFX related code\r\n\r\n### 💎 Improvements\r\n- Fixed Swap tooltip component issue on mobile devices\r\n- Fixed occasional freeze issue (iOS)\r\n- Fixed unresponsiveness issue after opening 99 windows in browser\r\n- Fixed occasional inability to close window on Discover page\r\n- Fixed some UI issues\r\n- Fixed layout display issue for Swap on small screens (Web)\r\n- Fixed delay in balance display (Extension)\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 「发现」 新增 Gas 显示\r\n- 支持 WalletConnect V2\r\n- 新增 Opside 测试网\r\n- 支持 BTC 批量发送\r\n\r\n### 🐞 问题修复\r\n- 闪兑 - 优化闪兑详情信息、历史记录的界面显示\r\n- 优化批量发送代币授权\r\n- 推送 - 推送的 Token 数值裁剪了精度，看起来更易读\r\n- 重构了 SOL 和 CFX 有关的代码\r\n\r\n### 💎 优化\r\n- 修复了 Swap 移动端 Tooltip 组件问题\r\n- 修复了偶尔出现 App 卡死的问题 (iOS)\r\n- 修复了开启99个浏览器窗口后无响应的问题\r\n- 修复了发现页窗口偶尔无法关闭的问题\r\n- 修复了一些界面问题\r\n- 修复了小屏幕下Swap布局显示不正常的问题（Web）\r\n- 修复了余额显示不及时的问题（浏览器插件）\r\n"
+      }
+    },
+    {
+      "version": "4.7.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add support for TRC20 in Bulksender\r\n- Add Lido as a staking provider\r\n- Add the setup wizard for OneKey Touch 4.3.0\r\n- Add hardware bridge check and update prompt for legacy versions\r\n- Add hardware SDK connection settings (Web & Extensions)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed an issue where the Kaspa account history could incorrectly show a record of a sent transaction\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- Hide contract risk tips for tokens on 3 exchanges with “High“ trustworthiness on CoinGecko\r\n- Optimized balance enquiry\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增支持 TRC20 批量转账\r\n- 新增 Lido 作为质押服务提供商\r\n- 新增 OneKey Touch 4.3.0 设置向导\r\n- 新增硬件通讯桥检测以及对于较旧版本的更新提示\r\n- 新增硬件 SDK 连接设置（网页端 和 插件端）\r\n\r\n### 🐞 问题修复\r\n- 修复了 Kaspa 账户历史记录可能错误出现一个发送交易的记录的问题\r\n- 修复了一些界面问题\r\n\r\n### 💎 优化\r\n- 对于在 CoinGecko 已上线三个可信度为「高」的交易所的 Token，隐藏合约风险提示\r\n- 优化了余额查询\r\n"
+      }
+    },
+    {
+      "version": "4.6.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- BTC Coin Control - By managing your UTXOs, you can enhance your privacy and control your UTXOs with inscriptions\r\n- Add update wizard for OneKey Mini Firmware 3.0.0\r\n- Swap - Integrated with OpenOcean\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that crashes when sliding and scrolling the account view simultaneously (iOS)\r\n- Fixed the balance display issue after successfully unstaking all tokens on Kelepool\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- Optimized the performance of QR Code recognition\r\n- Improved gesture implementation\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- BTC 交易输入控制 (Coin Control) - 使用 UTXO 管理，您可以增强转账隐私、控制转账输入带有铭刻信息 (Inscripition) 的 UTXO\r\n- 增加 OneKey Mini 固件 3.0.0 的升级向导\r\n- 闪兑 - 集成 OpenOcean\r\n\r\n### 🐞 问题修复\r\n- 修复了账户页面同时滚动和滑动会崩溃的问题 (iOS)\r\n- 修复了在 Kelepool 上 Unstake 所有代币成功后余额显示的问题\r\n- 修复了一些 UI 问题\r\n\r\n### 💎 优化\r\n- 优化了二维码识别的性能\r\n- 改进了手势实现\r\n"
+      }
+    },
+    {
+      "version": "4.5.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add support for Kaspa\r\n- Add support for SUI mainnet\r\n- Add support for updating bootloader of OneKey Classic \r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue when interacting with Tronscan\r\n- Fixed the issue of displaying blank screen after successfully submitting the swap transaction\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- New UI of Token Details view\r\n- Improve UI and performance on Swap, Limit Order, Token Details and more\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增支持 Kaspa \r\n- 新增支持 SUI 主网\r\n- 新增支持升级 OneKey Classic 的 Bootloader\r\n\r\n### 🐞 问题修复\r\n- 修复了与Tronscan交互时的问题\r\n- 修复了成功提交闪兑交易后，显示空白界面的问题\r\n- 修复了一些界面问题\r\n\r\n### 💎 优化\r\n- 全新代币详情界面\r\n- 改进了闪兑、限价单、代币详情还有其他页面的界面样式和性能\r\n"
+      }
+    },
+    {
+      "version": "4.4.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- All new Gas Fee UI - Integrated with BlockNative quotes, easy to use for newbies, powerful and convenient for pro players to customize fees\r\n- Add support for editing nonce - On the transaction confirmation page, tap Advance to edit\r\n- Swap - Add support for limit orders\r\n- Add support for BTC public key export\r\n- Add support for modifying BTC transfer network fee\r\n- Add support for unstaking on kelepool\r\n- Settings - Clear Cache\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that Tron can’t get token balance and add tokens\r\n- Fixed the issue of unsuccessful copying of URLs in explore page favorite and history (Desktop)\r\n- Swap - Fixed the issue that the list of token selector was not sorted in reverse order of token valuation\r\n- Swap - Fixed the issue that the rate was not refreshed\r\n- Fixed the issue that after adding tokens, the chart data and balance could be displayed, but the price was not fetched\r\n- Fixed the issue that the account page may not be response due to gesture conflict\r\n- Fixed the issues related to SUI network\r\n- Fixed the exception of iOS importing private key\r\n- Fixed the exception of XRP transactions\r\n- Fixed the issue that app may crash when editing wallet name (Android)\r\n- Fixed the issue that DOT cannot update addresses\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- Optimized loading time of NFT details\r\n- Improved Swap UI\r\n- Added an alert to prompt user hasn’t enough coin for network fee, and proivde a button to buy gas\r\n- App and hardware wallet limit changed up to 100\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 全新 Gas 费用 UI - 集成 BlockNative 报价，对新手简单易用，对专业玩家强大方便自定义费用\r\n- 支持修改交易 Nonce - 在交易确认页的手续费下方 - 点击高级，即可修改\r\n- 闪兑 - 支持限价单\r\n- 支持 BTC 公钥导出\r\n- 支持修改 BTC 转账网络费\r\n- 支持解除质押\r\n- 添加 Conflux 的 espace 链\r\n- 设置 - 清理缓存\r\n\r\n### 🐞 问题修复\r\n- 修复了 Tron 无法获取代币余额、无法添加代币的问题\r\n- 修复了在发现页收藏和历史中复制网址不成功的问题 (桌面端)\r\n- 闪兑 - 修复了选择Token列表中未按照法币估值倒序排序的问题\r\n- 闪兑 - 修复了汇率未刷新的问题\r\n- 修复了在添加代币后，能获取图表数据和余额，但是价格没有获取到的问题\r\n- 修复了账户页面手势冲突导致无法点击的问题 (Samsung)\r\n- 修复了 SUI 网络下的相关问题\r\n- 修复了 iOS 导入私钥异常的问题\r\n- 修复了 XRP 转账异常的问题\r\n- 修复了修改钱包名称的时候 App 可能崩溃的问题\r\n- 修复了 DOT 不能更新地址的问题\r\n- 修复了一些 UI 问题\r\n\r\n### 💎 优化\r\n- 优化 NFT 详情的加载时间\r\n- 改进闪兑 UI\r\n- 增加了一个提醒，提示用户没有足够的主币支付网络费，并提供了一个按钮来购买燃料\r\n- App 和硬件钱包上限改为 100 个\r\n"
+      }
+    },
+    {
+      "version": "4.3.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add support for searching accounts in account selector\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed an issue that could cause a jam when bulk-exporting addresses with hardware wallets\r\n- Fixed the issue that ETH price was not correctly display on zkSync Era\r\n- Fixed the network fee issue that could make it unable to send transactions\r\n- Fixed the issue that some sites could not prompt the spending cap settings request\r\n\r\n### 💎 Improvements\r\n- Improved some UI\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 账户选择器支持搜索账户\r\n\r\n### 🐞 问题修复\r\n- 修复了硬件钱包批量导出地址可能卡住的问题\r\n- 修复了 ETH 在 zkSync Era 没有正确显示价格的问题\r\n- 修复了可能导致交易无法正常发出的网络费问题\r\n- 修复了可能会让一些网站无法弹出支出上限请求的问题\r\n\r\n### 💎 优化\r\n- 改进了一些界面\r\n"
+      }
+    },
+    {
+      "version": "4.2.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add “Bulk Copy Addresses“ - Easy to fetch addresses to distribute funds\r\n- Add support for finding an BTC address by path\r\n- Add support for QR Code with URI Scheme (BTC, BCH, ETH)\r\n- Add support for Google Drive Backup (Google Play)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue of unable to import ALGO private key\r\n- When using cryptocurrency as the default currency, the price of that coin should be 1 (e.g. Bitcoin or Ethereum)\r\n- Some other minor fixes\r\n\r\n### 💎 Improvements\r\n- Disabled the “scroll to focused item” animation after entering the \"Network Selector\" or \"Account Selector\" to make the list more snappy\r\n- Support using gesture to switch tab in account page\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增「批量复制地址」：方便获取地址进行分散资金处理\r\n- 新增支持根据路径查找 BTC 地址\r\n- 新增支持带 URI Scheme 的二维码 (BTC, BCH, ETH)\r\n- 新增支持 Google Drive 备份 (Google Play)\r\n\r\n### 🐞 问题修复\r\n- 修复了硬件钱包不能给嵌套数组的 EIP-712 签名的问题\r\n- 修复了不能导入ALGO私钥的问题\r\n- 加密货币作为默认货币时，对应该主币的价格应该是1 (比如比特币或以太坊)\r\n- 一些其他小问题修复\r\n\r\n### 💎 优化\r\n- 禁用了进入「网络选择器」或「账户选择器」后的聚焦项列表滚动动画，让列表操作更敏捷\r\n- 账户页面支持使用手势切换标签\r\n"
+      }
+    },
+    {
+      "version": "4.1.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add support for creating BTC Taproot accounts and signing transactions\r\n- Add auto-complete prompts when entering recovery phrases, no need to enter the complete word, importing recovery phrase becomes super smooth\r\n- Allow website requests to add an RPC Node\r\n- Hidden Wallet: Add support for adding multiple hidden wallets, remember your hidden wallets on the list. *Don’t forget your passphrase!*\r\n- Add zkSync Era nework\r\n- Add Scroll Testnet\r\n- Add support for searching network with chain ID and symbol\r\n- Add support for SPACE ID domains\r\n\r\n### 🐞 Bug Fixes\r\n- Revoke.gg (Contract Approvals) - Fixed the issue that an option in settings menu might not be shown when data was loading in \r\n- Fixed the issue that prompted “Internal Error“ when importing ALGO private keys\r\n- Fixed the issue that could not cross-chain swap ADA\r\n- Fixed the issue that Account view might stuck after swtiching to ADA network when there were no ADA accounts. (iOS)\r\n- Fixed the issue that showing incorrect staking data\r\n\r\n### 💎 Improvements\r\n- Seperated recovery phrase and private key import in onboarding\r\n- Added pop-up for critical updates in case of emergency\r\n- Network and account information will pass and fill into Swap UI when tapping Swap button in Account view\r\n- Risk token alert: Choose a more neutral color to make tokens that require attention but have no identified risk less scary.\r\n- When transferring 1155 type NFTs and the current account has more than 1 of that NFT, only 1 will be transferred when the transfer is made\r\n- Added a switch to control whether to “swap to another account”\r\n- Improved UI: NFT history and details, Token Settings, Derivation Path modal, restoring accounts progress\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增 BTC Taproot 账号派生、签名支持\r\n- 输入助记词时新增自动补全提示，无需输入完整单词，导入钱包流程变得超级畅快\r\n- 允许网站请求添加 RPC 节点\r\n- 隐藏钱包：新增支持增加多个隐藏钱包，记住您的隐藏钱包于列表中 *请记住您的Passphrase密语！*\r\n- 新增 zkSync Era 网络\r\n- 新增 Scroll 测试网\r\n- 新增支持使用 Chain ID 或 主币代码 搜索\r\n- 新增支持 SPACE ID 域名\r\n\r\n### 🐞 问题修复\r\n- Revoke.gg (合约授权) - 修复了在加载中时设置选项中其中一项不显示的问题\r\n- 修复了当导入 ALGO 私钥时提示「内部错误」的问题\r\n- 修复了不能跨链兑换 ADA 的问题\r\n- 修复了当没有ADA账户又切换到ADA网络时，「账户」视图可能卡住的问题 (iOS)\r\n- 修复了显示不正确的质押数据问题\r\n\r\n### 💎 优化\r\n- 新手引导 - 分开了助记词和私钥的导入\r\n- 新增关键更新弹窗以备紧急情况使用\r\n- 当点击「账户」视图的「闪兑」，网络和账户信息将会传入「闪兑」界面中\r\n- 风险代币警告：选择了更中性的颜色，让需要注意但是未被识别为风险代币的提示没有那么可怕\r\n- 当转账1155类型NFT，而当前账户中该NFT数量大于1的时候，转账时只会转出 1 个\r\n- 新增了一个开关控制是否「闪兑到另外一个账户」\r\n- 改进了 UI：NFT 历史记录和详情、代币设置、派生路径弹窗、账户恢复中进度\r\n"
+      }
+    },
+    {
+      "version": "4.0.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Support for selecting common derivation path templates: A variety of common derivation templates are provided to recover your accounts that have been used in other apps. Now you can seamlessly migrate to OneKey using Ledger's recovery phrase. :)\r\n- Support restoring native ETC (CoinType 61') accounts\r\n- Add shortcuts for browser\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that could not scroll in Address Book\r\n\r\n### 💎 Improvements\r\n- Simplified account creation process: no more pop-ups to confirm the account name or other details, much faster to create a new account\r\n- The \"Recover Account\" screen is now easier to find, it is now called \"Manage Account\", click the plus icon in the top right corner of the \"Account\" list, you can see the option to add a single account or manage accounts\r\n- Added a waning prompt when slippage is too high\r\n- Some minor UI improvements\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 支持选择派生路径模板：提供了多种常见派生模板，可以恢复出您在其他平台使用过的账号。现在您可以使用 Ledger 的助记词无缝迁移到 OneKey 了 :)\r\n- 支持恢复原生 ETC (CoinType 61') 账户\r\n- 给浏览器添加了快捷键\r\n\r\n### 🐞 问题修复\r\n- 修复了地址簿不能滚动的问题\r\n\r\n### 💎 优化\r\n- 添加账户流程简化：不再弹出确认账号名字或其他细节的弹窗，创建新账号更便捷\r\n- 「恢复账号」界面更容易找到了，现在它叫做「管理账号」！点击「账号」列表右上角加号图标，您可以看到添加单个账号或管理账号的选项\r\n- 当滑点过高的时候，添加了警告提示\r\n- 一些 UI 细节改进\r\n"
+      }
+    },
+    {
+      "version": "3.30.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add update wizard for OneKey Touch 4.1.0 firmware\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed an issue that import KeyTag UI may look laggy\r\n- Fixed the issue of some RPC did not accept nonce which is numeric type, causing errors when performing bulk transfer\r\n- Disabled setting the receive amount of the target swap token which could lead to displaying incorrect quote offer in swap\r\n- Fixed the issue that not correctly recognize BCH addresses\r\n- Fixed the issue that not correctly recognize some BTC private keys\r\n- Fixed the issue that data could not be displayed in the confirmation page of some signing or transfer for Aptos\r\n- Fixed the issue of RPC detection on Crypto.org\r\n- Fixed the issue that adding websites to favorites might trim the parameters in the address\r\n\r\n### 💎 Improvements\r\n- Added a menu with options to Copy Address or Open in Browser when clicking a hash or address in transaction details\r\n- Favorites now supports editing name or address\r\n- Improve some UI details\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增 OneKey Touch 4.1.0 固件的升级向导\r\n\r\n### 🐞 问题修复\r\n- 修复了导入 KeyTag 界面迟缓的问题\r\n- 修复了有些 RPC 不接受 number 类型的 nonce 值，导致批量发送失败的问题\r\n- 在闪兑中禁用了设置代币接收金额，以避免显示错误报价\r\n- 修复了 BCH 地址没有被正确识别的问题\r\n- 修复了一些 BTC 私钥没有被正确识别的问题\r\n- 修复了在 Aptos 上签名或转账时数据信息没有显示的问题\r\n- 修复了 Crypto.org RPC 检测的问题\r\n- 修复了添加网站到收藏夹时地址的参数会被裁剪的问题\r\n\r\n### 💎 优化\r\n- 在交易详情中点击哈希或地址后，增加了有「复制」和「在浏览器打开」选项的菜单\r\n- 收藏夹现在支持编辑名称和地址了\r\n- 改进了一些界面细节\r\n"
+      }
+    },
+    {
+      "version": "3.29.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Bulksender - Transfer your token to multiple addresses, sending up to 500 addresses at a time\r\n- Add networks: Polkadot Astar, Cosmos Testnet\r\n- Add check update in settings menu (Mac App Store)\r\n- Add “Auto“ option for slippage tolerance\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that cannot swap on Polkadot\r\n- Fixed the \"Mismatch Network\" issue, now browser will correctly respond to swtich network request from Web3 sites\r\n\r\n### 💎 Improvements\r\n- Added display of amount for EIP-1155 NFTs\r\n- Updated display rules of token security information\r\n- Improved UI performance\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 批量发送器 - 将您的代币转入到多个地址，一次可发送多达500个地址\r\n- 新增网络：Polkadot Astar, Cosmos 测试网\r\n- 设置菜单新增「检查更新」(Mac App Store)\r\n\r\n### 🐞 问题修复\r\n- 修复了在波卡网络上不能闪兑的问题\r\n- 修复了「网络不匹配」问题，现在浏览器可以正确响应来自Web3网站的切换网络请求\r\n- 滑点设置新增「自动」选项\r\n\r\n### 💎 优化\r\n- 新增EIP-1155类型NFT的数量显示\r\n- 更新了代币安全信息的显示规则\r\n- 改进了界面的性能\r\n"
+      }
+    },
+    {
+      "version": "3.28.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add support for Polkadot(DOT) tokens, Web3 sites\r\n- Add support for Cardano(ADA) tokens, Web3 sites\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that prevented swap when there were unused allowance of tokens\r\n- Fixed some UI issues (iPad)\r\n- Fixed the issue that RPC status and offline status do not respond to network changes in time\r\n- Fixed the issue of unresponsive app rating\r\n- Fixed the issue of unresponsive connection when using swap with external account\r\n- Fixed the issue of signature failure of signTypedData_v4 in some websites\r\n- Fixed the abnormality of switching CFX address between mainnet and testnet in some cases\r\n- Fixed the issue of app stuck when using NFT attribute filter\r\n- Fixed the issue that app could crash when connecting Web3 sites in browser\r\n\r\n### 💎 Improvements\r\n- Improved UI of Swap: order history status, 3rd party provider information\r\n- Improved UI of Token Details in Market\r\n- Removed the unecessary location permission request (Android)\r\n- Added search bar in network selector\r\n- Make “Enter PIN on device“ as a default option\r\n- Added Memo input in Cosmos transfer\r\n- Improved the table in Market using fixed headers\r\n- Added support for back to previous page by gesture in webview (iOS)\r\n- Unified the amount display style of fiat\r\n- Improved UI of hardware wallet option menu\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增支持 Polkadot 波卡 (DOT) 代币、Web3 网站\r\n- 新增支持 Cardano(ADA) 代币、Web3 网站\r\n\r\n### 🐞 问题修复\r\n- 修复了当有未用完的授权额度时无法闪兑的问题\r\n- 修复了一些 UI 问题 (iPad)\r\n- 修复了 RPC 状态和离线状态未能及时响应网络变化的问题\r\n- 修复了 App 评分无响应的问题\r\n- 修复了使用外部账户闪兑时连接无响应的问题\r\n- 修复了部分网站signTypedData_v4的签名失败问题\r\n- 修复了某些情况下 CFX 地址在主网和测试网之间切换异常的问题\r\n- 修复了使用NFT属性过滤时卡住的问题\r\n- 修复了在浏览器中连接Web3网站时App可能崩溃的问题\r\n\r\n### 💎 优化\r\n- 改进了闪兑的界面：订单历史状态、第三方提供商信息\r\n- 改进了「市场」的「代币详情」的界面\r\n- 移除了不必要的位置权限请求（安卓）\r\n- 在网络选择器增加了搜索栏\r\n- 将「在设备上输入PIN」作为默认选项\r\n- 增加了 Cosmos 转账的 Memo 输入\r\n- 在市场页面中，使用固定标题以改进表格显示\r\n- 在 Webview 中增加了手势返回上一页的支持\r\n- 统一了法币金额的显示\r\n- 改进了硬件钱包选项菜单的界面\r\n"
+      }
+    },
+    {
+      "version": "3.27.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Account Overview - Show DeFi assets in your accounts\r\n- Data Migration - You can now migrate your data to another platform easily\r\n- Hide 0 amount spam transactions to protect you from address poisoning scams\r\n- Add support for adding your favorite NFTs on OneKey Touch\r\n- Wallet Switch - Enable / disable OneKey to adapt connection injection for other wallets  (Browser Extension)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that can’t swap on hidden wallets (passphrase wallets)\r\n- Fixed the issue of Cosmos signature abnormality with hardware wallet\r\n- Fixed the issue that on-chain history was not shown on Solana\r\n- Fixed the signature issues on SUI / CFX imported accounts\r\n\r\n### 💎 Improvements\r\n- Improved onboarding UI - Clearer UI for hardware wallet connection; Added data migration option to migrate data from another platform\r\n- More accurate allowance amounts for swap\r\n- Show token balance in the token list when selecting tokens for swap\r\n- Show alerts when token prices fluctuate significantly in swap\r\n- Added 1RPC in default RPC list\r\n- Added more fiat option for default currency\r\n- Improved parameter check for EIP-712 signatures on EVM networks\r\n- Add i18n information to system permission dialogs\r\n- No longer responds to WalletConnect on Explore page when browser window is minimized\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 账户总览 - 显示您账户的 DeFi 资产\r\n- 数据迁移 - 您现在可以轻松地将数据迁移到另外一个平台啦\r\n- 隐藏 0 金额垃圾转账，保护您免受「地址投毒」诈骗\r\n- 新增支持在 OneKey Touch 上添加收藏的 NFT\r\n- 钱包切换 - 开启 / 关闭 OneKey 适配友商钱包的连接注入（浏览器插件）\r\n\r\n### 🐞 问题修复\r\n- 修复了在隐藏钱包（密语钱包）无法闪兑的问题\r\n- 修复了使用硬件钱包时 Cosmos 签名异常的问题\r\n- 修复了 Solana 链上历史记录没有显示的问题\r\n- 修复了 SUI / CFX 导入账号的签名问题\r\n\r\n### 💎 优化\r\n- 优化了新手向导界面 - 更清晰的硬件钱包连接入口；增加了数据传输选项，让您可以从另外一个平台迁移数据到当前平台中\r\n- 更准确的闪兑授权数量\r\n- 当选择闪兑代币时，代币列表显示代币余额\r\n- 在闪兑中，当价格剧烈波动时，显示警报提示\r\n- 默认 RPC 列表中增加了 1RPC\r\n- 增加了更多法币作为默认货币选项\r\n- 完善了 EVM 网络的 EIP-712 签名参数校验\r\n- 增加了系统权限弹窗的国际化翻译\r\n- 在浏览器窗口最小化时，发现页不再响应 WalletConnect\r\n"
+      }
+    },
+    {
+      "version": "3.26.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add support for Cosmos IBC tokens, Web3 Sites, available on both app and hardware wallet (with OneKey Classic & OneKey Mini 2.10.0, OneKey Touch 4.0.0)\r\n- Add support for Filecoin(FIL), available on both app and hardware wallet\r\n- Add support for Unstoppable Domains\r\n- Your On-Chain Annual Report 2022 is ready! Import your wallet and check your annual report\r\n- Add upgrade wizard for Touch 4.0.0\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that could not sign on governance.algorand.foundation when using WalletConnect\r\n- Fixed the issue that manually entered website didn’t show in browser history\r\n- Fixed an issue that asked users to install OneKey Bridge (macOS on App Store)\r\n- Fixed the issue that not showing WalletConnect button or no response after clicking the button\r\n\r\n### 💎 Improvements\r\n- To prevent address poisoning, a warning pop-up has been added when copying the address for transfers of 0 amount\r\n- Internationalization optimization for the explore module\r\n- Improved the performance and UI\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增支持 Cosmos IBC 代币、Web3 网站，同时可以用于 app 和硬件钱包\r\n- 新增支持 Filecoin(FIL)，同时可以用于 app 和硬件钱包\r\n- 新增支持 Unstoppable Domains\r\n- 您的「2022 链上年度账单」已经准备好啦！导入您的钱包来看看您的年度报告吧\r\n- 新增 Touch 4.0.0 的更新向导\r\n\r\n### 🐞 问题修复\r\n- 修复了当使用 WalletConnect 时不能在 governance.algorand.foundation 签名的问题\r\n- 修复了手动输入的网址没有出现在浏览器历史记录的问题\r\n- 修复了询问用户安装 OneKey Bridge 的问题 (于App Store的macOS版本)\r\n- 修复了没有显示 WalletConnect 按钮或点击按钮后无响应的问题\r\n\r\n### 💎 优化\r\n- 为了防止「地址投毒」诈骗，对于 0 金额的转账，复制地址时增加了一个警示弹窗\r\n- 发现模块的语言国际化\r\n- 优化了性能与界面\r\n"
+      }
+    },
+    {
+      "version": "3.25.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Import or export BIP39 dotmap for OneKey KeyTag in a super easy way\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue of not being able to refresh after network disconection\r\n- Fixed the issue that biometric recognition might be failed sometimes\r\n- Fixed the issue of not correctly estimate FTM gas fees\r\n- Corrected the typo of Optimism network name and updated BNB Smart Chain network name\r\n\r\n### 💎 Improvements\r\n- Add support for connecting hardware wallet offline (Desktop)\r\n- Add 1inch Swap as a swap route\r\n- Improved performance and UI\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 导入或导出 OneKey KeyTag 的助记词点阵图，使用起来超简单。快来试试看吧！\r\n\r\n### 🐞 问题修复\r\n- 修复了断网后不能刷新的问题\r\n- 修复了有时候生物识别可能失败的问题\r\n- 修复了 FTM Gas 费用估算不正确的问题\r\n- 修正了 Optimism 网络名称的拼写错误，更新了 BNB Smart Chain 的网络名称\r\n\r\n### 💎 优化\r\n- 新增支持离线连接硬件钱包（桌面端）\r\n- 增加了 1inch Swap 作为其中一个闪兑路径\r\n- 改进了性能与界面\r\n"
+      }
+    },
+    {
+      "version": "3.24.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- NFT ROI Calculator\r\n- Add \"Tag\" option for Ripple(XRP) transfers \r\n- You can select the route that you preferred in Swap\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that cannot transfer on latest SUI Dev network\r\n- Fixed the issue that project logo might flicker in NFT collection details when loading\r\n\r\n### 💎 Improvements\r\n- Improved UI prompts for change process of BTC and BTC Fork chains when using hardware wallets\r\n- Reduced some animations (Android)\r\n- Set iCloud off as default (iOS)\r\n- Removed custom fonts, set system fonts as default\r\n- Support pasting and recognizing the pasteboard content in the scan dialog\r\n- Improved UI and performance\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- NFT 投资收益比计算器\r\n- Ripple(XRP) 转账增加了「Tag」选项\r\n- 您可以在闪兑时选择偏好的路径\r\n\r\n### 🐞 问题修复\r\n- 修复了在最新 SUI Dev 网络不能转账的问题\r\n- 修复了 NFT 项目详情的项目 Logo 可能会在加载时闪烁的问题\r\n\r\n### 💎 优化\r\n- 在使用硬件钱包时，BTC 及 BTC Fork 链找零过程的界面提示改进\r\n- 减弱了动态效果 (Android)\r\n- 默认关闭 iCloud (iOS)\r\n- 移除了自定义字体，使用系统默认字体\r\n- 支持在扫描弹窗粘贴内容并识别\r\n- 改进了界面与性能\r\n"
+      }
+    },
+    {
+      "version": "3.23.0",
+      "locale": {
+        "en-US": "### 🐞 Bug Fixes\r\n- Fixed the issue that routing not work in the \"Select\" component  (iOS)\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- Optimize the fiat currency price inquiry\r\n- Removed notification subscription of contract address\r\n- Added introductory descriptions to all BTC account types when creating BTC accounts\r\n- Updated name of networks\r\n- Improved startup performance\r\n",
+        "zh-CN": "### 🐞 问题修复\r\n- 修复了 Select 组件路由跳转失败的问题 (iOS)\r\n- 修复了一些界面问题\r\n\r\n### 💎 优化\r\n- 优化了法币价格查询\r\n- 移除了合约地址的通知订阅\r\n- 在创建 BTC 账户的流程中，给所有 BTC 账户类型增加了介绍描述\r\n- 更新了网络名称\r\n- 改进了启动性能\r\n"
+      }
+    },
+    {
+      "version": "3.22.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Split network and account selector\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that BTC fork chains history didn't show correctly\r\n- Fixed the issue that cannot connect with some Web3 sites like x2y2\r\n- Fixed the issue that cannot return after clicking back button in Revoke (Extension)\r\n- Fixed incorrect path that caused transaction details to display a 404 error.\r\n\r\n### 💎 Improvements\r\n- Optimized the speed judgment rules of RPC\r\n- Update the judgment rules of risk contracts\r\n- Hide revoke tool when network does not supported\r\n- Improved account restore and deletion performance in weak network\r\n- New Swap UI\r\n- Improved UI of account creation\r\n- New icons and buttons style, cleaner and clearer\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 拆分网络与账户选择器\r\n\r\n### 🐞 问题修复\r\n- 修复了 BTC 分叉链的历史记录没有显示正确的问题\r\n- 修复了不能连接某些 Web3 网站，例如 x2y2\r\n- 修复了在Revoke.gg点击返回不能后退的问题（浏览器插件）\r\n- 修复了错误路径导致交易详情404错误的问题\r\n\r\n### 💎 优化\r\n- 优化了RPC速度判断\r\n- 更新了风险合约判断规则\r\n- 在不支持合约的链的账户页面隐藏了 Revoke 工具\r\n- 改进了恢复和删除账户的弱网性能表现\r\n- 新的闪兑界面\r\n- 改进了账户创建界面\r\n- 新的图标与按钮设计，更干净清晰\r\n"
+      }
+    },
+    {
+      "version": "3.21.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Show coin balance on the account list\r\n- Add support for SUI tokens\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that Solana NFT history was not shown\r\n- Fixed an error that indicated insufficient balance when transferring funds on ALGO. Because ALGO requires a minimum ALGO balance to be kept in the address, the fixed version keeps enough balance to ensure a successful transfer\r\n- Fixed the issue of stuck while transferring BTC fork coins with OneKey Classic\r\n- Fixed some issues in APTOS related features\r\n- Fixed UI issue of OneKey Touch wallpaper settings on iPad (iPadOS)\r\n- Fixed the issue of Tooltip component (Android)\r\n- Fixed the issue of rating on Google Play (Android)\r\n- Fixed the issue of rating on Firefox (Extension)\r\n\r\n### 💎 Improvements\r\n- Improved error message when using Swap with hardware wallet\r\n- Improved performance of Web3 browser, RPC traffic lights, Tools API\r\n- Keep the screen always on when entering passphrase (Mobile)\r\n- Improved performance of window scaling (Desktop)\r\n- Improved some UI to enhance usability",
+        "zh-CN": "### ✨ 新功能\r\n- 账户列表中显示主币余额\r\n- 增加 SUI 代币支持\r\n\r\n### 🐞 问题修复\r\n- 修复了 Solana NFT 历史记录没有显示的问题\r\n- 修复了一个转账时提示余额不足的报错，原因是 ALGO 要求地址里保留一个最小的ALGO余额，修复版本中保留了足够的余额，保证转账成功\r\n- 修复了配合 OneKey Classic 使用时 BTC 分叉币转账时卡住的问题\r\n- 修复了一些 APTOS 相关功能的界面问题\r\n- 修复了 OneKey Touch 墙纸设置的界面问题 (iPadOS)\r\n- 修复了 Tooltip 组件的问题 (Android)\r\n- 修复了 Google Play 评分功能问题 (Android)\r\n- 修复了 Firefox 评分功能问题 (浏览器插件)\r\n\r\n### 💎 优化\r\n- 改进了配合硬件钱包时使用 Swap 的错误提示\r\n- 改进了 Web3 浏览器、RPC 红绿灯、Tools 接口的性能\r\n- 输入 Passphrase 时，保持屏幕常亮 (移动端)\r\n- 改进了窗口缩放的性能 (桌面端)"
+      }
+    },
+    {
+      "version": "3.20.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add support for SUI Testnet tokens, WEB3 sites, transaction history\r\n- Add more RPC node options\r\n- Add ENS, .bit resolving for DOGE, LTC, TRX\r\n- Add NFT metadata filter\r\n- Add support for Tron tokens transaction history\r\n- Enable / Disable monitor injecting in extension (Extension)\r\n- Add support for using camera to scan QR Code (Extension)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that cannot make transactions using a imported Tron private key account\r\n- Fixed the issue that cannot scan OneKey Lite on some Android phones (Android)\r\n- Fixed the crash issue on Android 13 (Android)\r\n\r\n### 💎 Improvements\r\n- Display price to 8 decimal places by default when BTC is selected as a fiat currency\r\n- Improved performance and some UI\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增 SUI 测试网代币、WEB3 网站、历史记录支持\r\n- 新增更多 RPC 选项\r\n- 新增 DOGE, LTC, TRX 的 ENS, .bit 解析\r\n- 新增 NFT 参数过滤器\r\n- 新增 Tron 代币的历史记录支持\r\n- 启用 / 禁用插件注入（浏览器插件）\r\n- 新增使用摄像头扫描二维码支持（浏览器插件）\r\n\r\n### 🐞 问题修复\r\n- 修复了导入 Tron 私钥账户后，无法转账的问题\r\n- 修复了一些安卓机型不能扫描 OneKey Lite 的问题 (Android)\r\n- 修复了在 Android 13 崩溃的问题 (Android)\r\n\r\n### 💎 优化\r\n- 当 BTC 被选为法币时，价格显示展示到8位小数\r\n- 改进了性能与部分界面\r\n"
+      }
+    },
+    {
+      "version": "3.19.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Add support for Ripple (XRP)\r\n- Add support for Cosmos (ATOM)\r\n- Add multi-window support in browser (Mobile)\r\n- Add risk detection in transaction confirmation and website connection\r\n- Add support for BTC Testnet\r\n- Add support for Touch ID to unlock (Extension)\r\n- Ask users for app rating after some actions\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that may prompt many dialogs when using some Web3 sites\r\n- Fixed the issue that cannot connect with localhost for testing\r\n- Fixed some issue in NFT, Revoke, Scan QR Code and some other UI\r\n\r\n### 💎 Improvements\r\n- Improved the performance of web3 sites browser\r\n- Improved the performance of Bluetooth connection\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增 Ripple (XRP) 支持\r\n- 新增 Cosmos (ATOM) 支持\r\n- 新增浏览器多窗口支持（移动端）\r\n- 新增交易确认及网站连接的风险检测\r\n- 新增支持 BTC 测试网\r\n- 新增支持 Touch ID 解锁（浏览器插件）\r\n- 在一些操作之后，询问用户评分\r\n\r\n### 🐞 问题修复\r\n- 修复使用一些 Web3 网站可能弹出很多弹窗的问题\r\n- 修复无法使用 Localhost 调试的问题\r\n- 修复 NFT、Revoke、扫描二维码，以及其他 UI 的一些问题\r\n\r\n### 💎 优化\r\n- 改进 Web 浏览器的性能\r\n- 改进蓝牙连接的性能\r\n"
+      }
+    },
+    {
+      "version": "3.18.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- All new NFT MARKETPLACE\r\n- Risk contract detection - OneKey will remind you when interacting with risk contracts\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that transaction may couldn't send successfully when RPC nodes is not sync with the latest block height. We added an auto retry here to solve this issue.\r\n- Fixed the issue that local history infomation may mistakenly updated when network is not stable\r\n- Fixed the UI issue that it was no response after tapping on the favourite tab.\r\n\r\n### 💎 Improvements\r\n- Improved the UIs of market, token detail pages, side bar menu, initialize page\r\n- Error messages can be correctly shown when making Tron transactions\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 全新 NFT 市集\r\n- 风险合约检测 - 当您与风险合约交互时，OneKey会第一时间提醒您\r\n\r\n### 🐞 问题修复\r\n- 修复了当节点不同步时 Solana 可能无法成功转账的问题，我们在这里增加了自动重试机制\r\n- 修复了当网络不稳定时，本地历史信息可能被错误更新的问题\r\n- 修复了点击收藏标签后没有反应的问题\r\n\r\n### 💎 优化\r\n- 改进了市场、代币详情页面、侧边菜单宽度、初始页面的 UI\r\n- 当进行 Tron 转账时，现在错误信息能正常显示了\r\n"
+      }
+    },
+    {
+      "version": "3.17.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added supoprt for Algorand tokens and history, available on app and hardware wallet\r\n- Added notifications for favourite tokens\r\n- Added support for Aptos signing\r\n- Added support for adding wallpapers and resources files on OneKey Touch\r\n- Added dApps sharing\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that can't revoke NFT allowances\r\n- Fixed some bugs in MARKET tab\r\n- Fixed the UI issue after waking up with deeplink\r\n\r\n### 💎 Improvements\r\n- Use wide-angle instead of ultra wide-angle camera when scaning QR code (iOS)\r\n- Improved page transitions (Extension)\r\n- Improved history details UI\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增 Algorand 代币与历史记录支持，软硬钱包同时可用\r\n- 新增对收藏的代币的推送\r\n- 新增 Aptos 签名支持\r\n- 新增支持添加墙纸和资源文件到 OneKey Touch\r\n- 新增 dApps 分享\r\n\r\n### 🐞 问题修复\r\n- 修复了一个不能取消NFT授权的问题\r\n- 修复一些「市场」页面的问题\r\n- 修复 Deeplink 唤醒后的 UI 问题\r\n\r\n### 💎 优化\r\n- 从超广角镜头改为使用广角镜头扫描二维码 (iOS)\r\n- 改进页面过渡 (浏览器插件)\r\n- 改进历史记录详情界面\r\n"
+      }
+    },
+    {
+      "version": "3.16.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- All new MARKET tab to check token price\r\n- Add support for Conflux tokens and dApps, available on app and hardware wallet\r\n- Add support for Tron dApps\r\n- Add support for Doge, available on app and hardware wallet\r\n- Add support for LTC, available on app and hardware wallet\r\n- Revoke.gg - You can manage token approvals in OneKey now. Meanwhile it can be visit as a web tool on https://revoke.gg\r\n- Add support for syncing resource files with OneKey Touch\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that cannot make transaction with maximum balance on Aptos network\r\n- Fixed the BACK button issue on dApps Browser which may cause no response or crash\r\n- Fixed the issue that LOCK NOW action was shown when lock screen password was not set\r\n- Fixed the issue that the price was not correctly displayed in token page\r\n\r\n### 💎 Improvements\r\n- Improved swap history UI\r\n- Improved “Restore Accounts” UI\r\n- Added some more stable RPC nodes as default options\r\n- Updated logomark\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 全新 MARKET 页面可以查看代币价格\r\n- 新增 Conflux 代币和 dApp，软硬钱包同时可用\r\n- 新增 Tron 的 dApps 支持\r\n- 新增 Doge 支持，软硬钱包同时可用\r\n- 新增 LTC 支持，软硬钱包同时可用\r\n- Revoke.gg - 您可以在 OneKey 内管理代币合约授权了。同时它也可以通过 https://revoke.gg 作为网页工具访问\r\n- 新增 OneKey Touch 同步资源文件支持\r\n\r\n### 🐞 问题修复\r\n- 修复 Aptos 不能使用最大余额转账的问题\r\n- 修复返回按钮可能会失效或导致崩溃的问题\r\n- 修复在没有设置锁屏密码的时候依然显示了马上锁定按钮的问题\r\n- 修复在代币详情页报价未能正确显示的问题\r\n\r\n### 💎 优化\r\n- 改进 Swap 界面\r\n- 改进 dApps 界面\r\n- 增加更稳定的RPC节点作为默认选项\r\n- 更新了 Logo\r\n"
+      }
+    },
+    {
+      "version": "3.15.1",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- OneKey has now supported Aptos Mainnet tokens, dApps, with hardware wallet support\r\n- All new dApps explore view UI\r\n- RPC Traffic Light - Showing RPC status on the current network, check and change RPC node with few clicks\r\n- Added support for setting allowance when using OneKey Swap\r\n- Added support for NFTs on Avalanche\r\n- Scan and add tokens with balances automatically on Solana, NEAR, Starcoin Network\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that can’t close passphrase dialog\r\n- Fixed the issue when using personal_sign\r\n\r\n### 💎 Improvements\r\n- Improved swap history UI\r\n- Improved “Restore Accounts” UI\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- OneKey 现已支持 Aptos 主网代币、dApps, 同时配合硬件钱包支持\r\n- 全新的 dApps 首页(发现) 界面\r\n- RPC 节点红绿灯 - 显示当前 RPC 的连接状态，只要点击几下就可以轻松切换 RPC 节点\r\n- OneKey Swap 支持设置精确授权\r\n- 增加了对 Avalanche 的 NFT 支持\r\n- 在 Solana, NEAR, Starcoin 网络上，自动发现并添加有余额的代币\r\n\r\n### 🐞 问题修复\r\n- 修复了 Passphrase 窗口不能关闭的问题\r\n- 修复了使用 personal_sign 时发生的问题\r\n\r\n### 💎 优化\r\n- 改进了 Swap 记录的界面\r\n- 改进了「恢复账户」的界面\r\n"
+      }
+    },
+    {
+      "version": "3.15.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- OneKey has now supported Aptos Mainnet tokens, dApps, with hardware wallet support\r\n- All new dApps explore view UI\r\n- RPC Traffic Light - Showing RPC status on the current network, check and change RPC node with few clicks\r\n- Added support for setting allowance when using OneKey Swap\r\n- Added support for NFTs on Avalanche\r\n- Scan and add tokens with balances automatically on Solana, NEAR, Starcoin Network\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that can’t close passphrase dialog\r\n- Fixed the issue when using personal_sign\r\n\r\n### 💎 Improvements\r\n- Improved swap history UI\r\n- Improved “Restore Accounts” UI\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- OneKey 现已支持 Aptos 主网代币、dApps, 同时配合硬件钱包支持\r\n- 全新的 dApps 首页(发现) 界面\r\n- RPC 节点红绿灯 - 显示当前 RPC 的连接状态，只要点击几下就可以轻松切换 RPC 节点\r\n- OneKey Swap 支持设置精确授权\r\n- 增加了对 Avalanche 的 NFT 支持\r\n- 在 Solana, NEAR, Starcoin 网络上，自动发现并添加有余额的代币\r\n\r\n### 🐞 问题修复\r\n- 修复了 Passphrase 窗口不能关闭的问题\r\n- 修复了使用 personal_sign 时发生的问题\r\n\r\n### 💎 优化\r\n- 改进了 Swap 记录的界面\r\n- 改进了「恢复账户」的界面\r\n"
+      }
+    },
+    {
+      "version": "3.14.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added support for transfering Solana and EVM NFTs\r\n- Now desktop app can receive notifications too\r\n- Added support multi-tab in dApps browser\r\n- Restart to update (Desktop)\r\n- Added “Connect OneKey“ button on WalletConnect QR code dialog, putting OneKey first in the wallet list (Extension)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that can’t pop up the signing request dialog when sending transactions continuously\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- New “Restore Account” UI\r\n- Added showing address label after resolving .bit domains\r\n- Improved tips of BTC estimated transaction fee and time\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 支持发送 Solana 和 EVM 的 NFT\r\n- 现在桌面 App 也能接收到推送啦\r\n- dApps 浏览器增加了多标签页的支持\r\n- 重启以更新 (桌面端)\r\n- 增加了「连接OneKey」按钮于WalletConnect二维码弹窗，将OneKey显示在列表第一位 (浏览器插件)\r\n\r\n### 🐞 问题修复\r\n- 修复了当连续发送交易请求时不能弹出签名请求弹窗的问题\r\n- 修复了一些界面问题\r\n\r\n### 💎 优化\r\n- 新的「恢复账号」界面\r\n- 增加了解析 .bit 域名后的地址标签的显示\r\n- 改进了 BTC 交易预估手续费及时间的文案提示\r\n"
+      }
+    },
+    {
+      "version": "3.13.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Support for Aptos(Testnet) tokens and dApps(with OneKey Classic / OneKey Mini 2.6.0 firmware)\r\n- Support for entering passphrase on app when using hidden wallet on hardware wallet\r\n- Split the wallet-account selector into the wallet selector and the network-account selector, making it clearer and easier to switch between chain and accounts for more scenarios\r\n- Added ETHF, ETHW into default networks\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that cause white screen after using refresh shortcut\r\n- Fixed the issue that Solana swap history did not show\r\n- Fixed the issue that the connected sites may show duplicate sites\r\n- Fixed the sorting issue in token list\r\n- Fixed the issue that didn’t show chart and price when can’t fetch price for native token\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- Some UI Improvements\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 支持 Aptos(测试网) 代币和 dApps（配合 OneKey Classic 或 OneKey Mini 2.6.0 固件）\r\n- 在硬件钱包上使用隐藏钱包时，支持在 App 上输入 Passphrase\r\n- 将「钱包-账户选择器」拆分为「钱包选择器」和「网络-账户选择器」，让链和账户切换适应更多场景，更易于使用\r\n- 增加了 ETHF、ETHW 到默认添加的网络\r\n\r\n### 🐞 问题修复\r\n- 修复了使用刷新快捷键后出现白屏的问题\r\n- 修复了 Solana 兑换历史没有显示的问题\r\n- 修复了「已连接网站」中可能出现重复网站的问题\r\n- 修复了代币选择器中的排序问题\r\n- 修复了原生代币未能获取价格时没有显示图表和价格的问题\r\n- 修复了一些 UI 问题\r\n\r\n### 💎 优化\r\n- 做了一些 UI 改进\r\n"
+      }
+    },
+    {
+      "version": "3.12.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Support for Solana swap\r\n- Support for Tron tokens on both app wallet and hardware wallet (with OneKey Classic / OneKey Mini 2.5.0 firmware)\r\n- NEAR has been supported on app wallet in the earlier release. In this release we added support for NEAR on hardware wallet (with OneKey Classic / OneKey Mini 2.5.0 firmware)\r\n- Added management page for connected sites\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed some UI typos\r\n\r\n### 💎 Improvements\r\n- Improved NFT history UI\r\n- Combined approve and swap transaction signing into one action when an account is not approved swapping contract yet, making it easier to use at the first time.\r\n- Improved some UI styles\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 支持 Solana 闪兑\r\n- 同时在 App 钱包和硬件钱包上支持 Tron 的代币（配合 OneKey Classic 或 OneKey Mini 2.5.0 固件）\r\n- 在早前的版本中，已经支持了 NEAR 在 App 钱包上的使用。在这个版本中，我们添加了 NEAR 的硬件钱包支持（配合 OneKey Classic 或 OneKey Mini 2.5.0 固件）\r\n- 增加了已连接网站的管理页\r\n\r\n### 🐞 问题修复\r\n- 修复了部分 UI 文案问题\r\n\r\n### 💎 优化\r\n- 改进了 NFT 历史记录 UI\r\n- 当账户未授权闪兑合约的时候，合并了授权和闪兑下单到一个操作中，让首次闪兑更易用\r\n- 改进了部分 UI 设计\r\n"
+      }
+    },
+    {
+      "version": "3.11.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Notification: You will receive a notification when you account has new activity\r\n- Notification: A notification will send to you when the token price reach the target of your price alert\r\n- Added support for Solana account history\r\n- Added support for swapping in Aurora network\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that may cause crashes when the app goes to background (iOS)\r\n- Fixed the issue that did not select all wallet accounts when entering restore iCloud backup view\r\n- Fixed the issue that may cause slow response when switching accounts while connecting a dApp\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- Bumped dependencies version. Update dependencies to fix known issues with third-party libraries\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 推送通知：您现在会收到账户通知\r\n- 推送通知：当代币价格到达您设置的价格提醒目标价时，您会收到推送通知\r\n- 增加了 Solana 历史记录的支持\r\n- 增加了 Aurora 网络的闪兑支持\r\n\r\n### 🐞 问题修复\r\n- 修复了进入后台后可能发生崩溃的问题 (iOS)\r\n- 修复了进入恢复 iCloud 备份界面后，没有全选钱包账户的问题\r\n- 修复了当连接dApp时，切换账户响应慢的问题\r\n- 修复了部分 UI 问题\r\n\r\n### 💎 优化\r\n- 升级了依赖库版本；更新了部分依赖库，使用第三方库以修复已知问题\r\n"
+      }
+    },
+    {
+      "version": "3.10.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added support for entering passphrase on hardware wallet (with firmware 2.4.0 on OneKey Classic / OneKey Mini)\r\n- Added support for .ens and .bit domains\r\n- Added fiat value for NFT assets\r\n- You can stake your ETH for ETH 2.0 now (Your stake cannot be redeemed during the first phase, it may take more than 2 years.)\r\n- Added support for testnet signing and transaction on OneKey Touch\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that reseting app may causes receiving duplicated notifications\r\n- Fixed the issue that token amount could not be set to the maximum value when sending tokens due to the lag of auto tokens balance detection\r\n- Fixed the issue that biometric prompt could not pop up after minimized the app window (Desktop)\r\n- Fixed the UI bouncing when initializing the exporting private key modal\r\n- Fixed some UI issues\r\n\r\n### 💎 Improvements\r\n- Removed the llmitation on the number of decimal places when setting gas\r\n- Improved loading performance of the price chart\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 支持在硬件钱包上输入 Passphrase（OneKey Classic / OneKey Mini 需要配合 2.4.0 版本固件使用）\r\n- 增加了 .ens 和 .bit 的地址域名支持\r\n- 增加了 NFT 资产的法币估值\r\n- 您现在可以进行 ETH 2.0 质押操作了（您的质押不能在第一阶段赎回，这可能要两年或者更长时间）\r\n- 增加了在 OneKey Touch 上测试网签名及转账的支持\r\n\r\n### 🐞 问题修复\r\n- 修复了重置 App 后可能会收到重复推送的问题\r\n- 修复了由于代币余额自动检测迟缓导致在发送代币时数量不能设置为最大值的问题\r\n- 修复了生物识别弹窗在最小化窗口过后不能弹出的问题（桌面端）\r\n- 修复了初始化导出私钥弹窗的 UI 跳动问题\r\n- 修复了一些 UI 问题\r\n\r\n### 💎 优化\r\n- 移除了设置 Gas 时的小数位数的限制\r\n- 改善了价格图表的加载性能\r\n"
+      }
+    },
+    {
+      "version": "3.9.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added support for Solana tokens, NFTs, dApps (Finally arrived! OneKey is the first open-sourced Solana wallet app with hardware wallet support)\r\n- Tokens that already exsited in your address will be automatically added in your token list of account view\r\n- You can now swap coins from BTC to EVM tokens\r\n- Added more token sources that makes searching tokens more convenient\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that can’t use “personal_sign” with hardware wallet on some sites\r\n- Fixed the issue that wallet or account can’t be shown in time after adding it\r\n- Fixed the landscape screen layout issue (iPadOS)\r\n- Fixed the page routing issue on Firefox Add-ons (Browser Extension)\r\n- Fixed the issue that QR Code scanner doesn’t work correctly on some phone model (Android)\r\n- Fixed the issue that can’t connect hardware with Bluetooth (HarmonyOS)\r\n\r\n### 💎 Improvements\r\n- Improved the performance of loading NFTs on landscape screen layout\r\n- Improved performance of connecting hardware wallet via Bluetooth. Added a status indicator for connected devices\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 增加对 Solana 的支持（终于来啦！OneKey 是第一个带有硬件钱包支持的开源 Solana 钱包App）\r\n- 自动为您将钱包已有代币添加到您的代币显示列表中\r\n- 您现在可以将 BTC 跨链闪兑为 EVM 网络的代币\r\n- 增加了更多的代币信息源，让搜索代币更便捷\r\n\r\n### 🐞 问题修复\r\n- 修复了在某些网站上使用硬件钱包时不能调用 “personal_sign” 的问题\r\n- 修复了添加钱包或账户后没有及时显示的问题\r\n- 修复了横屏布局问题 (iPadOS)\r\n- 修复了在 Firefox 插件上的页面路由问题 (浏览器插件)\r\n- 修复了二维码扫描在某些机型不正常的问题 (Android)\r\n- 修复了不能使用蓝牙连接的问题 (HarmonyOS)\r\n\r\n### 💎 优化\r\n- 改善了横屏布局的 NFT 加载性能\r\n- 改善了蓝牙连接硬件钱包的表现，增加了已连接硬件钱包的状态提示\r\n"
+      }
+    },
+    {
+      "version": "3.8.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Now available to connect accounts on the other wallet app with WalletConnect to make cross-chain swap and account management\r\n- Added notification - High volatility alert of BTC & ETH\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that gas price estimation of Starcoin may be abnormal\r\n- Fixed the issue that may cause NFT layouts to display abnormally when switching accounts\r\n- Fixed the issue that may stuck at loading screen due to network connection issues\r\n\r\n### 💎 Improvements\r\n- You can copy account address in hardware wallet when your hardware wallet is not connected\r\n- You can now restore the wallpaper on hardware wallet to default\r\n- Added more default options of RPC on Ethereum / BSC / Polygon\r\n- You can see balance of the accounts in the list when restoring accounts\r\n- Improved performance of recognizing QR Code\r\n- Provided more information about the error when connecting hardware wallet\r\n- Improved UI layout (iPad)\r\n- Removed transition on splash screen avoiding frame dropping issue when busy loading data at launch (Extension)\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 现在您可以使用 WalletConnect 连接使用其他钱包App的账户，进行跨链交易、账户管理\r\n- 增加推送 - 价格剧烈波动提醒\r\n\r\n### 🐞 问题修复\r\n- 修复了 Starcoin 网络 gas 可能不正常的问题\r\n- 修复了一个可能导致 NFT 界面布局在切换账户时显示异常的问题\r\n- 修复了可能因网络原因导致的白屏状态\r\n\r\n### 💎 优化\r\n- 现在没有连接硬件钱包时，您也可以复制硬件钱包账户的地址了\r\n- 现在您可以将硬件钱包的墙纸恢复到默认\r\n- 在 Ethereum / BSC / Polygon 增加了更多 RPC 默认选项\r\n- 恢复账户时，您可以在列表中查看账户余额\r\n- 改进了识别二维码的性能\r\n- 在硬件钱包连接出错时，提供了更多问题信息\r\n- 改进了 UI 布局设计 (iPad)\r\n- 移除了启动动画，避免因启动时加载繁忙而导致启动动画掉帧的问题 (浏览器插件)\r\n"
+      }
+    },
+    {
+      "version": "3.7.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- You can now back up your wallet to iCloud (iOS)\r\n- Added support for Aurora network\r\n- Added support for Ethereum Classic network\r\n- Add option/alt + shift + O shortcut key to open the extension\r\n- When adding a new hardware connection, if passphrase is enabled, it will automatically ask to close\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that can’t sign successfully when using WalletConnect on OpenSea\r\n- Fixed a layout issue in Emoji picker panel\r\n- Fixed the issue that can’t load tokens and show incorrect information when sending tokens\r\n- Fixed the issue that caused crashes on some phones when switching wallet or connecting hardware wallet (Android)\r\n- When upgrading the firmware, fix the automatically enter the upgrade mode occasionally fail\r\n\r\n### 💎 Improvements\r\n- Fresh new cross-chain swap experience\r\n- Improved performance of loading NFT\r\n- Improved UI of account view\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 现在您可以备份您的钱包到 iCloud 了 (iOS)\r\n- 新增 Aurora 网络的支持\r\n- 新增 以太坊经典 网络的支持\r\n- 插件支持使用 option/alt + shift + O 快捷键打开\r\n- 连接硬件时，如果开启了 passphrase，可以选择关闭 passphrase 后进行连接\r\n\r\n### 🐞 问题修复\r\n- 修复了在 OpenSea 使用 WalletConnect 连接时无法成功签名的问题\r\n- 修复了 Emoji 选择面板的布局问题\r\n- 修复了发送代币时不能正常加载并显示了错误信息的问题\r\n- 修复了在切换钱包及连接硬件钱包时在某些手机发生闪退的问题 (Android)\r\n- 修复了在升级固件时，部分机型用户自动进入升级模式偶现失败\r\n\r\n### 💎 优化\r\n- 清爽的跨链 Swap 体验\r\n- 改进了NFT的加载性能\r\n- 改进了账户页面的界面\r\n"
+      }
+    },
+    {
+      "version": "3.6.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- All new onboarding UI - Create or import your wallet with ease\r\n- Tokens matching multiple sources will show a check mark indicating that it has been verified from multiple sources\r\n- Support for entering PIN on the app (Available with firmware 2.3.0 on OneKey Mini and OneKey Classic)\r\n- Hide small balance assets\r\n- Support for transfering Starcoin tokens\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed some issue that caused crashes\r\n- Fixed some connection issues when using hardware wallet\r\n\r\n### 💎 Improvements\r\n- Improved performance of loading EVM acccount when using hardware wallet\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 全新新手引导 UI - 轻松创建或导入您的钱包\r\n- 匹配多个来源的代币会显示一个对勾，表示它已被多个来源验证\r\n- 支持在 App 上输入 PIN 码 （配合 OneKey Mini 和 OneKey Classic 的 2.3.0 版本固件）\r\n- 隐藏小额资产\r\n- 支持 Starcoin 代币转账\r\n\r\n### 🐞 问题修复\r\n- 修复了一些引起崩溃的问题\r\n- 修复了一些使用硬件钱包时的连接问题\r\n\r\n### 💎 优化\r\n- 优化了使用硬件钱包时，EVM地址加载的速度\r\n"
+      }
+    },
+    {
+      "version": "3.5.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- dApps support for NEAR Protocol\r\n- dApps support for Starcoin\r\n- New account view with better performance and experience\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that didn’t show a guide message when using a hidden wallet\r\n- Fixed some connection issues when using hardware wallet\r\n\r\n### 💎 Improvements\r\n- Improved network connection when using SWFT bridge\r\n- Improved UI styles\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- NEAR 网络的 dApps 支持\r\n- Starcoin 网络的 dApps 支持\r\n- 新的账户页面带来更好的性能与体验\r\n\r\n### 🐞 问题修复\r\n- 修复了使用隐藏钱包时没有提示引导信息的问题\r\n- 修复了一些连接硬件钱包的问题\r\n\r\n### 💎 优化\r\n- 优化了使用 SWFT 时的网络连接问题\r\n- 优化了 UI 设计\r\n",
+        "ja-JP": "### ✨ 新機能\r\n- NEARのdAppに対応できました\r\n- StarcoinのdAppに対応できました\r\n\r\n### 🐞 バグの修復\r\n- パスフレーズをご利用する際にガイド提示が表示されない問題が修復されました\r\n- ハードウェアウォレットをご利用する際の接続問題が修復されました\r\n\r\n### 💎 改善\r\n- SWFTをご利用する際のネットワーク接続問題が改善されました\r\n- UIの様式が改善されました\r\n"
+      }
+    },
+    {
+      "version": "3.4.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n\r\n- Added support for swap on HECO, CELO, Optimism\r\n- Added support for changing hardware wallet homescreen image and device name\r\n- Added support for verifying the hardware firmware and Bluetooth firmware for OneKey Touch\r\n- Added Status Log which you can export and send it to OneKey support team for debugging (Caution: Only send them to hi@onekey.so)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed some connection issue when using hardware wallet\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 新增了对 HECO, CELO, Optimism 的 Swap 支持\r\n- 新增支持修改主屏幕图片及设备名称\r\n- 新增支持验证 OneKey Touch 的硬件固件及蓝牙固件\r\n- 增加了状态日志，您可以导出日志并协助 OneKey 技术支持团队排查问题（请注意：只发送给 hi@onekey.so）\r\n\r\n### 🐞 问题修复\r\n- 修复了使用硬件钱包时的连接问题\r\n",
+        "ja-JP": "### ✨ 新機能\r\n\r\n- HECO, CELO, Optimism のスワップ対応が追加されました\r\n- メイン画面の画像及び端末名の変更機能が追加されました\r\n- OneKey Touch のハードウェア及びブルートゥースのファームウェアを検証する機能が追加されました\r\n- ステータスログの機能が追加されまして、ログをエクスポートし、OneKeyテクニカルサポートチームのデバッキングに協力できます（ご注意： hi@onekey.soにのみ送信してください）\r\n\r\n### 🐞 バグの修復\r\n- ハードウェアウォレットを利用する際の接続問題を修復できました\r\n"
+      }
+    },
+    {
+      "version": "3.3.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n\r\n- You can verify that the firmware on your hardware wallet is from OneKey\r\n- Now you don’t have to install bridge separately to use hardware wallets (Desktop)\r\n- You can set a peroid of time to operate your account without password after unlocking the app\r\n- You can turn on / off the vibration in settings\r\n- Support for Expand View (Browser Extension)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issue that NFT is not muted during autoplay\r\n- Fixed the issue that copy address on the hardware wallet accounts without confirming on the hardware wallet\r\n- Fixed some issues when connecting with the hardware wallet\r\n\r\n### 💎 Improvements\r\n- Improved splash which added a transition effect\r\n- Improved UI styles\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 您可以验证您的硬件钱包固件是否来自 OneKey\r\n- 现在您不要另外安装Bridge来使用 OneKey 硬件钱包了 (桌面端)\r\n- 您可以设置一个解锁后的免密时间，便于操作您的账户\r\n- 您可以在设置里控制是否打开振动反馈\r\n- 支持「扩展视图」(浏览器插件)\r\n\r\n### 🐞 问题修复\r\n- 修复了自动播放时 NFT 没有静音的问题\r\n- 修复了复制硬件钱包账号地址时，没有与硬件钱包验证确认地址\r\n- 修复了一些连接硬件钱包的问题\r\n\r\n### 💎 优化\r\n- 优化了闪屏页，增加了过渡效果\r\n- 优化了 UI 样式\r\n",
+        "ja-JP": "### ✨ 新機能\r\n\r\n- 手元のハードウェアウォレットのファームウェアがOneKey出品であるかどうか認証できました\r\n- デスクトップでOneKeyのハードウェアウォレットを利用するには、Bridgeの別途インストールが不要になりました\r\n- 操作便宜のために、ロック解除後のパスワード不要時間を設定できるようになりました\r\n- 設定メニューにおいて振動フィードバックの有効性をコントロールできました\r\n- 「ビューの展開」に対応できました　(エクスプローラープラグインバージョン)\r\n\r\n### 🐞 バグの修復\r\n- 自動再生の際に、NFTがミュートになっていないバグが修復されました\r\n- ハードウェアウォレットのアカウントアドレスをコピーする時、ハードウェアウォレットにアドレスの正確性を検証しないバグが修復されました\r\n- ハードウェアウォレットの接続に関わる幾つかの問題が修復されました\r\n\r\n### 💎 改善\r\n- スプラッシュページが改善され、転移効果が追加されました\r\n- UIの様式が改善されました\r\n"
+      }
+    },
+    {
+      "version": "3.2.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n\r\n- The icon of hardware wallet in the slide menu will show a yellow notification badge when firmware update is available\r\n- Added a confirmation process on the hardware wallet when copying or showing an address in the hardware wallet account\r\n- Support for showing NFTs on Polygon and BSC network\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed the issues in the history list\r\n- Fixed the UI issues on iPad\r\n- Fixed some issue on chart that may causing crash \r\n\r\n### 💎 Improvements\r\n- Improved performance of loading NFTs\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 侧边栏硬件钱包的图标会展示一个黄色的角标，通知您有新的固件升级可用\r\n- 在复制或展示硬件钱包账户的地址时，增加了一个硬件确认流程\r\n- 支持在 BSC 和 Polygon 下的 NFT 显示\r\n\r\n### 🐞 问题修复\r\n- 修复了历史记录的问题\r\n- 修复了 iPad 上的 UI 问题\r\n- 修复了一些可能引致图表闪退的问题\r\n\r\n### 💎 优化\r\n- 优化了 NFT 列表加载速度\r\n",
+        "ja-JP": "### ✨ 新機能\r\n- 更新できるファームウェアが存在する場合に、スイトメニューにおけるハードウェアウォレットのアイコンに黄色提示マークが表示されます\r\n- ハードウェアウォレットのアカウントアドレスをコピー若しくは表示する際に、端末での確認操作が追加されました\r\n- BSCとPolygonチェーンでのNFT表示が可能になりました\r\n\r\n### 🐞 バグの修復\r\n- 取引履歴のバグが修復されました\r\n- iPadでのUi問題を修復されました\r\n- グラフのクラッシュを招きうるいくつかの問題を修復されました\r\n\r\n### 💎 改善\r\n- NFTリストのローディングスピードを改善されました\r\n"
+      }
+    },
+    {
+      "version": "3.1.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Added chart in token page\r\n\r\n### 💎 Improvements\r\n- Improved transactions history list in BTC and some other chains\r\n- Improved history list of swap\r\n- Improved performance of loading quotes of fiats\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 币种详情页加入了报价图表\r\n\r\n### 💎 优化\r\n- 改进了 BTC 和一些链的历史记录列表\r\n- 改进了闪兑的历史记录\r\n- 改进了法币报价的加载\r\n"
+      }
+    },
+    {
+      "version": "3.0.0",
+      "locale": {
+        "en-US": "### ✨ New Features\r\n- Support for playing audio & video NFTs\r\n- Support for iPad and Android tablets\r\n- Support for connecting hardware wallet (Browser Extension)\r\n\r\n### 🐞 Bug Fixes\r\n- Fixed some issues on UIs\r\n\r\n### 💎 Improvements\r\n- Improved performance of rendering UIs\r\n- Improved performance of loading NFTs\r\n",
+        "zh-CN": "### ✨ 新功能\r\n- 支持播放音频和视频 NFT\r\n- 支持 iPad 和安卓平板\r\n- 支持连接硬件钱包 (浏览器插件)\r\n\r\n### 🐞 问题修复\r\n- 修复了部分 UI 问题\r\n\r\n### 💎 优化\r\n- 优化了渲染 UI 的性能\r\n- 优化了加载 NFT 的性能\r\n"
+      }
+    }
+  ]
+}
