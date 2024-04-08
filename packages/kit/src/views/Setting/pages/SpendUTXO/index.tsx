@@ -1,4 +1,11 @@
-import { Page, SizableText, Stack, Switch, YStack } from '@onekeyhq/components';
+import {
+  ESwitchSize,
+  Page,
+  SizableText,
+  Stack,
+  Switch,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -10,7 +17,7 @@ const SpendUTXO = () => {
       <YStack>
         <ListItem title="Spend Dust UTXO">
           <Switch
-            size="large"
+            size={ESwitchSize.large}
             value={settings.spendDustUTXO}
             onChange={async (value) => {
               await backgroundApiProxy.serviceSetting.setSpendDustUTXO(value);
