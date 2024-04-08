@@ -103,7 +103,7 @@ export function TokenDetails() {
     );
 
   const handleReceivePress = useCallback(() => {
-    navigation.pushFullModal(EModalRoutes.ReceiveModal, {
+    navigation.pushModal(EModalRoutes.ReceiveModal, {
       screen: EModalReceiveRoutes.ReceiveToken,
       params: {
         networkId,

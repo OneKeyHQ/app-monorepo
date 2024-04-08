@@ -239,12 +239,14 @@ class ServiceAccount extends ServiceBase {
     indexes,
     indexedAccountId,
     deriveType,
+    confirmOnDevice = false,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
     indexes?: Array<number>;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
+    confirmOnDevice?: boolean;
   }) {
     if (!walletId) {
       throw new Error('walletId is required');
@@ -297,7 +299,7 @@ class ServiceAccount extends ServiceBase {
       const hwParams: IPrepareHardwareAccountsParams = {
         deviceParams: {
           ...checkIsDefined(deviceParams),
-          confirmOnDevice: false,
+          confirmOnDevice,
         },
 
         indexes: usedIndexes,
@@ -1235,6 +1237,7 @@ class ServiceAccount extends ServiceBase {
     indexes?: Array<number>;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
+    confirmOnDevice?: boolean;
   }) {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
