@@ -11,7 +11,6 @@ import {
   useState,
 } from 'react';
 
-import { createPortal } from 'react-dom';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
@@ -22,13 +21,13 @@ import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useBackHandler, useKeyboardHeight } from '../../hooks';
-import { OverlayContainer } from '../../layouts';
 import { Icon, SizableText, Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
+import { renderToRoot } from './renderToRoot';
 
 import type {
   IDialogCancelProps,
@@ -503,24 +502,10 @@ function dialogShow({
     );
   })();
 
-  // fix modal attributes is invalid in Tamagui
-  let renderElement = element;
-  if (props.modal) {
-    if (platformEnv.isNativeIOS) {
-      renderElement = <OverlayContainer>{element}</OverlayContainer>;
-    } else if (!platformEnv.isNativeAndroid) {
-      const Component = () => createPortal(element, document.body);
-      renderElement = <Component />;
-    }
-  }
-
   portalRef = {
-    current: Portal.Render(
-      platformEnv.isNativeAndroid
-        ? Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY
-        : Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-      renderElement,
-    ),
+    current: props.modal
+      ? renderToRoot(element)
+      : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
     close: async (extra?: { flag?: string }) =>

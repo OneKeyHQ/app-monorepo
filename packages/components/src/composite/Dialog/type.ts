@@ -1,5 +1,11 @@
-import type { MutableRefObject, PropsWithChildren, ReactNode } from 'react';
+import type {
+  MutableRefObject,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 
+import type { IPortalManager } from '../../hocs';
 import type { IButtonProps, IKeyOfIcons } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
@@ -102,3 +108,5 @@ export interface IDialogInstance {
 export type IDialogFormProps = PropsWithChildren<{
   formProps: UseFormProps;
 }>;
+
+export type IRenderToRoot = (element: ReactElement) => IPortalManager;
