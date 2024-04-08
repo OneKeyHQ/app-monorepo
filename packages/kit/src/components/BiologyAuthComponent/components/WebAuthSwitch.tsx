@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Switch } from '@onekeyhq/components';
+import { ESwitchSize, Switch } from '@onekeyhq/components';
 
 interface IWebAuthSwitchProps {
   isSupport: boolean;
@@ -14,7 +14,11 @@ const WebAuthSwitch = ({
   onChange,
 }: IWebAuthSwitchProps) =>
   isSupport ? (
-    <Switch size="small" value={isWebAuthEnable} onChange={onChange} />
+    <Switch
+      size={ESwitchSize.small}
+      value={isWebAuthEnable}
+      onChange={onChange}
+    />
   ) : null;
 
 export default memo(WebAuthSwitch);
