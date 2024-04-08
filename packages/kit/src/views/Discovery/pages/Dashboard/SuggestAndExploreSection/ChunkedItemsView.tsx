@@ -82,6 +82,10 @@ export function ItemsContainer({
   );
 }
 
+// There is a slight issue with the space calculation in tamagui, it needs to be resolved by upgrading the version.
+const patchFixMdBrowserMarginLeft = (itemLength: number) =>
+  platformEnv.isRuntimeBrowser && itemLength > 1 ? '$-3' : undefined;
+
 export function ChunkedItemsView({
   isExploreView,
   dataChunks,
@@ -90,6 +94,9 @@ export function ChunkedItemsView({
   return (
     <ItemsContainer
       mx="$-5"
+      $md={{
+        ml: patchFixMdBrowserMarginLeft(dataChunks.length),
+      }}
       horizontal={!isExploreView}
       contentContainerStyle={{
         px: '$2',
@@ -123,7 +130,6 @@ export function ChunkedItemsView({
             <XStack
               key={item.dappId}
               p="$3"
-              space="$3"
               alignItems="center"
               $md={
                 isExploreView
@@ -133,9 +139,11 @@ export function ChunkedItemsView({
                   : undefined
               }
               $gtMd={{
+                px: '$5',
                 flexBasis: '50%',
               }}
               $gtLg={{
+                px: '$5',
                 flexBasis: '33.3333%',
               }}
               onPress={() =>
@@ -154,7 +162,7 @@ export function ChunkedItemsView({
                   }}
                 />
               </Image>
-              <Stack flex={1}>
+              <Stack flex={1} ml="$3">
                 <XStack alignItems="center">
                   <SizableText
                     size="$bodyLgMedium"
