@@ -15,7 +15,7 @@ export interface IAppUpdatePersistAtom {
 export const { target: appUpdatePersistAtom, use: useAppUpdatePersistAtom } =
   globalAtom<IAppUpdatePersistAtom>({
     persist: true,
-    name: EAtomNames.appUpdateAtom,
+    name: EAtomNames.appUpdatePersistAtom,
     initialValue: {
       version: process.env.VERSION ?? '1.0.0',
       latestVersion: process.env.VERSION ?? '1.0.0',
