@@ -297,10 +297,9 @@ function SendDataInputContainer() {
         return intl.formatMessage({ id: 'msg__insufficient_balance' });
 
       if (isLessThanMinTransferAmount)
-        return intl.formatMessage(
-          { id: 'form__str_minimum_transfer' },
-          { '0': vaultSettings?.minTransferAmount ?? '0' },
-        );
+        return `The minimum sent amount is ${
+          vaultSettings?.minTransferAmount ?? '0'
+        } ${tokenSymbol}`;
 
       return true;
     },
@@ -310,6 +309,7 @@ function SendDataInputContainer() {
       tokenDetails?.balanceParsed,
       tokenDetails?.fiatValue,
       tokenDetails?.price,
+      tokenSymbol,
       vaultSettings?.minTransferAmount,
     ],
   );
@@ -342,10 +342,23 @@ function SendDataInputContainer() {
     [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
   );
 
+  const amountInputDescription = useMemo(() => {
+    if (isNil(vaultSettings?.minTransferAmount)) return '';
+
+    if (form.formState.errors.amount) return '';
+
+    return `The minimum sent amount is ${vaultSettings?.minTransferAmount} ${tokenSymbol}`;
+  }, [
+    form.formState.errors.amount,
+    tokenSymbol,
+    vaultSettings?.minTransferAmount,
+  ]);
+
   const renderTokenDataInputForm = useCallback(
     () => (
       <Form.Field
         name="amount"
+        description={amountInputDescription}
         label={intl.formatMessage({ id: 'form__amount' })}
         rules={{
           required: true,
@@ -402,6 +415,7 @@ function SendDataInputContainer() {
       </Form.Field>
     ),
     [
+      amountInputDescription,
       currencySymbol,
       form,
       handleOnChangeAmountMode,
@@ -411,7 +425,7 @@ function SendDataInputContainer() {
       isLoadingAssets,
       isNFT,
       isUseFiat,
-      linkedAmount,
+      linkedAmount.amount,
       maxAmount,
       network?.logoURI,
       nft?.metadata?.image,
