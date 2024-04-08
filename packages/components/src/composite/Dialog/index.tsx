@@ -506,16 +506,19 @@ function dialogShow({
   // fix modal attributes is invalid in Tamagui
   let renderElement = element;
   if (props.modal) {
-    if (platformEnv.isNative) {
+    if (platformEnv.isNativeIOS) {
       renderElement = <OverlayContainer>{element}</OverlayContainer>;
-    } else {
+    } else if (!platformEnv.isNativeAndroid) {
       const Component = () => createPortal(element, document.body);
       renderElement = <Component />;
     }
   }
+
   portalRef = {
     current: Portal.Render(
-      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
+      platformEnv.isNativeAndroid
+        ? Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY
+        : Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
       renderElement,
     ),
   };
