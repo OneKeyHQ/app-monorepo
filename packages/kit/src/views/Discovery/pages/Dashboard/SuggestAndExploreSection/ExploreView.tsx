@@ -15,11 +15,13 @@ import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
+import { ChunkedItemsSkeletonView } from './ChunkedItemsSkeletonView';
 import { ChunkedItemsView, chunkArray } from './ChunkedItemsView';
 
 import type { IMatchDAppItemType } from '../../../types';
 
 export function ExploreView({
+  isLoading,
   dAppList,
   categoryResult,
   handleOpenWebSite,
@@ -29,6 +31,7 @@ export function ExploreView({
   setSelectedNetwork,
   networkList,
 }: {
+  isLoading: boolean | undefined;
   dAppList:
     | {
         data: IDApp[];
@@ -78,6 +81,47 @@ export function ExploreView({
     ),
     [handleOpenWebSite],
   );
+  const renderSkeletonView = useCallback(
+    (dataChunks: IDApp[][], categoryId: string) => (
+      <ChunkedItemsSkeletonView
+        key={categoryId}
+        isExploreView
+        dataChunks={dataChunks}
+      />
+    ),
+    [],
+  );
+  const Content = useMemo(() => {
+    if (isEmpty) {
+      return <Empty icon="SearchOutline" title="No Results" />;
+    }
+    if (isLoading) {
+      return renderSkeletonView(
+        chunkArray(
+          Array.from({ length: 30 }).map(
+            (_, index) =>
+              ({
+                dappId: index.toString(),
+              } as IDApp),
+          ),
+          chunkSize,
+        ),
+        selectedCategory,
+      );
+    }
+    return renderChunkItemView(
+      chunkArray(dAppList?.data ?? [], chunkSize),
+      selectedCategory,
+    );
+  }, [
+    isEmpty,
+    isLoading,
+    dAppList?.data,
+    chunkSize,
+    selectedCategory,
+    renderSkeletonView,
+    renderChunkItemView,
+  ]);
   const openChainSelector = useConfigurableChainSelector();
   return (
     <>
@@ -154,14 +198,7 @@ export function ExploreView({
           <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
         </XStack>
       </XStack>
-      {isEmpty ? (
-        <Empty icon="SearchOutline" title="No Results" />
-      ) : (
-        renderChunkItemView(
-          chunkArray(dAppList?.data ?? [], chunkSize),
-          selectedCategory,
-        )
-      )}
+      {Content}
     </>
   );
 }

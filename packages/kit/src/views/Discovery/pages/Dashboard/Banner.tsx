@@ -63,7 +63,7 @@ export function Banner({
           }}
         >
           <SizableText
-            color="$text"
+            color={item.theme === 'dark' ? '$textDark' : '$textLight'}
             size="$headingLg"
             $gtMd={{
               size: '$heading2xl',
