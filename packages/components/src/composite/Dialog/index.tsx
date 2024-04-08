@@ -22,6 +22,7 @@ import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useBackHandler, useKeyboardHeight } from '../../hooks';
+import { OverlayContainer } from '../../layouts';
 import { Icon, SizableText, Stack } from '../../primitives';
 
 import { Content } from './Content';
@@ -504,9 +505,13 @@ function dialogShow({
 
   // fix modal attributes is invalid in Tamagui
   let renderElement = element;
-  if (props.modal && !platformEnv.isNative) {
-    const Component = () => createPortal(element, document.body);
-    renderElement = <Component />;
+  if (props.modal) {
+    if (platformEnv.isNative) {
+      renderElement = <OverlayContainer>{element}</OverlayContainer>;
+    } else {
+      const Component = () => createPortal(element, document.body);
+      renderElement = <Component />;
+    }
   }
   portalRef = {
     current: Portal.Render(

@@ -48,7 +48,7 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
       title: intl.formatMessage({ id: 'action__reset' }),
       icon: 'ErrorOutline',
       tone: 'destructive',
-      modal: inAppStateLock && !platformEnv.isNative,
+      modal: inAppStateLock,
       description:
         'This will delete all the data you have created on OneKey. After making sure that you have a proper backup, enter "RESET" to reset the App',
       renderContent: (
