@@ -10,6 +10,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
@@ -17,6 +18,7 @@ import ServiceBase from './ServiceBase';
 
 const AxiosInstance = axios.create();
 
+let timerId: ReturnType<typeof setTimeout> = 0
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -36,7 +38,17 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   async isNeedSyncAppUpdateInfo() {
-    const { status } = await appUpdatePersistAtom.get();
+    const { status, updateAt } = await appUpdatePersistAtom.get();
+    if (platformEnv.isExtension) {
+      clearTimeout(timerId);
+      timerId = setTimeout(() => {
+        void this.fetchAppUpdateInfo();
+        // add random time to avoid all extension request at the same time.
+      }, 1000 * 60 * 60 + Math.random() * 1000 * 60 * 5);
+      if (Date.now() - updateAt < 1000 * 60 * 60 * 24) {
+        return false;
+      }
+    }
     return ![EAppUpdateStatus.downloading, EAppUpdateStatus.ready].includes(
       status,
     );
