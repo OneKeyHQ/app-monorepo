@@ -18,7 +18,7 @@ import ServiceBase from './ServiceBase';
 
 const AxiosInstance = axios.create();
 
-let timerId: ReturnType<typeof setTimeout> = 0
+let timerId: ReturnType<typeof setTimeout>;
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
