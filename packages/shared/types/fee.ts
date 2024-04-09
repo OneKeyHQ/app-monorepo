@@ -40,7 +40,7 @@ export type IEstimateGasParams = {
 
 export type IFeeInfoUnit = {
   common: {
-    baseFeeValue?: string;
+    baseFee?: string;
     feeDecimals: number;
     feeSymbol: string;
     nativeDecimals: number;
@@ -67,7 +67,7 @@ export type IEstimateGasResp = {
   feeSymbol: string;
   nativeDecimals: number;
   nativeSymbol: string;
-  baseFeeValue?: string;
+  baseFee?: string;
   gas?: IGasLegacy[];
   gasEIP1559?: IGasEIP1559[];
   feeUTXO?: IFeeUTXO[];

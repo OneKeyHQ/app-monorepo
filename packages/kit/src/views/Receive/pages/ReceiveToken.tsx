@@ -82,6 +82,7 @@ function ReceiveToken() {
           networkId,
           indexedAccountId: account?.indexedAccountId,
           deriveType,
+          confirmOnDevice: true,
         });
 
       const isSameAddress =

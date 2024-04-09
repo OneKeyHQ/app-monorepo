@@ -22,7 +22,7 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
   const approveSymbol = tokenApprove?.symbol ?? '';
   const approveSpender = tokenApprove?.to ?? '';
   const approveOwner = tokenApprove?.from ?? '';
-  const approveIsMax = tokenApprove?.isMax ?? false;
+  const approveIsMax = tokenApprove?.isInfiniteAmount ?? false;
 
   return {
     approveIcon,
@@ -49,6 +49,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     approveAmount,
     approveName,
     approveSymbol,
+    approveIsMax,
   } = getTxActionTokenApproveInfo(props);
 
   const title = intl.formatMessage({ id: 'title__approve' });
@@ -72,7 +73,9 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       color="$textSubdued"
       numberOfLines={1}
     >
-      {approveAmount}
+      {approveIsMax
+        ? intl.formatMessage({ id: 'form__unlimited_allowance' })
+        : approveAmount}
     </NumberSizeableText>
   );
 
@@ -103,6 +106,7 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
     approveLabel,
     approveAmount,
     approveSymbol,
+    approveIsMax,
   } = getTxActionTokenApproveInfo(props);
 
   const content =
@@ -112,7 +116,11 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
         id: 'form__approve_str',
       },
       {
-        0: `${approveAmount} ${approveSymbol}`,
+        0: `${
+          approveIsMax
+            ? intl.formatMessage({ id: 'form__unlimited_allowance' })
+            : approveAmount
+        } ${approveSymbol}`,
       },
     );
 

@@ -30,7 +30,7 @@ class ServiceGas extends ServiceBase {
 
     return {
       common: {
-        baseFeeValue: gasFee.baseFeeValue,
+        baseFee: gasFee.baseFee,
         feeDecimals: gasFee.feeDecimals,
         feeSymbol: gasFee.feeSymbol,
         nativeDecimals: gasFee.nativeDecimals,

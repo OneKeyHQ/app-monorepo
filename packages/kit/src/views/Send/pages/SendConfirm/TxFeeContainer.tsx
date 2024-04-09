@@ -118,18 +118,19 @@ function TxFeeContainer(props: IProps) {
     [accountId, networkId, unsignedTxs, updateSendFeeStatus],
     {
       pollingInterval: 6000,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused && sendSelectedFee.feeType !== EFeeType.Custom,
     },
   );
 
   const feeSelectorItems = useMemo(() => {
     const items = [];
     if (gasFee) {
-      const feeLength = (
-        gasFee.gas ??
-        gasFee.feeUTXO ??
-        gasFee.gasEIP1559 ??
-        []
-      ).length;
+      const feeLength =
+        gasFee.gasEIP1559?.length ||
+        gasFee.gas?.length ||
+        gasFee.feeUTXO?.length ||
+        0;
 
       for (let i = 0; i < feeLength; i += 1) {
         const feeInfo: IFeeInfoUnit = {

@@ -24,6 +24,7 @@ export type IOnChainHistoryTxApprove = {
   amount: string;
   spender: string;
   token: string;
+  isInfiniteAmount: boolean;
 };
 
 export type IOnChainHistoryTxTransfer = {
