@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Badge } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -17,10 +18,19 @@ function ListVersionItem() {
     <ListItem
       onPress={appUpdateInfo.onUpdateAction}
       icon="SpeakerPromoteOutline"
+      iconProps={{ color: '$textInfo' }}
       title="What’s New"
+      titleProps={{ color: '$textInfo' }}
       drillIn
     >
-      <ListItem.Text primary={appUpdateInfo.data.version} align="right" />
+      <ListItem.Text
+        primary={
+          <Badge badgeType="info" badgeSize="lg">
+            {appUpdateInfo.data.latestVersion}
+          </Badge>
+        }
+        align="right"
+      />
     </ListItem>
   ) : (
     <ListItem
