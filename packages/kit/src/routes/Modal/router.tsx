@@ -5,6 +5,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
+import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
@@ -75,6 +76,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.AddressBookModal,
     children: ModalAddressBookRouter,
+  },
+  {
+    name: EModalRoutes.AppUpdateModal,
+    children: AppUpdateRouter,
   },
 ];
 

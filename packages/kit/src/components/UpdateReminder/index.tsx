@@ -10,7 +10,7 @@ import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useFetchAppUpdateInfo } from './hooks';
+import { useAppUpdateInfo } from './hooks';
 
 const UPDATE_STATUS_TEXT_STYLE: Record<
   EAppUpdateStatus,
@@ -112,13 +112,24 @@ const UPDATE_ACTION_STYLE: Record<
   },
 };
 
-function UpdateAction({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
+function UpdateAction({
+  updateInfo,
+  onUpdateAction,
+}: {
+  updateInfo: IAppUpdateInfo;
+  onUpdateAction: () => void;
+}) {
   const { icon, label, variant, prefixElement } =
     UPDATE_ACTION_STYLE[updateInfo.status];
   return (
     <XStack space="$4" justifyContent="space-between" alignItems="center">
       {prefixElement}
-      <Button size="small" icon={icon} variant={variant}>
+      <Button
+        size="small"
+        icon={icon}
+        variant={variant}
+        onPress={onUpdateAction}
+      >
         {label}
       </Button>
     </XStack>
@@ -149,11 +160,12 @@ const UPDATE_REMINDER_BAR_STYLE: Record<EAppUpdateStatus, IStackProps> = {
 };
 
 function BasicUpdateReminder() {
-  const appUpdateInfo = useFetchAppUpdateInfo();
+  const appUpdateInfo = useAppUpdateInfo();
   if (!appUpdateInfo) {
     return null;
   }
-  const style = UPDATE_REMINDER_BAR_STYLE[appUpdateInfo.status];
+  const { data, onUpdateAction } = appUpdateInfo;
+  const style = UPDATE_REMINDER_BAR_STYLE[data.status];
   return (
     <XStack
       px="$5"
@@ -164,8 +176,8 @@ function BasicUpdateReminder() {
       borderBottomWidth="$px"
       {...style}
     >
-      <UpdateStatusText updateInfo={appUpdateInfo} />
-      <UpdateAction updateInfo={appUpdateInfo} />
+      <UpdateStatusText updateInfo={data} />
+      <UpdateAction updateInfo={data} onUpdateAction={onUpdateAction} />
     </XStack>
   );
 }

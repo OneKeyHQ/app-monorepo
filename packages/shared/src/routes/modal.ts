@@ -1,5 +1,6 @@
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
+import type { IAppUpdatePagesParamList } from './appUpdate';
 import type { IModalAssetDetailsParamList } from './assetDetails';
 import type { IModalAssetListParamList } from './assetList';
 import type { IAssetSelectorParamList } from './assetSelector';
@@ -31,6 +32,7 @@ export enum EModalRoutes {
   LiteCardModal = 'LiteCardModal',
   AddressBookModal = 'AddressBookModal',
   DAppConnectionModal = 'DAppConnectionModal',
+  AppUpdateModal = 'AppUpdateModal',
 }
 
 export type IModalParamList = {
@@ -50,4 +52,5 @@ export type IModalParamList = {
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
   [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
+  [EModalRoutes.AppUpdateModal]: IAppUpdatePagesParamList;
 };
