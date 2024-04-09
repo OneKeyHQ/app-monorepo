@@ -6,6 +6,7 @@ import type { IAssetSelectorParamList } from './assetSelector';
 import type { IChainSelectorParamList } from './chainSelector';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
 import type { IDiscoveryModalParamList } from './discovery';
+import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { ILiteCardParamList } from './liteCard';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalReceiveParamList } from './receive';
@@ -31,6 +32,7 @@ export enum EModalRoutes {
   LiteCardModal = 'LiteCardModal',
   AddressBookModal = 'AddressBookModal',
   DAppConnectionModal = 'DAppConnectionModal',
+  FiatCryptoModal = 'FiatCryptoModal',
 }
 
 export type IModalParamList = {
@@ -50,4 +52,5 @@ export type IModalParamList = {
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
   [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
+  [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
 };

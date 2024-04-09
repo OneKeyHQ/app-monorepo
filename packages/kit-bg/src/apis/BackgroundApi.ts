@@ -353,5 +353,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceContextMenu', { value });
     return value;
   }
+
+  get serviceFiatCrypto() {
+    const ServiceFiatCrypto =
+      require('../services/ServiceFiatCrypto') as typeof import('../services/ServiceFiatCrypto');
+    const value = new ServiceFiatCrypto.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceFiatCrypto', { value });
+    return value;
+  }
 }
 export default BackgroundApi;
