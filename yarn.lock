@@ -5094,7 +5094,7 @@ __metadata:
     react-dropzone: "npm:^14.2.3"
     react-hook-form: "npm:^7.22.1"
     react-native-keyboard-aware-scroll-view: "npm:^0.9.5"
-    react-native-markdown-display: "npm:^7.0.0-alpha.2"
+    react-native-markdown-display: "npm:7.0.2"
     react-native-modalize: "npm:^2.1.1"
     react-native-progress: "npm:^5.0.0"
     react-native-root-siblings: "npm:^5.0.1"
@@ -25890,7 +25890,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-markdown-display@npm:^7.0.0-alpha.2":
+"react-native-markdown-display@npm:7.0.2":
   version: 7.0.2
   resolution: "react-native-markdown-display@npm:7.0.2"
   dependencies:

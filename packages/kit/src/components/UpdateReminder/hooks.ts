@@ -6,6 +6,7 @@ import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 
 export const useAppUpdateInfo = () => {
   const [appUpdateInfo] = useAppUpdatePersistAtom();
@@ -15,20 +16,38 @@ export const useAppUpdateInfo = () => {
 
   const navigation = useAppNavigation();
 
+  const localVariant = useLocaleVariant();
+
   const onUpdateAction = useCallback(() => {
-    console.log('1111');
     switch (appUpdateInfo.status) {
       case EAppUpdateStatus.notify:
-        navigation.pushFullModal(EModalRoutes.AppUpdateModal, {
-          screen: EAppUpdateRoutes.UpdatePreview,
-        });
+        {
+          const changeLog =
+            appUpdateInfo.changeLog?.locale[localVariant] ||
+            appUpdateInfo.changeLog?.locale['en-US'];
+          navigation.pushFullModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.UpdatePreview,
+            params: {
+              version: appUpdateInfo.version,
+              latestVersion: appUpdateInfo.latestVersion,
+              changeLog,
+            },
+          });
+        }
         break;
       case EAppUpdateStatus.ready:
         break;
       default:
         break;
     }
-  }, [appUpdateInfo.status, navigation]);
+  }, [
+    appUpdateInfo.changeLog?.locale,
+    appUpdateInfo.latestVersion,
+    appUpdateInfo.status,
+    appUpdateInfo.version,
+    localVariant,
+    navigation,
+  ]);
 
   return useMemo(
     () =>
