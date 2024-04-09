@@ -65,7 +65,6 @@ class ServiceAppUpdate extends ServiceBase {
       `https://data.onekey.so/config.json?nocache=${key}`,
     );
     const releaseInfo = handleReleaseInfo(response.data);
-    const info = await appUpdatePersistAtom.get();
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       ...releaseInfo,

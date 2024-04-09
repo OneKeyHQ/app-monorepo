@@ -40,9 +40,18 @@ export interface IDesktop {
   macARM: string;
   win: string;
   changelog: IChangeLog[];
-  mas: string;
-  msStore: string;
-  snapStore: string;
+  mas: {
+    url: string;
+    version: number[];
+  };
+  msStore: {
+    url: string;
+    version: number[];
+  };
+  snapStore: {
+    url: string;
+    version: number[];
+  };
 }
 
 export interface IPackageChangelog {
