@@ -46,19 +46,11 @@ function UpdatePreview({
             </Badge>
           </XStack>
         </YStack>
-        <ScrollView pt="$7" contentInsetAdjustmentBehavior="automatic">
-          <Markdown>
-            {`### ✨ 新功能\r\n- 优化输入的交互体验，支持长按快捷输入 PIN 码和
-            Passphrase\r\n- 新增设置项，允许修改上下键的输入方向\r\n\r\n### 🐞 问题修复\r\n- 修复某些场景下设备自动锁定失效的问题\r\n- 修复
-            Arbitrum 代币转账时信息展示问题\r\n- 修复核对 Electrum 多签地址 xPub
-            展示问题\r\n- 修复 PIN 码输入错误时无法连接 OneKey Wallet
-            的问题\r\n- 修复 Fetch.ai 链转账的金额显示问题\r\n- 修复 U2F
-            Register 等待时间过长的问题\r\n- 取消 BTC 派生路径地址 index
-            索引的限制\r\n- 修复本地化翻译问题\r\n- evm 主币转账时，touch
-            显示的金额单位与热钱包保持一致\r\n\r\n### 💎 改进\r\n- 核对 Cardano
-            (ADA) 收款地址时，展示地址类型\r\n- 优化 EVM 链交易签名流程\r\n`}
-          </Markdown>
-        </ScrollView>
+        {changeLog ? (
+          <ScrollView pt="$7" contentInsetAdjustmentBehavior="automatic">
+            <Markdown>{changeLog}</Markdown>
+          </ScrollView>
+        ) : null}
       </Page.Body>
       <UpdatePreviewActionButton />
     </Page>
