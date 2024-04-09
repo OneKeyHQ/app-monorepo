@@ -12,6 +12,8 @@ import type {
   IAppUpdatePagesParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
+
 function WhatsNew({
   route,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.WhatsNew>) {
@@ -20,7 +22,7 @@ function WhatsNew({
   return (
     <Page>
       <Page.Header title="App Update" />
-      <Page.Body p="$5">
+      <Page.Body m="$5">
         <YStack space="$3">
           {gtMd ? (
             <Heading size="$heading2xl">{`What’s New in OneKey ${version} 👋🏻`}</Heading>
@@ -32,8 +34,13 @@ function WhatsNew({
           )}
         </YStack>
         {changeLog ? (
-          <ScrollView pt="$7" contentInsetAdjustmentBehavior="automatic">
+          <ScrollView
+            mt="$7"
+            contentInsetAdjustmentBehavior="automatic"
+            contentContainerStyle={{ pb: '$5' }}
+          >
             <Markdown>{changeLog}</Markdown>
+            <ViewUpdateHistory />
           </ScrollView>
         ) : null}
       </Page.Body>

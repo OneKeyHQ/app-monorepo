@@ -17,6 +17,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import { UpdatePreviewActionButton } from '../components/UpdatePreviewActionButton';
+import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
 const ExtPluginText = platformEnv.isExtension ? (
   <SizableText size="$bodyMd" color="$textSubdued">
@@ -32,7 +33,7 @@ function UpdatePreview({
   return (
     <Page>
       <Page.Header title="App Update" />
-      <Page.Body p="$5">
+      <Page.Body m="$5">
         <YStack space="$3">
           <Heading size="$heading2xl">New App Version 🎉</Heading>
           {ExtPluginText}
@@ -47,8 +48,13 @@ function UpdatePreview({
           </XStack>
         </YStack>
         {changeLog ? (
-          <ScrollView pt="$7" contentInsetAdjustmentBehavior="automatic">
+          <ScrollView
+            mt="$7"
+            contentInsetAdjustmentBehavior="automatic"
+            contentContainerStyle={{ pb: '$5' }}
+          >
             <Markdown>{changeLog}</Markdown>
+            <ViewUpdateHistory />
           </ScrollView>
         ) : null}
       </Page.Body>
