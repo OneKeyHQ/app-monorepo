@@ -4488,7 +4488,7 @@ const serverPresetNetworks = [
     'name': 'Dynex',
     'rpcURLs': [
       {
-        'url': 'http://node.dynexcoin.org:18333/',
+        'url': 'http://node.dynexcoin.org:18333',
       },
     ],
     'shortcode': 'dnx',

@@ -86,6 +86,8 @@ export type IVaultSettings = {
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
 
+  softwareAccountDisabled?: boolean;
+
   addressDerivationDisabled?: boolean;
   validationRequired?: boolean;
   disabledInExtension?: boolean;

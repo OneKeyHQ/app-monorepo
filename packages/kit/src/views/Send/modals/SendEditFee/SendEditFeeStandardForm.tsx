@@ -223,6 +223,8 @@ export function SendEditFeeStandardForm({
     isEIP1559Fee,
   ]);
 
+  console.log('feeInfoPayload', feeInfoPayload);
+
   return (
     <Box>
       {selectedFeeInfo}
