@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -20,8 +21,12 @@ import {
   useCustomFeeAtom,
   useSendSelectedFeeAtom,
   useSendSelectedFeeInfoAtom,
+  useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { getFeePriceNumber } from '@onekeyhq/kit/src/utils/gasFee';
+import {
+  calculateTotalFeeNative,
+  getFeePriceNumber,
+} from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IFeeInfoUnit,
@@ -34,14 +39,18 @@ type IProps = {
   feeSelectorItems: IFeeSelectorItem[];
 };
 
+const DEFAULT_GAS_LIMIT_MIN = 21000;
+const DEFAULT_GAS_LIMIT_MAX = 15000000;
+
 function FeeEditor(props: IProps) {
-  const { networkId, feeSelectorItems } = props;
+  const { feeSelectorItems } = props;
   const intl = useIntl();
 
   const [settings] = useSettingsPersistAtom();
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [originalCustomFee] = useCustomFeeAtom();
   const [selectedFee] = useSendSelectedFeeInfoAtom();
+  const [unsignedTxs] = useUnsignedTxsAtom();
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
     sendSelectedFee.feeType === EFeeType.Custom
       ? feeSelectorItems.length - 1
@@ -53,8 +62,7 @@ function FeeEditor(props: IProps) {
   );
   const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
 
-  const { feeDecimals, feeSymbol, nativeSymbol, nativeTokenPrice } =
-    customFee.common;
+  const { feeSymbol, nativeSymbol, nativeTokenPrice } = customFee.common;
 
   const form = useForm({
     defaultValues: {
@@ -141,7 +149,41 @@ function FeeEditor(props: IProps) {
     [customFee.gasEIP1559?.baseFeePerGas],
   );
 
-  const handleValidateGasLimit = useCallback((value: string) => {}, []);
+  const handleValidatePriorityFee = useCallback((value: string) => {
+    const priorityFee = new BigNumber(value || 0);
+    if (priorityFee.isNaN() || priorityFee.isLessThan(0)) {
+      return 'Priority fee must be greater than 0';
+    }
+    return true;
+  }, []);
+
+  const handleValidateGasLimit = useCallback((value: string) => {
+    const gasLimit = new BigNumber(value || 0);
+    if (
+      gasLimit.isNaN() ||
+      gasLimit.isLessThan(DEFAULT_GAS_LIMIT_MIN) ||
+      gasLimit.isGreaterThan(DEFAULT_GAS_LIMIT_MAX)
+    ) {
+      return `Gas limit must between ${DEFAULT_GAS_LIMIT_MIN} and ${DEFAULT_GAS_LIMIT_MAX}`;
+    }
+    return true;
+  }, []);
+
+  const handleValidateGasPrice = useCallback((value: string) => {
+    const gasPrice = new BigNumber(value || 0);
+    if (gasPrice.isNaN() || gasPrice.isLessThan(0)) {
+      return 'Gas price must be greater than 0';
+    }
+    return true;
+  }, []);
+
+  const handleValidateFeeRate = useCallback((value: string) => {
+    const feeRate = new BigNumber(value || 0);
+    if (feeRate.isNaN() || feeRate.isLessThan(0)) {
+      return 'Fee rate must be greater than 0';
+    }
+    return true;
+  }, []);
 
   const handleApplyFeeInfo = useCallback(() => {}, []);
 
@@ -211,6 +253,7 @@ function FeeEditor(props: IProps) {
     if (currentFeeType !== EFeeType.Custom) return null;
 
     if (customFee.gasEIP1559) {
+      const originalLimit = customFee.gasEIP1559.gasLimit;
       return (
         <YStack space="$5">
           <Form.Field
@@ -219,6 +262,7 @@ function FeeEditor(props: IProps) {
             description={`Current: ${customFee.gasEIP1559.baseFeePerGas} ${feeSymbol}`}
             rules={{
               required: true,
+              min: 0,
               validate: handleValidateMaxBaseFee,
             }}
           >
@@ -238,6 +282,8 @@ function FeeEditor(props: IProps) {
             name="priorityFee"
             rules={{
               required: true,
+              validate: handleValidatePriorityFee,
+              min: 0,
             }}
           >
             <Input
@@ -257,16 +303,28 @@ function FeeEditor(props: IProps) {
             description={gasLimitDescription}
             rules={{
               required: true,
-              validate: handleValidateMaxBaseFee,
+              validate: handleValidateGasLimit,
             }}
           >
-            <Input flex={1} />
+            <Input
+              flex={1}
+              addOns={[
+                {
+                  iconName: 'UndoOutline',
+                  onPress: () => {
+                    form.setValue('gasLimit', originalLimit);
+                    void form.trigger('gasLimit');
+                  },
+                },
+              ]}
+            />
           </Form.Field>
         </YStack>
       );
     }
 
     if (customFee.gas) {
+      const originalLimit = customFee.gas.gasLimit;
       return (
         <YStack space="$5">
           <Form.Field
@@ -276,6 +334,8 @@ function FeeEditor(props: IProps) {
             name="gasPrice"
             rules={{
               required: true,
+              min: 0,
+              validate: handleValidateGasPrice,
             }}
           >
             <Input flex={1} />
@@ -288,9 +348,21 @@ function FeeEditor(props: IProps) {
             description={gasLimitDescription}
             rules={{
               required: true,
+              validate: handleValidateGasLimit,
             }}
           >
-            <Input flex={1} />
+            <Input
+              flex={1}
+              addOns={[
+                {
+                  iconName: 'UndoOutline',
+                  onPress: () => {
+                    form.setValue('gasLimit', originalLimit);
+                    void form.trigger('gasLimit');
+                  },
+                },
+              ]}
+            />
           </Form.Field>
         </YStack>
       );
@@ -306,6 +378,7 @@ function FeeEditor(props: IProps) {
             name="feeRate"
             rules={{
               required: true,
+              validate: handleValidateFeeRate,
             }}
           >
             <Input flex={1} />
@@ -319,16 +392,23 @@ function FeeEditor(props: IProps) {
     customFee.gas,
     customFee.gasEIP1559,
     feeSymbol,
+    form,
     gasLimitDescription,
+    handleValidateFeeRate,
+    handleValidateGasLimit,
+    handleValidateGasPrice,
     handleValidateMaxBaseFee,
+    handleValidatePriorityFee,
     intl,
   ]);
 
   const renderFeeOverview = useCallback(() => {
     let feeInfoItems: {
       label: string;
-      nativeValue: string;
-      fiatValue: string;
+      nativeValue?: string;
+      fiatValue?: string;
+      customValue?: string;
+      customSymbol?: string;
     }[] = [];
 
     const fee =
@@ -351,22 +431,83 @@ function FeeEditor(props: IProps) {
         priorityFee = new BigNumber(fee.gasEIP1559.maxPriorityFeePerGas);
         maxFee = new BigNumber(fee.gasEIP1559.maxFeePerGas);
       }
-      const expectedFeeInNative = priorityFee
-        .plus(fee.gasEIP1559.baseFeePerGas || 0)
-        .times(limit || 0)
-        .shiftedBy(-feeDecimals);
-      const maxFeeInNative = maxFee.times(limit || 0).shiftedBy(-feeDecimals);
+      const expectedFeeInNative = calculateTotalFeeNative({
+        amount: priorityFee
+          .plus(fee.gasEIP1559.baseFeePerGas || 0)
+          .times(limit || 0),
+        feeInfo: fee,
+      });
+      const maxFeeInNative = calculateTotalFeeNative({
+        amount: maxFee.times(limit || 0),
+        feeInfo: fee,
+      });
 
       feeInfoItems = [
         {
           label: 'Expected Fee',
-          nativeValue: expectedFeeInNative.toFixed(),
-          fiatValue: expectedFeeInNative.times(nativeTokenPrice || 0).toFixed(),
+          nativeValue: expectedFeeInNative,
+          fiatValue: new BigNumber(expectedFeeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
         },
         {
           label: 'Max Fee',
-          nativeValue: maxFeeInNative.toFixed(),
-          fiatValue: maxFeeInNative.times(nativeTokenPrice || 0).toFixed(),
+          nativeValue: maxFeeInNative,
+          fiatValue: new BigNumber(maxFeeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
+    } else if (fee.gas) {
+      let limit = new BigNumber(0);
+      let gasPrice = new BigNumber(0);
+      if (currentFeeType === EFeeType.Custom) {
+        limit = new BigNumber(watchAllFields.gasLimit || 0);
+        gasPrice = new BigNumber(watchAllFields.gasPrice || 0);
+      } else {
+        limit = new BigNumber(fee.gas.gasLimitForDisplay || 0);
+        gasPrice = new BigNumber(fee.gas.gasPrice || 0);
+      }
+
+      const maxFeeInNative = calculateTotalFeeNative({
+        amount: gasPrice.times(limit),
+        feeInfo: fee,
+      });
+
+      feeInfoItems = [
+        {
+          label: 'Max Fee',
+          nativeValue: maxFeeInNative,
+          fiatValue: new BigNumber(maxFeeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
+    } else if (fee.feeUTXO) {
+      let feeRate = new BigNumber(0);
+      if (currentFeeType === EFeeType.Custom) {
+        feeRate = new BigNumber(watchAllFields.feeRate || 0);
+      } else {
+        feeRate = new BigNumber(fee.feeUTXO.feeRate || 0);
+      }
+
+      const feeInNative = calculateTotalFeeNative({
+        amount: feeRate.times(unsignedTxs[0]?.txSize || 0),
+        feeInfo: fee,
+      });
+
+      feeInfoItems = [
+        {
+          label: 'VSize',
+          customValue: unsignedTxs[0]?.txSize?.toFixed() ?? '0',
+          customSymbol: 'vB',
+        },
+        {
+          label: 'Fee',
+          nativeValue: feeInNative,
+          fiatValue: new BigNumber(feeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
         },
       ];
     }
@@ -384,21 +525,36 @@ function FeeEditor(props: IProps) {
                 {feeInfo.label}
               </SizableText>
               <XStack alignItems="center" space="$1">
-                <NumberSizeableText
-                  formatter="value"
-                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
-                  size="$bodyMd"
-                  color="$textSubdued"
-                >
-                  {feeInfo.fiatValue}
-                </NumberSizeableText>
-                <NumberSizeableText
-                  formatter="balance"
-                  formatterOptions={{ tokenSymbol: nativeSymbol }}
-                  size="$bodyMdMedium"
-                >
-                  {feeInfo.nativeValue}
-                </NumberSizeableText>
+                {!isNil(feeInfo.fiatValue) ? (
+                  <NumberSizeableText
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
+                    size="$bodyMd"
+                    color="$textSubdued"
+                  >
+                    {feeInfo.fiatValue}
+                  </NumberSizeableText>
+                ) : null}
+                {!isNil(feeInfo.nativeValue) ? (
+                  <NumberSizeableText
+                    formatter="balance"
+                    formatterOptions={{ tokenSymbol: nativeSymbol }}
+                    size="$bodyMdMedium"
+                  >
+                    {feeInfo.nativeValue}
+                  </NumberSizeableText>
+                ) : null}
+                {!isNil(feeInfo.customValue) ? (
+                  <NumberSizeableText
+                    formatter="balance"
+                    formatterOptions={{ tokenSymbol: feeInfo.customSymbol }}
+                    size="$bodyMdMedium"
+                  >
+                    {feeInfo.customValue}
+                  </NumberSizeableText>
+                ) : null}
               </XStack>
             </XStack>
           ))}
@@ -412,14 +568,16 @@ function FeeEditor(props: IProps) {
     currentFeeIndex,
     currentFeeType,
     customFee,
-    feeDecimals,
     feeSelectorItems,
     handleApplyFeeInfo,
     intl,
     nativeSymbol,
     nativeTokenPrice,
     settings.currencyInfo.symbol,
+    unsignedTxs,
+    watchAllFields.feeRate,
     watchAllFields.gasLimit,
+    watchAllFields.gasPrice,
     watchAllFields.maxBaseFee,
     watchAllFields.priorityFee,
   ]);

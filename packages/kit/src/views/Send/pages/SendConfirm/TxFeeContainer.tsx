@@ -333,7 +333,6 @@ function TxFeeContainer(props: IProps) {
               }}
               size="$bodyMdMedium"
               color="$text"
-              numberOfLines={2}
             >
               {selectedFee?.totalNativeForDisplay ?? '0.00'}
             </NumberSizeableText>
