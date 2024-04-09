@@ -12,6 +12,8 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
     if (appUpdateInfo.data) {
       if (appUpdateInfo.data.storeUrl) {
         openUrlExternal(appUpdateInfo.data.storeUrl);
+      } else if (appUpdateInfo.data.downloadUrl) {
+        // download package in App
       }
     }
   }, [appUpdateInfo.data]);
