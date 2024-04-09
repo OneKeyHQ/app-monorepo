@@ -35,6 +35,9 @@ class ServiceContextMenu extends ServiceBase {
   }
 
   async init() {
+    if (!platformEnv.isExtensionBackground) {
+      return;
+    }
     this.removeAll();
     chrome.contextMenus.create(
       {

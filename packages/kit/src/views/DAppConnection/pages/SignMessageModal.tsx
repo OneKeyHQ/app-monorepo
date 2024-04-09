@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -6,6 +6,7 @@ import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
 import { DAppSignMessageContent } from '../components/DAppRequestContent';
 import {
@@ -26,6 +27,18 @@ function SignMessageModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const { result: currentNetwork } = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+    [networkId],
+  );
+
+  const subtitle = useMemo(() => {
+    if (!currentNetwork?.name) {
+      return '';
+    }
+    return `Allow this site to request your ${currentNetwork.name} message signature.`;
+  }, [currentNetwork]);
 
   const {
     continueOperate,
@@ -56,6 +69,7 @@ function SignMessageModal() {
       <Page.Body>
         <DAppRequestLayout
           title="Message Signature Request"
+          subtitle={subtitle}
           origin={$sourceInfo?.origin ?? ''}
           urlSecurityInfo={urlSecurityInfo}
         >

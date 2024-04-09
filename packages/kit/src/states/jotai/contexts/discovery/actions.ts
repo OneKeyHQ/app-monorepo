@@ -735,6 +735,7 @@ export function useBrowserTabActions() {
   const buildWebTabs = actions.buildWebTabs.use();
   const refreshTabs = actions.refreshTabs.use();
   const setWebTabData = actions.setWebTabData.use();
+  const getWebTabById = actions.getWebTabById.use();
   const closeWebTab = actions.closeWebTab.use();
   const closeAllWebTabs = actions.closeAllWebTabs.use();
   const setCurrentWebTab = actions.setCurrentWebTab.use();
@@ -747,6 +748,7 @@ export function useBrowserTabActions() {
     buildWebTabs,
     refreshTabs,
     setWebTabData,
+    getWebTabById,
     closeWebTab,
     closeAllWebTabs,
     setCurrentWebTab,

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
@@ -41,5 +41,17 @@ export function useAccountSelectorTrigger({
   return {
     showAccountSelector,
     activeAccount,
+  };
+}
+
+export function useMockAccountSelectorLoading() {
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+  }, []);
+  return {
+    isLoading,
   };
 }

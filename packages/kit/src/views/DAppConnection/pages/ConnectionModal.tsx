@@ -55,6 +55,13 @@ function ConnectionModal() {
     [],
   );
 
+  const subtitle = useMemo(() => {
+    if (!selectedAccount?.network?.name) {
+      return '';
+    }
+    return `Allow this site to access your ${selectedAccount?.network?.name} address.`;
+  }, [selectedAccount?.network?.name]);
+
   const confirmDisabled = useMemo(() => {
     if (!canContinueOperate) {
       return true;
@@ -126,6 +133,7 @@ function ConnectionModal() {
       <Page.Body>
         <DAppRequestLayout
           title="Connection Request"
+          subtitle={subtitle}
           origin={$sourceInfo?.origin ?? ''}
           urlSecurityInfo={urlSecurityInfo}
         >

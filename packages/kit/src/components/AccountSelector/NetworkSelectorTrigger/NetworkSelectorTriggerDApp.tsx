@@ -4,10 +4,12 @@ import {
   Icon,
   Image,
   SizableText,
+  Skeleton,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
 
+import { useMockAccountSelectorLoading } from '../hooks/useAccountSelectorTrigger';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
 export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
@@ -15,6 +17,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   beforeShowTrigger?: () => Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 }>(({ num, disabled, beforeShowTrigger, ...rest }, _: any) => {
+  const { isLoading } = useMockAccountSelectorLoading();
   const {
     activeAccount: { network },
     showChainSelector,
@@ -61,13 +64,17 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       disabled={disabled}
       {...rest}
     >
-      <Image
-        w="$6"
-        h="$6"
-        source={{
-          uri: network?.logoURI ? network?.logoURI : '',
-        }}
-      />
+      {isLoading ? (
+        <Skeleton w="$6" h="$6" />
+      ) : (
+        <Image
+          w="$6"
+          h="$6"
+          source={{
+            uri: network?.logoURI ? network?.logoURI : '',
+          }}
+        />
+      )}
       {disabled ? null : (
         <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
       )}
