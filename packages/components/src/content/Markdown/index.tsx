@@ -12,18 +12,22 @@ function hasParents(parents: ASTNode[], type: string) {
 
 const basicStyles = {
   heading1: {
+    color: '$text',
     size: '$headingXl',
     fontWeight: '600',
   } as ISizableTextProps,
   heading2: {
+    color: '$text',
     size: '$headingLg',
     fontWeight: '600',
   } as ISizableTextProps,
   heading3: {
+    color: '$text',
     size: '$headingMd',
     fontWeight: '600',
   } as ISizableTextProps,
   text: {
+    color: '$textSubdued',
     size: '$bodyLg',
   } as ISizableTextProps,
 } as MarkdownProps['style'];
@@ -70,6 +74,7 @@ const basicRules: MarkdownProps['rules'] = {
           <SizableText
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             accessible={false}
+            color="$textSubdued"
             size="$bodyLg"
           >
             {Platform.select({
