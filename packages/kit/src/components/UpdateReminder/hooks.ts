@@ -23,8 +23,8 @@ export const useAppUpdateInfo = () => {
       case EAppUpdateStatus.notify:
         {
           const changeLog =
-            appUpdateInfo.changeLog?.locale[localVariant] ||
-            appUpdateInfo.changeLog?.locale['en-US'];
+            appUpdateInfo.changeLog?.[localVariant] ||
+            appUpdateInfo.changeLog?.['en-US'];
           navigation.pushFullModal(EModalRoutes.AppUpdateModal, {
             screen: EAppUpdateRoutes.UpdatePreview,
             params: {

@@ -73,7 +73,7 @@ export interface IAppUpdateInfo {
   // is force update required
   isForceUpdate: boolean;
   // change log text
-  changeLog?: IChangeLog;
+  changeLog?: IChangeLog['locale'];
   updateAt: number;
   status: EAppUpdateStatus;
 }
