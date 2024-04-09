@@ -68,7 +68,7 @@ export interface IBasicAppUpdateInfo {
   // is force update required
   isForceUpdate: boolean;
   // change log text
-  changeLog?: IChangeLog['locale'];
+  changeLog?: IChangeLog;
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
