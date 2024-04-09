@@ -61,7 +61,7 @@ export interface IAppUpdateInfoData {
   changelog: IPackageChangelog[];
 }
 
-export interface IBasicAppUpdateInfo { 
+export interface IBasicAppUpdateInfo {
   // the latest version of remote server
   latestVersion?: string;
   // app store url
@@ -83,6 +83,7 @@ export interface IBasicAppUpdateInfo {
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   // current version
   version: string;
+  // the last time the app update info was fetched
   updateAt: number;
 }
 
