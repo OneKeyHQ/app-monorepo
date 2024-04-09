@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 import {
   Icon,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -10,7 +11,10 @@ import {
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
+import {
+  useAccountSelectorTrigger,
+  useMockAccountSelectorLoading,
+} from '../hooks/useAccountSelectorTrigger';
 
 export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
@@ -22,6 +26,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _: any,
   ) => {
+    const { isLoading } = useMockAccountSelectorLoading();
     const {
       activeAccount: { account, network, indexedAccount },
       showAccountSelector,
@@ -44,6 +49,77 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
 
     const media = useMedia();
     const isCompressionUiMode = media.md || compressionUiMode;
+
+    const renderAvatar = useCallback(() => {
+      if (isLoading) {
+        return <Skeleton w="$6" h="$6" />;
+      }
+      if (account?.address) {
+        return (
+          <AccountAvatar
+            size="small"
+            borderRadius="$1"
+            account={account}
+            networkId={network?.id}
+            indexedAccount={indexedAccount}
+          />
+        );
+      }
+      return null;
+    }, [isLoading, account, network?.id, indexedAccount]);
+
+    const renderAccountName = useCallback(() => {
+      if (isLoading) {
+        if (isCompressionUiMode) {
+          return (
+            <YStack flex={1} space="$2">
+              <Skeleton w={196} h="$4" />
+              <Skeleton w={196} h="$4" />
+            </YStack>
+          );
+        }
+        return <Skeleton w={118} h="$5" />;
+      }
+      if (isCompressionUiMode) {
+        return (
+          <YStack flex={1}>
+            <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
+              {account?.name ?? ''}
+            </SizableText>
+            <SizableText size="$bodyMdMedium" numberOfLines={1} color="$text">
+              {addressText}
+            </SizableText>
+          </YStack>
+        );
+      }
+      return (
+        <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
+          {account?.name ?? ''}
+        </SizableText>
+      );
+    }, [isLoading, account, addressText, isCompressionUiMode]);
+    const renderAddressText = useCallback(() => {
+      if (isLoading && !isCompressionUiMode) {
+        return (
+          <YStack flex={1}>
+            <Skeleton w={196} h="$5" />
+          </YStack>
+        );
+      }
+      if (isCompressionUiMode) {
+        return null;
+      }
+      return (
+        <SizableText
+          flex={1}
+          size="$bodyMdMedium"
+          numberOfLines={1}
+          color="$text"
+        >
+          {addressText}
+        </SizableText>
+      );
+    }, [isLoading, addressText, isCompressionUiMode]);
     return (
       <XStack
         flex={1}
@@ -82,39 +158,9 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         disabled={disabled}
         {...rest}
       >
-        {account?.address ? (
-          <AccountAvatar
-            size="small"
-            borderRadius="$1"
-            account={account}
-            networkId={network?.id}
-            indexedAccount={indexedAccount}
-          />
-        ) : null}
-        {isCompressionUiMode ? (
-          <YStack flex={1}>
-            <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-              {account?.name ?? ''}
-            </SizableText>
-            <SizableText size="$bodyMdMedium" numberOfLines={1} color="$text">
-              {addressText}
-            </SizableText>
-          </YStack>
-        ) : (
-          <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-            {account?.name ?? ''}
-          </SizableText>
-        )}
-        {isCompressionUiMode ? null : (
-          <SizableText
-            flex={1}
-            size="$bodyMdMedium"
-            numberOfLines={1}
-            color="$text"
-          >
-            {addressText}
-          </SizableText>
-        )}
+        {renderAvatar()}
+        {renderAccountName()}
+        {renderAddressText()}
         {disabled ? null : (
           <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
         )}

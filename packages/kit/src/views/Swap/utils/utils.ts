@@ -1,10 +1,5 @@
 import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
-import { SingleChainSwapProviders } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type {
-  ESwapProviders,
-  ISwapNetwork,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import type { ColorValue } from 'react-native';
@@ -15,25 +10,6 @@ export function validateAmountInput(text: string) {
     return false;
   }
   return true;
-}
-
-export function swapTokenPairsSupportedProviders(
-  from: ISwapToken,
-  to: ISwapToken,
-): { providers: string } {
-  const fromProvidersArr = from.providers.split(',');
-  const toProvidersArr = to.providers.split(',');
-  const providers = fromProvidersArr.filter((item) =>
-    toProvidersArr.includes(item),
-  );
-  return {
-    providers: providers.join(','),
-  };
-}
-
-export function isOnlySupportSingleChainProvider(value: ISwapToken) {
-  const providers = value.providers.split(',') as ESwapProviders[];
-  return providers.every((item) => SingleChainSwapProviders.includes(item));
 }
 
 export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {

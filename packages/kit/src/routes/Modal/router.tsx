@@ -10,6 +10,7 @@ import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { ModalDiscoveryStack } from '../../views/Discovery/router';
+import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
@@ -80,6 +81,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.AppUpdateModal,
     children: AppUpdateRouter,
+  },
+  {
+    name: EModalRoutes.FiatCryptoModal,
+    children: ModalFiatCryptoRouter,
   },
 ];
 

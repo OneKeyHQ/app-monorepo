@@ -25,3 +25,4 @@ export * from './tabMe';
 export * from './tabMultiTabBrowser';
 export * from './tabSwap';
 export * from './testModal';
+export * from './fiatCrypto';
