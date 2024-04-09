@@ -1,4 +1,7 @@
-import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  type IAppUpdateInfo,
+} from '@onekeyhq/shared/src/appUpdate';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -13,5 +16,6 @@ export const { target: appUpdatePersistAtom, use: useAppUpdatePersistAtom } =
       isForceUpdate: false,
       changeLog: undefined,
       updateAt: 0,
+      status: EAppUpdateStatus.done,
     },
   });

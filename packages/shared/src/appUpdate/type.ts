@@ -75,6 +75,15 @@ export interface IAppUpdateInfo {
   // change log text
   changeLog?: IChangeLog;
   updateAt: number;
+  status: EAppUpdateStatus;
+}
+
+export enum EAppUpdateStatus {
+  notify = 'notify',
+  downloading = 'downloading',
+  ready = 'ready',
+  failed = 'failed',
+  done = 'done',
 }
 
 export type IHandleReleaseInfo = (
