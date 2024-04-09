@@ -53,6 +53,22 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async startDownloading() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.downloading,
+    }));
+  }
+
+  @backgroundMethod()
+  public async readToInstall() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.ready,
+    }));
+  }
+
+  @backgroundMethod()
   public async fetchAppUpdateInfo() {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package

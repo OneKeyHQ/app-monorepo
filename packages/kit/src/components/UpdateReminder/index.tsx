@@ -10,6 +10,7 @@ import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { DownloadPercents } from './DownloadPercents';
 import { useAppUpdateInfo } from './hooks';
 
 const UPDATE_STATUS_TEXT_STYLE: Record<
@@ -17,35 +18,33 @@ const UPDATE_STATUS_TEXT_STYLE: Record<
   {
     iconName: IIconProps['name'];
     iconColor: IIconProps['color'];
-    renderText: (text: string) => string;
+    renderText: (appUpdateInfo: IAppUpdateInfo) => string;
   }
 > = {
   [EAppUpdateStatus.notify]: {
     iconName: 'DownloadOutline',
     iconColor: '$iconInfo',
-    renderText(version: string) {
-      return `Update App to ${version} is available`;
+    renderText(appUpdateInfo) {
+      return `Update App to ${appUpdateInfo.latestVersion || ''} is available`;
     },
   },
   [EAppUpdateStatus.downloading]: {
     iconName: 'RefreshCcwSolid',
     iconColor: '$iconInfo',
-    renderText(percents: string) {
-      return `Downloading Package... ${percents}%`;
-    },
+    renderText: DownloadPercents,
   },
   [EAppUpdateStatus.ready]: {
     iconName: 'DownloadOutline',
     iconColor: '$iconSuccess',
-    renderText(version: string) {
-      return `App ${version} Ready for Update`;
+    renderText(appUpdateInfo) {
+      return `App ${appUpdateInfo.latestVersion || ''} Ready for Update`;
     },
   },
   [EAppUpdateStatus.failed]: {
     iconName: 'ErrorOutline',
     iconColor: '$iconCritical',
-    renderText(errorMessage: string) {
-      return `Update App to ${errorMessage} is available`;
+    renderText() {
+      return `Error`;
     },
   },
   [EAppUpdateStatus.done]: {
@@ -69,7 +68,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
         flexShrink={1}
         numberOfLines={1}
       >
-        {renderText('4.1')}
+        {renderText(updateInfo)}
       </SizableText>
     </XStack>
   );

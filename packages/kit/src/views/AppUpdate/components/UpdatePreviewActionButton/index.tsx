@@ -1,7 +1,9 @@
 import { useCallback } from 'react';
 
 import { Page } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -15,12 +17,14 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
         openUrlExternal(appUpdateInfo.data.storeUrl);
       } else if (appUpdateInfo.data.downloadUrl) {
         if (platformEnv.isDesktop) {
+          void backgroundApiProxy.ServiceAppUpdate.startDownloading();
           window.desktopApi?.on?.('update/checking', () => {
             console.log('update/checking');
           });
-          window.desktopApi?.on?.('update/available', ({ version }) => {
+          window.desktopApi?.on?.('update/available', async ({ version }) => {
             console.log('update/available, version: ', version);
             window.desktopApi.downloadUpdate();
+            await backgroundApiProxy.ServiceAppUpdate.startDownloading();
           });
           window.desktopApi.checkForUpdates();
         } else if (platformEnv.isNativeAndroid) {
@@ -28,5 +32,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
       }
     }
   }, [appUpdateInfo.data]);
-  return <Page.Footer onConfirmText="Update Now" onConfirm={handlePress} />;
+  return appUpdateInfo.data?.status === EAppUpdateStatus.downloading ? null : (
+    <Page.Footer onConfirmText="Update Now" onConfirm={handlePress} />
+  );
 };

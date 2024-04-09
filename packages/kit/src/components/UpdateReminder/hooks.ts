@@ -8,6 +8,7 @@ import {
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -58,6 +59,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
       case EAppUpdateStatus.notify:
+      case EAppUpdateStatus.downloading:
         {
           const changeLog = getChangeLog(appUpdateInfo, localVariant);
           const pushModal = isFullModal
@@ -75,6 +77,9 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         }
         break;
       case EAppUpdateStatus.ready:
+        if (platformEnv.isDesktop) {
+          window.desktopApi.installUpdate();
+        }
         break;
       default:
         break;
