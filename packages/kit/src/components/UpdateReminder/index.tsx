@@ -6,6 +6,7 @@ import type {
   IStackProps,
 } from '@onekeyhq/components';
 import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFetchAppUpdateInfo } from './hooks';
 
@@ -139,7 +140,7 @@ const UPDATE_REMINDER_BAR_STYLE: Record<EUpdateStatus, IStackProps> = {
   },
 };
 
-export function UpdateReminder() {
+function BasicUpdateReminder() {
   const style = UPDATE_REMINDER_BAR_STYLE[testStatus];
   const appUpdateInfo = useFetchAppUpdateInfo();
   console.log(appUpdateInfo);
@@ -158,3 +159,7 @@ export function UpdateReminder() {
     </XStack>
   );
 }
+
+export const UpdateReminder = platformEnv.isWeb
+  ? () => null
+  : BasicUpdateReminder;
