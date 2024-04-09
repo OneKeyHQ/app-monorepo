@@ -54,10 +54,6 @@ export interface IPackageChangelog {
 }
 
 export interface IAppUpdateInfoData {
-  web: {
-    miniVersion?: number[];
-    minVersion?: number[];
-  };
   ios: IIOS;
   android: IAndroid;
   ext: IExt;

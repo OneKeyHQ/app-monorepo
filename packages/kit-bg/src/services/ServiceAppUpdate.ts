@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 import {
   type IAppUpdateInfoData,
   handleReleaseInfo,
@@ -11,6 +13,8 @@ import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
+const AxiosInstance = axios.create();
+
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -19,17 +23,14 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAppUpdateInfo() {
-    const client = await this.getClient();
     const key = Math.random().toString();
-    const response = await client.get<{
-      data: IAppUpdateInfoData;
-    }>(`https://data.onekey.so/config.json?nocache=${key}`);
-    console.log('response', response);
+    const response = await AxiosInstance.get<IAppUpdateInfoData>(
+      `https://data.onekey.so/config.json?nocache=${key}`,
+    );
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       ...handleReleaseInfo(response.data),
     }));
-    console.log(response);
   }
 }
 

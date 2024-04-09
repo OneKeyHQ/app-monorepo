@@ -9,6 +9,6 @@ export const useFetchAppUpdateInfo = () => {
   useEffect(() => {
     void backgroundApiProxy.ServiceAppUpdate.fetchAppUpdateInfo();
   }, []);
-  console.log(appUpdateInfo);
+  console.log('appUpdateInfo', appUpdateInfo);
   return appUpdateInfo;
 };
