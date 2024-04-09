@@ -2,7 +2,6 @@ import { memo } from 'react';
 
 import { NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
-  useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippagePopoverOpeningAtom,
@@ -12,6 +11,7 @@ import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
+import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
@@ -31,8 +31,7 @@ const SwapQuoteResult = ({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-
-  const [quoteFetching] = useSwapQuoteFetchingAtom();
+  const swapQuoteLoading = useSwapQuoteLoading();
 
   const [, setSwapSlippagePopOverOpening] = useSwapSlippagePopoverOpeningAtom();
 
@@ -42,12 +41,12 @@ const SwapQuoteResult = ({
         <SwapApproveAllowanceSelectContainer
           allowanceResult={quoteResult.allowanceResult}
           fromTokenSymbol={fromToken?.symbol ?? ''}
-          isLoading={quoteFetching}
+          isLoading={swapQuoteLoading}
         />
       ) : null}
       <SwapProviderInfoItem
         providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
-        isLoading={quoteFetching}
+        isLoading={swapQuoteLoading}
         rate={quoteResult.instantRate}
         fromToken={fromToken}
         toToken={toToken}
@@ -59,7 +58,7 @@ const SwapQuoteResult = ({
       />
       {!quoteResult.allowanceResult ? (
         <SwapSlippageTriggerContainer
-          isLoading={quoteFetching}
+          isLoading={swapQuoteLoading}
           renderPopoverContent={() => (
             <SwapProviderMirror>
               <SwapSlippageContentContainer />
@@ -73,7 +72,7 @@ const SwapQuoteResult = ({
       {quoteResult.fee?.estimatedFeeFiatValue ? (
         <SwapCommonInfoItem
           title="Est network fee"
-          isLoading={quoteFetching}
+          isLoading={swapQuoteLoading}
           valueComponent={
             <NumberSizeableText
               size="$bodyMdMedium"

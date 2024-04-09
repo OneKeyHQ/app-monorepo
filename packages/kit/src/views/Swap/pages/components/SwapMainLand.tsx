@@ -13,7 +13,6 @@ import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.
 import type { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
-import { useSwapActionState } from '../../hooks/useSwapState';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import SwapActionsState from './SwapActionsState';
@@ -26,7 +25,6 @@ const SwapMainLoad = () => {
   const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const swapActionState = useSwapActionState();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
@@ -86,9 +84,7 @@ const SwapMainLoad = () => {
       >
         <SwapHeaderContainer />
         <SwapQuoteInput onSelectToken={onSelectToken} />
-        {swapActionState.alerts?.length ? (
-          <SwapAlertContainer alerts={swapActionState.alerts} />
-        ) : null}
+        <SwapAlertContainer />
         {quoteResult ? (
           <SwapQuoteResult
             onOpenProviderList={onOpenProviderList}

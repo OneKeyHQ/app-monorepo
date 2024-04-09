@@ -1,11 +1,12 @@
-import { isOnlySupportSingleChainProvider } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import {
   ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
+  ESwapRateDifferenceUnit,
   IFetchQuoteResult,
+  ISwapAlertState,
   ISwapApproveTransaction,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
@@ -67,16 +68,6 @@ export const {
 } = contextAtom<string>('');
 
 export const {
-  atom: swapOnlySupportSingleChainAtom,
-  use: useSwapOnlySupportSingleChainAtom,
-} = contextAtomComputed((get) => {
-  const fromToken = get(swapSelectFromTokenAtom());
-  return fromToken && isOnlySupportSingleChainProvider(fromToken)
-    ? fromToken.networkId
-    : undefined;
-});
-
-export const {
   atom: swapSelectedFromTokenBalanceAtom,
   use: useSwapSelectedFromTokenBalanceAtom,
 } = contextAtom('0');
@@ -97,6 +88,11 @@ export const { atom: swapQuoteListAtom, use: useSwapQuoteListAtom } =
 
 export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
   contextAtom<boolean>(false);
+
+export const {
+  atom: swapSilenceQuoteLoading,
+  use: useSwapSilenceQuoteLoading,
+} = contextAtom<boolean>(false);
 
 export const {
   atom: swapQuoteCurrentSelectAtom,
@@ -125,6 +121,17 @@ export const {
   );
 });
 
+// swap state
+export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<
+  ISwapAlertState[]
+>([]);
+
+export const { atom: rateDifferenceAtom, use: useRateDifferenceAtom } =
+  contextAtom<{ value: string; unit: ESwapRateDifferenceUnit } | undefined>(
+    undefined,
+  );
+
+// swap approve
 export const {
   atom: swapQuoteApproveAllowanceUnLimitAtom,
   use: useSwapQuoteApproveAllowanceUnLimitAtom,
@@ -135,7 +142,6 @@ export const {
   use: useSwapApproveAllowanceSelectOpenAtom,
 } = contextAtom<boolean>(false);
 
-// swap approve
 export const {
   atom: swapApprovingTransactionAtom,
   use: useSwapApprovingTransactionAtom,

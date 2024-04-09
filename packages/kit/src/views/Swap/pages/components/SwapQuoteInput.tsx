@@ -5,7 +5,6 @@ import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -16,6 +15,7 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapApproving } from '../../hooks/useSwapAproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
+import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 import { useSwapNetworkList } from '../../hooks/useSwapTokens';
 import { validateAmountInput } from '../../utils/utils';
 
@@ -28,7 +28,7 @@ interface ISwapQuoteInputProps {
 const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const { fetchLoading } = useSwapNetworkList();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [quoteFetching] = useSwapQuoteFetchingAtom();
+  const swapQuoteLoading = useSwapQuoteLoading();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const { alternationToken } = useSwapActions().current;
@@ -67,7 +67,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         />
         <SwapInputContainer
           token={toToken}
-          inputLoading={quoteFetching}
+          inputLoading={swapQuoteLoading}
           selectTokenLoading={fetchLoading}
           direction={ESwapDirectionType.TO}
           amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}

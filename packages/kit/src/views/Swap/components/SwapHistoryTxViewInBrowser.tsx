@@ -10,14 +10,8 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
-import {
-  networkTransactionExplorerReplaceStr,
-  socketBridgeScanUrl,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import {
-  ESwapProviders,
-  type ISwapTxHistory,
-} from '@onekeyhq/shared/types/swap/types';
+import { networkTransactionExplorerReplaceStr } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { type ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapTxHistoryViewInBrowserProps {
   onViewInBrowser: (url: string) => void;
@@ -35,26 +29,28 @@ const SwapTxHistoryViewInBrowser = ({
     [item.baseInfo.fromNetwork?.networkId, item.baseInfo.toNetwork?.networkId],
   );
   const isSocketBridgeSwap = useMemo(
-    () => item.swapInfo.provider.provider === ESwapProviders.SOCKET_BRIDGE,
-    [item.swapInfo.provider.provider],
+    () => !!item.swapInfo.socketBridgeScanUrl,
+    [item.swapInfo.socketBridgeScanUrl],
   );
   const fromTxExplorerUrl = useMemo(() => {
-    const fromNetworkExplorerUrl = item.baseInfo.fromNetwork?.explorer;
+    const fromNetworkExplorerUrl =
+      item.baseInfo.fromNetwork?.explorers?.[0]?.transaction;
     if (!fromNetworkExplorerUrl) return '';
     return fromNetworkExplorerUrl.replace(
       networkTransactionExplorerReplaceStr,
       item.txInfo.txId,
     );
-  }, [item.baseInfo.fromNetwork?.explorer, item.txInfo.txId]);
+  }, [item.baseInfo.fromNetwork?.explorers, item.txInfo.txId]);
 
   const toTxExplorerUrl = useMemo(() => {
-    const toNetworkExplorerUrl = item.baseInfo.toNetwork?.explorer;
+    const toNetworkExplorerUrl =
+      item.baseInfo.toNetwork?.explorers?.[0]?.transaction;
     if (!toNetworkExplorerUrl || !item.txInfo.receiverTransactionId) return '';
     return toNetworkExplorerUrl.replace(
       networkTransactionExplorerReplaceStr,
       item.txInfo.receiverTransactionId,
     );
-  }, [item.baseInfo.toNetwork?.explorer, item.txInfo.receiverTransactionId]);
+  }, [item.baseInfo.toNetwork?.explorers, item.txInfo.receiverTransactionId]);
 
   const onHandleFromTxExplorer = useCallback(() => {
     if (fromTxExplorerUrl) {
@@ -79,8 +75,9 @@ const SwapTxHistoryViewInBrowser = ({
   }, [onViewInBrowser, toTxExplorerUrl]);
 
   const onHandleSocketBridgeTxExplorer = useCallback(() => {
-    onViewInBrowser(`${socketBridgeScanUrl}${item.txInfo.txId}`);
-  }, [item.txInfo.txId, onViewInBrowser]);
+    if (!item.swapInfo.socketBridgeScanUrl) return;
+    onViewInBrowser(`${item.swapInfo.socketBridgeScanUrl}${item.txInfo.txId}`);
+  }, [item.swapInfo.socketBridgeScanUrl, item.txInfo.txId, onViewInBrowser]);
 
   const triggerViewInBrowser = useMemo(
     () => (
