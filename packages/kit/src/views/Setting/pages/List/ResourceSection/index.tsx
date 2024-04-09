@@ -19,14 +19,14 @@ function ListVersionItem() {
       onPress={appUpdateInfo.onUpdateAction}
       icon="SpeakerPromoteOutline"
       iconProps={{ color: '$textInfo' }}
-      title="What’s New"
+      title="App Update Available"
       titleProps={{ color: '$textInfo' }}
       drillIn
     >
       <ListItem.Text
         primary={
           <Badge badgeType="info" badgeSize="lg">
-            {appUpdateInfo.data.latestVersion}
+            {appUpdateInfo.version}
           </Badge>
         }
         align="right"
