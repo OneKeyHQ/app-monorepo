@@ -14,7 +14,8 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import type { ISwapState } from '@onekeyhq/shared/types/swap/types';
+
+import { useSwapActionState } from '../../hooks/useSwapState';
 
 interface ISwapActionsStateProps {
   onBuildTx: () => void;
@@ -24,19 +25,17 @@ interface ISwapActionsStateProps {
     isMax?: boolean,
     shoutResetApprove?: boolean,
   ) => void;
-  swapActionState: ISwapState;
 }
 
 const SwapActionsState = ({
   onBuildTx,
   onApprove,
   onWrapped,
-  swapActionState,
 }: ISwapActionsStateProps) => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const { cleanQuoteInterval } = useSwapActions().current;
-
+  const swapActionState = useSwapActionState();
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({

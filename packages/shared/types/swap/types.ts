@@ -1,3 +1,5 @@
+import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+
 import type { INetworkExplorerConfig } from '..';
 
 export enum EProtocolOfExchange {
@@ -168,8 +170,11 @@ export interface ISwapState {
   isCrossChain: boolean;
   shoutResetApprove?: boolean;
   approveUnLimit?: boolean;
-  alerts?: ISwapAlertState[];
-  rateDifference?: { value: string; unit: ESwapRateDifferenceUnit };
+}
+
+export interface ISwapCheckWarningDef {
+  swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>;
+  swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>;
 }
 
 export enum ESwapAlertLevel {

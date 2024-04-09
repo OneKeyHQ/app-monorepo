@@ -4,7 +4,9 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
+  ESwapRateDifferenceUnit,
   IFetchQuoteResult,
+  ISwapAlertState,
   ISwapApproveTransaction,
   ISwapNetwork,
   ISwapSlippageSegmentItem,
@@ -119,6 +121,17 @@ export const {
   );
 });
 
+// swap state
+export const { atom: swapAlertsAtom, use: useSwapAlertsAtom } = contextAtom<
+  ISwapAlertState[]
+>([]);
+
+export const { atom: rateDifferenceAtom, use: useRateDifferenceAtom } =
+  contextAtom<{ value: string; unit: ESwapRateDifferenceUnit } | undefined>(
+    undefined,
+  );
+
+// swap approve
 export const {
   atom: swapQuoteApproveAllowanceUnLimitAtom,
   use: useSwapQuoteApproveAllowanceUnLimitAtom,
@@ -129,7 +142,6 @@ export const {
   use: useSwapApproveAllowanceSelectOpenAtom,
 } = contextAtom<boolean>(false);
 
-// swap approve
 export const {
   atom: swapApprovingTransactionAtom,
   use: useSwapApprovingTransactionAtom,

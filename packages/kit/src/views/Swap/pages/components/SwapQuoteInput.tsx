@@ -5,19 +5,17 @@ import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
-  useSwapSilenceQuoteLoading,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import type { ISwapState } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapApproving } from '../../hooks/useSwapAproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
+import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 import { useSwapNetworkList } from '../../hooks/useSwapTokens';
 import { validateAmountInput } from '../../utils/utils';
 
@@ -25,17 +23,12 @@ import SwapInputContainer from './SwapInputContainer';
 
 interface ISwapQuoteInputProps {
   onSelectToken: (type: ESwapDirectionType) => void;
-  swapActionState: ISwapState;
 }
 
-const SwapQuoteInput = ({
-  onSelectToken,
-  swapActionState,
-}: ISwapQuoteInputProps) => {
+const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
   const { fetchLoading } = useSwapNetworkList();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [quoteFetching] = useSwapQuoteFetchingAtom();
-  const [silenceQuoteLoading] = useSwapSilenceQuoteLoading();
+  const swapQuoteLoading = useSwapQuoteLoading();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const { alternationToken } = useSwapActions().current;
@@ -49,7 +42,6 @@ const SwapQuoteInput = ({
   return (
     <YStack>
       <SwapInputContainer
-        swapActionState={swapActionState}
         token={fromToken}
         direction={ESwapDirectionType.FROM}
         selectTokenLoading={fetchLoading}
@@ -74,9 +66,8 @@ const SwapQuoteInput = ({
           mb="$-3"
         />
         <SwapInputContainer
-          swapActionState={swapActionState}
           token={toToken}
-          inputLoading={quoteFetching || silenceQuoteLoading}
+          inputLoading={swapQuoteLoading}
           selectTokenLoading={fetchLoading}
           direction={ESwapDirectionType.TO}
           amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
