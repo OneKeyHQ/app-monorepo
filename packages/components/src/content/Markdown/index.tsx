@@ -13,9 +13,11 @@ function hasParents(parents: ASTNode[], type: string) {
 const basicStyles = {
   heading1: {
     size: '$headingXl',
+    fontWeight: '600',
   } as ISizableTextProps,
   heading2: {
     size: '$headingLg',
+    fontWeight: '600',
   } as ISizableTextProps,
   heading3: {
     size: '$headingMd',
