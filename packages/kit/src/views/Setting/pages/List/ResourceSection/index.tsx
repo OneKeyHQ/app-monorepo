@@ -17,7 +17,7 @@ function ListVersionItem() {
   return appUpdateInfo.data ? (
     <ListItem
       onPress={appUpdateInfo.onUpdateAction}
-      icon="SpeakerPromoteOutline"
+      icon="InfoCircleOutline"
       iconProps={{ color: '$textInfo' }}
       title="App Update Available"
       titleProps={{ color: '$textInfo' }}
@@ -35,7 +35,7 @@ function ListVersionItem() {
   ) : (
     <ListItem
       onPress={appUpdateInfo.onViewReleaseInfo}
-      icon="SpeakerPromoteOutline"
+      icon="InfoCircleOutline"
       title="What’s New"
       drillIn
     >
