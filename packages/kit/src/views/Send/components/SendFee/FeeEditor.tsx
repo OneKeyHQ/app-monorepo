@@ -110,6 +110,25 @@ function FeeEditor(props: IProps) {
     ],
   );
 
+  const gasLimitDescription = useMemo(() => {
+    const gasLimit = new BigNumber(
+      customFee.gasEIP1559?.gasLimit ?? customFee.gas?.gasLimit ?? '0',
+    );
+    const gasLimitForDisplay = new BigNumber(
+      customFee.gasEIP1559?.gasLimitForDisplay ??
+        customFee.gas?.gasLimit ??
+        '0',
+    );
+
+    return `Estimate gas limit is ${gasLimitForDisplay.toFixed()}, recommend ${
+      gasLimitForDisplay.isEqualTo(gasLimit) ? '1.0x' : '1.2x'
+    }`;
+  }, [
+    customFee.gas?.gasLimit,
+    customFee.gasEIP1559?.gasLimit,
+    customFee.gasEIP1559?.gasLimitForDisplay,
+  ]);
+
   const handleValidateMaxBaseFee = useCallback(
     (value: string) => {
       if (
@@ -121,6 +140,8 @@ function FeeEditor(props: IProps) {
     },
     [customFee.gasEIP1559?.baseFeePerGas],
   );
+
+  const handleValidateGasLimit = useCallback((value: string) => {}, []);
 
   const handleApplyFeeInfo = useCallback(() => {}, []);
 
@@ -233,8 +254,10 @@ function FeeEditor(props: IProps) {
               id: 'content__gas_limit',
             })}
             name="gasLimit"
+            description={gasLimitDescription}
             rules={{
               required: true,
+              validate: handleValidateMaxBaseFee,
             }}
           >
             <Input flex={1} />
@@ -262,6 +285,7 @@ function FeeEditor(props: IProps) {
               id: 'content__gas_limit',
             })}
             name="gasLimit"
+            description={gasLimitDescription}
             rules={{
               required: true,
             }}
@@ -289,7 +313,16 @@ function FeeEditor(props: IProps) {
         </YStack>
       );
     }
-  }, [currentFeeType, customFee, feeSymbol, handleValidateMaxBaseFee, intl]);
+  }, [
+    currentFeeType,
+    customFee.feeUTXO,
+    customFee.gas,
+    customFee.gasEIP1559,
+    feeSymbol,
+    gasLimitDescription,
+    handleValidateMaxBaseFee,
+    intl,
+  ]);
 
   const renderFeeOverview = useCallback(() => {
     let feeInfoItems: {
