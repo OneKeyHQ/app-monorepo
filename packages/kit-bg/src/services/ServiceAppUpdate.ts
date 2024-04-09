@@ -30,6 +30,7 @@ class ServiceAppUpdate extends ServiceBase {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       ...handleReleaseInfo(response.data),
+      updateAt: Date.now(),
     }));
   }
 }

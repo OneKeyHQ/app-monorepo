@@ -12,5 +12,6 @@ export const { target: appUpdatePersistAtom, use: useAppUpdatePersistAtom } =
       latestVersion: process.env.VERSION ?? '1.0.0',
       isForceUpdate: false,
       changeLog: undefined,
+      updateAt: 0,
     },
   });

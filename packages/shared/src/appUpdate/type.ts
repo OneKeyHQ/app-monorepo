@@ -74,6 +74,7 @@ export interface IAppUpdateInfo {
   isForceUpdate: boolean;
   // change log text
   changeLog?: IChangeLog;
+  updateAt: number;
 }
 
 export type IHandleReleaseInfo = (

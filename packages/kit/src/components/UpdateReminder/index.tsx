@@ -143,7 +143,7 @@ const UPDATE_REMINDER_BAR_STYLE: Record<EUpdateStatus, IStackProps> = {
 function BasicUpdateReminder() {
   const style = UPDATE_REMINDER_BAR_STYLE[testStatus];
   const appUpdateInfo = useFetchAppUpdateInfo();
-  console.log(appUpdateInfo);
+
   return (
     <XStack
       px="$5"
