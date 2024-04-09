@@ -4,16 +4,16 @@ import { ListView, SearchBar, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-type IConfigurableListViewProps = {
+type IImmutableViewProps = {
   networks: IServerNetwork[];
-  onPress?: (network: IServerNetwork) => void;
-  networkId?: string;
+  defaultNetworkId?: string;
+  onPressItem?: (network: IServerNetwork) => void;
 };
 
-export const ConfigurableListView: FC<IConfigurableListViewProps> = ({
+export const ImmutableView: FC<IImmutableViewProps> = ({
   networks,
-  onPress,
-  networkId,
+  defaultNetworkId,
+  onPressItem,
 }) => {
   const [text, setText] = useState('');
   const onChangeText = useCallback((value: string) => {
@@ -45,9 +45,9 @@ export const ConfigurableListView: FC<IConfigurableListViewProps> = ({
                 size: '$8',
               }}
               title={item.name}
-              onPress={() => onPress?.(item)}
+              onPress={() => onPressItem?.(item)}
             >
-              {networkId === item.id ? (
+              {defaultNetworkId === item.id ? (
                 <ListItem.CheckMark
                   key="checkmark"
                   enterStyle={{

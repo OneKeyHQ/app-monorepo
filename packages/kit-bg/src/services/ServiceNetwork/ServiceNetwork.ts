@@ -265,7 +265,7 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setPinnedNetworks(networks: IServerNetwork[]) {
+  async setPinnedNetworks({ networks }: { networks: IServerNetwork[] }) {
     return this.backgroundApi.simpleDb.networkSelector.setPinnedNetworkIds({
       networkIds: networks.map((o) => o.id),
     });

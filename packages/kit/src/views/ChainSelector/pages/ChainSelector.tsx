@@ -1,22 +1,52 @@
+import type { FC } from 'react';
 import { useState } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, Page } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { useAccountSelectorAvailableNetworks } from '../../../components/AccountSelector/hooks/useAccountSelectorAvailableNetworks';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
-import { ListNetworkView } from '../components/ListNetworkView';
+import { EditableView } from '../components/EditableView';
+import { ImmutableView } from '../components/ImmutableView';
+
+type IChainSelectorViewProps = {
+  networks: IServerNetwork[];
+  defaultNetworkId?: string;
+  onPressItem?: (network: IServerNetwork) => void;
+};
+
+type IChainSelectorEditableViewProps = IChainSelectorViewProps & {
+  defaultTopNetworks: IServerNetwork[];
+  onTopNetworksChange?: (networks: IServerNetwork[]) => void;
+};
+
+const ChainSelectorImmutableView: FC<IChainSelectorViewProps> = ({
+  networks,
+  defaultNetworkId,
+  onPressItem,
+}) => (
+  <Page>
+    <Page.Header title="Network" />
+    <Page.Body>
+      <ImmutableView
+        defaultNetworkId={defaultNetworkId}
+        networks={networks}
+        onPressItem={onPressItem}
+      />
+    </Page.Body>
+  </Page>
+);
 
 function getHeaderRightComponent(
   isEditMode: boolean,
@@ -29,30 +59,75 @@ function getHeaderRightComponent(
   );
 }
 
-function ChainSelector({ num }: { num: number }) {
+const ChainSelectorEditableView: FC<IChainSelectorEditableViewProps> = ({
+  networks,
+  defaultNetworkId,
+  onPressItem,
+  defaultTopNetworks,
+  onTopNetworksChange,
+}) => {
+  const [isEditMode, setIsEditMode] = useState(false);
+  const handleEditButtonPress = () => {
+    setIsEditMode(!isEditMode);
+  };
+  return (
+    <Page>
+      <Page.Header
+        title="Network"
+        headerRight={() =>
+          getHeaderRightComponent(isEditMode, handleEditButtonPress)
+        }
+      />
+      <Page.Body>
+        <EditableView
+          isEditMode={isEditMode}
+          defaultTopNetworks={defaultTopNetworks}
+          defaultNetworkId={defaultNetworkId}
+          allNetworks={networks}
+          onPressItem={onPressItem}
+          onTopNetworksChange={onTopNetworksChange}
+        />
+      </Page.Body>
+    </Page>
+  );
+};
+
+function ChainSelector({
+  num,
+  networkIds,
+  defaultNetworkId,
+  immutable,
+}: {
+  num: number;
+  networkIds?: string[];
+  defaultNetworkId?: string;
+  immutable?: boolean;
+}) {
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
-  const selectedChain = network?.id;
-  const [isEditMode, setIsEditMode] = useState(false);
-  const { serviceNetwork } = backgroundApiProxy;
-
-  const { networkIds } = useAccountSelectorAvailableNetworks({ num });
+  const selectedNetworkId = defaultNetworkId ?? network?.id;
 
   const {
     result: [{ networks }, pinnedNetworks],
     run: refreshLocalData,
   } = usePromiseResult(
     () => {
-      const networksData = serviceNetwork.getNetworksByIds({
-        networkIds: networkIds || [],
-      });
-      const pinnedNetworksData = serviceNetwork.getPinnedNetworks();
-      return Promise.all([networksData, pinnedNetworksData]);
+      let networkPromise: Promise<{ networks: IServerNetwork[] }>;
+      if (networkIds && networkIds.length > 0) {
+        networkPromise = backgroundApiProxy.serviceNetwork.getNetworksByIds({
+          networkIds: networkIds || [],
+        });
+      } else {
+        networkPromise = backgroundApiProxy.serviceNetwork.getAllNetworks();
+      }
+      const pinnedNetworksData =
+        backgroundApiProxy.serviceNetwork.getPinnedNetworks();
+      return Promise.all([networkPromise, pinnedNetworksData]);
     },
-    [networkIds, serviceNetwork],
+    [networkIds],
     {
       initResult: [
         {
@@ -63,46 +138,33 @@ function ChainSelector({ num }: { num: number }) {
     },
   );
 
-  const handleListItemPress = (networkId: string) => {
+  const handleListItemPress = (item: IServerNetwork) => {
     void actions.current.updateSelectedAccountNetwork({
       num,
-      networkId,
+      networkId: item.id,
     });
     navigation.popStack();
   };
 
-  const handleEditButtonPress = () => {
-    setIsEditMode(!isEditMode);
-  };
-  const [searchText, setSearchText] = useState('');
-
-  return (
-    <Page>
-      <Page.Header
-        title="Networks"
-        headerRight={() =>
-          getHeaderRightComponent(isEditMode, handleEditButtonPress)
-        }
-        headerSearchBarOptions={{
-          placeholder: 'Search',
-          onChangeText: (e) => setSearchText(e.nativeEvent.text),
-        }}
-      />
-      <Page.Body>
-        <ListNetworkView
-          searchText={searchText.trim()}
-          isEditMode={isEditMode}
-          topNetworks={pinnedNetworks}
-          allNetworks={networks}
-          selectNetworkId={selectedChain}
-          onChangeTopNetworks={async (items) => {
-            await backgroundApiProxy.serviceNetwork.setPinnedNetworks(items);
-            await refreshLocalData();
-          }}
-          onPressItem={(item) => handleListItemPress(item.id)}
-        />
-      </Page.Body>
-    </Page>
+  return immutable ? (
+    <ChainSelectorImmutableView
+      networks={networks}
+      defaultNetworkId={selectedNetworkId}
+      onPressItem={handleListItemPress}
+    />
+  ) : (
+    <ChainSelectorEditableView
+      networks={networks}
+      defaultNetworkId={selectedNetworkId}
+      onPressItem={handleListItemPress}
+      defaultTopNetworks={pinnedNetworks}
+      onTopNetworksChange={async (items) => {
+        await backgroundApiProxy.serviceNetwork.setPinnedNetworks({
+          networks: items,
+        });
+        await refreshLocalData();
+      }}
+    />
   );
 }
 
@@ -112,7 +174,8 @@ export default function ChainSelectorPage({
   IChainSelectorParamList,
   EChainSelectorPages.ChainSelector
 >) {
-  const { num, sceneName, sceneUrl } = route.params;
+  const { num, sceneName, sceneUrl, networkIds, defaultNetworkId, immutable } =
+    route.params;
   return (
     <AccountSelectorProviderMirror
       enabledNum={[num]}
@@ -121,7 +184,12 @@ export default function ChainSelectorPage({
         sceneUrl,
       }}
     >
-      <ChainSelector num={num} />
+      <ChainSelector
+        num={num}
+        immutable={immutable}
+        networkIds={networkIds}
+        defaultNetworkId={defaultNetworkId}
+      />
     </AccountSelectorProviderMirror>
   );
 }

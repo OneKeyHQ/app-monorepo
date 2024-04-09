@@ -7,7 +7,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { ConfigurableListView } from '../components/ConfigurableListView';
+import { ImmutableView } from '../components/ImmutableView';
 
 export default function ChainSelectorPage({
   route,
@@ -33,13 +33,13 @@ export default function ChainSelectorPage({
     <Page>
       <Page.Header title={title} />
       <Page.Body>
-        <ConfigurableListView
+        <ImmutableView
+          defaultNetworkId={defaultNetworkId}
           networks={result?.networks ?? []}
-          onPress={(network) => {
+          onPressItem={(network) => {
             onSelect?.(network);
             navigation.goBack();
           }}
-          networkId={defaultNetworkId}
         />
       </Page.Body>
     </Page>

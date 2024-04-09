@@ -9,7 +9,9 @@ export enum EChainSelectorPages {
   ConfigurableChainSelector = 'ConfigurableChainSelector',
 }
 export type IChainSelectorRouteParams = IAccountSelectorRouteParams &
-  IAccountSelectorAvailableNetworks;
+  IAccountSelectorAvailableNetworks & {
+    immutable?: boolean;
+  };
 
 export type IConfigurableChainSelectorParams = {
   defaultNetworkId?: string;

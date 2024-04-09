@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react';
 
 import {
   Empty,
+  SearchBar,
   SectionList,
   SortableListView,
   Stack,
@@ -13,36 +14,32 @@ import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-type IListNetworkContext = {
+type IEditableViewContext = {
   isEditMode?: boolean;
   searchText?: string;
-  selectNetworkId?: string;
+  defaultNetworkId?: string;
   topNetworkIds: Set<string>;
   topNetworks: IServerNetwork[];
   onPressItem?: (item: IServerNetwork) => void;
   setTopNetworks?: (networks: IServerNetwork[]) => void;
 };
 
-const ListNetworkContext = createContext<IListNetworkContext>({
+const EditableViewContext = createContext<IEditableViewContext>({
   topNetworks: [],
   topNetworkIds: new Set(),
 });
 
-type IListNetworkItemProps = {
-  item: IServerNetwork;
-};
-
 const CELL_HEIGHT = 48;
 
-const ListNetworkItem: FC<IListNetworkItemProps> = ({ item }) => {
+const EditableViewListItem = ({ item }: { item: IServerNetwork }) => {
   const {
     isEditMode,
-    selectNetworkId,
-    onPressItem,
+    defaultNetworkId,
     topNetworks,
     topNetworkIds,
+    onPressItem,
     setTopNetworks,
-  } = useContext(ListNetworkContext);
+  } = useContext(EditableViewContext);
   return (
     <ListItem
       title={item.name}
@@ -53,7 +50,7 @@ const ListNetworkItem: FC<IListNetworkItemProps> = ({ item }) => {
       }}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
-      {!isEditMode && selectNetworkId === item.id ? (
+      {!isEditMode && defaultNetworkId === item.id ? (
         <ListItem.CheckMark
           key="checkmark"
           enterStyle={{
@@ -92,15 +89,15 @@ const ListNetworkItem: FC<IListNetworkItemProps> = ({ item }) => {
   );
 };
 
-const ListTopNetworks = () => {
+const ListHeaderComponent = () => {
   const {
     setTopNetworks,
     isEditMode,
     topNetworks,
-    selectNetworkId,
+    defaultNetworkId,
     searchText,
     onPressItem,
-  } = useContext(ListNetworkContext);
+  } = useContext(EditableViewContext);
   const networks = useMemo(() => {
     if (!searchText) {
       return topNetworks;
@@ -150,7 +147,7 @@ const ListTopNetworks = () => {
               onPressIn={drag}
             />
           ) : null}
-          {!isEditMode && selectNetworkId === item.id ? (
+          {!isEditMode && defaultNetworkId === item.id ? (
             <ListItem.CheckMark
               key="checkmark"
               enterStyle={{
@@ -168,41 +165,40 @@ const ListTopNetworks = () => {
   );
 };
 
-type IListNetworkViewProps = {
+type IEditableViewProps = {
   isEditMode?: boolean;
-  topNetworks: IServerNetwork[];
+  defaultTopNetworks: IServerNetwork[];
   allNetworks: IServerNetwork[];
-  selectNetworkId?: string;
-  searchText?: string;
+  defaultNetworkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
-  onChangeTopNetworks?: (networks: IServerNetwork[]) => void;
+  onTopNetworksChange?: (networks: IServerNetwork[]) => void;
 };
 
-const ListNetworkEmpty = () => (
+const ListEmptyComponent = () => (
   <Empty icon="SearchOutline" title="No Results" />
 );
 
-export const ListNetworkView: FC<IListNetworkViewProps> = ({
+export const EditableView: FC<IEditableViewProps> = ({
   allNetworks,
   onPressItem,
-  selectNetworkId,
-  topNetworks: _topNetworks,
+  defaultNetworkId,
+  defaultTopNetworks,
   isEditMode,
-  searchText,
-  onChangeTopNetworks,
+  onTopNetworksChange,
 }) => {
-  const [topNetworks, setTopNetworks] = useState(_topNetworks);
+  const [searchText, setSearchText] = useState('');
+  const [topNetworks, setTopNetworks] = useState(defaultTopNetworks ?? []);
   const lastIsEditMode = usePrevious(isEditMode);
 
   useEffect(() => {
     if (!isEditMode && lastIsEditMode) {
-      onChangeTopNetworks?.(topNetworks);
+      onTopNetworksChange?.(topNetworks);
     }
-  }, [isEditMode, lastIsEditMode, topNetworks, onChangeTopNetworks]);
+  }, [isEditMode, lastIsEditMode, topNetworks, onTopNetworksChange]);
 
   useEffect(() => {
-    setTopNetworks(_topNetworks);
-  }, [_topNetworks]);
+    setTopNetworks(defaultTopNetworks);
+  }, [defaultTopNetworks]);
 
   const { result: sections } = usePromiseResult(
     async () =>
@@ -213,11 +209,11 @@ export const ListNetworkView: FC<IListNetworkViewProps> = ({
     [allNetworks, searchText],
     { initResult: [] },
   );
-  const ctx = useMemo<IListNetworkContext>(
+  const ctx = useMemo<IEditableViewContext>(
     () => ({
       topNetworks,
       topNetworkIds: new Set(topNetworks.map((item) => item.id)),
-      selectNetworkId,
+      defaultNetworkId,
       onPressItem,
       isEditMode,
       setTopNetworks,
@@ -225,7 +221,7 @@ export const ListNetworkView: FC<IListNetworkViewProps> = ({
     }),
     [
       topNetworks,
-      selectNetworkId,
+      defaultNetworkId,
       onPressItem,
       isEditMode,
       setTopNetworks,
@@ -233,7 +229,9 @@ export const ListNetworkView: FC<IListNetworkViewProps> = ({
     ],
   );
   const renderItem = useCallback(
-    ({ item }: { item: IServerNetwork }) => <ListNetworkItem item={item} />,
+    ({ item }: { item: IServerNetwork }) => (
+      <EditableViewListItem item={item} />
+    ),
     [],
   );
 
@@ -245,17 +243,29 @@ export const ListNetworkView: FC<IListNetworkViewProps> = ({
   );
 
   return (
-    <ListNetworkContext.Provider value={ctx}>
-      <SectionList
-        ListHeaderComponent={ListTopNetworks}
-        sections={sections}
-        estimatedItemSize="$12"
-        renderItem={renderItem}
-        keyExtractor={(item) => (item as IServerNetwork).id}
-        ListEmptyComponent={ListNetworkEmpty}
-        renderSectionHeader={renderSectionHeader}
-        ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
-      />
-    </ListNetworkContext.Provider>
+    <EditableViewContext.Provider value={ctx}>
+      <Stack flex={1}>
+        <Stack px="$4">
+          <SearchBar
+            w="100%"
+            placeholder="Search"
+            value={searchText}
+            onChangeText={(text) => setSearchText(text.trim())}
+          />
+        </Stack>
+        <Stack flex={1}>
+          <SectionList
+            ListHeaderComponent={ListHeaderComponent}
+            sections={sections}
+            estimatedItemSize="$12"
+            renderItem={renderItem}
+            keyExtractor={(item) => (item as IServerNetwork).id}
+            ListEmptyComponent={ListEmptyComponent}
+            renderSectionHeader={renderSectionHeader}
+            ListFooterComponent={<Stack h="$2" />} // Act as padding bottom
+          />
+        </Stack>
+      </Stack>
+    </EditableViewContext.Provider>
   );
 };

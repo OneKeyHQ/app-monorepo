@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useAccountSelectorActions,
@@ -27,6 +29,7 @@ export function useNetworkSelectorTrigger({ num }: { num: number }) {
       sceneUrl,
       networkIds,
       defaultNetworkId,
+      immutable: sceneName !== EAccountSelectorSceneName.home,
     });
   }, [
     actions,
