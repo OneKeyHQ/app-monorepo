@@ -28,10 +28,7 @@ export interface IExt {
   minVersion?: number[];
 }
 
-export type IChangeLog = {
-  locale: Record<ILocaleSymbol, string>;
-  version: string;
-};
+export type IChangeLog = Record<ILocaleSymbol, string>;
 
 export interface IDesktop {
   sha256sumAsc: string;
@@ -72,12 +69,6 @@ export interface IBasicAppUpdateInfo {
   isForceUpdate: boolean;
   // change log text
   changeLog?: IChangeLog['locale'];
-  // App from app Store
-  //  notify -> done
-  // App from outside channels
-  //  1. notify -> downloading -> ready -> done
-  //  2. notify -> failed
-  status: EAppUpdateStatus;
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
@@ -85,6 +76,12 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   version: string;
   // the last time the app update info was fetched
   updateAt: number;
+  // App from app Store
+  //  notify -> done
+  // App from outside channels
+  //  1. notify -> downloading -> ready -> done
+  //  2. notify -> failed
+  status: EAppUpdateStatus;
 }
 
 export enum EAppUpdateStatus {
