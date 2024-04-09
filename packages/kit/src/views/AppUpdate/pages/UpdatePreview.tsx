@@ -1,3 +1,7 @@
+import { useCallback, useEffect, useState } from 'react';
+
+import { UNSTABLE_usePreventRemove } from '@react-navigation/core';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Badge,
@@ -28,8 +32,15 @@ const ExtPluginText = platformEnv.isExtension ? (
 
 function UpdatePreview({
   route,
+  navigation,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
-  const { version, latestVersion, changeLog } = route.params || {};
+  const { version, latestVersion, changeLog, isForceUpdate } =
+    route.params || {};
+  const [isLock, setIsLock] = useState(!!isForceUpdate);
+  UNSTABLE_usePreventRemove(isLock, () => {});
+  const handleConfirm = useCallback(() => {
+    setIsLock(false);
+  }, []);
   return (
     <Page>
       <Page.Header title="App Update" />
@@ -58,7 +69,7 @@ function UpdatePreview({
           </ScrollView>
         ) : null}
       </Page.Body>
-      <UpdatePreviewActionButton />
+      <UpdatePreviewActionButton onConfirm={handleConfirm} />
     </Page>
   );
 }

@@ -8,7 +8,7 @@ export * from './handle';
 export * from './type';
 
 export const isNeedUpdate = (currentVersion?: string, latestVersion?: string) =>
-  currentVersion && latestVersion && semver.gt(latestVersion, currentVersion);
+  currentVersion && latestVersion && semver.lt(latestVersion, currentVersion);
 
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) =>
   appUpdateInfo.status !== EAppUpdateStatus.done &&

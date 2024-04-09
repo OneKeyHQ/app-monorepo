@@ -1,3 +1,7 @@
 import type { ReactElement } from 'react';
 
-export type IUpdatePreviewActionButton = () => ReactElement;
+import type { IPageFooterProps } from '@onekeyhq/components';
+
+export type IUpdatePreviewActionButton = (props: {
+  onConfirm?: IPageFooterProps['onConfirm'];
+}) => ReactElement;

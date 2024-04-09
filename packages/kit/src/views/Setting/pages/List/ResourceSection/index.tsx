@@ -26,7 +26,7 @@ function ListVersionItem() {
       <ListItem.Text
         primary={
           <Badge badgeType="info" badgeSize="lg">
-            {appUpdateInfo.version}
+            {appUpdateInfo.data.latestVersion}
           </Badge>
         }
         align="right"

@@ -68,6 +68,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
             params: {
               version: appUpdateInfo.version,
               latestVersion: appUpdateInfo.latestVersion,
+              isForceUpdate: appUpdateInfo.isForceUpdate,
               changeLog,
             },
           });

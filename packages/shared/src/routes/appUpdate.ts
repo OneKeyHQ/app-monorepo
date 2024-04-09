@@ -8,6 +8,7 @@ export type IAppUpdatePagesParamList = {
     version?: string;
     latestVersion?: string;
     changeLog?: string;
+    isForceUpdate?: boolean;
   };
   [EAppUpdateRoutes.WhatsNew]: {
     version?: string;
