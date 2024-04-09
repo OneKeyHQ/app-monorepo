@@ -62,6 +62,7 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       onPress={disabled ? undefined : onPress}
       flexDirection="row"
       alignItems="center"
+      testID="network-selector-input"
       {...rest}
     >
       <Token tokenImageUri={current?.logoURI} size="sm" />

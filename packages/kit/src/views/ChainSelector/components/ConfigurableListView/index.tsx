@@ -46,6 +46,7 @@ export const ConfigurableListView: FC<IConfigurableListViewProps> = ({
               }}
               title={item.name}
               onPress={() => onPress?.(item)}
+              testID={`select-item-${item.id}`}
             >
               {networkId === item.id ? (
                 <ListItem.CheckMark
