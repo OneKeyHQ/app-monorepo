@@ -161,7 +161,7 @@ const UPDATE_REMINDER_BAR_STYLE: Record<EAppUpdateStatus, IStackProps> = {
 
 function BasicUpdateReminder() {
   const appUpdateInfo = useAppUpdateInfo();
-  if (!appUpdateInfo) {
+  if (!appUpdateInfo.data) {
     return null;
   }
   const { data, onUpdateAction } = appUpdateInfo;

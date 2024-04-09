@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
-import { EAppUpdateStatus, isFirstLaunchAfterUpdated, isNeedUpdate } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  isFirstLaunchAfterUpdated,
+  isNeedUpdate,
+} from '@onekeyhq/shared/src/appUpdate';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -21,18 +25,22 @@ export const useAppUpdateInfo = () => {
   const navigation = useAppNavigation();
   const localVariant = useLocaleVariant();
 
+  const onViewReleaseInfo = useCallback(() => {
+    setTimeout(() => {
+      navigation.pushFullModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.WhatsNew,
+        params: {
+          version: appUpdateInfo.version,
+          changeLog: getChangeLog(appUpdateInfo, localVariant),
+        },
+      });
+    });
+  }, [appUpdateInfo, localVariant, navigation]);
+
   // run only once
   useEffect(() => {
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
-      setTimeout(() => {
-        navigation.pushFullModal(EModalRoutes.AppUpdateModal, {
-          screen: EAppUpdateRoutes.WhatsNew,
-          params: {
-            version: appUpdateInfo.version,
-            changeLog: getChangeLog(appUpdateInfo, localVariant),
-          },
-        });
-      });
+      onViewReleaseInfo();
     }
     void backgroundApiProxy.ServiceAppUpdate.fetchAppUpdateInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,8 +75,10 @@ export const useAppUpdateInfo = () => {
             data: appUpdateInfo,
             onUpdateAction,
           }
-        : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [appUpdateInfo.version, appUpdateInfo.latestVersion, appUpdateInfo.status],
+        : {
+            version: appUpdateInfo.version,
+            onViewReleaseInfo,
+          },
+    [appUpdateInfo, onUpdateAction, onViewReleaseInfo],
   );
 };
