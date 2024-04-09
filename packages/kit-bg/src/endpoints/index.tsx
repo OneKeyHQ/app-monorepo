@@ -19,8 +19,10 @@ export async function getEndpointDomainWhitelist() {
   const endpoints = await getEndpoints();
   forEach(endpoints, (endpoint) => {
     try {
-      const url = new URL(endpoint);
-      whitelist.push(url.host);
+      if (endpoint) {
+        const url = new URL(endpoint);
+        whitelist.push(url.host);
+      }
     } catch (e) {
       (e as Error).$$autoPrintErrorIgnore = true;
     }
