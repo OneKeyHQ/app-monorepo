@@ -19,6 +19,7 @@ const basicStyles = {
   } as ISizableTextProps,
   heading3: {
     size: '$headingMd',
+    fontWeight: '600',
   } as ISizableTextProps,
   text: {
     size: '$bodyLg',
@@ -27,7 +28,7 @@ const basicStyles = {
 
 const basicRules: MarkdownProps['rules'] = {
   heading1: (node, children) => (
-    <Stack key={node.key} pt="$9">
+    <Stack key={node.key} mt="$9">
       {children}
     </Stack>
   ),
