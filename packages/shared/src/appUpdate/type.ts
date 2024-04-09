@@ -61,9 +61,7 @@ export interface IAppUpdateInfoData {
   changelog: IPackageChangelog[];
 }
 
-export interface IAppUpdateInfo {
-  // current version
-  version: string;
+export interface IBasicAppUpdateInfo { 
   // the latest version of remote server
   latestVersion?: string;
   // app store url
@@ -74,8 +72,18 @@ export interface IAppUpdateInfo {
   isForceUpdate: boolean;
   // change log text
   changeLog?: IChangeLog['locale'];
-  updateAt: number;
+  // App from app Store
+  //  notify -> done
+  // App from outside channels
+  //  1. notify -> downloading -> ready -> done
+  //  2. notify -> failed
   status: EAppUpdateStatus;
+}
+
+export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
+  // current version
+  version: string;
+  updateAt: number;
 }
 
 export enum EAppUpdateStatus {
@@ -88,4 +96,4 @@ export enum EAppUpdateStatus {
 
 export type IHandleReleaseInfo = (
   releaseInfo: IAppUpdateInfoData,
-) => Omit<IAppUpdateInfo, 'version'>;
+) => IBasicAppUpdateInfo;
