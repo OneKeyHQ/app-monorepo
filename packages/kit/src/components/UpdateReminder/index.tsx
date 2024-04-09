@@ -51,8 +51,8 @@ const UPDATE_STATUS_TEXT_STYLE: Record<
   [EAppUpdateStatus.done]: {
     iconName: 'DownloadOutline',
     iconColor: '$iconSuccess',
-    renderText(version: string) {
-      return `App ${version} Ready for Update`;
+    renderText() {
+      return `App Updated`;
     },
   },
 };
