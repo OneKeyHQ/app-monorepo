@@ -20,14 +20,17 @@ const getChangeLog = (
 ) =>
   appUpdateInfo.changeLog?.[localVariant] || appUpdateInfo.changeLog?.['en-US'];
 
-export const useAppUpdateInfo = () => {
+export const useAppUpdateInfo = (isFullModal = false) => {
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
   const localVariant = useLocaleVariant();
 
   const onViewReleaseInfo = useCallback(() => {
     setTimeout(() => {
-      navigation.pushFullModal(EModalRoutes.AppUpdateModal, {
+      const pushModal = isFullModal
+        ? navigation.pushFullModal
+        : navigation.pushModal;
+      pushModal(EModalRoutes.AppUpdateModal, {
         screen: EAppUpdateRoutes.WhatsNew,
         params: {
           version: appUpdateInfo.version,
@@ -35,7 +38,13 @@ export const useAppUpdateInfo = () => {
         },
       });
     });
-  }, [appUpdateInfo, localVariant, navigation]);
+  }, [
+    appUpdateInfo,
+    isFullModal,
+    localVariant,
+    navigation.pushFullModal,
+    navigation.pushModal,
+  ]);
 
   // run only once
   useEffect(() => {
@@ -51,7 +60,10 @@ export const useAppUpdateInfo = () => {
       case EAppUpdateStatus.notify:
         {
           const changeLog = getChangeLog(appUpdateInfo, localVariant);
-          navigation.pushFullModal(EModalRoutes.AppUpdateModal, {
+          const pushModal = isFullModal
+            ? navigation.pushFullModal
+            : navigation.pushModal;
+          pushModal(EModalRoutes.AppUpdateModal, {
             screen: EAppUpdateRoutes.UpdatePreview,
             params: {
               version: appUpdateInfo.version,
@@ -66,7 +78,13 @@ export const useAppUpdateInfo = () => {
       default:
         break;
     }
-  }, [appUpdateInfo, localVariant, navigation]);
+  }, [
+    appUpdateInfo,
+    isFullModal,
+    localVariant,
+    navigation.pushFullModal,
+    navigation.pushModal,
+  ]);
 
   return useMemo(
     () =>
