@@ -48,13 +48,18 @@ const UPDATE_STATUS_TEXT_STYLE: Record<
       return `Update App to ${errorMessage} is available`;
     },
   },
-  [EAppUpdateStatus.done]: {},
+  [EAppUpdateStatus.done]: {
+    iconName: 'DownloadOutline',
+    iconColor: '$iconSuccess',
+    renderText(version: string) {
+      return `App ${version} Ready for Update`;
+    },
+  },
 };
 
-const testStatus = EAppUpdateStatus.notify;
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const { iconName, iconColor, renderText } =
-    UPDATE_STATUS_TEXT_STYLE[testStatus];
+    UPDATE_STATUS_TEXT_STYLE[updateInfo.status];
   return (
     <XStack alignItems="center" space="$2" flexShrink={1}>
       <Icon name={iconName} color={iconColor} size="$4" flexShrink={0} />
@@ -102,12 +107,14 @@ const UPDATE_ACTION_STYLE: Record<
     label: 'Retry',
     variant: 'primary',
   },
-  [EAppUpdateStatus.done]: {},
+  [EAppUpdateStatus.done]: {
+    label: 'View',
+  },
 };
 
 function UpdateAction({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const { icon, label, variant, prefixElement } =
-    UPDATE_ACTION_STYLE[testStatus];
+    UPDATE_ACTION_STYLE[updateInfo.status];
   return (
     <XStack space="$4" justifyContent="space-between" alignItems="center">
       {prefixElement}
@@ -142,10 +149,12 @@ const UPDATE_REMINDER_BAR_STYLE: Record<EAppUpdateStatus, IStackProps> = {
 };
 
 function BasicUpdateReminder() {
-  const style = UPDATE_REMINDER_BAR_STYLE[testStatus];
   const appUpdateInfo = useFetchAppUpdateInfo();
-
-  return appUpdateInfo ? (
+  if (!appUpdateInfo) {
+    return null;
+  }
+  const style = UPDATE_REMINDER_BAR_STYLE[appUpdateInfo.status];
+  return (
     <XStack
       px="$5"
       py="$2"
@@ -158,7 +167,7 @@ function BasicUpdateReminder() {
       <UpdateStatusText updateInfo={appUpdateInfo} />
       <UpdateAction updateInfo={appUpdateInfo} />
     </XStack>
-  ) : null;
+  );
 }
 
 export const UpdateReminder = platformEnv.isWeb
