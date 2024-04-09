@@ -45,9 +45,7 @@ class ServiceAppUpdate extends ServiceBase {
         void this.fetchAppUpdateInfo();
         // add random time to avoid all extension request at the same time.
       }, 1000 * 60 * 60 + Math.random() * 1000 * 60 * 5);
-      if (Date.now() - updateAt < 1000 * 60 * 60 * 24) {
-        return false;
-      }
+      return Date.now() - updateAt < 1000 * 60 * 60 * 24;
     }
     return ![EAppUpdateStatus.downloading, EAppUpdateStatus.ready].includes(
       status,
