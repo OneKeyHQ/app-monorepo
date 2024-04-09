@@ -19,15 +19,12 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAppUpdateInfo() {
-    // const client = await this.getClient();
-    // const key = Math.random().toString();
-    // const response = await client.get<{
-    //   data: IAppUpdateInfoData;
-    // }>(`/config.json?nocache=${key}`);
-    // console.log('response', response);
-    const response = {
-      data: require('./data.json') as IAppUpdateInfoData,
-    };
+    const client = await this.getClient();
+    const key = Math.random().toString();
+    const response = await client.get<{
+      data: IAppUpdateInfoData;
+    }>(`https://data.onekey.so/config.json?nocache=${key}`);
+    console.log('response', response);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       ...handleReleaseInfo(response.data),
