@@ -7,6 +7,10 @@ const UpdatePreview = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AppUpdate/pages/UpdatePreview'),
 );
 
+const WhatsNew = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/AppUpdate/pages/WhatsNew'),
+);
+
 export const AppUpdateRouter: IModalFlowNavigatorConfig<
   EAppUpdateRoutes,
   IAppUpdatePagesParamList
@@ -14,5 +18,9 @@ export const AppUpdateRouter: IModalFlowNavigatorConfig<
   {
     name: EAppUpdateRoutes.UpdatePreview,
     component: UpdatePreview,
+  },
+  {
+    name: EAppUpdateRoutes.WhatsNew,
+    component: WhatsNew,
   },
 ];

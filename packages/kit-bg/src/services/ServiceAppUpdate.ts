@@ -4,6 +4,7 @@ import {
   EAppUpdateStatus,
   type IAppUpdateInfoData,
   handleReleaseInfo,
+  isFirstLaunchAfterUpdated,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   backgroundClass,
@@ -23,15 +24,13 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkUpdateStatus() {
-    const { version, latestVersion, status } = await appUpdatePersistAtom.get();
-    if (version === latestVersion) {
-      if (status !== EAppUpdateStatus.done) {
-        await appUpdatePersistAtom.set((prev) => ({
-          ...prev,
-          status: EAppUpdateStatus.done,
-        }));
-      }
+  async refreshUpdateStatus() {
+    const appInfo = await appUpdatePersistAtom.get();
+    if (isFirstLaunchAfterUpdated(appInfo)) {
+      await appUpdatePersistAtom.set((prev) => ({
+        ...prev,
+        status: EAppUpdateStatus.done,
+      }));
     }
   }
 
@@ -45,7 +44,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAppUpdateInfo() {
-    await this.checkUpdateStatus();
+    await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
     if (!(await this.isNeedSyncAppUpdateInfo())) {
       return;
@@ -56,14 +55,14 @@ class ServiceAppUpdate extends ServiceBase {
       `https://data.onekey.so/config.json?nocache=${key}`,
     );
     const releaseInfo = handleReleaseInfo(response.data);
-    const { latestVersion } = await appUpdatePersistAtom.get();
-
+    const info = await appUpdatePersistAtom.get();
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       ...releaseInfo,
       updateAt: Date.now(),
       status:
-        releaseInfo.latestVersion !== latestVersion
+        releaseInfo.latestVersion &&
+        releaseInfo.latestVersion !== prev.latestVersion
           ? EAppUpdateStatus.notify
           : prev.status,
     }));
