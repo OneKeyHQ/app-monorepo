@@ -1,10 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty, set } from 'lodash';
+import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
 import {
   NumberSizeableText,
   Popover,
@@ -14,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCustomFeeAtom,
@@ -28,12 +26,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
   calculateFeeForSend,
-  getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
-import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
@@ -62,15 +57,8 @@ function TxFeeContainer(props: IProps) {
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
-  const {
-    updateSendSelectedFee,
-    updateCustomFee,
-    updateSendSelectedFeeInfo,
-    updateSendFeeStatus,
-    updateSendTxStatus,
-  } = useSendConfirmActions().current;
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
+  const { updateSendSelectedFeeInfo, updateSendFeeStatus, updateSendTxStatus } =
+    useSendConfirmActions().current;
 
   const { result: [vaultSettings, network] = [] } =
     usePromiseResult(async () => {
@@ -217,18 +205,15 @@ function TxFeeContainer(props: IProps) {
     vaultSettings?.editFeeEnabled,
   ]);
 
-  const { selectedFee, feeSelectorValue } = useMemo(() => {
+  const { selectedFee } = useMemo(() => {
     let selectedFeeInfo;
-    let selectorValue;
 
     if (isEmpty(feeSelectorItems)) return {};
 
     if (sendSelectedFee.feeType === EFeeType.Custom) {
       selectedFeeInfo = feeSelectorItems[feeSelectorItems.length - 1].feeInfo;
-      selectorValue = EFeeType.Custom;
     } else {
       selectedFeeInfo = feeSelectorItems[sendSelectedFee.presetIndex].feeInfo;
-      selectorValue = String(sendSelectedFee.presetIndex);
     }
 
     const {
@@ -252,7 +237,6 @@ function TxFeeContainer(props: IProps) {
         totalNativeForDisplay,
         totalFiatForDisplay,
       },
-      feeSelectorValue: selectorValue,
     };
   }, [
     feeSelectorItems,
@@ -264,36 +248,8 @@ function TxFeeContainer(props: IProps) {
 
   const handleFeeSelectorTriggerOnPress = useCallback(() => {
     if (!txFeeInit.current) return;
-    setIsEditFeeActive(true);
+    setIsEditFeeActive((prev) => !prev);
   }, []);
-
-  const handleSelectedFeeOnChange = useCallback(
-    (value: string | ISelectItem) => {
-      // if (value === EFeeType.Custom) {
-      //   navigation.pushModal(EModalRoutes.SendModal, {
-      //     screen: EModalSendRoutes.SendCustomFee,
-      //     params: {
-      //       networkId,
-      //       accountId,
-      //       customFee: (customFee ?? selectedFee?.feeInfo) as IFeeInfoUnit,
-      //       onApply: (feeInfo: IFeeInfoUnit) => {
-      //         updateCustomFee(feeInfo);
-      //         updateSendSelectedFee({
-      //           feeType: EFeeType.Custom,
-      //           presetIndex: 0,
-      //         });
-      //       },
-      //     },
-      //   });
-      // } else {
-      //   updateSendSelectedFee({
-      //     feeType: EFeeType.Standard,
-      //     presetIndex: Number(value),
-      //   });
-      // }
-    },
-    [],
-  );
 
   useEffect(() => {
     if (selectedFee && selectedFee.feeInfo) {
@@ -358,16 +314,17 @@ function TxFeeContainer(props: IProps) {
           <Popover
             title={intl.formatMessage({ id: 'title__edit_fee' })}
             open={isEditFeeActive}
-            onOpenChange={setIsEditFeeActive}
+            onOpenChange={handleFeeSelectorTriggerOnPress}
             renderContent={
               <FeeEditor
                 networkId={networkId}
                 feeSelectorItems={feeSelectorItems}
+                setIsEditFeeActive={setIsEditFeeActive}
               />
             }
             renderTrigger={
               <FeeSelectorTrigger
-                onPress={() => handleFeeSelectorTriggerOnPress()}
+                onPress={handleFeeSelectorTriggerOnPress}
                 disabled={
                   sendFeeStatus.status === ESendFeeStatus.Error ||
                   !txFeeInit.current

@@ -16,9 +16,11 @@ import {
   XStack,
   YStack,
   useForm,
+  useMedia,
 } from '@onekeyhq/components';
 import {
   useCustomFeeAtom,
+  useSendConfirmActions,
   useSendSelectedFeeAtom,
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
@@ -37,14 +39,19 @@ import { EFeeType } from '@onekeyhq/shared/types/fee';
 type IProps = {
   networkId: string;
   feeSelectorItems: IFeeSelectorItem[];
+  setIsEditFeeActive: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 const DEFAULT_GAS_LIMIT_MIN = 21000;
 const DEFAULT_GAS_LIMIT_MAX = 15000000;
 
 function FeeEditor(props: IProps) {
-  const { feeSelectorItems } = props;
+  const { feeSelectorItems, setIsEditFeeActive } = props;
   const intl = useIntl();
+  const isVerticalLayout = useMedia().md;
+
+  const { updateSendSelectedFee, updateCustomFee } =
+    useSendConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
   const [sendSelectedFee] = useSendSelectedFeeAtom();
@@ -119,23 +126,18 @@ function FeeEditor(props: IProps) {
   );
 
   const gasLimitDescription = useMemo(() => {
+    const feeInfo = feeSelectorItems[0].feeInfo;
     const gasLimit = new BigNumber(
-      customFee.gasEIP1559?.gasLimit ?? customFee.gas?.gasLimit ?? '0',
+      feeInfo.gasEIP1559?.gasLimit ?? feeInfo.gas?.gasLimit ?? '0',
     );
     const gasLimitForDisplay = new BigNumber(
-      customFee.gasEIP1559?.gasLimitForDisplay ??
-        customFee.gas?.gasLimit ??
-        '0',
+      feeInfo.gasEIP1559?.gasLimitForDisplay ?? feeInfo.gas?.gasLimit ?? '0',
     );
 
     return `Estimate gas limit is ${gasLimitForDisplay.toFixed()}, recommend ${
       gasLimitForDisplay.isEqualTo(gasLimit) ? '1.0x' : '1.2x'
     }`;
-  }, [
-    customFee.gas?.gasLimit,
-    customFee.gasEIP1559?.gasLimit,
-    customFee.gasEIP1559?.gasLimitForDisplay,
-  ]);
+  }, [feeSelectorItems]);
 
   const handleValidateMaxBaseFee = useCallback(
     (value: string) => {
@@ -185,7 +187,28 @@ function FeeEditor(props: IProps) {
     return true;
   }, []);
 
-  const handleApplyFeeInfo = useCallback(() => {}, []);
+  const handleApplyFeeInfo = useCallback(() => {
+    if (currentFeeType === EFeeType.Custom) {
+      updateSendSelectedFee({
+        feeType: EFeeType.Custom,
+        presetIndex: 0,
+      });
+      updateCustomFee(customFeeInfo);
+    } else {
+      updateSendSelectedFee({
+        feeType: currentFeeType,
+        presetIndex: currentFeeIndex,
+      });
+    }
+    setIsEditFeeActive(false);
+  }, [
+    currentFeeIndex,
+    currentFeeType,
+    customFeeInfo,
+    setIsEditFeeActive,
+    updateCustomFee,
+    updateSendSelectedFee,
+  ]);
 
   const renderFeeTypeSelector = useCallback(() => {
     let feeTitle = '';
@@ -584,7 +607,7 @@ function FeeEditor(props: IProps) {
 
   return (
     <YStack space="$4">
-      <YStack space="$4" px="$5">
+      <YStack space="$4" px="$5" paddingTop={isVerticalLayout ? 0 : '$4'}>
         {renderFeeTypeSelector()}
         <Form form={form}>{renderFeeEditorForm()}</Form>
       </YStack>
