@@ -17,7 +17,7 @@ const defaultFuseOptions: IFuseOptions<any> = {
   findAllMatches: false,
   minMatchCharLength: 1,
   threshold: 0.8,
-  distance: 100,
+  distance: 1000,
   useExtendedSearch: false,
   ignoreLocation: false,
   ignoreFieldNorm: true,

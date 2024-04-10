@@ -34,9 +34,16 @@ export function MatchSizeableText({
           raw: m,
           length: m[1] - m[0],
         }));
-        const matchItem = matchIndices
-          .sort((a, b) => a.length - b.length)
-          .pop();
+        let matchItem = matchIndices[0];
+        for (let index = 1; index < matchIndices.length; index += 1) {
+          const item = matchIndices[index];
+          if (
+            item.length > matchItem.length ||
+            (item.length === matchItem.length && item.raw[0] < matchItem.raw[0])
+          ) {
+            matchItem = item;
+          }
+        }
         indices = matchItem?.raw ? [matchItem.raw] : [];
       }
       for (let index = 0; index < indices.length; index += 1) {
