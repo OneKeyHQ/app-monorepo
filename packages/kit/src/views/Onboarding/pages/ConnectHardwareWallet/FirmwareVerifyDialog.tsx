@@ -12,9 +12,9 @@ import {
   Spinner,
   Stack,
 } from '@onekeyhq/components';
+import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
-import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -371,7 +371,15 @@ export function FirmwareAuthenticationDialogContent({
         {riskText}
       </Stack>
     );
-  }, [isShowingRiskWarning, noContinue, onContinue, result, setResult, verify]);
+  }, [
+    isShowingRiskWarning,
+    noContinue,
+    onContinue,
+    requestsUrl,
+    result,
+    setResult,
+    verify,
+  ]);
 
   return <Stack space="$5">{content}</Stack>;
 }
