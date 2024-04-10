@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 import {
   Icon,
-  Image,
   SizableText,
   Skeleton,
   XStack,
