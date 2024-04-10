@@ -28,6 +28,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
           });
           window.desktopApi.checkForUpdates();
         } else if (platformEnv.isNativeAndroid) {
+          // TODO: in another pr.
         }
       }
     }
