@@ -59,6 +59,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
       case EAppUpdateStatus.notify:
@@ -100,6 +101,13 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     navigation.pushFullModal,
     navigation.pushModal,
   ]);
+
+
+  useEffect(() => {
+    if (appUpdateInfo.isForceUpdate) {
+      onUpdateAction();
+    }
+  }, [appUpdateInfo.isForceUpdate, onUpdateAction]);
 
   return useMemo(
     () =>
