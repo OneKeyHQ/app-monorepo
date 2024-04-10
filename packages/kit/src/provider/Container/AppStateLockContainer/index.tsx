@@ -29,7 +29,9 @@ const useWebLockCheck = (isLocked: boolean) => {
   }, []);
   useEffect(() => {
     if (!platformEnv.isNative && isLocked) {
-      checkIsLockContainerExist();
+      setTimeout(() => {
+        checkIsLockContainerExist();
+      });
     }
   }, [checkIsLockContainerExist, isLocked]);
   return lockContainerRef;
