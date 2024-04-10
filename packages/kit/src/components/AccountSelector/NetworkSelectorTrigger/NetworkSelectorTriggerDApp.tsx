@@ -29,6 +29,25 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
     showChainSelector();
   }, [beforeShowTrigger, showChainSelector]);
 
+  const renderNetworkIcon = useCallback(() => {
+    if (isLoading) {
+      return <Skeleton w="$6" h="$6" />;
+    }
+    if (network?.logoURI) {
+      return (
+        <Image
+          w="$6"
+          h="$6"
+          source={{
+            uri: network?.logoURI ? network?.logoURI : '',
+          }}
+        />
+      );
+    }
+
+    return <Icon size="$6" name="QuestionmarkOutline" color="$iconSubdued" />;
+  }, [isLoading, network?.logoURI]);
+
   return (
     <XStack
       alignItems="center"
@@ -65,17 +84,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       disabled={disabled}
       {...rest}
     >
-      {isLoading ? (
-        <Skeleton w="$6" h="$6" />
-      ) : (
-        <Image
-          w="$6"
-          h="$6"
-          source={{
-            uri: network?.logoURI ? network?.logoURI : '',
-          }}
-        />
-      )}
+      {renderNetworkIcon()}
       {disabled ? null : (
         <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
       )}
