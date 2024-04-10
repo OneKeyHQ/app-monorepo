@@ -105,18 +105,10 @@ class ServiceFiatCrypto extends ServiceBase {
   @backgroundMethod()
   public async isTokenSupported(
     params: IGetTokensListParams & { tokenAddress: string },
-  ) {
-    const tokens = await this.getTokensList({
-      networkId: params.networkId,
-      type: params.type,
-    });
-    return (
-      tokens.length > 0 &&
-      tokens.some(
-        (token) =>
-          token.address.toLowerCase() === params.tokenAddress.toLowerCase(),
-      )
-    );
+  ): Promise<boolean> {
+    const res = await this.generateWidgetUrl(params);
+    const isSupported = Boolean(res.url);
+    return isSupported;
   }
 }
 
