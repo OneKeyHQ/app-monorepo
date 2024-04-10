@@ -11,8 +11,8 @@ export class SimpleDbEntityNetworkSelector extends SimpleDbEntityBase<INetworkSe
 
   setPinnedNetworkIds({ networkIds }: { networkIds: string[] }) {
     return this.setRawData(({ rawData }) => ({
-      pinnedNetworkIds: networkIds,
       ...rawData,
+      pinnedNetworkIds: networkIds,
     }));
   }
 
