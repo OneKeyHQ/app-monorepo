@@ -27,7 +27,7 @@ class ServiceFiatCrypto extends ServiceBase {
       const client = await this.getClient();
       const { enabled: isDev } = await devSettingsPersistAtom.get();
       const resp = await client.get<{
-        data: string;
+        data: { url: string; build: boolean };
       }>('/wallet/v1/fiat-pay/url', {
         params: { ...params, mode: isDev ? 'test' : 'live' },
       });
@@ -53,8 +53,7 @@ class ServiceFiatCrypto extends ServiceBase {
         },
       );
     }
-    const url = await this._buildUriForFiatToken({ ...rest, address });
-    return { url };
+    return this._buildUriForFiatToken({ ...rest, address });
   }
 
   _getTokensList = memoizee(
@@ -107,7 +106,7 @@ class ServiceFiatCrypto extends ServiceBase {
     params: IGetTokensListParams & { tokenAddress: string },
   ): Promise<boolean> {
     const res = await this.generateWidgetUrl(params);
-    const isSupported = Boolean(res.url);
+    const isSupported = Boolean(res.url && res.build);
     return isSupported;
   }
 }
