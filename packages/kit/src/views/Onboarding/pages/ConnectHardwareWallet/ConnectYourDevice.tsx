@@ -21,6 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import {
@@ -102,6 +103,8 @@ export function ConnectYourDevicePage() {
     navigation.push(EOnboardingPages.ActivateDevice);
   }, [navigation]);
 
+  const requestsUrl = useHelpLink({ path: 'requests/new' });
+
   const handleNotActivatedDevicePress = useCallback(() => {
     const dialog = Dialog.show({
       icon: 'WalletCryptoOutline',
@@ -140,8 +143,7 @@ export function ConnectYourDevicePage() {
                 dismissOnOverlayPress: false,
                 description:
                   'Your package should not contain any pre-set PINs or Recovery Phrases. If such items are found, stop using the device and immediately reach out to OneKey Support for assistance.',
-                onCancel: () =>
-                  Linking.openURL('https://help.onekey.so/hc/requests/new'),
+                onCancel: () => Linking.openURL(requestsUrl),
                 onCancelText: 'Get Help',
                 onConfirm: async () => {
                   await packageAlertDialog.close();
