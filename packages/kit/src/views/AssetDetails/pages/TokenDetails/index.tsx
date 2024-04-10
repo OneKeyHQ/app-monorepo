@@ -17,7 +17,13 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalReceiveRoutes,
@@ -28,12 +34,8 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { Token } from '../../../components/Token';
-import { TxHistoryListView } from '../../../components/TxHistoryListView';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { RawActions } from '../../Home/components/WalletActions/RawActions';
+import ActionBuy from './ActionBuy';
+import ActionSell from './ActionSell';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -340,8 +342,16 @@ export function TokenDetails() {
                   <RawActions.Send onPress={handleSendPress} />
                   <RawActions.Receive onPress={handleReceivePress} />
                   <RawActions.Swap onPress={() => {}} />
-                  <RawActions.Buy onPress={() => {}} />
-                  <RawActions.Sell onPress={() => {}} />
+                  <ActionBuy
+                    networkId={networkId}
+                    accountId={accountId}
+                    tokenAddress={tokenInfo.address}
+                  />
+                  <ActionSell
+                    networkId={networkId}
+                    accountId={accountId}
+                    tokenAddress={tokenInfo.address}
+                  />
                 </RawActions>
               </Stack>
 

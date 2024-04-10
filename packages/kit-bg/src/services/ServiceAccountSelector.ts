@@ -98,7 +98,15 @@ class ServiceAccountSelector extends ServiceBase {
           mergedByData: homeData,
         });
         if (swapDataMerged) {
+          const usedNetworkId =
+            swapDataMerged.networkId ??
+            swapMap[num]?.networkId ??
+            homeData?.networkId;
           swapMap[num] = swapDataMerged;
+          if (swapMap && swapMap[num]) {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            swapMap[num]!.networkId = usedNetworkId;
+          }
         }
       };
 
