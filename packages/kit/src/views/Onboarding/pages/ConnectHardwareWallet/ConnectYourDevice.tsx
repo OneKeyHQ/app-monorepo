@@ -143,7 +143,7 @@ export function ConnectYourDevicePage() {
                 dismissOnOverlayPress: false,
                 description:
                   'Your package should not contain any pre-set PINs or Recovery Phrases. If such items are found, stop using the device and immediately reach out to OneKey Support for assistance.',
-                onCancel: () => Linking.openURL({ path: requestsUrl }),
+                onCancel: () => Linking.openURL(requestsUrl),
                 onCancelText: 'Get Help',
                 onConfirm: async () => {
                   await packageAlertDialog.close();
