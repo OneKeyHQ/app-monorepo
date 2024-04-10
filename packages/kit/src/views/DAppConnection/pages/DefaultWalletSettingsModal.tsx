@@ -4,6 +4,7 @@ import { isNil } from 'lodash';
 
 import {
   Divider,
+  ESwitchSize,
   Image,
   Page,
   Skeleton,
@@ -184,7 +185,7 @@ function DefaultWalletSettingsModal() {
           subtitle="Use OneKey as the default wallet to connect to dApps."
         >
           <Switch
-            size="small"
+            size={ESwitchSize.small}
             value={result?.isDefaultWallet ?? true}
             onChange={onToggleDefaultWallet}
           />
