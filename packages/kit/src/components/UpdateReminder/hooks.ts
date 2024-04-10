@@ -104,6 +104,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
 
 
   useEffect(() => {
+    // force update
     if (appUpdateInfo.isForceUpdate) {
       onUpdateAction();
     }
