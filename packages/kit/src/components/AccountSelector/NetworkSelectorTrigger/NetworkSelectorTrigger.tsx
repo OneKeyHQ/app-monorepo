@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 
-import { Icon, Image, Select, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -11,6 +11,7 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { ChainSelectorInput } from '../../ChainSelectorInput';
+import { NetworkAvatar } from '../../NetworkAvatar';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
 function useNetworkSelectorItems() {
@@ -107,14 +108,7 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
       userSelect="none"
       onPress={showChainSelector}
     >
-      {/* TODO NetworkAvatar component */}
-      <Image
-        w="$5"
-        h="$5"
-        source={{
-          uri: network?.logoURI ? network?.logoURI : '',
-        }}
-      />
+      <NetworkAvatar networkId={network?.id} size="$5" />
       <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
         {network?.name}
       </SizableText>
