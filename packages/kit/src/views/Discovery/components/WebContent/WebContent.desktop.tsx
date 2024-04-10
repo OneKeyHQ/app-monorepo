@@ -109,14 +109,9 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
   const onPageFaviconUpdated = useCallback(
     async (e: PageFaviconUpdatedEvent) => {
       // Ensure the e.favicons array is not empty, and there's an existing favicon URL
-      console.log('=>>>>>>>onPageFaviconUpdated: ', e.favicons);
       if (e.favicons.length > 0) {
         let shouldUpdateFavicon = false;
         const tabData = getWebTabById(id);
-        console.log(
-          '=>>>>>>>onPageFaviconUpdated tabData.favicon: ',
-          tabData?.favicon,
-        );
         if (!tabData?.favicon) {
           shouldUpdateFavicon = true;
         } else {
@@ -127,10 +122,6 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
             shouldUpdateFavicon = true;
           }
         }
-        console.log(
-          'onPageFaviconUpdated shouldUpdateFavicon: ',
-          shouldUpdateFavicon,
-        );
         if (shouldUpdateFavicon) {
           const newFavicon =
             await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
