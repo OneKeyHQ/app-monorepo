@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState, type FC } from 'react';
+import { type FC, useCallback, useMemo, useState } from 'react';
 
 import { ListView, SearchBar, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import { NetworkAvatar } from '../../../../components/NetworkAvatar';
 
 type IImmutableViewProps = {
   networks: IServerNetwork[];

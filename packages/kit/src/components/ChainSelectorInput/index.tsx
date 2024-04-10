@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
+
 import { NetworkAvatar } from '../NetworkAvatar';
 
 type IChainSelectorInputProps = Pick<

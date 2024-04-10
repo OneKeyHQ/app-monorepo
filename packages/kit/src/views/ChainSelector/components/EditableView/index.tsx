@@ -10,10 +10,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import { NetworkAvatar } from '../../../../components/NetworkAvatar';
 
 type IEditableViewContext = {
   isEditMode?: boolean;
