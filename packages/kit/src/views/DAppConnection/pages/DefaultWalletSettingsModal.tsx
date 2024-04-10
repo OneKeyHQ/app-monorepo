@@ -6,6 +6,7 @@ import {
   Divider,
   ESwitchSize,
   Image,
+  ListView,
   Page,
   Skeleton,
   Stack,
@@ -147,24 +148,18 @@ function DefaultWalletSettingsModal() {
     return true;
   }, [result?.isDefaultWallet]);
 
-  const renderList = useCallback(() => {
-    if (isNil(result?.excludedDappListWithLogo)) {
-      return null;
-    }
-    if (result.excludedDappListWithLogo.length === 0) {
-      return <EmptyGuide />;
-    }
-    return result.excludedDappListWithLogo.map((i) => (
+  const renderItem = useCallback(
+    ({ item }: { item: { origin: string; logo: string } }) => (
       <ListItem
-        key={i.origin}
-        title={i.origin}
+        key={item.origin}
+        title={item.origin}
         avatarProps={{
-          src: i.logo,
+          src: item.logo,
           fallbackProps: {
             children: <Skeleton w="$10" h="$10" />,
           },
         }}
-        onPress={() => removeExcludedDApp(i.origin)}
+        onPress={() => removeExcludedDApp(item.origin)}
       >
         <ListItem.IconButton
           icon="DeleteOutline"
@@ -173,8 +168,25 @@ function DefaultWalletSettingsModal() {
           }}
         />
       </ListItem>
-    ));
-  }, [result?.excludedDappListWithLogo, removeExcludedDApp]);
+    ),
+    [removeExcludedDApp],
+  );
+
+  const renderList = useCallback(() => {
+    if (isNil(result?.excludedDappListWithLogo)) {
+      return null;
+    }
+    if (result.excludedDappListWithLogo.length === 0) {
+      return <EmptyGuide />;
+    }
+    return (
+      <ListView
+        data={result.excludedDappListWithLogo}
+        estimatedItemSize="$10"
+        renderItem={renderItem}
+      />
+    );
+  }, [result?.excludedDappListWithLogo, renderItem]);
 
   return (
     <Page>
