@@ -90,16 +90,10 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
     db: RealmDBAgent;
     walletId: IDBWalletIdSingleton;
   }) {
-    db._getOrAddObjectRecord(ELocalDBStoreNames.Wallet, {
-      id: walletId,
-      name: walletId,
-      type: walletId,
-      backuped: true,
-      accounts: [],
-      nextIndex: 0,
-      walletNo: 0,
-      nextAccountIds: { 'global': 1 },
-    });
+    db._getOrAddObjectRecord(
+      ELocalDBStoreNames.Wallet,
+      this.buildSingletonWalletRecord({ walletId }),
+    );
   }
 
   deleteDb() {

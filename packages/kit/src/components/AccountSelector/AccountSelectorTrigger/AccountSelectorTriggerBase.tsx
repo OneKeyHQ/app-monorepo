@@ -1,19 +1,19 @@
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 
 import { AccountAvatar } from '../../AccountAvatar';
 import { useAccountSelectorTrigger } from '../hooks/useAccountSelectorTrigger';
 
 export function AccountSelectorTriggerBase({
   num,
-  linkNetwork,
+  ...others
 }: {
   num: number;
-  linkNetwork?: boolean;
-}) {
+} & IAccountSelectorRouteParamsExtraConfig) {
   const {
     activeAccount: { account, dbAccount, indexedAccount, accountName },
     showAccountSelector,
-  } = useAccountSelectorTrigger({ num, linkNetwork });
+  } = useAccountSelectorTrigger({ num, ...others });
 
   return (
     <XStack

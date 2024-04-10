@@ -1,10 +1,12 @@
 import { getSdkError } from '@walletconnect/utils';
+import { uniq } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -22,6 +24,7 @@ import type {
   IWalletConnectAddressString,
   IWalletConnectChainInfo,
   IWalletConnectChainString,
+  IWalletConnectConnectToWalletParams,
   IWalletConnectOptionalNamespaces,
   IWalletConnectRequiredNamespaces,
   IWalletConnectSession,
@@ -50,8 +53,10 @@ class ServiceWalletConnect extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  connectToWallet(): Promise<IWalletConnectSession> {
-    return this.dappSide.connectToWallet();
+  connectToWallet(
+    params: IWalletConnectConnectToWalletParams,
+  ): Promise<IWalletConnectSession> {
+    return this.dappSide.connectToWallet(params);
   }
 
   @backgroundMethod()
@@ -88,7 +93,7 @@ class ServiceWalletConnect extends ServiceBase {
 
   // chainId: eip155:1, eip155:137
   @backgroundMethod()
-  async getChainData(
+  async getWcChainInfo(
     walletConnectChainId?: IWalletConnectChainString,
   ): Promise<IWalletConnectChainInfo | undefined> {
     if (!walletConnectChainId || !walletConnectChainId.includes(':')) {
@@ -202,7 +207,7 @@ class ServiceWalletConnect extends ServiceBase {
 
     // Loop over each chainId and check if the chain data is supported
     for (const walletConnectChainId of Array.from(required)) {
-      const isSupported = await this.getChainData(walletConnectChainId);
+      const isSupported = await this.getWcChainInfo(walletConnectChainId);
       if (!isSupported) {
         notSupportedChains.push(walletConnectChainId);
       }
@@ -230,7 +235,7 @@ class ServiceWalletConnect extends ServiceBase {
       await Promise.all(
         [...(chains ?? []), ...(optionalChains ?? [])].map(
           async (walletConnectChainId) =>
-            this.getChainData(walletConnectChainId),
+            this.getWcChainInfo(walletConnectChainId),
         ),
       )
     )
@@ -559,6 +564,7 @@ class ServiceWalletConnect extends ServiceBase {
     const addressMap: {
       [networkId: string]: string; // join(',')
     } = {};
+    const networkIds: string[] = [];
     const entries = Object.entries(namespaces);
     for (const [, value] of entries) {
       const accounts = value?.accounts || [];
@@ -566,12 +572,17 @@ class ServiceWalletConnect extends ServiceBase {
         const { address, wcChain } = this.parseWalletConnectFullAddress({
           wcAddress: fullAddress,
         });
-        const chainInfo = await this.getChainData(wcChain);
+        const chainInfo = await this.getWcChainInfo(wcChain);
         if (chainInfo) {
+          const { networkIdOrImpl, isMergedNetwork } =
+            accountUtils.getWalletConnectMergedNetwork({
+              networkId: chainInfo.networkId,
+            });
+
+          networkIds.push(chainInfo.networkId);
           accountsMap[chainInfo.networkId] =
             accountsMap[chainInfo.networkId] || [];
-          addressMap[chainInfo.networkId] =
-            addressMap[chainInfo.networkId] || '';
+          addressMap[networkIdOrImpl] = addressMap[networkIdOrImpl] || '';
           if (
             !accountsMap[chainInfo.networkId].find(
               (item) => item.address === address,
@@ -583,10 +594,17 @@ class ServiceWalletConnect extends ServiceBase {
               wcAddress: fullAddress,
             });
             if (address) {
-              const currentAddress = addressMap[chainInfo.networkId];
-              addressMap[chainInfo.networkId] = `${currentAddress || ''}${
-                currentAddress ? ',' : ''
-              }${address}`;
+              const updateAddressMap = (key: string) => {
+                const currentAddress = addressMap[key];
+                addressMap[key] = `${currentAddress || ''}${
+                  currentAddress ? ',' : ''
+                }${address}`;
+              };
+              // always save networkId map for send tx address matched checking
+              updateAddressMap(chainInfo.networkId);
+              if (isMergedNetwork) {
+                updateAddressMap(networkIdOrImpl);
+              }
             }
           }
         }
@@ -595,7 +613,7 @@ class ServiceWalletConnect extends ServiceBase {
     return {
       accountsMap,
       addressMap,
-      networkIds: Object.keys(accountsMap),
+      networkIds: uniq(networkIds),
     };
   }
 }

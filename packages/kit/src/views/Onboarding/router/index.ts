@@ -28,6 +28,9 @@ const VerifyRecoveryPhrase = LazyLoadPage(
 );
 
 const ConnectWallet = LazyLoadPage(() => import('../pages/ConnectWallet'));
+const ConnectWalletSelectNetworks = LazyLoadPage(
+  () => import('../pages/ConnectWalletSelectNetworks'),
+);
 const FinalizeWalletSetup = LazyLoadPage(
   () => import('../pages/FinalizeWalletSetup'),
 );
@@ -109,6 +112,10 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.ConnectWallet,
     component: ConnectWallet,
+  },
+  {
+    name: EOnboardingPages.ConnectWalletSelectNetworks,
+    component: ConnectWalletSelectNetworks,
   },
 
   // finalize wallet setup
