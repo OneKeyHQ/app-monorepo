@@ -29,4 +29,6 @@ export const DISCORD_URL = 'https://www.discord.gg/onekey';
 export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
 export const ONEKEY_URL = 'https://onekey.so';
-export const ONEKEY_APP_UPDATE_URL = 'https://data.onekey.so/config.json;
+export const ONEKEY_APP_UPDATE_URL = 'https://data.onekey.so/config.json';
+export const ONEKY_API_URL = 'https://rest.onekeytest.com';
+export const ONEKY_TEST_API_URL = 'https://rest.onekeytest.com';
