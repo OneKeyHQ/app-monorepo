@@ -9,9 +9,7 @@ export const ImageNet = RNImage;
 const loadImage = (uri: string) =>
   new Promise<void>((resolve, reject) => {
     const image = new Image();
-    image.onload = () => {
-      resolve();
-    };
+    image.onload = resolve as unknown as typeof image.onload;
     image.onerror = reject;
     image.src = uri;
   });
