@@ -115,6 +115,7 @@ export type IVaultSettings = {
   nonceRequired: boolean;
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
+  replaceTxEnabled: boolean;
 
   minTransferAmount?: string;
   utxoDustAmount?: string;
