@@ -1,7 +1,7 @@
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export interface INetworkSelectorData {
-  networkIds: string[];
+  pinnedNetworkIds: string[];
 }
 
 export class SimpleDbEntityNetworkSelector extends SimpleDbEntityBase<INetworkSelectorData> {
@@ -11,13 +11,13 @@ export class SimpleDbEntityNetworkSelector extends SimpleDbEntityBase<INetworkSe
 
   setPinnedNetworkIds({ networkIds }: { networkIds: string[] }) {
     return this.setRawData(({ rawData }) => ({
-      networkIds,
-      ...rawData?.networkIds,
+      ...rawData,
+      pinnedNetworkIds: networkIds,
     }));
   }
 
   async getPinnedNetworkIds(): Promise<string[] | undefined> {
     const rawData = await this.getRawData();
-    return rawData?.networkIds;
+    return rawData?.pinnedNetworkIds;
   }
 }

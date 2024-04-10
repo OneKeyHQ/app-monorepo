@@ -9,7 +9,7 @@ export function ChainSelectorTrigger() {
 
   const handleChainPress = () => {
     navigation.pushModal(EModalRoutes.ChainSelectorModal, {
-      screen: EChainSelectorPages.ChainSelector,
+      screen: EChainSelectorPages.AccountChainSelector,
     });
   };
 

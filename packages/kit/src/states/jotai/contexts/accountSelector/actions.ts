@@ -28,7 +28,7 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IChainSelectorRouteParams } from '@onekeyhq/shared/src/routes';
+import type { IAccountChainSelectorRouteParams } from '@onekeyhq/shared/src/routes';
 import {
   EAccountManagerStacksRoutes,
   EChainSelectorPages,
@@ -318,10 +318,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ...routeParams
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
-      } & IChainSelectorRouteParams,
+      } & IAccountChainSelectorRouteParams,
     ) => {
       navigation.pushModal(EModalRoutes.ChainSelectorModal, {
-        screen: EChainSelectorPages.ChainSelector,
+        screen: EChainSelectorPages.AccountChainSelector,
         params: routeParams,
       });
     },
