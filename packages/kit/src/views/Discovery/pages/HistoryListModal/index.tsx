@@ -122,6 +122,11 @@ function HistoryListModal() {
     [handleDeleteAll, isEditing],
   );
 
+  const keyExtractor = useCallback(
+    (item: unknown) => (item as IBrowserHistory).id,
+    [],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -133,6 +138,7 @@ function HistoryListModal() {
           testID="History-SectionList"
           height="100%"
           estimatedItemSize="$10"
+          keyExtractor={keyExtractor}
           extraData={isEditing}
           sections={isNil(dataSource) ? [] : dataSource}
           renderSectionHeader={({ section: { title } }) => (
