@@ -3,6 +3,7 @@ export * from './HeightTransition';
 export * from './LinearGradient';
 export * from './BlurView';
 export * from './Empty';
+export * from './Markdown';
 export * from './LottieView';
 export * from './Video';
 export * from './MatchSizeableText';

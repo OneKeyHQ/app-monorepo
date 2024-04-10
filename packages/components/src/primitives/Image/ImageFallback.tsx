@@ -1,7 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { Skeleton } from '../Skeleton';
 import { Stack } from '../Stack';
 

@@ -1,5 +1,6 @@
 export * from './accountManagerStacks';
 export * from './addressBook';
+export * from './appUpdate';
 export * from './assetDetails';
 export * from './assetList';
 export * from './assetSelector';

@@ -11,7 +11,6 @@ import {
   useState,
 } from 'react';
 
-import { createPortal } from 'react-dom';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
@@ -28,6 +27,7 @@ import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
+import { renderToContainer } from './renderToContainer';
 
 import type {
   IDialogCancelProps,
@@ -400,6 +400,7 @@ export const DialogContainer = forwardRef<
 function dialogShow({
   onClose,
   dialogContainer,
+  portalContainer,
   ...props
 }: IDialogShowProps & {
   dialogContainer?: (o: {
@@ -502,17 +503,10 @@ function dialogShow({
     );
   })();
 
-  // fix modal attributes is invalid in Tamagui
-  let renderElement = element;
-  if (props.modal && !platformEnv.isNative) {
-    const Component = () => createPortal(element, document.body);
-    renderElement = <Component />;
-  }
   portalRef = {
-    current: Portal.Render(
-      Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL,
-      renderElement,
-    ),
+    current: portalContainer
+      ? renderToContainer(portalContainer, element)
+      : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
     close: async (extra?: { flag?: string }) =>
