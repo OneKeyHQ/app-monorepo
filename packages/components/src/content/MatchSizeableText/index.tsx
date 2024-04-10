@@ -10,6 +10,7 @@ export type IMatchSizeableTextProps = Omit<ISizableTextProps, 'children'> & {
   matchTextStyle?: Omit<ISizableTextProps, 'children'>;
   match?: IFuseResultMatch;
   children: string;
+  matchMaxLength?: boolean;
 };
 
 const defaultMatchTextStyle: ISizableTextProps = {
@@ -19,6 +20,7 @@ const defaultMatchTextStyle: ISizableTextProps = {
 export function MatchSizeableText({
   children,
   match,
+  matchMaxLength = true,
   matchTextStyle = defaultMatchTextStyle,
   ...props
 }: IMatchSizeableTextProps) {
@@ -26,8 +28,19 @@ export function MatchSizeableText({
     if (match) {
       let currentIndex = 0;
       const strings: { text: string; isMatch: boolean }[] = [];
-      for (let index = 0; index < match.indices.length; index += 1) {
-        const item = match.indices[index];
+      let indices = match.indices;
+      if (matchMaxLength) {
+        const matchIndices = indices.map((m) => ({
+          raw: m,
+          length: m[1] - m[0],
+        }));
+        const matchItem = matchIndices
+          .sort((a, b) => a.length - b.length)
+          .pop();
+        indices = matchItem?.raw ? [matchItem.raw] : [];
+      }
+      for (let index = 0; index < indices.length; index += 1) {
+        const item = indices[index];
         const [start, end] = item;
         strings.push({
           text: children.slice(currentIndex, start),
@@ -45,7 +58,7 @@ export function MatchSizeableText({
       return strings;
     }
     return children;
-  }, [children, match]);
+  }, [children, match, matchMaxLength]);
   return typeof result === 'string' ? (
     <SizableText {...props}>{result}</SizableText>
   ) : (
