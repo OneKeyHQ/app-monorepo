@@ -20,13 +20,21 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
   compressionUiMode?: boolean;
   beforeShowTrigger?: () => Promise<void>;
+  loadingDuration?: number;
 }>(
   (
-    { num, compressionUiMode, disabled, beforeShowTrigger, ...rest },
+    {
+      num,
+      compressionUiMode,
+      disabled,
+      beforeShowTrigger,
+      loadingDuration,
+      ...rest
+    },
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _: any,
   ) => {
-    const { isLoading } = useMockAccountSelectorLoading();
+    const { isLoading } = useMockAccountSelectorLoading(loadingDuration);
     const {
       activeAccount: { account, network, indexedAccount },
       showAccountSelector,

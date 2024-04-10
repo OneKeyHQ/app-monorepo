@@ -15,9 +15,10 @@ import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
   beforeShowTrigger?: () => Promise<void>;
+  loadingDuration?: number;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-}>(({ num, disabled, beforeShowTrigger, ...rest }, _: any) => {
-  const { isLoading } = useMockAccountSelectorLoading();
+}>(({ num, disabled, beforeShowTrigger, loadingDuration, ...rest }, _: any) => {
+  const { isLoading } = useMockAccountSelectorLoading(loadingDuration);
   const {
     activeAccount: { network },
     showChainSelector,

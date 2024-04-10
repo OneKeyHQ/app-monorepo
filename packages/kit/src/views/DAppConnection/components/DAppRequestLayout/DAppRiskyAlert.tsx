@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Alert, Dialog, SizableText, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  Dialog,
+  SizableText,
+  Skeleton,
+  YStack,
+} from '@onekeyhq/components';
 import type { IAlertType } from '@onekeyhq/components/src/actions/Alert';
 import {
   EHostSecurityLevel,
@@ -69,6 +75,10 @@ function DAppRiskyAlert({
       urlSecurityInfo?.detail,
     ],
   );
+
+  if (!urlSecurityInfo) {
+    return <Skeleton w="100%" h={59} />;
+  }
 
   if (!urlSecurityInfo?.alert) {
     return null;
