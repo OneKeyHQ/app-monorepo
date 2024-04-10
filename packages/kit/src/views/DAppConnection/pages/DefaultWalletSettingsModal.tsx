@@ -181,6 +181,7 @@ function DefaultWalletSettingsModal() {
     }
     return (
       <ListView
+        keyExtractor={(item) => item.origin}
         data={result.excludedDappListWithLogo}
         estimatedItemSize="$10"
         renderItem={renderItem}
