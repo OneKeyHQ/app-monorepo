@@ -10,6 +10,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ONEKEY_APP_UPDATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -92,7 +93,7 @@ class ServiceAppUpdate extends ServiceBase {
 
     const key = Math.random().toString();
     const response = await AxiosInstance.get<IAppUpdateInfoData>(
-      `https://data.onekey.so/config.json?nocache=${key}`,
+      `${ONEKEY_APP_UPDATE_URL}?nocache=${key}`,
     );
     const releaseInfo = handleReleaseInfo(response.data);
     await appUpdatePersistAtom.set((prev) => ({
