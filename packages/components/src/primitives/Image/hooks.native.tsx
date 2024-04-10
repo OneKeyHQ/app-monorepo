@@ -33,5 +33,7 @@ export const useImageComponent: IUseImageComponent = (imageSource) =>
       return ImageNull as unknown as ReturnType<IUseImageComponent>;
     }
     const uri = (imageSource as ImageURISource).uri;
-    return uri && uri.startsWith('http') ? ImageNet : Image;
+    return uri && typeof uri === 'string' && uri.startsWith('http')
+      ? ImageNet
+      : Image;
   }, [imageSource]);
