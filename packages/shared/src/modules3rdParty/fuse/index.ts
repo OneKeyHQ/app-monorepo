@@ -14,7 +14,7 @@ const defaultFuseOptions: IFuseOptions<any> = {
   isCaseSensitive: false,
   includeMatches: true,
   shouldSort: true,
-  findAllMatches: true,
+  findAllMatches: false,
   minMatchCharLength: 1,
   threshold: 0.8,
   distance: 100,
