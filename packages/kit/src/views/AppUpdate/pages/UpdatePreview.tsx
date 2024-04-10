@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import { UNSTABLE_usePreventRemove } from '@react-navigation/core';
+import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -37,7 +37,7 @@ function UpdatePreview({
   const { version, latestVersion, changeLog, isForceUpdate } =
     route.params || {};
   const [isLock, setIsLock] = useState(!!isForceUpdate);
-  UNSTABLE_usePreventRemove(isLock, () => {});
+  usePreventRemove(isLock, () => {});
   const handleConfirm = useCallback(() => {
     setIsLock(false);
   }, []);
