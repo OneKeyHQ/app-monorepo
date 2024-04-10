@@ -35,6 +35,32 @@ const findBestMatchItem = (match: IFuseResultMatch) => {
   return matchItem?.raw ? [matchItem.raw] : [];
 };
 
+const composeStrings = (
+  indices: ReturnType<typeof findBestMatchItem>,
+  children: string,
+) => {
+  let currentIndex = 0;
+  const strings: { text: string; isMatch: boolean }[] = [];
+
+  for (let index = 0; index < indices.length; index += 1) {
+    const item = indices[index];
+    const [start, end] = item;
+    strings.push({
+      text: children.slice(currentIndex, start),
+      isMatch: false,
+    });
+    strings.push({ text: children.slice(start, end + 1), isMatch: true });
+    currentIndex = end + 1;
+  }
+  if (currentIndex !== children.length - 1) {
+    strings.push({
+      text: children.slice(currentIndex, children.length),
+      isMatch: false,
+    });
+  }
+  return strings;
+};
+
 export function MatchSizeableText({
   children,
   match,
@@ -43,29 +69,11 @@ export function MatchSizeableText({
 }: IMatchSizeableTextProps) {
   const result = useMemo(() => {
     if (match) {
-      let currentIndex = 0;
-      const strings: { text: string; isMatch: boolean }[] = [];
       const indices = findBestMatchItem(match);
-      for (let index = 0; index < indices.length; index += 1) {
-        const item = indices[index];
-        const [start, end] = item;
-        strings.push({
-          text: children.slice(currentIndex, start),
-          isMatch: false,
-        });
-        strings.push({ text: children.slice(start, end + 1), isMatch: true });
-        currentIndex = end + 1;
-      }
-      if (currentIndex !== children.length - 1) {
-        strings.push({
-          text: children.slice(currentIndex, children.length),
-          isMatch: false,
-        });
-      }
-      return strings;
+      return composeStrings(indices, children);
     }
     return children;
-  }, [children, match, matchMaxLength]);
+  }, [children, match]);
   return typeof result === 'string' ? (
     <SizableText {...props}>{result}</SizableText>
   ) : (
