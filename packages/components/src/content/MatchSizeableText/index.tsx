@@ -16,6 +16,25 @@ const defaultMatchTextStyle: ISizableTextProps = {
   color: '$textInfo',
 };
 
+const findBestMatchItem = (match: IFuseResultMatch) => {
+  const indices = match.indices;
+  const matchIndices = indices.map((m) => ({
+    raw: m,
+    length: m[1] - m[0],
+  }));
+  let matchItem = matchIndices[0];
+  for (let index = 1; index < matchIndices.length; index += 1) {
+    const item = matchIndices[index];
+    if (
+      item.length > matchItem.length ||
+      (item.length === matchItem.length && item.raw[0] < matchItem.raw[0])
+    ) {
+      matchItem = item;
+    }
+  }
+  return matchItem?.raw ? [matchItem.raw] : [];
+};
+
 export function MatchSizeableText({
   children,
   match,
@@ -26,22 +45,7 @@ export function MatchSizeableText({
     if (match) {
       let currentIndex = 0;
       const strings: { text: string; isMatch: boolean }[] = [];
-      let indices = match.indices;
-        const matchIndices = indices.map((m) => ({
-          raw: m,
-          length: m[1] - m[0],
-        }));
-        let matchItem = matchIndices[0];
-        for (let index = 1; index < matchIndices.length; index += 1) {
-          const item = matchIndices[index];
-          if (
-            item.length > matchItem.length ||
-            (item.length === matchItem.length && item.raw[0] < matchItem.raw[0])
-          ) {
-            matchItem = item;
-          }
-        }
-        indices = matchItem?.raw ? [matchItem.raw] : [];
+      const indices = findBestMatchItem(match);
       for (let index = 0; index < indices.length; index += 1) {
         const item = indices[index];
         const [start, end] = item;
