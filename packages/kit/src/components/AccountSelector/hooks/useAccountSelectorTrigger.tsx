@@ -49,7 +49,7 @@ export function useMockAccountSelectorLoading() {
   useEffect(() => {
     setTimeout(() => {
       setIsLoading(false);
-    }, 500);
+    }, 300);
   }, []);
   return {
     isLoading,
