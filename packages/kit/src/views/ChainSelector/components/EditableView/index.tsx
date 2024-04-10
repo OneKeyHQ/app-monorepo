@@ -17,7 +17,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 type IEditableViewContext = {
   isEditMode?: boolean;
   searchText?: string;
-  defaultNetworkId?: string;
+  networkId?: string;
   topNetworkIds: Set<string>;
   topNetworks: IServerNetwork[];
   onPressItem?: (item: IServerNetwork) => void;
@@ -34,7 +34,7 @@ const CELL_HEIGHT = 48;
 const EditableViewListItem = ({ item }: { item: IServerNetwork }) => {
   const {
     isEditMode,
-    defaultNetworkId,
+    networkId,
     topNetworks,
     topNetworkIds,
     onPressItem,
@@ -50,7 +50,7 @@ const EditableViewListItem = ({ item }: { item: IServerNetwork }) => {
       }}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
-      {!isEditMode && defaultNetworkId === item.id ? (
+      {!isEditMode && networkId === item.id ? (
         <ListItem.CheckMark
           key="checkmark"
           enterStyle={{
@@ -94,7 +94,7 @@ const ListHeaderComponent = () => {
     setTopNetworks,
     isEditMode,
     topNetworks,
-    defaultNetworkId,
+    networkId,
     searchText,
     onPressItem,
   } = useContext(EditableViewContext);
@@ -147,7 +147,7 @@ const ListHeaderComponent = () => {
               onPressIn={drag}
             />
           ) : null}
-          {!isEditMode && defaultNetworkId === item.id ? (
+          {!isEditMode && networkId === item.id ? (
             <ListItem.CheckMark
               key="checkmark"
               enterStyle={{
@@ -169,7 +169,7 @@ type IEditableViewProps = {
   isEditMode?: boolean;
   defaultTopNetworks: IServerNetwork[];
   allNetworks: IServerNetwork[];
-  defaultNetworkId?: string;
+  networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
   onTopNetworksChange?: (networks: IServerNetwork[]) => void;
 };
@@ -181,7 +181,7 @@ const ListEmptyComponent = () => (
 export const EditableView: FC<IEditableViewProps> = ({
   allNetworks,
   onPressItem,
-  defaultNetworkId,
+  networkId,
   defaultTopNetworks,
   isEditMode,
   onTopNetworksChange,
@@ -213,7 +213,7 @@ export const EditableView: FC<IEditableViewProps> = ({
     () => ({
       topNetworks,
       topNetworkIds: new Set(topNetworks.map((item) => item.id)),
-      defaultNetworkId,
+      networkId,
       onPressItem,
       isEditMode,
       setTopNetworks,
@@ -221,7 +221,7 @@ export const EditableView: FC<IEditableViewProps> = ({
     }),
     [
       topNetworks,
-      defaultNetworkId,
+      networkId,
       onPressItem,
       isEditMode,
       setTopNetworks,

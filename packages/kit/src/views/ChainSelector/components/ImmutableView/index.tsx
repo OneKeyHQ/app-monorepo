@@ -6,13 +6,13 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 type IImmutableViewProps = {
   networks: IServerNetwork[];
-  defaultNetworkId?: string;
+  networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
 };
 
 export const ImmutableView: FC<IImmutableViewProps> = ({
   networks,
-  defaultNetworkId,
+  networkId,
   onPressItem,
 }) => {
   const [text, setText] = useState('');
@@ -47,7 +47,7 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
               title={item.name}
               onPress={() => onPressItem?.(item)}
             >
-              {defaultNetworkId === item.id ? (
+              {networkId === item.id ? (
                 <ListItem.CheckMark
                   key="checkmark"
                   enterStyle={{

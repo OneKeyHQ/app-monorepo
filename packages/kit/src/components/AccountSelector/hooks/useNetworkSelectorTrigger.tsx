@@ -29,7 +29,7 @@ export function useNetworkSelectorTrigger({ num }: { num: number }) {
       sceneUrl,
       networkIds,
       defaultNetworkId,
-      immutable: sceneName !== EAccountSelectorSceneName.home,
+      editable: sceneName === EAccountSelectorSceneName.home,
     });
   }, [
     actions,
