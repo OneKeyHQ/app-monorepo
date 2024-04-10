@@ -203,7 +203,7 @@ const ListItemText = (props: IListItemTextProps) => {
         {secondary}
       </SizableText>
     );
-  }, [align, primary, secondary, secondaryMatch, secondaryTextProps]);
+  }, [align, secondary, secondaryMatch, secondaryTextProps]);
 
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
