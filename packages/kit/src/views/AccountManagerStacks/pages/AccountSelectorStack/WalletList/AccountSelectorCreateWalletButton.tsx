@@ -107,7 +107,7 @@ export function AccountSelectorCreateWalletButton() {
   const onboardingButton = (
     <IconButton
       onPress={() => {
-        navigation.pushFullModal(EModalRoutes.OnboardingModal, {
+        navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.GetStarted,
         });
       }}
