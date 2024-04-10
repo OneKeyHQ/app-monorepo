@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
-import { Image, Stack } from '@onekeyhq/components';
+import { Image, Skeleton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -23,6 +23,7 @@ export default function DAppConnectExtensionFloatingTrigger() {
         showFloatingButton: boolean;
         connectedAccountsInfo: IConnectionAccountInfoWithNum[] | null;
         faviconUrl: string | undefined;
+        originFaviconUrl: string | undefined;
       } | null>((resolve) => {
         chrome.tabs.query(
           { active: true, currentWindow: true },
@@ -34,12 +35,18 @@ export default function DAppConnectExtensionFloatingTrigger() {
                   await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
                     currentOrigin,
                   );
+                const faviconUrl =
+                  await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
+                    currentOrigin,
+                    40,
+                  );
                 resolve({
                   url: tabs[0].url ?? '',
                   origin: currentOrigin,
                   showFloatingButton: (connectedAccountsInfo ?? []).length > 0,
                   connectedAccountsInfo,
-                  faviconUrl: tabs[0].favIconUrl,
+                  faviconUrl,
+                  originFaviconUrl: tabs[0].favIconUrl,
                 });
                 return;
               } catch (error) {
@@ -101,13 +108,25 @@ export default function DAppConnectExtensionFloatingTrigger() {
       onPress={handlePressFloatingButton}
     >
       <Stack position="relative">
-        <Image
-          size="$10"
-          borderRadius="$2"
-          source={{
-            uri: result?.faviconUrl,
-          }}
-        />
+        <Image size="$10" borderRadius="$2">
+          <Image.Source
+            source={{
+              uri: result?.faviconUrl,
+            }}
+          />
+          <Image.Fallback>
+            <Image
+              size="$10"
+              borderRadius="$2"
+              source={{
+                uri: result?.originFaviconUrl,
+              }}
+            />
+          </Image.Fallback>
+          <Image.Loading>
+            <Skeleton width="100%" height="100%" />
+          </Image.Loading>
+        </Image>
         <Stack
           position="absolute"
           bottom={-2}

@@ -4,8 +4,8 @@ import type { IFormFieldProps } from '../types';
 import type { GetProps } from 'tamagui';
 
 export enum ESwitchSize {
-  "small" = "small",
-  "large" = "large"
+  'small' = 'small',
+  'large' = 'large',
 }
 
 export type ISwitchProps = IFormFieldProps<
