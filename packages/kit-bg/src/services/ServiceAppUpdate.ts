@@ -10,21 +10,32 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { ONEKEY_APP_UPDATE_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ONEKEY_APP_TEST_UPDATE_URL, ONEKEY_APP_UPDATE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { appUpdatePersistAtom } from '../states/jotai/atoms';
+import { appUpdatePersistAtom, devSettingsPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
 const AxiosInstance = axios.create();
 
 let timerId: ReturnType<typeof setTimeout>;
+
+
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+@backgroundMethod()
+ async getEndpoints() {
+    const settings = await devSettingsPersistAtom.get();
+    if (settings.enabled && settings.settings?.enableTestEndpoint) {
+      return ONEKEY_APP_TEST_UPDATE_URL;
+    }
+    return ONEKEY_APP_UPDATE_URL;
   }
 
   @backgroundMethod()
@@ -91,9 +102,10 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
+    const url = await this.getEndpoints();
     const key = Math.random().toString();
     const response = await AxiosInstance.get<IAppUpdateInfoData>(
-      `${ONEKEY_APP_UPDATE_URL}?nocache=${key}`,
+      `${url}?nocache=${key}`,
     );
     const releaseInfo = handleReleaseInfo(response.data);
     await appUpdatePersistAtom.set((prev) => ({
