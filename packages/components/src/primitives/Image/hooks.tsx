@@ -14,12 +14,21 @@ export const useSource: IUseSource = (source, src) =>
     }
     if (src) {
       return {
-        uri: src,
+        uri: src.trim(),
       };
     }
     const uriSource = source as ImageURISource;
     // ImageRequireSource will be convert to the link via Webpack
-    return (uriSource.uri ? uriSource : { uri: source }) as ImageSourcePropType;
+    return (
+      uriSource.uri
+        ? {
+            uri: uriSource.uri.trim(),
+          }
+        : {
+            uri:
+              typeof source === 'string' ? (source as string).trim() : source,
+          }
+    ) as ImageSourcePropType;
   }, [source, src]);
 
 export const useImageComponent: IUseImageComponent = (imageSource) =>
