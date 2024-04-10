@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

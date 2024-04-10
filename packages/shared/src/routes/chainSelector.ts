@@ -5,13 +5,15 @@ import type {
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 export enum EChainSelectorPages {
+  AccountChainSelector = 'AccountChainSelector',
   ChainSelector = 'ChainSelector',
-  ConfigurableChainSelector = 'ConfigurableChainSelector',
 }
-export type IChainSelectorRouteParams = IAccountSelectorRouteParams &
-  IAccountSelectorAvailableNetworks;
+export type IAccountChainSelectorRouteParams = IAccountSelectorRouteParams &
+  IAccountSelectorAvailableNetworks & {
+    editable?: boolean;
+  };
 
-export type IConfigurableChainSelectorParams = {
+export type IChainSelectorParams = {
   defaultNetworkId?: string;
   networkIds?: string[];
   title?: string;
@@ -19,6 +21,6 @@ export type IConfigurableChainSelectorParams = {
 };
 
 export type IChainSelectorParamList = {
-  [EChainSelectorPages.ChainSelector]: IChainSelectorRouteParams;
-  [EChainSelectorPages.ConfigurableChainSelector]?: IConfigurableChainSelectorParams;
+  [EChainSelectorPages.AccountChainSelector]: IAccountChainSelectorRouteParams;
+  [EChainSelectorPages.ChainSelector]?: IChainSelectorParams;
 };
