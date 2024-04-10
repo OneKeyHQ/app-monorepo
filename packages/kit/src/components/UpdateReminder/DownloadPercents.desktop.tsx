@@ -21,7 +21,7 @@ export function DownloadPercents() {
     );
     window.desktopApi.on('update/downloaded', () => {
       console.log('update/downloaded');
-      void backgroundApiProxy.ServiceAppUpdate.readToInstall();
+      void backgroundApiProxy.ServiceAppUpdate.readyToInstall();
     });
   }, []);
   return `Downloading Package... ${percent}%`;
