@@ -4,4 +4,8 @@ import type { IPreloadFunc } from './type';
 
 export const ImageNet = FastImage;
 
-export const preload: IPreloadFunc = ImageNet.preload;
+export const preload: IPreloadFunc = (sources) =>
+  new Promise((resolve) => {
+    ImageNet.preload(sources);
+    resolve();
+  });

@@ -43,4 +43,4 @@ export type IUseImageComponent = (
   imageSource?: ImageSourcePropType,
 ) => typeof Image;
 
-export type IPreloadFunc = FastImageStaticProperties['preload'];
+export type IPreloadFunc = (sources: { uri?: string }[]) => Promise<void>;
