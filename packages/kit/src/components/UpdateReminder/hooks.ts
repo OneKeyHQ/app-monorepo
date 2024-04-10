@@ -52,7 +52,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
     }
-    void backgroundApiProxy.ServiceAppUpdate.fetchAppUpdateInfo();
+    void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

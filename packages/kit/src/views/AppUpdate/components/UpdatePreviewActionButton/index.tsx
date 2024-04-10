@@ -17,14 +17,14 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
         openUrlExternal(appUpdateInfo.data.storeUrl);
       } else if (appUpdateInfo.data.downloadUrl) {
         if (platformEnv.isDesktop) {
-          void backgroundApiProxy.ServiceAppUpdate.startDownloading();
+          void backgroundApiProxy.serviceAppUpdate.startDownloading();
           window.desktopApi?.on?.('update/checking', () => {
             console.log('update/checking');
           });
           window.desktopApi?.on?.('update/available', async ({ version }) => {
             console.log('update/available, version: ', version);
             window.desktopApi.downloadUpdate();
-            await backgroundApiProxy.ServiceAppUpdate.startDownloading();
+            await backgroundApiProxy.serviceAppUpdate.startDownloading();
           });
           window.desktopApi.checkForUpdates();
         } else if (platformEnv.isNativeAndroid) {

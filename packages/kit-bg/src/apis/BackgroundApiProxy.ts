@@ -140,8 +140,8 @@ class BackgroundApiProxy
     'serviceAddressBook',
   ) as ServiceAddressBook;
 
-  ServiceAppUpdate = this._createProxyService(
-    'ServiceAppUpdate',
+  serviceAppUpdate = this._createProxyService(
+    'serviceAppUpdate',
   ) as ServiceAppUpdate;
 
   serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
