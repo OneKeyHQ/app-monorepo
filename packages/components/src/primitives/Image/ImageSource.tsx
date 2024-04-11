@@ -49,6 +49,7 @@ export function ImageSource({
   const { setLoading, setLoadedSuccessfully } = useContext(ImageContext);
 
   const handleLoadStart = useCallback(() => {
+    hasError.current = false;
     setLoading?.(true);
   }, [setLoading]);
 
