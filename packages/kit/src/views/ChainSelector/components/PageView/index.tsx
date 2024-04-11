@@ -24,7 +24,7 @@ type IChainSelectorPageViewProps = IChainSelectorEditableViewProps & {
 };
 
 const ChainSelectorImmutableView: FC<IChainSelectorViewProps> = ({
-  title = 'Network',
+  title = 'Networks',
   networks,
   networkId,
   onPressItem,
@@ -58,7 +58,7 @@ const ChainSelectorEditableView: FC<IChainSelectorEditableViewProps> = ({
   onPressItem,
   defaultTopNetworks = [],
   onTopNetworksChange,
-  title = 'Network',
+  title = 'Networks',
 }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const handleEditButtonPress = () => {
