@@ -59,7 +59,7 @@ function ImportPrivateKey() {
           builder: (v) => ({
             ...v,
             networkId: values.networkId,
-            focusedWallet: '$$others',
+            focusedWallet: WALLET_TYPE_IMPORTED,
             walletId: WALLET_TYPE_IMPORTED,
             othersWalletAccountId: r.accounts[0].id,
             indexedAccountId: undefined,

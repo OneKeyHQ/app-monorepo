@@ -2,6 +2,7 @@ import { type FC, useCallback, useMemo, useState } from 'react';
 
 import { ListView, SearchBar, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 type IImmutableViewProps = {
@@ -40,10 +41,7 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
           renderItem={({ item }) => (
             <ListItem
               h={48}
-              avatarProps={{
-                src: item.logoURI,
-                size: '$8',
-              }}
+              renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
               title={item.name}
               onPress={() => onPressItem?.(item)}
             >

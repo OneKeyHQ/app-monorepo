@@ -15,7 +15,7 @@ import type {
 import type { ConnectorEventMap, CreateConnectorFn } from '@wagmi/core';
 import type { Store } from 'mipd';
 
-export class ExternalManagerEvm {
+export class EvmConnectorManager {
   _mipd: Store | undefined;
 
   private get mipdStore() {
@@ -82,16 +82,32 @@ export class ExternalManagerEvm {
   ): Promise<IExternalConnectorEvm> {
     // Set up emitter with uid and add to connector so they are "linked" together.
     const emitter = createEmitter<ConnectorEventMap>(uidForWagmi());
+    const innerConnector = connectorFn({
+      // @ts-ignore
+      emitter,
+      chains: [{ id: 1, name: 'Ethereum' }] as any,
+      // storage: {} as any,
+    });
     const connector: IExternalConnectorEvm = {
-      ...connectorFn({
-        // @ts-ignore
-        emitter,
-        chains: [{ id: 1, name: 'Ethereum' }] as any,
-        // storage: {} as any,
-      }),
+      ...innerConnector,
       emitter,
       uid: emitter.uid,
       connectionInfo,
+      connect: async (parameters) => {
+        if (parameters?.isReconnecting) {
+          const isAuthorized = await innerConnector.isAuthorized();
+          if (!isAuthorized) {
+            const accounts = await innerConnector.getAccounts();
+            const chainId = await innerConnector.getChainId();
+            // throw new Error('Wallet is disconnected');
+            return {
+              accounts,
+              chainId,
+            };
+          }
+        }
+        return innerConnector.connect(parameters);
+      },
     };
 
     // Start listening for `connect` events on connector setup

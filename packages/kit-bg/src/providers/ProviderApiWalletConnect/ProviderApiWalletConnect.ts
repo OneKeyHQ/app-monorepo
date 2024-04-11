@@ -177,7 +177,7 @@ class ProviderApiWalletConnect {
     const { serviceWalletConnect } = this.backgroundApi;
 
     // check request method is supported
-    const chain = await serviceWalletConnect.getChainData(
+    const chain = await serviceWalletConnect.getWcChainInfo(
       request.params.chainId,
     );
     if (!chain) {
@@ -285,7 +285,7 @@ class ProviderApiWalletConnect {
         isWalletConnectRequest: true,
       });
     const chainInfo =
-      await this.backgroundApi.serviceWalletConnect.getChainData(
+      await this.backgroundApi.serviceWalletConnect.getWcChainInfo(
         request.params.chainId,
       );
     if (!accountsInfo?.[0].accountInfo.networkId || !chainInfo?.networkId) {

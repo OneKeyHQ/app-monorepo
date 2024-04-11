@@ -35,3 +35,4 @@ export const getNetworkIdsMap = memoFn(() => {
     return memo;
   }, {} as Record<INetworkShortCode, string>);
 });
+export const getNetworkIds = memoFn(() => Object.keys(getNetworkIdsMap()));

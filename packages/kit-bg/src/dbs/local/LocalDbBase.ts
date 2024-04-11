@@ -106,6 +106,49 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     // return db.withTransaction(task);
   }
 
+  buildSingletonWalletRecord({ walletId }: { walletId: IDBWalletIdSingleton }) {
+    const walletConfig: Record<
+      IDBWalletIdSingleton,
+      {
+        avatar: IAvatarInfo;
+        walletNo: number;
+      }
+    > = {
+      [WALLET_TYPE_IMPORTED]: {
+        avatar: {
+          img: 'othersImported',
+        },
+        walletNo: 100_000_1,
+      },
+      [WALLET_TYPE_WATCHING]: {
+        avatar: {
+          img: 'othersWatching',
+        },
+        walletNo: 100_000_2,
+      },
+      [WALLET_TYPE_EXTERNAL]: {
+        avatar: {
+          img: 'othersExternal',
+        },
+        walletNo: 100_000_3,
+      },
+    };
+    const record: IDBWallet = {
+      id: walletId,
+      avatar: walletConfig?.[walletId]?.avatar
+        ? JSON.stringify(walletConfig[walletId].avatar)
+        : undefined,
+      name: walletId,
+      type: walletId,
+      backuped: true,
+      accounts: [],
+      nextIndex: 0,
+      walletNo: walletConfig?.[walletId]?.walletNo ?? 0,
+      nextAccountIds: { 'global': 1 },
+    };
+    return record;
+  }
+
   async getRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
@@ -633,6 +676,22 @@ ssphrase wallet
         hiddenWallets.map((item) => this.refillWalletInfo({ wallet: item })),
       );
       wallet.hiddenWallets = wallet.hiddenWallets.sort(this.walletSortFn);
+    }
+
+    if (
+      accountUtils.isOthersWallet({
+        walletId: wallet.id,
+      })
+    ) {
+      if (accountUtils.isWatchingWallet({ walletId: wallet.id })) {
+        wallet.name = 'Watched';
+      }
+      if (accountUtils.isExternalWallet({ walletId: wallet.id })) {
+        wallet.name = 'Connected';
+      }
+      if (accountUtils.isImportedWallet({ walletId: wallet.id })) {
+        wallet.name = 'Private key';
+      }
     }
 
     return wallet;

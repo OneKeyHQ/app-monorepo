@@ -152,7 +152,11 @@ export function DeriveTypeSelectorTrigger({
     activeAccount: { deriveInfoItems, deriveInfo },
   } = useActiveAccount({ num });
 
-  if (selectedAccount.focusedWallet === '$$others') {
+  if (!selectedAccount.walletId) {
+    return null;
+  }
+
+  if (accountUtils.isOthersWallet({ walletId: selectedAccount.walletId })) {
     return null;
   }
 

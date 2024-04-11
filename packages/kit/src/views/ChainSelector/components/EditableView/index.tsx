@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -44,10 +45,7 @@ const EditableViewListItem = ({ item }: { item: IServerNetwork }) => {
     <ListItem
       title={item.name}
       h={CELL_HEIGHT}
-      avatarProps={{
-        src: item.logoURI,
-        size: '$8',
-      }}
+      renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
     >
       {!isEditMode && networkId === item.id ? (
@@ -127,10 +125,7 @@ const ListHeaderComponent = () => {
       renderItem={({ item, drag }) => (
         <ListItem
           h={CELL_HEIGHT}
-          avatarProps={{
-            src: item.logoURI,
-            size: '$8',
-          }}
+          renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
           title={item.name}
           onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
         >

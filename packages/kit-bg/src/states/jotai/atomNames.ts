@@ -12,4 +12,5 @@ export enum EAtomNames {
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',
   appUpdatePersistAtom = 'appUpdatePersistAtom',
+  onboardingConnectWalletLoadingAtom = 'onboardingConnectWalletLoadingAtom',
 }

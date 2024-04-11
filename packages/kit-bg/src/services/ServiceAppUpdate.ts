@@ -10,11 +10,17 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { ONEKEY_APP_TEST_UPDATE_URL, ONEKEY_APP_UPDATE_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  ONEKEY_APP_TEST_UPDATE_URL,
+  ONEKEY_APP_UPDATE_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { appUpdatePersistAtom, devSettingsPersistAtom } from '../states/jotai/atoms';
+import {
+  appUpdatePersistAtom,
+  devSettingsPersistAtom,
+} from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -22,15 +28,14 @@ const AxiosInstance = axios.create();
 
 let timerId: ReturnType<typeof setTimeout>;
 
-
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
-@backgroundMethod()
- async getEndpoints() {
+  @backgroundMethod()
+  async getEndpoints() {
     const settings = await devSettingsPersistAtom.get();
     if (settings.enabled && settings.settings?.enableTestEndpoint) {
       return ONEKEY_APP_TEST_UPDATE_URL;

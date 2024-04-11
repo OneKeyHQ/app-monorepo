@@ -8,13 +8,16 @@ import type {
   SessionTypes,
   SignClientTypes,
 } from '@walletconnect/types';
+import type { ConnectParams } from '@walletconnect/universal-provider';
 import type Web3Wallet from '@walletconnect/web3wallet';
 
+export type IWalletConnectConnectParams = ConnectParams;
 export type IWalletConnectNamespaces = SessionTypes.Namespaces;
 export type IWalletConnectRequiredNamespaces = ProposalTypes.RequiredNamespaces;
 export type IWalletConnectOptionalNamespaces = ProposalTypes.OptionalNamespaces;
 export type IWalletConnectNamespace = SessionTypes.Namespace;
 export type IWalletConnectSession = SessionTypes.Struct;
+export type IWalletConnectPeerMeta = SignClientTypes.Metadata;
 
 export type INamespaceUnion =
   | 'eip155'
@@ -57,7 +60,7 @@ export type IWalletConnectLoggerLevel = pino.Level;
 export type IWalletConnectKeyValueStorage = IKeyValueStorage;
 export type IWalletConnectSignClient = SignClient;
 export type IWalletConnectWeb3Wallet = Web3Wallet;
-
+export type IWalletConnectConnectToWalletParams = { impl?: string };
 export type IWalletConnectChainString = string; // "eip155:137"
 export type IWalletConnectAddressString = string; // "eip155:137:0x275841633e1e5bF0B382B95Cd3f31E141EE15D88"
 export interface IWalletConnectChainInfo {

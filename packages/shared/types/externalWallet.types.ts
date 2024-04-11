@@ -5,9 +5,12 @@ import type { IDBAccountAddressesMap } from '@onekeyhq/kit-bg/src/dbs/local/type
 import type { WalletConnectDappSideProvider } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnect/WalletConnectDappSideProvider';
 
 import type { Emitter } from '../src/eventBus/WagmiEventEmitter';
-import type { IWalletConnectSession } from '../src/walletConnect/types';
+import type {
+  IWalletConnectConnectToWalletParams,
+  IWalletConnectPeerMeta,
+  IWalletConnectSession,
+} from '../src/walletConnect/types';
 import type { ConnectorEventMap, CreateConnectorFn } from '@wagmi/core';
-import type { SignClientTypes } from '@walletconnect/types';
 import type { EIP6963ProviderInfo, Rdns } from 'mipd';
 
 export type IEvmEIP6963ProviderInfo = EIP6963ProviderInfo<Rdns>;
@@ -54,20 +57,23 @@ type IWalletProviderFlags =
 
 type IEvaluate<type> = { [key in keyof type]: type[key] } & unknown;
 
-export type IExternalConnectionInfoWalletConnect = {
-  topic: string;
-  peerMeta: SignClientTypes.Metadata | undefined;
-  // how to check this account is connected by deeplink redirect at same device,
-  //     but not qrcode scan from another device
-  //     use peerMeta?.redirect instead
-  mobileLink?: string; // StorageUtil.setDeepLinkWallet(data?.wallet?.mobile_link);
-};
+export type IExternalConnectionInfoWalletConnect =
+  IWalletConnectConnectToWalletParams & {
+    isNewConnection?: boolean; // only for new connection, do not save to DB
+    topic: string;
+    peerMeta: IWalletConnectPeerMeta | undefined;
+    // how to check this account is connected by deeplink redirect at same device,
+    //     but not qrcode scan from another device
+    //     use peerMeta?.redirect instead
+    mobileLink?: string; // StorageUtil.setDeepLinkWallet(data?.wallet?.mobile_link);
+  };
 export type IExternalConnectionInfoEvmEIP6963 = {
   info: IEvmEIP6963ProviderInfo;
 };
 export type IExternalConnectionInfoEvmInjected = {
   global: 'ethereum'; // window.ethereum, nested object use `lodash.get(window, '$onekey.ethereum');`
   icon?: string;
+  name: string;
 };
 export type IExternalConnectionInfo = {
   walletConnect?: IExternalConnectionInfoWalletConnect;
@@ -147,6 +153,7 @@ export type IExternalConnectAccountInfo = {
   networkIds: string[] | undefined;
   impl: string;
   addresses: IDBAccountAddressesMap;
+  name: string;
 };
 export type IExternalConnectWalletResult = {
   connectionInfo: IExternalConnectionInfo;

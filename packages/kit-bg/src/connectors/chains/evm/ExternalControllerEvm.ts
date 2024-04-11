@@ -1,5 +1,4 @@
-import { injected } from '@wagmi/core';
-import { isNil, uniqBy } from 'lodash';
+import { isNil, isString, uniqBy } from 'lodash';
 
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -8,12 +7,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IExternalConnectResultEvm,
   IExternalConnectWalletResult,
   IExternalConnectionInfo,
-  IExternalConnector,
   IExternalConnectorEvm,
   IExternalCreateConnectorResult,
   IExternalListWalletsResult,
@@ -24,30 +25,38 @@ import type {
 import localDb from '../../../dbs/local/localDb';
 import { ExternalControllerBase } from '../../base/ExternalControllerBase';
 
+import { EvmConnectorManager } from './EvmConnectorManager';
 import evmConnectorUtils from './evmConnectorUtils';
-import { ExternalManagerEvm } from './ExternalManagerEvm';
+import { ExternalConnectorEvmEIP6963 } from './ExternalConnectorEvmEIP6963';
+import { ExternalConnectorEvmInjected } from './ExternalConnectorEvmInjected';
 
+import type { IDBAccountAddressesMap } from '../../../dbs/local/types';
 import type {
-  IDBAccountAddressesMap,
-  IDBExternalAccount,
-} from '../../../dbs/local/types';
-import type {
-  ISignMessageParams,
-  ISignTransactionParams,
-} from '../../../vaults/types';
+  IExternalHandleWalletConnectEventsParams,
+  IExternalSendTransactionByWalletConnectPayload,
+  IExternalSendTransactionPayload,
+  IExternalSignMessageByWalletConnectPayload,
+  IExternalSignMessagePayload,
+} from '../../base/ExternalControllerBase';
 
 export class ExternalControllerEvm extends ExternalControllerBase {
-  listeners: Record<string, (data: any) => Promise<void>> = {};
+  changeListeners: Record<string, (data: any) => Promise<void>> = {};
+
+  disconnectListeners: Record<string, (data: any) => Promise<void>> = {};
 
   override removeEventListeners({
     connector,
     accountId,
   }: {
     connector: IExternalConnectorEvm;
-    accountId: string;
+    accountId: string | undefined;
   }): void {
-    connector.emitter.off('change', this.listeners[accountId]);
-    delete this.listeners[accountId];
+    if (accountId) {
+      connector.emitter.off('change', this.changeListeners[accountId]);
+      connector.emitter.off('disconnect', this.disconnectListeners[accountId]);
+      delete this.changeListeners[accountId];
+      delete this.disconnectListeners[accountId];
+    }
   }
 
   override addEventListeners({
@@ -55,24 +64,35 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     accountId,
   }: {
     connector: IExternalConnectorEvm;
-    accountId: string;
+    accountId: string | undefined;
   }): void {
     this.removeEventListeners({ connector, accountId });
 
-    this.listeners[accountId] = async (data: {
-      accounts?: readonly `0x${string}`[] | undefined;
-      chainId?: number | undefined;
-      uid: string;
-    }) => {
-      console.log('ExternalWalletControllerEvm change event');
-      const chainId = await connector.getChainId();
-      await this.updateExternalAccountSelectedAddressEvm({
-        accountId,
-        chainId,
-        wagmiConnectorChangeEventParams: data,
-      });
-    };
-    connector.emitter.on('change', this.listeners[accountId]);
+    if (accountId) {
+      this.changeListeners[accountId] = async (data: {
+        accounts?: readonly `0x${string}`[] | undefined;
+        chainId?: number | undefined;
+        uid: string;
+      }) => {
+        console.log('ExternalWalletControllerEvm change event');
+        const chainId = await connector.getChainId();
+        await this.updateExternalAccountSelectedAddressEvm({
+          accountId,
+          chainId,
+          wagmiConnectorChangeEventParams: data,
+        });
+      };
+      // TODO move disconnectListeners handler to base class
+      this.disconnectListeners[accountId] = async (data: any) => {
+        console.log('wallet disconnect', data, accountId);
+        await this.backgroundApi.serviceDappSide.disconnectExternalWallet({
+          accountId,
+          account: undefined,
+        });
+      };
+      connector.emitter.on('change', this.changeListeners[accountId]);
+      connector.emitter.once('disconnect', this.disconnectListeners[accountId]);
+    }
   }
 
   async updateExternalAccountSelectedAddressEvm({
@@ -98,14 +118,19 @@ export class ExternalControllerEvm extends ExternalControllerBase {
         createAtNetwork,
       });
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    } else if (!isNil(usedChainId)) {
+      await this.updateAccountCreateAtNetwork({
+        chainId: usedChainId,
+        accountId,
+      });
     }
   }
 
-  _manager: ExternalManagerEvm | undefined;
+  _manager: EvmConnectorManager | undefined;
 
   get manager() {
     if (!this._manager) {
-      this._manager = new ExternalManagerEvm();
+      this._manager = new EvmConnectorManager();
     }
     return this._manager;
   }
@@ -117,9 +142,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
       .getProviders()
       .filter((item) => item.info.uuid !== uuidOneKeyInjectAsMetamask);
 
-    // EVM injected wallet icon
-    const icon =
-      'https://explorer-api.walletconnect.com/v3/logo/lg/5195e9db-94d8-4579-6f11-ef553be95100?projectId=2f05ae7f1116030fde2d36508f472bfb';
+    const icon = externalWalletLogoUtils.getLogoInfo('injected').logo;
     const evmInjectedWallet: IExternalWalletInfo = {
       name: 'Injected',
       icon,
@@ -127,6 +150,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
         evmInjected: {
           global: 'ethereum',
           icon,
+          name: 'Injected',
         },
       },
     };
@@ -156,21 +180,22 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     connectionInfo: IExternalConnectionInfo;
   }): Promise<IExternalCreateConnectorResult> {
     const { evmEIP6963, evmInjected } = connectionInfo;
-    let connectorFn;
+    let connector: IExternalConnectorEvm | undefined;
     if (evmEIP6963?.info) {
-      connectorFn = this.manager.providerDetailToConnector({
-        info: evmEIP6963?.info,
+      connector = await ExternalConnectorEvmEIP6963.createConnector({
+        manager: this.manager,
+        connectionInfo,
       });
     }
     if (evmInjected) {
-      connectorFn = injected();
+      connector = await ExternalConnectorEvmInjected.createConnector({
+        manager: this.manager,
+        connectionInfo,
+      });
     }
-    if (!connectorFn) {
-      throw new Error('connectorFn is not defined');
+    if (!connector) {
+      throw new Error('connector is not defined');
     }
-    const connector = await this.manager.setup(connectorFn, connectionInfo);
-    // TODO cache connector and destroy
-    // add events
     return { connector, connectionInfo };
   }
 
@@ -212,7 +237,7 @@ export class ExternalControllerEvm extends ExternalControllerBase {
   override async connectWallet({
     connector,
   }: {
-    connector: IExternalConnector;
+    connector: IExternalConnectorEvm;
   }): Promise<IExternalConnectWalletResult> {
     const { connectionInfo } = connector;
     checkIsDefined(connectionInfo);
@@ -220,6 +245,13 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     const result = (await connector.connect()) as IExternalConnectResultEvm;
     const { impl, createAtNetwork, addressMap, notSupportedNetworkIds } =
       await this.buildEvmConnectedAddressMap(result);
+    let name = '';
+    if (connectionInfo?.evmInjected?.name) {
+      name = connectionInfo?.evmInjected?.name;
+    }
+    if (connectionInfo?.evmEIP6963?.info?.name) {
+      name = connectionInfo?.evmEIP6963?.info?.name;
+    }
     return {
       connectionInfo,
       accountInfo: {
@@ -227,25 +259,177 @@ export class ExternalControllerEvm extends ExternalControllerBase {
         createAtNetwork,
         addresses: addressMap,
         networkIds: undefined,
+        name: name || '',
       },
       notSupportedNetworkIds,
     };
   }
 
-  override async sendTransaction({
-    connector,
-    params,
-  }: {
-    account: IDBExternalAccount;
-    networkId: string;
-    connector: IExternalConnectorEvm;
-    params: ISignTransactionParams;
-  }): Promise<ISignedTxPro> {
+  override async signMessageByWalletConnect(
+    payload: IExternalSignMessageByWalletConnectPayload,
+  ): Promise<ISignedMessagePro> {
+    const { params, networkId, connector } = payload;
+
+    const wcChain = await this.getWcChain({ networkId });
+    const { method, callParams } = evmConnectorUtils.parseSignMessageParams({
+      params,
+    });
+    const provider = await connector.getProvider();
+    const result = (await provider.request(
+      {
+        method,
+        params: callParams,
+      },
+      wcChain,
+    )) as string;
+
+    return [result];
+  }
+
+  override async sendTransactionByWalletConnect(
+    payload: IExternalSendTransactionByWalletConnectPayload,
+  ): Promise<ISignedTxPro> {
+    const { params, networkId, connector } = payload;
+
+    const wcChain = await this.getWcChain({ networkId });
     const { method, callParams } = evmConnectorUtils.parseSendTransactionParams(
       {
         params,
       },
     );
+    const provider = await connector.getProvider();
+    const txid = (await provider.request(
+      {
+        method,
+        params: callParams,
+      },
+      wcChain,
+    )) as string;
+
+    if (!txid) {
+      throw new Error(
+        'ExternalWalletControllerWalletConnect sendTransaction ERROR: txid not found',
+      );
+    }
+
+    return {
+      txid,
+      rawTx: '',
+      encodedTx: params.unsignedTx.encodedTx,
+    };
+  }
+
+  override async handleWalletConnectEvents(
+    params: IExternalHandleWalletConnectEventsParams,
+  ): Promise<void> {
+    const { eventData, eventName, account, wcChainInfo } = params;
+
+    // handle accountsChanged
+    if (eventName === 'accountsChanged') {
+      // const wcSessionEvent = {
+      //   'id': 1710226817544891,
+      //   'topic':
+      //     '7452725652a616ebc2554ee049b026d56f537177c969fe5c07f92f75ee5e8bb6',
+      //   'params': {
+      //     'event': {
+      //       'name': 'accountsChanged',
+      //       'data': ['eip155:137:0x111'],
+      //     },
+      //     'chainId': 'eip155:137',
+      //   },
+      // };
+
+      if (wcChainInfo && account) {
+        const { isMergedNetwork, networkIdOrImpl } =
+          accountUtils.getWalletConnectMergedNetwork({
+            networkId: wcChainInfo.networkId,
+          });
+        const impl = networkUtils.getNetworkImpl({
+          networkId: wcChainInfo.networkId,
+        });
+        const addresses =
+          account.connectedAddresses[networkIdOrImpl]
+            .split(',')
+            .filter(Boolean) || [];
+        const eventAddress = (eventData as string[] | undefined)?.[0];
+        if (eventAddress && isString(eventAddress)) {
+          const result =
+            this.backgroundApi.serviceWalletConnect.parseWalletConnectFullAddress(
+              {
+                wcAddress: eventAddress,
+              },
+            );
+          const addressIndex = addresses.indexOf(result.address);
+          if (addressIndex >= 0) {
+            const selectedMapNew = {
+              ...account.selectedAddress,
+              [networkIdOrImpl]: addressIndex,
+            };
+            if (isMergedNetwork) {
+              // walletconnect always use impl to find compatible network if isMergedNetwork=true
+              delete selectedMapNew[wcChainInfo.networkId];
+            } else {
+              delete selectedMapNew[impl];
+            }
+            await localDb.updateExternalAccount({
+              accountId: account.id,
+              selectedMap: selectedMapNew,
+            });
+            appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+          }
+        }
+      }
+    }
+
+    // handle chainChanged
+    if (eventName === 'chainChanged') {
+      // const wcSessionEvent = {
+      //   'id': 1710226674065096,
+      //   'topic':
+      //     '7452725652a616ebc2554ee049b026d56f537177c969fe5c07f92f75ee5e8bb6',
+      //   'params': {
+      //     'event': { 'name': 'chainChanged', 'data': 137 },
+      //     'chainId': 'eip155:137',
+      //   },
+      // };
+      await this.updateAccountCreateAtNetwork({
+        chainId: eventData as number,
+        accountId: account.id,
+      });
+    }
+  }
+
+  async updateAccountCreateAtNetwork({
+    accountId,
+    chainId,
+  }: {
+    accountId: string | undefined;
+    chainId: string | number;
+  }) {
+    const newNetworkId = `evm--${chainId}`;
+    const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+      networkId: newNetworkId,
+    });
+    if (network && accountId) {
+      await localDb.updateExternalAccount({
+        accountId,
+        createAtNetwork: network.id,
+      });
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
+  }
+
+  override async sendTransaction(
+    payload: IExternalSendTransactionPayload,
+  ): Promise<ISignedTxPro> {
+    const { params } = payload;
+    const connector = payload.connector as IExternalConnectorEvm;
+    const { method, callParams } = evmConnectorUtils.parseSendTransactionParams(
+      {
+        params,
+      },
+    );
+    // TODO check isAuthorized, check address matched, check network matched and request chain switch
     const provider = await connector.getProvider();
     const txid = await provider.request({
       method,
@@ -265,15 +449,11 @@ export class ExternalControllerEvm extends ExternalControllerBase {
     };
   }
 
-  override async signMessage({
-    params,
-    connector,
-  }: {
-    account: IDBExternalAccount;
-    networkId: string;
-    params: ISignMessageParams;
-    connector: IExternalConnectorEvm;
-  }): Promise<ISignedMessagePro> {
+  override async signMessage(
+    payload: IExternalSignMessagePayload,
+  ): Promise<ISignedMessagePro> {
+    const { params } = payload;
+    const connector = payload.connector as IExternalConnectorEvm;
     const { method, callParams } = evmConnectorUtils.parseSignMessageParams({
       params,
     });

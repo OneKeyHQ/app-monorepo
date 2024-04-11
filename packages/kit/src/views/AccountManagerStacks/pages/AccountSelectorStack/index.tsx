@@ -7,14 +7,14 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import { WalletDetails } from './WalletDetails';
-import { WalletList } from './WalletList';
+import { AccountSelectorWalletListSideBar } from './WalletList';
 
 export function AccountSelectorStack({ num }: { num: number }) {
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
       <Page.Body flexDirection="row">
-        <WalletList num={num} />
+        <AccountSelectorWalletListSideBar num={num} />
         <WalletDetails num={num} />
       </Page.Body>
     </Page>

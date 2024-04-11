@@ -43,6 +43,7 @@ class ServiceDappSide extends ServiceBase {
     const result: IListAllExternalWalletsResult = {
       wallets: {},
     };
+    // only web can list injected wallets by browser extension
     if (!platformEnv.isWeb) {
       return result;
     }
@@ -82,18 +83,44 @@ class ServiceDappSide extends ServiceBase {
     return connectResult;
   }
 
-  async disconnectExternalWallet({ account }: { account: IDBAccount }) {
+  async disconnectExternalWallet({
+    account,
+    accountId,
+  }: {
+    account: IDBAccount | undefined;
+    accountId?: string | undefined;
+  }) {
+    // eslint-disable-next-line no-param-reassign
+    account =
+      account ||
+      (await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId: accountId || '',
+      }));
     const externalAccount = account as IDBExternalAccount;
 
     const connectionInfo = externalAccount.connectionInfo;
 
     if (connectionInfo) {
-      await this.destroyConnector({ connectionInfo });
+      let shouldDestroyConnector = true;
+      if (connectionInfo.walletConnect) {
+        const topic = connectionInfo.walletConnect.topic;
+        const { accounts } =
+          await this.backgroundApi.serviceAccount.getWalletConnectDBAccounts({
+            topic,
+          });
+        // only destroy connector when no other accounts using the same topic
+        if (accounts?.length > 0) {
+          shouldDestroyConnector = false;
+        }
+      }
+      if (shouldDestroyConnector) {
+        await this.destroyConnector({ connectionInfo });
+      }
     }
   }
 
   connectorCache: {
-    [accountId: string]: {
+    [cachedKey: string]: {
       connector: IExternalConnector;
     };
   } = {};
@@ -107,6 +134,28 @@ class ServiceDappSide extends ServiceBase {
     await this.getConnectorCached({ connectionInfo });
   }
 
+  buildConnectorCacheKey({
+    connectionInfo,
+  }: {
+    connectionInfo: IExternalConnectionInfo;
+  }) {
+    let cachedKey = '';
+    let accountId: string | undefined;
+    if (connectionInfo.walletConnect?.topic) {
+      cachedKey = `walletconnect@${connectionInfo.walletConnect.topic}`;
+    } else {
+      accountId = accountUtils.buildExternalAccountId({
+        wcSessionTopic: undefined,
+        connectionInfo,
+      });
+      cachedKey = accountId;
+    }
+    return {
+      cachedKey,
+      accountId,
+    };
+  }
+
   async getConnectorCached({
     connectionInfo,
     newConnection,
@@ -114,22 +163,23 @@ class ServiceDappSide extends ServiceBase {
     connectionInfo: IExternalConnectionInfo;
     newConnection?: boolean;
   }) {
-    let accountId = '';
+    let accountId: string | undefined = '';
+    let cachedKey = '';
 
-    if (newConnection && connectionInfo.walletConnect === (true as any)) {
+    if (newConnection && connectionInfo.walletConnect?.isNewConnection) {
       accountId = '';
+      cachedKey = '';
     } else {
-      accountId = accountUtils.buildExternalAccountId({
-        wcSessionTopic: undefined,
+      ({ accountId, cachedKey } = this.buildConnectorCacheKey({
         connectionInfo,
-      });
+      }));
     }
 
     let currentConnector: IExternalConnector | undefined =
-      this.connectorCache[accountId]?.connector;
+      this.connectorCache[cachedKey]?.connector;
 
     if (currentConnector && newConnection) {
-      // disconnect first to off events
+      // disconnect first to off events if create new connection
       await currentConnector.disconnect();
       await this.destroyConnector({ connectionInfo });
       currentConnector = undefined;
@@ -139,6 +189,7 @@ class ServiceDappSide extends ServiceBase {
       currentConnector = await this.initConnector({
         connectionInfo,
         accountId,
+        cachedKey,
         newConnection,
       });
     }
@@ -151,10 +202,12 @@ class ServiceDappSide extends ServiceBase {
   async initConnector({
     connectionInfo,
     accountId,
+    cachedKey,
     newConnection,
   }: {
     connectionInfo: IExternalConnectionInfo;
-    accountId: string;
+    accountId: string | undefined;
+    cachedKey: string;
     newConnection?: boolean;
   }) {
     const ctrl = await externalWalletFactory.getController({
@@ -167,8 +220,8 @@ class ServiceDappSide extends ServiceBase {
     if (!newConnection) {
       await connector.connect({ isReconnecting: true }); // should call connect() with isReconnecting=true to make event emitter working
     }
-    if (accountId) {
-      this.connectorCache[accountId] = { connector };
+    if (cachedKey) {
+      this.connectorCache[cachedKey] = { connector };
     }
     return connector;
   }
@@ -180,11 +233,10 @@ class ServiceDappSide extends ServiceBase {
     connectionInfo: IExternalConnectionInfo;
     connector: IExternalConnector;
   }) {
-    const accountId = accountUtils.buildExternalAccountId({
+    const { cachedKey } = this.buildConnectorCacheKey({
       connectionInfo,
-      wcSessionTopic: undefined,
     });
-    this.connectorCache[accountId] = { connector };
+    this.connectorCache[cachedKey] = { connector };
   }
 
   async destroyConnector({
@@ -198,13 +250,12 @@ class ServiceDappSide extends ServiceBase {
     const { connector } = await this.getConnectorCached({
       connectionInfo,
     });
-    const accountId = accountUtils.buildExternalAccountId({
+    const { accountId, cachedKey } = this.buildConnectorCacheKey({
       connectionInfo,
-      wcSessionTopic: undefined,
     });
     ctrl.removeEventListeners({ connector, accountId });
     await connector.disconnect();
-    delete this.connectorCache[accountId];
+    delete this.connectorCache[cachedKey];
   }
 
   async sendTransaction({
@@ -225,6 +276,7 @@ class ServiceDappSide extends ServiceBase {
     });
     const { connector } = await this.getConnectorCached({
       connectionInfo,
+      // newConnection // TODO open newConnection if wallet is disconnected
     });
     const result = await ctrl.sendTransaction({
       account,
