@@ -8,7 +8,7 @@ import { Stack } from '../Stack';
 import { ImageContext } from './context';
 import { ImageFallback, ImageSkeleton } from './ImageFallback';
 import { ImageLoading } from './ImageLoading';
-import { preload } from './ImageNet';
+import { preloadImage, preloadImages } from './ImageNet';
 import { ImageSource } from './ImageSource';
 
 import type { IImageProps, IImageSourceProps } from './type';
@@ -65,7 +65,8 @@ export const Image = withStaticProperties(BasicImage, {
   Fallback: ImageFallback,
   Skeleton: ImageSkeleton,
   Loading: ImageLoading,
-  preload,
+  preloadImage,
+  preloadImages,
 });
 
 export type {
@@ -73,4 +74,5 @@ export type {
   IImageSourceProps,
   IImageProps,
   IImageSkeletonProps,
+  IImageLoadingProps,
 } from './type';

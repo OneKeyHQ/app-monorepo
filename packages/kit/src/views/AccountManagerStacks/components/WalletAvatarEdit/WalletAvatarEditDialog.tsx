@@ -19,8 +19,9 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   return (
     <>
       <XStack flexWrap="wrap">
-        {HdWalletAvatarImageNames.map((img) => (
+        {HdWalletAvatarImageNames.map((img, index) => (
           <Stack
+            key={index}
             justifyContent="center"
             alignItems="center"
             flexBasis="25%"

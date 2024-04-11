@@ -1,6 +1,5 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -11,7 +10,6 @@ export enum EModalSendRoutes {
   SendConfirmFromDApp = 'SendConfirmFromDApp',
   SendConfirm = 'SendConfirm',
   SendFeedback = 'SendFeedback',
-  SendCustomFee = 'SendCustomFee',
 }
 
 export type IModalSendParamList = {
@@ -35,10 +33,4 @@ export type IModalSendParamList = {
     onCancel?: () => void;
   };
   [EModalSendRoutes.SendConfirmFromDApp]: undefined;
-  [EModalSendRoutes.SendCustomFee]: {
-    networkId: string;
-    accountId: string;
-    customFee: IFeeInfoUnit;
-    onApply: (feeInfo: IFeeInfoUnit) => void;
-  };
 };

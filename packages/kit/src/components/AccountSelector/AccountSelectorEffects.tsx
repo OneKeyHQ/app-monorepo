@@ -25,15 +25,18 @@ import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
 
 function useExternalAccountActivate({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
-  const topic = (activeAccount.account as IDBExternalAccount | undefined)
-    ?.wcTopic;
+  const connectionInfo = (
+    activeAccount.account as IDBExternalAccount | undefined
+  )?.connectionInfo;
+
   useEffect(() => {
-    if (topic) {
-      void backgroundApiProxy.serviceWalletConnect.activateSession({
-        topic,
-      });
+    if (!connectionInfo) {
+      return;
     }
-  }, [topic]);
+    void backgroundApiProxy.serviceDappSide.activateConnector({
+      connectionInfo,
+    });
+  }, [connectionInfo]);
 }
 
 function AccountSelectorEffectsCmp({ num }: { num: number }) {

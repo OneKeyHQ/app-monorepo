@@ -11,13 +11,16 @@ import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
+import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
+import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceE2E from '../services/ServiceE2E';
+import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
@@ -107,6 +110,10 @@ class BackgroundApiProxy
 
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
 
+  serviceDappSide = this._createProxyService(
+    'serviceDappSide',
+  ) as ServiceDappSide;
+
   serviceWalletConnect = this._createProxyService(
     'serviceWalletConnect',
   ) as ServiceWalletConnect;
@@ -133,6 +140,10 @@ class BackgroundApiProxy
     'serviceAddressBook',
   ) as ServiceAddressBook;
 
+  serviceAppUpdate = this._createProxyService(
+    'serviceAppUpdate',
+  ) as ServiceAppUpdate;
+
   serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
 
   serviceLightning = this._createProxyService(
@@ -144,6 +155,10 @@ class BackgroundApiProxy
   serviceContextMenu = this._createProxyService(
     'serviceContextMenu',
   ) as ServiceContextMenu;
+
+  serviceFiatCrypto = this._createProxyService(
+    'serviceFiatCrypto',
+  ) as ServiceFiatCrypto;
 }
 
 export default BackgroundApiProxy;

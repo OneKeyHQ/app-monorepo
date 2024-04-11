@@ -19,14 +19,7 @@ import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppCon
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EModalSettingRoutes,
-  ERootRoutes,
-  ETabRoutes,
-  ETabSwapRoutes,
-} from '@onekeyhq/shared/src/routes';
-import { getAllowPathFromScreenNames } from '@onekeyhq/shared/src/utils/routeUtils';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -35,6 +28,7 @@ import {
   AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
+import { UpdateReminder } from '../../../components/UpdateReminder';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -72,6 +66,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
   } = useActiveAccount({ num: 0 });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
     ? intl.formatMessage({
         id: deriveInfo?.labelKey,
@@ -207,6 +202,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     if (!account) {
       return (
         <YStack height="100%">
+          <UpdateReminder />
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             <EmptyAccount

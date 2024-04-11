@@ -3,6 +3,11 @@ import { Switch as TMSwitch, useTheme } from 'tamagui';
 import type { IFormFieldProps } from '../types';
 import type { GetProps } from 'tamagui';
 
+export enum ESwitchSize {
+  'small' = 'small',
+  'large' = 'large',
+}
+
 export type ISwitchProps = IFormFieldProps<
   boolean,
   Omit<GetProps<typeof TMSwitch>, 'checked' | 'onCheckedChange' | 'value'> & {

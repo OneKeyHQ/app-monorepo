@@ -28,7 +28,10 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IChainSelectorRouteParams } from '@onekeyhq/shared/src/routes';
+import type {
+  IAccountChainSelectorRouteParams,
+  IAccountSelectorRouteParamsExtraConfig,
+} from '@onekeyhq/shared/src/routes';
 import {
   EAccountManagerStacksRoutes,
   EChainSelectorPages,
@@ -228,9 +231,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccount: IDBIndexedAccount | undefined;
         othersWalletAccount: IDBAccount | undefined;
         num: number;
+        autoChangeToAccountMatchedNetworkId?: string;
       },
     ) => {
-      const { num, othersWalletAccount, indexedAccount } = params;
+      const {
+        num,
+        othersWalletAccount,
+        indexedAccount,
+        autoChangeToAccountMatchedNetworkId,
+      } = params;
       if (othersWalletAccount && indexedAccount) {
         throw new Error(
           'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both defined',
@@ -251,6 +260,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const accountNetworkId = this.getAutoSelectNetworkIdForAccount.call(set, {
         num,
         account: othersWalletAccount,
+        autoChangeToAccountMatchedNetworkId,
       });
 
       await this.updateSelectedAccount.call(set, {
@@ -275,18 +285,20 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         sceneName,
         sceneUrl,
-        linkNetwork, // show account address of current network
+        ...others
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
-        linkNetwork?: boolean;
-      } & IAccountSelectorRouteParams,
+      } & IAccountSelectorRouteParams &
+        IAccountSelectorRouteParamsExtraConfig,
     ) => {
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
       if (activeAccountInfo?.wallet?.id) {
-        let focusedWalletNew: IAccountSelectorFocusedWallet =
+        // focus to active wallet when open selector
+        const focusedWalletNew: IAccountSelectorFocusedWallet =
           activeAccountInfo?.wallet?.id;
         if (accountUtils.isOthersWallet({ walletId: focusedWalletNew })) {
-          focusedWalletNew = '$$others';
+          // focus to grouped Others Tab
+          // focusedWalletNew = '$$others';
         }
         await this.updateSelectedAccount.call(set, {
           num,
@@ -303,7 +315,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num,
           sceneName,
           sceneUrl,
-          linkNetwork,
+          ...others,
         },
       });
     },
@@ -318,10 +330,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ...routeParams
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
-      } & IChainSelectorRouteParams,
+      } & IAccountChainSelectorRouteParams,
     ) => {
       navigation.pushModal(EModalRoutes.ChainSelectorModal, {
-        screen: EChainSelectorPages.ChainSelector,
+        screen: EChainSelectorPages.AccountChainSelector,
         params: routeParams,
       });
     },
@@ -481,7 +493,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         createWalletFn: async () => {
           let { wallet, device, indexedAccount } =
             await this.createHWWallet.call(set, params);
-          // add hidden wallet if device passphrase enabled
+          // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
           if (device && device.featuresInfo?.passphrase_protection) {
             // wait previous action done, wait device ready
             if (!params.hideCheckingDeviceLoading) {
@@ -913,15 +925,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         num,
         account,
+        autoChangeToAccountMatchedNetworkId,
       }: {
         num: number;
         account: IDBAccount | undefined;
+        autoChangeToAccountMatchedNetworkId?: string;
       },
     ) => {
       if (!account) {
         return '';
       }
-      const { networkId } = this.getSelectedAccount.call(set, { num });
+      const { networkId: currentNetworkId } = this.getSelectedAccount.call(
+        set,
+        { num },
+      );
+      const networkId = autoChangeToAccountMatchedNetworkId || currentNetworkId;
       if (!networkId) {
         return '';
       }
@@ -929,7 +947,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         account,
         networkId,
       });
-      if (accountNetworkId && accountNetworkId !== networkId) {
+      if (accountNetworkId && accountNetworkId !== currentNetworkId) {
         return accountNetworkId;
       }
       return '';
@@ -1011,7 +1029,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 networkId: accountNetworkId || v.networkId,
                 indexedAccountId: undefined,
                 walletId: wallet.id,
-                focusedWallet: '$$others',
+                focusedWallet: wallet.id,
               }),
             });
           }
@@ -1100,7 +1118,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             Boolean(selectedWalletId) && !isHdWallet && !isHwWallet;
 
           if (isOthers) {
-            selectedAccountNew.focusedWallet = '$$others';
+            selectedAccountNew.focusedWallet = selectedWalletId;
             selectedAccountNew.walletId = selectedWalletId;
             selectedAccountNew.indexedAccountId = undefined;
           }
@@ -1125,7 +1143,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                     account: firstAccount,
                     networkId: network?.id || '',
                   });
-                selectedAccountNew.focusedWallet = '$$others';
+                selectedAccountNew.focusedWallet = singletonWalletId;
                 selectedAccountNew.networkId = accountNetworkId || network?.id;
                 selectedAccountNew.deriveType = 'default';
                 selectedAccountNew.walletId = singletonWalletId;

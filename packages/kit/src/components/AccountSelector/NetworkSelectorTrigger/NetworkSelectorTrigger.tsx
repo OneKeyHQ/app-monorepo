@@ -1,20 +1,18 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
-import { Icon, Image, Select, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
-  useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
-  useActiveAccount,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { ChainSelectorInput } from '../../ChainSelectorInput';
-import { useAccountSelectorAvailableNetworks } from '../hooks/useAccountSelectorAvailableNetworks';
+import { NetworkAvatar } from '../../NetworkAvatar';
+import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
 function useNetworkSelectorItems() {
   const { serviceNetwork } = backgroundApiProxy;
@@ -75,35 +73,10 @@ export const NetworkSelectorTriggerLegacy = memo(
 function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
   const {
     activeAccount: { network },
-  } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
-  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
-  const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
-    num,
-  });
+    showChainSelector,
+  } = useNetworkSelectorTrigger({ num });
 
   useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerHome' });
-
-  const navigation = useAppNavigation();
-
-  const handleChainPress = useCallback(() => {
-    actions.current.showChainSelector({
-      navigation,
-      num,
-      sceneName,
-      sceneUrl,
-      networkIds,
-      defaultNetworkId,
-    });
-  }, [
-    actions,
-    defaultNetworkId,
-    navigation,
-    networkIds,
-    num,
-    sceneName,
-    sceneUrl,
-  ]);
 
   return (
     <XStack
@@ -133,16 +106,9 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
         },
       }}
       userSelect="none"
-      onPress={handleChainPress}
+      onPress={showChainSelector}
     >
-      {/* TODO NetworkAvatar component */}
-      <Image
-        w="$5"
-        h="$5"
-        source={{
-          uri: network?.logoURI ? network?.logoURI : '',
-        }}
-      />
+      <NetworkAvatar networkId={network?.id} size="$5" />
       <SizableText pl="$2" size="$bodyMd" flexShrink={1} numberOfLines={1}>
         {network?.name}
       </SizableText>

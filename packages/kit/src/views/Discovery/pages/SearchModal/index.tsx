@@ -4,6 +4,7 @@ import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { Keyboard } from 'react-native';
 
 import {
+  Icon,
   Image,
   Page,
   ScrollView,
@@ -34,6 +35,12 @@ import { DappSearchModalSectionHeader } from './DappSearchModalSectionHeader';
 import type { RouteProp } from '@react-navigation/core';
 
 const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
+
+const LoadingSkeleton = (
+  <Image.Loading>
+    <Skeleton width="100%" height="100%" />
+  </Image.Loading>
+);
 
 function SearchModal() {
   const navigation = useAppNavigation();
@@ -128,14 +135,21 @@ function SearchModal() {
             key={index}
             avatarProps={{
               src: item.logo || item.originLogo,
+              loading: LoadingSkeleton,
               fallbackProps: {
-                children: <Skeleton w="$10" h="$10" />,
+                bg: '$bgStrong',
+                justifyContent: 'center',
+                alignItems: 'center',
+                children: <Icon name="GlobusOutline" />,
               },
             }}
             title={item.name}
             titleMatch={(rawItem as IFuseResult<IDApp>).matches?.find(
               (v) => v.key === 'name',
             )}
+            titleProps={{
+              numberOfLines: 1,
+            }}
             subtitleProps={{
               numberOfLines: 1,
             }}
@@ -274,9 +288,19 @@ function SearchModal() {
                   key={index}
                   avatarProps={{
                     src: item.logo,
+                    loading: LoadingSkeleton,
+                    fallbackProps: {
+                      bg: '$bgStrong',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      children: <Icon name="GlobusOutline" />,
+                    },
                   }}
                   title={item.title}
                   titleMatch={item.titleMatch}
+                  titleProps={{
+                    numberOfLines: 1,
+                  }}
                   subtitle={item.url}
                   subTitleMatch={item.urlMatch}
                   subtitleProps={{

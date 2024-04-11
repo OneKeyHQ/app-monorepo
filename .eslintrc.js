@@ -16,6 +16,7 @@ const jsRules = {
   'react/no-unused-prop-types': 'off',
   'prefer-destructuring': 'off',
   'react/no-unstable-nested-components': 'warn',
+  'react/jsx-key': 'error',
   'react/jsx-no-useless-fragment': 'off',
   'use-effect-no-deps/use-effect-no-deps': 'error',
   'react-hooks/exhaustive-deps': [

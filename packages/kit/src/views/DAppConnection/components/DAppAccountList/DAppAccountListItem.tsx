@@ -68,6 +68,8 @@ function DAppAccountListItem({
     handleAccountChanged,
   });
 
+  const shouldSyncFromHome = initFromHome && !readonly;
+  const loadingDuration = shouldSyncFromHome ? 800 : 500;
   return (
     <>
       <XGroup
@@ -83,6 +85,7 @@ function DAppAccountListItem({
             num={num}
             beforeShowTrigger={beforeShowTrigger}
             disabled={networkReadonly || readonly}
+            loadingDuration={loadingDuration}
           />
         </Group.Item>
         <Group.Item>
@@ -90,12 +93,11 @@ function DAppAccountListItem({
             num={num}
             compressionUiMode={compressionUiMode}
             beforeShowTrigger={beforeShowTrigger}
+            loadingDuration={loadingDuration}
           />
         </Group.Item>
       </XGroup>
-      {initFromHome && !readonly ? (
-        <DAppAccountListInitFromHome num={num} />
-      ) : null}
+      {shouldSyncFromHome ? <DAppAccountListInitFromHome num={num} /> : null}
     </>
   );
 }

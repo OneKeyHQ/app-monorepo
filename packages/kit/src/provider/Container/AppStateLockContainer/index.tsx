@@ -24,12 +24,14 @@ const useWebLockCheck = (isLocked: boolean) => {
       if (!document.body.contains(lockContainerRef.current)) {
         window.location.reload();
       }
-      setTimeout(checkIsLockContainerExist, 500);
+      setTimeout(checkIsLockContainerExist, 300);
     }
   }, []);
   useEffect(() => {
-    if (platformEnv.isRuntimeBrowser && isLocked) {
-      checkIsLockContainerExist();
+    if (!platformEnv.isNative && isLocked) {
+      setTimeout(() => {
+        checkIsLockContainerExist();
+      });
     }
   }, [checkIsLockContainerExist, isLocked]);
   return lockContainerRef;
