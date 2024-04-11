@@ -55,7 +55,7 @@ const invalidExternalAccount: IDBExternalAccount = {
     evmInjected: {
       global: 'ethereum',
       name: 'string',
-      icon: 'https://onekey-asset.com/assets/btc/btc.png',
+      icon: 'https://onekey-asset.com/assets/btc/btc.pn',
     },
   },
 } as IDBExternalAccount;

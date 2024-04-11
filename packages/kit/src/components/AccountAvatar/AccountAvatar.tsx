@@ -82,7 +82,7 @@ function DefaultImageLoading({
 function DefaultImageFallback(props: IIconProps) {
   return (
     <Image.Fallback>
-      <Icon name="AccountErrorCustom" {...props} />
+      <Icon name="AccountErrorCustom" color="$textSubdued" {...props} />
     </Image.Fallback>
   );
 }
@@ -186,9 +186,9 @@ function BasicAccountAvatar({
       loading || loadingProps ? (
         <Image.Loading {...loadingProps} />
       ) : (
-        <DefaultImageLoading />
+        <DefaultImageLoading w={containerSize} h={containerSize} />
       ),
-    [loading, loadingProps],
+    [containerSize, loading, loadingProps],
   );
 
   const renderFallback = useMemo(() => {
@@ -201,7 +201,7 @@ function BasicAccountAvatar({
       const externalAccount = finalAccount as IDBExternalAccount;
 
       if (externalAccount) {
-        return <DefaultImageFallback />;
+        return <DefaultImageFallback w={containerSize} h={containerSize} />;
       }
     }
     if (
@@ -223,6 +223,7 @@ function BasicAccountAvatar({
   }, [
     account,
     address,
+    containerSize,
     dbAccount,
     fallback,
     fallbackProps,
