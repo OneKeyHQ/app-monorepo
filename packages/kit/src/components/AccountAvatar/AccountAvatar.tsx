@@ -79,11 +79,24 @@ function DefaultImageLoading({
   );
 }
 
-function DefaultImageFallback(props: IIconProps) {
+function DefaultImageFallback() {
   return (
-    <Image.Fallback>
-      <Icon name="AccountErrorCustom" color="$textSubdued" {...props} />
+    <Image.Fallback
+      flex={1}
+      bg="$bgStrong"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Icon name="AccountErrorCustom" size="$4.5" color="$textSubdued" />
     </Image.Fallback>
+  );
+}
+
+function DefaultEmptyAccount() {
+  return (
+    <Stack flex={1} bg="$bgStrong" alignItems="center" justifyContent="center">
+      <Icon name="CrossedSmallSolid" size="$6" />
+    </Stack>
   );
 }
 
@@ -113,16 +126,7 @@ function BasicAccountAvatar({
         };
 
   const renderContent = useMemo(() => {
-    const emptyAccountAvatar = (
-      <Stack
-        flex={1}
-        bg="$bgStrong"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Icon name="CrossedSmallSolid" size="$6" />
-      </Stack>
-    );
+    const emptyAccountAvatar = <DefaultEmptyAccount />;
 
     if (address) {
       return <MemoHashImageSource id={address} />;
@@ -201,7 +205,7 @@ function BasicAccountAvatar({
       const externalAccount = finalAccount as IDBExternalAccount;
 
       if (externalAccount) {
-        return <DefaultImageFallback w={containerSize} h={containerSize} />;
+        return <DefaultImageFallback />;
       }
     }
     if (
