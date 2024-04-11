@@ -21,15 +21,15 @@ type ISellOrBuyProps = {
   title: string;
   type: IFiatCryptoType;
   networkId: string;
-  accountId: string;
+  accountId?: string;
 };
 
 const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
   const appNavigation = useAppNavigation();
   const { result: tokens } = useGetTokensList({
     networkId,
+    accountId: type === 'sell' ? accountId : undefined,
     type,
-    accountId,
   });
   const { handleOpenWebSite } = useBrowserAction().current;
   const onPress = useCallback(
