@@ -502,8 +502,11 @@ export default class ServicePassword extends ServiceBase {
     const { protectCreateOrRemoveWallet, protectCreateTransaction } =
       await settingsPersistAtom.get();
 
-    // always reenter password for change password
-    if (reason === EReasonForNeedPassword.ChangePassword) {
+    // always reenter password for change password/backup wallet
+    if (
+      reason === EReasonForNeedPassword.ChangePassword ||
+      reason === EReasonForNeedPassword.BackupWallet
+    ) {
       return true;
     }
 
@@ -518,6 +521,7 @@ export default class ServicePassword extends ServiceBase {
       !result ||
       !this.securitySession ||
       now - this.securitySession.startAt > this.securitySession.timeout
+      // return result immediately if result is false or last visit is timeout/ not exist
     ) {
       return result;
     }
