@@ -28,6 +28,7 @@ const icons = {
   WhatsappBrand: () => import("./react/brand/Whatsapp"),
   Xbrand: () => import("./react/brand/X"),
   YoutubeBrand: () => import("./react/brand/Youtube"),
+  AccountErrorCustom: () => import("./react/custom/AccountError"),
   CheckboxCheckedCustom: () => import("./react/custom/CheckboxChecked"),
   CheckboxIndeterminateCustom: () =>
     import("./react/custom/CheckboxIndeterminate"),
