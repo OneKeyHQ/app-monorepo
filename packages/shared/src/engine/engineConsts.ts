@@ -90,7 +90,7 @@ const IMPL_NEURAI = 'neurai';
 const COINTYPE_NEURAI = '1900';
 
 const IMPL_DYNEX = 'dynex';
-const COINTYPE_DYNEX = '42514524';
+const COINTYPE_DYNEX = '29538';
 
 const IMPL_ALLNETWORKS = 'all';
 const COINTYPE_ALLNETWORKS = '0000';

@@ -1,8 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
+import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+
 import { NotImplemented } from '../../../errors';
 import { VaultBase } from '../../VaultBase';
 
+import { ClientDynex } from './helper/ClientDynex';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -22,9 +26,7 @@ import type {
   IUnsignedTxPro,
 } from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { ClientDynex } from './helper/ClientDynex';
-import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
+import type { BigNumber } from 'bignumber.js';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -58,6 +60,19 @@ export default class Vault extends VaultBase {
       maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
+
+  override async getBalances(
+    requests: Array<{ address: string; tokenAddress?: string }>,
+  ): Promise<(BigNumber | undefined)[]> {
+    const client = await this.getClient();
+    const balances: (BigNumber | undefined)[] = [];
+    for (let i = 0; i < requests.length; i += 1) {
+      const balance = await client.getBalanceOfAddress(requests[i].address);
+      balances.push(balance);
+    }
+
+    return balances;
+  }
 
   override updateEncodedTxTokenApprove(
     encodedTx: IEncodedTx,

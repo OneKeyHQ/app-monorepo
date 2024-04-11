@@ -4488,7 +4488,7 @@ const serverPresetNetworks = [
     'name': 'Dynex',
     'rpcURLs': [
       {
-        'url': 'http://node.dynexcoin.org:18333',
+        'url': 'https://node.onekeytest.com/dynex',
       },
     ],
     'shortcode': 'dnx',
@@ -4508,7 +4508,7 @@ const serverPresetNetworks = [
     ],
     'explorers': [
       {
-        'address': 'https://blockexplorer.dynexcoin.org/?wallet={wallet}',
+        'address': 'https://blockexplorer.dynexcoin.org/?wallet={address}',
         'block': 'https://blockexplorer.dynexcoin.org/?block={block}',
         'name': 'https://blockexplorer.dynexcoin.org',
         'transaction': 'https://blockexplorer.dynexcoin.org/?tx={transaction}',
