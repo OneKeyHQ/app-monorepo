@@ -17,9 +17,9 @@ function DAppRiskyAlert({
 }) {
   const riskStyle = useMemo(() => {
     const defaultStyle = {
-      type: 'success',
+      type: 'default',
       alertIcon: 'InfoCircleSolid',
-      titleTextColor: '$textSuccess',
+      titleTextColor: '$text',
       descTextColor: '$textSubdued',
     };
     if (!urlSecurityInfo?.level) {
@@ -71,6 +71,10 @@ function DAppRiskyAlert({
   );
 
   if (!urlSecurityInfo?.alert) {
+    return null;
+  }
+
+  if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
     return null;
   }
 

@@ -20,13 +20,21 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
   compressionUiMode?: boolean;
   beforeShowTrigger?: () => Promise<void>;
+  loadingDuration?: number;
 }>(
   (
-    { num, compressionUiMode, disabled, beforeShowTrigger, ...rest },
+    {
+      num,
+      compressionUiMode,
+      disabled,
+      beforeShowTrigger,
+      loadingDuration,
+      ...rest
+    },
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _: any,
   ) => {
-    const { isLoading } = useMockAccountSelectorLoading();
+    const { isLoading } = useMockAccountSelectorLoading(loadingDuration);
     const {
       activeAccount: { account, network, indexedAccount },
       showAccountSelector,
@@ -47,6 +55,8 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         })
       : 'No Address';
 
+    const accountName = account?.name ? account.name : 'No Account';
+
     const media = useMedia();
     const isCompressionUiMode = media.md || compressionUiMode;
 
@@ -65,7 +75,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
           />
         );
       }
-      return null;
+      return <Icon size="$6" name="XSquareOutline" color="$iconSubdued" />;
     }, [isLoading, account, network?.id, indexedAccount]);
 
     const renderAccountName = useCallback(() => {
@@ -84,7 +94,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
         return (
           <YStack flex={1}>
             <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-              {account?.name ?? ''}
+              {accountName}
             </SizableText>
             <SizableText size="$bodyMdMedium" numberOfLines={1} color="$text">
               {addressText}
@@ -94,10 +104,10 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       }
       return (
         <SizableText size="$bodyMd" numberOfLines={1} color="$textSubdued">
-          {account?.name ?? ''}
+          {accountName}
         </SizableText>
       );
-    }, [isLoading, account, addressText, isCompressionUiMode]);
+    }, [isLoading, accountName, addressText, isCompressionUiMode]);
     const renderAddressText = useCallback(() => {
       if (isLoading && !isCompressionUiMode) {
         return (

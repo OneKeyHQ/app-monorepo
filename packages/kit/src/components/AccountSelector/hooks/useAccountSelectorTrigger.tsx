@@ -45,13 +45,13 @@ export function useAccountSelectorTrigger({
   };
 }
 
-export function useMockAccountSelectorLoading() {
+export function useMockAccountSelectorLoading(duration = 500) {
   const [isLoading, setIsLoading] = useState(true);
   useEffect(() => {
     setTimeout(() => {
       setIsLoading(false);
-    }, 300);
-  }, []);
+    }, duration);
+  }, [duration]);
   return {
     isLoading,
   };
