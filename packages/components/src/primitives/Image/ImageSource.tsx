@@ -45,15 +45,21 @@ export function ImageSource({
   });
 
   const imageSource = useSource(source, src);
+  const previousImageSource = useRef<typeof imageSource>();
   const ImageComponent = useImageComponent(imageSource);
 
   const { setLoading, setLoadedSuccessfully } = useContext(ImageContext);
 
   const handleLoadStart = useCallback(() => {
+    // avoid re-render on FastImage in App
+    if (previousImageSource.current === imageSource) {
+      return;
+    }
     clearTimeout(delayTimer.current);
     hasError.current = false;
     setLoading?.(true);
-  }, [setLoading]);
+    previousImageSource.current = imageSource;
+  }, [imageSource, setLoading]);
 
   const handleLoadEnd = useCallback(() => {
     const diff = Date.now() - startTime.current;
