@@ -235,7 +235,12 @@ function HeaderRightToolBar() {
     }
     if (connectedAccountsInfo.length === 1) {
       return (
-        <>
+        <Stack
+          $gtMd={{
+            width: '100%',
+            flexDirection: 'row-reverse',
+          }}
+        >
           {connectedAccountsInfo.map((accountInfo, index) => (
             <AccountSelectorProviderMirror
               key={index}
@@ -250,7 +255,7 @@ function HeaderRightToolBar() {
                 },
               }}
             >
-              <XStack mr="$-1.5">
+              <XStack mr="$-1.5" flexShrink={1}>
                 <SingleAccountAndNetworkSelectorTrigger
                   origin={origin}
                   num={accountInfo.num}
@@ -260,7 +265,7 @@ function HeaderRightToolBar() {
               </XStack>
             </AccountSelectorProviderMirror>
           ))}
-        </>
+        </Stack>
       );
     }
     return (
