@@ -101,7 +101,7 @@ export function GetStarted() {
   };
 
   const handleConnectWalletPress = async () => {
-    navigation.push(EOnboardingPages.ConnectWallet);
+    navigation.push(EOnboardingPages.ConnectWalletSelectNetworks);
   };
 
   const termsLink = useHelpLink({ path: 'articles/360002014776' });
