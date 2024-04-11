@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -16,6 +16,21 @@ import {
   EHostSecurityLevel,
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
+
+function RawDappSiteIcon({ uri }: { uri?: string }) {
+  return uri ? (
+    <Image w="$6" h="$6" bg="$bgSubdued" borderRadius="$1">
+      <Image.Source source={{ uri }} />
+      <Image.Fallback>
+        <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
+      </Image.Fallback>
+      <Image.Loading>
+        <Skeleton width="100%" height="100%" />
+      </Image.Loading>
+    </Image>
+  ) : null;
+}
+const DappSiteIcon = memo(RawDappSiteIcon);
 
 function DAppSiteMark({
   origin,
@@ -87,7 +102,6 @@ function DAppSiteMark({
       }
     }
   }, [urlSecurityInfo?.level]);
-
   return (
     <XStack
       px="$2"
@@ -101,15 +115,7 @@ function DAppSiteMark({
       borderCurve="continuous"
       space="$2"
     >
-      <Image w="$6" h="$6" bg="$bgSubdued" borderRadius="$1">
-        <Image.Source source={{ uri: favicon || faviconUri }} />
-        <Image.Fallback>
-          <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
-        </Image.Fallback>
-        <Image.Loading>
-          <Skeleton width="100%" height="100%" />
-        </Image.Loading>
-      </Image>
+      <DappSiteIcon uri={favicon || faviconUri} />
       <SizableText
         flex={1}
         size="$bodyLgMedium"
