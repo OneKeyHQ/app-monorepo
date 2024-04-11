@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { isNumber } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -106,9 +107,11 @@ function DAppAccountListItem({
 function DAppAccountListStandAloneItem({
   readonly,
   handleAccountChanged,
+  onAccountSelectorNumChanged,
 }: {
   readonly?: boolean;
   handleAccountChanged?: IHandleAccountChanged;
+  onAccountSelectorNumChanged?: (num: number) => void;
 }) {
   const { serviceDApp, serviceNetwork } = backgroundApiProxy;
   const { $sourceInfo, connectType } = useDappQuery<{
@@ -163,6 +166,12 @@ function DAppAccountListStandAloneItem({
     serviceNetwork,
     connectType,
   ]);
+
+  useEffect(() => {
+    if (isNumber(result?.accountSelectorNum) && onAccountSelectorNumChanged) {
+      onAccountSelectorNumChanged(result.accountSelectorNum);
+    }
+  }, [result?.accountSelectorNum, onAccountSelectorNumChanged]);
 
   return (
     <YStack space="$2" testID="DAppAccountListStandAloneItem">

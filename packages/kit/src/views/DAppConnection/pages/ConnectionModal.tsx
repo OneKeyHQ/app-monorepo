@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
@@ -45,6 +46,10 @@ function ConnectionModal() {
 
   const [rawSelectedAccount, setRawSelectedAccount] =
     useState<IAccountSelectorSelectedAccount | null>(null);
+
+  const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
+    null,
+  );
 
   const handleAccountChanged = useCallback<IHandleAccountChanged>(
     ({ activeAccount, selectedAccount: rawSelectedAccountData }) => {
@@ -104,7 +109,18 @@ function ConnectionModal() {
         focusedWallet: rawSelectedAccount?.focusedWallet,
         othersWalletAccountId: rawSelectedAccount?.othersWalletAccountId,
       };
-      if (connectType !== EConnectionType.ModifyAccount) {
+      if (connectType === EConnectionType.ModifyAccount) {
+        if (!isNumber(accountSelectorNum)) {
+          dappApprove.reject();
+          throw new Error('no accountSelectorNum');
+        }
+        await serviceDApp.updateConnectionSession({
+          origin: $sourceInfo?.origin,
+          updatedAccountInfo: accountInfo,
+          storageType: 'injectedProvider',
+          accountSelectorNum,
+        });
+      } else {
         await serviceDApp.saveConnectionSession({
           origin: $sourceInfo?.origin,
           accountsInfo: [accountInfo],
@@ -130,6 +146,7 @@ function ConnectionModal() {
       selectedAccount,
       rawSelectedAccount,
       connectType,
+      accountSelectorNum,
     ],
   );
 
@@ -145,6 +162,7 @@ function ConnectionModal() {
         >
           <DAppAccountListStandAloneItem
             handleAccountChanged={handleAccountChanged}
+            onAccountSelectorNumChanged={setAccountSelectorNum}
           />
           <DAppRequestedPermissionContent />
         </DAppRequestLayout>
