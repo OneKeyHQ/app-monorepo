@@ -23,6 +23,7 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EConnectionType } from '@onekeyhq/shared/types/dappConnection';
 
 import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
 
@@ -110,8 +111,9 @@ function DAppAccountListStandAloneItem({
   handleAccountChanged?: IHandleAccountChanged;
 }) {
   const { serviceDApp, serviceNetwork } = backgroundApiProxy;
-  const { $sourceInfo } = useDappQuery();
-  console.log('=====>>>>>DAppAccountListStandAloneItem');
+  const { $sourceInfo, connectType } = useDappQuery<{
+    connectType?: EConnectionType;
+  }>();
 
   const { result } = usePromiseResult(async () => {
     if (!$sourceInfo?.origin || !$sourceInfo.scope) {
@@ -120,15 +122,34 @@ function DAppAccountListStandAloneItem({
         networkIds: null,
       };
     }
+    const impls = getNetworkImplsFromDappScope($sourceInfo.scope);
+    const networkIds = impls
+      ? (await serviceNetwork.getNetworkIdsByImpls({ impls })).networkIds
+      : null;
+
+    if (connectType === EConnectionType.ModifyAccount) {
+      const accountsInfo = await serviceDApp.getConnectedAccountsInfo({
+        origin: $sourceInfo.origin,
+        scope: $sourceInfo.scope ?? '',
+        isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
+      });
+      if (
+        Array.isArray(accountsInfo) &&
+        accountsInfo.length > 0 &&
+        typeof accountsInfo[0]?.num === 'number'
+      ) {
+        return {
+          accountSelectorNum: accountsInfo[0].num,
+          networkIds,
+        };
+      }
+    }
+
     const accountSelectorNum = await serviceDApp.getAccountSelectorNum({
       origin: $sourceInfo.origin,
       scope: $sourceInfo.scope ?? '',
       isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
     });
-    const impls = getNetworkImplsFromDappScope($sourceInfo.scope);
-    const networkIds = impls
-      ? (await serviceNetwork.getNetworkIdsByImpls({ impls })).networkIds
-      : null;
 
     return {
       accountSelectorNum,
@@ -140,6 +161,7 @@ function DAppAccountListStandAloneItem({
     $sourceInfo?.isWalletConnectRequest,
     serviceDApp,
     serviceNetwork,
+    connectType,
   ]);
 
   return (
@@ -161,7 +183,7 @@ function DAppAccountListStandAloneItem({
           }}
         >
           <DAppAccountListItem
-            initFromHome
+            initFromHome={connectType !== EConnectionType.ModifyAccount}
             num={result?.accountSelectorNum}
             handleAccountChanged={handleAccountChanged}
             readonly={readonly}

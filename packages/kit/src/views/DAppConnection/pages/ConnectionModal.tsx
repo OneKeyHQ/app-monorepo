@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
+import { EConnectionType } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -24,7 +25,9 @@ import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 function ConnectionModal() {
   const intl = useIntl();
   const { serviceDApp } = backgroundApiProxy;
-  const { $sourceInfo } = useDappQuery();
+  const { $sourceInfo, connectType } = useDappQuery<{
+    connectType?: EConnectionType;
+  }>();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -101,11 +104,13 @@ function ConnectionModal() {
         focusedWallet: rawSelectedAccount?.focusedWallet,
         othersWalletAccountId: rawSelectedAccount?.othersWalletAccountId,
       };
-      await serviceDApp.saveConnectionSession({
-        origin: $sourceInfo?.origin,
-        accountsInfo: [accountInfo],
-        storageType: 'injectedProvider',
-      });
+      if (connectType !== EConnectionType.ModifyAccount) {
+        await serviceDApp.saveConnectionSession({
+          origin: $sourceInfo?.origin,
+          accountsInfo: [accountInfo],
+          storageType: 'injectedProvider',
+        });
+      }
       await dappApprove.resolve({
         close,
         result: accountInfo,
@@ -124,6 +129,7 @@ function ConnectionModal() {
       serviceDApp,
       selectedAccount,
       rawSelectedAccount,
+      connectType,
     ],
   );
 

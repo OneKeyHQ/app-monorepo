@@ -8,6 +8,7 @@ export type IConnectionAccountInfo = IAccountSelectorSelectedAccount & {
   networkImpl: string;
   accountId: string;
   address: string;
+  num?: number;
 };
 export interface IConnectionItem {
   origin: string;
@@ -65,4 +66,9 @@ export enum EValidateUrlEnum {
   NotSupportProtocol = 'NotSupportProtocol',
   ValidDeeplink = 'ValidDeeplink',
   InvalidPunycode = 'InvalidPunycode',
+}
+
+export enum EConnectionType {
+  Connection = 'Connection',
+  ModifyAccount = 'ModifyAccount',
 }
