@@ -1,14 +1,18 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp, ISelectItem } from '@onekeyhq/components';
-import { SizableText, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  Popover,
+  SizableText,
+  Skeleton,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCustomFeeAtom,
@@ -22,16 +26,16 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import {
   calculateFeeForSend,
-  getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
-import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IFeeInfoUnit,
+  IFeeSelectorItem,
+} from '@onekeyhq/shared/types/fee';
 
-import { GasSelector } from '../../components/GasSelector';
+import { FeeEditor, FeeSelectorTrigger } from '../../components/SendFee';
 
 type IProps = {
   accountId: string;
@@ -43,6 +47,7 @@ function TxFeeContainer(props: IProps) {
   const { accountId, networkId } = props;
   const intl = useIntl();
   const txFeeInit = useRef(false);
+  const [isEditFeeActive, setIsEditFeeActive] = useState(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
   const [settings] = useSettingsPersistAtom();
@@ -52,15 +57,8 @@ function TxFeeContainer(props: IProps) {
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
-  const {
-    updateSendSelectedFee,
-    updateCustomFee,
-    updateSendSelectedFeeInfo,
-    updateSendFeeStatus,
-    updateSendTxStatus,
-  } = useSendConfirmActions().current;
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
+  const { updateSendSelectedFeeInfo, updateSendFeeStatus, updateSendTxStatus } =
+    useSendConfirmActions().current;
 
   const { result: [vaultSettings, network] = [] } =
     usePromiseResult(async () => {
@@ -123,7 +121,7 @@ function TxFeeContainer(props: IProps) {
     },
   );
 
-  const feeSelectorItems = useMemo(() => {
+  const feeSelectorItems: IFeeSelectorItem[] = useMemo(() => {
     const items = [];
     if (gasFee) {
       const feeLength =
@@ -141,19 +139,12 @@ function TxFeeContainer(props: IProps) {
         };
 
         items.push({
-          leading: (
-            <SizableText fontSize={32}>
-              {getFeeIcon({
-                feeType: EFeeType.Standard,
-                presetIndex: i,
-              })}
-            </SizableText>
-          ),
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: i }),
           }),
-          value: String(i),
+          value: i,
           feeInfo,
+          type: EFeeType.Standard,
         });
       }
 
@@ -165,10 +156,12 @@ function TxFeeContainer(props: IProps) {
         if (customFee?.gas && gasFee.gas) {
           customFeeInfo.gas = {
             ...customFee.gas,
-            gasLimit: customFee.gas.gasLimit ?? gasFee.gas[0].gasLimit,
+            gasLimit:
+              customFee.gas.gasLimit ??
+              gasFee.gas[sendSelectedFee.presetIndex].gasLimit,
             gasLimitForDisplay:
               customFee.gas.gasLimitForDisplay ??
-              gasFee.gas[0].gasLimitForDisplay,
+              gasFee.gas[sendSelectedFee.presetIndex].gasLimitForDisplay,
           };
         }
 
@@ -176,10 +169,11 @@ function TxFeeContainer(props: IProps) {
           customFeeInfo.gasEIP1559 = {
             ...customFee.gasEIP1559,
             gasLimit:
-              customFee.gasEIP1559.gasLimit ?? gasFee.gasEIP1559[0].gasLimit,
+              customFee.gasEIP1559.gasLimit ??
+              gasFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimit,
             gasLimitForDisplay:
               customFee.gasEIP1559.gasLimitForDisplay ??
-              gasFee.gasEIP1559[0].gasLimitForDisplay,
+              gasFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimitForDisplay,
           };
         }
 
@@ -188,18 +182,12 @@ function TxFeeContainer(props: IProps) {
         }
 
         items.push({
-          leading: (
-            <SizableText fontSize={32}>
-              {getFeeIcon({
-                feeType: EFeeType.Custom,
-              })}
-            </SizableText>
-          ),
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Custom }),
           }),
-          value: EFeeType.Custom,
+          value: items.length,
           feeInfo: customFeeInfo,
+          type: EFeeType.Custom,
         });
       }
 
@@ -213,21 +201,19 @@ function TxFeeContainer(props: IProps) {
     customFee?.gasEIP1559,
     gasFee,
     intl,
+    sendSelectedFee.presetIndex,
     vaultSettings?.editFeeEnabled,
   ]);
 
-  const { selectedFee, feeSelectorValue } = useMemo(() => {
+  const { selectedFee } = useMemo(() => {
     let selectedFeeInfo;
-    let selectorValue;
 
     if (isEmpty(feeSelectorItems)) return {};
 
     if (sendSelectedFee.feeType === EFeeType.Custom) {
       selectedFeeInfo = feeSelectorItems[feeSelectorItems.length - 1].feeInfo;
-      selectorValue = EFeeType.Custom;
     } else {
       selectedFeeInfo = feeSelectorItems[sendSelectedFee.presetIndex].feeInfo;
-      selectorValue = String(sendSelectedFee.presetIndex);
     }
 
     const {
@@ -251,7 +237,6 @@ function TxFeeContainer(props: IProps) {
         totalNativeForDisplay,
         totalFiatForDisplay,
       },
-      feeSelectorValue: selectorValue,
     };
   }, [
     feeSelectorItems,
@@ -261,41 +246,10 @@ function TxFeeContainer(props: IProps) {
     unsignedTxs,
   ]);
 
-  const handleSelectedFeeOnChange = useCallback(
-    (value: string | ISelectItem) => {
-      if (value === EFeeType.Custom) {
-        navigation.pushModal(EModalRoutes.SendModal, {
-          screen: EModalSendRoutes.SendCustomFee,
-          params: {
-            networkId,
-            accountId,
-            customFee: (customFee ?? selectedFee?.feeInfo) as IFeeInfoUnit,
-            onApply: (feeInfo: IFeeInfoUnit) => {
-              updateCustomFee(feeInfo);
-              updateSendSelectedFee({
-                feeType: EFeeType.Custom,
-                presetIndex: 0,
-              });
-            },
-          },
-        });
-      } else {
-        updateSendSelectedFee({
-          feeType: EFeeType.Standard,
-          presetIndex: Number(value),
-        });
-      }
-    },
-    [
-      accountId,
-      customFee,
-      navigation,
-      networkId,
-      selectedFee?.feeInfo,
-      updateCustomFee,
-      updateSendSelectedFee,
-    ],
-  );
+  const handleFeeSelectorTriggerOnPress = useCallback(() => {
+    if (!txFeeInit.current) return;
+    setIsEditFeeActive((prev) => !prev);
+  }, []);
 
   useEffect(() => {
     if (selectedFee && selectedFee.feeInfo) {
@@ -326,20 +280,56 @@ function TxFeeContainer(props: IProps) {
     <Container.Box>
       <Container.Item
         title="Fee Estimate"
-        content={`${selectedFee?.totalNativeForDisplay ?? '0.00'} ${
-          gasFee?.common.nativeSymbol ?? ''
-        }`}
-        subContent={`${settings.currencyInfo.symbol}${
-          selectedFee?.totalFiatForDisplay ?? '0.00'
-        }`}
+        content={
+          txFeeInit.current ? (
+            <NumberSizeableText
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: gasFee?.common.nativeSymbol,
+              }}
+              size="$bodyMdMedium"
+              color="$text"
+            >
+              {selectedFee?.totalNativeForDisplay ?? '0.00'}
+            </NumberSizeableText>
+          ) : (
+            <Skeleton height="$5" width="$40" />
+          )
+        }
+        subContent={
+          txFeeInit.current ? (
+            <NumberSizeableText
+              size="$bodyMdMedium"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            >
+              {selectedFee?.totalFiatForDisplay ?? '0.00'}
+            </NumberSizeableText>
+          ) : (
+            ''
+          )
+        }
         contentAdd={
-          <GasSelector
-            items={feeSelectorItems}
-            value={feeSelectorValue}
-            onChange={handleSelectedFeeOnChange}
-            disabled={
-              sendFeeStatus.status === ESendFeeStatus.Loading ||
-              sendFeeStatus.status === ESendFeeStatus.Error
+          <Popover
+            title={intl.formatMessage({ id: 'title__edit_fee' })}
+            open={isEditFeeActive}
+            onOpenChange={handleFeeSelectorTriggerOnPress}
+            renderContent={
+              <FeeEditor
+                networkId={networkId}
+                feeSelectorItems={feeSelectorItems}
+                setIsEditFeeActive={setIsEditFeeActive}
+              />
+            }
+            renderTrigger={
+              <FeeSelectorTrigger
+                onPress={handleFeeSelectorTriggerOnPress}
+                disabled={
+                  sendFeeStatus.status === ESendFeeStatus.Error ||
+                  !txFeeInit.current
+                }
+              />
             }
           />
         }

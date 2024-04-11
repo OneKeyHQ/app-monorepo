@@ -8,16 +8,19 @@ import type {
   IExternalListWalletsResult,
 } from '@onekeyhq/shared/types/externalWallet.types';
 
+import walletConnectStorage from '../../../services/ServiceWalletConnect/walletConnectStorage';
 import { ExternalControllerBase } from '../../base/ExternalControllerBase';
-import evmConnectorUtils from '../evm/evmConnectorUtils';
 
 import { ExternalConnectorWalletConnect } from './ExternalConnectorWalletConnect';
 
 import type { IDBExternalAccount } from '../../../dbs/local/types';
 import type {
-  ISignMessageParams,
-  ISignTransactionParams,
-} from '../../../vaults/types';
+  IExternalHandleWalletConnectEventsParams,
+  IExternalSendTransactionByWalletConnectPayload,
+  IExternalSendTransactionPayload,
+  IExternalSignMessageByWalletConnectPayload,
+  IExternalSignMessagePayload,
+} from '../../base/ExternalControllerBase';
 
 export class ExternalControllerWalletConnect extends ExternalControllerBase {
   override listWallets(): Promise<IExternalListWalletsResult> {
@@ -44,9 +47,10 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
   }: {
     connector: ExternalConnectorWalletConnect;
   }): Promise<IExternalConnectWalletResult> {
-    const { session } =
-      (await connector.connect()) as IExternalConnectResultWalletConnect;
-
+    const { session } = (await connector.connect({
+      impl: connector.connectionInfo.walletConnect?.impl,
+    })) as IExternalConnectResultWalletConnect;
+    const peerWalletName = session?.peer?.metadata?.name;
     const { addressMap, networkIds } =
       await this.backgroundApi.serviceWalletConnect.parseWalletSessionNamespace(
         { namespaces: session.namespaces },
@@ -57,6 +61,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
         walletConnect: {
           topic: session?.topic,
           peerMeta: session?.peer?.metadata,
+          isNewConnection: undefined, // always set undefined after connected
         },
       },
       accountInfo: {
@@ -64,6 +69,8 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
         impl: '',
         addresses: addressMap,
         networkIds,
+        // name: `${peerWalletName} WalletConnect`,
+        name: peerWalletName ? `🛜 ${peerWalletName}` : '',
       },
       notSupportedNetworkIds: undefined,
     };
@@ -74,7 +81,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     accountId,
   }: {
     connector: ExternalConnectorWalletConnect;
-    accountId: string;
+    accountId: string | undefined;
   }): void {
     // events are handled by the WalletConnectDappSide getSharedClient()
   }
@@ -84,80 +91,85 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     accountId,
   }: {
     connector: ExternalConnectorWalletConnect;
-    accountId: string;
+    accountId: string | undefined;
   }): void {
     // events are handled by the WalletConnectDappSide getSharedClient()
   }
 
-  async getWcChain({ networkId }: { networkId: string }): Promise<string> {
-    return this.backgroundApi.serviceWalletConnect.getWcChainByNetworkId({
-      networkId,
-    });
-  }
-
-  override async sendTransaction({
-    account,
+  async checkNetworkOrAddressMatched({
     networkId,
-    params,
-    connector,
+    account,
   }: {
     account: IDBExternalAccount;
     networkId: string;
-    params: ISignTransactionParams;
-    connector: ExternalConnectorWalletConnect;
-  }): Promise<ISignedTxPro> {
-    const wcChain = await this.getWcChain({ networkId });
-    const { method, callParams } = evmConnectorUtils.parseSendTransactionParams(
-      {
-        params,
-      },
-    );
-    const provider = await connector.getProvider();
-    const txid = (await provider.request(
-      {
-        method,
-        params: callParams,
-      },
-      wcChain,
-    )) as string;
-
-    if (!txid) {
+  }) {
+    const { connectedAddresses, address, connectionInfo } = account;
+    const topic = connectionInfo?.walletConnect?.topic;
+    const sessions = await walletConnectStorage.dappSideStorage.getSessions();
+    if (!sessions.find((item) => item.topic === topic)) {
+      // (cleanupInactiveSessions)
+      throw new Error('WalletConnect session disconnected');
+    }
+    if (!connectedAddresses[networkId]) {
+      throw new Error(`External Wallet not approve this network: ${networkId}`);
+    }
+    // TODO checksum compare
+    if (
+      !connectedAddresses[networkId]
+        .toLowerCase()
+        .includes(address.toLowerCase())
+    ) {
       throw new Error(
-        'ExternalWalletControllerWalletConnect sendTransaction ERROR: txid not found',
+        `External Wallet not approve this address: ${networkId} ${address}`,
       );
     }
-
-    return {
-      txid,
-      rawTx: '',
-      encodedTx: params.unsignedTx.encodedTx,
-    };
   }
 
-  override async signMessage({
-    account,
-    networkId,
-    params,
-    connector,
-  }: {
-    account: IDBExternalAccount;
-    networkId: string;
-    params: ISignMessageParams;
-    connector: ExternalConnectorWalletConnect;
-  }): Promise<ISignedMessagePro> {
-    const wcChain = await this.getWcChain({ networkId });
-    const { method, callParams } = evmConnectorUtils.parseSignMessageParams({
-      params,
-    });
-    const provider = await connector.getProvider();
-    const result = (await provider.request(
-      {
-        method,
-        params: callParams,
-      },
-      wcChain,
-    )) as string;
+  override sendTransactionByWalletConnect(
+    payload: IExternalSendTransactionByWalletConnectPayload,
+  ): Promise<ISignedTxPro> {
+    throw new Error('Not available, use ExternalControllerEvm directly');
+  }
 
-    return [result];
+  override signMessageByWalletConnect(
+    payload: IExternalSignMessageByWalletConnectPayload,
+  ): Promise<ISignedMessagePro> {
+    throw new Error('Not available, use ExternalControllerEvm directly');
+  }
+
+  override handleWalletConnectEvents(
+    params: IExternalHandleWalletConnectEventsParams,
+  ): Promise<void> {
+    throw new Error('Not available, use ExternalControllerEvm directly');
+  }
+
+  override async sendTransaction(
+    payload: IExternalSendTransactionPayload,
+  ): Promise<ISignedTxPro> {
+    const { networkId, account } = payload;
+    const connector = payload.connector as ExternalConnectorWalletConnect;
+    await this.checkNetworkOrAddressMatched({
+      networkId,
+      account,
+    });
+    const ctrl = await this.factory.getController({
+      networkId,
+    });
+    return ctrl.sendTransactionByWalletConnect({ ...payload, connector });
+  }
+
+  override async signMessage(
+    payload: IExternalSignMessagePayload,
+  ): Promise<ISignedMessagePro> {
+    const { networkId, account } = payload;
+    const connector = payload.connector as ExternalConnectorWalletConnect;
+    await this.checkNetworkOrAddressMatched({
+      networkId,
+      account,
+    });
+    const ctrl = await this.factory.getController({
+      networkId,
+    });
+    return ctrl.signMessageByWalletConnect({ ...payload, connector });
   }
 }

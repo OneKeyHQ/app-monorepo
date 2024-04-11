@@ -20,6 +20,7 @@ import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
   COINTYPE_TBTC,
+  IMPL_EVM,
   INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '../engine/engineConsts';
@@ -296,7 +297,17 @@ function getAccountCompatibleNetwork({
   // if accountNetworkId not in account available networks, use first networkId of available networks
   if (account.networks && account.networks.length) {
     if (!accountNetworkId || !account.networks.includes(accountNetworkId)) {
-      [accountNetworkId] = account.networks;
+      accountNetworkId = account.networks?.[0];
+    }
+  }
+
+  // recheck new networkId impl matched
+  if (accountNetworkId && account.impl) {
+    if (
+      account.impl !==
+      networkUtils.getNetworkImpl({ networkId: accountNetworkId })
+    ) {
+      accountNetworkId = undefined;
     }
   }
 
@@ -338,18 +349,47 @@ function buildHwWalletId({
   return dbWalletId;
 }
 
+function getWalletConnectMergedNetwork({ networkId }: { networkId: string }): {
+  isMergedNetwork: boolean;
+  networkIdOrImpl: string;
+} {
+  const impl = networkUtils.getNetworkImpl({ networkId });
+  if ([IMPL_EVM].includes(impl)) {
+    return {
+      isMergedNetwork: true,
+      networkIdOrImpl: impl,
+    };
+  }
+  return {
+    isMergedNetwork: false,
+    networkIdOrImpl: networkId,
+  };
+}
+
 function buildExternalAccountId({
   wcSessionTopic,
   connectionInfo,
+  networkId,
 }: {
   wcSessionTopic: string | undefined;
   connectionInfo: IExternalConnectionInfo | undefined;
+  networkId?: string;
 }) {
   let accountId = '';
   // eslint-disable-next-line no-param-reassign
   wcSessionTopic = wcSessionTopic || connectionInfo?.walletConnect?.topic;
   if (wcSessionTopic) {
-    accountId = `${WALLET_TYPE_EXTERNAL}--wc--${wcSessionTopic}`;
+    if (!networkId) {
+      throw new Error(
+        'buildExternalAccountId ERROR: walletconnect account required networkId ',
+      );
+    }
+    const { networkIdOrImpl } = getWalletConnectMergedNetwork({
+      networkId,
+    });
+    const suffix = networkIdOrImpl;
+
+    accountId = `${WALLET_TYPE_EXTERNAL}--wc--${wcSessionTopic}--${suffix}`;
   }
   if (connectionInfo?.evmEIP6963?.info?.rdns) {
     accountId = `${WALLET_TYPE_EXTERNAL}--${COINTYPE_ETH}--eip6963--${connectionInfo?.evmEIP6963?.info?.rdns}`;
@@ -460,4 +500,5 @@ export default {
   buildLnToBtcPath,
   buildLightningAccountId,
   buildLightingCredentialId,
+  getWalletConnectMergedNetwork,
 };

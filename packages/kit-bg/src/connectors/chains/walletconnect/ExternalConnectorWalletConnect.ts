@@ -5,6 +5,7 @@ import type { Emitter } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
 import { createEmitter } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { uidForWagmi } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { IWalletConnectConnectToWalletParams } from '@onekeyhq/shared/src/walletConnect/types';
 import type {
   IExternalConnectResult,
   IExternalConnectionInfo,
@@ -51,12 +52,17 @@ export class ExternalConnectorWalletConnect
 
   async connect(
     parameters?:
-      | { chainId?: number | undefined; isReconnecting?: boolean | undefined }
+      | ({
+          chainId?: number | undefined;
+          isReconnecting?: boolean | undefined;
+        } & IWalletConnectConnectToWalletParams)
       | undefined,
   ): Promise<IExternalConnectResult> {
     if (!parameters?.isReconnecting) {
       const session =
-        await this.backgroundApi.serviceWalletConnect.connectToWallet();
+        await this.backgroundApi.serviceWalletConnect.connectToWallet({
+          impl: parameters?.impl,
+        });
       return {
         session,
       };
@@ -66,10 +72,6 @@ export class ExternalConnectorWalletConnect
         topic: this.connectionInfo.walletConnect?.topic,
       });
     }
-  }
-
-  setup?(): Promise<void> {
-    throw new Error('Method not implemented.');
   }
 
   async disconnect(): Promise<void> {
@@ -83,14 +85,6 @@ export class ExternalConnectorWalletConnect
     }
   }
 
-  getAccounts(): Promise<readonly `0x${string}`[]> {
-    throw new Error('Method not implemented.');
-  }
-
-  getChainId(): Promise<number> {
-    throw new Error('Method not implemented.');
-  }
-
   getProvider(
     parameters?: { chainId?: number | undefined } | undefined,
   ): Promise<WalletConnectDappSideProvider> {
@@ -100,6 +94,18 @@ export class ExternalConnectorWalletConnect
         topic: this.connectionInfo.walletConnect?.topic,
       },
     );
+  }
+
+  setup?(): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
+
+  getAccounts(): Promise<readonly `0x${string}`[]> {
+    throw new Error('Method not implemented.');
+  }
+
+  getChainId(): Promise<number> {
+    throw new Error('Method not implemented.');
   }
 
   getClient?(

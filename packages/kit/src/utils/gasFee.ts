@@ -25,11 +25,9 @@ function nanToZeroString(value: string | number | unknown) {
 export function calculateTotalFeeRange({
   feeInfo,
   txSize,
-  displayDecimals = 8,
 }: {
   feeInfo: IFeeInfoUnit;
   txSize?: number;
-  displayDecimals?: number;
 }) {
   const { gas, gasEIP1559 } = feeInfo;
   if (feeInfo.gasEIP1559) {
@@ -41,22 +39,20 @@ export function calculateTotalFeeRange({
       .times(
         new BigNumber(gasInfo.baseFeePerGas).plus(gasInfo.maxPriorityFeePerGas),
       )
-      .toFixed(displayDecimals);
+      .toFixed();
 
     const minForDisplay = new BigNumber(limitForDisplay)
       .times(
         new BigNumber(gasInfo.baseFeePerGas).plus(gasInfo.maxPriorityFeePerGas),
       )
-      .toFixed(displayDecimals);
+      .toFixed();
 
     // MAX: maxFeePerGas * limit
-    const max = new BigNumber(limit)
-      .times(gasInfo.maxFeePerGas)
-      .toFixed(displayDecimals);
+    const max = new BigNumber(limit).times(gasInfo.maxFeePerGas).toFixed();
 
     const maxForDisplay = new BigNumber(limitForDisplay)
       .times(gasInfo.maxFeePerGas)
-      .toFixed(displayDecimals);
+      .toFixed();
 
     return {
       min: nanToZeroString(min),
@@ -69,7 +65,7 @@ export function calculateTotalFeeRange({
   if (feeInfo.feeUTXO?.feeRate) {
     const fee = new BigNumber(feeInfo.feeUTXO.feeRate)
       .multipliedBy(txSize ?? 0)
-      .toFixed(displayDecimals);
+      .toFixed();
     return {
       min: nanToZeroString(fee),
       max: nanToZeroString(fee),
@@ -106,14 +102,11 @@ export function calculateTotalFeeRange({
 export function calculateTotalFeeNative({
   amount, // in GWEI
   feeInfo,
-  displayDecimal = 8,
 }: {
   amount: string | BigNumber;
   feeInfo: IFeeInfoUnit;
-  displayDecimal?: number;
 }) {
   const { common } = feeInfo;
-
   return new BigNumber(amount)
     .plus(common?.baseFee ?? 0)
     .shiftedBy(
@@ -126,20 +119,16 @@ export function calculateTotalFeeNative({
         nilError('calculateTotalFeeNative ERROR: info.nativeDecimals missing')
       ),
     ) // onChainValue -> nativeAmount
-    .toFixed(displayDecimal);
+    .toFixed();
 }
 
 export function calculateFeeForSend({
   feeInfo,
   nativeTokenPrice,
   txSize,
-  nativeDisplayDecimal = 8,
-  fiatDisplayDecimal = 2,
 }: {
   feeInfo: IFeeInfoUnit;
   nativeTokenPrice: number;
-  nativeDisplayDecimal?: number;
-  fiatDisplayDecimal?: number;
   txSize?: number;
 }) {
   const feeRange = calculateTotalFeeRange({
@@ -151,19 +140,17 @@ export function calculateFeeForSend({
   const totalNative = calculateTotalFeeNative({
     amount: total,
     feeInfo,
-    displayDecimal: nativeDisplayDecimal,
   });
   const totalNativeForDisplay = calculateTotalFeeNative({
     amount: totalForDisplay,
     feeInfo,
-    displayDecimal: nativeDisplayDecimal,
   });
   const totalFiat = new BigNumber(totalNative)
     .multipliedBy(nativeTokenPrice)
-    .toFixed(fiatDisplayDecimal);
+    .toFixed();
   const totalFiatForDisplay = new BigNumber(totalNativeForDisplay)
     .multipliedBy(nativeTokenPrice)
-    .toFixed(fiatDisplayDecimal);
+    .toFixed();
 
   return {
     total,
@@ -217,4 +204,20 @@ export function getFeeConfidenceLevelStyle(confidence: number) {
   return {
     badgeType: 'success',
   };
+}
+
+export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
+  if (feeInfo.gasEIP1559) {
+    return new BigNumber(feeInfo.gasEIP1559.baseFeePerGas || 0)
+      .plus(feeInfo.gasEIP1559.maxPriorityFeePerGas || 0)
+      .toFixed();
+  }
+
+  if (feeInfo.gas) {
+    return feeInfo.gas.gasPrice;
+  }
+
+  if (feeInfo.feeUTXO) {
+    return feeInfo.feeUTXO.feeRate;
+  }
 }

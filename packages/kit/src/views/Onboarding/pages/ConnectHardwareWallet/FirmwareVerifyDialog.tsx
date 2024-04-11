@@ -13,6 +13,7 @@ import {
   Stack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
@@ -83,6 +84,7 @@ export function FirmwareAuthenticationDialogContentLegacy({
     device,
     skipDeviceCancel,
   });
+  const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   return (
     <Stack>
@@ -167,9 +169,7 @@ export function FirmwareAuthenticationDialogContentLegacy({
               {...(result === 'unofficial' && {
                 onPress: async () => {
                   // Contact OneKey Support
-                  await Linking.openURL(
-                    'https://help.onekey.so/hc/requests/new',
-                  );
+                  await Linking.openURL(requestsUrl);
                 },
               })}
               {...(result === 'error' && {
@@ -220,6 +220,8 @@ export function FirmwareAuthenticationDialogContent({
     skipDeviceCancel,
   });
 
+  const requestsUrl = useHelpLink({ path: 'requests/new' });
+
   const content = useMemo(() => {
     if (result === 'unknown') {
       return (
@@ -255,7 +257,7 @@ export function FirmwareAuthenticationDialogContent({
       },
       unofficial: {
         onPress: async () => {
-          await Linking.openURL('https://help.onekey.so/hc/requests/new');
+          await Linking.openURL(requestsUrl);
         },
         button: 'Contact us',
         textStackProps: {
@@ -369,7 +371,15 @@ export function FirmwareAuthenticationDialogContent({
         {riskText}
       </Stack>
     );
-  }, [isShowingRiskWarning, noContinue, onContinue, result, setResult, verify]);
+  }, [
+    isShowingRiskWarning,
+    noContinue,
+    onContinue,
+    requestsUrl,
+    result,
+    setResult,
+    verify,
+  ]);
 
   return <Stack space="$5">{content}</Stack>;
 }

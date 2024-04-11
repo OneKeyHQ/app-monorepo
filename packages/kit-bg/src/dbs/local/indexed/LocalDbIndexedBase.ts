@@ -99,16 +99,12 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     >;
     walletId: IDBWalletIdSingleton;
   }) {
-    await this._getOrAddRecord(walletStore, {
-      id: walletId,
-      name: walletId,
-      type: walletId,
-      backuped: true,
-      accounts: [],
-      nextIndex: 0,
-      walletNo: 0,
-      nextAccountIds: { 'global': 1 },
-    });
+    await this._getOrAddRecord(
+      walletStore,
+      this.buildSingletonWalletRecord({
+        walletId,
+      }),
+    );
   }
 
   private async _initDBRecords(db: IndexedDBAgent) {
