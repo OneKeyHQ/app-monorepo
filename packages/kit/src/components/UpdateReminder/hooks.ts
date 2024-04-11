@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { NativeModules } from 'react-native';
-
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -10,7 +8,6 @@ import {
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
-import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs/index.native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -55,10 +52,9 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
     }
-    void backgroundApiProxy.ServiceAppUpdate.fetchAppUpdateInfo();
+    void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
@@ -83,12 +79,6 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       case EAppUpdateStatus.ready:
         if (platformEnv.isDesktop) {
           window.desktopApi.installUpdate();
-        } else if (platformEnv.isNativeAndroid) {
-          NativeModules.DownloadManager.installApk(
-            `${RNFS.DocumentDirectoryPath}/apk/${
-              appUpdateInfo.latestVersion || ''
-            }.apk`,
-          );
         }
         break;
       default:
@@ -101,14 +91,6 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     navigation.pushFullModal,
     navigation.pushModal,
   ]);
-
-
-  useEffect(() => {
-    // force update
-    if (appUpdateInfo.isForceUpdate) {
-      onUpdateAction();
-    }
-  }, [appUpdateInfo.isForceUpdate, onUpdateAction]);
 
   return useMemo(
     () =>

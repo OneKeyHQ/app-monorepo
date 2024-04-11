@@ -10,9 +10,17 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  ONEKEY_APP_TEST_UPDATE_URL,
+  ONEKEY_APP_UPDATE_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { appUpdatePersistAtom } from '../states/jotai/atoms';
+import {
+  appUpdatePersistAtom,
+  devSettingsPersistAtom,
+} from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -23,6 +31,15 @@ let timerId: ReturnType<typeof setTimeout>;
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async getEndpoints() {
+    const settings = await devSettingsPersistAtom.get();
+    if (settings.enabled && settings.settings?.enableTestEndpoint) {
+      return ONEKEY_APP_TEST_UPDATE_URL;
+    }
+    return ONEKEY_APP_UPDATE_URL;
   }
 
   @backgroundMethod()
@@ -41,11 +58,24 @@ class ServiceAppUpdate extends ServiceBase {
     const { status, updateAt } = await appUpdatePersistAtom.get();
     if (platformEnv.isExtension) {
       clearTimeout(timerId);
+      // add random time to avoid all extension request at the same time.
+      const timeout =
+        timerUtils.getTimeDurationMs({
+          hour: 1,
+        }) +
+        timerUtils.getTimeDurationMs({
+          minute: 5,
+        }) *
+          Math.random();
       timerId = setTimeout(() => {
         void this.fetchAppUpdateInfo();
-        // add random time to avoid all extension request at the same time.
-      }, 1000 * 60 * 60 + Math.random() * 1000 * 60 * 5);
-      return Date.now() - updateAt < 1000 * 60 * 60 * 24;
+      }, timeout);
+      return (
+        Date.now() - updateAt <
+        timerUtils.getTimeDurationMs({
+          day: 1,
+        })
+      );
     }
     return ![EAppUpdateStatus.downloading, EAppUpdateStatus.ready].includes(
       status,
@@ -61,7 +91,7 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async readToInstall() {
+  public async readyToInstall() {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.ready,
@@ -76,9 +106,10 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
+    const url = await this.getEndpoints();
     const key = Math.random().toString();
     const response = await AxiosInstance.get<IAppUpdateInfoData>(
-      `https://data.onekey.so/config.json?nocache=${key}`,
+      `${url}?nocache=${key}`,
     );
     const releaseInfo = handleReleaseInfo(response.data);
     await appUpdatePersistAtom.set((prev) => ({

@@ -1,19 +1,22 @@
 import { Page } from '@onekeyhq/components';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { IUpdatePreviewActionButton } from './type';
 
-export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => (
-  <Page.Footer
-    confirmButtonProps={{
-      onPress: () => {
-        // TODO: i18n
-        openUrlExternal(
-          'https://help.onekey.so/hc/en-us/articles/9131347902223-Update-your-OneKey-App',
-        );
-      },
-      iconAfter: 'ArrowTopRightOutline',
-    }}
-    onConfirmText="Manual Update"
-  />
-);
+export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
+  const helpLink = useHelpLink({
+    path: 'articles/9131347902223-Update-your-OneKey-App',
+  });
+  return (
+    <Page.Footer
+      confirmButtonProps={{
+        onPress: () => {
+          openUrlExternal(helpLink);
+        },
+        iconAfter: 'ArrowTopRightOutline',
+      }}
+      onConfirmText="Manual Update"
+    />
+  );
+};

@@ -2,18 +2,19 @@ import { type FC, useCallback, useMemo, useState } from 'react';
 
 import { ListView, SearchBar, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-type IConfigurableListViewProps = {
+type IImmutableViewProps = {
   networks: IServerNetwork[];
-  onPress?: (network: IServerNetwork) => void;
   networkId?: string;
+  onPressItem?: (network: IServerNetwork) => void;
 };
 
-export const ConfigurableListView: FC<IConfigurableListViewProps> = ({
+export const ImmutableView: FC<IImmutableViewProps> = ({
   networks,
-  onPress,
   networkId,
+  onPressItem,
 }) => {
   const [text, setText] = useState('');
   const onChangeText = useCallback((value: string) => {
@@ -40,12 +41,9 @@ export const ConfigurableListView: FC<IConfigurableListViewProps> = ({
           renderItem={({ item }) => (
             <ListItem
               h={48}
-              avatarProps={{
-                src: item.logoURI,
-                size: '$8',
-              }}
+              renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
               title={item.name}
-              onPress={() => onPress?.(item)}
+              onPress={() => onPressItem?.(item)}
             >
               {networkId === item.id ? (
                 <ListItem.CheckMark

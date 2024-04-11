@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
+
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import {
   useAccountSelectorActions,
@@ -9,11 +11,10 @@ import {
 
 export function useAccountSelectorTrigger({
   num,
-  linkNetwork,
+  ...others
 }: {
   num: number;
-  linkNetwork?: boolean;
-}) {
+} & IAccountSelectorRouteParamsExtraConfig) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
@@ -26,12 +27,12 @@ export function useAccountSelectorTrigger({
       navigation,
       sceneName,
       sceneUrl,
-      linkNetwork,
+      ...others,
     });
   }, [
     actions,
     activeAccount.wallet,
-    linkNetwork,
+    others,
     navigation,
     num,
     sceneName,
@@ -49,7 +50,7 @@ export function useMockAccountSelectorLoading() {
   useEffect(() => {
     setTimeout(() => {
       setIsLoading(false);
-    }, 500);
+    }, 300);
   }, []);
   return {
     isLoading,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { isNil } from 'lodash';
 
@@ -137,6 +137,16 @@ function DefaultWalletSettingsModal() {
     [run, result?.isDefaultWallet, refreshContextMenu],
   );
 
+  const displayExcludedList = useMemo(() => {
+    if (
+      typeof result?.isDefaultWallet === 'boolean' &&
+      !result.isDefaultWallet
+    ) {
+      return false;
+    }
+    return true;
+  }, [result?.isDefaultWallet]);
+
   const renderList = useCallback(() => {
     if (isNil(result?.excludedDappListWithLogo)) {
       return null;
@@ -180,12 +190,16 @@ function DefaultWalletSettingsModal() {
             onChange={onToggleDefaultWallet}
           />
         </ListItem>
-        <Divider my="$2.5" />
-        <ListItem
-          title="Excluded dApps"
-          subtitle="Right-click blank space, select the option below to exclude."
-        />
-        {renderList()}
+        {displayExcludedList ? (
+          <>
+            <Divider my="$2.5" />
+            <ListItem
+              title="Excluded dApps"
+              subtitle="Right-click blank space, select the option below to exclude."
+            />
+            {renderList()}
+          </>
+        ) : null}
       </Page.Body>
     </Page>
   );

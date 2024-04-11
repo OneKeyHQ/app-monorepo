@@ -128,7 +128,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceScanQRCode: ServiceScanQRCode;
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
-  ServiceAppUpdate: ServiceAppUpdate;
+  serviceAppUpdate: ServiceAppUpdate;
   serviceContextMenu: ServiceContextMenu;
 
   serviceE2E: ServiceE2E;
