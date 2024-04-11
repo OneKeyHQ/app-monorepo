@@ -2,7 +2,8 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useState } from 'react';
 
-import { Button, YStack } from '@onekeyhq/components';
+import { Button, Select, YStack } from '@onekeyhq/components';
+import type { IAccountAvatarProps } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -135,40 +136,58 @@ const ToastGallery = () => (
       {
         title: 'Switch Account',
         element: () => {
+          const [size, setSize] =
+            useState<IAccountAvatarProps['size']>('default');
           const [account, setAccount] = useState<
             INetworkAccount | IDBExternalAccount | undefined
           >(undefined);
           return (
             <YStack space="$4">
-              <AccountAvatar dbAccount={account} />
+              <AccountAvatar dbAccount={account} size={size} />
               <YStack space="$4">
+                <Select
+                  items={[
+                    {
+                      value: 'default',
+                      label: 'default',
+                    },
+                    {
+                      value: 'small',
+                      label: 'small',
+                    },
+                  ]}
+                  value={size}
+                  onChange={setSize}
+                  title="Demo Title"
+                  onOpenChange={console.log}
+                />
                 <Button
                   onPress={() => {
                     setAccount(networkAccount);
                   }}
                 >
-                  Change to db networkAccount
+                  Change to db Network Account
                 </Button>
                 <Button
                   onPress={() => {
                     setAccount(externalAccount);
                   }}
                 >
-                  Change to external networkAccount
+                  Change to External account
                 </Button>
                 <Button
                   onPress={() => {
                     setAccount(invalidExternalAccount);
                   }}
                 >
-                  Change to invalid external networkAccount
+                  Change to invalid External account
                 </Button>
                 <Button
                   onPress={() => {
                     setAccount(undefined);
                   }}
                 >
-                  Change to empty networkAccount
+                  Change to empty account
                 </Button>
               </YStack>
             </YStack>
