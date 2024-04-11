@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -740,7 +741,7 @@ class ServiceDApp extends ServiceBase {
       body: [request.id ? request : { ...request, id: 0 }],
     });
 
-    return results.data.data.data.result;
+    return parseRPCResponse(results.data.data.data);
   }
 }
 
