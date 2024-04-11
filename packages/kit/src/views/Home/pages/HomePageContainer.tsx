@@ -66,6 +66,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
   } = useActiveAccount({ num: 0 });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
     ? intl.formatMessage({
         id: deriveInfo?.labelKey,
