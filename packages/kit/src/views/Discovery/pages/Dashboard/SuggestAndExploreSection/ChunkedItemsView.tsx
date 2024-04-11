@@ -59,7 +59,7 @@ export function usePaginationStyle(isHorizontal: boolean) {
         snapToInterval: cardWidth,
         snapToAlignment: 'start',
         contentContainerStyle: {
-          paddingRight: iconSize / 2,
+          paddingRight: iconSize,
         },
       } as IScrollViewProps)
     : undefined;
