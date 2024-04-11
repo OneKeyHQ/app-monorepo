@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
-import { Dimensions } from 'react-native';
+import memoizee from 'memoizee';
+import { Dimensions, useWindowDimensions } from 'react-native';
 
 import {
   Badge,
@@ -9,6 +10,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  getTokenValue,
   useMedia,
 } from '@onekeyhq/components';
 import type {
@@ -17,6 +19,7 @@ import type {
   IStackProps,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../../../types';
@@ -35,21 +38,32 @@ export type IChunkedItemsViewProps = {
   isExploreView: boolean;
 };
 
-const HALF_SIZE_OF_IMAGE = 48;
-export const CARD_WIDTH_IN_MD =
-  Dimensions.get('window').width - HALF_SIZE_OF_IMAGE;
-export const SPACING_FOR_CARD_INSET = 100;
+const getIconSize = memoizee(() => getTokenValue('$12', 'size') as number, {
+  maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
+});
 
-const paginationStyle: IScrollViewProps = {
-  horizontal: true,
-  showsHorizontalScrollIndicator: false,
-  decelerationRate: 0,
-  snapToInterval: CARD_WIDTH_IN_MD,
-  snapToAlignment: 'start',
-  contentContainerStyle: {
-    paddingRight: HALF_SIZE_OF_IMAGE,
-  },
-};
+export function useCardWidth() {
+  const { width } = useWindowDimensions();
+  const iconSize = getIconSize();
+  return width - iconSize;
+}
+
+export function usePaginationStyle(isHorizontal: boolean) {
+  const cardWidth = useCardWidth();
+  const iconSize = getIconSize();
+  return isHorizontal
+    ? ({
+        horizontal: true,
+        showsHorizontalScrollIndicator: false,
+        decelerationRate: 0,
+        snapToInterval: cardWidth,
+        snapToAlignment: 'start',
+        contentContainerStyle: {
+          paddingRight: iconSize / 2,
+        },
+      } as IScrollViewProps)
+    : undefined;
+}
 
 export function ItemsContainer({
   children,
@@ -60,20 +74,18 @@ export function ItemsContainer({
 } & IStackProps &
   IScrollViewProps) {
   const media = useMedia();
-
+  const paginationStyle = usePaginationStyle(!!horizontal);
   if (media.gtMd) {
     return <Stack {...rest}>{children}</Stack>;
   }
-
-  const styles = horizontal ? paginationStyle : undefined;
   return (
     <ScrollView
       pagingEnabled
-      {...styles}
+      {...paginationStyle}
       {...rest}
       contentContainerStyle={{
         ...rest.contentContainerStyle,
-        ...styles?.contentContainerStyle,
+        ...paginationStyle?.contentContainerStyle,
       }}
     >
       {children}
@@ -81,21 +93,23 @@ export function ItemsContainer({
   );
 }
 
-// There is a slight issue with the space calculation in tamagui, it needs to be resolved by upgrading the version.
-const patchFixMdBrowserMarginLeft = (itemLength: number) =>
-  platformEnv.isRuntimeBrowser && itemLength > 1 ? '$-3' : undefined;
-
 export function ChunkedItemsView({
   isExploreView,
   dataChunks,
   handleOpenWebSite,
 }: IChunkedItemsViewProps) {
+  const cardWidth = useCardWidth();
   return (
     <ItemsContainer
       mx="$-5"
-      $md={{
-        ml: patchFixMdBrowserMarginLeft(dataChunks.length),
-      }}
+      // There is a slight issue with the space calculation in tamagui, it needs to be resolved by upgrading the version.
+      $md={
+        platformEnv.isRuntimeBrowser
+          ? {
+              ml: '$-3',
+            }
+          : undefined
+      }
       horizontal={!isExploreView}
       contentContainerStyle={{
         px: '$2',
@@ -117,7 +131,7 @@ export function ChunkedItemsView({
                   flexWrap: 'wrap',
                 }
               : {
-                  w: CARD_WIDTH_IN_MD,
+                  w: cardWidth,
                 }
           }
           $gtMd={{
