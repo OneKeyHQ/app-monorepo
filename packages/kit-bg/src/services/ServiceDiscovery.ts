@@ -1,4 +1,3 @@
-import Fuse from 'fuse.js';
 import { isNumber } from 'lodash';
 
 import type {
@@ -9,10 +8,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  IFuseResult,
-  buildFuse,
-} from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';

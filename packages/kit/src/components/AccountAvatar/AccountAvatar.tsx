@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
 import type {
+  IIconProps,
   IImageFallbackProps,
   IImageLoadingProps,
   IImageProps,
@@ -21,10 +22,10 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { NetworkAvatar } from '../NetworkAvatar';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
@@ -67,34 +68,36 @@ function HashImageSource({ id }: { id: string }) {
 
 const MemoHashImageSource = memo(HashImageSource);
 
-function Fallback({
+function DefaultImageLoading({
   delayMs = 150,
   ...props
 }: { delayMs?: number } & ISkeletonProps) {
   return (
-    <Image.Fallback delayMs={delayMs}>
+    <Image.Loading delayMs={delayMs}>
       <Skeleton {...props} />
+    </Image.Loading>
+  );
+}
+
+function DefaultImageFallback() {
+  return (
+    <Image.Fallback
+      flex={1}
+      bg="$bgStrong"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Icon name="AccountErrorCustom" size="$4.5" color="$textSubdued" />
     </Image.Fallback>
   );
 }
 
-function ChainImage({
-  networkId,
-  size,
-}: {
-  networkId?: string;
-  size: IImageProps['size'];
-}) {
-  const { serviceNetwork } = backgroundApiProxy;
-  const res = usePromiseResult(
-    () =>
-      networkId
-        ? serviceNetwork.getNetwork({ networkId })
-        : Promise.resolve({ logoURI: '' }),
-    [networkId, serviceNetwork],
+function DefaultEmptyAccount() {
+  return (
+    <Stack flex={1} bg="$bgStrong" alignItems="center" justifyContent="center">
+      <Icon name="CrossedSmallSolid" size="$6" />
+    </Stack>
   );
-  const { logoURI } = res.result || {};
-  return logoURI ? <Image size={size} src={logoURI} /> : null;
 }
 
 function BasicAccountAvatar({
@@ -123,16 +126,7 @@ function BasicAccountAvatar({
         };
 
   const renderContent = useMemo(() => {
-    const emptyAccountAvatar = (
-      <Stack
-        flex={1}
-        bg="$bgStrong"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Icon name="CrossedSmallSolid" size="$6" />
-      </Stack>
-    );
+    const emptyAccountAvatar = <DefaultEmptyAccount />;
 
     if (address) {
       return <MemoHashImageSource id={address} />;
@@ -147,11 +141,18 @@ function BasicAccountAvatar({
     if (finalAccount) {
       if (accountUtils.isExternalAccount({ accountId: finalAccount.id })) {
         const externalAccount = finalAccount as IDBExternalAccount;
+
         const wcPeerMeta =
           externalAccount?.connectionInfo?.walletConnect?.peerMeta;
-        const wcSrc = wcPeerMeta?.icons?.[0];
-        if (wcSrc) {
-          return <Image.Source src={wcSrc} />;
+        if (wcPeerMeta) {
+          const { logo } = externalWalletLogoUtils.getLogoInfoFromWalletConnect(
+            {
+              peerMeta: wcPeerMeta,
+            },
+          );
+          if (logo) {
+            return <Image.Source src={logo} />;
+          }
         }
 
         // TODO move account avatar icon calculation to getAccount() in background
@@ -166,11 +167,9 @@ function BasicAccountAvatar({
         // some dapps don't provide icons, fallback to walletconnect icon
         // TODO use wcPeerMeta.name or wcPeerMeta.url to find wallet icon
         if (wcPeerMeta || externalAccount?.connectionInfo?.walletConnect) {
-          return (
-            <Image.Source
-              source={require('@onekeyhq/kit/assets/onboarding/logo_walletconnect.png')}
-            />
-          );
+          const walletConnectIcon =
+            externalWalletLogoUtils.getLogoInfo('walletconnect').logo;
+          return <Image.Source src={walletConnectIcon} />;
         }
       }
       return finalAccount.address ? (
@@ -186,16 +185,29 @@ function BasicAccountAvatar({
     return emptyAccountAvatar;
   }, [account, address, dbAccount, fallbackProps, indexedAccount, source, src]);
 
-  const renderLoading = useMemo(() => {
-    if (loading || loadingProps) {
-      return loading || loadingProps ? (
+  const renderLoading = useMemo(
+    () =>
+      loading || loadingProps ? (
         <Image.Loading {...loadingProps} />
-      ) : null;
-    }
-    return null;
-  }, [loading, loadingProps]);
+      ) : (
+        <DefaultImageLoading w={containerSize} h={containerSize} />
+      ),
+    [containerSize, loading, loadingProps],
+  );
 
   const renderFallback = useMemo(() => {
+    // error of externalAccount
+    const finalAccount = account || dbAccount;
+    if (
+      finalAccount &&
+      accountUtils.isExternalAccount({ accountId: finalAccount.id })
+    ) {
+      const externalAccount = finalAccount as IDBExternalAccount;
+
+      if (externalAccount) {
+        return <DefaultImageFallback />;
+      }
+    }
     if (
       address ||
       indexedAccount ||
@@ -207,18 +219,15 @@ function BasicAccountAvatar({
     ) {
       return (
         fallback ||
-        (fallbackProps ? (
-          <Image.Fallback {...fallbackProps} />
-        ) : (
-          <Fallback w={containerSize} h={containerSize} />
-        ))
+        (fallbackProps ? <Image.Fallback {...fallbackProps} /> : null)
       );
     }
+
     return null;
   }, [
     account,
     address,
-    containerSize,
+    dbAccount,
     fallback,
     fallbackProps,
     indexedAccount,
@@ -264,7 +273,7 @@ function BasicAccountAvatar({
           borderRadius="$full"
           zIndex="$1"
         >
-          <ChainImage networkId={networkId} size={logoSize} />
+          <NetworkAvatar networkId={networkId} size={logoSize} />
         </Stack>
       ) : null}
     </Stack>
@@ -272,5 +281,5 @@ function BasicAccountAvatar({
 }
 
 export const AccountAvatar = withStaticProperties(BasicAccountAvatar, {
-  Fallback,
+  Loading: DefaultImageLoading,
 });

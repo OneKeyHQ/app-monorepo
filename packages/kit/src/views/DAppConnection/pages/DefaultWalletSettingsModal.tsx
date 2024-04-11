@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { isNil } from 'lodash';
 
@@ -6,6 +6,7 @@ import {
   Divider,
   ESwitchSize,
   Image,
+  ListView,
   Page,
   Skeleton,
   Stack,
@@ -137,24 +138,28 @@ function DefaultWalletSettingsModal() {
     [run, result?.isDefaultWallet, refreshContextMenu],
   );
 
-  const renderList = useCallback(() => {
-    if (isNil(result?.excludedDappListWithLogo)) {
-      return null;
+  const displayExcludedList = useMemo(() => {
+    if (
+      typeof result?.isDefaultWallet === 'boolean' &&
+      !result.isDefaultWallet
+    ) {
+      return false;
     }
-    if (result.excludedDappListWithLogo.length === 0) {
-      return <EmptyGuide />;
-    }
-    return result.excludedDappListWithLogo.map((i) => (
+    return true;
+  }, [result?.isDefaultWallet]);
+
+  const renderItem = useCallback(
+    ({ item }: { item: { origin: string; logo: string } }) => (
       <ListItem
-        key={i.origin}
-        title={i.origin}
+        key={item.origin}
+        title={item.origin}
         avatarProps={{
-          src: i.logo,
+          src: item.logo,
           fallbackProps: {
             children: <Skeleton w="$10" h="$10" />,
           },
         }}
-        onPress={() => removeExcludedDApp(i.origin)}
+        onPress={() => removeExcludedDApp(item.origin)}
       >
         <ListItem.IconButton
           icon="DeleteOutline"
@@ -163,8 +168,26 @@ function DefaultWalletSettingsModal() {
           }}
         />
       </ListItem>
-    ));
-  }, [result?.excludedDappListWithLogo, removeExcludedDApp]);
+    ),
+    [removeExcludedDApp],
+  );
+
+  const renderList = useCallback(() => {
+    if (isNil(result?.excludedDappListWithLogo)) {
+      return null;
+    }
+    if (result.excludedDappListWithLogo.length === 0) {
+      return <EmptyGuide />;
+    }
+    return (
+      <ListView
+        keyExtractor={(item) => item.origin}
+        data={result.excludedDappListWithLogo}
+        estimatedItemSize="$10"
+        renderItem={renderItem}
+      />
+    );
+  }, [result?.excludedDappListWithLogo, renderItem]);
 
   return (
     <Page>
@@ -180,12 +203,16 @@ function DefaultWalletSettingsModal() {
             onChange={onToggleDefaultWallet}
           />
         </ListItem>
-        <Divider my="$2.5" />
-        <ListItem
-          title="Excluded dApps"
-          subtitle="Right-click blank space, select the option below to exclude."
-        />
-        {renderList()}
+        {displayExcludedList ? (
+          <>
+            <Divider my="$2.5" />
+            <ListItem
+              title="Excluded dApps"
+              subtitle="Right-click blank space, select the option below to exclude."
+            />
+            {renderList()}
+          </>
+        ) : null}
       </Page.Body>
     </Page>
   );

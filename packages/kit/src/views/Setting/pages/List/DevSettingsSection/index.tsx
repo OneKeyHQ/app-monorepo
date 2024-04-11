@@ -2,9 +2,16 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, ESwitchSize, Switch, YStack, useClipboard } from '@onekeyhq/components';
+import {
+  Dialog,
+  ESwitchSize,
+  Switch,
+  YStack,
+  useClipboard,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Section } from '../Section';
 
@@ -51,6 +58,15 @@ export const DevSettingsSection = () => {
       <SectionFieldItem
         name="enableTestEndpoint"
         title={intl.formatMessage({ id: 'action__test_onekey_service' })}
+        onValueChange={
+          platformEnv.isDesktop
+            ? (enabled: boolean) => {
+                window.desktopApi?.setAutoUpdateSettings?.({
+                  useTestFeedUrl: enabled,
+                });
+              }
+            : undefined
+        }
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>

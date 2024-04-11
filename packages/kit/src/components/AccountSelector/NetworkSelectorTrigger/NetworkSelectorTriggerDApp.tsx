@@ -2,22 +2,23 @@ import { useCallback } from 'react';
 
 import {
   Icon,
-  Image,
   SizableText,
   Skeleton,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
 
+import { NetworkAvatar } from '../../NetworkAvatar';
 import { useMockAccountSelectorLoading } from '../hooks/useAccountSelectorTrigger';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
 export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
   beforeShowTrigger?: () => Promise<void>;
+  loadingDuration?: number;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-}>(({ num, disabled, beforeShowTrigger, ...rest }, _: any) => {
-  const { isLoading } = useMockAccountSelectorLoading();
+}>(({ num, disabled, beforeShowTrigger, loadingDuration, ...rest }, _: any) => {
+  const { isLoading } = useMockAccountSelectorLoading(loadingDuration);
   const {
     activeAccount: { network },
     showChainSelector,
@@ -27,6 +28,17 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
     await beforeShowTrigger?.();
     showChainSelector();
   }, [beforeShowTrigger, showChainSelector]);
+
+  const renderNetworkIcon = useCallback(() => {
+    if (isLoading) {
+      return <Skeleton w="$6" h="$6" />;
+    }
+    if (network?.logoURI) {
+      return <NetworkAvatar networkId={network?.id} size="$6" />;
+    }
+
+    return <Icon size="$6" name="QuestionmarkOutline" color="$iconSubdued" />;
+  }, [isLoading, network?.logoURI, network?.id]);
 
   return (
     <XStack
@@ -64,17 +76,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       disabled={disabled}
       {...rest}
     >
-      {isLoading ? (
-        <Skeleton w="$6" h="$6" />
-      ) : (
-        <Image
-          w="$6"
-          h="$6"
-          source={{
-            uri: network?.logoURI ? network?.logoURI : '',
-          }}
-        />
-      )}
+      {renderNetworkIcon()}
       {disabled ? null : (
         <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
       )}
@@ -114,13 +116,7 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
       }}
       onPress={handlePress}
     >
-      <Image
-        w="$6"
-        h="$6"
-        source={{
-          uri: network?.logoURI ? network?.logoURI : '',
-        }}
-      />
+      <NetworkAvatar networkId={network?.id} size="$6" />
       {media.gtMd ? (
         <>
           <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>

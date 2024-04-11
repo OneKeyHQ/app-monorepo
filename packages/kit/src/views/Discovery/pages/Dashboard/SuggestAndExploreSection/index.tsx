@@ -2,13 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { isNil } from 'lodash';
 
-import {
-  Skeleton,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Skeleton, Stack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -18,7 +12,7 @@ import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 import { DashboardSectionHeader } from '../DashboardSectionHeader';
 
 import { ChunkedItemsSkeletonView } from './ChunkedItemsSkeletonView';
-import { ItemsContainer, chunkArray } from './ChunkedItemsView';
+import { chunkArray } from './ChunkedItemsView';
 import { ExploreView } from './ExploreView';
 import { SuggestedView } from './SuggestedView';
 

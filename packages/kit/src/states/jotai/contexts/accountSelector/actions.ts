@@ -3,8 +3,6 @@ import { useRef } from 'react';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
@@ -18,6 +16,8 @@ import type {
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -28,7 +28,10 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IChainSelectorRouteParams } from '@onekeyhq/shared/src/routes';
+import type {
+  IAccountChainSelectorRouteParams,
+  IAccountSelectorRouteParamsExtraConfig,
+} from '@onekeyhq/shared/src/routes';
 import {
   EAccountManagerStacksRoutes,
   EChainSelectorPages,
@@ -228,9 +231,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccount: IDBIndexedAccount | undefined;
         othersWalletAccount: IDBAccount | undefined;
         num: number;
+        autoChangeToAccountMatchedNetworkId?: string;
       },
     ) => {
-      const { num, othersWalletAccount, indexedAccount } = params;
+      const {
+        num,
+        othersWalletAccount,
+        indexedAccount,
+        autoChangeToAccountMatchedNetworkId,
+      } = params;
       if (othersWalletAccount && indexedAccount) {
         throw new Error(
           'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both defined',
@@ -251,6 +260,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const accountNetworkId = this.getAutoSelectNetworkIdForAccount.call(set, {
         num,
         account: othersWalletAccount,
+        autoChangeToAccountMatchedNetworkId,
       });
 
       await this.updateSelectedAccount.call(set, {
@@ -275,18 +285,20 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         sceneName,
         sceneUrl,
-        linkNetwork, // show account address of current network
+        ...others
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
-        linkNetwork?: boolean;
-      } & IAccountSelectorRouteParams,
+      } & IAccountSelectorRouteParams &
+        IAccountSelectorRouteParamsExtraConfig,
     ) => {
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
       if (activeAccountInfo?.wallet?.id) {
-        let focusedWalletNew: IAccountSelectorFocusedWallet =
+        // focus to active wallet when open selector
+        const focusedWalletNew: IAccountSelectorFocusedWallet =
           activeAccountInfo?.wallet?.id;
         if (accountUtils.isOthersWallet({ walletId: focusedWalletNew })) {
-          focusedWalletNew = '$$others';
+          // focus to grouped Others Tab
+          // focusedWalletNew = '$$others';
         }
         await this.updateSelectedAccount.call(set, {
           num,
@@ -303,7 +315,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num,
           sceneName,
           sceneUrl,
-          linkNetwork,
+          ...others,
         },
       });
     },
@@ -318,10 +330,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ...routeParams
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
-      } & IChainSelectorRouteParams,
+      } & IAccountChainSelectorRouteParams,
     ) => {
       navigation.pushModal(EModalRoutes.ChainSelectorModal, {
-        screen: EChainSelectorPages.ChainSelector,
+        screen: EChainSelectorPages.AccountChainSelector,
         params: routeParams,
       });
     },
@@ -550,7 +562,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       await serviceAccount.removeWallet({ walletId });
       set(accountSelectorEditModeAtom(), false);
 
-      await this.autoSelectAccount.call(set, { num });
+      await this.autoSelectAccount.call(set, {
+        num,
+        triggerBy: 'removeWallet',
+      });
     },
   );
 
@@ -913,15 +928,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         num,
         account,
+        autoChangeToAccountMatchedNetworkId,
       }: {
         num: number;
         account: IDBAccount | undefined;
+        autoChangeToAccountMatchedNetworkId?: string;
       },
     ) => {
       if (!account) {
         return '';
       }
-      const { networkId } = this.getSelectedAccount.call(set, { num });
+      const { networkId: currentNetworkId } = this.getSelectedAccount.call(
+        set,
+        { num },
+      );
+      const networkId = autoChangeToAccountMatchedNetworkId || currentNetworkId;
       if (!networkId) {
         return '';
       }
@@ -929,7 +950,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         account,
         networkId,
       });
-      if (accountNetworkId && accountNetworkId !== networkId) {
+      if (accountNetworkId && accountNetworkId !== currentNetworkId) {
         return accountNetworkId;
       }
       return '';
@@ -1011,7 +1032,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 networkId: accountNetworkId || v.networkId,
                 indexedAccountId: undefined,
                 walletId: wallet.id,
-                focusedWallet: '$$others',
+                focusedWallet: wallet.id,
               }),
             });
           }
@@ -1020,13 +1041,25 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
-  autoSelectAccount = contextAtomMethod(
+  buildSelectedAccountNew = contextAtomMethod(
     async (get, set, { num }: { num: number }) => {
+      const selectedAccount = this.getSelectedAccount.call(set, { num });
+      return cloneDeep(selectedAccount || defaultSelectedAccount());
+    },
+  );
+
+  autoSelectAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      { num, triggerBy }: { num: number; triggerBy?: 'removeWallet' },
+    ) => {
       // wait activeAccount build done
       await timerUtils.wait(300);
       const storageReady = get(accountSelectorStorageReadyAtom());
       const selectedAccount = this.getSelectedAccount.call(set, { num });
       const activeAccount = this.getActiveAccount.call(set, { num });
+
       // TODO auto select account from home scene
       if (activeAccount && activeAccount?.ready && storageReady) {
         const { network, wallet, indexedAccount, account, dbAccount } =
@@ -1037,8 +1070,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           !wallet ||
           (!indexedAccount && !account && !dbAccount)
         ) {
-          const selectedAccountNew = cloneDeep(
-            selectedAccount || defaultSelectedAccount(),
+          const selectedAccountNew = await this.buildSelectedAccountNew.call(
+            set,
+            {
+              num,
+            },
           );
           let selectedWalletId = wallet?.id;
           let selectedWallet = wallet;
@@ -1100,7 +1136,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             Boolean(selectedWalletId) && !isHdWallet && !isHwWallet;
 
           if (isOthers) {
-            selectedAccountNew.focusedWallet = '$$others';
+            selectedAccountNew.focusedWallet = selectedWalletId;
             selectedAccountNew.walletId = selectedWalletId;
             selectedAccountNew.indexedAccountId = undefined;
           }
@@ -1125,7 +1161,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                     account: firstAccount,
                     networkId: network?.id || '',
                   });
-                selectedAccountNew.focusedWallet = '$$others';
+                selectedAccountNew.focusedWallet = singletonWalletId;
                 selectedAccountNew.networkId = accountNetworkId || network?.id;
                 selectedAccountNew.deriveType = 'default';
                 selectedAccountNew.walletId = singletonWalletId;
@@ -1170,6 +1206,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (selectedAccount.walletId !== selectedAccountNew.walletId) {
             set(accountSelectorEditModeAtom(), false);
           }
+        } else if (triggerBy === 'removeWallet') {
+          const selectedAccountNew = await this.buildSelectedAccountNew.call(
+            set,
+            {
+              num,
+            },
+          );
+          // autofix focusedWallet when remove wallet
+          selectedAccountNew.focusedWallet = selectedAccountNew.walletId;
+          await this.updateSelectedAccount.call(set, {
+            num,
+            builder: () => selectedAccountNew,
+          });
         }
       }
     },

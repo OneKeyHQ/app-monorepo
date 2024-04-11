@@ -12,12 +12,14 @@ interface ISectionFieldItem extends PropsWithChildren {
   name?: IDevSettingsKeys;
   title: IListItemProps['title'];
   titleProps?: IListItemProps['titleProps'];
+  onValueChange?: (v: any) => void;
 }
 
 export function SectionFieldItem({
   name,
   title,
   children,
+  onValueChange,
   titleProps = { color: '$textCritical' },
   testID = '',
 }: IPropsWithTestId<ISectionFieldItem>) {
@@ -25,12 +27,13 @@ export function SectionFieldItem({
   const child = Children.only(children) as ReactElement;
   const value = name ? devSetting?.settings?.[name] : '';
   const handleChange = useCallback(
-    (v: any) => {
+    async (v: any) => {
       if (name) {
-        void backgroundApiProxy.serviceDevSetting.updateDevSetting(name, v);
+        await backgroundApiProxy.serviceDevSetting.updateDevSetting(name, v);
+        onValueChange?.(v);
       }
     },
-    [name],
+    [name, onValueChange],
   );
   const field = child
     ? cloneElement(child, {
