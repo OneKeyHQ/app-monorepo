@@ -27,6 +27,7 @@ module.exports = [
   'rdns',
   'pino',
   'vitalik',
+  'bsc',
   'nonWitnessInputPrevTxids',
   'ordQueryStatus',
   'Blockie',

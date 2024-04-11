@@ -4,8 +4,12 @@ export enum EAccountManagerStacksRoutes {
   AccountSelectorStack = 'AccountSelectorStack',
 }
 
+export type IAccountSelectorRouteParamsExtraConfig = {
+  linkNetwork?: boolean;
+  editable?: boolean;
+};
+
 export type IAccountManagerStacksParamList = {
-  [EAccountManagerStacksRoutes.AccountSelectorStack]: IAccountSelectorRouteParams & {
-    linkNetwork?: boolean;
-  };
+  [EAccountManagerStacksRoutes.AccountSelectorStack]: IAccountSelectorRouteParams &
+    IAccountSelectorRouteParamsExtraConfig;
 };

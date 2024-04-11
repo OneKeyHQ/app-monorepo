@@ -1,7 +1,8 @@
-import { isString } from 'lodash';
+import { omitBy } from 'lodash';
 import { Linking } from 'react-native';
 
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -15,9 +16,12 @@ import {
   WALLET_CONNECT_LOGGER_LEVEL,
   WC_DAPP_SIDE_EVENTS_EVM,
   WC_DAPP_SIDE_METHODS_EVM,
+  implToNamespaceMap,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
   IWalletConnectChainString,
+  IWalletConnectConnectParams,
+  IWalletConnectConnectToWalletParams,
   IWalletConnectEventSessionDeleteParams,
   IWalletConnectEventSessionEventParams,
   IWalletConnectEventSessionUpdateParams,
@@ -29,6 +33,7 @@ import {
   EWalletConnectSessionEvents,
 } from '@onekeyhq/shared/src/walletConnect/types';
 
+import externalWalletFactory from '../../connectors/externalWalletFactory';
 import localDb from '../../dbs/local/localDb';
 
 import walletConnectClient from './walletConnectClient';
@@ -79,7 +84,7 @@ export class WalletConnectDappSide {
 
   handleSessionEvent = async (p: IWalletConnectEventSessionEventParams) => {
     console.log('***** session_event', p);
-    await this.updateAccountSelectedAddress({
+    await this.updateAccountByEvents({
       wcSessionTopic: p.topic,
       wcSessionEvent: p,
     });
@@ -105,7 +110,7 @@ export class WalletConnectDappSide {
       p,
     });
     // only handle matched topic
-    await this.updateAccount({
+    await this.updateAccountByNamespaces({
       wcSessionTopic: p.topic,
       wcNamespaces: p.params.namespaces,
     });
@@ -122,120 +127,76 @@ export class WalletConnectDappSide {
     return this.backgroundApi.serviceAccount.removeAccount({ account });
   }
 
-  async updateAccount({
+  async updateAccountByNamespaces({
     wcSessionTopic,
     wcNamespaces,
   }: {
     wcSessionTopic: string;
     wcNamespaces: IWalletConnectNamespaces;
   }) {
-    const accountId = accountUtils.buildExternalAccountId({
-      wcSessionTopic,
-      connectionInfo: undefined,
-    });
-    const { addressMap, networkIds } =
+    const { addressMap } =
       await this.backgroundApi.serviceWalletConnect.parseWalletSessionNamespace(
         {
           namespaces: wcNamespaces,
         },
       );
-    const r = await localDb.updateExternalAccount({
-      accountId,
-      addressMap,
-      networkIds,
-    });
+    const { accounts } =
+      await this.backgroundApi.serviceAccount.getWalletConnectDBAccounts({
+        topic: wcSessionTopic,
+      });
+    for (const account of accounts) {
+      await localDb.updateExternalAccount({
+        accountId: account.id,
+        addressMap,
+        // keep networkIds and createAtNetwork when update account namespace
+      });
+    }
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-    return r;
   }
 
-  async updateAccountSelectedAddress({
+  async updateAccountByEvents({
     wcSessionTopic,
     wcSessionEvent,
   }: {
     wcSessionTopic: string;
     wcSessionEvent: IWalletConnectEventSessionEventParams;
   }) {
-    // const params = {
-    //   'id': 1710226674065096,
-    //   'topic':
-    //     '7452725652a616ebc2554ee049b026d56f537177c969fe5c07f92f75ee5e8bb6',
-    //   'params': {
-    //     'event': { 'name': 'chainChanged', 'data': 137 },
-    //     'chainId': 'eip155:137',
-    //   },
-    // };
-
-    // const params = {
-    //   'id': 1710226817544891,
-    //   'topic':
-    //     '7452725652a616ebc2554ee049b026d56f537177c969fe5c07f92f75ee5e8bb6',
-    //   'params': {
-    //     'event': {
-    //       'name': 'accountsChanged',
-    //       'data': ['eip155:137:0x111'],
-    //     },
-    //     'chainId': 'eip155:137',
-    //   },
-    // };
-
-    const accountId = accountUtils.buildExternalAccountId({
-      wcSessionTopic,
-      connectionInfo: undefined,
-    });
-    const account = (await localDb.getAccount({
-      accountId,
-    })) as IDBExternalAccount;
-
     const eventName = wcSessionEvent?.params?.event?.name;
+    const eventData = wcSessionEvent?.params?.event?.data;
     const wcChain = wcSessionEvent?.params?.chainId;
 
-    // handle EVM
-    if (wcChain.startsWith(`${EWalletConnectNamespaceType.evm}:`)) {
-      // handle accountsChanged
-      if (eventName === 'accountsChanged') {
-        const chainData =
-          await this.backgroundApi.serviceWalletConnect.getChainData(wcChain);
-        if (chainData) {
-          const addresses =
-            account.connectedAddresses[chainData.networkId]
-              .split(',')
-              .filter(Boolean) || [];
-          const eventAddress = (
-            wcSessionEvent?.params?.event?.data as string[] | undefined
-          )?.[0];
-          if (eventAddress && isString(eventAddress)) {
-            const result =
-              this.backgroundApi.serviceWalletConnect.parseWalletConnectFullAddress(
-                {
-                  wcAddress: eventAddress,
-                },
-              );
-            const addressIndex = addresses.indexOf(result.address);
-            if (addressIndex >= 0) {
-              await localDb.updateExternalAccount({
-                accountId,
-                selectedMap: {
-                  ...account.selectedAddress,
-                  [chainData.networkId]: addressIndex,
-                },
-              });
-              appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-            }
-          }
-        }
-      }
+    let account: IDBExternalAccount | undefined;
 
-      // handle chainChanged
-      if (eventName === 'chainChanged') {
-        // emit event bus, change chain from AccountSelectorEffects
-        throw new Error(
-          'WalletConnectEventSessionEvent chainChanged not support yet',
-        );
-      }
+    const wcChainInfo =
+      await this.backgroundApi.serviceWalletConnect.getWcChainInfo(wcChain);
+
+    if (wcChainInfo) {
+      const accountId = accountUtils.buildExternalAccountId({
+        wcSessionTopic,
+        connectionInfo: undefined,
+        networkId: wcChainInfo.networkId,
+      });
+      account = (await localDb.getAccount({
+        accountId,
+      })) as IDBExternalAccount;
     }
 
-    // handle non-EVM
-    else {
+    if (!account || !wcChainInfo) {
+      return;
+    }
+
+    if (wcChain.startsWith(`${EWalletConnectNamespaceType.evm}:`)) {
+      const ctrl = await externalWalletFactory.getController({
+        impl: IMPL_EVM,
+      });
+      await ctrl.handleWalletConnectEvents({
+        eventName,
+        eventData,
+        wcChainInfo,
+        account,
+      });
+    } else {
+      // handle non-EVM
       throw new Error('WalletConnectEventSessionEvent only support EVM now');
     }
   }
@@ -329,7 +290,7 @@ export class WalletConnectDappSide {
     // sync walletconnect session data to db
     if (provider?.session && updateDB) {
       try {
-        await this.updateAccount({
+        await this.updateAccountByNamespaces({
           wcSessionTopic: provider.session?.topic,
           wcNamespaces: provider.session?.namespaces,
         });
@@ -449,7 +410,7 @@ export class WalletConnectDappSide {
     await this.getOrCreateProvider({ topic, updateDB: true });
   }
 
-  async connectToWallet() {
+  async connectToWallet({ impl }: IWalletConnectConnectToWalletParams) {
     console.log('WalletConnectDappSide connectToWallet111');
 
     this.closeModal();
@@ -459,9 +420,9 @@ export class WalletConnectDappSide {
     // https://docs.walletconnect.com/advanced/multichain/chain-list
     // const allChains = chains.map((item) => item.wcChain);
 
-    // const cosmosChains = chains
-    //   .filter((item) => item.wcNamespace === EWalletConnectNamespaceType.cosmos)
-    //   .map((item) => item.wcChain);
+    const cosmosChains = chains
+      .filter((item) => item.wcNamespace === EWalletConnectNamespaceType.cosmos)
+      .map((item) => item.wcChain);
 
     // https://github.com/WalletConnect/web-examples/tree/main/advanced/wallets/react-wallet-v2/src/data
     // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L6
@@ -483,16 +444,15 @@ export class WalletConnectDappSide {
     let provider = await createNewProvider();
 
     // disconnect previous session
-    if (
-      DAPP_SIDE_SINGLE_WALLET_MODE &&
-      provider?.session &&
-      provider?.session?.topic
-    ) {
+    if (DAPP_SIDE_SINGLE_WALLET_MODE) {
       try {
-        await this.handleSessionDelete({
-          id: 0,
-          topic: provider.session.topic,
-        });
+        const { accounts } =
+          await this.backgroundApi.serviceAccount.getWalletConnectDBAccounts({
+            topic: undefined, // find all walletconnect accounts
+          });
+        for (const account of accounts) {
+          await this.backgroundApi.serviceAccount.removeAccount({ account });
+        }
       } catch (error) {
         console.error(error);
       } finally {
@@ -520,9 +480,7 @@ export class WalletConnectDappSide {
     );
 
     try {
-      console.log('WalletConnectDappSide connectToWallet');
-      // call connect() to create new session
-      await provider.connect({
+      const connectParams: IWalletConnectConnectParams = {
         // optionalNamespaces
         optionalNamespaces: {
           // evm
@@ -532,15 +490,27 @@ export class WalletConnectDappSide {
             events: evmEvents,
           },
           // rainbow, metamask does not support non-evm network, will throw error
-          // [EWalletConnectNamespaceType.cosmos]: {
-          //   // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L80
-          //   methods: ['cosmos_signDirect', 'cosmos_signAmino'],
-          //   chains: ['cosmos:cosmoshub-4'],
-          //   // chains: cosmosChains,
-          //   events: [],
-          // },
+          [EWalletConnectNamespaceType.cosmos]: {
+            // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L80
+            methods: ['cosmos_signDirect', 'cosmos_signAmino'],
+            // chains: ['cosmos:cosmoshub-4'],
+            chains: cosmosChains, // all cosmos chains
+            events: [],
+          },
         },
-      });
+      };
+      if (impl) {
+        const ns = implToNamespaceMap[impl];
+        if (ns) {
+          connectParams.optionalNamespaces = omitBy(
+            connectParams.optionalNamespaces,
+            (item, key) => key !== ns,
+          );
+        }
+      }
+      console.log('WalletConnectDappSide connectToWallet', connectParams);
+      // call connect() to create new session
+      await provider.connect(connectParams);
       if (!provider.session || !provider.isWalletConnect) {
         throw new Error('WalletConnect ERROR: Connect to wallet failed');
       }
@@ -573,9 +543,11 @@ export class WalletConnectDappSide {
       .map((item) => item.topic)
       .filter(Boolean);
 
+    // session exists, but account not exists: disconnect session
     const inactiveSessionTopics: string[] = sessionTopics.filter(
       (topic) => !accountTopics.includes(topic),
     );
+    // account exists, but session not exists: do nothing, keep account exists
     const inactiveAccountTopics: string[] = accountTopics.filter(
       (topic) => !sessionTopics.includes(topic),
     );
