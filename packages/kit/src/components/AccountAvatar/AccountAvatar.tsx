@@ -181,16 +181,15 @@ function BasicAccountAvatar({
     return emptyAccountAvatar;
   }, [account, address, dbAccount, fallbackProps, indexedAccount, source, src]);
 
-  const renderLoading = useMemo(() => {
-    if (loading || loadingProps) {
-      return loading || loadingProps ? (
+  const renderLoading = useMemo(
+    () =>
+      loading || loadingProps ? (
         <Image.Loading {...loadingProps} />
       ) : (
         <DefaultImageLoading />
-      );
-    }
-    return null;
-  }, [loading, loadingProps]);
+      ),
+    [loading, loadingProps],
+  );
 
   const renderFallback = useMemo(() => {
     // error of externalAccount
