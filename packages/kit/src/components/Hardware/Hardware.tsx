@@ -289,13 +289,9 @@ export function EnterPhase({
             });
             return;
           }
-          if (!values.passphrase) {
-            Toast.error({
-              title: 'passphrase required',
-            });
-            return;
-          }
-          onConfirm({ passphrase: values.passphrase, save: true });
+          // allow empty passphrase
+          const passphrase = values.passphrase || '';
+          onConfirm({ passphrase, save: true });
 
           // Dialog.show({
           //   icon: 'CheckboxSolid',

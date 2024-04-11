@@ -99,12 +99,14 @@ function AdvanceDialogContent(props: IDeviceAdvanceSettingsProps) {
 
   return (
     <Stack mx="$-5">
-      <ListItem title="Enter Pin on App" pt="$0">
-        <EnterPinOnSoftwareSwitch
-          {...props}
-          defaultValue={result.inputPinOnSoftware}
-        />
-      </ListItem>
+      {result.inputPinOnSoftwareSupport ? (
+        <ListItem title="Enter Pin on App" pt="$0">
+          <EnterPinOnSoftwareSwitch
+            {...props}
+            defaultValue={result.inputPinOnSoftware}
+          />
+        </ListItem>
+      ) : null}
       <ListItem title="Passphrase">
         <EnablePassphraseSwitch
           {...props}

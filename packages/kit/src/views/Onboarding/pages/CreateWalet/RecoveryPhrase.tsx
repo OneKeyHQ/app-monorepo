@@ -9,6 +9,7 @@ import {
   Page,
   SizableText,
   Stack,
+  Toast,
   XStack,
   useClipboard,
   useMedia,
@@ -95,6 +96,13 @@ export function RecoveryPhrase() {
   );
 
   const handleConfirmPress = useCallback(async () => {
+    if (route.params?.isBackup) {
+      Toast.success({
+        title: 'Done! Your recovery phrase is backuped.',
+      });
+      navigation.popStack();
+      return;
+    }
     navigation.push(EOnboardingPages.VerifyRecoverPhrase, {
       mnemonic: await servicePassword.encodeSensitiveText({
         text: mnemonic,
