@@ -314,6 +314,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceAppUpdate() {
+    const ServiceAppUpdate =
+      require('../services/ServiceAppUpdate') as typeof import('../services/ServiceAppUpdate');
+    const value = new ServiceAppUpdate.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceAppUpdate', { value });
+    return value;
+  }
+
   get serviceE2E() {
     const Service =
       require('../services/ServiceE2E') as typeof import('../services/ServiceE2E');
@@ -351,6 +361,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceContextMenu', { value });
+    return value;
+  }
+
+  get serviceFiatCrypto() {
+    const ServiceFiatCrypto =
+      require('../services/ServiceFiatCrypto') as typeof import('../services/ServiceFiatCrypto');
+    const value = new ServiceFiatCrypto.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceFiatCrypto', { value });
     return value;
   }
 }

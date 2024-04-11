@@ -2,12 +2,14 @@ import { useCallback } from 'react';
 
 import {
   Icon,
-  Image,
   SizableText,
+  Skeleton,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
 
+import { NetworkAvatar } from '../../NetworkAvatar';
+import { useMockAccountSelectorLoading } from '../hooks/useAccountSelectorTrigger';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
 
 export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
@@ -15,6 +17,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   beforeShowTrigger?: () => Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
 }>(({ num, disabled, beforeShowTrigger, ...rest }, _: any) => {
+  const { isLoading } = useMockAccountSelectorLoading();
   const {
     activeAccount: { network },
     showChainSelector,
@@ -61,13 +64,11 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       disabled={disabled}
       {...rest}
     >
-      <Image
-        w="$6"
-        h="$6"
-        source={{
-          uri: network?.logoURI ? network?.logoURI : '',
-        }}
-      />
+      {isLoading ? (
+        <Skeleton w="$6" h="$6" />
+      ) : (
+        <NetworkAvatar networkId={network?.id} size="$6" />
+      )}
       {disabled ? null : (
         <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
       )}
@@ -107,13 +108,7 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
       }}
       onPress={handlePress}
     >
-      <Image
-        w="$6"
-        h="$6"
-        source={{
-          uri: network?.logoURI ? network?.logoURI : '',
-        }}
-      />
+      <NetworkAvatar networkId={network?.id} size="$6" />
       {media.gtMd ? (
         <>
           <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>

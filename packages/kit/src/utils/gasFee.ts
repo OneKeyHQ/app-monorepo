@@ -115,7 +115,7 @@ export function calculateTotalFeeNative({
   const { common } = feeInfo;
 
   return new BigNumber(amount)
-    .plus(common?.baseFeeValue ?? 0)
+    .plus(common?.baseFee ?? 0)
     .shiftedBy(
       common?.feeDecimals ??
         nilError('calculateTotalFeeNative ERROR: info.feeDecimals missing'),

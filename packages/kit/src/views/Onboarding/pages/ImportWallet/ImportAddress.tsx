@@ -53,7 +53,7 @@ function ImportAddress() {
           builder: (v) => ({
             ...v,
             networkId: values.networkId,
-            focusedWallet: '$$others',
+            focusedWallet: WALLET_TYPE_WATCHING,
             walletId: WALLET_TYPE_WATCHING,
             othersWalletAccountId: r.accounts[0].id,
             indexedAccountId: undefined,

@@ -40,10 +40,7 @@ import type {
   IOnChainHistoryTxToken,
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
-import {
-  EOnChainHistoryTransferType,
-  EOnChainHistoryTxType,
-} from '@onekeyhq/shared/types/history';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
@@ -514,8 +511,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         amount: new BigNumber(tokenApprove.amount)
           .shiftedBy(-decimals)
           .toFixed(),
-        // TODO: isMax from server
-        isMax: false,
+        isInfiniteAmount: tokenApprove.isInfiniteAmount,
       },
     };
   }
@@ -555,20 +551,40 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const externalAccount = account as IDBExternalAccount;
     let externalAccountAddress = '';
     if (externalAccount.connectedAddresses) {
-      const buildExternalAccountAddress = (key: string) => {
-        const index = externalAccount.selectedAddress?.[key] ?? 0;
+      const buildExternalAccountAddress = ({
+        key,
+        fallbackIndex,
+      }: {
+        key: string;
+        fallbackIndex: number;
+      }) => {
+        if (!key) {
+          return '';
+        }
+        const index = externalAccount.selectedAddress?.[key] ?? fallbackIndex;
         const addresses =
           externalAccount.connectedAddresses?.[key]
             ?.split(',')
             .filter(Boolean) || [];
-        return addresses?.[index] || addresses?.[0] || '';
+        return addresses?.[index] || addresses?.[fallbackIndex] || '';
       };
 
-      externalAccountAddress = buildExternalAccountAddress(this.networkId);
+      externalAccountAddress = buildExternalAccountAddress({
+        key: this.networkId,
+        fallbackIndex: -1,
+      });
       if (!externalAccountAddress) {
-        externalAccountAddress = buildExternalAccountAddress(
-          await this.getNetworkImpl(),
-        );
+        const impl = await this.getNetworkImpl();
+        externalAccountAddress = buildExternalAccountAddress({
+          key: impl,
+          fallbackIndex: 0,
+        });
+      }
+      if (!externalAccountAddress) {
+        externalAccountAddress = buildExternalAccountAddress({
+          key: this.networkId,
+          fallbackIndex: 0,
+        });
       }
     }
 

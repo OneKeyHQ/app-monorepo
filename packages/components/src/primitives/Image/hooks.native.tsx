@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 
-import { Image, ImageSourcePropType, type ImageURISource } from 'react-native';
+import { Image } from 'react-native';
 
 import { ImageNet } from './ImageNet';
 import { ImageNull } from './ImageNull';
 
 import type { IUseImageComponent, IUseSource } from './type';
+import type { ImageURISource } from 'react-native';
 
 export const useSource: IUseSource = (source, src) => {
   if (!source && !src) {
@@ -33,5 +34,7 @@ export const useImageComponent: IUseImageComponent = (imageSource) =>
       return ImageNull as unknown as ReturnType<IUseImageComponent>;
     }
     const uri = (imageSource as ImageURISource).uri;
-    return uri && uri.startsWith('http') ? ImageNet : Image;
+    return uri && typeof uri === 'string' && uri.startsWith('http')
+      ? ImageNet
+      : Image;
   }, [imageSource]);

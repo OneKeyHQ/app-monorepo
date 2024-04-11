@@ -101,7 +101,7 @@ export function useSwapTxHistoryStateSyncInterval() {
                 : swapTxHistory.baseInfo.toAmount,
             },
           });
-        }, 1000 * 5);
+        }, 1000 * 3);
         internalRef.current[swapTxHistory.txInfo.txId] = interval;
       });
     }, 100),
@@ -186,6 +186,8 @@ export function useSwapTxHistoryActions() {
           swapInfo: {
             instantRate: swapTxInfo.swapBuildResData.result.instantRate ?? '0',
             provider: swapTxInfo.swapBuildResData.result.info,
+            socketBridgeScanUrl:
+              swapTxInfo.swapBuildResData.socketBridgeScanUrl,
             oneKeyFee:
               swapTxInfo.swapBuildResData.result.fee?.percentageFee ?? 0,
           },

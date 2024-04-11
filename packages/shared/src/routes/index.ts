@@ -1,5 +1,6 @@
 export * from './accountManagerStacks';
 export * from './addressBook';
+export * from './appUpdate';
 export * from './assetDetails';
 export * from './assetList';
 export * from './assetSelector';
@@ -24,3 +25,4 @@ export * from './tabMe';
 export * from './tabMultiTabBrowser';
 export * from './tabSwap';
 export * from './testModal';
+export * from './fiatCrypto';
