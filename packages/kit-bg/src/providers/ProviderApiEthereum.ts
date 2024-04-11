@@ -136,18 +136,14 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     permissions: Record<string, unknown>,
   ) {
-    const permissionRes =
-      (await this.backgroundApi.serviceDApp.openConnectionModal(
-        request,
-      )) as IConnectionAccountInfo;
-
+    const accounts = await this.eth_accounts(request);
     const result = Object.keys(permissions).map((permissionName) => {
       if (permissionName === 'eth_accounts') {
         return {
           caveats: [
             {
               type: 'restrictReturnedAccounts',
-              value: [permissionRes.address],
+              value: [accounts[0]],
             },
           ],
           date: Date.now(),
