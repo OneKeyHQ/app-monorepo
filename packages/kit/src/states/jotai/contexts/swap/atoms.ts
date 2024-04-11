@@ -1,3 +1,6 @@
+import BigNumber from 'bignumber.js';
+
+import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
@@ -86,19 +89,55 @@ export const {
 export const { atom: swapQuoteListAtom, use: useSwapQuoteListAtom } =
   contextAtom<IFetchQuoteResult[]>([]);
 
-export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
-  contextAtom<boolean>(false);
+export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
+  contextAtom<ESwapProviderSort>(ESwapProviderSort.RECOMMENDED);
 
 export const {
-  atom: swapSilenceQuoteLoading,
-  use: useSwapSilenceQuoteLoading,
-} = contextAtom<boolean>(false);
+  atom: swapSortedQuoteListAtom,
+  use: useSwapSortedQuoteListAtom,
+} = contextAtomComputed<IFetchQuoteResult[]>((get) => {
+  const list = get(swapQuoteListAtom());
+  const sortType = get(swapProviderSortAtom());
+  let sortedList = [...list];
+  if (sortType === ESwapProviderSort.GAS_FEE) {
+    sortedList = list.sort((a, b) => {
+      const aVal = a.fee?.estimatedFeeFiatValue;
+      const bVal = b.fee?.estimatedFeeFiatValue;
+      if (!aVal || aVal === 0) {
+        return -1;
+      }
+      if (!bVal || bVal === 0) {
+        return 1;
+      }
+      return aVal - bVal;
+    });
+  }
+  if (sortType === ESwapProviderSort.SWAP_DURATION) {
+    sortedList = list.sort((a, b) => {
+      const aVal = new BigNumber(a.estimatedTime || Infinity);
+      const bVal = new BigNumber(b.estimatedTime || Infinity);
+      if (aVal.isNaN() || aVal.isEqualTo(0)) {
+        return 1;
+      }
+      if (bVal.isNaN() || bVal.isEqualTo(0)) {
+        return -1;
+      }
+      return aVal.comparedTo(bVal);
+    });
+  }
+  return sortedList.map((p, index) => {
+    if (index === 0) {
+      return { ...p, isBest: true };
+    }
+    return p;
+  });
+});
 
 export const {
   atom: swapQuoteCurrentSelectAtom,
   use: useSwapQuoteCurrentSelectAtom,
 } = contextAtomComputed((get) => {
-  const list = get(swapQuoteListAtom());
+  const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
   return manualSelectQuoteProviders
     ? list.find(
@@ -107,6 +146,14 @@ export const {
       )
     : list[0];
 });
+
+export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
+  contextAtom<boolean>(false);
+
+export const {
+  atom: swapSilenceQuoteLoading,
+  use: useSwapSilenceQuoteLoading,
+} = contextAtom<boolean>(false);
 
 export const {
   atom: swapProviderSupportReceiveAddressAtom,

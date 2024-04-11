@@ -15,6 +15,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useSwapActions,
   useSwapNetworksAtom,
+  useSwapProviderSortAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -30,6 +31,7 @@ export function useSwapNetworkList() {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
+  const [, setSelectSort] = useSwapProviderSortAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [defaultTokenLoading, setDefaultTokenLoading] = useState<boolean>(true);
   const { isLoading } = usePromiseResult(
@@ -68,6 +70,14 @@ export function useSwapNetworkList() {
     [setSwapNetworks],
     { watchLoading: true },
   );
+
+  usePromiseResult(async () => {
+    const swapConfigs =
+      await backgroundApiProxy.simpleDb.swapConfigs.getRawData();
+    if (swapConfigs?.providerSort) {
+      setSelectSort(swapConfigs.providerSort);
+    }
+  }, [setSelectSort]);
 
   useEffect(() => {
     if (
@@ -109,26 +119,33 @@ export function useSwapNetworkList() {
               });
             const defaultFromToken = tokenInfos?.find(
               (token) =>
-                token.contractAddress ===
-                accountNetwork.defaultSelectToken?.from,
+                token.contractAddress.toLowerCase() ===
+                accountNetwork.defaultSelectToken?.from?.toLowerCase(),
             );
             const defaultToToken = tokenInfos?.find(
               (token) =>
-                token.contractAddress === accountNetwork.defaultSelectToken?.to,
+                token.contractAddress.toLowerCase() ===
+                accountNetwork.defaultSelectToken?.to?.toLowerCase(),
             );
             if (
               defaultFromToken &&
               (toToken?.networkId !== defaultFromToken.networkId ||
                 toToken?.contractAddress !== defaultFromToken.contractAddress)
             ) {
-              setFromToken(defaultFromToken);
+              setFromToken({
+                ...defaultFromToken,
+                networkLogoURI: accountNetwork.logoURI,
+              });
             }
             if (
               defaultToToken &&
               (fromToken?.networkId !== defaultToToken.networkId ||
                 fromToken?.contractAddress !== defaultToToken.contractAddress)
             ) {
-              setToToken(defaultToToken);
+              setToToken({
+                ...defaultToToken,
+                networkLogoURI: accountNetwork.logoURI,
+              });
             }
           } catch (e) {
             console.error(e);
