@@ -57,7 +57,7 @@ export function ImageSource({
 
   const handleLoadEnd = useCallback(() => {
     const diff = Date.now() - startTime.current;
-    setTimeout(
+    delayTimer.current = setTimeout(
       () => {
         setLoading?.(false);
         setLoadedSuccessfully?.(!hasError.current);
