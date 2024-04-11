@@ -146,9 +146,9 @@ function MobileBrowser() {
         <Stack flex={1} zIndex={3}>
           <HandleRebuildBrowserData />
           <Stack flex={1}>
-            <Freeze freeze={!displayHomePage}>
+            <Stack display={displayHomePage ? 'flex' : 'none'}>
               <DashboardContent onScroll={handleScroll} />
-            </Freeze>
+            </Stack>
             <Freeze freeze={displayHomePage}>{content}</Freeze>
           </Stack>
           <Freeze freeze={!displayBottomBar}>
