@@ -39,6 +39,7 @@ export function ImageSource({
 }: IImageSourceProps) {
   const hasError = useRef(false);
   const startTime = useRef(Date.now());
+  const delayTimer = useRef<ReturnType<typeof setTimeout>>();
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
@@ -49,6 +50,7 @@ export function ImageSource({
   const { setLoading, setLoadedSuccessfully } = useContext(ImageContext);
 
   const handleLoadStart = useCallback(() => {
+    clearTimeout(delayTimer.current);
     hasError.current = false;
     setLoading?.(true);
   }, [setLoading]);
