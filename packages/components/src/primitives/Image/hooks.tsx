@@ -3,12 +3,14 @@ import { useMemo } from 'react';
 import { Image } from 'react-native';
 
 import { ImageNull } from './ImageNull';
+import { getSourceKey } from './utils';
 
 import type { IUseImageComponent, IUseSource } from './type';
 import type { ImageSourcePropType, ImageURISource } from 'react-native';
 
-export const useSource: IUseSource = (source, src) =>
-  useMemo(() => {
+export const useSource: IUseSource = (source, src) => {
+  const sourceKey = getSourceKey(source);
+  return useMemo(() => {
     if (!source && !src) {
       return;
     }
@@ -29,7 +31,9 @@ export const useSource: IUseSource = (source, src) =>
               typeof source === 'string' ? (source as string).trim() : source,
           }
     ) as ImageSourcePropType;
-  }, [source, src]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceKey, src]);
+};
 
 export const useImageComponent: IUseImageComponent = (imageSource) =>
   useMemo(() => {
