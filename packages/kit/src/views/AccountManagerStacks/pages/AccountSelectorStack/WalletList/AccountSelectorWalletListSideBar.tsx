@@ -25,6 +25,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
+
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
 
@@ -61,7 +63,9 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
   const { serviceAccount } = backgroundApiProxy;
   const { bottom } = useSafeAreaInsets();
   const actions = useAccountSelectorActions();
-
+  const route = useAccountSelectorRoute();
+  // const linkNetwork = route.params?.linkNetwork;
+  const isEditableRouteParams = route.params?.editable;
   const { selectedAccount } = useSelectedAccount({ num });
 
   const { result: walletsResult, run: reloadWallets } = usePromiseResult(
@@ -102,6 +106,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
 
   return (
     <Stack
+      w="$16"
       $gtMd={{
         w: '$32',
       }}
@@ -135,15 +140,17 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
         ItemSeparatorComponent={ListItemSeparator}
       />
       {/* Others */}
-      <Stack
-        p="$2"
-        borderTopWidth={StyleSheet.hairlineWidth}
-        borderTopColor="$borderSubdued"
-        mb={bottom}
-      >
-        <AccountSelectorCreateWalletButton />
-        {/* <OthersWalletItem onWalletPress={onWalletPress} num={num} /> */}
-      </Stack>
+      {isEditableRouteParams ? (
+        <Stack
+          p="$2"
+          borderTopWidth={StyleSheet.hairlineWidth}
+          borderTopColor="$borderSubdued"
+          mb={bottom}
+        >
+          <AccountSelectorCreateWalletButton />
+          {/* <OthersWalletItem onWalletPress={onWalletPress} num={num} /> */}
+        </Stack>
+      ) : null}
     </Stack>
   );
 }
