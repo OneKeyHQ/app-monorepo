@@ -4,11 +4,12 @@ import { useState } from 'react';
 
 import { Button, YStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { Layout } from './utils/Layout';
 
-const account: INetworkAccount = {
+const networkAccount: INetworkAccount = {
   type: undefined,
   path: '',
   coinType: '',
@@ -33,6 +34,32 @@ const account: INetworkAccount = {
   },
 };
 
+const externalAccount: IDBExternalAccount = {
+  id: "external--hw-da2fb056-f3c8-4b55-922e-a04a6fea29cf--m/44'/0'/0",
+  name: '2222',
+  address: '0x222222',
+  connectionInfo: {
+    evmInjected: {
+      global: 'ethereum',
+      name: 'string',
+      icon: 'https://onekey-asset.com/assets/btc/btc.png',
+    },
+  },
+} as IDBExternalAccount;
+
+const invalidExternalAccount: IDBExternalAccount = {
+  id: "external--hw-da2fb05u-f3c8-4b55-922e-a04a6fea29cf--m/44'/0'/0",
+  name: '3333',
+  address: '0x222222',
+  connectionInfo: {
+    evmInjected: {
+      global: 'ethereum',
+      name: 'string',
+      icon: 'https://onekey-asset.com/assets/btc/btc.png',
+    },
+  },
+} as IDBExternalAccount;
+
 const ToastGallery = () => (
   <Layout
     description=""
@@ -47,13 +74,17 @@ const ToastGallery = () => (
             <AccountAvatar src="https://cdn.bitkeep.vip/web/v10037/img/down/logo.png" />
             <AccountAvatar src="https://avatars2.githubusercontent.com/u/48327834?s=200&v=4" />
             <AccountAvatar address="0x1111111" />
-            <AccountAvatar account={account} />
+            <AccountAvatar account={networkAccount} />
             <AccountAvatar size="small" />
-            <AccountAvatar size="small" account={account} />
+            <AccountAvatar size="small" account={networkAccount} />
             <AccountAvatar networkId="tbtc--0" />
-            <AccountAvatar account={account} networkId="tbtc--0" />
+            <AccountAvatar account={networkAccount} networkId="tbtc--0" />
             <AccountAvatar size="small" networkId="tbtc--0" />
-            <AccountAvatar size="small" account={account} networkId="tbtc--0" />
+            <AccountAvatar
+              size="small"
+              account={networkAccount}
+              networkId="tbtc--0"
+            />
             {/* always loading */}
             <AccountAvatar
               size="small"
@@ -95,6 +126,49 @@ const ToastGallery = () => (
                   }}
                 >
                   Change to empty URI
+                </Button>
+              </YStack>
+            </YStack>
+          );
+        },
+      },
+      {
+        title: 'Switch Account',
+        element: () => {
+          const [account, setAccount] = useState<
+            INetworkAccount | IDBExternalAccount | undefined
+          >(undefined);
+          return (
+            <YStack space="$4">
+              <AccountAvatar dbAccount={account} />
+              <YStack space="$4">
+                <Button
+                  onPress={() => {
+                    setAccount(networkAccount);
+                  }}
+                >
+                  Change to db networkAccount
+                </Button>
+                <Button
+                  onPress={() => {
+                    setAccount(externalAccount);
+                  }}
+                >
+                  Change to external networkAccount
+                </Button>
+                <Button
+                  onPress={() => {
+                    setAccount(invalidExternalAccount);
+                  }}
+                >
+                  Change to invalid external networkAccount
+                </Button>
+                <Button
+                  onPress={() => {
+                    setAccount(undefined);
+                  }}
+                >
+                  Change to empty networkAccount
                 </Button>
               </YStack>
             </YStack>
