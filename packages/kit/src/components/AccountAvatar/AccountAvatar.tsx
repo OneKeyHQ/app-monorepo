@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
 import type {
+  IIconProps,
   IImageFallbackProps,
   IImageLoadingProps,
   IImageProps,
@@ -67,13 +68,21 @@ function HashImageSource({ id }: { id: string }) {
 
 const MemoHashImageSource = memo(HashImageSource);
 
-function Fallback({
+function DefaultImageLoading({
   delayMs = 150,
   ...props
 }: { delayMs?: number } & ISkeletonProps) {
   return (
-    <Image.Fallback delayMs={delayMs}>
+    <Image.Loading delayMs={delayMs}>
       <Skeleton {...props} />
+    </Image.Loading>
+  );
+}
+
+function DefaultImageFallback(props: IIconProps) {
+  return (
+    <Image.Fallback>
+      <Icon name="AccountErrorCustom" {...props} />
     </Image.Fallback>
   );
 }
@@ -176,7 +185,9 @@ function BasicAccountAvatar({
     if (loading || loadingProps) {
       return loading || loadingProps ? (
         <Image.Loading {...loadingProps} />
-      ) : null;
+      ) : (
+        <DefaultImageLoading />
+      );
     }
     return null;
   }, [loading, loadingProps]);
@@ -191,11 +202,7 @@ function BasicAccountAvatar({
       const externalAccount = finalAccount as IDBExternalAccount;
 
       if (externalAccount) {
-        return (
-          <Image.Fallback>
-            <Icon name="AccountErrorCustom" height="100%" width="100%" />
-          </Image.Fallback>
-        );
+        return <DefaultImageFallback />;
       }
     }
     if (
@@ -209,11 +216,7 @@ function BasicAccountAvatar({
     ) {
       return (
         fallback ||
-        (fallbackProps ? (
-          <Image.Fallback {...fallbackProps} />
-        ) : (
-          <Fallback w={containerSize} h={containerSize} />
-        ))
+        (fallbackProps ? <Image.Fallback {...fallbackProps} /> : null)
       );
     }
 
@@ -221,7 +224,6 @@ function BasicAccountAvatar({
   }, [
     account,
     address,
-    containerSize,
     dbAccount,
     fallback,
     fallbackProps,
@@ -276,5 +278,5 @@ function BasicAccountAvatar({
 }
 
 export const AccountAvatar = withStaticProperties(BasicAccountAvatar, {
-  Fallback,
+  Loading: DefaultImageLoading,
 });
