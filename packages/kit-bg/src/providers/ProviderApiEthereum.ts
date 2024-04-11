@@ -15,10 +15,6 @@ import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import {
-  EConnectionType,
-  type IConnectionAccountInfo,
-} from '@onekeyhq/shared/types/dappConnection';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -139,9 +135,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     permissions: Record<string, unknown>,
   ) {
-    await this.backgroundApi.serviceDApp.openConnectionModal(request, {
-      connectType: EConnectionType.ModifyAccount,
-    });
+    await this.backgroundApi.serviceDApp.openConnectionModal(request);
     const accounts = await this.eth_accounts(request);
     const result = Object.keys(permissions).map((permissionName) => {
       if (permissionName === 'eth_accounts') {

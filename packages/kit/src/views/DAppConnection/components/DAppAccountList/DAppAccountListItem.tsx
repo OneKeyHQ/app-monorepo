@@ -24,7 +24,6 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EConnectionType } from '@onekeyhq/shared/types/dappConnection';
 
 import { useHandleDiscoveryAccountChanged } from '../../hooks/useHandleAccountChanged';
 
@@ -104,19 +103,23 @@ function DAppAccountListItem({
   );
 }
 
+export type IConnectedAccountInfoChangedParams = {
+  num: number;
+  existConnectedAccount: boolean;
+};
 function DAppAccountListStandAloneItem({
   readonly,
   handleAccountChanged,
-  onAccountSelectorNumChanged,
+  onConnectedAccountInfoChanged,
 }: {
   readonly?: boolean;
   handleAccountChanged?: IHandleAccountChanged;
-  onAccountSelectorNumChanged?: (num: number) => void;
+  onConnectedAccountInfoChanged?: (
+    params: IConnectedAccountInfoChangedParams,
+  ) => void;
 }) {
   const { serviceDApp, serviceNetwork } = backgroundApiProxy;
-  const { $sourceInfo, connectType } = useDappQuery<{
-    connectType?: EConnectionType;
-  }>();
+  const { $sourceInfo } = useDappQuery();
 
   const { result } = usePromiseResult(async () => {
     if (!$sourceInfo?.origin || !$sourceInfo.scope) {
@@ -130,22 +133,21 @@ function DAppAccountListStandAloneItem({
       ? (await serviceNetwork.getNetworkIdsByImpls({ impls })).networkIds
       : null;
 
-    if (connectType === EConnectionType.ModifyAccount) {
-      const accountsInfo = await serviceDApp.getConnectedAccountsInfo({
-        origin: $sourceInfo.origin,
-        scope: $sourceInfo.scope ?? '',
-        isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
-      });
-      if (
-        Array.isArray(accountsInfo) &&
-        accountsInfo.length > 0 &&
-        typeof accountsInfo[0]?.num === 'number'
-      ) {
-        return {
-          accountSelectorNum: accountsInfo[0].num,
-          networkIds,
-        };
-      }
+    const accountsInfo = await serviceDApp.getConnectedAccountsInfo({
+      origin: $sourceInfo.origin,
+      scope: $sourceInfo.scope ?? '',
+      isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
+    });
+    if (
+      Array.isArray(accountsInfo) &&
+      accountsInfo.length > 0 &&
+      typeof accountsInfo[0]?.num === 'number'
+    ) {
+      return {
+        accountSelectorNum: accountsInfo[0].num,
+        networkIds,
+        existConnectedAccount: true,
+      };
     }
 
     const accountSelectorNum = await serviceDApp.getAccountSelectorNum({
@@ -157,6 +159,7 @@ function DAppAccountListStandAloneItem({
     return {
       accountSelectorNum,
       networkIds,
+      existConnectedAccount: false,
     };
   }, [
     $sourceInfo?.origin,
@@ -164,14 +167,20 @@ function DAppAccountListStandAloneItem({
     $sourceInfo?.isWalletConnectRequest,
     serviceDApp,
     serviceNetwork,
-    connectType,
   ]);
 
   useEffect(() => {
-    if (isNumber(result?.accountSelectorNum) && onAccountSelectorNumChanged) {
-      onAccountSelectorNumChanged(result.accountSelectorNum);
+    if (isNumber(result?.accountSelectorNum) && onConnectedAccountInfoChanged) {
+      onConnectedAccountInfoChanged({
+        num: result.accountSelectorNum,
+        existConnectedAccount: result.existConnectedAccount,
+      });
     }
-  }, [result?.accountSelectorNum, onAccountSelectorNumChanged]);
+  }, [
+    result?.accountSelectorNum,
+    result?.existConnectedAccount,
+    onConnectedAccountInfoChanged,
+  ]);
 
   return (
     <YStack space="$2" testID="DAppAccountListStandAloneItem">
@@ -192,7 +201,7 @@ function DAppAccountListStandAloneItem({
           }}
         >
           <DAppAccountListItem
-            initFromHome={connectType !== EConnectionType.ModifyAccount}
+            initFromHome={!result?.existConnectedAccount}
             num={result?.accountSelectorNum}
             handleAccountChanged={handleAccountChanged}
             readonly={readonly}

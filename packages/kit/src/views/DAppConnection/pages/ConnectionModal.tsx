@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
-import { EConnectionType } from '@onekeyhq/shared/types/dappConnection';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -21,14 +20,13 @@ import {
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
 import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 
 function ConnectionModal() {
   const intl = useIntl();
   const { serviceDApp } = backgroundApiProxy;
-  const { $sourceInfo, connectType } = useDappQuery<{
-    connectType?: EConnectionType;
-  }>();
+  const { $sourceInfo } = useDappQuery();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -47,9 +45,8 @@ function ConnectionModal() {
   const [rawSelectedAccount, setRawSelectedAccount] =
     useState<IAccountSelectorSelectedAccount | null>(null);
 
-  const [accountSelectorNum, setAccountSelectorNum] = useState<number | null>(
-    null,
-  );
+  const [connectedAccountInfo, setConnectedAccountInfo] =
+    useState<IConnectedAccountInfoChangedParams | null>(null);
 
   const handleAccountChanged = useCallback<IHandleAccountChanged>(
     ({ activeAccount, selectedAccount: rawSelectedAccountData }) => {
@@ -109,8 +106,8 @@ function ConnectionModal() {
         focusedWallet: rawSelectedAccount?.focusedWallet,
         othersWalletAccountId: rawSelectedAccount?.othersWalletAccountId,
       };
-      if (connectType === EConnectionType.ModifyAccount) {
-        if (!isNumber(accountSelectorNum)) {
+      if (connectedAccountInfo?.existConnectedAccount) {
+        if (!isNumber(connectedAccountInfo?.num)) {
           dappApprove.reject();
           throw new Error('no accountSelectorNum');
         }
@@ -118,7 +115,7 @@ function ConnectionModal() {
           origin: $sourceInfo?.origin,
           updatedAccountInfo: accountInfo,
           storageType: 'injectedProvider',
-          accountSelectorNum,
+          accountSelectorNum: connectedAccountInfo.num,
         });
       } else {
         await serviceDApp.saveConnectionSession({
@@ -145,8 +142,7 @@ function ConnectionModal() {
       serviceDApp,
       selectedAccount,
       rawSelectedAccount,
-      connectType,
-      accountSelectorNum,
+      connectedAccountInfo,
     ],
   );
 
@@ -162,7 +158,7 @@ function ConnectionModal() {
         >
           <DAppAccountListStandAloneItem
             handleAccountChanged={handleAccountChanged}
-            onAccountSelectorNumChanged={setAccountSelectorNum}
+            onConnectedAccountInfoChanged={setConnectedAccountInfo}
           />
           <DAppRequestedPermissionContent />
         </DAppRequestLayout>

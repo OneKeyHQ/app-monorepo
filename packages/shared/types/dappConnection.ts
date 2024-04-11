@@ -67,8 +67,3 @@ export enum EValidateUrlEnum {
   ValidDeeplink = 'ValidDeeplink',
   InvalidPunycode = 'InvalidPunycode',
 }
-
-export enum EConnectionType {
-  Connection = 'Connection',
-  ModifyAccount = 'ModifyAccount',
-}
