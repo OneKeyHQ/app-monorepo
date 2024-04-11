@@ -1,4 +1,8 @@
-import { YStack } from '@onekeyhq/components';
+/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable react/no-unstable-nested-components */
+import { useState } from 'react';
+
+import { Button, XStack, YStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -62,6 +66,40 @@ const ToastGallery = () => (
             <AccountAvatar src="https://onekey-asset.com/assets/btc/btc.png" />
           </YStack>
         ),
+      },
+      {
+        title: 'Switch Image URI',
+        element: () => {
+          const [uri, setUri] = useState('');
+          return (
+            <YStack space="$4">
+              <AccountAvatar src={uri} />
+              <XStack space="$4">
+                <Button
+                  onPress={() => {
+                    setUri('https://onekey-asset.com/assets/btc/btc.pn');
+                  }}
+                >
+                  Change to invalid URI
+                </Button>
+                <Button
+                  onPress={() => {
+                    setUri('https://onekey-asset.com/assets/btc/btc.png');
+                  }}
+                >
+                  Change to valid URI
+                </Button>
+                <Button
+                  onPress={() => {
+                    setUri('');
+                  }}
+                >
+                  Change to empty URI
+                </Button>
+              </XStack>
+            </YStack>
+          );
+        },
       },
     ]}
   />
