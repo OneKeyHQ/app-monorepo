@@ -4,9 +4,9 @@ export enum EModalFiatCryptoRoutes {
 }
 
 export type IModalFiatCryptoParamList = {
-  [EModalFiatCryptoRoutes.BuyModal]: { networkId: string; accountId: string };
+  [EModalFiatCryptoRoutes.BuyModal]: { networkId: string; accountId?: string };
   [EModalFiatCryptoRoutes.SellModal]: {
     networkId: string;
-    accountId: string;
+    accountId?: string;
   };
 };

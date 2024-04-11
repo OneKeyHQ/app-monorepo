@@ -24,7 +24,7 @@ export const ActionBase = ({
   const navigation = useAppNavigation();
   const [loading, setLoading] = useState(false);
   const { handleOpenWebSite } = useBrowserAction().current;
-  const isSupport = useSupportToken({
+  const { result: isSupport } = useSupportToken({
     networkId,
     tokenAddress,
     type,
@@ -57,7 +57,6 @@ export const ActionBase = ({
       setLoading(false);
     }
   }, [navigation, handleOpenWebSite, networkId, tokenAddress, type, accountId]);
-
   return (
     <ActionItem
       loading={loading}
