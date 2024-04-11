@@ -163,7 +163,7 @@ export function ConnectYourDevicePage() {
       ),
       showFooter: false,
     });
-  }, [handleSetupNewWalletPress]);
+  }, [handleSetupNewWalletPress, requestsUrl]);
 
   const createHwWallet = useCallback(
     async ({

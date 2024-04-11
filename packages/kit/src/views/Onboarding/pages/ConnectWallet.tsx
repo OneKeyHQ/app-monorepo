@@ -1,23 +1,35 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { StyleSheet } from 'react-native';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
+  Button,
+  Dialog,
   Heading,
+  Icon,
   Image,
   Page,
   SizableText,
   Spinner,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
+import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  EOnboardingPages,
+  IOnboardingParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
@@ -30,6 +42,8 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 
+import type { RouteProp } from '@react-navigation/core';
+
 type IWalletItem = {
   name?: string;
   logo?: any;
@@ -40,65 +54,29 @@ type IWalletGroup = {
   data: IWalletItem[];
 };
 
+const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const wallets: IWalletGroup[] = [
   {
     title: 'WalletConnect Wallets',
     data: [
-      {
-        // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=metamask
-        name: 'MetaMask',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_metamask.png'),
-      },
-      {
-        name: 'Trust Wallet',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_trustwallet.png'),
-      },
-      {
-        name: 'Rainbow',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_rainbow.png'),
-      },
-      {
-        name: 'imToken',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_imtoken.png'),
-      },
-      {
-        // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=okx
-        name: 'OKX Wallet',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_okx.png'),
-      },
-      {
-        name: 'TokenPocket',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_tokenpocket.png'),
-      },
-      {
-        name: 'Zerion',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_zerion.png'),
-      },
-      {
-        name: 'Walletconnect',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_walletconnect.png'),
-      },
+      externalWalletLogoUtils.getLogoInfo('metamask'),
+      externalWalletLogoUtils.getLogoInfo('trustwallet'),
+      externalWalletLogoUtils.getLogoInfo('rainbow'),
+      externalWalletLogoUtils.getLogoInfo('imtoken'),
+      externalWalletLogoUtils.getLogoInfo('okx'),
+      externalWalletLogoUtils.getLogoInfo('tokenpocket'),
+      externalWalletLogoUtils.getLogoInfo('zerion'),
+      walletConnectInfo,
     ],
   },
   {
     title: 'Institutional Wallets',
     data: [
-      {
-        name: 'Fireblocks',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_fireblocks.png'),
-      },
-      {
-        name: 'Amber',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_amber.png'),
-      },
-      {
-        name: 'Cobo Wallet',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_cobo_wallet.png'),
-      },
-      {
-        name: 'Jade Wallet',
-        logo: require('@onekeyhq/kit/assets/onboarding/logo_jade.png'),
-      },
+      externalWalletLogoUtils.getLogoInfo('fireblocks'),
+      externalWalletLogoUtils.getLogoInfo('amber'),
+      externalWalletLogoUtils.getLogoInfo('cobowallet'),
+      externalWalletLogoUtils.getLogoInfo('jadewallet'),
     ],
   },
 ];
@@ -133,7 +111,7 @@ function WalletItemView({
   onPress: () => void;
   logo: any;
   name: string;
-  loading: boolean;
+  loading?: boolean;
 }) {
   return (
     <Stack
@@ -190,48 +168,121 @@ function WalletItemView({
   );
 }
 
+function ConnectToWalletDialogContent({
+  onRetryPress,
+}: {
+  onRetryPress: () => void;
+}) {
+  const [loading] = useOnboardingConnectWalletLoadingAtom();
+  return (
+    <Stack
+      justifyContent="center"
+      alignItems="center"
+      p="$5"
+      bg="$bgSubdued"
+      borderRadius="$3"
+      borderCurve="continuous"
+    >
+      <XStack>
+        {loading ? (
+          <Spinner size="large" />
+        ) : (
+          <Icon size="$10" name="CloudDisconnectedOutline" />
+        )}
+      </XStack>
+
+      {loading ? (
+        <XStack mt="$4" alignItems="center">
+          <SizableText>Confirm on your wallet to proceed</SizableText>
+        </XStack>
+      ) : null}
+
+      {loading ? null : (
+        <XStack mt="$4">
+          <Button variant="primary" onPress={onRetryPress}>
+            Retry
+          </Button>
+        </XStack>
+      )}
+    </Stack>
+  );
+}
+
 function WalletItem({
   logo,
   name,
-  connection,
+  connectionInfo,
 }: {
   name?: string;
   logo: any;
-  connection: IExternalConnectionInfo;
+  connectionInfo: IExternalConnectionInfo;
 }) {
-  const [loading, setLoading] = useState(false);
+  const [jotaiLoading, setJotaiLoading] =
+    useOnboardingConnectWalletLoadingAtom();
+  const [localLoading, setLocalLoading] = useState(false);
+
+  const loading = jotaiLoading || localLoading;
+  const setLoading = useCallback(
+    (v: boolean) => {
+      setJotaiLoading(v);
+      setLocalLoading(v);
+    },
+    [setJotaiLoading],
+  );
+
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const dialogRef = useRef<IDialogInstance | null>(null);
+  const setLoadingRef = useRef(setLoading);
+  setLoadingRef.current = setLoading;
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
+
+  const hideLoadingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const hideLoading = useCallback(() => {
+    clearTimeout(hideLoadingTimer.current);
+    // delay hide loading to avoid connectToWallet mistake checking if Dialog is closed
+    hideLoadingTimer.current = setTimeout(() => {
+      setLoading(false);
+    }, 600);
+  }, [setLoading]);
+
+  const showLoading = useCallback(() => {
+    clearTimeout(hideLoadingTimer.current);
+    setLoading(true);
+  }, [setLoading]);
 
   useEffect(() => {
     if (!loading) {
       return;
     }
     const fn = (state: { open: boolean }) => {
-      if (state.open === false) {
-        setLoading(false);
+      if (state.open === false && loadingRef.current) {
+        hideLoading();
       }
     };
     appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
     };
-  }, [loading]);
+  }, [hideLoading, loading]);
 
   const connectToWallet = useCallback(async () => {
     try {
-      console.log('WalletItem onPress');
-      if (loading) {
-        return;
-      }
-
-      setLoading(true);
+      showLoading();
       const connectResult =
         await backgroundApiProxy.serviceDappSide.connectExternalWallet({
-          connectionInfo: connection,
+          connectionInfo,
         });
-
+      if (!loadingRef.current) {
+        Toast.error({
+          title: 'User canceled connect wallet',
+        });
+        return;
+      }
       const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
         connectResult,
       });
@@ -245,54 +296,113 @@ function WalletItem({
         builder: (v) => ({
           ...v,
           networkId: usedNetworkId,
-          focusedWallet: '$$others',
+          focusedWallet: WALLET_TYPE_EXTERNAL,
           walletId: WALLET_TYPE_EXTERNAL,
           othersWalletAccountId: account.id,
           indexedAccountId: undefined,
         }),
       });
       navigation.popStack();
+      await dialogRef.current?.close();
     } finally {
-      setLoading(false);
+      hideLoading();
     }
-  }, [actions, connection, loading, navigation, selectedAccount.networkId]);
+  }, [
+    actions,
+    connectionInfo,
+    hideLoading,
+    navigation,
+    selectedAccount.networkId,
+    showLoading,
+  ]);
+
+  const connectToWalletWithDialog = useCallback(async () => {
+    console.log('WalletItem onPress');
+    if (loading || loadingRef.current) {
+      return;
+    }
+    await dialogRef.current?.close();
+    // TODO native dialog cover walletconnect modal
+    if (!platformEnv.isNative) {
+      dialogRef.current = Dialog.show({
+        title: `Connect to ${name || 'Wallet'}`,
+        showFooter: false,
+        dismissOnOverlayPress: false,
+        onClose() {
+          setLoadingRef.current?.(false);
+        },
+        renderContent: (
+          <ConnectToWalletDialogContent onRetryPress={connectToWallet} />
+        ),
+      });
+    }
+    await connectToWallet();
+  }, [connectToWallet, loading, name]);
 
   return (
     <WalletItemView
-      onPress={connectToWallet}
-      loading={loading}
+      onPress={connectToWalletWithDialog}
       logo={logo}
       name={name || 'unknown'}
+      loading={localLoading}
     />
   );
 }
 
+export function useConnectWalletRoute() {
+  const route =
+    useRoute<RouteProp<IOnboardingParamList, EOnboardingPages.ConnectWallet>>();
+  return { route };
+}
+
 export function ConnectWallet() {
+  const { route } = useConnectWalletRoute();
+  const { impl, title: pageTitle } = route.params || {};
   const { result: allWallets = { wallets: {} } } = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceDappSide.listAllWallets({ impls: [IMPL_EVM] }),
-    [],
+      backgroundApiProxy.serviceDappSide.listAllWallets({
+        impls: impl ? [impl] : [],
+      }),
+    [impl],
   );
+
   return (
     <Page scrollEnabled>
       <Page.Header title="Connect 3rd-party Wallet" />
       <Page.Body>
-        <WalletItemViewSection title="EVM-EIP6963 (injected)">
-          {allWallets?.wallets?.[IMPL_EVM]?.map((item, index) => {
+        <WalletItemViewSection title={pageTitle}>
+          <WalletItem
+            name={walletConnectInfo.name}
+            logo={walletConnectInfo.logo}
+            connectionInfo={{
+              walletConnect: {
+                impl,
+                isNewConnection: true,
+                topic: '',
+                peerMeta: {
+                  name: '',
+                  icons: [],
+                  description: '',
+                  url: '',
+                },
+              },
+            }}
+          />
+          {allWallets?.wallets?.[impl || '--']?.map?.((item, index) => {
             const { name, icon, connectionInfo } = item;
             return (
               <WalletItem
                 key={index}
                 logo={icon}
                 name={name || 'unknown'}
-                connection={connectionInfo}
+                connectionInfo={connectionInfo}
               />
             );
           })}
         </WalletItemViewSection>
 
-        {/* WalletConnect Wallets */}
-        {wallets.map(({ title, data }, index) => (
+        {/* All WalletConnect Wallets */}
+        {/* {wallets.map(({ title, data }, index) => (
           <WalletItemViewSection key={index} title={title}>
             {data.map(({ name, logo }, i) => (
               <WalletItem
@@ -305,7 +415,7 @@ export function ConnectWallet() {
               />
             ))}
           </WalletItemViewSection>
-        ))}
+        ))} */}
       </Page.Body>
     </Page>
   );
