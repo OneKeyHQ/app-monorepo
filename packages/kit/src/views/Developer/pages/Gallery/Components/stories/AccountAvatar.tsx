@@ -2,7 +2,7 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useState } from 'react';
 
-import { Button, XStack, YStack } from '@onekeyhq/components';
+import { Button, YStack } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -74,7 +74,7 @@ const ToastGallery = () => (
           return (
             <YStack space="$4">
               <AccountAvatar src={uri} />
-              <XStack space="$4">
+              <YStack space="$4">
                 <Button
                   onPress={() => {
                     setUri('https://onekey-asset.com/assets/btc/btc.pn');
@@ -96,7 +96,7 @@ const ToastGallery = () => (
                 >
                   Change to empty URI
                 </Button>
-              </XStack>
+              </YStack>
             </YStack>
           );
         },

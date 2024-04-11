@@ -182,6 +182,22 @@ function BasicAccountAvatar({
   }, [loading, loadingProps]);
 
   const renderFallback = useMemo(() => {
+    // error of externalAccount
+    const finalAccount = account || dbAccount;
+    if (
+      finalAccount &&
+      accountUtils.isExternalAccount({ accountId: finalAccount.id })
+    ) {
+      const externalAccount = finalAccount as IDBExternalAccount;
+
+      if (externalAccount) {
+        return (
+          <Image.Fallback>
+            <Icon name="AccountErrorCustom" height="100%" width="100%" />
+          </Image.Fallback>
+        );
+      }
+    }
     if (
       address ||
       indexedAccount ||
@@ -200,11 +216,13 @@ function BasicAccountAvatar({
         ))
       );
     }
+
     return null;
   }, [
     account,
     address,
     containerSize,
+    dbAccount,
     fallback,
     fallbackProps,
     indexedAccount,
