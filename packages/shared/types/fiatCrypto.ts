@@ -9,7 +9,7 @@ export type IGenerateWidgetUrlWithAccountId = IGenerateWidgetUrl & {
   accountId?: string;
 };
 
-export type IGenerateWidgetUrlResponse = { url: string };
+export type IGenerateWidgetUrlResponse = { url: string; build: boolean };
 
 export type IFiatCryptoType = 'sell' | 'buy';
 

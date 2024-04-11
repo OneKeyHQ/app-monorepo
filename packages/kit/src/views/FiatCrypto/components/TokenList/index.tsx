@@ -2,7 +2,7 @@ import { type FC, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { ListView, SearchBar, Stack } from '@onekeyhq/components';
+import { Empty, ListView, SearchBar, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFiatCryptoToken } from '@onekeyhq/shared/types/fiatCrypto';
@@ -34,7 +34,12 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
   return (
     <Stack flex={1}>
       <Stack px="$4">
-        <SearchBar w="100%" value={text} onChangeText={onChangeText} />
+        <SearchBar
+          w="100%"
+          placeholder="Search token name"
+          value={text}
+          onChangeText={onChangeText}
+        />
       </Stack>
       <Stack flex={1}>
         <ListView
@@ -64,6 +69,9 @@ export const TokenList: FC<ITokenListProps> = ({ items, onPress }) => {
               ) : null}
             </ListItem>
           )}
+          ListHeaderComponent={<Stack h="$2" />}
+          ListFooterComponent={<Stack h="$2" />}
+          ListEmptyComponent={<Empty title="No Result" icon="SearchOutline" />}
         />
       </Stack>
     </Stack>

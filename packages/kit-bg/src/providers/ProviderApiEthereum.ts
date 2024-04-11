@@ -136,18 +136,14 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     permissions: Record<string, unknown>,
   ) {
-    const permissionRes =
-      (await this.backgroundApi.serviceDApp.openConnectionModal(
-        request,
-      )) as IConnectionAccountInfo;
-
+    const accounts = await this.eth_accounts(request);
     const result = Object.keys(permissions).map((permissionName) => {
       if (permissionName === 'eth_accounts') {
         return {
           caveats: [
             {
               type: 'restrictReturnedAccounts',
-              value: [permissionRes.address],
+              value: [accounts[0]],
             },
           ],
           date: Date.now(),
@@ -370,7 +366,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     let message;
     if (messages.length && messages[0]) {
       message = messages[0] ?? null;
-      if (await this._isValidAddress(messages[0] ?? null)) {
+      if (
+        await this._isValidAddress({
+          networkId: networkId ?? '',
+          address: message,
+        })
+      ) {
         message = messages[1] ?? null;
       }
     }
@@ -497,12 +498,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     address: string;
   }) => {
     try {
-      const isValidAddress =
+      const status =
         await this.backgroundApi.serviceAccountProfile.validateAddress({
           networkId,
           address,
         });
-      return isValidAddress;
+      return status === 'valid';
     } catch {
       return false;
     }

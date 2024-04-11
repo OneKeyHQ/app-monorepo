@@ -8,16 +8,17 @@ import { getFeeLabel } from '@onekeyhq/kit/src/utils/gasFee';
 
 type IProps = ComponentProps<typeof XStack> & {
   disabled?: boolean;
+  onPress?: () => void;
 };
 
-function GasSelectorTrigger(props: IProps) {
+function FeeSelectorTrigger(props: IProps) {
   const intl = useIntl();
-  const { disabled, ...rest } = props;
+  const { disabled, onPress, ...rest } = props;
 
   const [sendSelectedFee] = useSendSelectedFeeAtom();
 
   return (
-    <XStack alignItems="center" space="$1" {...rest}>
+    <XStack alignItems="center" space="$1" {...rest} onPress={onPress}>
       <SizableText
         size="$bodyMdMedium"
         color={disabled ? '$textDisabled' : '$text'}
@@ -41,4 +42,4 @@ function GasSelectorTrigger(props: IProps) {
   );
 }
 
-export { GasSelectorTrigger };
+export { FeeSelectorTrigger };

@@ -371,7 +371,15 @@ export function FirmwareAuthenticationDialogContent({
         {riskText}
       </Stack>
     );
-  }, [isShowingRiskWarning, noContinue, onContinue, result, setResult, verify]);
+  }, [
+    isShowingRiskWarning,
+    noContinue,
+    onContinue,
+    requestsUrl,
+    result,
+    setResult,
+    verify,
+  ]);
 
   return <Stack space="$5">{content}</Stack>;
 }

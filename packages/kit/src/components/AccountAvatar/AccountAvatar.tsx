@@ -21,10 +21,10 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { NetworkAvatar } from '../NetworkAvatar';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
@@ -78,25 +78,6 @@ function Fallback({
   );
 }
 
-function ChainImage({
-  networkId,
-  size,
-}: {
-  networkId?: string;
-  size: IImageProps['size'];
-}) {
-  const { serviceNetwork } = backgroundApiProxy;
-  const res = usePromiseResult(
-    () =>
-      networkId
-        ? serviceNetwork.getNetwork({ networkId })
-        : Promise.resolve({ logoURI: '' }),
-    [networkId, serviceNetwork],
-  );
-  const { logoURI } = res.result || {};
-  return logoURI ? <Image size={size} src={logoURI} /> : null;
-}
-
 function BasicAccountAvatar({
   size = 'default',
   src,
@@ -147,11 +128,18 @@ function BasicAccountAvatar({
     if (finalAccount) {
       if (accountUtils.isExternalAccount({ accountId: finalAccount.id })) {
         const externalAccount = finalAccount as IDBExternalAccount;
+
         const wcPeerMeta =
           externalAccount?.connectionInfo?.walletConnect?.peerMeta;
-        const wcSrc = wcPeerMeta?.icons?.[0];
-        if (wcSrc) {
-          return <Image.Source src={wcSrc} />;
+        if (wcPeerMeta) {
+          const { logo } = externalWalletLogoUtils.getLogoInfoFromWalletConnect(
+            {
+              peerMeta: wcPeerMeta,
+            },
+          );
+          if (logo) {
+            return <Image.Source src={logo} />;
+          }
         }
 
         // TODO move account avatar icon calculation to getAccount() in background
@@ -166,11 +154,9 @@ function BasicAccountAvatar({
         // some dapps don't provide icons, fallback to walletconnect icon
         // TODO use wcPeerMeta.name or wcPeerMeta.url to find wallet icon
         if (wcPeerMeta || externalAccount?.connectionInfo?.walletConnect) {
-          return (
-            <Image.Source
-              source={require('@onekeyhq/kit/assets/onboarding/logo_walletconnect.png')}
-            />
-          );
+          const walletConnectIcon =
+            externalWalletLogoUtils.getLogoInfo('walletconnect').logo;
+          return <Image.Source src={walletConnectIcon} />;
         }
       }
       return finalAccount.address ? (
@@ -264,7 +250,7 @@ function BasicAccountAvatar({
           borderRadius="$full"
           zIndex="$1"
         >
-          <ChainImage networkId={networkId} size={logoSize} />
+          <NetworkAvatar networkId={networkId} size={logoSize} />
         </Stack>
       ) : null}
     </Stack>
