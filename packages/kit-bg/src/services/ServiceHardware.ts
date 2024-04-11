@@ -459,6 +459,7 @@ class ServiceHardware extends ServiceBase {
   async getDeviceAdvanceSettings({ walletId }: { walletId: string }): Promise<{
     passphraseEnabled: boolean;
     inputPinOnSoftware: boolean;
+    inputPinOnSoftwareSupport: boolean;
   }> {
     const dbDevice = await localDb.getWalletDevice({ walletId });
 
@@ -468,21 +469,20 @@ class ServiceHardware extends ServiceBase {
         await this.unlockDevice({ connectId: dbDevice.connectId });
 
         const features = await this.getFeaturesByWallet({ walletId });
-        // const supportFeatures = await this.getDeviceSupportFeatures(
-        //   dbDevice.connectId,
-        // );
-        // const inputPinOnSoftwareSupport = Boolean(
-        //   supportFeatures?.inputPinOnSoftware?.support,
-        // );
+        const supportFeatures = await this.getDeviceSupportFeatures(
+          dbDevice.connectId,
+        );
+        const inputPinOnSoftwareSupport = Boolean(
+          supportFeatures?.inputPinOnSoftware?.support,
+        );
         const passphraseEnabled = Boolean(features?.passphrase_protection);
         const inputPinOnSoftware = Boolean(
           dbDevice?.settings?.inputPinOnSoftware,
         );
         return {
           passphraseEnabled,
-          // TODO check if device support inputPinOnSoftware
           inputPinOnSoftware,
-          // inputPinOnSoftwareSupport,
+          inputPinOnSoftwareSupport,
         };
       },
       {

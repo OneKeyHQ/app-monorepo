@@ -40,7 +40,6 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
     if (!wallet?.id) {
       return;
     }
-    // TODO how to close ActionList
     const { mnemonic } =
       await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
         walletId: wallet?.id,
@@ -86,7 +85,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
               id: 'backup__manual_backup',
             }),
             icon: 'PenOutline',
-            onPress: handleBackupPhrase,
+            onPress: () => void handleBackupPhrase(),
           },
           ...(platformEnv.isNative
             ? [
@@ -126,10 +125,10 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
               opacity: 0,
             }}
           >
-            {/* Profile */}
+            {/* Profile: Avatar, Rename */}
             {wallet ? <WalletProfile wallet={wallet} /> : null}
 
-            {/* Options */}
+            {/* Options: Backup, Verification, HomeScreen, Advance  */}
             {walletSpecifiedOptions}
 
             <Stack py="$2.5">
