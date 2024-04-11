@@ -1,13 +1,7 @@
 import { useMemo } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import {
-  Alert,
-  Dialog,
-  SizableText,
-  Skeleton,
-  YStack,
-} from '@onekeyhq/components';
+import { Alert, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import type { IAlertType } from '@onekeyhq/components/src/actions/Alert';
 import {
   EHostSecurityLevel,
@@ -23,9 +17,9 @@ function DAppRiskyAlert({
 }) {
   const riskStyle = useMemo(() => {
     const defaultStyle = {
-      type: 'success',
+      type: 'default',
       alertIcon: 'InfoCircleSolid',
-      titleTextColor: '$textSuccess',
+      titleTextColor: '$text',
       descTextColor: '$textSubdued',
     };
     if (!urlSecurityInfo?.level) {
@@ -76,11 +70,11 @@ function DAppRiskyAlert({
     ],
   );
 
-  if (!urlSecurityInfo) {
-    return <Skeleton w="100%" h={59} />;
+  if (!urlSecurityInfo?.alert) {
+    return null;
   }
 
-  if (!urlSecurityInfo?.alert) {
+  if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
     return null;
   }
 
