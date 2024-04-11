@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import WebContent from '../../components/WebContent/WebContent';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
+import DiscoveryDashboard from '../Dashboard/DashboardContent';
 
 import type { IWebViewOnScrollEvent } from '../../components/WebView/types';
 
@@ -50,6 +51,11 @@ function MobileBrowserContent({
     }
     return (
       <>
+        <Freeze freeze={!showHome}>
+          <Stack flex={1}>
+            <DiscoveryDashboard />
+          </Stack>
+        </Freeze>
         <Freeze key={tab.id} freeze={!isActive}>
           <Stack
             ref={initCaptureViewRef}
