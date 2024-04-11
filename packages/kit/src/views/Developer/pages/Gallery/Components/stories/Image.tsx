@@ -1,4 +1,5 @@
-import { Icon, Image, Skeleton, YStack } from '@onekeyhq/components';
+/* eslint-disable react/no-unstable-nested-components */
+import { Button, Icon, Image, Skeleton, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -157,6 +158,22 @@ const ImageGallery = () => (
                 />
               </Image.Fallback>
             </Image>
+          </YStack>
+        ),
+      },
+      {
+        title: 'Switch Image URI',
+        element: () => (
+          <YStack space="$4">
+            <Image height="$10" width="$10">
+              <Image.Source
+                delayMs={2500}
+                src="https://onekey-asset.com/assets/btc/btc.png"
+              />
+              <Image.Skeleton />
+            </Image>
+            <Button>Change to invalid URI</Button>
+            <Button>Change to valid URI</Button>
           </YStack>
         ),
       },
