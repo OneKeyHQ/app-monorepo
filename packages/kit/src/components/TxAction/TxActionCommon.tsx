@@ -287,14 +287,14 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
           </XStack>
         }
       />
-      {target ? (
+      {target && target.content ? (
         <Container.Item
           title={target.title ?? intl.formatMessage({ id: 'content__to' })}
           content={target.content}
         />
       ) : null}
 
-      {source ? (
+      {source && source.content ? (
         <Container.Item
           title={source.title ?? intl.formatMessage({ id: 'content__from' })}
           content={source.content}

@@ -78,6 +78,7 @@ const settings: IVaultSettings = {
   nonceRequired: false,
   feeUTXORequired: true,
   editFeeEnabled: true,
+  replaceTxEnabled: false,
 
   minTransferAmount: '0.00000546',
 
