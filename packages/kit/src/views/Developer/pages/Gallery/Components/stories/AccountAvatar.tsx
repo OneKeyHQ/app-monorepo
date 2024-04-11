@@ -40,6 +40,8 @@ const ToastGallery = () => (
         element: (
           <YStack space="$4" justifyContent="center">
             <AccountAvatar />
+            <AccountAvatar src="https://cdn.bitkeep.vip/web/v10037/img/down/logo.png" />
+            <AccountAvatar src="https://avatars2.githubusercontent.com/u/48327834?s=200&v=4" />
             <AccountAvatar address="0x1111111" />
             <AccountAvatar account={account} />
             <AccountAvatar size="small" />

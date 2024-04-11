@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { StyleSheet } from 'react-native';
@@ -23,6 +23,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -216,7 +217,19 @@ function WalletItem({
   logo: any;
   connectionInfo: IExternalConnectionInfo;
 }) {
-  const [loading, setLoading] = useOnboardingConnectWalletLoadingAtom();
+  const [jotaiLoading, setJotaiLoading] =
+    useOnboardingConnectWalletLoadingAtom();
+  const [localLoading, setLocalLoading] = useState(false);
+
+  const loading = jotaiLoading || localLoading;
+  const setLoading = useCallback(
+    (v: boolean) => {
+      setJotaiLoading(v);
+      setLocalLoading(v);
+    },
+    [setJotaiLoading],
+  );
+
   const navigation = useAppNavigation();
   const actions = useAccountSelectorActions();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
@@ -226,24 +239,40 @@ function WalletItem({
   const loadingRef = useRef(loading);
   loadingRef.current = loading;
 
+  const hideLoadingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const hideLoading = useCallback(() => {
+    clearTimeout(hideLoadingTimer.current);
+    // delay hide loading to avoid connectToWallet mistake checking if Dialog is closed
+    hideLoadingTimer.current = setTimeout(() => {
+      setLoading(false);
+    }, 600);
+  }, [setLoading]);
+
+  const showLoading = useCallback(() => {
+    clearTimeout(hideLoadingTimer.current);
+    setLoading(true);
+  }, [setLoading]);
+
   useEffect(() => {
     if (!loading) {
       return;
     }
     const fn = (state: { open: boolean }) => {
-      if (state.open === false) {
-        setLoading(false);
+      if (state.open === false && loadingRef.current) {
+        hideLoading();
       }
     };
     appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
     };
-  }, [loading, setLoading]);
+  }, [hideLoading, loading]);
 
   const connectToWallet = useCallback(async () => {
     try {
-      setLoading(true);
+      showLoading();
       const connectResult =
         await backgroundApiProxy.serviceDappSide.connectExternalWallet({
           connectionInfo,
@@ -276,14 +305,15 @@ function WalletItem({
       navigation.popStack();
       await dialogRef.current?.close();
     } finally {
-      setLoading(false);
+      hideLoading();
     }
   }, [
     actions,
     connectionInfo,
+    hideLoading,
     navigation,
     selectedAccount.networkId,
-    setLoading,
+    showLoading,
   ]);
 
   const connectToWalletWithDialog = useCallback(async () => {
@@ -292,17 +322,20 @@ function WalletItem({
       return;
     }
     await dialogRef.current?.close();
-    dialogRef.current = Dialog.show({
-      title: `Connect to ${name || 'Wallet'}`,
-      showFooter: false,
-      dismissOnOverlayPress: false,
-      onClose() {
-        setLoadingRef.current?.(false);
-      },
-      renderContent: (
-        <ConnectToWalletDialogContent onRetryPress={connectToWallet} />
-      ),
-    });
+    // TODO native dialog cover walletconnect modal
+    if (!platformEnv.isNative) {
+      dialogRef.current = Dialog.show({
+        title: `Connect to ${name || 'Wallet'}`,
+        showFooter: false,
+        dismissOnOverlayPress: false,
+        onClose() {
+          setLoadingRef.current?.(false);
+        },
+        renderContent: (
+          <ConnectToWalletDialogContent onRetryPress={connectToWallet} />
+        ),
+      });
+    }
     await connectToWallet();
   }, [connectToWallet, loading, name]);
 
@@ -311,6 +344,7 @@ function WalletItem({
       onPress={connectToWalletWithDialog}
       logo={logo}
       name={name || 'unknown'}
+      loading={localLoading}
     />
   );
 }
