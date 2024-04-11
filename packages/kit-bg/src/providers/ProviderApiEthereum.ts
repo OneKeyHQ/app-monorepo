@@ -366,7 +366,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     let message;
     if (messages.length && messages[0]) {
       message = messages[0] ?? null;
-      if (await this._isValidAddress(messages[0] ?? null)) {
+      if (
+        await this._isValidAddress({
+          networkId: networkId ?? '',
+          address: message,
+        })
+      ) {
         message = messages[1] ?? null;
       }
     }
@@ -493,12 +498,12 @@ class ProviderApiEthereum extends ProviderApiBase {
     address: string;
   }) => {
     try {
-      const isValidAddress =
+      const status =
         await this.backgroundApi.serviceAccountProfile.validateAddress({
           networkId,
           address,
         });
-      return isValidAddress;
+      return status === 'valid';
     } catch {
       return false;
     }
