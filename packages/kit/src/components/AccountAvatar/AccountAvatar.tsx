@@ -227,7 +227,6 @@ function BasicAccountAvatar({
   }, [
     account,
     address,
-    containerSize,
     dbAccount,
     fallback,
     fallbackProps,
