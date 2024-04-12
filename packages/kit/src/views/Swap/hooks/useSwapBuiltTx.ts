@@ -10,7 +10,10 @@ import type {
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapApproveTransactionStatus,
+  ESwapDirectionType,
+} from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -98,7 +101,10 @@ export function useSwapBuildTx() {
 
   const cancelApproveTx = useCallback(() => {
     handleTxFail();
-    setSwapApprovingTransaction(undefined);
+    setSwapApprovingTransaction((pre) => {
+      if (!pre) return pre;
+      return { ...pre, status: ESwapApproveTransactionStatus.CANCEL };
+    });
   }, [handleTxFail, setSwapApprovingTransaction]);
 
   const wrappedTx = useCallback(async () => {
@@ -191,9 +197,9 @@ export function useSwapBuildTx() {
             amount,
             useAddress: swapFromAddressInfo.address,
             spenderAddress: allowanceInfo.allowanceTarget,
+            status: ESwapApproveTransactionStatus.PENDING,
           });
         }
-        console.log('approveInfo----', approveInfo);
         await navigationToSendConfirm({
           approveInfo,
           onSuccess: onApproveSuccess || handleApproveTxSuccess,
