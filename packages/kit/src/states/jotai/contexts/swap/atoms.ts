@@ -99,12 +99,14 @@ export const {
   const list = get(swapQuoteListAtom());
   const sortType = get(swapProviderSortAtom());
   let sortedList = [...list];
+
+  const gasFeeSorted = list.sort((a, b) => {
+    const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
+    const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
+    return aBig.comparedTo(bBig);
+  });
   if (sortType === ESwapProviderSort.GAS_FEE) {
-    sortedList = list.sort((a, b) => {
-      const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
-      const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
-      return aBig.comparedTo(bBig);
-    });
+    sortedList = [...gasFeeSorted];
   }
   if (sortType === ESwapProviderSort.SWAP_DURATION) {
     sortedList = list.sort((a, b) => {
@@ -113,25 +115,30 @@ export const {
       return aVal.comparedTo(bVal);
     });
   }
+  const receivedSorted = list.sort((a, b) => {
+    const aVal = new BigNumber(a.toAmount || 0);
+    const bVal = new BigNumber(b.toAmount || 0);
+    if (aVal.isZero() || aVal.isNaN()) {
+      return 1;
+    }
+    if (bVal.isZero() || bVal.isNaN()) {
+      return -1;
+    }
+    return bVal.comparedTo(aVal);
+  });
   if (
     sortType === ESwapProviderSort.RECOMMENDED ||
     sortType === ESwapProviderSort.RECEIVED
   ) {
-    sortedList = list.sort((a, b) => {
-      const aVal = new BigNumber(a.toAmount || 0);
-      const bVal = new BigNumber(b.toAmount || 0);
-      if (aVal.isZero() || aVal.isNaN()) {
-        return 1;
-      }
-      if (bVal.isZero() || bVal.isNaN()) {
-        return -1;
-      }
-      return bVal.comparedTo(aVal);
-    });
+    sortedList = [...receivedSorted];
   }
-  return sortedList.map((p, index) => {
-    if (index === 0) {
-      return { ...p, isBest: true };
+  return sortedList.map((p) => {
+    if (p.info.provider === receivedSorted?.[0]?.info?.provider) {
+      p.receivedBest = true;
+      p.isBest = true;
+    }
+    if (p.info.provider === gasFeeSorted?.[0]?.info?.provider) {
+      p.minGasCost = true;
     }
     return p;
   });

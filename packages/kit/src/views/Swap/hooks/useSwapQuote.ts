@@ -56,9 +56,11 @@ export function useSwapQuote() {
   useEffect(() => {
     if (!swapApprovingTransactionAtom) {
       void quoteAction(activeAccountAddressRef.current);
-    } else {
-      cleanQuoteInterval();
     }
+  }, [cleanQuoteInterval, quoteAction, swapApprovingTransactionAtom]);
+
+  useEffect(() => {
+    void quoteAction(activeAccountAddressRef.current);
     return () => {
       cleanQuoteInterval();
     };
@@ -69,7 +71,6 @@ export function useSwapQuote() {
     fromToken,
     toToken,
     fromTokenAmount,
-    swapApprovingTransactionAtom,
   ]);
 
   useListenTabFocusState(
