@@ -14,6 +14,7 @@ export function useSwapApproving() {
   const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
   useEffect(() => {
     void approvingStateAction();
+
     return () => {
       cleanApprovingInterval();
     };

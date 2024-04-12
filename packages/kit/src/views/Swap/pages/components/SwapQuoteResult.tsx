@@ -44,18 +44,20 @@ const SwapQuoteResult = ({
           isLoading={swapQuoteLoading}
         />
       ) : null}
-      <SwapProviderInfoItem
-        providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
-        isLoading={swapQuoteLoading}
-        rate={quoteResult.instantRate}
-        fromToken={fromToken}
-        toToken={toToken}
-        showBest={quoteResult.isBest}
-        showLock={!!quoteResult.allowanceResult}
-        onPress={() => {
-          onOpenProviderList?.();
-        }}
-      />
+      {quoteResult.info.provider ? (
+        <SwapProviderInfoItem
+          providerIcon={quoteResult.info.providerLogo ?? ''} // TODO default logo
+          isLoading={swapQuoteLoading}
+          rate={quoteResult.instantRate}
+          fromToken={fromToken}
+          toToken={toToken}
+          showBest={quoteResult.isBest}
+          showLock={!!quoteResult.allowanceResult}
+          onPress={() => {
+            onOpenProviderList?.();
+          }}
+        />
+      ) : null}
       {!quoteResult.allowanceResult ? (
         <SwapSlippageTriggerContainer
           isLoading={swapQuoteLoading}

@@ -207,22 +207,24 @@ export default class ServiceSwap extends ServiceBase {
         },
       );
       this._quoteAbortController = undefined;
-      return data?.data ?? [];
+      if (data?.code === 0 && data?.data) {
+        return data?.data;
+      }
     } catch (e) {
       if (axios.isCancel(e)) {
         throw new Error('swap fetch quote cancel', {
           cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
         });
       } else {
-        const error = e as { message: string };
+        const error = e as { code: number; message: string };
         void this.backgroundApi.serviceApp.showToast({
           method: 'error',
           title: 'error',
           message: error?.message,
         });
-        return [];
       }
     }
+    return [{ info: { provider: '', providerName: '' } }]; //  no support providers
   }
 
   @backgroundMethod()

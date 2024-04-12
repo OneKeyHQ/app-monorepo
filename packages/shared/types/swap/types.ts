@@ -115,6 +115,18 @@ export interface ISocketExtraData {
 interface IQuoteExtraData {
   socketBridgeExtraData?: ISocketExtraData;
 }
+
+export interface IQuoteRouteDataInfo {
+  name: string;
+  part?: number;
+  logo?: string;
+}
+
+export interface IQuoteRoutePath {
+  amount?: string;
+  part?: number;
+  subRoutes?: IQuoteRouteDataInfo[][];
+}
 export interface IFetchQuoteResult {
   info: IFetchQuoteInfo;
   toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
@@ -126,6 +138,7 @@ export interface IFetchQuoteResult {
   limit?: IFetchQuoteLimit;
   isWrapped?: boolean;
   unSupportReceiveAddressDifferent?: boolean;
+  routesData?: IQuoteRoutePath[];
   quoteExtraData?: IQuoteExtraData;
 }
 

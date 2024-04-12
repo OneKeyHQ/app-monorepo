@@ -1,3 +1,6 @@
+import BigNumber from 'bignumber.js';
+
+import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
@@ -86,19 +89,59 @@ export const {
 export const { atom: swapQuoteListAtom, use: useSwapQuoteListAtom } =
   contextAtom<IFetchQuoteResult[]>([]);
 
-export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
-  contextAtom<boolean>(false);
+export const { atom: swapProviderSortAtom, use: useSwapProviderSortAtom } =
+  contextAtom<ESwapProviderSort>(ESwapProviderSort.RECOMMENDED);
 
 export const {
-  atom: swapSilenceQuoteLoading,
-  use: useSwapSilenceQuoteLoading,
-} = contextAtom<boolean>(false);
+  atom: swapSortedQuoteListAtom,
+  use: useSwapSortedQuoteListAtom,
+} = contextAtomComputed<IFetchQuoteResult[]>((get) => {
+  const list = get(swapQuoteListAtom());
+  const sortType = get(swapProviderSortAtom());
+  let sortedList = [...list];
+  if (sortType === ESwapProviderSort.GAS_FEE) {
+    sortedList = list.sort((a, b) => {
+      const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
+      const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
+      return aBig.comparedTo(bBig);
+    });
+  }
+  if (sortType === ESwapProviderSort.SWAP_DURATION) {
+    sortedList = list.sort((a, b) => {
+      const aVal = new BigNumber(a.estimatedTime || Infinity);
+      const bVal = new BigNumber(b.estimatedTime || Infinity);
+      return aVal.comparedTo(bVal);
+    });
+  }
+  if (
+    sortType === ESwapProviderSort.RECOMMENDED ||
+    sortType === ESwapProviderSort.RECEIVED
+  ) {
+    sortedList = list.sort((a, b) => {
+      const aVal = new BigNumber(a.toAmount || 0);
+      const bVal = new BigNumber(b.toAmount || 0);
+      if (aVal.isZero() || aVal.isNaN()) {
+        return 1;
+      }
+      if (bVal.isZero() || bVal.isNaN()) {
+        return -1;
+      }
+      return bVal.comparedTo(aVal);
+    });
+  }
+  return sortedList.map((p, index) => {
+    if (index === 0) {
+      return { ...p, isBest: true };
+    }
+    return p;
+  });
+});
 
 export const {
   atom: swapQuoteCurrentSelectAtom,
   use: useSwapQuoteCurrentSelectAtom,
 } = contextAtomComputed((get) => {
-  const list = get(swapQuoteListAtom());
+  const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
   return manualSelectQuoteProviders
     ? list.find(
@@ -107,6 +150,14 @@ export const {
       )
     : list[0];
 });
+
+export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
+  contextAtom<boolean>(false);
+
+export const {
+  atom: swapSilenceQuoteLoading,
+  use: useSwapSilenceQuoteLoading,
+} = contextAtom<boolean>(false);
 
 export const {
   atom: swapProviderSupportReceiveAddressAtom,
