@@ -197,13 +197,17 @@ class ServiceDApp extends ServiceBase {
   );
 
   @backgroundMethod()
-  async openConnectionModal(request: IJsBridgeMessagePayload) {
+  async openConnectionModal(
+    request: IJsBridgeMessagePayload,
+    params?: Record<string, any>,
+  ) {
     const result = await this.openModal({
       request,
       screens: [
         EModalRoutes.DAppConnectionModal,
         EDAppConnectionModal.ConnectionModal,
       ],
+      params,
       fullScreen: true,
     });
 
@@ -411,6 +415,7 @@ class ServiceDApp extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
+  @backgroundMethod()
   async getConnectedAccountsInfo({
     origin,
     scope,
