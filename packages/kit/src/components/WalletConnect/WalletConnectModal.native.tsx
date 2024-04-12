@@ -7,7 +7,7 @@ import { AccountCtrl } from '@walletconnect/modal-react-native/lib/module/contro
 import { ClientCtrl } from '@walletconnect/modal-react-native/lib/module/controllers/ClientCtrl';
 import { WcConnectionCtrl } from '@walletconnect/modal-react-native/lib/module/controllers/WcConnectionCtrl';
 import { useWalletConnectModal } from '@walletconnect/modal-react-native/lib/module/hooks/useWalletConnectModal';
-import { WalletConnectModalDialog as WalletConnectModalNative } from './WalletConnectModalDialog';
+import { WalletConnectModal as WalletConnectModalNative } from '@walletconnect/modal-react-native/lib/module/modal/wcm-modal';
 import { StorageUtil } from '@walletconnect/modal-react-native/lib/module/utils/StorageUtil';
 
 import {
