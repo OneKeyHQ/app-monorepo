@@ -11,6 +11,5 @@ export enum EReasonForNeedPassword {
   CreateOrRemoveWallet = 'CreateOrRemoveWallet',
   CreateTransaction = 'CreateTransaction',
   LightningNetworkAuth = 'LightningNetworkAuth',
-  ChangePassword = 'ChangePassword',
-  BackupWallet = 'BackupWallet',
+  Security = 'Security',
 }

@@ -44,7 +44,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
     const { mnemonic } =
       await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
         walletId: wallet?.id,
-        reason: EReasonForNeedPassword.BackupWallet,
+        reason: EReasonForNeedPassword.Security,
       });
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
     navigation.pushModal(EModalRoutes.OnboardingModal, {
