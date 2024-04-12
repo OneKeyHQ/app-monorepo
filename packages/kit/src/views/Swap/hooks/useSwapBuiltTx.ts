@@ -162,6 +162,7 @@ export function useSwapBuildTx() {
   const approveTx = useCallback(
     async (amount: string, isMax?: boolean, onApproveSuccess?: () => void) => {
       const allowanceInfo = selectQuote?.allowanceResult;
+      console.log('allowanceInfo----', allowanceInfo);
       if (
         allowanceInfo &&
         fromToken &&
@@ -192,6 +193,7 @@ export function useSwapBuildTx() {
             spenderAddress: allowanceInfo.allowanceTarget,
           });
         }
+        console.log('approveInfo----', approveInfo);
         await navigationToSendConfirm({
           approveInfo,
           onSuccess: onApproveSuccess || handleApproveTxSuccess,
