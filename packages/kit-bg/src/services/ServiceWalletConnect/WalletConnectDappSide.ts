@@ -36,8 +36,8 @@ import {
 import externalWalletFactory from '../../connectors/externalWalletFactory';
 import localDb from '../../dbs/local/localDb';
 
-import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 import walletConnectClient from './walletConnectClient';
+import { WalletConnectDappSideProvider } from './WalletConnectDappSideProvider';
 import walletConnectStorage from './walletConnectStorage';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
