@@ -71,12 +71,14 @@ export function useSwapNetworkList() {
     { watchLoading: true },
   );
 
-  usePromiseResult(async () => {
-    const swapConfigs =
-      await backgroundApiProxy.simpleDb.swapConfigs.getRawData();
-    if (swapConfigs?.providerSort) {
-      setSelectSort(swapConfigs.providerSort);
-    }
+  useEffect(() => {
+    void (async () => {
+      const swapConfigs =
+        await backgroundApiProxy.simpleDb.swapConfigs.getRawData();
+      if (swapConfigs?.providerSort) {
+        setSelectSort(swapConfigs.providerSort);
+      }
+    })();
   }, [setSelectSort]);
 
   useEffect(() => {
