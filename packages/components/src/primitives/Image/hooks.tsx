@@ -1,17 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { Image } from 'react-native';
 
 import { ImageNull } from './ImageNull';
-import { getSourceKey } from './utils';
+import { useSourceKey, useSourceRef } from './utils';
 
 import type { IUseImageComponent, IUseSource } from './type';
 import type { ImageSourcePropType, ImageURISource } from 'react-native';
 
 export const useSource: IUseSource = (source, src) => {
-  const sourceKey = getSourceKey(source);
+  const sourceKey = useSourceKey(source);
+  const sourceRef = useSourceRef(source);
   return useMemo(() => {
-    if (!source && !src) {
+    if (!sourceKey && !src) {
       return;
     }
     if (src) {
@@ -19,7 +20,7 @@ export const useSource: IUseSource = (source, src) => {
         uri: src.trim(),
       };
     }
-    const uriSource = source as ImageURISource;
+    const uriSource = sourceRef.current as ImageURISource;
     // ImageRequireSource will be convert to the link via Webpack
     return (
       uriSource.uri
@@ -28,11 +29,12 @@ export const useSource: IUseSource = (source, src) => {
           }
         : {
             uri:
-              typeof source === 'string' ? (source as string).trim() : source,
+              typeof sourceRef.current === 'string'
+                ? (sourceRef.current as string).trim()
+                : sourceRef.current,
           }
     ) as ImageSourcePropType;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceKey, src]);
+  }, [sourceKey, sourceRef, src]);
 };
 
 export const useImageComponent: IUseImageComponent = (imageSource) =>

@@ -1,18 +1,19 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { Image } from 'react-native';
 
 import { ImageNet } from './ImageNet';
 import { ImageNull } from './ImageNull';
-import { getSourceKey } from './utils';
+import { useSourceKey, useSourceRef } from './utils';
 
 import type { IUseImageComponent, IUseSource } from './type';
 import type { ImageURISource } from 'react-native';
 
 export const useSource: IUseSource = (source, src) => {
-  const sourceKey = getSourceKey(source);
+  const sourceKey = useSourceKey(source);
+  const sourceRef = useSourceRef(source);
   return useMemo(() => {
-    if (!source && !src) {
+    if (!sourceKey && !src) {
       return;
     }
     if (src) {
@@ -22,15 +23,14 @@ export const useSource: IUseSource = (source, src) => {
     }
 
     if (
-      typeof source === 'object' &&
-      'uri' in (source as ImageURISource) &&
-      !(source as ImageURISource).uri
+      typeof sourceRef.current === 'object' &&
+      'uri' in (sourceRef.current as ImageURISource) &&
+      !(sourceRef.current as ImageURISource).uri
     ) {
       return;
     }
-    return source;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceKey, src]);
+    return sourceRef.current;
+  }, [sourceKey, sourceRef, src]);
 };
 
 export const useImageComponent: IUseImageComponent = (imageSource) =>
