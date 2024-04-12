@@ -113,7 +113,7 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildWebsiteIconUrl(url: string, size = 64) {
+  async buildWebsiteIconUrl(url: string, size = 128) {
     const hostName = uriUtils.getHostNameFromUrl({ url });
     if (!hostName) return '';
 
