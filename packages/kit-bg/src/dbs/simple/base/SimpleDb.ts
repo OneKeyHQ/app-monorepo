@@ -9,6 +9,7 @@ import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 
@@ -26,6 +27,8 @@ export class SimpleDb {
   swapNetworksSort = new SimpleDbEntitySwapNetworksSort();
 
   swapHistory = new SimpleDbEntitySwapHistory();
+
+  swapConfigs = new SimpleDbEntitySwapConfigs();
 
   localTokens = new SimpleDbEntityLocalTokens();
 
