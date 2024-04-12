@@ -17,7 +17,7 @@ import type {
   WebViewNavigationEvent,
   WebViewOpenWindowEvent,
   WebViewSource,
-} from 'react-native-webview/lib/WebViewTypes';
+} from '@onekeyfe/react-native-webview/lib/WebViewTypes';
 
 interface IWebViewProps extends IElectronWebViewEvents {
   id?: string;

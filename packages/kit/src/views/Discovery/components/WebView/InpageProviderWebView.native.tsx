@@ -11,7 +11,7 @@ import { NativeWebView } from './NativeWebView';
 
 import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import type { WebViewProps } from 'react-native-webview';
+import type { WebViewProps } from '@onekeyfe/react-native-webview';
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (

@@ -4,7 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IBrowserType } from '../types';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import type { WebView } from 'react-native-webview';
+import type { WebView } from '@onekeyfe/react-native-webview';
 
 export const browserTypeHandler: IBrowserType = (() => {
   if (platformEnv.isDesktop || platformEnv.isNative) {
