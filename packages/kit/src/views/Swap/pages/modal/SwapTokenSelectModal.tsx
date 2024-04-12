@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -136,6 +137,8 @@ const SwapTokenSelectPage = () => {
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => {
+      const balanceBN = new BigNumber(item.balanceParsed ?? 0);
+      const fiatValueBN = new BigNumber(item.fiatValue ?? 0);
       const tokenItem: ITokenListItemProps = {
         tokenImageSrc: item.logoURI,
         tokenName: item.name,
@@ -147,13 +150,14 @@ const SwapTokenSelectPage = () => {
               })
             : undefined,
         networkImageSrc: item.networkLogoURI,
-        balance: item.balanceParsed,
-        valueProps: item.fiatValue
-          ? {
-              value: item.fiatValue,
-              currency: settingsPersistAtom.currencyInfo.symbol,
-            }
-          : undefined,
+        balance: !balanceBN.isZero() ? item.balanceParsed : undefined,
+        valueProps:
+          item.fiatValue && !fiatValueBN.isZero()
+            ? {
+                value: item.fiatValue,
+                currency: settingsPersistAtom.currencyInfo.symbol,
+              }
+            : undefined,
         onPress: !sameTokenDisabled(item)
           ? () => onSelectToken(item)
           : undefined,
