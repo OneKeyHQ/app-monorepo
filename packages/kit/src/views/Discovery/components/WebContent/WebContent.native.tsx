@@ -19,8 +19,8 @@ import type {
   WebView as ReactNativeWebview,
   WebViewNavigation,
   WebViewProps,
-} from 'react-native-webview';
-import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
+} from '@onekeyfe/react-native-webview';
+import type { WebViewNavigationEvent } from '@onekeyfe/react-native-webview/lib/WebViewTypes';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
