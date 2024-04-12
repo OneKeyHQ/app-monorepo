@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
-import { Dimensions } from 'react-native';
+import memoizee from 'memoizee';
+import { Dimensions, useWindowDimensions } from 'react-native';
 
 import {
   Badge,
@@ -9,6 +10,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  getTokenValue,
   useMedia,
 } from '@onekeyhq/components';
 import type {
@@ -17,6 +19,7 @@ import type {
   IStackProps,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../../../types';
@@ -35,27 +38,32 @@ export type IChunkedItemsViewProps = {
   isExploreView: boolean;
 };
 
-export const CARD_WIDTH_IN_MD = Dimensions.get('window').width - 48;
-export const SPACING_FOR_CARD_INSET = 100;
+const getIconSize = memoizee(() => getTokenValue('$12', 'size') as number, {
+  maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
+});
 
-const paginationStyle: IScrollViewProps = {
-  horizontal: true,
-  showsHorizontalScrollIndicator: false,
-  decelerationRate: 0,
-  snapToInterval: CARD_WIDTH_IN_MD,
-  contentInset: platformEnv.isNativeIOS
-    ? {
-        top: 0,
-        left: SPACING_FOR_CARD_INSET, // Left spacing for the very first card
-        bottom: 0,
-        right: SPACING_FOR_CARD_INSET, // Right spacing for the very last card
-      }
-    : undefined,
-  contentContainerStyle: {
-    // contentInset alternative for Android
-    paddingHorizontal: platformEnv.isNativeAndroid ? SPACING_FOR_CARD_INSET : 0, // Horizontal spacing before and after the ScrollView
-  },
-};
+export function useCardWidth() {
+  const { width } = useWindowDimensions();
+  const iconSize = getIconSize();
+  return width - iconSize;
+}
+
+export function usePaginationStyle(isHorizontal: boolean) {
+  const cardWidth = useCardWidth();
+  const iconSize = getIconSize();
+  return isHorizontal
+    ? ({
+        horizontal: true,
+        showsHorizontalScrollIndicator: false,
+        decelerationRate: 0,
+        snapToInterval: cardWidth,
+        snapToAlignment: 'start',
+        contentContainerStyle: {
+          paddingRight: iconSize,
+        },
+      } as IScrollViewProps)
+    : undefined;
+}
 
 export function ItemsContainer({
   children,
@@ -66,37 +74,42 @@ export function ItemsContainer({
 } & IStackProps &
   IScrollViewProps) {
   const media = useMedia();
-
+  const paginationStyle = usePaginationStyle(!!horizontal);
   if (media.gtMd) {
     return <Stack {...rest}>{children}</Stack>;
   }
-
   return (
     <ScrollView
       pagingEnabled
-      {...(horizontal ? paginationStyle : undefined)}
+      {...paginationStyle}
       {...rest}
+      contentContainerStyle={{
+        ...rest.contentContainerStyle,
+        ...paginationStyle?.contentContainerStyle,
+      }}
     >
       {children}
     </ScrollView>
   );
 }
 
-// There is a slight issue with the space calculation in tamagui, it needs to be resolved by upgrading the version.
-const patchFixMdBrowserMarginLeft = (itemLength: number) =>
-  platformEnv.isRuntimeBrowser && itemLength > 1 ? '$-3' : undefined;
-
 export function ChunkedItemsView({
   isExploreView,
   dataChunks,
   handleOpenWebSite,
 }: IChunkedItemsViewProps) {
+  const cardWidth = useCardWidth();
   return (
     <ItemsContainer
       mx="$-5"
-      $md={{
-        ml: patchFixMdBrowserMarginLeft(dataChunks.length),
-      }}
+      // There is a slight issue with the space calculation in tamagui, it needs to be resolved by upgrading the version.
+      $md={
+        platformEnv.isRuntimeBrowser
+          ? {
+              ml: '$-3',
+            }
+          : undefined
+      }
       horizontal={!isExploreView}
       contentContainerStyle={{
         px: '$2',
@@ -118,7 +131,7 @@ export function ChunkedItemsView({
                   flexWrap: 'wrap',
                 }
               : {
-                  w: CARD_WIDTH_IN_MD,
+                  w: cardWidth,
                 }
           }
           $gtMd={{
