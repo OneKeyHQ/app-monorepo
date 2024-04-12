@@ -64,8 +64,22 @@ function SingleAccountAndNetworkSelectorTrigger({
   });
   return (
     <>
-      <NetworkSelectorTriggerBrowserSingle num={num} />
-      <AccountSelectorTriggerBrowserSingle num={num} />
+      <Stack
+        $gtMd={{
+          flexShrink: 1,
+          minWidth: '$32',
+        }}
+      >
+        <NetworkSelectorTriggerBrowserSingle num={num} />
+      </Stack>
+      <Stack
+        $gtMd={{
+          flexShrink: 1,
+          minWidth: '$36',
+        }}
+      >
+        <AccountSelectorTriggerBrowserSingle num={num} />
+      </Stack>
     </>
   );
 }
@@ -235,7 +249,12 @@ function HeaderRightToolBar() {
     }
     if (connectedAccountsInfo.length === 1) {
       return (
-        <>
+        <Stack
+          $gtMd={{
+            width: '100%',
+            flexDirection: 'row-reverse',
+          }}
+        >
           {connectedAccountsInfo.map((accountInfo, index) => (
             <AccountSelectorProviderMirror
               key={index}
@@ -250,7 +269,7 @@ function HeaderRightToolBar() {
                 },
               }}
             >
-              <XStack mr="$-1.5">
+              <XStack mr="$-1.5" flexShrink={1}>
                 <SingleAccountAndNetworkSelectorTrigger
                   origin={origin}
                   num={accountInfo.num}
@@ -260,7 +279,7 @@ function HeaderRightToolBar() {
               </XStack>
             </AccountSelectorProviderMirror>
           ))}
-        </>
+        </Stack>
       );
     }
     return (
