@@ -1,6 +1,6 @@
 import { type FC, useCallback, useMemo, useState } from 'react';
 
-import { ListView, SearchBar, Stack } from '@onekeyhq/components';
+import { Empty, ListView, SearchBar, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -10,6 +10,10 @@ type IImmutableViewProps = {
   networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
 };
+
+const ListEmptyComponent = () => (
+  <Empty icon="SearchOutline" title="No Results" />
+);
 
 export const ImmutableView: FC<IImmutableViewProps> = ({
   networks,
@@ -32,10 +36,18 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
   return (
     <Stack flex={1}>
       <Stack px="$4">
-        <SearchBar w="100%" value={text} onChangeText={onChangeText} />
+        <SearchBar
+          w="100%"
+          placeholder="Search"
+          value={text}
+          onChangeText={onChangeText}
+        />
       </Stack>
       <Stack flex={1}>
         <ListView
+          ListEmptyComponent={ListEmptyComponent}
+          ListHeaderComponent={<Stack h="$2" />}
+          ListFooterComponent={<Stack h="$2" />}
           estimatedItemSize={48}
           data={data}
           renderItem={({ item }) => (

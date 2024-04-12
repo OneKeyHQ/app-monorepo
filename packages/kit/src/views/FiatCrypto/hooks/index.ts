@@ -23,7 +23,12 @@ export const useSupportToken = (
 
 export const useGetTokensList = (params: IGetTokensListParams) =>
   usePromiseResult(
-    async () => backgroundApiProxy.serviceFiatCrypto.getTokensList(params),
+    async () => {
+      const data = await backgroundApiProxy.serviceFiatCrypto.getTokensList(
+        params,
+      );
+      return data.sort((a, b) => a.symbol.localeCompare(b.symbol));
+    },
     [params],
     { initResult: [] },
   );
