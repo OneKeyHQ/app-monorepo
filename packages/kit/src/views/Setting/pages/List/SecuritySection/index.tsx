@@ -73,7 +73,7 @@ const ChangePasswordItem = () => {
   const onPress = useCallback(async () => {
     const oldEncodedPassword =
       await backgroundApiProxy.servicePassword.promptPasswordVerify({
-        reason: EReasonForNeedPassword.ChangePassword,
+        reason: EReasonForNeedPassword.Security,
       });
     const dialog = Dialog.show({
       title: intl.formatMessage({ id: 'form__change_password' }),
