@@ -7,7 +7,6 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSwapTxHistoryStatusChangeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
@@ -23,13 +22,11 @@ const SwapHeaderRightActionContainer = () => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   useSwapTxHistoryListSyncFromSimpleDb();
   const { swapTxHistoryPending } = useSwapTxHistoryStateSyncInterval();
-  const [, setSwapTxHistoryStatusChange] = useSwapTxHistoryStatusChangeAtom();
   const onOpenHistoryListModal = useCallback(() => {
-    setSwapTxHistoryStatusChange([]);
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
     });
-  }, [navigation, setSwapTxHistoryStatusChange]);
+  }, [navigation]);
   return (
     <HeaderButtonGroup>
       {swapTxHistoryPending.length > 0 ? (

@@ -42,7 +42,7 @@ export function SwapProviderIcon({
         right="$-1"
         bottom="$-1"
         p="$0.5"
-        bg="$bgApp"
+        bg="$bgSubdued"
         borderRadius="$full"
       >
         <Icon size="$4" name="LockOutline" />

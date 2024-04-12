@@ -1,11 +1,14 @@
 import { memo, useMemo } from 'react';
 
 import { Alert } from '@onekeyhq/components';
-import { useSwapAlertsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { ISwapAlertState } from '@onekeyhq/shared/types/swap/types';
 import { ESwapAlertLevel } from '@onekeyhq/shared/types/swap/types';
 
-const SwapAlertContainer = () => {
-  const [alerts] = useSwapAlertsAtom();
+export interface ISwapAlertContainerProps {
+  alerts: ISwapAlertState[];
+}
+
+const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   const alertsSorted = useMemo(
     () =>
       alerts?.sort((a) => {
