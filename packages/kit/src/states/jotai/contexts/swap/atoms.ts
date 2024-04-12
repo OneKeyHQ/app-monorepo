@@ -101,28 +101,32 @@ export const {
   let sortedList = [...list];
   if (sortType === ESwapProviderSort.GAS_FEE) {
     sortedList = list.sort((a, b) => {
-      const aVal = a.fee?.estimatedFeeFiatValue;
-      const bVal = b.fee?.estimatedFeeFiatValue;
-      if (!aVal || aVal === 0) {
-        return -1;
-      }
-      if (!bVal || bVal === 0) {
-        return 1;
-      }
-      return aVal - bVal;
+      const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
+      const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
+      return aBig.comparedTo(bBig);
     });
   }
   if (sortType === ESwapProviderSort.SWAP_DURATION) {
     sortedList = list.sort((a, b) => {
       const aVal = new BigNumber(a.estimatedTime || Infinity);
       const bVal = new BigNumber(b.estimatedTime || Infinity);
-      if (aVal.isNaN() || aVal.isEqualTo(0)) {
+      return aVal.comparedTo(bVal);
+    });
+  }
+  if (
+    sortType === ESwapProviderSort.RECOMMENDED ||
+    sortType === ESwapProviderSort.RECEIVED
+  ) {
+    sortedList = list.sort((a, b) => {
+      const aVal = new BigNumber(a.toAmount || 0);
+      const bVal = new BigNumber(b.toAmount || 0);
+      if (aVal.isZero() || aVal.isNaN()) {
         return 1;
       }
-      if (bVal.isNaN() || bVal.isEqualTo(0)) {
+      if (bVal.isZero() || bVal.isNaN()) {
         return -1;
       }
-      return aVal.comparedTo(bVal);
+      return bVal.comparedTo(aVal);
     });
   }
   return sortedList.map((p, index) => {
