@@ -1162,13 +1162,20 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHDAccountMnemonic({ walletId }: { walletId: string }) {
+  async getHDAccountMnemonic({
+    walletId,
+    reason,
+  }: {
+    walletId: string;
+    reason?: EReasonForNeedPassword;
+  }) {
     if (!accountUtils.isHdWallet({ walletId })) {
       throw new Error('getHDAccountMnemonic ERROR: Not a HD account');
     }
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
+        reason,
       });
     const credential = await localDb.getCredential(walletId);
     let mnemonic = mnemonicFromEntropy(credential.credential, password);
