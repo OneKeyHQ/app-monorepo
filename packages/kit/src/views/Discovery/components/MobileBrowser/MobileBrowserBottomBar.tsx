@@ -39,7 +39,7 @@ import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
-import type WebView from 'react-native-webview';
+import type WebView from '@onekeyfe/react-native-webview';
 
 interface IMobileBrowserBottomBarProps extends IStackProps {
   id: string;
