@@ -175,7 +175,7 @@ class ServiceContextMenu extends ServiceBase {
     isDefaultWallet?: boolean,
   ) {
     if (!origin) {
-      return 'Prefer Not Using OneKey on This dApp';
+      return 'Cancel the default on this dApp';
     }
     let defaultWallet: boolean;
     if (typeof isDefaultWallet === 'boolean') {
@@ -184,7 +184,7 @@ class ServiceContextMenu extends ServiceBase {
       defaultWallet = await this.getIsDefaultWalletByOrigin(origin);
     }
     return defaultWallet
-      ? 'Prefer Not Using OneKey on This dApp'
+      ? 'Cancel the default on this dApp.'
       : 'Set OneKey as Default Wallet';
   }
 
