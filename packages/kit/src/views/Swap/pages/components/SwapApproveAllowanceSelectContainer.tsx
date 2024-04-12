@@ -4,6 +4,7 @@ import {
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IAllowanceResult } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
 
@@ -29,7 +30,11 @@ const SwapApproveAllowanceSelectContainer = ({
   const approveAllowanceSelectItems = useMemo(
     () => [
       {
-        label: `${allowanceResult.amount} ${fromTokenSymbol}`,
+        label: `${
+          numberFormat(allowanceResult.amount, {
+            formatter: 'balance',
+          }) as string
+        } ${fromTokenSymbol}`,
         value: ESwapApproveAllowanceType.PRECISION,
       },
       {

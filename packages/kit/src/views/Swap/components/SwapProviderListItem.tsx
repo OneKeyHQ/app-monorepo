@@ -8,6 +8,7 @@ import {
   Icon,
   NumberSizeableText,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -45,7 +46,7 @@ const SwapProviderListItem = ({
     if (providerResult.fee?.estimatedFeeFiatValue) {
       return (
         <XStack py="$0.5" space="$1" alignItems="center">
-          <Icon name="GasSolid" size="$4" color="$iconSubdued" />
+          <Icon name="GasOutline" size="$4" color="$iconSubdued" />
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
@@ -89,26 +90,24 @@ const SwapProviderListItem = ({
     return null;
   }, [providerResult.estimatedTime]);
 
-  const protocolFeeComponent = useMemo(() => {
-    if (providerResult.fee?.protocolFees) {
-      return (
-        <XStack py="$0.5" space="$1" alignItems="center">
-          <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
-          <NumberSizeableText
-            size="$bodyMd"
-            color="$textSubdued"
-            formatter="value"
-            formatterOptions={{
-              currency: currencySymbol,
-            }}
-          >
-            {providerResult.fee.protocolFees}
-          </NumberSizeableText>
-        </XStack>
-      );
-    }
-    return null;
-  }, [currencySymbol, providerResult.fee?.protocolFees]);
+  const protocolFeeComponent = useMemo(
+    () => (
+      <XStack py="$0.5" space="$1" alignItems="center">
+        <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="value"
+          formatterOptions={{
+            currency: currencySymbol,
+          }}
+        >
+          {providerResult.fee?.protocolFees ?? 0}
+        </NumberSizeableText>
+      </XStack>
+    ),
+    [currencySymbol, providerResult.fee?.protocolFees],
+  );
 
   const leftMainLabel = useMemo(() => {
     if (disabled) {
@@ -189,7 +188,6 @@ const SwapProviderListItem = ({
   return (
     <YStack
       my="$2"
-      space="$3"
       borderRadius="$3"
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
@@ -202,6 +200,7 @@ const SwapProviderListItem = ({
         py="$4"
         px="$3"
         bg="$bgSubdued"
+        alignItems="center"
         justifyContent="space-between"
         borderTopRightRadius="$3"
         borderTopLeftRadius="$3"
@@ -209,7 +208,7 @@ const SwapProviderListItem = ({
           ? { borderBottomRightRadius: '$3', borderBottomLeftRadius: '$3' }
           : {})}
       >
-        <XStack space="$3">
+        <XStack space="$3" alignItems="center">
           <SwapProviderIcon
             providerLogo={providerResult.info.providerLogo}
             lock={!!providerResult.allowanceResult}
@@ -225,11 +224,23 @@ const SwapProviderListItem = ({
             </SizableText>
           </YStack>
         </XStack>
-        {providerResult.isBest ? (
-          <Badge h="$6" badgeType="success" badgeSize="sm">
-            Best
-          </Badge>
-        ) : null}
+        <XStack flex={1} justifyContent="flex-end" flexWrap="wrap" m={-3}>
+          {providerResult.isBest ? (
+            <Stack p={3}>
+              <Badge badgeType="success">Best</Badge>
+            </Stack>
+          ) : null}
+          {providerResult.receivedBest ? (
+            <Stack p={3}>
+              <Badge badgeType="info">Max received</Badge>
+            </Stack>
+          ) : null}
+          {providerResult.minGasCost ? (
+            <Stack p={3}>
+              <Badge badgeType="info">Minimum gas fee</Badge>
+            </Stack>
+          ) : null}
+        </XStack>
       </XStack>
       {providerResult.toAmount ? (
         <YStack
@@ -240,7 +251,7 @@ const SwapProviderListItem = ({
           borderBottomLeftRadius="$3"
         >
           <XStack justifyContent="space-between">
-            <XStack space="$2">
+            <XStack space="$3.5">
               {networkFeeComponent}
               {estimatedTimeComponent}
               {protocolFeeComponent}
@@ -249,7 +260,9 @@ const SwapProviderListItem = ({
               size="small"
               variant="tertiary"
               iconAfter={
-                routeOpen ? 'ChevronDownSmallOutline' : 'ChevronRightOutline'
+                routeOpen
+                  ? 'ChevronDownSmallOutline'
+                  : 'ChevronRightSmallOutline'
               }
               onPress={() => {
                 setRouteOpen((pre) => !pre);
