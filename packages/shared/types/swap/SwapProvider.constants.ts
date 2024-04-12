@@ -31,9 +31,19 @@ export const swapApproveResetValue = '0';
 export const swapQuoteFetchInterval = timerUtils.getTimeDurationMs({
   seconds: 20,
 });
+export const swapQuoteSilenceFetchInterval = timerUtils.getTimeDurationMs({
+  seconds: 10,
+});
 
 export const swapNetworksCommonCount = 8;
 export const swapNetworksCommonCountMD = 5;
 
 export const swapRateDifferenceMax = -10;
 export const swapRateDifferenceMin = 0.05;
+
+export enum ESwapProviderSort {
+  RECOMMENDED = 'recommended',
+  GAS_FEE = 'gasFee',
+  SWAP_DURATION = 'swapDuration',
+  RECEIVED = 'received',
+}

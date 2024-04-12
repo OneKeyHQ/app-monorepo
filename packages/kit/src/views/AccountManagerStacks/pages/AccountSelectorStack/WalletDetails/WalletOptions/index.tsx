@@ -19,6 +19,7 @@ import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { Advance } from './Advance';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
@@ -43,6 +44,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
     const { mnemonic } =
       await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
         walletId: wallet?.id,
+        reason: EReasonForNeedPassword.Security,
       });
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
     navigation.pushModal(EModalRoutes.OnboardingModal, {
