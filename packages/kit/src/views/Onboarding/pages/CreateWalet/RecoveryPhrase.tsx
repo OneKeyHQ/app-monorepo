@@ -7,6 +7,7 @@ import {
   Button,
   Input,
   Page,
+  SecureView,
   SizableText,
   Stack,
   Toast,
@@ -21,6 +22,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -43,6 +45,8 @@ function FocusDisplayInput({
   const handleBlur = useCallback(() => {
     setIsFocused(false);
   }, []);
+
+  const isShowValue = platformEnv.isNative ? true : isFocused;
   return (
     <Input
       caretHidden
@@ -51,7 +55,7 @@ function FocusDisplayInput({
       keyboardType="numeric"
       onFocus={handleFocus}
       onBlur={handleBlur}
-      value={isFocused ? text : '••••'}
+      value={isShowValue ? text : '••••'}
       editable={false}
       size={media.md ? 'large' : 'medium'}
       leftAddOnProps={{
@@ -119,24 +123,26 @@ export function RecoveryPhrase() {
           Tap to display words and write down your phrases in order
         </SizableText>
 
-        <XStack flexWrap="wrap" mx="$-1">
-          {phrases.map((phrase, index) => (
-            <Stack
-              key={index}
-              $md={{
-                flexBasis: '50%',
-              }}
-              flexBasis="33.33%"
-              p="$1"
-            >
-              <FocusDisplayInput
-                text={phrase}
-                index={index}
-                testID={`phrase-index${index}`}
-              />
-            </Stack>
-          ))}
-        </XStack>
+        <SecureView>
+          <XStack flexWrap="wrap" mx="$-1">
+            {phrases.map((phrase, index) => (
+              <Stack
+                key={index}
+                $md={{
+                  flexBasis: '50%',
+                }}
+                flexBasis="33.33%"
+                p="$1"
+              >
+                <FocusDisplayInput
+                  text={phrase}
+                  index={index}
+                  testID={`phrase-index${index}`}
+                />
+              </Stack>
+            ))}
+          </XStack>
+        </SecureView>
 
         {isShowCopyPasteButton ? (
           <XStack px="$5" py="$2">

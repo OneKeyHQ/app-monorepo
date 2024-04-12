@@ -27,6 +27,7 @@ import {
   Page,
   Popover,
   ScrollView,
+  SecureView,
   Select,
   SizableText,
   Stack,
@@ -549,37 +550,39 @@ export function PhaseInputArea({
           </XStack>
         ) : null}
 
-        <Form form={form}>
-          <XStack px="$4" flexWrap="wrap">
-            {Array.from({ length: Number(phraseLength) }).map((_, index) => (
-              <Stack
-                key={index}
-                $md={{
-                  flexBasis: '50%',
-                }}
-                flexBasis="33.33%"
-                p="$1"
-              >
-                <Form.Field name={`phrase${index + 1}`}>
-                  <PhaseInput
-                    index={index}
-                    onInputBlur={onInputBlur}
-                    onInputChange={onInputChange}
-                    onInputFocus={onInputFocus}
-                    suggestionsRef={suggestionsRef}
-                    updateInputValue={updateInputValue}
-                    openStatusRef={openStatusRef}
-                    selectInputIndex={selectInputIndex}
-                    closePopover={closePopover}
-                    onReturnKeyPressed={handleReturnKeyPressed}
-                    getReturnKeyLabel={getReturnKeyLabel}
-                    testID={`phrase-input-index${index}`}
-                  />
-                </Form.Field>
-              </Stack>
-            ))}
-          </XStack>
-        </Form>
+        <SecureView>
+          <Form form={form}>
+            <XStack px="$4" flexWrap="wrap">
+              {Array.from({ length: Number(phraseLength) }).map((_, index) => (
+                <Stack
+                  key={index}
+                  $md={{
+                    flexBasis: '50%',
+                  }}
+                  flexBasis="33.33%"
+                  p="$1"
+                >
+                  <Form.Field name={`phrase${index + 1}`}>
+                    <PhaseInput
+                      index={index}
+                      onInputBlur={onInputBlur}
+                      onInputChange={onInputChange}
+                      onInputFocus={onInputFocus}
+                      suggestionsRef={suggestionsRef}
+                      updateInputValue={updateInputValue}
+                      openStatusRef={openStatusRef}
+                      selectInputIndex={selectInputIndex}
+                      closePopover={closePopover}
+                      onReturnKeyPressed={handleReturnKeyPressed}
+                      getReturnKeyLabel={getReturnKeyLabel}
+                      testID={`phrase-input-index${index}`}
+                    />
+                  </Form.Field>
+                </Stack>
+              ))}
+            </XStack>
+          </Form>
+        </SecureView>
 
         {isShowCopyPasteButton ? (
           <XStack px="$5" py="$2">
