@@ -20,13 +20,6 @@ import {
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
-  useCustomFeeAtom,
-  useSendConfirmActions,
-  useSendSelectedFeeAtom,
-  useSendSelectedFeeInfoAtom,
-  useUnsignedTxsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import {
   calculateTotalFeeNative,
   getFeePriceNumber,
 } from '@onekeyhq/kit/src/utils/gasFee';
