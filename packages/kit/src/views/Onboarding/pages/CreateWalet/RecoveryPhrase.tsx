@@ -164,15 +164,17 @@ export function RecoveryPhrase() {
                 title: 'Copy recovery phrase?',
                 description:
                   'Clipboard access can expose your recovery phrase to unauthorized apps.',
-                onCancelText: 'Copy anyway',
-                onCancel: () => {
+                footerProps: {
+                  flexDirection: 'row-reverse',
+                },
+                onConfirmText: 'Copy anyway',
+                onConfirm: () => {
                   copyText(mnemonic);
                 },
-                onConfirmText: 'Cancel copy',
+                onCancelText: 'Cancel copy',
                 confirmButtonProps: {
                   variant: 'primary',
                 },
-                onConfirm: ({ close }) => close(),
               });
             },
           },
