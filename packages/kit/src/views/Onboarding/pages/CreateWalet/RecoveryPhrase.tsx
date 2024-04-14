@@ -112,12 +112,15 @@ export function RecoveryPhrase() {
     for (let i = 0; i < 6; i += 1) {
       confuseWords.push(getConfuseWord());
     }
-    return shufflePhrases.map((word, index) =>
-      shuffle([
-        shufflePhrases[index],
-        ...confuseWords.slice(index * 2, index * 2 + 2),
-      ]),
-    );
+    return shufflePhrases
+      .map((word, index) => [
+        phrases.indexOf(word),
+        shuffle([
+          shufflePhrases[index],
+          ...confuseWords.slice(index * 2, index * 2 + 2),
+        ]),
+      ])
+      .sort((a, b) => (a[0] as number) - (b[0] as number));
   }, [phrases, route.params?.isBackup]);
 
   const handleConfirmPress = useCallback(async () => {

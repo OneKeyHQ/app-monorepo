@@ -44,7 +44,7 @@ export type IOnboardingParamList = {
   };
   [EOnboardingPages.VerifyRecoverPhrase]: {
     mnemonic: string;
-    verifyRecoveryPhrases?: string[][];
+    verifyRecoveryPhrases?: string[][][];
     isBackup?: boolean;
   };
 
