@@ -240,14 +240,9 @@ const DialogGallery = () => (
               onPress={() =>
                 Dialog.show({
                   title: 'Lorem ipsum',
-                  onConfirmText: 'OK',
-                  onCancelText: 'Bye',
                   showFooter: false,
                   description:
                     'Lorem ipsum dolor sit amet consectetur. Nisi in arcu ultrices neque vel nec.',
-                  onConfirm() {
-                    alert('confirmed');
-                  },
                 })
               }
             >
