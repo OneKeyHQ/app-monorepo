@@ -137,7 +137,11 @@ export function VerifyRecoveryPhrase({
           </YStack>
         ) : null}
       </Page.Body>
-      <Page.Footer onConfirmText="Confirm" onConfirm={handleConfirm} />
+      <Page.Footer
+        onConfirmText="Confirm"
+        onConfirm={handleConfirm}
+        confirmButtonProps={{ disabled: selectedWords.length < 3 }}
+      />
     </Page>
   );
 }
