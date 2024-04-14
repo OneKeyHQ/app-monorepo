@@ -41,7 +41,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useShowCopyPasteButton, useSuggestion } from './hooks';
+import { useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
 import type { ITutorialsListItemProps } from './Tutorials';
@@ -461,8 +461,6 @@ export function PhaseInputArea({
     return `${length} invalid words`;
   };
 
-  const isShowCopyPasteButton = useShowCopyPasteButton();
-
   const handlePageFooterConfirm = useCallback(async () => {
     const mnemonic: string = Object.values(form.getValues()).join(' ');
     const mnemonicEncoded = await servicePassword.encodeSensitiveText({
@@ -583,31 +581,6 @@ export function PhaseInputArea({
             </XStack>
           </Form>
         </SecureView>
-
-        {isShowCopyPasteButton ? (
-          <XStack px="$5" py="$2">
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={async () => {
-                const mnemonic = await getClipboard();
-                try {
-                  const phrasesArr: string[] = (mnemonic || '').split(' ');
-                  form.reset(
-                    phrasesArr.reduce((prev, next, index) => {
-                      prev[`phrase${index + 1}`] = next;
-                      return prev;
-                    }, {} as Record<`phrase${number}`, string>),
-                  );
-                } catch (error) {
-                  console.error(error);
-                }
-              }}
-            >
-              Paste All(Only in Dev)
-            </Button>
-          </XStack>
-        ) : null}
 
         <HeightTransition>
           {invalidWordsLength > 0 ? (

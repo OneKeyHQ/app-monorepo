@@ -27,7 +27,6 @@ import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import { Tutorials } from '../../components';
-import { useShowCopyPasteButton } from '../../components/hooks';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -36,42 +35,38 @@ function FocusDisplayInput({
   index,
   testID = '',
 }: IPropsWithTestId<{ text: string; index: number }>) {
-  const media = useMedia();
-  // Show the first word when entering the page
-  const [isFocused, setIsFocused] = useState(index === 0);
-  const handleFocus = useCallback(() => {
-    setIsFocused(true);
-  }, []);
-  const handleBlur = useCallback(() => {
-    setIsFocused(false);
-  }, []);
-
-  const isShowValue = platformEnv.isNative ? true : isFocused;
   return (
-    <Input
-      caretHidden
-      autoFocus={index === 0}
-      showSoftInputOnFocus={false}
-      keyboardType="numeric"
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      value={isShowValue ? text : '••••'}
-      editable={false}
-      size={media.md ? 'large' : 'medium'}
-      leftAddOnProps={{
-        label: `${index + 1}`,
-        minWidth: '$10',
-        justifyContent: 'center',
+    <XStack
+      px="$2"
+      py="$1.5"
+      bg="$bgDisabled"
+      bw="$px"
+      borderColor="$border"
+      borderRadius="$2"
+      $md={{
+        px: '$3',
+        py: '$2',
+        borderRadius: '$3',
       }}
-      testID={testID}
-    />
+    >
+      <SizableText
+        selectable={false}
+        minWidth="$7"
+        color="$textSubdued"
+        $md={{ minWidth: '$8' }}
+      >
+        {index + 1}
+      </SizableText>
+      <SizableText selectable testID={testID}>
+        {text}
+      </SizableText>
+    </XStack>
   );
 }
 
 export function RecoveryPhrase() {
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
-  const isShowCopyPasteButton = useShowCopyPasteButton();
   const { servicePassword } = backgroundApiProxy;
 
   const route =
@@ -143,20 +138,6 @@ export function RecoveryPhrase() {
             ))}
           </XStack>
         </SecureView>
-
-        {isShowCopyPasteButton ? (
-          <XStack px="$5" py="$2">
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={async () => {
-                copyText(mnemonic);
-              }}
-            >
-              Copy All(Only in Dev)
-            </Button>
-          </XStack>
-        ) : null}
 
         <Tutorials
           list={[
