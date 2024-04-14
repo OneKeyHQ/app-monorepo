@@ -203,6 +203,7 @@ function BasicPhaseInput(
     onInputChange,
     onInputFocus,
     onInputBlur,
+    onPasteMnemonic,
     suggestionsRef,
     updateInputValue,
     selectInputIndex,
@@ -217,6 +218,7 @@ function BasicPhaseInput(
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
+    onPasteMnemonic: (text: string) => void;
     onInputBlur: (index: number) => void;
     suggestionsRef: RefObject<string[]>;
     selectInputIndex: number;
@@ -278,11 +280,12 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
+      onPasteMnemonic(v);
       const rawText = v.replaceAll(PINYIN_COMPOSITION_SPACE, '');
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [onChange, onInputChange],
+    [onChange, onInputChange, onPasteMnemonic],
   );
 
   const handleOpenChange = useCallback(
@@ -483,6 +486,7 @@ export function PhaseInputArea({
     selectInputIndex,
     closePopover,
     focusNextInput,
+    onPasteMnemonic,
   } = useSuggestion(form, Number(phraseLength));
 
   const handleReturnKeyPressed = useCallback(
@@ -566,6 +570,7 @@ export function PhaseInputArea({
                       onInputBlur={onInputBlur}
                       onInputChange={onInputChange}
                       onInputFocus={onInputFocus}
+                      onPasteMnemonic={onPasteMnemonic}
                       suggestionsRef={suggestionsRef}
                       updateInputValue={updateInputValue}
                       openStatusRef={openStatusRef}
