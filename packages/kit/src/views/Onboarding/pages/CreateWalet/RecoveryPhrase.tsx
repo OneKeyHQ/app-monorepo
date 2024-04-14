@@ -5,9 +5,7 @@ import { useRoute } from '@react-navigation/core';
 import type { IPropsWithTestId } from '@onekeyhq/components';
 import {
   ActionList,
-  Button,
   Dialog,
-  Input,
   Page,
   SecureView,
   SizableText,
@@ -15,7 +13,6 @@ import {
   Toast,
   XStack,
   useClipboard,
-  useMedia,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import {
@@ -25,11 +22,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
-
-import { Tutorials } from '../../components';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -178,19 +172,6 @@ export function RecoveryPhrase() {
             ))}
           </XStack>
         </SecureView>
-
-        <Tutorials
-          list={[
-            {
-              title: "Why Can't I Copy Multiple Phrases?",
-              description: 'Mass copying is disabled for clipboard security.',
-            },
-            {
-              title: 'Why One Word at a Time?',
-              description: 'One-word display combats screen recording threats.',
-            },
-          ]}
-        />
       </Page.Body>
       <Page.Footer
         onConfirmText="I've Saved the Phrase"
