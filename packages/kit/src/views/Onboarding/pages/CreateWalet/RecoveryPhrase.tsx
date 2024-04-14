@@ -171,8 +171,11 @@ export function RecoveryPhrase() {
                 onConfirm: () => {
                   copyText(mnemonic);
                 },
-                onCancelText: 'Cancel copy',
                 confirmButtonProps: {
+                  variant: 'secondary',
+                },
+                onCancelText: 'Cancel copy',
+                cancelButtonProps: {
                   variant: 'primary',
                 },
               });
