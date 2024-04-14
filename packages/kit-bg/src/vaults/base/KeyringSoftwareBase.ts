@@ -248,14 +248,12 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const networkInfo = await this.getCoreApiNetworkInfo();
 
     const privateKeyRaw = privateKey;
-    console.log('🥹1111', addressEncoding, networkInfo);
     const { address, addresses, publicKey, xpub, relPath, xpubSegwit } =
       await this.coreApi.getAddressFromPrivate({
         networkInfo,
         privateKeyRaw,
         addressEncoding,
       });
-    console.log('🥹2222', address);
 
     if (isNil(xpub) || !addresses) {
       throw new Error('xpub or addresses is undefined');
@@ -266,7 +264,6 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       xpub,
       addressEncoding,
     });
-    console.log('🥹333333', accountId);
     return Promise.resolve([
       {
         id: accountId,

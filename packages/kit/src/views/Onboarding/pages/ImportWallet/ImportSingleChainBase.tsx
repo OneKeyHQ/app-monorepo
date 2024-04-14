@@ -74,7 +74,6 @@ export function ImportSingleChainBase({
   const inputTextDebounced = useDebounce(inputText, 600);
   const validateFn = useCallback(async () => {
     setValue('deriveType', undefined);
-    console.log('🥺', inputTextDebounced, networkIdText);
     if (inputTextDebounced && networkIdText) {
       const input =
         await backgroundApiProxy.servicePassword.encodeSensitiveText({

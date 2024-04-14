@@ -287,7 +287,6 @@ export function convertBtcXprvtToHex({
   // base58 encoded xprvt
   xprvt: string;
 }) {
-  console.log('🥹', xprvt, bs58check.decode(xprvt));
   return bufferUtils.bytesToHex(bs58check.decode(xprvt));
 }
 
