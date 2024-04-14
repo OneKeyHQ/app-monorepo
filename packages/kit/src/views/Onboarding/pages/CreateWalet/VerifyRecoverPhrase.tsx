@@ -147,13 +147,6 @@ export function VerifyRecoveryPhrase({
             {verifyRecoveryPhrases.map(([wordIndex, phraseArray], index) => (
               <YStack key={String(wordIndex)} space="$2.5">
                 <SizableText>{`Word #${Number(wordIndex) + 1}`}</SizableText>
-                {/* <XStack space="$2.5">
-                  {phraseArray.map((word) => (
-                    <Button flex={1} key={word} borderColor="borderActive">
-                      {word}
-                    </Button>
-                  ))}
-                </XStack> */}
                 <WordSelector
                   words={phraseArray}
                   selectedWord={selectedWords[index]}
