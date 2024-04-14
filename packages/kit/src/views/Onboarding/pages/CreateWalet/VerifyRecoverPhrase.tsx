@@ -51,14 +51,16 @@ function WordSelector({
     },
     [onSelect],
   );
+
   return (
     <XStack space="$2.5">
       {words.map((word) => (
         <WordButton
           flex={1}
+          width="100%"
           key={word}
           onPress={onPress}
-          borderColor={selectedWord === word ? 'borderActive' : undefined}
+          borderColor={selectedWord === word ? '$borderActive' : undefined}
         >
           {word}
         </WordButton>
