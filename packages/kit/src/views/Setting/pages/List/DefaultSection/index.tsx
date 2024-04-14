@@ -6,12 +6,14 @@ import { Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
 import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  ECloudBackupRoutes,
   ELiteCardRoutes,
   EModalAddressBookRoutes,
   EModalRoutes,
@@ -88,6 +90,19 @@ export const DefaultSection = () => {
     <YStack>
       <LockNowButton />
       <AddressBookItem />
+      {platformEnv.isNative ? (
+        <ListItem
+          icon="RepeatOutline"
+          title="iCloud Backup"
+          drillIn
+          onPress={async () => {
+            await checkBackupEntryStatus();
+            navigation.pushModal(EModalRoutes.CloudBackupModal, {
+              screen: ECloudBackupRoutes.CloudBackupHome,
+            });
+          }}
+        />
+      ) : null}
       <ListItem
         icon="RepeatOutline"
         title="Migration"

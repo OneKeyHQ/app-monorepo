@@ -4,13 +4,19 @@ import {
   Transaction,
   crypto,
   initEccLib,
-  payments
+  payments,
 } from 'bitcoinjs-lib';
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
 
-import { CKDPub, IBip32ExtendedKey, ecc, generateRootFingerprint, secp256k1 } from '../../../secret';
+import {
+  CKDPub,
+  IBip32ExtendedKey,
+  ecc,
+  generateRootFingerprint,
+  secp256k1,
+} from '../../../secret';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -281,6 +287,7 @@ export function convertBtcXprvtToHex({
   // base58 encoded xprvt
   xprvt: string;
 }) {
+  console.log('🥹', xprvt, bs58check.decode(xprvt));
   return bufferUtils.bytesToHex(bs58check.decode(xprvt));
 }
 

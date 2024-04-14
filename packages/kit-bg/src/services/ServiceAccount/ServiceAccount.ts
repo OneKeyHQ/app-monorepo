@@ -49,6 +49,8 @@ import localDb from '../../dbs/local/localDbInstance';
 import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+
 import type {
   IDBAccount,
   IDBCreateHWWalletParams,
@@ -165,6 +167,34 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async dumpCredentials({ password }: { password: string }) {
+    ensureSensitiveTextEncoded(password);
+    const credentials = await localDb.getCredentials();
+    return credentials.reduce(
+      (mapping, { id, credential }) =>
+        Object.assign(mapping, { [id]: credential }),
+      {},
+    );
+  }
+
+  @backgroundMethod()
+  async getCredentialDecryptFromCredential({
+    credential,
+    password,
+  }: {
+    credential: string;
+    password: string;
+  }) {
+    ensureSensitiveTextEncoded(password);
+    const rs = decryptRevealableSeed({
+      rs: credential,
+      password,
+    });
+    const mnemonic = revealEntropyToMnemonic(rs.entropyWithLangPrefixed);
+    return { rs, mnemonic };
+  }
+
+  @backgroundMethod()
   async getCredentialDecrypt({
     password,
     credentialId,
@@ -174,11 +204,10 @@ class ServiceAccount extends ServiceBase {
   }) {
     ensureSensitiveTextEncoded(password);
     const dbCredential = await localDb.getCredential(credentialId);
-    const rs = decryptRevealableSeed({
-      rs: dbCredential.credential,
+    const { mnemonic, rs } = await this.getCredentialDecryptFromCredential({
       password,
+      credential: dbCredential.credential,
     });
-    const mnemonic = revealEntropyToMnemonic(rs.entropyWithLangPrefixed);
     return {
       rs,
       dbCredential,
@@ -370,6 +399,7 @@ class ServiceAccount extends ServiceBase {
           accounts,
         });
         appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+        await this.backgroundApi.serviceCloudBackup.requestAutoBackup();
         return {
           networkId,
           walletId,
@@ -385,6 +415,62 @@ class ServiceAccount extends ServiceBase {
         hideCheckingDeviceLoading,
       },
     );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async restoreAccountsToWallet(params: {
+    walletId: string;
+    accounts: IDBAccount[];
+    importedCredential?: string;
+  }) {
+    const { walletId, accounts, importedCredential } = params;
+    const shouldCreateIndexAccount =
+      walletId !== WALLET_TYPE_IMPORTED && walletId !== WALLET_TYPE_WATCHING;
+    if (shouldCreateIndexAccount) {
+      await Promise.all(
+        accounts.map(async (account) => {
+          const { idSuffix } = accountUtils.parseAccountId({
+            accountId: account.id,
+          });
+          const indexedAccountNo = account.indexedAccountId
+            ? accountUtils.parseIndexedAccountId({
+                indexedAccountId: account.indexedAccountId,
+              }).index
+            : 0;
+          const indexedAccountId = accountUtils.buildIndexedAccountId({
+            walletId,
+            index: indexedAccountNo,
+          });
+          account.id = accountUtils.buildHDAccountId({
+            walletId,
+            index: account.pathIndex,
+            template: account.template,
+            idSuffix,
+            isUtxo: account.type === EDBAccountType.UTXO,
+          });
+          account.indexedAccountId = indexedAccountId;
+        }),
+      );
+    }
+    await localDb.addAccountsToWallet({
+      walletId,
+      accounts,
+      importedCredential,
+    });
+    if (shouldCreateIndexAccount) {
+      await localDb.addIndexedAccount({
+        walletId,
+        indexes: accounts.map((account) =>
+          account.indexedAccountId
+            ? accountUtils.parseIndexedAccountId({
+                indexedAccountId: account.indexedAccountId,
+              }).index
+            : 0,
+        ),
+        skipIfExists: true,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -416,18 +502,40 @@ class ServiceAccount extends ServiceBase {
   }) {
     ensureSensitiveTextEncoded(input);
     const walletId = WALLET_TYPE_IMPORTED;
+    const vault = await vaultFactory.getWalletOnlyVault({
+      networkId,
+      walletId,
+    });
+    const { privateKey } = await vault.getPrivateKeyFromImported({ input });
+    return this.addImportedAccountWithCredential({
+      credential: privateKey,
+      networkId,
+      deriveType,
+    });
+  }
 
+  @backgroundMethod()
+  @toastIfError()
+  async addImportedAccountWithCredential({
+    credential,
+    networkId,
+    deriveType,
+  }: {
+    credential: string;
+    networkId: string;
+    deriveType: IAccountDeriveTypes | undefined;
+  }) {
+    const walletId = WALLET_TYPE_IMPORTED;
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
       walletId,
     });
     // TODO privateKey should be HEX format
-    const { privateKey } = await vault.getPrivateKeyFromImported({ input });
-    ensureSensitiveTextEncoded(privateKey);
+    ensureSensitiveTextEncoded(credential);
     const nextAccountId = await localDb.getWalletNextAccountId({
       walletId,
     });
-    const privateKeyDecoded = decodeSensitiveText({ encodedText: privateKey });
+    const privateKeyDecoded = decodeSensitiveText({ encodedText: credential });
 
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
@@ -832,6 +940,11 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAllAccounts() {
+    return localDb.getAllAccounts();
+  }
+
+  @backgroundMethod()
   async getAccountsByIndexedAccount({
     indexedAccountIds,
     networkId,
@@ -1008,9 +1121,6 @@ class ServiceAccount extends ServiceBase {
       reason: EReasonForNeedPassword.CreateOrRemoveWallet,
     });
 
-    await timerUtils.wait(100);
-
-    ensureSensitiveTextEncoded(password);
     ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
 
     const realMnemonic = await this.validateMnemonic(mnemonic);
@@ -1025,11 +1135,26 @@ class ServiceAccount extends ServiceBase {
       throw new InvalidMnemonic();
     }
 
+    return this.createHDWalletWithRs({ rs, password });
+  }
+
+  @backgroundMethod()
+  async createHDWalletWithRs({
+    rs,
+    password,
+    avatarInfo,
+  }: {
+    rs: string;
+    password: string;
+    avatarInfo?: IAvatarInfo;
+  }) {
+    ensureSensitiveTextEncoded(password);
+
     const result = await localDb.createHDWallet({
       password,
       rs,
       backuped: false,
-      avatar: randomAvatar(),
+      avatar: avatarInfo ?? randomAvatar(),
     });
 
     await timerUtils.wait(100);
