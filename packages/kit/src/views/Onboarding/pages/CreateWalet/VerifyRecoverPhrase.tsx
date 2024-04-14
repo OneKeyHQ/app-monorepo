@@ -80,33 +80,6 @@ export function VerifyRecoveryPhrase({
 
   ensureSensitiveTextEncoded(mnemonic);
   const navigation = useAppNavigation();
-  const handleConfirmPress = async (mnemonicConfirm: string) => {
-    if (
-      isEqual(
-        await servicePassword.decodeSensitiveText({
-          encodedText: mnemonic,
-        }),
-        await servicePassword.decodeSensitiveText({
-          encodedText: mnemonicConfirm,
-        }),
-      )
-    ) {
-      if (route.params?.isBackup) {
-        Toast.success({
-          title: 'Done! Your recovery phrase is backuped.',
-        });
-        navigation.popStack();
-      } else {
-        navigation.push(EOnboardingPages.FinalizeWalletSetup, {
-          mnemonic: mnemonicConfirm,
-        });
-      }
-    } else {
-      Toast.error({
-        title: 'Invalid Phrases (not equal)',
-      });
-    }
-  };
 
   const { result: phrases } = usePromiseResult(async () => {
     if (process.env.NODE_ENV !== 'production') {
