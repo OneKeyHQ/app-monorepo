@@ -19,6 +19,7 @@ import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { Advance } from './Advance';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
@@ -40,10 +41,10 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
     if (!wallet?.id) {
       return;
     }
-    // TODO how to close ActionList
     const { mnemonic } =
       await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
         walletId: wallet?.id,
+        reason: EReasonForNeedPassword.Security,
       });
     if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
     navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -86,7 +87,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
               id: 'backup__manual_backup',
             }),
             icon: 'PenOutline',
-            onPress: handleBackupPhrase,
+            onPress: () => void handleBackupPhrase(),
           },
           ...(platformEnv.isNative
             ? [
@@ -126,10 +127,10 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
               opacity: 0,
             }}
           >
-            {/* Profile */}
+            {/* Profile: Avatar, Rename */}
             {wallet ? <WalletProfile wallet={wallet} /> : null}
 
-            {/* Options */}
+            {/* Options: Backup, Verification, HomeScreen, Advance  */}
             {walletSpecifiedOptions}
 
             <Stack py="$2.5">

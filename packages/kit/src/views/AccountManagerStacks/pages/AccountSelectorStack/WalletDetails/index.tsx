@@ -445,7 +445,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               key={item.id}
               renderAvatar={
                 <AccountAvatar
-                  fallback={<AccountAvatar.Fallback w="$10" h="$10" />}
+                  loading={<AccountAvatar.Loading w="$10" h="$10" />}
                   indexedAccount={indexedAccount}
                   account={account as any}
                   networkId={avatarNetworkId}

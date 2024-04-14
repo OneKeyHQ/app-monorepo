@@ -4939,6 +4939,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-webview@npm:13.8.2":
+  version: 13.8.2
+  resolution: "@onekeyfe/react-native-webview@npm:13.8.2"
+  dependencies:
+    escape-string-regexp: "npm:2.0.0"
+    invariant: "npm:2.2.4"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 7b2be47895f176b8269ee61273b9f72fe88c05ee0ee881ddd464b219ec2b7f1a19845d19770e52f6d626811658ed54780278b769395c454aaf5d6111edc9b353
+  languageName: node
+  linkType: hard
+
 "@onekeyhq/app-monorepo@workspace:.":
   version: 0.0.0-use.local
   resolution: "@onekeyhq/app-monorepo@workspace:."
@@ -5251,6 +5264,7 @@ __metadata:
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.5"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.3"
+    "@onekeyfe/react-native-webview": "npm:13.8.2"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
@@ -5314,7 +5328,6 @@ __metadata:
     react-native-tcp-socket: "npm:^6.0.6"
     react-native-video: "npm:6.0.0-beta.6"
     react-native-view-shot: "npm:3.1.2"
-    react-native-webview: "https://github.com/OneKeyHQ/react-native-webview.git#491965afd5198c152b5dda872d30a127e9ef786b"
     react-native-zip-archive: "npm:^6.0.9"
     readable-stream: "npm:^3.6.0"
     realm: "npm:12.3.0"
@@ -26244,19 +26257,6 @@ __metadata:
     react: ^18.0.0
     react-dom: ^18.0.0
   checksum: 923a13b6d6c23039a0bb36d9c1490bc184c308649198e95ea0fdb62ab35983150126c4b07d716a09d42f37be57d14f2669ca9661e9a3faaf856ed7f7f222120e
-  languageName: node
-  linkType: hard
-
-"react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#491965afd5198c152b5dda872d30a127e9ef786b":
-  version: 13.8.1
-  resolution: "react-native-webview@https://github.com/OneKeyHQ/react-native-webview.git#commit=491965afd5198c152b5dda872d30a127e9ef786b"
-  dependencies:
-    escape-string-regexp: "npm:2.0.0"
-    invariant: "npm:2.2.4"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 504df815161e332d018a18686d0c99915527c6f6fad0f67f5d091e177439951c14cd4f954a61e952eaa4d94906768e1703b290313e3597928e73e49b3ec2763d
   languageName: node
   linkType: hard
 

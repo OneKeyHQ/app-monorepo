@@ -10,11 +10,15 @@ import type { IImageFallbackProps, IImageSkeletonProps } from './type';
 const useVisible = (delayMs: number) => {
   const [visible, setVisible] = useState(!(delayMs > 0));
   useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout>;
     if (delayMs > 0) {
-      setTimeout(() => {
+      timerId = setTimeout(() => {
         setVisible(true);
       }, delayMs);
     }
+    return () => {
+      clearTimeout(timerId);
+    };
   }, [delayMs]);
   const { loading, loadedSuccessfully } = useContext(ImageContext);
   return (loading || !loadedSuccessfully) && visible;

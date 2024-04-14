@@ -358,7 +358,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       connectionItem.networkImplMap[networkImpl] || [];
 
     const accountsInfo = accountSelectorNumbers
-      .map((num) => connectionItem.connectionMap[num])
+      .map((num) => ({ ...connectionItem.connectionMap[num], num }))
       .filter(Boolean);
     return accountsInfo;
   }

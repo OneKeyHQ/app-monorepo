@@ -1077,7 +1077,7 @@ PODS:
     - React-Core
   - react-native-view-shot (3.1.2):
     - React
-  - react-native-webview (13.8.1):
+  - react-native-webview (13.8.2):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1405,7 +1405,7 @@ DEPENDENCIES:
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
   - react-native-video (from `../../../node_modules/react-native-video`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
-  - react-native-webview (from `../../../node_modules/react-native-webview`)
+  - "react-native-webview (from `../../../node_modules/@onekeyfe/react-native-webview`)"
   - React-nativeconfig (from `../../../node_modules/react-native/ReactCommon`)
   - React-NativeModulesApple (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-perflogger (from `../../../node_modules/react-native/ReactCommon/reactperflogger`)
@@ -1611,7 +1611,7 @@ EXTERNAL SOURCES:
   react-native-view-shot:
     :path: "../../../node_modules/react-native-view-shot"
   react-native-webview:
-    :path: "../../../node_modules/react-native-webview"
+    :path: "../../../node_modules/@onekeyfe/react-native-webview"
   React-nativeconfig:
     :path: "../../../node_modules/react-native/ReactCommon"
   React-NativeModulesApple:
@@ -1774,7 +1774,7 @@ SPEC CHECKSUMS:
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
   react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
-  react-native-webview: 05fa0e766f1c408e8c293cbcb84b2c199711cfd1
+  react-native-webview: ec68fd94daa0e47c58c087e6bbebccd4497b5c4e
   React-nativeconfig: b4d4e9901d4cabb57be63053fd2aa6086eb3c85f
   React-NativeModulesApple: cd26e56d56350e123da0c1e3e4c76cb58a05e1ee
   React-perflogger: 5f49905de275bac07ac7ea7f575a70611fa988f2

@@ -39,22 +39,31 @@ export function ImageSource({
 }: IImageSourceProps) {
   const hasError = useRef(false);
   const startTime = useRef(Date.now());
+  const delayTimer = useRef<ReturnType<typeof setTimeout>>();
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
   });
 
   const imageSource = useSource(source, src);
+  const previousImageSource = useRef<typeof imageSource>();
   const ImageComponent = useImageComponent(imageSource);
 
   const { setLoading, setLoadedSuccessfully } = useContext(ImageContext);
 
   const handleLoadStart = useCallback(() => {
+    // avoid re-render on FastImage in App
+    if (previousImageSource.current === imageSource) {
+      return;
+    }
+    clearTimeout(delayTimer.current);
+    hasError.current = false;
     setLoading?.(true);
-  }, [setLoading]);
+    previousImageSource.current = imageSource;
+  }, [imageSource, setLoading]);
 
   const handleLoadEnd = useCallback(() => {
     const diff = Date.now() - startTime.current;
-    setTimeout(
+    delayTimer.current = setTimeout(
       () => {
         setLoading?.(false);
         setLoadedSuccessfully?.(!hasError.current);

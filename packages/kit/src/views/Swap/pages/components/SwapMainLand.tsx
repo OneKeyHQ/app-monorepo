@@ -3,7 +3,10 @@ import { memo, useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSwapQuoteCurrentSelectAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapAlertsAtom,
+  useSwapQuoteCurrentSelectAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -26,6 +29,7 @@ const SwapMainLoad = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [alerts] = useSwapAlertsAtom();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
@@ -84,7 +88,7 @@ const SwapMainLoad = () => {
       >
         <SwapHeaderContainer />
         <SwapQuoteInput onSelectToken={onSelectToken} />
-        <SwapAlertContainer />
+        {alerts.length > 0 ? <SwapAlertContainer alerts={alerts} /> : null}
         {quoteResult ? (
           <SwapQuoteResult
             onOpenProviderList={onOpenProviderList}

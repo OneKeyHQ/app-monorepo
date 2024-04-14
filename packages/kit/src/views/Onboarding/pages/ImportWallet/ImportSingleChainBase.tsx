@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { trim } from 'lodash';
 
@@ -68,7 +68,7 @@ export function ImportSingleChainBase({
   const [validateResult, setValidateResult] = useState<
     IGeneralInputValidation | undefined
   >();
-
+  const isValidating = useRef<boolean>(false);
   const networkIdText = useFormWatch({ control, name: 'networkId' });
   const inputText = useFormWatch({ control, name: 'input' });
   const inputTextDebounced = useDebounce(inputText, 600);
@@ -96,7 +96,14 @@ export function ImportSingleChainBase({
   }, [inputTextDebounced, networkIdText, setValue, validationParams]);
 
   useEffect(() => {
-    void validateFn();
+    void (async () => {
+      try {
+        isValidating.current = true;
+        await validateFn();
+      } finally {
+        isValidating.current = false;
+      }
+    })();
   }, [validateFn]);
 
   useEffect(() => {
@@ -137,7 +144,7 @@ export function ImportSingleChainBase({
           ) : null}
         </Form>
 
-        {!validateResult?.isValid && inputTextDebounced ? (
+        {validateResult && !validateResult?.isValid && inputTextDebounced ? (
           <SizableText color="$textCritical">{invalidMessage}</SizableText>
         ) : null}
 

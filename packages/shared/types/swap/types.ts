@@ -80,6 +80,12 @@ export interface IFetchTokensParams {
 
 // quote
 
+export enum ESwapApproveTransactionStatus {
+  PENDING = 'pending',
+  SUCCESS = 'success',
+  CANCEL = 'cancel',
+  FAILED = 'failed',
+}
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
@@ -87,6 +93,7 @@ export interface ISwapApproveTransaction {
   useAddress: string;
   spenderAddress: string;
   amount: string;
+  status: ESwapApproveTransactionStatus;
   txId?: string;
 }
 export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
@@ -115,6 +122,18 @@ export interface ISocketExtraData {
 interface IQuoteExtraData {
   socketBridgeExtraData?: ISocketExtraData;
 }
+
+export interface IQuoteRouteDataInfo {
+  name: string;
+  part?: number;
+  logo?: string;
+}
+
+export interface IQuoteRoutePath {
+  amount?: string;
+  part?: number;
+  subRoutes?: IQuoteRouteDataInfo[][];
+}
 export interface IFetchQuoteResult {
   info: IFetchQuoteInfo;
   toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
@@ -123,9 +142,12 @@ export interface IFetchQuoteResult {
   allowanceResult?: IAllowanceResult;
   estimatedTime?: string;
   isBest?: boolean;
+  receivedBest?: boolean;
+  minGasCost?: boolean;
   limit?: IFetchQuoteLimit;
   isWrapped?: boolean;
   unSupportReceiveAddressDifferent?: boolean;
+  routesData?: IQuoteRoutePath[];
   quoteExtraData?: IQuoteExtraData;
 }
 
