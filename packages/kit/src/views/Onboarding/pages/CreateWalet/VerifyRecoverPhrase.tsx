@@ -82,13 +82,10 @@ export function VerifyRecoveryPhrase({
   const navigation = useAppNavigation();
 
   const { result: phrases } = usePromiseResult(async () => {
-    if (process.env.NODE_ENV !== 'production') {
-      const mnemonicRaw = await servicePassword.decodeSensitiveText({
-        encodedText: mnemonic,
-      });
-      return mnemonicRaw.split(' ');
-    }
-    return [];
+    const mnemonicRaw = await servicePassword.decodeSensitiveText({
+      encodedText: mnemonic,
+    });
+    return mnemonicRaw.split(' ');
   }, [mnemonic, servicePassword]);
 
   const [selectedWords, setSelectedWords] = useState<string[]>([]);
@@ -136,6 +133,9 @@ export function VerifyRecoveryPhrase({
             ))}
           </YStack>
         ) : null}
+        <SizableText>{JSON.stringify(verifyRecoveryPhrases)}</SizableText>
+        <SizableText>{JSON.stringify(verifyRecoveryPhrases)}</SizableText>
+        <SizableText>{JSON.stringify(route.params)}</SizableText>
       </Page.Body>
       <Page.Footer
         onConfirmText="Confirm"
