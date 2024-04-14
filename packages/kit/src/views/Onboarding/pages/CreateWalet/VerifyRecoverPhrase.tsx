@@ -82,13 +82,10 @@ export function VerifyRecoveryPhrase({
   const navigation = useAppNavigation();
 
   const { result: phrases } = usePromiseResult(async () => {
-    if (process.env.NODE_ENV !== 'production') {
-      const mnemonicRaw = await servicePassword.decodeSensitiveText({
-        encodedText: mnemonic,
-      });
-      return mnemonicRaw.split(' ');
-    }
-    return [];
+    const mnemonicRaw = await servicePassword.decodeSensitiveText({
+      encodedText: mnemonic,
+    });
+    return mnemonicRaw.split(' ');
   }, [mnemonic, servicePassword]);
 
   const [selectedWords, setSelectedWords] = useState<string[]>([]);
