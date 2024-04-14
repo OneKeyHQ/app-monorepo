@@ -4,7 +4,9 @@ import { useRoute } from '@react-navigation/core';
 
 import type { IPropsWithTestId } from '@onekeyhq/components';
 import {
+  ActionList,
   Button,
+  Dialog,
   Input,
   Page,
   SecureView,
@@ -15,6 +17,7 @@ import {
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import {
   ensureSensitiveTextEncoded,
   generateMnemonic,
@@ -110,12 +113,49 @@ export function RecoveryPhrase() {
     });
   }, [mnemonic, navigation, route.params?.isBackup, servicePassword]);
 
+  const headerRight = useCallback(
+    () => (
+      <ActionList
+        title="More"
+        renderTrigger={
+          <HeaderIconButton title="Actions" icon="DotHorOutline" />
+        }
+        items={[
+          {
+            label: 'Copy recovery phrase',
+            icon: 'Copy1Outline',
+            onPress: () => {
+              Dialog.show({
+                icon: 'ErrorOutline',
+                tone: 'destructive',
+                title: 'Copy recovery phrase?',
+                description:
+                  'Clipboard access can expose your recovery phrase to unauthorized apps.',
+                onCancelText: 'Copy anyway',
+                onCancel: () => {
+                  copyText(mnemonic);
+                  Toast.success({ title: 'Copied' });
+                },
+                onConfirmText: 'Cancel copy',
+                confirmButtonProps: {
+                  variant: 'primary',
+                },
+                onConfirm: ({ close }) => close(),
+              });
+            },
+          },
+        ]}
+      />
+    ),
+    [copyText, mnemonic],
+  );
+
   return (
     <Page scrollEnabled>
-      <Page.Header title="Write Down Your Phrases" />
+      <Page.Header title="Backup recovery phrases" headerRight={headerRight} />
       <Page.Body p="$5" pt="$0">
         <SizableText pt="$2" pb="$4" px="$1" size="$headingMd">
-          Tap to display words and write down your phrases in order
+          Write down each phrase in order and store them in a secure location
         </SizableText>
 
         <SecureView>
