@@ -219,7 +219,7 @@ const DialogGallery = () => (
           <YStack>
             <Button
               onPress={() =>
-                Dialog.show({
+                Dialog.cancel({
                   title: 'Lorem ipsum',
                   onCancelText: 'Bye',
                   description:
