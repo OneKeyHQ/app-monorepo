@@ -32,7 +32,6 @@ import {
   SizableText,
   Stack,
   XStack,
-  useClipboard,
   useForm,
   useIsKeyboardShown,
   useMedia,
@@ -450,7 +449,6 @@ export function PhaseInputArea({
   const form = useForm({
     defaultValues: defaultPhrasesMap,
   });
-  const { getClipboard } = useClipboard();
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
