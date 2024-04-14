@@ -46,19 +46,12 @@ export async function loginIfNeeded(
       return Promise.resolve(false);
     }
   } else if (showSignInDialog) {
-    try {
-      if ((await checkInternet()) === false) {
-        throw new Error('NETWORK');
-      }
-      GoogleSignin.configure(GoogleSignInConfigure);
-      await GoogleSignin.signIn();
-      return await RNCloudFs.loginIfNeeded();
-    } catch (error) {
-      // debugLogger.cloudBackup.error(error);
-
-      throw error;
-      // return Promise.resolve(false);
+    if ((await checkInternet()) === false) {
+      throw new Error('NETWORK');
     }
+    GoogleSignin.configure(GoogleSignInConfigure);
+    await GoogleSignin.signIn();
+    return RNCloudFs.loginIfNeeded();
   }
   return Promise.resolve(false);
 }
@@ -68,9 +61,9 @@ export async function logoutFromGoogleDrive(
 ): Promise<boolean> {
   if (platformEnv.isNativeAndroid) {
     if (revokeAccess) {
-      GoogleSignin.revokeAccess();
+      await GoogleSignin.revokeAccess();
     }
-    GoogleSignin.signOut();
+    await GoogleSignin.signOut();
     return RNCloudFs.logout();
   }
   return Promise.resolve(true);
