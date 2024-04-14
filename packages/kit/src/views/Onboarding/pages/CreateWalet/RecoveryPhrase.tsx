@@ -167,7 +167,6 @@ export function RecoveryPhrase() {
                 onCancelText: 'Copy anyway',
                 onCancel: () => {
                   copyText(mnemonic);
-                  Toast.success({ title: 'Copied' });
                 },
                 onConfirmText: 'Cancel copy',
                 confirmButtonProps: {
