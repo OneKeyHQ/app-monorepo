@@ -18,7 +18,8 @@ export function VerifyRecoveryPhrase({
   EOnboardingPages.VerifyRecoverPhrase
 >) {
   const { servicePassword } = backgroundApiProxy;
-  const { mnemonic } = route.params || {};
+  const { mnemonic, verifyRecoveryPhrases } = route.params || {};
+ 
   ensureSensitiveTextEncoded(mnemonic);
   const navigation = useAppNavigation();
   const handleConfirmPress = async (mnemonicConfirm: string) => {

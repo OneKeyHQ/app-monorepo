@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import wordLists from 'bip39/src/wordlists/english.json';
+import { shuffle } from 'lodash';
 
 import type { IPropsWithTestId } from '@onekeyhq/components';
 import {
@@ -91,6 +93,33 @@ export function RecoveryPhrase() {
     [mnemonic],
   );
 
+  const verifyRecoveryPhrases = useMemo(() => {
+    if (route.params?.isBackup) {
+      return [];
+    }
+    const shufflePhrases = shuffle(phrases).slice(0, 3);
+    const length = wordLists.length;
+    const confuseWords: string[] = [];
+    const getConfuseWord: () => string = () => {
+      // eslint-disable-next-line no-bitwise
+      const index = (Math.random() * length) >> 1;
+      const word = wordLists[index];
+      if (shufflePhrases.includes(word) || confuseWords.includes(word)) {
+        return getConfuseWord();
+      }
+      return word;
+    };
+    for (let i = 0; i < 6; i += 1) {
+      confuseWords.push(getConfuseWord());
+    }
+    return shufflePhrases.map((word, index) =>
+      shuffle([
+        shufflePhrases[index],
+        ...confuseWords.slice(index * 2, index * 2 + 2),
+      ]),
+    );
+  }, [phrases, route.params?.isBackup]);
+
   const handleConfirmPress = useCallback(async () => {
     if (route.params?.isBackup) {
       Toast.success({
@@ -104,8 +133,15 @@ export function RecoveryPhrase() {
         text: mnemonic,
       }),
       isBackup: route.params?.isBackup,
+      verifyRecoveryPhrases,
     });
-  }, [mnemonic, navigation, route.params?.isBackup, servicePassword]);
+  }, [
+    mnemonic,
+    navigation,
+    route.params?.isBackup,
+    servicePassword,
+    verifyRecoveryPhrases,
+  ]);
 
   const headerRight = useCallback(
     () => (
