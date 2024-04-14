@@ -96,28 +96,6 @@ export const useSuggestion = (
     [form, selectInputIndex],
   );
 
-  const onPasteMnemonic = useCallback(
-    (value: string) => {
-      if (value.length > 4) {
-        const arrays = value.split(' ');
-        console.log('arrays', arrays, arrays.length, phraseLength);
-        if (arrays.length === phraseLength) {
-          setTimeout(() => {
-            form.reset(
-              arrays.reduce((prev, next, index) => {
-                prev[`phrase${index + 1}`] = next;
-                return prev;
-              }, {} as Record<`phrase${number}`, string>),
-            );
-          }, 10);
-        } else {
-          Toast.message({ title: 'Max 4 chars' });
-        }
-      }
-    },
-    [form, phraseLength],
-  );
-
   const onInputChange = useCallback(
     (value: string) => {
       // on ios, when the value is changed, onInputChange will called twice.
@@ -215,6 +193,29 @@ export const useSuggestion = (
     },
     [checkIsValid, selectInputIndex],
   );
+
+  const onPasteMnemonic = useCallback(
+    (value: string) => {
+      if (value.length > 4) {
+        const arrays = value.split(' ');
+        if (arrays.length === phraseLength) {
+          setTimeout(() => {
+            form.reset(
+              arrays.reduce((prev, next, index) => {
+                prev[`phrase${index + 1}`] = next;
+                return prev;
+              }, {} as Record<`phrase${number}`, string>),
+            );
+            resetSuggestions();
+          }, 10);
+        } else {
+          Toast.message({ title: 'Max 4 chars' });
+        }
+      }
+    },
+    [form, phraseLength, resetSuggestions],
+  );
+
   return useMemo(
     () => ({
       suggestions,
