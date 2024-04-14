@@ -11,6 +11,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swapQuoteFetchInterval,
+  swapQuoteSilenceFetchInterval,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
   swapSlippageAutoValue,
@@ -18,6 +19,7 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapAlertLevel,
+  ESwapApproveTransactionStatus,
   ESwapFetchCancelCause,
   ESwapRateDifferenceUnit,
   ESwapSlippageSegmentKey,
@@ -280,7 +282,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   quoteAction = contextAtomMethod(async (get, set, address?: string) => {
     this.cleanQuoteInterval();
     set(swapBuildTxFetchingAtom(), false);
-    set(swapApprovingTransactionAtom(), undefined);
     const fromToken = get(swapSelectFromTokenAtom());
     const toToken = get(swapSelectToTokenAtom());
     const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -353,6 +354,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   recoverQuoteInterval = contextAtomMethod(
     async (get, set, address?: string) => {
       this.cleanQuoteInterval();
+      set(swapBuildTxFetchingAtom(), false);
+      set(swapApprovingTransactionAtom(), (pre) => {
+        if (!pre) return pre;
+        return {
+          ...pre,
+          status: ESwapApproveTransactionStatus.CANCEL,
+        };
+      });
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -374,7 +383,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             address,
             true,
           );
-        }, swapQuoteFetchInterval);
+        }, swapQuoteSilenceFetchInterval);
       }
     },
   );

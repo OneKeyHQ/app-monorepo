@@ -1,17 +1,13 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback } from 'react';
 
-import { CommonActions } from '@react-navigation/native';
-
 import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
 import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IFiatCryptoToken,
   IFiatCryptoType,
@@ -31,7 +27,6 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
     accountId: type === 'sell' ? accountId : undefined,
     type,
   });
-  const { handleOpenWebSite } = useBrowserAction().current;
   const onPress = useCallback(
     async (token: IFiatCryptoToken) => {
       const { url } =
@@ -41,22 +36,10 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
           accountId,
           type,
         });
-
-      handleOpenWebSite({
-        webSite: { url, title },
-        navigation: appNavigation,
-      });
-      if (platformEnv.isNative) {
-        appNavigation.dispatch(
-          CommonActions.reset({
-            index: 1,
-            routes: [{ name: ETabRoutes.Home }],
-          }),
-        );
-        appNavigation.switchTab(ETabRoutes.Discovery);
-      }
+      openUrlExternal(url);
+      appNavigation.popStack();
     },
-    [appNavigation, handleOpenWebSite, type, networkId, accountId, title],
+    [appNavigation, type, networkId, accountId],
   );
 
   return (
