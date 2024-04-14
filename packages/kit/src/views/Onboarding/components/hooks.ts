@@ -208,10 +208,12 @@ export const useSuggestion = (
             );
             resetSuggestions();
           }, 10);
-        } else {
-          Toast.message({ title: 'Max 4 chars' });
+          return true;
         }
+        Toast.message({ title: 'Max 4 chars' });
+        return false;
       }
+      return false;
     },
     [form, phraseLength, resetSuggestions],
   );
