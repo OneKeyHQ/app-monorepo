@@ -2,7 +2,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import axios from 'axios';
 import RNCloudFs from 'react-native-cloud-fs';
 
-import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+// import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import platformEnv from '../platformEnv';
 
@@ -42,7 +42,7 @@ export async function loginIfNeeded(
     try {
       return await RNCloudFs.loginIfNeeded();
     } catch (error) {
-      debugLogger.cloudBackup.error(error);
+      // debugLogger.cloudBackup.error(error);
       return Promise.resolve(false);
     }
   } else if (showSignInDialog) {
@@ -54,7 +54,7 @@ export async function loginIfNeeded(
       await GoogleSignin.signIn();
       return await RNCloudFs.loginIfNeeded();
     } catch (error) {
-      debugLogger.cloudBackup.error(error);
+      // debugLogger.cloudBackup.error(error);
 
       throw error;
       // return Promise.resolve(false);

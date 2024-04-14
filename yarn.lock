@@ -5271,6 +5271,7 @@ __metadata:
     "@react-native-async-storage/async-storage": "npm:1.22.0"
     "@react-native-community/netinfo": "npm:^9.4.1"
     "@react-native-community/slider": "npm:4.4.3"
+    "@react-native-google-signin/google-signin": "npm:^9.1.0"
     "@shopify/flash-list": "npm:^1.6.3"
     "@walletconnect/modal-react-native": "npm:1.1.0"
     "@walletconnect/react-native-compat": "npm:2.11.2"
@@ -6303,6 +6304,20 @@ __metadata:
   version: 4.4.3
   resolution: "@react-native-community/slider@npm:4.4.3"
   checksum: e0036f26fc11b38472381d26ba0b81f4e6e74ffe08297a4d8b0a9990d0d4788710410a75429bb20d4b0272b7a772cfad645577e8845e10d31cc8610f58ba5ea2
+  languageName: node
+  linkType: hard
+
+"@react-native-google-signin/google-signin@npm:^9.1.0":
+  version: 9.1.0
+  resolution: "@react-native-google-signin/google-signin@npm:9.1.0"
+  peerDependencies:
+    expo: ">=47.0.0"
+    react: "*"
+    react-native: "*"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+  checksum: 342bbbedbd2be3098cbc652779254bac395f13a261745dfc2092fd09d4dae1c47242023da1e80fdffb119778110abb2b6b22245291d7c522a15c4aee151c7ff5
   languageName: node
   linkType: hard
 

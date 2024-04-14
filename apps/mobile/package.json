@@ -38,6 +38,7 @@
     "@react-native-async-storage/async-storage": "1.22.0",
     "@react-native-community/netinfo": "^9.4.1",
     "@react-native-community/slider": "4.4.3",
+    "@react-native-google-signin/google-signin": "^9.1.0",
     "@shopify/flash-list": "^1.6.3",
     "@walletconnect/modal-react-native": "1.1.0",
     "@walletconnect/react-native-compat": "2.11.2",

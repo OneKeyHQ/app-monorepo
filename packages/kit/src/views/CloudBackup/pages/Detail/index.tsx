@@ -52,57 +52,51 @@ export default function Detail() {
   const createSectionListFromPublicData = useCallback(
     (publicData: IPublicBackupData) =>
       [
-        Object.values(publicData.HDWallets).length > 0
-          ? {
-              title: 'App Wallet',
-              data: Object.values(publicData.HDWallets).map((wallet) => ({
-                title: wallet.name,
-                detail: `${wallet.accountUUIDs.length} Accounts`,
-                walletAvatar: wallet.avatar,
-              })),
-            }
-          : null,
+        Object.values(publicData.HDWallets).length > 0 && {
+          title: 'App Wallet',
+          data: Object.values(publicData.HDWallets).map((wallet) => ({
+            title: wallet.name,
+            detail: `${wallet.accountUUIDs.length} Accounts`,
+            walletAvatar: wallet.avatar,
+          })),
+        },
         Object.values(publicData.importedAccounts).length +
           Object.values(publicData.watchingAccounts).length >
-        0
-          ? {
-              title: 'Other Wallet',
-              data: [
-                Object.values(publicData.importedAccounts).length > 0 && {
-                  title: 'Private Key',
-                  detail: `${
-                    Object.keys(publicData.importedAccounts).length
-                  } Accounts`,
-                  icon: 'PasswordOutline',
-                },
-                Object.values(publicData.watchingAccounts).length > 0 && {
-                  title: 'Watchlist',
-                  detail: `${Object.keys(publicData.watchingAccounts).length}`,
-                  icon: 'EyeOutline',
-                },
-              ].filter((item) => item),
-            }
-          : null,
+          0 && {
+          title: 'Other Wallet',
+          data: [
+            Object.values(publicData.importedAccounts).length > 0 && {
+              title: 'Private Key',
+              detail: `${
+                Object.keys(publicData.importedAccounts).length
+              } Accounts`,
+              icon: 'PasswordOutline',
+            },
+            Object.values(publicData.watchingAccounts).length > 0 && {
+              title: 'Watchlist',
+              detail: `${Object.keys(publicData.watchingAccounts).length}`,
+              icon: 'EyeOutline',
+            },
+          ].filter((item) => item),
+        },
         Object.keys(publicData.contacts).length +
           (publicData?.discoverBookmarks?.length ?? 0) >
-        0
-          ? {
-              title: 'Address Book & Labels',
-              data: [
-                Object.keys(publicData.contacts).length > 0 && {
-                  title: 'Address Book',
-                  detail: `${Object.keys(publicData.contacts).length} Items`,
-                  icon: 'BookOpenOutline',
-                },
-                (publicData?.discoverBookmarks?.length ?? 0) > 0 && {
-                  title: 'Discovery bookmarks',
-                  detail: `${publicData?.discoverBookmarks?.length ?? 0} Items`,
-                  icon: 'BookmarkOutline',
-                },
-              ].filter((item) => item),
-            }
-          : null,
-      ].filter((item) => item),
+          0 && {
+          title: 'Address Book & Labels',
+          data: [
+            Object.keys(publicData.contacts).length > 0 && {
+              title: 'Address Book',
+              detail: `${Object.keys(publicData.contacts).length} Items`,
+              icon: 'BookOpenOutline',
+            },
+            (publicData?.discoverBookmarks?.length ?? 0) > 0 && {
+              title: 'Discovery bookmarks',
+              detail: `${publicData?.discoverBookmarks?.length ?? 0} Items`,
+              icon: 'BookmarkOutline',
+            },
+          ].filter((item) => item),
+        },
+      ].filter((item) => item) as [{ title: string; data: any[] }],
     [],
   );
 
