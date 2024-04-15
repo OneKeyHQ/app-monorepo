@@ -18,6 +18,7 @@ export async function checkBackupEntryStatus() {
     await backgroundApiProxy.serviceCloudBackup.loginIfNeeded(true);
   } catch (e) {
     Toast.error({
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       title: `google auth failed ${e}`,
     });
     throw e;
