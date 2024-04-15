@@ -261,6 +261,7 @@ class ServiceCloudBackup extends ServiceBase {
         isEnabled: false,
         isInProgress: false,
       });
+      await this.logoutFromGoogleDrive(false);
       return false;
     }
     return true;
@@ -676,6 +677,11 @@ class ServiceCloudBackup extends ServiceBase {
     return CloudFs.loginIfNeeded(showSignInDialog);
   }
 
+  @backgroundMethod()
+  async logoutFromGoogleDrive(revokeAccess: boolean) {
+    return CloudFs.logoutFromGoogleDrive(revokeAccess);
+  }
+
   private metaDataCache = '';
 
   private getDataFromCloud = memoizee(
@@ -683,7 +689,10 @@ class ServiceCloudBackup extends ServiceBase {
       const content = await CloudFs.downloadFromCloud(
         platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
       );
-      if (filename === CLOUD_METADATA_FILE_NAME && content.length <= 0) {
+      if (
+        filename === CLOUD_METADATA_FILE_NAME &&
+        this.metaDataCache.length > 0
+      ) {
         return this.metaDataCache;
       }
       return content;

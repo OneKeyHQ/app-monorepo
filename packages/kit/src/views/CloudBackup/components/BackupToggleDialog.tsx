@@ -1,10 +1,13 @@
 import { useState } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   cloudBackupPersistAtom,
   useCloudBackupPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 function BackupToggleDialogFooter({
@@ -16,6 +19,8 @@ function BackupToggleDialogFooter({
 }) {
   const [loading, setLoading] = useState(false);
   const [cloudBackup, setCloudBackup] = useCloudBackupPersistAtom();
+
+  const navigation = useAppNavigation();
   return (
     <Dialog.Footer
       confirmButtonProps={{
@@ -28,6 +33,13 @@ function BackupToggleDialogFooter({
           await timerUtils.wait(500);
           setCloudBackup({ ...cloudBackup, isEnabled: willIsEnabled });
           callback?.(willIsEnabled);
+          if (!willIsEnabled && platformEnv.isNativeAndroid) {
+            await backgroundApiProxy.serviceCloudBackup
+              .logoutFromGoogleDrive(false)
+              .then(() => {
+                navigation.pop();
+              });
+          }
         } finally {
           setLoading(false);
         }
