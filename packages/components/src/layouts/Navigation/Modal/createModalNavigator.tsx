@@ -180,7 +180,7 @@ function ModalNavigator({
         bg="$bg"
         style={{
           transform: [{ translateX: routeIndex !== 0 ? 640 : 0 }],
-          transition: 'transform .25s ease-in-out',
+          transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
           willChange: 'transform',
           shadowColor: 'black',
           shadowOpacity: 0.3,
@@ -210,7 +210,7 @@ function ModalNavigator({
             style={{
               opacity: 0,
               backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              transition: 'opacity .25s ease-in-out',
+              transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
               willChange: 'opacity',
             }}
           />
@@ -243,7 +243,7 @@ function ModalNavigator({
           }}
           style={{
             transform: [{ translateY: screenHeight }],
-            transition: 'transform .25s ease-in-out',
+            transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
             willChange: 'transform',
           }}
         >

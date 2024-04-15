@@ -1,3 +1,5 @@
+import qs from 'querystring';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -22,9 +24,7 @@ class ServiceDefi extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.get<{
       data: IFetchAccountDefiResp;
-    }>('/wallet/v1/account/defi/list', {
-      params,
-    });
+    }>(`/wallet/v1/account/defi/list?${qs.stringify(params)}`);
     return resp.data.data;
   }
 }
