@@ -8,6 +8,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { MotiView } from 'moti';
 
 const styles = StyleSheet.create({
@@ -29,7 +31,10 @@ export type IHeightTransitionProps = {
   onHeightDidAnimate?: (height: number) => void;
 } & ComponentProps<typeof MotiView>;
 
-const transition = { duration: 150 } as const;
+const transition = {
+  // The animation duration on Android is twice that of iOS, so the duration has been shortened on Android.
+  duration: platformEnv.isNativeAndroid ? 80 : 150,
+} as const;
 
 function HeightTransition({
   children,
