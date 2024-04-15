@@ -108,17 +108,22 @@ function buildWatchingAccountId({
   address,
   xpub,
   addressEncoding,
+  isUrlAccount,
 }: {
   coinType: string;
   address?: string;
   xpub?: string;
   addressEncoding?: EAddressEncodings | undefined;
+  isUrlAccount?: boolean;
 }) {
-  const publicKey = xpub || address;
-  if (!publicKey) {
+  if (isUrlAccount) {
+    return `${WALLET_TYPE_WATCHING}--global-url-account`;
+  }
+  const pubOrAddress = xpub || address;
+  if (!pubOrAddress) {
     throw new Error('buildWatchingAccountId ERROR: publicKey is not defined');
   }
-  let id = `${WALLET_TYPE_WATCHING}--${coinType}--${publicKey}`;
+  let id = `${WALLET_TYPE_WATCHING}--${coinType}--${pubOrAddress}`;
   if (addressEncoding) {
     id += `--${addressEncoding}`;
   }

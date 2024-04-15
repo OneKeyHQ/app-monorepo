@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
+import { isString } from 'lodash';
+
 import type {
-  IIconProps,
   IImageFallbackProps,
   IImageLoadingProps,
   IImageProps,
@@ -140,6 +141,15 @@ function BasicAccountAvatar({
     const finalAccount = account || dbAccount;
     if (finalAccount) {
       if (accountUtils.isExternalAccount({ accountId: finalAccount.id })) {
+        const renderExternalAvatar = (logo: string) => {
+          if (!logo) {
+            return null;
+          }
+          if (isString(logo)) {
+            return <Image.Source src={logo} />;
+          }
+          return <Image.Source source={logo as any} />;
+        };
         const externalAccount = finalAccount as IDBExternalAccount;
 
         const wcPeerMeta =
@@ -151,7 +161,7 @@ function BasicAccountAvatar({
             },
           );
           if (logo) {
-            return <Image.Source src={logo} />;
+            return renderExternalAvatar(logo);
           }
         }
 
@@ -161,7 +171,7 @@ function BasicAccountAvatar({
           externalAccount?.connectionInfo?.evmInjected?.icon ||
           externalAccount?.connectionInfo?.walletConnect?.peerMeta?.icons?.[0];
         if (externalWalletIcon) {
-          return <Image.Source src={externalWalletIcon} />;
+          return renderExternalAvatar(externalWalletIcon);
         }
 
         // some dapps don't provide icons, fallback to walletconnect icon
@@ -169,7 +179,7 @@ function BasicAccountAvatar({
         if (wcPeerMeta || externalAccount?.connectionInfo?.walletConnect) {
           const walletConnectIcon =
             externalWalletLogoUtils.getLogoInfo('walletconnect').logo;
-          return <Image.Source src={walletConnectIcon} />;
+          return renderExternalAvatar(walletConnectIcon);
         }
       }
       return finalAccount.address ? (
