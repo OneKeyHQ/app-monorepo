@@ -11,10 +11,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
-import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
 
 type IOptionItem = IPropsWithTestId<{
   title?: string;
@@ -140,17 +140,21 @@ export function ImportWalletOptions() {
         },
       ],
     },
-    {
-      sectionTitle: 'Others',
-      data: [
-        {
-          icon: 'CloudSyncOutline',
-          title: 'iCloud',
-          description: 'Import your wallet from iCloud',
-          onPress: handleImportFromCloud,
-        },
-      ],
-    },
+    ...(platformEnv.isNative
+      ? [
+          {
+            sectionTitle: 'Others',
+            data: [
+              {
+                icon: 'CloudSyncOutline',
+                title: 'iCloud',
+                description: 'Import your wallet from iCloud',
+                onPress: handleImportFromCloud,
+              },
+            ],
+          } as IOptionSection,
+        ]
+      : []),
   ];
 
   return (

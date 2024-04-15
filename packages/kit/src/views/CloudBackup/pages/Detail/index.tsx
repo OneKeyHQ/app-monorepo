@@ -131,6 +131,9 @@ export default function Detail() {
   }, [segmentValue, diffData]);
 
   const showDeleteActionList = useCallback(() => {
+    if (submitLoading) {
+      return;
+    }
     ActionList.show({
       title,
       sections: [
@@ -149,7 +152,7 @@ export default function Detail() {
         },
       ],
     });
-  }, [title, filename, navigation]);
+  }, [title, filename, navigation, submitLoading]);
 
   const renderHeaderRight = useCallback(
     () => (
@@ -192,36 +195,45 @@ export default function Detail() {
       return;
     }
     setSubmitLoading(true);
-    const { isOnboardingDone } =
-      await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+    try {
+      const { isOnboardingDone } =
+        await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
 
-    let result = await handlerImportFromPassword();
-    if (result === ERestoreResult.WRONG_PASSWORD) {
-      const remotePassword = await showRestorePasswordVerifyDialog();
-      result = await handlerImportFromPassword(
-        await backgroundApiProxy.servicePassword.encodeSensitiveText({
-          text: remotePassword,
-        }),
-      );
-    }
-    if (
-      result === ERestoreResult.UNKNOWN_ERROR ||
-      result === ERestoreResult.WRONG_PASSWORD
-    ) {
+      let result = await handlerImportFromPassword();
+      if (result === ERestoreResult.WRONG_PASSWORD) {
+        const remotePassword = await showRestorePasswordVerifyDialog();
+        result = await handlerImportFromPassword(
+          await backgroundApiProxy.servicePassword.encodeSensitiveText({
+            text: remotePassword,
+          }),
+        );
+      }
+      if (
+        result === ERestoreResult.UNKNOWN_ERROR ||
+        result === ERestoreResult.WRONG_PASSWORD
+      ) {
+        Toast.error({
+          title: result,
+        });
+      } else {
+        Toast.success({
+          title: 'Backup Imported',
+        });
+        if (!isOnboardingDone) {
+          navigation.navigate(ERootRoutes.Main);
+        } else {
+          navigation.pop();
+        }
+      }
+    } catch (e) {
       Toast.error({
-        title: result,
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        title: `${e?.message ?? e}`,
       });
+    } finally {
       setSubmitLoading(false);
-      return;
     }
-    if (!isOnboardingDone) {
-      navigation.navigate(ERootRoutes.Main);
-    }
-    setSubmitLoading(false);
-    Toast.success({
-      title: 'Backup Imported',
-    });
-    navigation.pop();
   }, [diffData, navigation, handlerImportFromPassword]);
 
   return (

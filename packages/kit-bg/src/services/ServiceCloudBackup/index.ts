@@ -6,6 +6,7 @@ import {
   encryptRevealableSeed,
 } from '@onekeyhq/core/src/secret';
 import { decrypt, encrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { cloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   backgroundClass,
@@ -22,18 +23,19 @@ import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import {
+  generateUUID,
+  getContactUUID,
+  getHDAccountUUID,
+  getImportedAccountUUID,
+  getWatchingAccountUUID,
+} from '@onekeyhq/shared/src/utils/miscUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import ServiceBase from '../ServiceBase';
 
 import { ERestoreResult } from './types';
 import { filterWillRemoveBackupList } from './utils/BackupTimeStrategyUtils';
-import {
-  getContactUUID,
-  getHDAccountUUID,
-  getImportedAccountUUID,
-  getWatchingAccountUUID,
-} from './utils/uuidUtils';
 
 import type {
   IBackupData,
@@ -84,9 +86,7 @@ class ServiceCloudBackup extends ServiceBase {
     const privateBackupData: IPrivateBackupData = {
       contacts: {},
       discoverBookmarks: [],
-      credentials: password
-        ? await serviceAccount.dumpCredentials({ password })
-        : {},
+      credentials: password ? await serviceAccount.dumpCredentials() : {},
       importedAccounts: {},
       watchingAccounts: {},
       wallets: {},
@@ -100,7 +100,7 @@ class ServiceCloudBackup extends ServiceBase {
       .map((item) => item.data)
       .flat();
 
-    Object.values(contacts).forEach((contact) => {
+    contacts.forEach((contact) => {
       const contactUUID = getContactUUID(contact);
       privateBackupData.contacts[contactUUID] = contact;
       publicBackupData.contacts[contactUUID] = {
@@ -114,40 +114,40 @@ class ServiceCloudBackup extends ServiceBase {
     privateBackupData.discoverBookmarks = bookmarks;
 
     const { wallets } = await serviceAccount.getWallets();
+    const walletAccountMap = wallets.reduce((summary, current) => {
+      summary[current.id] = current;
+      return summary;
+    }, {} as Record<string, IDBWallet>);
     const { accounts: allAccounts } = await serviceAccount.getAllAccounts();
-    for (const wallet of wallets) {
-      if (wallet.type !== WALLET_TYPE_HW) {
-        const accounts = allAccounts.filter(
-          (item) =>
-            accountUtils.parseAccountId({
-              accountId: item.id,
-            }).walletId === wallet.id,
-        );
+    for (const account of allAccounts) {
+      const walletId = accountUtils.parseAccountId({
+        accountId: account.id,
+      }).walletId;
+      const wallet = walletAccountMap[walletId];
+      if (wallet && wallet.type !== WALLET_TYPE_HW) {
         if (wallet.type === WALLET_TYPE_IMPORTED) {
-          accounts.forEach((account) => {
-            const importedAccountUUID = getImportedAccountUUID(account);
-            publicBackupData.importedAccounts[importedAccountUUID] = {
-              name: account.name,
-            };
-            privateBackupData.importedAccounts[importedAccountUUID] = {
-              ...account,
-              version: IMPORTED_ACCOUNT_BACKUP_VERSION,
-            };
-          });
+          const importedAccountUUID = getImportedAccountUUID(account);
+          publicBackupData.importedAccounts[importedAccountUUID] = {
+            name: account.name,
+          };
+          privateBackupData.importedAccounts[importedAccountUUID] = {
+            ...account,
+            version: IMPORTED_ACCOUNT_BACKUP_VERSION,
+          };
         } else if (wallet.type === WALLET_TYPE_WATCHING) {
-          accounts.forEach((account) => {
-            const watchingAccountUUID = getWatchingAccountUUID(account);
-            publicBackupData.watchingAccounts[watchingAccountUUID] = {
-              name: account.name,
-            };
-            privateBackupData.watchingAccounts[watchingAccountUUID] = {
-              ...account,
-              version: WATCHING_ACCOUNT_BACKUP_VERSION,
-            };
-          });
+          const watchingAccountUUID = getWatchingAccountUUID(account);
+          publicBackupData.watchingAccounts[watchingAccountUUID] = {
+            name: account.name,
+          };
+          privateBackupData.watchingAccounts[watchingAccountUUID] = {
+            ...account,
+            version: WATCHING_ACCOUNT_BACKUP_VERSION,
+          };
         } else if (wallet.type === WALLET_TYPE_HD) {
-          const walletToBackup: IImportableHDWallet = {
-            id: wallet.id,
+          const walletToBackup: IImportableHDWallet = privateBackupData.wallets[
+            wallet.id
+          ] ?? {
+            id: walletId,
             name: wallet.name,
             type: wallet.type,
             accounts: [],
@@ -156,11 +156,9 @@ class ServiceCloudBackup extends ServiceBase {
             avatar: wallet.avatarInfo,
             version: HDWALLET_BACKUP_VERSION,
           };
-          accounts.forEach((account) => {
-            const HDAccountUUID = getHDAccountUUID(account);
-            walletToBackup.accounts.push(account);
-            walletToBackup.accountIds.push(HDAccountUUID);
-          });
+          const HDAccountUUID = getHDAccountUUID(account);
+          walletToBackup.accounts.push(account);
+          walletToBackup.accountIds.push(HDAccountUUID);
           publicBackupData.HDWallets[wallet.id] = {
             name: walletToBackup.name,
             avatar: walletToBackup.avatar,
@@ -190,8 +188,12 @@ class ServiceCloudBackup extends ServiceBase {
       return;
     }
 
-    const password =
-      await this.backgroundApi.servicePassword.getCachedPassword();
+    let password = await this.backgroundApi.servicePassword.getCachedPassword();
+    if (!password && isManualBackup) {
+      password = (
+        await this.backgroundApi.servicePassword.promptPasswordVerify()
+      ).password;
+    }
     if (!password) {
       return;
     }
@@ -235,6 +237,7 @@ class ServiceCloudBackup extends ServiceBase {
           Object.keys(cloudData.publicData.watchingAccounts).length,
       });
       const newMetaData = JSON.stringify(existMetaData);
+      JSON.parse(newMetaData);
       await RNFS.writeFile(localTempFilePath, newMetaData, 'utf8');
       await CloudFs.uploadToCloud(
         localTempFilePath,
@@ -280,8 +283,13 @@ class ServiceCloudBackup extends ServiceBase {
     if (metaString.length <= 0) {
       return [];
     }
-    const metaData = JSON.parse(metaString) as IMetaDataObject[];
-    return metaData;
+    try {
+      const metaData = JSON.parse(metaString) as IMetaDataObject[];
+      return metaData;
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   }
 
   @backgroundMethod()
@@ -321,13 +329,6 @@ class ServiceCloudBackup extends ServiceBase {
     if (typeof publicData === 'string') {
       publicData = JSON.parse(publicData);
     }
-    publicData.discoverBookmarks?.forEach((item) => {
-      // @ts-expect-error
-      const { icon } = item;
-      if (icon && !item.logo) {
-        item.logo = icon;
-      }
-    });
     return publicData;
   }
 
@@ -616,7 +617,7 @@ class ServiceCloudBackup extends ServiceBase {
             ? currentBackup
             : reduceBackup,
       );
-      const autoBackupDuration = 60 * 60 * 1000;
+      const autoBackupDuration = timerUtils.getTimeDurationMs({ hour: 1 });
       const delay = Math.max(
         0,
         Math.min(
@@ -686,9 +687,14 @@ class ServiceCloudBackup extends ServiceBase {
 
   private getDataFromCloud = memoizee(
     async (filename: string) => {
-      const content = await CloudFs.downloadFromCloud(
-        platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
-      );
+      let content = '[]';
+      try {
+        content = await CloudFs.downloadFromCloud(
+          platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
+        );
+      } catch (e) {
+        //
+      }
       if (
         filename === CLOUD_METADATA_FILE_NAME &&
         this.metaDataCache.length > 0
@@ -699,7 +705,7 @@ class ServiceCloudBackup extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: 1000 * 30,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
       max: 50,
     },
   );

@@ -167,8 +167,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async dumpCredentials({ password }: { password: string }) {
-    ensureSensitiveTextEncoded(password);
+  async dumpCredentials() {
     const credentials = await localDb.getCredentials();
     return credentials.reduce(
       (mapping, { id, credential }) =>
@@ -399,7 +398,7 @@ class ServiceAccount extends ServiceBase {
           accounts,
         });
         appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
-        await this.backgroundApi.serviceCloudBackup.requestAutoBackup();
+        void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
         return {
           networkId,
           walletId,
@@ -426,7 +425,8 @@ class ServiceAccount extends ServiceBase {
   }) {
     const { walletId, accounts, importedCredential } = params;
     const shouldCreateIndexAccount =
-      walletId !== WALLET_TYPE_IMPORTED && walletId !== WALLET_TYPE_WATCHING;
+      accountUtils.isHdWallet({ walletId }) ||
+      accountUtils.isHwWallet({ walletId });
     if (shouldCreateIndexAccount) {
       await Promise.all(
         accounts.map(async (account) => {

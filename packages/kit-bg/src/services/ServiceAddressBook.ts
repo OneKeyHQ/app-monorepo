@@ -60,7 +60,7 @@ class ServiceAddressBook extends ServiceBase {
       ...prev,
       updateTimestamp: Date.now(),
     }));
-    await this.backgroundApi.serviceCloudBackup.requestAutoBackup();
+    void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
   }
 
   private async getItems(): Promise<IAddressItem[]> {

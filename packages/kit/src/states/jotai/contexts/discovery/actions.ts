@@ -304,7 +304,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const updatedBookmarks = [...filteredBookmarks, newBookmark];
       this.buildBookmarkData.call(set, updatedBookmarks);
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
-      await backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
+      void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
     },
   );
 
