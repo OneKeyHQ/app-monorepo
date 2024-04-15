@@ -1823,6 +1823,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@bufgix/react-native-secure-window@npm:0.1.1":
+  version: 0.1.1
+  resolution: "@bufgix/react-native-secure-window@npm:0.1.1"
+  peerDependencies:
+    expo: "*"
+    expo-screen-capture: "*"
+    react: "*"
+    react-native: "*"
+  checksum: 5e75107879dc23bedb7c331cffae34dffb9cf3e19173cc9ffe381c53c582ade34b7439f2426070a07d7f84ff4364a84d6ef7ebfa4a4127068b71a7177114b37a
+  languageName: node
+  linkType: hard
+
 "@conflux-dev/conflux-address-js@npm:1.3.16, @conflux-dev/conflux-address-js@npm:^1.3.16":
   version: 1.3.16
   resolution: "@conflux-dev/conflux-address-js@npm:1.3.16"
@@ -5258,6 +5270,7 @@ __metadata:
   resolution: "@onekeyhq/mobile@workspace:apps/mobile"
   dependencies:
     "@babel/core": "npm:^7.20.0"
+    "@bufgix/react-native-secure-window": "npm:0.1.1"
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
@@ -5291,6 +5304,7 @@ __metadata:
     expo-local-authentication: "npm:13.6.0"
     expo-localization: "npm:14.5.0"
     expo-notifications: "npm:0.27.6"
+    expo-screen-capture: "npm:5.8.1"
     expo-secure-store: "npm:12.5.0"
     expo-splash-screen: "npm:0.26.4"
     expo-status-bar: "npm:~1.6.0"
@@ -17135,6 +17149,15 @@ __metadata:
   bin:
     expo-pwa: build/cli.js
   checksum: 373b5473e2165bf1691a7d5c028661dd6f332b4593d08e564a16ba75f372c88371ed58f22c169363d1fe0b5f4303fd80ab8c5ad6919500bac1c246fb92b61ef5
+  languageName: node
+  linkType: hard
+
+"expo-screen-capture@npm:5.8.1":
+  version: 5.8.1
+  resolution: "expo-screen-capture@npm:5.8.1"
+  peerDependencies:
+    expo: "*"
+  checksum: 8b4b47e000a0dd6d718c72875d8ac54fb05c218ebb187abd7f0004881ab3169b5624b1ec2dd43e37074ad72bef3dea832f8b0c275426765911431fe3699c6fdf
   languageName: node
   linkType: hard
 

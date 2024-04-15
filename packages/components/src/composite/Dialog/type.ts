@@ -6,7 +6,7 @@ import type {
 } from 'react';
 
 import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
-import type { IButtonProps, IKeyOfIcons } from '../../primitives';
+import type { IButtonProps, IKeyOfIcons, IStackProps } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
   DialogContentProps as TMDialogContentProps,
@@ -33,6 +33,7 @@ type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
 export interface IDialogFooterProps extends PropsWithChildren {
   tone?: 'default' | 'destructive' | 'warning' | 'success';
   showFooter?: boolean;
+  footerProps?: Omit<IStackProps, 'children'>;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;
   onConfirmText?: string;
