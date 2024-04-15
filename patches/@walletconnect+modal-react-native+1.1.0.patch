@@ -1,5 +1,5 @@
 diff --git a/node_modules/@walletconnect/modal-react-native/lib/module/controllers/ApiCtrl.js b/node_modules/@walletconnect/modal-react-native/lib/module/controllers/ApiCtrl.js
-index 08c5c34..d838f00 100644
+index 08c5c34..318f44a 100644
 --- a/node_modules/@walletconnect/modal-react-native/lib/module/controllers/ApiCtrl.js
 +++ b/node_modules/@walletconnect/modal-react-native/lib/module/controllers/ApiCtrl.js
 @@ -104,7 +104,7 @@ export const ApiCtrl = {
@@ -44,6 +44,57 @@ index 08c5c34..d838f00 100644
    }
  };
  //# sourceMappingURL=ApiCtrl.js.map
+\ No newline at end of file
+diff --git a/node_modules/@walletconnect/modal-react-native/lib/module/modal/wcm-modal/index.js b/node_modules/@walletconnect/modal-react-native/lib/module/modal/wcm-modal/index.js
+index 965d6ca..abb546b 100644
+--- a/node_modules/@walletconnect/modal-react-native/lib/module/modal/wcm-modal/index.js
++++ b/node_modules/@walletconnect/modal-react-native/lib/module/modal/wcm-modal/index.js
+@@ -1,4 +1,5 @@
+-import { StyleSheet } from 'react-native';
++import { Platform, StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
++import { FullWindowOverlay } from 'react-native-screens';
+ import Modal from 'react-native-modal';
+ import { useSnapshot } from 'valtio';
+ import ModalBackcard from '../../components/ModalBackcard';
+@@ -23,6 +24,27 @@ export function WalletConnectModal(config) {
+     }
+     return ModalCtrl.close();
+   };
++  if (Platform.OS === 'ios') {
++    // render modal content to the topmost layer via FullWindowOverlay
++    return /*#__PURE__*/React.createElement(Modal, {
++      isVisible: open,
++      style: styles.modal,
++      propagateSwipe: true,
++      hideModalContentWhileAnimating: true,
++      onBackdropPress: ModalCtrl.close,
++      onBackButtonPress: onBackButtonPress,
++      useNativeDriver: true,
++      statusBarTranslucent: true
++    }, /*#__PURE__*/React.createElement(FullWindowOverlay, null, /*#__PURE__*/React.createElement(TouchableWithoutFeedback, {
++      onPress: ModalCtrl.close
++    }, /*#__PURE__*/React.createElement(View, {
++      style: styles.iosModalContainer
++    }, /*#__PURE__*/React.createElement(ModalBackcard, {
++      onClose: ModalCtrl.close
++    }), /*#__PURE__*/React.createElement(ModalRouter, {
++      onCopyClipboard: config.onCopyClipboard
++    }), /*#__PURE__*/React.createElement(Toast, null)))));
++  }
+   return /*#__PURE__*/React.createElement(Modal, {
+     isVisible: open,
+     style: styles.modal,
+@@ -42,6 +64,10 @@ const styles = StyleSheet.create({
+   modal: {
+     margin: 0,
+     justifyContent: 'flex-end'
++  },
++  iosModalContainer: {
++    flex: 1,
++    justifyContent: 'flex-end'
+   }
+ });
+ //# sourceMappingURL=index.js.map
 diff --git a/node_modules/@walletconnect/modal-react-native/src/controllers/ApiCtrl.ts b/node_modules/@walletconnect/modal-react-native/src/controllers/ApiCtrl.ts
 index d0d4422..ec05a7a 100644
 --- a/node_modules/@walletconnect/modal-react-native/src/controllers/ApiCtrl.ts
