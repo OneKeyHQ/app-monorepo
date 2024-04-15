@@ -3,6 +3,7 @@
 import { splitSignature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { serialize } from '@ethersproject/transactions';
+import { omit } from 'lodash';
 
 import type { UnsignedTransaction } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -24,6 +25,7 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignTransactionParams,
 } from '../../types';
@@ -60,25 +62,28 @@ async function hardwareEvmSignTransaction({
   const nonce = numberUtils.numberToHex(checkIsDefined(encodedTx.nonce), {
     prefix0x: true,
   });
+  const gasLimit = numberUtils.numberToHex(checkIsDefined(encodedTx.gasLimit), {
+    prefix0x: true,
+  });
 
   if (isEip1559) {
     const txToSignEIP1559: EVMTransactionEIP1559 = {
-      ...encodedTx,
+      ...omit(encodedTx, 'from'),
       chainId,
       nonce,
       gasPrice: undefined,
-      gasLimit: checkIsDefined(encodedTx.gasLimit),
+      gasLimit,
       maxFeePerGas: checkIsDefined(encodedTx.maxFeePerGas),
       maxPriorityFeePerGas: checkIsDefined(encodedTx.maxPriorityFeePerGas),
     };
     txToSign = txToSignEIP1559;
   } else {
     const txToSignNormal: EVMTransaction = {
-      ...encodedTx,
+      ...omit(encodedTx, 'from'),
       chainId,
       nonce,
       gasPrice: checkIsDefined(encodedTx.gasPrice),
-      gasLimit: checkIsDefined(encodedTx.gasLimit),
+      gasLimit,
       maxFeePerGas: undefined,
       maxPriorityFeePerGas: undefined,
     };
@@ -100,7 +105,6 @@ async function hardwareEvmSignTransaction({
     tx.maxFeePerGas = txToSign?.maxFeePerGas ?? undefined;
     tx.maxPriorityFeePerGas = txToSign?.maxPriorityFeePerGas ?? undefined;
   }
-
   const result = await convertDeviceResponse(async () =>
     sdk.evmSignTransaction(connectId, deviceId, {
       path,
@@ -148,11 +152,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    const { addressEncoding } = params.deriveInfo;
     const chainId = await this.getNetworkChainId();
 
     return this.basePrepareHdNormalAccounts(params, {
-      addressEncoding,
       buildAddressesInfo: async ({ usedIndexes }) => {
         const publicKeys = await this.baseGetDeviceAccountPublicKeys({
           params,

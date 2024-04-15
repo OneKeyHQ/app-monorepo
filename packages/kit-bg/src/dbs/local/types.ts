@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import type { EDBAccountType, EDBCredentialType } from './consts';
 import type { ELocalDBStoreNames } from './localDBStoreNames';
@@ -22,8 +23,7 @@ import type { RealmSchemaCredential } from './realm/schemas/RealmSchemaCredentia
 import type { RealmSchemaDevice } from './realm/schemas/RealmSchemaDevice';
 import type { RealmSchemaIndexedAccount } from './realm/schemas/RealmSchemaIndexedAccount';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
-import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { SignClientTypes } from '@walletconnect/types';
+import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { DBSchema, IDBPObjectStore } from 'idb';
 
 // ---------------------------------------------- base
@@ -111,7 +111,6 @@ export type IDBWallet = IDBBaseObjectWithName & {
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
   hiddenWallets?: IDBWallet[]; // readonly field
-  deviceType?: string;
   isTemp?: boolean;
   passphraseState?: string;
   walletNo: number;
@@ -162,11 +161,13 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
   type: EDBAccountType | undefined;
   path: string;
   pathIndex?: number;
-  relPath?: string;
+  relPath?: string; // 0/0
   indexedAccountId?: string;
   coinType: string;
   impl: string; // single chain account belongs to network impl
-  networks?: string[]; // single chain account belongs to certain networks
+  // single chain account belongs to certain networks, check keyring options: onlyAvailableOnCertainNetworks
+  networks?: string[];
+  // single chain account auto change to createAtNetwork when network not compatible and networks not defined
   createAtNetwork?: string;
   template?: string;
 };
@@ -190,26 +191,18 @@ export type IDBVariantAccount = IDBBaseAccount & {
   // UTXO: relPath -> address
   addresses: Record<string, string>;
 };
-export type IDBExternalAccountWalletConnectInfo = {
-  topic: string;
-  peerMeta: SignClientTypes.Metadata | undefined;
-  // how to check this account is connected by deeplink redirect at same device,
-  //      but not qrcode scan from another device
-  mobileLink?: string; // StorageUtil.setDeepLinkWallet(data?.wallet?.mobile_link);
-  connectedAddresses: {
-    [networkId: string]: string; // TODO change to string[]
-  };
-  selectedAddress: {
-    [networkId: string]: number;
-  };
+export type IDBAccountAddressesMap = {
+  [networkIdOrImpl: string]: string; // multiple address join(',')
 };
 export type IDBExternalAccount = IDBVariantAccount & {
   address: string; // always be empty if walletconnect account
-  wcInfoRaw?: string;
-  wcInfo?: IDBExternalAccountWalletConnectInfo; // readonly field, json parse from wcInfoRaw
-  wcTopic?: string;
+
+  connectionInfoRaw: string | undefined;
+  connectionInfo?: IExternalConnectionInfo; // readonly field, json parse from connectionInfoRaw
+
+  // TODO merge with addresses
   connectedAddresses: {
-    [networkId: string]: string; // multiple address join(',')
+    [networkIdOrImpl: string]: string; // multiple address join(',')
   };
   selectedAddress: {
     [networkId: string]: number;
@@ -249,27 +242,32 @@ export type IDBSetNextAccountIdsParams = {
 };
 
 // ---------------------------------------------- device
-export type IDBDevicePayload = {
-  onDeviceInputPin?: boolean;
+export type IDBDeviceSettings = {
+  inputPinOnSoftware?: boolean;
+  inputPinOnSoftwareSupport?: boolean;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
-  features: string;
-  featuresInfo?: IOneKeyDeviceFeatures; // readonly field
+  features: string; // TODO rename to featuresRaw
+  featuresInfo?: IOneKeyDeviceFeatures; // readonly field // TODO rename to features
   connectId: string; // alias mac\sn, never changed
   name: string;
   uuid: string;
   deviceId: string; // deviceId changed after device reset
-  deviceType: string;
-  payloadJson: string;
-  payloadJsonInfo?: any;
+  deviceType: IDeviceType;
+  settingsRaw: string;
+  settings?: IDBDeviceSettings;
   createdAt: number;
   updatedAt: number;
   verifiedAtVersion?: string;
 };
-export type IDBDevicePro = Omit<IDBDevice, 'payloadJson'> & {
-  payload: IDBDevicePayload;
+export type IDBUpdateDeviceSettingsParams = {
+  dbDeviceId: string;
+  settings: IDBDeviceSettings;
 };
-
+export type IDBUpdateFirmwareVerifiedParams = {
+  device: IDBDevice;
+  verifyResult: 'official' | 'unofficial' | 'unknown';
+};
 // ---------------------------------------------- address
 export type IDBAddress = IDBBaseObject & {
   // id: networkId--address, impl--address

@@ -6,7 +6,6 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import type {
@@ -30,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -46,7 +46,7 @@ import {
 } from './atoms';
 
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import type { WebView } from 'react-native-webview';
+import type { WebView } from '@onekeyfe/react-native-webview';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -208,14 +208,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const activeTabId = get(activeTabIdAtom());
     const targetIndex = tabs.findIndex((t) => t.id === tabId);
     if (targetIndex !== -1) {
-      if (tabs[targetIndex].id === activeTabId) {
-        const prev = tabs[targetIndex - 1];
-        if (prev) {
-          prev.isActive = true;
-          this.setCurrentWebTab.call(set, prev.id);
+      const isClosingActiveTab = tabs[targetIndex].id === activeTabId;
+      tabs.splice(targetIndex, 1);
+
+      if (isClosingActiveTab) {
+        let newActiveTabIndex = targetIndex - 1;
+        // If the first tab is closed and there are other tabs
+        if (newActiveTabIndex < 0 && tabs.length > 0) {
+          newActiveTabIndex = 0;
+        }
+
+        if (newActiveTabIndex >= 0) {
+          const newActiveTab = tabs[newActiveTabIndex];
+          newActiveTab.isActive = true;
+          this.setCurrentWebTab.call(set, newActiveTab.id);
         }
       }
-      tabs.splice(targetIndex, 1);
     }
     this.buildWebTabs.call(set, { data: [...tabs] });
   });
@@ -737,6 +745,7 @@ export function useBrowserTabActions() {
   const buildWebTabs = actions.buildWebTabs.use();
   const refreshTabs = actions.refreshTabs.use();
   const setWebTabData = actions.setWebTabData.use();
+  const getWebTabById = actions.getWebTabById.use();
   const closeWebTab = actions.closeWebTab.use();
   const closeAllWebTabs = actions.closeAllWebTabs.use();
   const setCurrentWebTab = actions.setCurrentWebTab.use();
@@ -749,6 +758,7 @@ export function useBrowserTabActions() {
     buildWebTabs,
     refreshTabs,
     setWebTabData,
+    getWebTabById,
     closeWebTab,
     closeAllWebTabs,
     setCurrentWebTab,

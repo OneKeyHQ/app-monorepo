@@ -41,7 +41,6 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { EDBAccountType } from './consts';
@@ -58,7 +57,7 @@ import type {
   IDBCreateHWWalletParams,
   IDBCredentialBase,
   IDBDevice,
-  IDBDevicePayload,
+  IDBDeviceSettings,
   IDBExternalAccount,
   IDBGetWalletsParams,
   IDBIndexedAccount,
@@ -66,6 +65,8 @@ import type {
   IDBSetAccountNameParams,
   IDBSetAccountTemplateParams,
   IDBSetWalletNameAndAvatarParams,
+  IDBUpdateDeviceSettingsParams,
+  IDBUpdateFirmwareVerifiedParams,
   IDBWallet,
   IDBWalletId,
   IDBWalletIdSingleton,
@@ -103,6 +104,49 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     );
     // const db = await this.readyDb;
     // return db.withTransaction(task);
+  }
+
+  buildSingletonWalletRecord({ walletId }: { walletId: IDBWalletIdSingleton }) {
+    const walletConfig: Record<
+      IDBWalletIdSingleton,
+      {
+        avatar: IAvatarInfo;
+        walletNo: number;
+      }
+    > = {
+      [WALLET_TYPE_IMPORTED]: {
+        avatar: {
+          img: 'othersImported',
+        },
+        walletNo: 100_000_1,
+      },
+      [WALLET_TYPE_WATCHING]: {
+        avatar: {
+          img: 'othersWatching',
+        },
+        walletNo: 100_000_2,
+      },
+      [WALLET_TYPE_EXTERNAL]: {
+        avatar: {
+          img: 'othersExternal',
+        },
+        walletNo: 100_000_3,
+      },
+    };
+    const record: IDBWallet = {
+      id: walletId,
+      avatar: walletConfig?.[walletId]?.avatar
+        ? JSON.stringify(walletConfig[walletId].avatar)
+        : undefined,
+      name: walletId,
+      type: walletId,
+      backuped: true,
+      accounts: [],
+      nextIndex: 0,
+      walletNo: walletConfig?.[walletId]?.walletNo ?? 0,
+      nextAccountIds: { 'global': 1 },
+    };
+    return record;
   }
 
   async getRecordsCount<T extends ELocalDBStoreNames>(
@@ -436,6 +480,58 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     return credential;
   }
 
+  // insert lightning network credential
+  async updateLightningCredential({
+    credentialId,
+    credential,
+  }: {
+    credentialId: string;
+    credential: string;
+  }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateLightningCredential({
+        tx,
+        credentialId,
+        credential,
+        updater: (record) => {
+          record.credential = credential;
+          return record;
+        },
+      });
+    });
+  }
+
+  async txUpdateLightningCredential({
+    tx,
+    credentialId,
+    credential,
+    updater,
+  }: {
+    tx: ILocalDBTransaction;
+    credentialId: string;
+    credential: string;
+    updater: ILocalDBRecordUpdater<ELocalDBStoreNames.Credential>;
+  }) {
+    await this.txAddRecords({
+      tx,
+      skipIfExists: true,
+      name: ELocalDBStoreNames.Credential,
+      records: [
+        {
+          id: credentialId,
+          credential,
+        },
+      ],
+    });
+    await this.txUpdateRecords({
+      tx,
+      name: ELocalDBStoreNames.Credential,
+      ids: [credentialId],
+      updater,
+    });
+  }
+
   // ---------------------------------------------- wallet
 
   async txUpdateWallet({
@@ -580,6 +676,22 @@ ssphrase wallet
         hiddenWallets.map((item) => this.refillWalletInfo({ wallet: item })),
       );
       wallet.hiddenWallets = wallet.hiddenWallets.sort(this.walletSortFn);
+    }
+
+    if (
+      accountUtils.isOthersWallet({
+        walletId: wallet.id,
+      })
+    ) {
+      if (accountUtils.isWatchingWallet({ walletId: wallet.id })) {
+        wallet.name = 'Watched';
+      }
+      if (accountUtils.isExternalWallet({ walletId: wallet.id })) {
+        wallet.name = 'Connected';
+      }
+      if (accountUtils.isImportedWallet({ walletId: wallet.id })) {
+        wallet.name = 'Private key';
+      }
     }
 
     return wallet;
@@ -901,6 +1013,37 @@ ssphrase wallet
     });
   }
 
+  async updateFirmwareVerified(params: IDBUpdateFirmwareVerifiedParams) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      const { device, verifyResult } = params;
+      const { id, featuresInfo, features } = device;
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [id],
+        updater: (item) => {
+          if (verifyResult === 'official') {
+            const versionText = deviceUtils.getDeviceVersionStr({
+              device,
+              features: checkIsDefined(featuresInfo),
+            });
+            // official firmware verified
+            item.verifiedAtVersion = versionText;
+          }
+          if (verifyResult === 'unofficial') {
+            // unofficial firmware
+            item.verifiedAtVersion = '';
+          }
+          if (verifyResult === 'unknown') {
+            item.verifiedAtVersion = undefined;
+          }
+          return item;
+        },
+      });
+    });
+  }
+
   // TODO remove unused hidden wallet first
   async createHWWallet(params: IDBCreateHWWalletParams) {
     const db = await this.readyDb;
@@ -959,7 +1102,9 @@ ssphrase wallet
             deviceId: rawDeviceId,
             deviceType,
             features: featuresStr,
-            payloadJson: `{}`,
+            settingsRaw: JSON.stringify({
+              inputPinOnSoftware: true,
+            } as IDBDeviceSettings),
             createdAt: now,
             updatedAt: now,
           },
@@ -975,8 +1120,15 @@ ssphrase wallet
           item.features = featuresStr;
           item.updatedAt = now;
           if (isFirmwareVerified) {
-            const versionText = deviceUtils.getDeviceVersionStr(device);
+            const versionText = deviceUtils.getDeviceVersionStr({
+              device,
+              features,
+            });
+            // official firmware verified
             item.verifiedAtVersion = versionText;
+          } else {
+            // skip firmware verify
+            item.verifiedAtVersion = undefined;
           }
           return item;
         },
@@ -995,7 +1147,6 @@ ssphrase wallet
             type: WALLET_TYPE_HW,
             backuped: true,
             associatedDevice: dbDeviceId,
-            deviceType,
             isTemp: false,
             passphraseState,
             nextIndex: firstAccountIndex,
@@ -1303,12 +1454,14 @@ ssphrase wallet
             }
           } catch (error) {
             //
+            (error as Error).$$autoPrintErrorIgnore = true;
           }
         }
         return result;
       }
       return [];
     } catch (error) {
+      (error as Error).$$autoPrintErrorIgnore = true;
       return [];
     }
   }
@@ -1465,7 +1618,9 @@ ssphrase wallet
           );
         }
         if (!importedCredential) {
-          throw new Error('importedCredential is missing');
+          throw new Error(
+            'importedCredential is required for imported account',
+          );
         }
         await this.txAddRecords({
           tx,
@@ -1533,8 +1688,10 @@ ssphrase wallet
 
   refillAccountInfo({ account }: { account: IDBAccount }) {
     const externalAccount = account as IDBExternalAccount;
-    if (externalAccount && externalAccount.wcInfoRaw) {
-      externalAccount.wcInfo = JSON.parse(externalAccount.wcInfoRaw);
+    if (externalAccount && externalAccount.connectionInfoRaw) {
+      externalAccount.connectionInfo = JSON.parse(
+        externalAccount.connectionInfoRaw,
+      );
     }
     return account;
   }
@@ -1615,6 +1772,7 @@ ssphrase wallet
     addressMap,
     selectedMap,
     networkIds,
+    createAtNetwork,
   }: {
     accountId: string;
     addressMap?: {
@@ -1624,6 +1782,7 @@ ssphrase wallet
       [networkId: string]: number;
     };
     networkIds?: string[];
+    createAtNetwork?: string;
   }) {
     const db = await this.readyDb;
     await db.withTransaction(async (tx) => {
@@ -1641,6 +1800,9 @@ ssphrase wallet
           }
           if (networkIds) {
             updatedAccount.networks = networkIds;
+          }
+          if (createAtNetwork) {
+            updatedAccount.createAtNetwork = createAtNetwork;
           }
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return updatedAccount as any;
@@ -1805,25 +1967,42 @@ ssphrase wallet
     throw new Error('wallet associatedDevice not found');
   }
 
-  async getDevice(deviceId: string): Promise<IDBDevice> {
+  async getDeviceByConnectId({ connectId }: { connectId: string }) {
+    const devices = await this.getAllDevices();
+    const device = devices.find((item) => item.connectId === connectId);
+    return device ? this.refillDeviceInfo({ device }) : undefined;
+  }
+
+  async getDevice(dbDeviceId: string): Promise<IDBDevice> {
     const device = await this.getRecordById({
       name: ELocalDBStoreNames.Device,
-      id: deviceId,
+      id: dbDeviceId,
     });
     return this.refillDeviceInfo({ device });
   }
 
   refillDeviceInfo({ device }: { device: IDBDevice }) {
-    device.featuresInfo = JSON.parse(device.features) as IOneKeyDeviceFeatures;
-    device.payloadJsonInfo = JSON.parse(device.payloadJson);
+    device.featuresInfo = JSON.parse(device.features || '{}');
+    device.settings = JSON.parse(device.settingsRaw || '{}');
     return device;
   }
 
-  updateDevicePayload(
-    deviceId: string,
-    payload: IDBDevicePayload,
-  ): Promise<void> {
-    throw new Error('Method not implemented.');
+  async updateDeviceDbSettings({
+    dbDeviceId,
+    settings,
+  }: IDBUpdateDeviceSettingsParams): Promise<void> {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: (item) => {
+          item.settingsRaw = JSON.stringify(settings);
+          return item;
+        },
+      });
+    });
   }
 
   // ---------------------------------------------- demo

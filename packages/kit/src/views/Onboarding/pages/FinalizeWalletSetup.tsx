@@ -25,6 +25,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 
 function FinalizeWalletSetupPage({
   route,
@@ -53,8 +54,12 @@ function FinalizeWalletSetupPage({
     void (async () => {
       try {
         if (mnemonic && !created.current) {
-          await actions.current.createHDWallet({
-            mnemonic,
+          await withPromptPasswordVerify({
+            run: async () => {
+              await actions.current.createHDWallet({
+                mnemonic,
+              });
+            },
           });
           created.current = true;
         } else {
@@ -129,16 +134,15 @@ function FinalizeWalletSetupPage({
           </AnimatePresence>
         </Stack>
         <AnimatePresence exitBeforeEnter>
-          <Stack key={currentStep}>
-            <Heading
-              mt="$5"
-              size="$headingMd"
-              animation="quick"
-              enterStyle={{
-                opacity: 0,
-                x: 12,
-              }}
-            >
+          <Stack
+            key={currentStep}
+            animation="quick"
+            enterStyle={{
+              opacity: 0,
+              x: 12,
+            }}
+          >
+            <Heading mt="$5" size="$headingMd">
               {steps[currentStep]}
             </Heading>
           </Stack>

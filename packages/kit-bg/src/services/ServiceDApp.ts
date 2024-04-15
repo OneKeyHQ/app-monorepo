@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -38,7 +39,10 @@ import type {
 import ServiceBase from './ServiceBase';
 
 import type ProviderApiBase from '../providers/ProviderApiBase';
-import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 function buildModalRouteParams({
   screens = [],
@@ -193,13 +197,17 @@ class ServiceDApp extends ServiceBase {
   );
 
   @backgroundMethod()
-  async openConnectionModal(request: IJsBridgeMessagePayload) {
+  async openConnectionModal(
+    request: IJsBridgeMessagePayload,
+    params?: Record<string, any>,
+  ) {
     const result = await this.openModal({
       request,
       screens: [
         EModalRoutes.DAppConnectionModal,
         EDAppConnectionModal.ConnectionModal,
       ],
+      params,
       fullScreen: true,
     });
 
@@ -407,6 +415,7 @@ class ServiceDApp extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
+  @backgroundMethod()
   async getConnectedAccountsInfo({
     origin,
     scope,
@@ -713,6 +722,31 @@ class ServiceDApp extends ServiceBase {
       },
     );
     return Promise.resolve();
+  }
+
+  @backgroundMethod()
+  async proxyRPCCall({
+    networkId,
+    request,
+  }: {
+    networkId: string;
+    request: IJsonRpcRequest;
+  }) {
+    const client = await this.getClient();
+    const results = await client.post<{
+      data: {
+        data: {
+          jsonrpc: string;
+          id: number;
+          result: unknown;
+        };
+      };
+    }>('/wallet/v1/network/proxy', {
+      networkId,
+      body: [request.id ? request : { ...request, id: 0 }],
+    });
+
+    return parseRPCResponse(results.data.data.data);
   }
 }
 

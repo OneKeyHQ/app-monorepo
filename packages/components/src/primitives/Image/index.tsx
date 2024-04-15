@@ -7,18 +7,23 @@ import { Stack } from '../Stack';
 
 import { ImageContext } from './context';
 import { ImageFallback, ImageSkeleton } from './ImageFallback';
+import { ImageLoading } from './ImageLoading';
+import { preloadImage, preloadImages } from './ImageNet';
 import { ImageSource } from './ImageSource';
 
 import type { IImageProps, IImageSourceProps } from './type';
 
 function ImageContainer({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
+  const [loadedSuccessfully, setLoadedSuccessfully] = useState(false);
   const value = useMemo(
     () => ({
       loading,
       setLoading,
+      loadedSuccessfully,
+      setLoadedSuccessfully,
     }),
-    [loading],
+    [loadedSuccessfully, loading],
   );
   return (
     <ImageContext.Provider value={value}>{children}</ImageContext.Provider>
@@ -59,6 +64,9 @@ export const Image = withStaticProperties(BasicImage, {
   Source: ImageSource,
   Fallback: ImageFallback,
   Skeleton: ImageSkeleton,
+  Loading: ImageLoading,
+  preloadImage,
+  preloadImages,
 });
 
 export type {
@@ -66,4 +74,5 @@ export type {
   IImageSourceProps,
   IImageProps,
   IImageSkeletonProps,
+  IImageLoadingProps,
 } from './type';

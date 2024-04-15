@@ -8,7 +8,7 @@ import {
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
-import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
 class ProviderApiWebln extends ProviderApiBase {
@@ -34,7 +34,7 @@ class ProviderApiWebln extends ProviderApiBase {
     throw new Error('Method not implemented.');
   }
 
-  public async rpcCall(request: IJsonRpcRequest): Promise<any> {
+  public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
     console.log('webln rpcCall: ', request);
     return Promise.resolve();
   }

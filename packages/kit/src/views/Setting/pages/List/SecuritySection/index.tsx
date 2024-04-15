@@ -63,6 +63,7 @@ const SetPasswordItem = () => {
       onPress={() => backgroundApiProxy.servicePassword.promptPasswordVerify()}
       icon="KeyOutline"
       title={intl.formatMessage({ id: 'title__set_password' })}
+      drillIn
     />
   );
 };
@@ -71,9 +72,9 @@ const ChangePasswordItem = () => {
   const intl = useIntl();
   const onPress = useCallback(async () => {
     const oldEncodedPassword =
-      await backgroundApiProxy.servicePassword.promptPasswordVerify(
-        EReasonForNeedPassword.ChangePassword,
-      );
+      await backgroundApiProxy.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
     const dialog = Dialog.show({
       title: intl.formatMessage({ id: 'form__change_password' }),
       renderContent: (
@@ -94,6 +95,7 @@ const ChangePasswordItem = () => {
       onPress={onPress}
       icon="KeyOutline"
       title={intl.formatMessage({ id: 'form__change_password' })}
+      drillIn
     />
   );
 };

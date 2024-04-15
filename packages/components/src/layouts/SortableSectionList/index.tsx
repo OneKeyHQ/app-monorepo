@@ -1,5 +1,5 @@
-import { forwardRef, useMemo } from 'react';
 import type { ForwardedRef, ReactNode } from 'react';
+import { forwardRef, useMemo } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import {
@@ -140,7 +140,9 @@ function BaseSortableSectionList(
 
   const scrollChildList = useMemo(() => {
     const childList: [ReactNode] = [
-      <Stack style={listHeaderStyle}>{ListHeaderComponent}</Stack>,
+      <Stack key={0} style={listHeaderStyle}>
+        {ListHeaderComponent}
+      </Stack>,
     ];
     sections.forEach((section, index) => {
       if (index !== 0 && SectionSeparatorComponent) {

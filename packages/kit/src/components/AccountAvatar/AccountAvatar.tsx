@@ -2,7 +2,9 @@ import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
 import type {
+  IIconProps,
   IImageFallbackProps,
+  IImageLoadingProps,
   IImageProps,
   ISkeletonProps,
   SizeTokens,
@@ -20,10 +22,10 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { NetworkAvatar } from '../NetworkAvatar';
 
 import { useBlockieImageUri } from './makeBlockieImageUriList';
 
@@ -53,6 +55,8 @@ export interface IAccountAvatarProps extends IImageProps {
   account?: INetworkAccount;
   dbAccount?: IDBAccount;
   indexedAccount?: IDBIndexedAccount;
+  loading?: ReactElement;
+  loadingProps?: IImageLoadingProps;
   fallback?: ReactElement;
   fallbackProps?: IImageFallbackProps;
 }
@@ -64,34 +68,36 @@ function HashImageSource({ id }: { id: string }) {
 
 const MemoHashImageSource = memo(HashImageSource);
 
-function Fallback({
+function DefaultImageLoading({
   delayMs = 150,
   ...props
 }: { delayMs?: number } & ISkeletonProps) {
   return (
-    <Image.Fallback delayMs={delayMs}>
+    <Image.Loading delayMs={delayMs}>
       <Skeleton {...props} />
+    </Image.Loading>
+  );
+}
+
+function DefaultImageFallback() {
+  return (
+    <Image.Fallback
+      flex={1}
+      bg="$bgStrong"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <Icon name="AccountErrorCustom" size="$4.5" color="$textSubdued" />
     </Image.Fallback>
   );
 }
 
-function ChainImage({
-  networkId,
-  size,
-}: {
-  networkId?: string;
-  size: IImageProps['size'];
-}) {
-  const { serviceNetwork } = backgroundApiProxy;
-  const res = usePromiseResult(
-    () =>
-      networkId
-        ? serviceNetwork.getNetwork({ networkId })
-        : Promise.resolve({ logoURI: '' }),
-    [networkId, serviceNetwork],
+function DefaultEmptyAccount() {
+  return (
+    <Stack flex={1} bg="$bgStrong" alignItems="center" justifyContent="center">
+      <Icon name="CrossedSmallSolid" size="$6" />
+    </Stack>
   );
-  const { logoURI } = res.result || {};
-  return logoURI ? <Image size={size} src={logoURI} /> : null;
 }
 
 function BasicAccountAvatar({
@@ -102,6 +108,8 @@ function BasicAccountAvatar({
   account,
   indexedAccount,
   dbAccount,
+  loading,
+  loadingProps,
   fallback,
   fallbackProps,
   circular,
@@ -118,16 +126,7 @@ function BasicAccountAvatar({
         };
 
   const renderContent = useMemo(() => {
-    const emptyAccountAvatar = (
-      <Stack
-        flex={1}
-        bg="$bgStrong"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Icon name="CrossedSmallSolid" size="$6" />
-      </Stack>
-    );
+    const emptyAccountAvatar = <DefaultEmptyAccount />;
 
     if (address) {
       return <MemoHashImageSource id={address} />;
@@ -141,20 +140,36 @@ function BasicAccountAvatar({
     const finalAccount = account || dbAccount;
     if (finalAccount) {
       if (accountUtils.isExternalAccount({ accountId: finalAccount.id })) {
-        const wcPeerMeta = (finalAccount as IDBExternalAccount).wcInfo
-          ?.peerMeta;
-        const wcSrc = wcPeerMeta?.icons?.[0];
-        if (wcSrc) {
-          return <Image.Source src={wcSrc} />;
+        const externalAccount = finalAccount as IDBExternalAccount;
+
+        const wcPeerMeta =
+          externalAccount?.connectionInfo?.walletConnect?.peerMeta;
+        if (wcPeerMeta) {
+          const { logo } = externalWalletLogoUtils.getLogoInfoFromWalletConnect(
+            {
+              peerMeta: wcPeerMeta,
+            },
+          );
+          if (logo) {
+            return <Image.Source src={logo} />;
+          }
         }
+
+        // TODO move account avatar icon calculation to getAccount() in background
+        const externalWalletIcon =
+          externalAccount?.connectionInfo?.evmEIP6963?.info?.icon ||
+          externalAccount?.connectionInfo?.evmInjected?.icon ||
+          externalAccount?.connectionInfo?.walletConnect?.peerMeta?.icons?.[0];
+        if (externalWalletIcon) {
+          return <Image.Source src={externalWalletIcon} />;
+        }
+
         // some dapps don't provide icons, fallback to walletconnect icon
         // TODO use wcPeerMeta.name or wcPeerMeta.url to find wallet icon
-        if (wcPeerMeta) {
-          return (
-            <Image.Source
-              source={require('@onekeyhq/kit/assets/onboarding/logo_walletconnect.png')}
-            />
-          );
+        if (wcPeerMeta || externalAccount?.connectionInfo?.walletConnect) {
+          const walletConnectIcon =
+            externalWalletLogoUtils.getLogoInfo('walletconnect').logo;
+          return <Image.Source src={walletConnectIcon} />;
         }
       }
       return finalAccount.address ? (
@@ -163,37 +178,64 @@ function BasicAccountAvatar({
         emptyAccountAvatar
       );
     }
-    if (source || src) {
+    if (source || src || fallbackProps) {
       return <Image.Source src={src} source={source} />;
     }
+
     return emptyAccountAvatar;
-  }, [account, address, dbAccount, indexedAccount, source, src]);
+  }, [account, address, dbAccount, fallbackProps, indexedAccount, source, src]);
+
+  const renderLoading = useMemo(
+    () =>
+      loading || loadingProps ? (
+        <Image.Loading {...loadingProps} />
+      ) : (
+        <DefaultImageLoading w={containerSize} h={containerSize} />
+      ),
+    [containerSize, loading, loadingProps],
+  );
 
   const renderFallback = useMemo(() => {
-    if (address || indexedAccount || account || source || src) {
+    // error of externalAccount
+    const finalAccount = account || dbAccount;
+    if (
+      finalAccount &&
+      accountUtils.isExternalAccount({ accountId: finalAccount.id })
+    ) {
+      const externalAccount = finalAccount as IDBExternalAccount;
+
+      if (externalAccount) {
+        return <DefaultImageFallback />;
+      }
+    }
+    if (
+      address ||
+      indexedAccount ||
+      account ||
+      source ||
+      src ||
+      loadingProps ||
+      loading
+    ) {
       return (
         fallback ||
-        (fallbackProps ? (
-          <Image.Fallback {...fallbackProps} />
-        ) : (
-          <Fallback w={containerSize} h={containerSize} />
-        ))
+        (fallbackProps ? <Image.Fallback {...fallbackProps} /> : null)
       );
     }
+
     return null;
   }, [
     account,
     address,
-    containerSize,
+    dbAccount,
     fallback,
     fallbackProps,
     indexedAccount,
+    loading,
+    loadingProps,
     source,
     src,
   ]);
-
-  // return <Image.Source src={src} source={source} />;
-  // }, [account, address, dbAccount, indexedAccount, source, src]);
 
   return (
     <Stack
@@ -214,6 +256,7 @@ function BasicAccountAvatar({
       >
         {renderContent}
         {renderFallback}
+        {renderLoading}
       </Image>
 
       {networkId ? (
@@ -230,7 +273,7 @@ function BasicAccountAvatar({
           borderRadius="$full"
           zIndex="$1"
         >
-          <ChainImage networkId={networkId} size={logoSize} />
+          <NetworkAvatar networkId={networkId} size={logoSize} />
         </Stack>
       ) : null}
     </Stack>
@@ -238,5 +281,5 @@ function BasicAccountAvatar({
 }
 
 export const AccountAvatar = withStaticProperties(BasicAccountAvatar, {
-  Fallback,
+  Loading: DefaultImageLoading,
 });

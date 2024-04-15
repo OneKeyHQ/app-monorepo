@@ -9,8 +9,9 @@ import {
   Divider,
   HeightTransition,
   Stack,
-  Toast,
 } from '@onekeyhq/components';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
@@ -18,6 +19,7 @@ import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { Advance } from './Advance';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
@@ -30,19 +32,29 @@ import type { IWalletDetailsProps } from '..';
 
 type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 
-export function WalletOptions({ wallet }: IWalletOptionsProps) {
+export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const liteCard = useLiteCard();
 
-  const handleBackupPhrase = useCallback(() => {
-    Toast.error({
-      title: '功能未实现',
-    });
+  const handleBackupPhrase = useCallback(async () => {
+    if (!wallet?.id) {
+      return;
+    }
+    const { mnemonic } =
+      await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
+        walletId: wallet?.id,
+        reason: EReasonForNeedPassword.Security,
+      });
+    if (mnemonic) ensureSensitiveTextEncoded(mnemonic);
     navigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.BeforeShowRecoveryPhrase,
+      params: {
+        mnemonic,
+        isBackup: true,
+      },
     });
-  }, [navigation]);
+  }, [navigation, wallet?.id]);
   const handleBackupLiteCard = useCallback(() => {
     void liteCard.backupWallet(wallet?.id);
   }, [liteCard, wallet?.id]);
@@ -57,9 +69,9 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
 
       return (
         <>
-          <Verification />
+          <Verification device={device} />
           <HomeScreen />
-          <Advance />
+          <Advance wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
         </>
       );
@@ -74,8 +86,8 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
             label: intl.formatMessage({
               id: 'backup__manual_backup',
             }),
-            icon: 'SignatureOutline',
-            onPress: handleBackupPhrase,
+            icon: 'PenOutline',
+            onPress: () => void handleBackupPhrase(),
           },
           ...(platformEnv.isNative
             ? [
@@ -83,12 +95,11 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
                   label: intl.formatMessage({
                     id: 'app__hardware_name_onekey_lite',
                   }),
-                  icon: 'OnekeyLiteOutline' as IKeyOfIcons,
+                  icon: 'GiroCardOutline' as IKeyOfIcons,
                   onPress: handleBackupLiteCard,
                 },
               ]
             : []),
-
           {
             label: 'OneKey KeyTag',
             icon: 'OnekeyKeytagOutline',
@@ -100,7 +111,7 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
         }
       />
     );
-  }, [handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
+  }, [device, handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
 
   return (
     <HeightTransition>
@@ -116,10 +127,10 @@ export function WalletOptions({ wallet }: IWalletOptionsProps) {
               opacity: 0,
             }}
           >
-            {/* Profile */}
+            {/* Profile: Avatar, Rename */}
             {wallet ? <WalletProfile wallet={wallet} /> : null}
 
-            {/* Options */}
+            {/* Options: Backup, Verification, HomeScreen, Advance  */}
             {walletSpecifiedOptions}
 
             <Stack py="$2.5">

@@ -6,6 +6,11 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  WALLET_TYPE_EXTERNAL,
+  WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -13,7 +18,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { swapToAnotherAccountSwitchOnAtom } from '../states/jotai/atoms';
-import { getVaultSettingsAccountDeriveInfo } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -23,6 +27,8 @@ import type {
   IDBWallet,
 } from '../dbs/local/types';
 import type {
+  IAccountSelectorAccountsListSectionData,
+  IAccountSelectorFocusedWallet,
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
@@ -99,7 +105,15 @@ class ServiceAccountSelector extends ServiceBase {
           mergedByData: homeData,
         });
         if (swapDataMerged) {
+          const usedNetworkId =
+            swapDataMerged.networkId ??
+            swapMap[num]?.networkId ??
+            homeData?.networkId;
           swapMap[num] = swapDataMerged;
+          if (swapMap && swapMap[num]) {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            swapMap[num]!.networkId = usedNetworkId;
+          }
         }
       };
 
@@ -201,10 +215,11 @@ class ServiceAccountSelector extends ServiceBase {
 
       if (deriveType) {
         try {
-          deriveInfo = await getVaultSettingsAccountDeriveInfo({
-            networkId,
-            deriveType,
-          });
+          deriveInfo =
+            await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+              networkId,
+              deriveType,
+            });
         } catch (error) {
           //
         }
@@ -258,7 +273,7 @@ class ServiceAccountSelector extends ServiceBase {
       deriveType: activeAccount.deriveType,
       networkId: activeAccount.network?.id,
       walletId: activeAccount.wallet?.id,
-      focusedWallet: isOthersWallet ? '$$others' : activeAccount.wallet?.id,
+      focusedWallet: activeAccount.wallet?.id,
     };
     return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
   }
@@ -372,6 +387,154 @@ class ServiceAccountSelector extends ServiceBase {
       ),
     );
     return selectedAccountsMapInDB;
+  }
+
+  // TODO move to serviceAccountSelector
+  @backgroundMethod()
+  async getAccountSelectorAccountsListSectionData({
+    focusedWallet,
+    othersNetworkId,
+    linkedNetworkId,
+    deriveType,
+  }: {
+    focusedWallet: IAccountSelectorFocusedWallet;
+    othersNetworkId?: string;
+    linkedNetworkId?: string;
+    deriveType: IAccountDeriveTypes;
+  }): Promise<Array<IAccountSelectorAccountsListSectionData>> {
+    const { serviceAccount } = this.backgroundApi;
+    if (!focusedWallet) {
+      return [];
+    }
+    const buildAccountsData = ({
+      accounts,
+      walletId,
+      title,
+    }: {
+      accounts: IDBAccount[] | IDBIndexedAccount[];
+      walletId: string;
+      title?: string;
+    }): IAccountSelectorAccountsListSectionData => {
+      if (walletId === WALLET_TYPE_WATCHING) {
+        return {
+          title: title ?? 'Watchlist',
+          data: accounts,
+          walletId,
+          emptyText:
+            'Your watchlist is empty. Import a address to start monitoring.',
+        };
+      }
+      if (walletId === WALLET_TYPE_IMPORTED) {
+        return {
+          title: title ?? 'Private Key',
+          data: accounts,
+          walletId,
+          emptyText:
+            'No private key accounts. Add a new account to manage your assets.',
+        };
+      }
+      if (walletId === WALLET_TYPE_EXTERNAL) {
+        return {
+          title: title ?? 'External account',
+          data: accounts,
+          walletId,
+          emptyText:
+            'No external wallets connected. Link a third-party wallet to view here.',
+        };
+      }
+      // hw and hd accounts
+      return {
+        title: title ?? '',
+        data: accounts,
+        walletId,
+        emptyText: 'No account',
+      };
+    };
+    if (focusedWallet === '$$others') {
+      const { accounts: accountsWatching } =
+        await serviceAccount.getSingletonAccountsOfWallet({
+          walletId: WALLET_TYPE_WATCHING,
+          activeNetworkId: othersNetworkId,
+        });
+      const { accounts: accountsImported } =
+        await serviceAccount.getSingletonAccountsOfWallet({
+          walletId: WALLET_TYPE_IMPORTED,
+          activeNetworkId: othersNetworkId,
+        });
+      const { accounts: accountsExternal } =
+        await serviceAccount.getSingletonAccountsOfWallet({
+          walletId: WALLET_TYPE_EXTERNAL,
+          activeNetworkId: othersNetworkId,
+        });
+
+      return [
+        buildAccountsData({
+          accounts: accountsImported,
+          walletId: WALLET_TYPE_IMPORTED,
+        }),
+        buildAccountsData({
+          accounts: accountsWatching,
+          walletId: WALLET_TYPE_WATCHING,
+        }),
+        buildAccountsData({
+          accounts: accountsExternal,
+          walletId: WALLET_TYPE_EXTERNAL,
+        }),
+      ];
+    }
+    const walletId = focusedWallet;
+    try {
+      await serviceAccount.getWallet({ walletId });
+    } catch (error) {
+      // wallet may be removed
+      console.error(error);
+      return [];
+    }
+
+    // others singleton wallet
+    if (accountUtils.isOthersWallet({ walletId })) {
+      const { accounts } = await serviceAccount.getSingletonAccountsOfWallet({
+        walletId: walletId as any,
+        activeNetworkId: othersNetworkId,
+      });
+      return [
+        buildAccountsData({
+          accounts,
+          walletId,
+          title: '',
+        }),
+      ];
+    }
+
+    // hd hw accounts
+    const { accounts } = await serviceAccount.getIndexedAccountsOfWallet({
+      walletId,
+    });
+    if (linkedNetworkId) {
+      await Promise.all(
+        accounts.map(async (indexedAccount: IDBIndexedAccount) => {
+          try {
+            const realAccount = await serviceAccount.getNetworkAccount({
+              accountId: undefined,
+              indexedAccountId: indexedAccount.id,
+              deriveType,
+              networkId: linkedNetworkId,
+            });
+            indexedAccount.associateAccount = realAccount;
+          } catch (e) {
+            //
+          }
+        }),
+      );
+    }
+
+    return [
+      buildAccountsData({
+        accounts,
+        walletId,
+        title: '',
+      }),
+    ];
   }
 }
 

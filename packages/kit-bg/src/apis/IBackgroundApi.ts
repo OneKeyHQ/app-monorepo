@@ -6,6 +6,8 @@ import type {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
+import type { IOffscreenApi } from '../offscreens/instance/IOffscreenApi';
+import type { OFFSCREEN_API_MESSAGE_TYPE } from '../offscreens/types';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { ProviderApiWalletConnect } from '../providers/ProviderApiWalletConnect';
 import type ServiceAccount from '../services/ServiceAccount';
@@ -13,16 +15,22 @@ import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
+import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
+import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceE2E from '../services/ServiceE2E';
+import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
+import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -51,6 +59,11 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
   service: string;
+};
+
+export type IOffscreenApiMessagePayload = IJsonRpcRequest & {
+  type: typeof OFFSCREEN_API_MESSAGE_TYPE;
+  module: keyof IOffscreenApi;
 };
 
 export interface IBackgroundApiBridge {
@@ -106,14 +119,19 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceGas: ServiceGas;
   serviceDiscovery: ServiceDiscovery;
   serviceDApp: ServiceDApp;
+  serviceDappSide: ServiceDappSide;
   serviceWalletConnect: ServiceWalletConnect;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
-
+  serviceLightning: ServiceLightning;
   serviceOnboarding: ServiceOnboarding;
   serviceScanQRCode: ServiceScanQRCode;
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
+  serviceAppUpdate: ServiceAppUpdate;
+  serviceContextMenu: ServiceContextMenu;
 
   serviceE2E: ServiceE2E;
+  serviceLogger: ServiceLogger;
+  serviceFiatCrypto: ServiceFiatCrypto;
 }

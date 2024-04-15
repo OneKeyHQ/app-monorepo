@@ -1,9 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { Skeleton } from '../Skeleton';
 import { Stack } from '../Stack';
 
@@ -14,45 +10,36 @@ import type { IImageFallbackProps, IImageSkeletonProps } from './type';
 const useVisible = (delayMs: number) => {
   const [visible, setVisible] = useState(!(delayMs > 0));
   useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout>;
     if (delayMs > 0) {
-      setTimeout(() => {
+      timerId = setTimeout(() => {
         setVisible(true);
       }, delayMs);
     }
+    return () => {
+      clearTimeout(timerId);
+    };
   }, [delayMs]);
-  const { loading } = useContext(ImageContext);
-  return loading && visible;
+  const { loading, loadedSuccessfully } = useContext(ImageContext);
+  return (loading || !loadedSuccessfully) && visible;
 };
 export function ImageFallback({
-  delayMs = 0,
+  delayMs = 80,
   children,
   ...props
 }: IImageFallbackProps) {
   const visible = useVisible(delayMs);
-  return (
-    <AnimatePresence>
-      {visible ? (
-        <Stack
-          position="absolute"
-          width="100%"
-          height="100%"
-          {...props}
-          {
-            // If an Animated.Image is rendered on a cell, We cannot run many animations simultaneously on the Android main thread,
-            // as it would result in the main thread becoming unresponsive
-            ...(!platformEnv.isNativeAndroid
-              ? {
-                  animation: 'slow',
-                  exitStyle: { opacity: 0 },
-                }
-              : {})
-          }
-        >
-          {children}
-        </Stack>
-      ) : null}
-    </AnimatePresence>
-  );
+  return visible ? (
+    <Stack
+      position="absolute"
+      bg="$bgApp"
+      width="100%"
+      height="100%"
+      {...props}
+    >
+      {children}
+    </Stack>
+  ) : null;
 }
 
 export function ImageSkeleton(props: IImageSkeletonProps) {

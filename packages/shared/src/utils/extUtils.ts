@@ -1,36 +1,37 @@
 import { isNil } from 'lodash';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import platformEnv, {
+  isExtensionUiSidePanel,
+} from '@onekeyhq/shared/src/platformEnv';
+
+import { getAllowPathFromScreenNames } from './routeUtils';
 
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
 export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
 
 export type IOpenUrlRouteInfo = {
-  routes: string | string[];
+  routes?: string | string[];
+  path?: string;
   params?: any;
 };
 
 function buildExtRouteUrl(
   htmlFile: string,
-  { routes, params = {} }: IOpenUrlRouteInfo,
+  { routes, params = {}, path }: IOpenUrlRouteInfo,
 ) {
   /*
   http://localhost:3001/#/modal/DappConnectionModal/ConnectionModal?id=0&origin=https%3A%2F%2Fmetamask.github.io&scope=ethereum&data=%7B%22method%22%3A%22eth_requestAccounts%22%2C%22jsonrpc%22%3A%222.0%22%7D
    */
-  const pathStr = ([] as string[]).concat(routes).join('/');
+  const pathStr = routes
+    ? `/${([] as string[]).concat(routes).join('/')}`
+    : path || '/';
+
   const paramsStr = new URLSearchParams(params).toString();
-  // TODO: white list
-  // const exactRoute = normalRouteWhiteList.find(
-  //   (route) => route.screen === pathStr && route.exact,
-  // );
-  // if (exactRoute?.path) {
-  //   // use exact path instead of screens if exist
-  //   pathStr = exactRoute.path.replace(/^\//g, '');
-  // }
+
   let hash = '';
   if (pathStr || paramsStr) {
-    hash = `#/${pathStr || ''}`;
+    hash = `#${pathStr || ''}`;
     if (paramsStr) {
       hash = `${hash}?${paramsStr || ''}`;
     }
@@ -123,6 +124,7 @@ export const EXT_HTML_FILES = {
   background: 'background.html',
   uiPopup: 'ui-popup.html',
   uiExpandTab: 'ui-expand-tab.html',
+  uiSidePanel: 'ui-side-panel.html',
   uiStandAloneWindow: 'ui-standalone-window.html',
 };
 
@@ -139,11 +141,55 @@ export function getExtensionIndexHtml() {
   if (platformEnv.isExtensionUiStandaloneWindow) {
     return EXT_HTML_FILES.uiStandAloneWindow;
   }
+  if (platformEnv.isExtensionUiSidePanel) {
+    return EXT_HTML_FILES.uiSidePanel;
+  }
   return EXT_HTML_FILES.uiExpandTab;
+}
+
+let expandTabId: number | undefined;
+async function openExpandTab(
+  routeInfo: IOpenUrlRouteInfo,
+): Promise<chrome.tabs.Tab | undefined> {
+  const url = buildExtRouteUrl(EXT_HTML_FILES.uiExpandTab, routeInfo);
+  const tab = await openUrlInTab(url, { tabId: expandTabId });
+  expandTabId = tab?.id;
+  return tab;
+}
+
+function openSidePanel(
+  routeInfo: IOpenUrlRouteInfo,
+): Promise<chrome.tabs.Tab | undefined> {
+  return new Promise((resolve) => {
+    if (
+      chrome.sidePanel &&
+      chrome.sidePanel.open &&
+      chrome.sidePanel.setOptions
+    ) {
+      const url = buildExtRouteUrl(EXT_HTML_FILES.uiSidePanel, routeInfo);
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tab = tabs[0];
+        if (tab && tab.id) {
+          chrome.sidePanel.open({ tabId: tab.id }, () => {
+            void chrome.sidePanel.setOptions({
+              tabId: tab.id,
+              path: url,
+              enabled: true,
+            });
+          });
+          resolve(tab);
+        }
+      });
+    } else {
+      return openExpandTab(routeInfo);
+    }
+  });
 }
 
 export default {
   openUrl,
   openUrlInTab,
   openStandaloneWindow,
+  openExpandTab,
+  openSidePanel,
 };

@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type { IPasswordSecuritySession } from '@onekeyhq/shared/types/password';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
@@ -53,6 +54,8 @@ export default class ServicePassword extends ServiceBase {
   private cachedPasswordTTL: number = timerUtils.getTimeDurationMs({
     hour: 2,
   });
+
+  private securitySession?: IPasswordSecuritySession;
 
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
@@ -174,8 +177,11 @@ export default class ServicePassword extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setBiologyAuthEnable(enable: boolean): Promise<void> {
-    if (enable) {
+  async setBiologyAuthEnable(
+    enable: boolean,
+    skipAuth?: boolean,
+  ): Promise<void> {
+    if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
         throw new OneKeyError.BiologyAuthFailed();
@@ -317,9 +323,10 @@ export default class ServicePassword extends ServiceBase {
 
   // ui ------------------------------
   @backgroundMethod()
-  async promptPasswordVerify(
-    reason?: EReasonForNeedPassword,
-  ): Promise<IPasswordRes> {
+  async promptPasswordVerify(options?: {
+    reason?: EReasonForNeedPassword;
+  }): Promise<IPasswordRes> {
+    const { reason } = options || {};
     // check ext ui open
     if (
       platformEnv.isExtension &&
@@ -329,8 +336,7 @@ export default class ServicePassword extends ServiceBase {
       throw new OneKeyError.OneKeyInternalError();
     }
 
-    const needReenterPassword =
-      await this.backgroundApi.serviceSetting.isAlwaysReenterPassword(reason);
+    const needReenterPassword = await this.isAlwaysReenterPassword(reason);
     if (!needReenterPassword) {
       const cachedPassword = await this.getCachedPassword();
       if (cachedPassword) {
@@ -381,7 +387,7 @@ export default class ServicePassword extends ServiceBase {
       accountUtils.isHdWallet({ walletId }) ||
       accountUtils.isImportedWallet({ walletId })
     ) {
-      ({ password } = await this.promptPasswordVerify(reason));
+      ({ password } = await this.promptPasswordVerify({ reason }));
     }
     return {
       password,
@@ -483,5 +489,58 @@ export default class ServicePassword extends ServiceBase {
     if (idleDuration >= appLockDuration) {
       await passwordAtom.set((v) => ({ ...v, unLock: false }));
     }
+  }
+
+  @backgroundMethod()
+  public async isAlwaysReenterPassword(
+    reason?: EReasonForNeedPassword,
+  ): Promise<boolean> {
+    const isPasswordSet = await this.checkPasswordSet();
+    if (!reason || !isPasswordSet) {
+      return false;
+    }
+    const { protectCreateOrRemoveWallet, protectCreateTransaction } =
+      await settingsPersistAtom.get();
+
+    // always reenter password for Security, eg change password/backup wallet
+    if (reason === EReasonForNeedPassword.Security) {
+      return true;
+    }
+
+    const result =
+      (reason === EReasonForNeedPassword.CreateOrRemoveWallet &&
+        protectCreateOrRemoveWallet) ||
+      (reason === EReasonForNeedPassword.CreateTransaction &&
+        protectCreateTransaction);
+
+    const now = Date.now();
+    if (
+      !result ||
+      !this.securitySession ||
+      now - this.securitySession.startAt > this.securitySession.timeout
+      // return result immediately if result is false or last visit is timeout/ not exist
+    ) {
+      return result;
+    }
+    const lastVisit = this.securitySession.lastVisit[reason];
+    if (lastVisit) {
+      return now - lastVisit > this.securitySession.timeout;
+    }
+    this.securitySession.lastVisit[reason] = now;
+    return result;
+  }
+
+  @backgroundMethod()
+  async openPasswordSecuritySession(params?: { timeout?: number }) {
+    this.securitySession = {
+      startAt: Date.now(),
+      timeout: params?.timeout ?? 1000 * 60, // default 1 minute
+      lastVisit: {},
+    };
+  }
+
+  @backgroundMethod()
+  async closePasswordSecuritySession() {
+    this.securitySession = undefined;
   }
 }

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,17 +6,30 @@ import { Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAddressBookList } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ELiteCardRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EDAppConnectionModal,
+  ELiteCardRoutes,
+  EModalAddressBookRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 const AddressBookItem = () => {
-  const pick = useAddressBookList();
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const showAddressBook = useCallback(async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    navigation.push(EModalAddressBookRoutes.ListItemModal);
+  }, [navigation]);
   const [{ updateTimestamp }] = useAddressBookPersistAtom();
   const onPress = useCallback(async () => {
     if (!updateTimestamp) {
@@ -30,16 +43,16 @@ const AddressBookItem = () => {
         showCancelButton: true,
         onConfirm: async (inst) => {
           await inst.close();
-          await pick();
+          await showAddressBook();
         },
         confirmButtonProps: {
           testID: 'encrypted-storage-confirm',
         },
       });
     } else {
-      await pick();
+      await showAddressBook();
     }
-  }, [pick, updateTimestamp]);
+  }, [showAddressBook, updateTimestamp]);
   return (
     <ListItem
       icon="BookOpenOutline"
@@ -73,6 +86,44 @@ const LockNowButton = () => {
   );
 };
 
+const DefaultWalletSetting = () => {
+  const navigation = useAppNavigation();
+  const { result, isLoading, run } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceContextMenu.getDefaultWalletSettingsWithIcon(),
+    [],
+    { checkIsFocused: false },
+  );
+  useEffect(() => {
+    appEventBus.addListener(EAppEventBusNames.ExtensionContextMenuUpdate, run);
+    return () => {
+      appEventBus.removeListener(
+        EAppEventBusNames.ExtensionContextMenuUpdate,
+        run,
+      );
+    };
+  }, [run]);
+  return (
+    <ListItem
+      icon="ThumbtackOutline"
+      title="Default Wallet Settings"
+      drillIn
+      onPress={() => {
+        navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+          screen: EDAppConnectionModal.DefaultWalletSettingsModal,
+        });
+      }}
+    >
+      {isLoading ? null : (
+        <ListItem.Text
+          primary={result?.isDefaultWallet ? 'On' : 'Off'}
+          align="right"
+        />
+      )}
+    </ListItem>
+  );
+};
+
 export const DefaultSection = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
@@ -80,6 +131,7 @@ export const DefaultSection = () => {
   return (
     <YStack>
       <LockNowButton />
+      {platformEnv.isExtension ? <DefaultWalletSetting /> : null}
       <AddressBookItem />
       <ListItem
         icon="RepeatOutline"

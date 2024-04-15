@@ -52,6 +52,7 @@ export type IAccountDeriveInfoItems = {
   value: string;
   label: string;
   item: IAccountDeriveInfo;
+  description: string | undefined;
 };
 export interface IAccountDeriveInfo {
   // because the first account path of ledger live template is the same as the bip44 account path, so we should set idSuffix to uniq them
@@ -114,9 +115,11 @@ export type IVaultSettings = {
   nonceRequired: boolean;
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
+  replaceTxEnabled: boolean;
 
   minTransferAmount?: string;
   utxoDustAmount?: string;
+  signOnlyFullTxRequired?: boolean;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
@@ -124,6 +127,7 @@ export type IVaultSettings = {
     default: IVaultSettingsNetworkInfo;
     [networkId: string]: IVaultSettingsNetworkInfo;
   };
+  validationRequired?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -160,6 +164,7 @@ export type IPrepareWatchingAccountsParams = {
   xpub?: string;
   name: string;
   template?: string; // TODO use deriveInfo, for BTC taproot address importing
+  deriveInfo?: IAccountDeriveInfo;
 };
 export type IPrepareImportedAccountsParams = {
   password: string;
@@ -179,7 +184,6 @@ export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
 };
 export type IPrepareHdAccountsOptions = {
-  addressEncoding?: EAddressEncodings;
   checkIsAccountUsed?: (query: {
     xpub: string;
     xpubSegwit?: string;
@@ -354,4 +358,11 @@ export type IGetPrivateKeyFromImportedParams = {
 };
 export type IGetPrivateKeyFromImportedResult = {
   privateKey: string;
+};
+export type IValidateGeneralInputParams = {
+  input: string;
+  validateAddress?: boolean;
+  validateXpub?: boolean;
+  validateXprvt?: boolean;
+  validatePrivateKey?: boolean;
 };

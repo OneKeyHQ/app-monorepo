@@ -8,7 +8,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 import InpageProviderWebView from './InpageProviderWebView';
 
-import type { IElectronWebViewEvents } from './types';
+import type { IElectronWebViewEvents, IWebViewOnScroll } from './types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
@@ -16,9 +16,8 @@ import type {
   WebViewNavigation,
   WebViewNavigationEvent,
   WebViewOpenWindowEvent,
-  WebViewScrollEvent,
   WebViewSource,
-} from 'react-native-webview/lib/WebViewTypes';
+} from '@onekeyfe/react-native-webview/lib/WebViewTypes';
 
 interface IWebViewProps extends IElectronWebViewEvents {
   id?: string;
@@ -40,8 +39,7 @@ interface IWebViewProps extends IElectronWebViewEvents {
   onLoadStart?: (event: WebViewNavigationEvent) => void;
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
-  onScroll?: (event: WebViewScrollEvent) => void;
-  webviewHeight?: number;
+  onScroll?: IWebViewOnScroll;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
 }

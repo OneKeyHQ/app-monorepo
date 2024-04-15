@@ -9,9 +9,21 @@ import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe
 import type {
   WebViewErrorEvent,
   WebViewNavigationEvent,
-  WebViewScrollEvent,
+  WebViewSharedProps,
   WebViewSource,
-} from 'react-native-webview/lib/WebViewTypes';
+} from '@onekeyfe/react-native-webview/lib/WebViewTypes';
+
+type IFirstParameterOrUndefined<T> = T extends (
+  first: infer P,
+  ...rest: any[]
+) => any
+  ? P
+  : never;
+
+export type IWebViewOnScroll = WebViewSharedProps['onScroll'];
+
+export type IWebViewOnScrollEvent =
+  IFirstParameterOrUndefined<IWebViewOnScroll>;
 
 export interface IInpageProviderWebViewProps
   extends IElectronWebViewEvents,
@@ -29,8 +41,7 @@ export interface IInpageProviderWebViewProps
   onLoadStart?: (event: WebViewNavigationEvent) => void;
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
-  onScroll?: (event: WebViewScrollEvent) => void;
-  webviewHeight?: number;
+  onScroll?: IWebViewOnScroll;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
 }

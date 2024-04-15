@@ -3,7 +3,13 @@ import { useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import type { IIconProps } from '@onekeyhq/components';
-import { Icon, Image, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -20,7 +26,13 @@ function DAppSiteMark({
   urlSecurityInfo?: IHostSecurity;
   favicon?: string; // for WalletConnect
 }) {
-  const content = useMemo(() => origin, [origin]);
+  const content = useMemo(() => {
+    try {
+      return new URL(origin).host;
+    } catch {
+      return origin;
+    }
+  }, [origin]);
   const { result: faviconUri } = usePromiseResult(
     async () => backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(origin),
     [origin],
@@ -78,7 +90,8 @@ function DAppSiteMark({
 
   return (
     <XStack
-      p="$1"
+      px="$2"
+      py="$1"
       bg={riskyStyle.bg}
       borderColor={riskyStyle.borderColor}
       borderWidth={StyleSheet.hairlineWidth}
@@ -86,14 +99,25 @@ function DAppSiteMark({
       alignItems="center"
       alignSelf="flex-start"
       borderCurve="continuous"
+      space="$2"
     >
       <Image w="$6" h="$6" bg="$bgSubdued" borderRadius="$1">
         <Image.Source source={{ uri: favicon || faviconUri }} />
         <Image.Fallback>
           <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
         </Image.Fallback>
+        <Image.Loading>
+          <Skeleton width="100%" height="100%" />
+        </Image.Loading>
       </Image>
-      <SizableText size="$bodyLgMedium" color={riskyStyle.textColor} px="$1">
+      <SizableText
+        flex={1}
+        size="$bodyLgMedium"
+        color={riskyStyle.textColor}
+        style={{
+          wordBreak: 'break-all',
+        }}
+      >
         {content}
       </SizableText>
       {riskyStyle.iconName && riskyStyle.iconColor ? (

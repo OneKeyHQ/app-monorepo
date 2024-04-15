@@ -1,6 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 import { isNil } from 'lodash';
 
+import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IDBAccount,
   IDBWallet,
@@ -13,9 +14,20 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 
-import { INDEX_PLACEHOLDER, SEPERATOR } from '../engine/engineConsts';
+import {
+  COINTYPE_BTC,
+  COINTYPE_ETH,
+  COINTYPE_LIGHTNING,
+  COINTYPE_LIGHTNING_TESTNET,
+  COINTYPE_TBTC,
+  IMPL_EVM,
+  INDEX_PLACEHOLDER,
+  SEPERATOR,
+} from '../engine/engineConsts';
 
 import networkUtils from './networkUtils';
+
+import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -91,20 +103,48 @@ function isHwAccount({ accountId }: { accountId: string }) {
   return isHwWallet({ walletId });
 }
 
+function buildWatchingAccountId({
+  coinType,
+  address,
+  xpub,
+  addressEncoding,
+}: {
+  coinType: string;
+  address?: string;
+  xpub?: string;
+  addressEncoding?: EAddressEncodings | undefined;
+}) {
+  const publicKey = xpub || address;
+  if (!publicKey) {
+    throw new Error('buildWatchingAccountId ERROR: publicKey is not defined');
+  }
+  let id = `${WALLET_TYPE_WATCHING}--${coinType}--${publicKey}`;
+  if (addressEncoding) {
+    id += `--${addressEncoding}`;
+  }
+  return id;
+}
+
 function buildImportedAccountId({
   coinType,
   pub,
   xpub,
+  addressEncoding,
 }: {
   coinType: string;
   pub?: string;
   xpub?: string;
+  addressEncoding?: EAddressEncodings | undefined;
 }) {
   const publicKey = xpub || pub;
   if (!publicKey) {
     throw new Error('buildImportedAccountId ERROR: publicKey is not defined');
   }
-  return `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
+  let id = `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
+  if (addressEncoding) {
+    id += `--${addressEncoding}`;
+  }
+  return id;
 }
 
 function isExternalAccount({ accountId }: { accountId: string }) {
@@ -257,9 +297,30 @@ function getAccountCompatibleNetwork({
   // if accountNetworkId not in account available networks, use first networkId of available networks
   if (account.networks && account.networks.length) {
     if (!accountNetworkId || !account.networks.includes(accountNetworkId)) {
-      [accountNetworkId] = account.networks;
+      accountNetworkId = account.networks?.[0];
     }
   }
+
+  // recheck new networkId impl matched
+  if (accountNetworkId && account.impl) {
+    if (
+      account.impl !==
+      networkUtils.getNetworkImpl({ networkId: accountNetworkId })
+    ) {
+      accountNetworkId = undefined;
+    }
+  }
+
+  if (
+    accountNetworkId &&
+    !networkUtils.parseNetworkId({ networkId: accountNetworkId }).chainId
+  ) {
+    throw new Error(
+      `getAccountCompatibleNetwork ERROR: chainId not found in networkId: ${accountNetworkId}` ||
+        '',
+    );
+  }
+
   return accountNetworkId || undefined;
 }
 
@@ -288,18 +349,129 @@ function buildHwWalletId({
   return dbWalletId;
 }
 
+function getWalletConnectMergedNetwork({ networkId }: { networkId: string }): {
+  isMergedNetwork: boolean;
+  networkIdOrImpl: string;
+} {
+  const impl = networkUtils.getNetworkImpl({ networkId });
+  if ([IMPL_EVM].includes(impl)) {
+    return {
+      isMergedNetwork: true,
+      networkIdOrImpl: impl,
+    };
+  }
+  return {
+    isMergedNetwork: false,
+    networkIdOrImpl: networkId,
+  };
+}
+
 function buildExternalAccountId({
   wcSessionTopic,
+  connectionInfo,
+  networkId,
 }: {
-  wcSessionTopic: string;
+  wcSessionTopic: string | undefined;
+  connectionInfo: IExternalConnectionInfo | undefined;
+  networkId?: string;
 }) {
-  const accountId = `${WALLET_TYPE_EXTERNAL}--wc--${wcSessionTopic}`;
+  let accountId = '';
+  // eslint-disable-next-line no-param-reassign
+  wcSessionTopic = wcSessionTopic || connectionInfo?.walletConnect?.topic;
+  if (wcSessionTopic) {
+    if (!networkId) {
+      throw new Error(
+        'buildExternalAccountId ERROR: walletconnect account required networkId ',
+      );
+    }
+    const { networkIdOrImpl } = getWalletConnectMergedNetwork({
+      networkId,
+    });
+    const suffix = networkIdOrImpl;
+
+    accountId = `${WALLET_TYPE_EXTERNAL}--wc--${wcSessionTopic}--${suffix}`;
+  }
+  if (connectionInfo?.evmEIP6963?.info?.rdns) {
+    accountId = `${WALLET_TYPE_EXTERNAL}--${COINTYPE_ETH}--eip6963--${connectionInfo?.evmEIP6963?.info?.rdns}`;
+  }
+  if (connectionInfo?.evmInjected?.global) {
+    accountId = `${WALLET_TYPE_EXTERNAL}--${COINTYPE_ETH}--injected--${connectionInfo?.evmInjected?.global}`;
+  }
+  if (!accountId) {
+    throw new Error('buildExternalAccountId ERROR: accountId is empty');
+  }
   // accountId = `${WALLET_TYPE_EXTERNAL}--injected--${walletKey}`;
   return accountId;
 }
 
+// m/84'/0'/0' -> m/44'/81297820149147'/0'
+function buildBtcToLnPath({
+  path,
+  isTestnet,
+}: {
+  path: string;
+  isTestnet: boolean;
+}) {
+  // purpose 84' -> 44'
+  let transformedPath = path.replace(/84'/, "44'");
+  const targetCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  const replacementCoinType = isTestnet
+    ? COINTYPE_LIGHTNING_TESTNET
+    : COINTYPE_LIGHTNING;
+  transformedPath = transformedPath.replace(
+    new RegExp(`(^m/44'/${targetCoinType})'`, 'g'),
+    `m/44'/${replacementCoinType}'`,
+  );
+  return transformedPath;
+}
+
+// m/44'/81297820149147'/0' -> m/84'/0'/0'
+function buildLnToBtcPath({
+  path,
+  isTestnet,
+}: {
+  path: string;
+  isTestnet: boolean;
+}) {
+  // purpose 44' -> 84'
+  let transformedPath = path.replace(/44'/, "84'");
+  const targetCoinType = isTestnet
+    ? COINTYPE_LIGHTNING_TESTNET
+    : COINTYPE_LIGHTNING;
+  const replacementCoinType = isTestnet ? COINTYPE_TBTC : COINTYPE_BTC;
+  transformedPath = transformedPath.replace(
+    new RegExp(`(^m/84'/${targetCoinType})'`, 'g'),
+    `m/84'/${replacementCoinType}'`,
+  );
+  return transformedPath;
+}
+
+// hd-1--m/84'/0'/0' -> hd-1--m/44'/81297820149147'/0'
+function buildLightningAccountId({
+  accountId,
+  isTestnet,
+}: {
+  accountId: string;
+  isTestnet: boolean;
+}) {
+  const parts = accountId.split(SEPERATOR);
+  if (parts.length < 2) {
+    throw new Error('buildLightningAccountId ERROR: invalid accountId');
+  }
+  const newPath = buildBtcToLnPath({
+    path: parts[1],
+    isTestnet,
+  });
+  return `${parts[0]}--${newPath}`;
+}
+
+function buildLightingCredentialId({ address }: { address: string }) {
+  return `lighting--${address}`;
+}
+
 export default {
   buildImportedAccountId,
+  buildWatchingAccountId,
   buildLocalTokenId,
   buildLocalHistoryId,
   buildHdWalletId,
@@ -324,4 +496,9 @@ export default {
   isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
   isOthersWallet,
+  buildBtcToLnPath,
+  buildLnToBtcPath,
+  buildLightningAccountId,
+  buildLightingCredentialId,
+  getWalletConnectMergedNetwork,
 };

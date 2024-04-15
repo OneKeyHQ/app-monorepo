@@ -226,9 +226,11 @@ export function EnterPin({
 }
 
 export function EnterPhase({
+  isSingleInput,
   onConfirm,
   switchOnDevice,
 }: {
+  isSingleInput?: boolean;
   onConfirm: (p: { passphrase: string; save: boolean }) => void;
   switchOnDevice: () => void;
 }) {
@@ -255,15 +257,17 @@ export function EnterPhase({
             })}
           />
         </Form.Field>
-        <Form.Field name="confirmPassphrase" label="Confirm Passphrase">
-          <Input
-            secureTextEntry
-            placeholder="Re-enter your passphrase"
-            {...(media.md && {
-              size: 'large',
-            })}
-          />
-        </Form.Field>
+        {!isSingleInput ? (
+          <Form.Field name="confirmPassphrase" label="Confirm Passphrase">
+            <Input
+              secureTextEntry
+              placeholder="Re-enter your passphrase"
+              {...(media.md && {
+                size: 'large',
+              })}
+            />
+          </Form.Field>
+        ) : null}
       </Form>
       {/* TODO: add loading state while waiting for result */}
       <Button
@@ -276,13 +280,18 @@ export function EnterPhase({
         variant="primary"
         onPress={async () => {
           const values = form.getValues();
-          if (values.passphrase !== values.confirmPassphrase) {
+          if (
+            !isSingleInput &&
+            values.passphrase !== values.confirmPassphrase
+          ) {
             Toast.error({
               title: 'passphrase not matched',
             });
             return;
           }
-          onConfirm({ passphrase: values.passphrase, save: true });
+          // allow empty passphrase
+          const passphrase = values.passphrase || '';
+          onConfirm({ passphrase, save: true });
 
           // Dialog.show({
           //   icon: 'CheckboxSolid',

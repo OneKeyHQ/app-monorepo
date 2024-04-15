@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
-import { Toast } from '@onekeyhq/components';
+import { Page, Toast } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -71,6 +71,14 @@ function FlipperPluginsContainer() {
   return <>{realmPlugin}</>;
 }
 
+const renderWalletConnectModalContainer = platformEnv.isNativeIOS ? (
+  <Page.Every>
+    <WalletConnectModalContainer />
+  </Page.Every>
+) : (
+  <WalletConnectModalContainer />
+);
+
 export function Container() {
   return (
     <RootSiblingParent>
@@ -79,7 +87,6 @@ export function Container() {
         <NavigationContainer>
           <JotaiContextRootProvidersAutoMount />
           <HardwareUiStateContainer />
-          <WalletConnectModalContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
           <PageTrackerContainer />
@@ -90,6 +97,7 @@ export function Container() {
             </>
           ) : null}
         </NavigationContainer>
+        {renderWalletConnectModalContainer}
       </AppStateLockContainer>
     </RootSiblingParent>
   );

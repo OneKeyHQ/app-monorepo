@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -24,14 +25,14 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import {
   useSwapActions,
   useSwapNetworksAtom,
-  useSwapOnlySupportSingleChainAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import type {
+  EModalSwapRoutes,
+  IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -44,6 +45,7 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainSelector';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { withSwapProvider } from '../WithSwapProvider';
@@ -67,7 +69,6 @@ const SwapTokenSelectPage = () => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const [onlySupportSingleNetWork] = useSwapOnlySupportSingleChainAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
@@ -78,9 +79,7 @@ const SwapTokenSelectPage = () => {
           (item: ISwapNetwork) => item.networkId === fromToken?.networkId,
         ) ?? swapNetworks?.[0]
       : swapNetworks.find(
-          (item: ISwapNetwork) =>
-            item.networkId === toToken?.networkId ||
-            item.networkId === onlySupportSingleNetWork,
+          (item: ISwapNetwork) => item.networkId === toToken?.networkId,
         ) ?? swapNetworks?.[0],
   );
   const { fetchLoading, currentTokens } = useSwapTokenList(
@@ -91,32 +90,55 @@ const SwapTokenSelectPage = () => {
 
   const onSelectToken = useCallback(
     async (item: ISwapToken) => {
+      navigation.popStack();
       if (type === ESwapDirectionType.FROM) {
         void selectFromToken(item);
       } else {
         void selectToToken(item);
       }
-      navigation.popStack();
     },
     [navigation, selectFromToken, selectToToken, type],
   );
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
+      setCurrentSelectNetwork(network);
       if (type === ESwapDirectionType.FROM && network.networkId !== 'all') {
         void updateSelectedAccountNetwork({
           num: 0,
           networkId: network.networkId,
         });
       }
-      setSearchKeyword('');
-      setCurrentSelectNetwork(network);
     },
     [type, updateSelectedAccountNetwork],
   );
 
+  const sameTokenDisabled = useCallback(
+    (token: ISwapToken) => {
+      if (type === ESwapDirectionType.FROM) {
+        return (
+          toToken?.contractAddress === token.contractAddress &&
+          toToken?.networkId === token.networkId
+        );
+      }
+      return (
+        fromToken?.contractAddress === token.contractAddress &&
+        fromToken?.networkId === token.networkId
+      );
+    },
+    [
+      fromToken?.contractAddress,
+      fromToken?.networkId,
+      toToken?.contractAddress,
+      toToken?.networkId,
+      type,
+    ],
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: ISwapToken }) => {
+      const balanceBN = new BigNumber(item.balanceParsed ?? 0);
+      const fiatValueBN = new BigNumber(item.fiatValue ?? 0);
       const tokenItem: ITokenListItemProps = {
         tokenImageSrc: item.logoURI,
         tokenName: item.name,
@@ -128,19 +150,24 @@ const SwapTokenSelectPage = () => {
               })
             : undefined,
         networkImageSrc: item.networkLogoURI,
-        balance: item.balanceParsed,
-        valueProps: item.fiatValue
-          ? {
-              value: item.fiatValue,
-              currency: settingsPersistAtom.currencyInfo.symbol,
-            }
+        balance: !balanceBN.isZero() ? item.balanceParsed : undefined,
+        valueProps:
+          item.fiatValue && !fiatValueBN.isZero()
+            ? {
+                value: item.fiatValue,
+                currency: settingsPersistAtom.currencyInfo.symbol,
+              }
+            : undefined,
+        onPress: !sameTokenDisabled(item)
+          ? () => onSelectToken(item)
           : undefined,
-        onPress: () => onSelectToken(item),
+        disabled: sameTokenDisabled(item),
       };
       return <TokenListItem {...tokenItem} />;
     },
     [
       onSelectToken,
+      sameTokenDisabled,
       searchKeyword,
       currentSelectNetwork,
       settingsPersistAtom.currencyInfo.symbol,
@@ -179,6 +206,8 @@ const SwapTokenSelectPage = () => {
     };
   }, [md, swapNetworks]);
 
+  const openChainSelector = useConfigurableChainSelector();
+
   return (
     <Page>
       <Page.Header
@@ -193,15 +222,19 @@ const SwapTokenSelectPage = () => {
       />
       <Page.Body>
         <NetworkToggleGroup
-          type={type}
           onMoreNetwork={() => {
-            setSearchKeyword('');
-            navigation.pushModal(EModalRoutes.SwapModal, {
-              screen: EModalSwapRoutes.SwapNetworkSelect,
-              params: { setCurrentSelectNetwork: onSelectCurrentNetwork },
+            openChainSelector({
+              networkIds: swapNetworks.map((item) => item.networkId),
+              onSelect: (network) => {
+                if (!network) return;
+                const findSwapNetwork = swapNetworks.find(
+                  (net) => net.networkId === network.id,
+                );
+                if (!findSwapNetwork) return;
+                onSelectCurrentNetwork(findSwapNetwork);
+              },
             });
           }}
-          onlySupportSingleNetWork={onlySupportSingleNetWork}
           networks={networkFilterData.swapNetworksCommon}
           moreNetworksCount={networkFilterData.swapNetworksMoreCount}
           selectedNetwork={currentSelectNetwork}

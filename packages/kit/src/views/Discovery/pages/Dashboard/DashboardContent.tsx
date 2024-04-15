@@ -1,16 +1,18 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
+
 import { ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ETabRoutes } from '@onekeyhq/kit/src/routes/Tab/type';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -18,7 +20,7 @@ import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
 import { Banner } from './Banner';
 import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
-import { SuggestedAndExploreSection } from './SuggestedAndExploreSection';
+import { SuggestedAndExploreSection } from './SuggestAndExploreSection';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -28,6 +30,7 @@ function DashboardContent({
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const navigation = useAppNavigation();
+  const isFocused = useIsFocused();
   const { displayHomePage } = useDisplayHomePageFlag();
   const { handleOpenWebSite } = useBrowserAction().current;
   const { result: [bookmarksData, historiesData] = [], run: refreshLocalData } =
@@ -152,7 +155,10 @@ function DashboardContent({
 
   if (platformEnv.isNative) {
     return (
-      <ScrollView onScroll={onScroll as any} scrollEventThrottle={16}>
+      <ScrollView
+        onScroll={isFocused ? (onScroll as any) : undefined}
+        scrollEventThrottle={16}
+      >
         {content}
       </ScrollView>
     );

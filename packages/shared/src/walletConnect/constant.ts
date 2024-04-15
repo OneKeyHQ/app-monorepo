@@ -19,7 +19,7 @@ import type {
   IWalletConnectLoggerLevel,
 } from './types';
 
-export const DAPP_SIDE_SINGLE_WALLET_MODE = false;
+export const DAPP_SIDE_SINGLE_WALLET_MODE = true;
 
 export const WALLET_CONNECT_V2_PROJECT_ID = '5e21f5018bfdeb78af03187a432a301d';
 // checkIsDefined(process.env.WALLETCONNECT_PROJECT_ID); // not working

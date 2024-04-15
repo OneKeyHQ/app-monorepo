@@ -38,15 +38,22 @@ export function VerifyRecoveryPhrase({
         }),
       )
     ) {
-      navigation.push(EOnboardingPages.FinalizeWalletSetup, {
-        mnemonic: mnemonicConfirm,
-      });
-      trackEvent(ETrackEventNames.CreateWallet, {
-        is_biometric_verification_set: settings.isBiologyAuthSwitchOn,
-      });
+      if (route.params?.isBackup) {
+        Toast.success({
+          title: 'Done! Your recovery phrase is backuped.',
+        });
+        navigation.popStack();
+      } else {
+        navigation.push(EOnboardingPages.FinalizeWalletSetup, {
+          mnemonic: mnemonicConfirm,
+        });
+        trackEvent(ETrackEventNames.CreateWallet, {
+          is_biometric_verification_set: settings.isBiologyAuthSwitchOn,
+        });
+      }
     } else {
       Toast.error({
-        title: 'Invalid Phrases',
+        title: 'Invalid Phrases (not equal)',
       });
     }
   };

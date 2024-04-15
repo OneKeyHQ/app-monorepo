@@ -51,7 +51,7 @@ const PasswordSetup = ({
             message: 'Password cannot exceed 128 characters',
           },
           onChange: () => {
-            form.clearErrors('confirmPassword');
+            form.clearErrors();
           },
         }}
       >
@@ -123,6 +123,7 @@ const PasswordSetup = ({
       {biologyAuthSwitchContainer}
       <Button
         variant="primary"
+        loading={loading}
         onPress={form.handleSubmit(onSetupPassword)}
         testID="set-password"
       >

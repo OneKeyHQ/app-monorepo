@@ -24,26 +24,9 @@ import type {
 function TxActionCommonAvatar({
   avatar,
 }: Pick<ITxActionCommonListViewProps, 'avatar' | 'tableLayout'>) {
-  const icon = avatar?.fallbackIcon;
   const containerSize = '$10';
-  const borderRadius = avatar.isNFT ? '$full' : '$2';
 
-  if (!avatar?.src) {
-    return (
-      <Stack
-        w={containerSize}
-        h={containerSize}
-        bg="$bgStrong"
-        alignItems="center"
-        justifyContent="center"
-        borderRadius={borderRadius}
-      >
-        <Icon name={icon} color="$iconSubdued" />
-      </Stack>
-    );
-  }
-
-  if (typeof avatar?.src === 'string') {
+  if (!avatar.src || typeof avatar.src === 'string') {
     return <Token size="lg" isNFT={avatar.isNFT} tokenImageUri={avatar.src} />;
   }
 
@@ -295,36 +278,23 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
         title={overview.title}
         content={
           <XStack alignItems="center" space="$1">
-            <ListItem.Avatar
-              src={overview.avatar?.fallbackIcon}
-              size="$7"
-              circular={overview.avatar?.circular}
-              fallbackProps={{
-                bg: '$bgStrong',
-                justifyContent: 'center',
-                alignItems: 'center',
-                children: (
-                  <Icon
-                    name={
-                      overview.avatar?.fallbackIcon ?? 'QuestionmarkOutline'
-                    }
-                    color="$iconSubdued"
-                  />
-                ),
-              }}
+            <Token
+              size="md"
+              isNFT={overview.avatar?.isNFT}
+              tokenImageUri={overview.avatar?.src}
             />
             <SizableText size="$headingLg">{overview.content}</SizableText>
           </XStack>
         }
       />
-      {target ? (
+      {target && target.content ? (
         <Container.Item
           title={target.title ?? intl.formatMessage({ id: 'content__to' })}
           content={target.content}
         />
       ) : null}
 
-      {source ? (
+      {source && source.content ? (
         <Container.Item
           title={source.title ?? intl.formatMessage({ id: 'content__from' })}
           content={source.content}

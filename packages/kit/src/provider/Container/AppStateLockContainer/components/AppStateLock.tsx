@@ -12,7 +12,6 @@ import {
   Button,
   Heading,
   Image,
-  OverlayContainer,
   Stack,
   ThemeableStack,
   useKeyboardEvent,
@@ -21,6 +20,9 @@ import {
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
+
+import { AppStateContainer } from './AppStateContainer';
 
 import type { View as IView } from 'react-native';
 
@@ -31,7 +33,7 @@ interface IAppStateLockProps extends IThemeableStackProps {
 
 const safeKeyboardHeight = 80;
 
-const useSafeKeyboardAnimationStyle = platformEnv.isNativeIOS
+const useSafeKeyboardAnimationStyle = platformEnv.isNative
   ? () => {
       const keyboardHeightValue = useSharedValue(0);
       const animatedStyles = useAnimatedStyle(() => ({
@@ -55,19 +57,19 @@ const AppStateLock = ({
   ...props
 }: IAppStateLockProps) => {
   const { bottom } = useSafeAreaInsets();
-  const resetApp = useResetApp();
+  const resetApp = useResetApp({ inAppStateLock: true });
 
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
   return (
-    <OverlayContainer>
+    <AppStateContainer>
       <ThemeableStack
         testID="unlock-screen"
         ref={lockContainerRef}
         position="absolute"
         fullscreen
         // keep the lock screen interface at the top by the z-index on Web & Android
-        zIndex={1e8}
+        zIndex={APP_STATE_LOCK_Z_INDEX}
         flex={1}
         bg="$bgApp"
         {...props}
@@ -102,7 +104,7 @@ const AppStateLock = ({
           </Button>
         </Stack>
       </ThemeableStack>
-    </OverlayContainer>
+    </AppStateContainer>
   );
 };
 

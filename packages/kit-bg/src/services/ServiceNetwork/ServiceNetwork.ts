@@ -2,25 +2,36 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { getVaultSettings } from '../../vaults/settings';
+import {
+  getVaultSettings,
+  getVaultSettingsAccountDeriveInfo,
+} from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
 
-import type { IAccountDeriveInfoItems } from '../../vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveInfoItems,
+  IAccountDeriveTypes,
+} from '../../vaults/types';
+
+const defaultPinnedNetworkIds = [
+  getNetworkIdsMap().btc,
+  getNetworkIdsMap().eth,
+  getNetworkIdsMap().lightning,
+  getNetworkIdsMap().arbitrum,
+  getNetworkIdsMap().polygon,
+  getNetworkIdsMap().cosmoshub,
+];
 
 @backgroundClass()
 class ServiceNetwork extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
-  }
-
-  @backgroundMethod()
-  public async sampleMethod() {
-    console.log('sampleMethod');
-    return 'sampleMethod';
   }
 
   @backgroundMethod()
@@ -51,6 +62,19 @@ class ServiceNetwork extends ServiceBase {
       throw new Error(`getNetwork ERROR: Network not found: ${networkId}`);
     }
     return network;
+  }
+
+  @backgroundMethod()
+  async getNetworkSafe({
+    networkId,
+  }: {
+    networkId: string;
+  }): Promise<IServerNetwork | undefined> {
+    try {
+      return await this.getNetwork({ networkId });
+    } catch (error) {
+      return undefined;
+    }
   }
 
   @backgroundMethod()
@@ -188,8 +212,10 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getDeriveInfoItemsOfNetwork({
     networkId,
+    enabledItems,
   }: {
     networkId: string | undefined;
+    enabledItems?: IAccountDeriveInfo[];
   }): Promise<IAccountDeriveInfoItems[]> {
     if (!networkId) {
       return [];
@@ -197,14 +223,71 @@ class ServiceNetwork extends ServiceBase {
     const map = await this.getDeriveInfoMapOfNetwork({
       networkId,
     });
-    return Object.entries(map).map(([k, v]) => ({
-      value: k,
-      item: v,
-      label:
-        (v.labelKey
-          ? appLocale.intl.formatMessage({ id: v.labelKey })
-          : v.label) || k,
-    }));
+    return Object.entries(map)
+      .map(([k, v]) => {
+        if (
+          enabledItems &&
+          !enabledItems.find((item) => item.template === v.template)
+        ) {
+          return null;
+        }
+        const { desc, subDesc, descI18n } = v;
+        let description = desc || subDesc;
+        if (descI18n?.id) {
+          description = appLocale.intl.formatMessage(
+            { id: descI18n?.id },
+            descI18n?.data,
+          );
+        }
+
+        return {
+          item: v,
+          description,
+          value: k,
+          label:
+            (v.labelKey
+              ? appLocale.intl.formatMessage({ id: v.labelKey })
+              : v.label) || k,
+        };
+      })
+      .filter(Boolean);
+  }
+
+  @backgroundMethod()
+  async getDeriveInfoOfNetwork({
+    networkId,
+    deriveType,
+  }: {
+    networkId: string;
+    deriveType: IAccountDeriveTypes;
+  }) {
+    return getVaultSettingsAccountDeriveInfo({ networkId, deriveType });
+  }
+
+  @backgroundMethod()
+  async setNetworkSelectorPinnedNetworks({
+    networks,
+  }: {
+    networks: IServerNetwork[];
+  }) {
+    return this.backgroundApi.simpleDb.networkSelector.setPinnedNetworkIds({
+      networkIds: networks.map((o) => o.id),
+    });
+  }
+
+  @backgroundMethod()
+  async getNetworkSelectorPinnedNetworks(): Promise<IServerNetwork[]> {
+    const pinnedNetworkIds =
+      await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
+    const networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
+    const networkIdsIndex = networkIds.reduce((result, item, index) => {
+      result[item] = index;
+      return result;
+    }, {} as Record<string, number>);
+    const resp = await this.getNetworksByIds({ networkIds });
+    return resp.networks.sort(
+      (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
+    );
   }
 }
 

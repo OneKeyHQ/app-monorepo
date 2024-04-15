@@ -1,15 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { Dimensions } from 'react-native';
-
-import {
-  Progress,
-  RefreshControl,
-  ScrollView,
-  Stack,
-  useBackHandler,
-} from '@onekeyhq/components';
+import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import {
   homeTab,
@@ -27,8 +19,8 @@ import type {
   WebView as ReactNativeWebview,
   WebViewNavigation,
   WebViewProps,
-} from 'react-native-webview';
-import type { WebViewNavigationEvent } from 'react-native-webview/lib/WebViewTypes';
+} from '@onekeyfe/react-native-webview';
+import type { WebViewNavigationEvent } from '@onekeyfe/react-native-webview/lib/WebViewTypes';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
@@ -53,13 +45,6 @@ function WebContent({
   const showHome = url === homeTab.url;
   const [progress, setProgress] = useState(5);
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
-
-  const [height, setHeight] = useState(Dimensions.get('screen').height);
-  const [isEnabled, setEnabled] = useState(true);
-  const [isRefresh] = useState(false);
-  const onRefresh = useCallback(() => {
-    webviewRefs[id]?.innerRef?.reload();
-  }, [id]);
   const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
   const { onNavigation, gotoSite, validateWebviewSrc } =
     useBrowserAction().current;
@@ -163,7 +148,6 @@ function WebContent({
       <WebView
         key={url}
         androidLayerType={androidLayerType}
-        webviewHeight={height}
         src={url}
         onWebViewRef={(ref) => {
           if (ref && ref.innerRef) {
@@ -186,16 +170,13 @@ function WebContent({
         allowpopups
         onLoadStart={onLoadStart}
         onLoadEnd={onLoadEnd as any}
-        onScroll={(e) => {
-          setEnabled(e.nativeEvent.contentOffset.y === 0);
-          onScroll?.(e);
-        }}
+        onScroll={onScroll}
         displayProgressBar={false}
         onProgress={(p) => setProgress(p)}
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, gotoSite, showHome, androidLayerType, height],
+    [id, gotoSite, showHome, androidLayerType],
   );
 
   const progressBar = useMemo(() => {
@@ -239,21 +220,7 @@ function WebContent({
   return (
     <>
       {progressBar}
-      <ScrollView
-        flex={1}
-        onLayout={(e) => {
-          setHeight(e.nativeEvent.layout.height);
-        }}
-        refreshControl={
-          <RefreshControl
-            onRefresh={onRefresh}
-            refreshing={isRefresh}
-            enabled={isEnabled}
-          />
-        }
-      >
-        {webview}
-      </ScrollView>
+      {webview}
       {showBlockAccessView ? blockAccessView : null}
     </>
   );

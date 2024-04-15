@@ -10,6 +10,7 @@ import type { IStackProps, IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   Divider,
+  IconButton,
   Image,
   NumberSizeableText,
   Page,
@@ -17,6 +18,8 @@ import {
   Spinner,
   Stack,
   XStack,
+  YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -27,6 +30,7 @@ import {
   getHistoryTxDetailInfo,
   getOnChainHistoryTxAssetInfo,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { buildTransactionDetailsUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import { type IOnChainHistoryTxTransfer } from '@onekeyhq/shared/types/history';
 import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
 import {
@@ -38,6 +42,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { openUrl } from '../../../utils/openUrl';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
@@ -183,6 +188,8 @@ function HistoryDetails() {
       >
     >();
 
+  const { copyText } = useClipboard();
+
   const { networkId, accountAddress, historyTx } = route.params;
 
   const navigation = useAppNavigation();
@@ -198,7 +205,10 @@ function HistoryDetails() {
           txid: historyTx.decodedTx.txid,
           status: historyTx.decodedTx.status,
         }),
-        backgroundApiProxy.serviceToken.getNativeToken({ networkId }),
+        backgroundApiProxy.serviceToken.getNativeToken({
+          networkId,
+          accountAddress,
+        }),
       ]),
     [
       accountAddress,
@@ -295,7 +305,8 @@ function HistoryDetails() {
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {historyTx.decodedTx.status === EDecodedTxStatus.Pending ? (
+        {vaultSettings?.replaceTxEnabled &&
+        historyTx.decodedTx.status === EDecodedTxStatus.Pending ? (
           <XStack ml="$5">
             <Button size="small" variant="primary">
               Speed Up
@@ -307,7 +318,37 @@ function HistoryDetails() {
         ) : null}
       </XStack>
     );
-  }, [historyTx.decodedTx.status, intl]);
+  }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
+
+  const renderTxId = useCallback(
+    (txid: string) => (
+      <YStack space="$2">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {txid}
+        </SizableText>
+        <XStack space="$2">
+          <IconButton
+            icon="Copy2Outline"
+            size="small"
+            onPress={() => copyText(txid)}
+          />
+          <IconButton
+            icon="OpenOutline"
+            size="small"
+            onPress={() =>
+              openUrl(
+                buildTransactionDetailsUrl({
+                  network,
+                  txid,
+                }),
+              )
+            }
+          />
+        </XStack>
+      </YStack>
+    ),
+    [copyText, network],
+  );
 
   const transfersToRender = useMemo(() => {
     let transfers: {
@@ -459,13 +500,16 @@ function HistoryDetails() {
           <InfoItemGroup>
             <InfoItem label="From" renderContent={txAddresses.from} />
             <InfoItem label="To" renderContent={txAddresses.to} />
-            <InfoItem label="Transaction ID" renderContent={txInfo.txid} />
+            <InfoItem
+              label="Transaction ID"
+              renderContent={renderTxId(txInfo.txid)}
+            />
             <InfoItem
               label="Network Fee"
               renderContent={renderFeeInfo()}
               compact
             />
-            {!isNil(txInfo.nonce) ? (
+            {vaultSettings?.nonceRequired && !isNil(txInfo.nonce) ? (
               <InfoItem
                 label="Nonce"
                 renderContent={String(txInfo.nonce)}
@@ -525,6 +569,7 @@ function HistoryDetails() {
   }, [
     renderAssetsChange,
     renderFeeInfo,
+    renderTxId,
     renderTxStatus,
     resp.isLoading,
     transfersToRender,
@@ -535,6 +580,7 @@ function HistoryDetails() {
     txInfo.nonce,
     txInfo.swapInfo,
     txInfo.txid,
+    vaultSettings?.nonceRequired,
   ]);
 
   return (

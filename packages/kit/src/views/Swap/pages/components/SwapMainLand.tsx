@@ -3,7 +3,10 @@ import { memo, useCallback } from 'react';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSwapQuoteCurrentSelectAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapAlertsAtom,
+  useSwapQuoteCurrentSelectAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
@@ -13,11 +16,11 @@ import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.
 import type { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
-import { useSwapActionState } from '../../hooks/useSwapState';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
+import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 
@@ -25,8 +28,8 @@ const SwapMainLoad = () => {
   const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const swapActionState = useSwapActionState();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
+  const [alerts] = useSwapAlertsAtom();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
@@ -73,17 +76,19 @@ const SwapMainLoad = () => {
       maxWidth={480}
     >
       <YStack
-        p="$5"
+        pt="$2.5"
+        px="$5"
+        pb="$5"
         space="$5"
         flex={1}
         $gtMd={{
           flex: 'unset',
+          pt: '$5',
         }}
       >
+        <SwapHeaderContainer />
         <SwapQuoteInput onSelectToken={onSelectToken} />
-        {swapActionState.alerts?.length ? (
-          <SwapAlertContainer alerts={swapActionState.alerts} />
-        ) : null}
+        {alerts.length > 0 ? <SwapAlertContainer alerts={alerts} /> : null}
         {quoteResult ? (
           <SwapQuoteResult
             onOpenProviderList={onOpenProviderList}

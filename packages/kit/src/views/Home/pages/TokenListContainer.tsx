@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { CanceledError } from 'axios';
 
@@ -32,10 +32,8 @@ function TokenListContainer(props: ITabPageProps) {
   const { isFocused } = useTabIsRefreshingFocused();
 
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
-
-  const currentAccountId = useRef<string>('');
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -57,21 +55,13 @@ function TokenListContainer(props: ITabPageProps) {
     async () => {
       try {
         if (!account || !network) return;
-        if (currentAccountId.current !== account.id) {
-          currentAccountId.current = account.id;
-          updateTokenListState({
-            initialized: false,
-            isRefreshing: true,
-            address: account.address,
-          });
-        } else {
-          updateTokenListState({
-            isRefreshing: true,
-            address: account.address,
-          });
-        }
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId: account.id,
+            networkId: network.id,
+          });
         const blockedTokens =
           await backgroundApiProxy.serviceToken.getBlockedTokens({
             networkId: network.id,
@@ -79,7 +69,7 @@ function TokenListContainer(props: ITabPageProps) {
         const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
           mergeTokens: true,
           networkId: network.id,
-          accountAddress: account.address,
+          accountAddress,
           flag: 'home-token-list',
           xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
             accountId: account.id,
@@ -118,7 +108,6 @@ function TokenListContainer(props: ITabPageProps) {
             });
           }
           updateTokenListState({
-            address: account.address,
             initialized: true,
             isRefreshing: false,
           });
@@ -152,19 +141,31 @@ function TokenListContainer(props: ITabPageProps) {
     },
   );
 
+  useEffect(() => {
+    if (account?.id && network?.id && wallet?.id) {
+      updateTokenListState({
+        initialized: false,
+        isRefreshing: true,
+      });
+    }
+  }, [account?.id, network?.id, updateTokenListState, wallet?.id]);
+
   const handleOnPressToken = useCallback(
     (token: IToken) => {
-      if (!account || !network) return;
+      if (!account || !network || !wallet || !deriveInfo) return;
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
           accountId: account.id,
           networkId: network.id,
+          walletId: wallet.id,
+          deriveInfo,
+          deriveType,
           tokenInfo: token,
         },
       });
     },
-    [account, navigation, network],
+    [account, deriveInfo, deriveType, navigation, network, wallet],
   );
 
   return (

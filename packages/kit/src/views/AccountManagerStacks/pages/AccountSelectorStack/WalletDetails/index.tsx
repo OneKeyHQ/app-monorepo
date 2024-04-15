@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
-
 import type { ISectionListRef } from '@onekeyhq/components';
 import {
   ActionList,
@@ -43,44 +41,44 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type {
-  EAccountManagerStacksRoutes,
-  IAccountManagerStacksParamList,
-} from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
+import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
 import { WalletDetailsHeader } from './WalletDetailsHeader';
 import { WalletOptions } from './WalletOptions';
 
-import type { RouteProp } from '@react-navigation/core';
-
 export interface IWalletDetailsProps {
   num: number;
   wallet?: IDBWallet;
+  device?: IDBDevice | undefined;
 }
 
 export function WalletDetails({ num }: IWalletDetailsProps) {
   const [editMode, setEditMode] = useAccountSelectorEditModeAtom();
-  const { serviceAccount } = backgroundApiProxy;
+  const { serviceAccount, serviceAccountSelector } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeAccount } = useActiveAccount({ num });
   const actions = useAccountSelectorActions();
   const listRef = useRef<ISectionListRef<any> | null>(null);
-  const route =
-    useRoute<
-      RouteProp<
-        IAccountManagerStacksParamList,
-        EAccountManagerStacksRoutes.AccountSelectorStack
-      >
-    >();
+  const route = useAccountSelectorRoute();
   const linkNetwork = route.params?.linkNetwork;
+  const isEditableRouteParams = route.params?.editable;
   const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
 
   const navigation = useAppNavigation();
 
+  // TODO move to hooks
   const isOthers = selectedAccount?.focusedWallet === '$$others';
+  const isOthersWallet = Boolean(
+    selectedAccount?.focusedWallet &&
+      accountUtils.isOthersWallet({
+        walletId: selectedAccount?.focusedWallet,
+      }),
+  );
+  const isOthersUniversal = isOthers || isOthersWallet;
 
   const handleImportWatchingAccount = useCallback(() => {
     navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -97,7 +95,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const handleAddExternalAccount = useCallback(() => {
     console.log('handleAddExternalAccount');
     navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ConnectWallet,
+      screen: EOnboardingPages.ConnectWalletSelectNetworks,
     });
   }, [navigation]);
 
@@ -107,34 +105,33 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         if (!selectedAccount?.focusedWallet) {
           return undefined;
         }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const isHd = accountUtils.isHdWallet({
           walletId: selectedAccount?.focusedWallet,
         });
         const isHw = accountUtils.isHwWallet({
           walletId: selectedAccount?.focusedWallet,
         });
-        if (isHd || isHw) {
-          try {
-            const wallet = await serviceAccount.getWallet({
+        try {
+          const wallet = await serviceAccount.getWallet({
+            walletId: selectedAccount?.focusedWallet,
+          });
+
+          let device: IDBDevice | undefined;
+          if (isHw) {
+            device = await serviceAccount.getWalletDevice({
               walletId: selectedAccount?.focusedWallet,
             });
-
-            let device: IDBDevice | undefined;
-            if (isHw) {
-              device = await serviceAccount.getWalletDevice({
-                walletId: selectedAccount?.focusedWallet,
-              });
-            }
-
-            return {
-              wallet,
-              device,
-            };
-          } catch (error) {
-            // wallet may be removed
-            console.error(error);
-            return undefined;
           }
+
+          return {
+            wallet,
+            device,
+          };
+        } catch (error) {
+          // wallet may be removed
+          console.error(error);
+          return undefined;
         }
       },
       [selectedAccount?.focusedWallet, serviceAccount],
@@ -162,7 +159,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         return Promise.resolve(undefined);
       }
 
-      return serviceAccount.getAccountSelectorAccountsListSectionData({
+      return serviceAccountSelector.getAccountSelectorAccountsListSectionData({
         focusedWallet: selectedAccount?.focusedWallet,
         linkedNetworkId,
         deriveType: selectedAccount.deriveType,
@@ -174,7 +171,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       selectedAccount.deriveType,
       selectedAccount?.focusedWallet,
       selectedAccount?.networkId,
-      serviceAccount,
+      serviceAccountSelector,
     ],
     {
       checkIsFocused: false,
@@ -220,44 +217,17 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const [remember, setIsRemember] = useState(false);
   const { bottom } = useSafeAreaInsets();
 
-  const pushImportPrivateKeyModal = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ImportPrivateKey,
-    });
-  }, [navigation]);
-
-  const pushImportAddressModal = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ImportAddress,
-    });
-  }, [navigation]);
-
-  const pushConnectWalletModal = useCallback(() => {
-    navigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ConnectWallet,
-    });
-  }, [navigation]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const getAddAccountPressEvent = (type: any) => {
-    if (type === 'Private key') return pushImportPrivateKeyModal();
-    if (type === 'Watchlist') return pushImportAddressModal();
-    if (type === 'External') return pushConnectWalletModal();
-
-    return console.log('clicked');
-  };
-
   const buildSubTitleInfo = useCallback(
     (item: IDBAccount | IDBIndexedAccount) => {
       let address: string | undefined;
-      if (isOthers) {
+      if (isOthersUniversal) {
         const account = item as IDBAccount | undefined;
         address = account?.address;
       } else {
         const indexedAccount = item as IDBIndexedAccount | undefined;
         address = indexedAccount?.associateAccount?.address;
       }
-      if (!address && !isOthers && linkNetwork) {
+      if (!address && !isOthersUniversal && linkNetwork) {
         // TODO custom style
         return {
           address: `No ${activeAccount?.network?.shortname || ''} address`,
@@ -271,7 +241,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         isEmptyAddress: false,
       };
     },
-    [activeAccount?.network?.shortname, isOthers, linkNetwork],
+    [activeAccount?.network?.shortname, isOthersUniversal, linkNetwork],
   );
 
   // const isEmptyData = useMemo(() => {
@@ -283,24 +253,27 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   // }, [sectionData]);
 
   const editable = useMemo(() => {
-    if (selectedAccount.focusedWallet === '$$others') {
-      if (
-        sectionData?.some((section) => {
-          if (section.data.length) {
-            return true;
-          }
-          return false;
-        })
-      ) {
-        return true;
-      }
+    if (!isEditableRouteParams) {
       return false;
     }
+    // if (isOthersUniversal) {
+    //   if (
+    //     sectionData?.some((section) => {
+    //       if (section.data.length) {
+    //         return true;
+    //       }
+    //       return false;
+    //     })
+    //   ) {
+    //     return true;
+    //   }
+    //   return false;
+    // }
     if (!sectionData || sectionData.length === 0) {
       return false;
     }
     return true;
-  }, [sectionData, selectedAccount.focusedWallet]);
+  }, [sectionData, isEditableRouteParams]);
 
   return (
     <Stack flex={1} pb={bottom}>
@@ -336,7 +309,12 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         //   ),
         // })}
         ListHeaderComponent={
-          isOthers ? null : <WalletOptions wallet={focusedWalletInfo?.wallet} />
+          isOthersUniversal ? null : (
+            <WalletOptions
+              wallet={focusedWalletInfo?.wallet}
+              device={focusedWalletInfo?.device}
+            />
+          )
         }
         sections={sectionData ?? (emptyArray as any)}
         renderSectionHeader={({
@@ -412,8 +390,8 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           item: IDBIndexedAccount | IDBAccount;
           section: IAccountSelectorAccountsListSectionData;
         }) => {
-          const account = isOthers ? (item as IDBAccount) : undefined;
-          const indexedAccount = isOthers
+          const account = isOthersUniversal ? (item as IDBAccount) : undefined;
+          const indexedAccount = isOthersUniversal
             ? undefined
             : (item as IDBIndexedAccount);
 
@@ -452,14 +430,25 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
             return null;
           })();
 
+          let avatarNetworkId: string | undefined;
+          if (isOthersUniversal && account) {
+            avatarNetworkId = accountUtils.getAccountCompatibleNetwork({
+              account,
+              networkId: linkNetwork
+                ? selectedAccount?.networkId
+                : account.createAtNetwork,
+            });
+          }
+
           return (
             <ListItem
               key={item.id}
               renderAvatar={
                 <AccountAvatar
-                  fallback={<AccountAvatar.Fallback w="$10" h="$10" />}
-                  indexedAccount={isOthers ? undefined : (item as any)}
-                  account={isOthers ? (item as any) : undefined}
+                  loading={<AccountAvatar.Loading w="$10" h="$10" />}
+                  indexedAccount={indexedAccount}
+                  account={account as any}
+                  networkId={avatarNetworkId}
                 />
               }
               title={item.name}
@@ -476,19 +465,19 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   if (shouldShowCreateAddressButton) {
                     return;
                   }
-                  if (isOthers) {
+                  if (isOthersUniversal) {
                     await actions.current.confirmAccountSelect({
                       num,
                       indexedAccount: undefined,
-                      othersWalletAccount: item as IDBAccount,
-                      autoChangeToAccountMatchedNetwork: true,
+                      othersWalletAccount: account,
+                      autoChangeToAccountMatchedNetworkId: avatarNetworkId,
                     });
                   } else if (focusedWalletInfo) {
                     await actions.current.confirmAccountSelect({
                       num,
-                      indexedAccount: item as IDBIndexedAccount,
+                      indexedAccount,
                       othersWalletAccount: undefined,
-                      autoChangeToAccountMatchedNetwork: true,
+                      autoChangeToAccountMatchedNetworkId: undefined,
                     });
                   }
                   navigation.popStack();
@@ -498,7 +487,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   if (shouldShowCreateAddressButton) {
                     return undefined;
                   }
-                  return isOthers
+                  return isOthersUniversal
                     ? selectedAccount.othersWalletAccountId === item.id
                     : selectedAccount.indexedAccountId === item.id;
                 })(),
@@ -512,58 +501,60 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
           section,
         }: {
           section: IAccountSelectorAccountsListSectionData;
-        }) => (
-          <ListItem
-            onPress={async () => {
-              if (isOthers) {
-                if (section.walletId === WALLET_TYPE_WATCHING) {
-                  handleImportWatchingAccount();
+        }) =>
+          isEditableRouteParams ? (
+            <ListItem
+              onPress={async () => {
+                if (isOthersUniversal) {
+                  if (section.walletId === WALLET_TYPE_WATCHING) {
+                    handleImportWatchingAccount();
+                  }
+                  if (section.walletId === WALLET_TYPE_IMPORTED) {
+                    handleImportPrivatekeyAccount();
+                  }
+                  if (section.walletId === WALLET_TYPE_EXTERNAL) {
+                    handleAddExternalAccount();
+                  }
+                  return;
                 }
-                if (section.walletId === WALLET_TYPE_IMPORTED) {
-                  handleImportPrivatekeyAccount();
+                console.log(section);
+                if (!focusedWalletInfo) {
+                  return;
                 }
-                if (section.walletId === WALLET_TYPE_EXTERNAL) {
-                  handleAddExternalAccount();
-                }
-                return;
-              }
-              console.log(section);
-              if (!focusedWalletInfo) {
-                return;
-              }
-              const c = await serviceAccount.addHDNextIndexedAccount({
-                walletId: section.walletId,
-              });
-              console.log('addHDNextIndexedAccount>>>', c);
-              void actions.current.updateSelectedAccount({
-                num,
-                builder: (v) => ({
-                  ...v,
-                  walletId: focusedWalletInfo?.wallet?.id,
-                  othersWalletAccountId: undefined,
-                  indexedAccountId: c.indexedAccountId,
-                }),
-              });
-            }}
-          >
-            <Stack
-              bg="$bgStrong"
-              borderRadius="$2"
-              p="$2"
-              borderCurve="continuous"
-            >
-              <Icon name="PlusSmallOutline" />
-            </Stack>
-            {/* Add account */}
-            <ListItem.Text
-              userSelect="none"
-              primary="Add Account"
-              primaryTextProps={{
-                color: '$textSubdued',
+                const c = await serviceAccount.addHDNextIndexedAccount({
+                  walletId: section.walletId,
+                });
+                console.log('addHDNextIndexedAccount>>>', c);
+                void actions.current.updateSelectedAccount({
+                  num,
+                  builder: (v) => ({
+                    ...v,
+                    walletId: focusedWalletInfo?.wallet?.id,
+                    othersWalletAccountId: undefined,
+                    indexedAccountId: c.indexedAccountId,
+                  }),
+                });
               }}
-            />
-          </ListItem>
-        )}
+            >
+              <Stack
+                bg="$bgStrong"
+                borderRadius="$2"
+                p="$2"
+                borderCurve="continuous"
+              >
+                <Icon name="PlusSmallOutline" />
+              </Stack>
+              {/* Add account */}
+              <ListItem.Text
+                userSelect="none"
+                primary="Add Account"
+                primaryTextProps={{
+                  color: '$textSubdued',
+                }}
+              />
+            </ListItem>
+          ) : null
+        }
       />
     </Stack>
   );

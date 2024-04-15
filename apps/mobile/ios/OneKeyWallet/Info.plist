@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
@@ -36,6 +34,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NFCReaderUsageDescription</key>
@@ -93,6 +93,23 @@
 		<string>A000000151000000</string>
 		<string>D156000132834001</string>
 		<string>D1560001328300424C4400006E666301</string>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>metamask</string>
+		<string>rainbow</string>
+		<string>safe</string>
+		<string>zerion</string>
+		<string>trust</string>
+		<string>tpoutside</string>
+		<string>imtokenv2</string>
+		<string>phantom</string>
+		<string>coinbase</string>
+
+		<string>fireblocks-wc</string>
+		<string>bitkeep</string>
+		<string>oneinch</string>
+		<string>itms-apps</string>
 	</array>
 </dict>
 </plist>

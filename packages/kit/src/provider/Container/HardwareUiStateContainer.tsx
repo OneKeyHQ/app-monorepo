@@ -55,6 +55,7 @@ function HardwareSingletonDialogCmp(
     content.current = <CommonDeviceLoading />;
   }
 
+  // EnterPin on Device
   if (action === EHardwareUiStateAction.EnterPinOnDevice) {
     title.current = 'Enter PIN on Device';
     content.current = <EnterPinOnDevice />;
@@ -89,6 +90,7 @@ function HardwareSingletonDialogCmp(
     title.current = 'Enter Passphrase';
     content.current = (
       <EnterPhase
+        isSingleInput={!!state?.payload?.passphraseState}
         onConfirm={async ({ passphrase }) => {
           await serviceHardware.sendPassphraseToDevice({
             passphrase,
@@ -111,7 +113,7 @@ function HardwareSingletonDialogCmp(
   const shouldEnterPinOnDevice =
     action === EHardwareUiStateAction.REQUEST_PIN &&
     !state?.payload?.supportInputPinOnSoftware;
-  // || settings.enterPinOnDevice enabled on
+
   useEffect(() => {
     if (shouldEnterPinOnDevice) {
       void serviceHardware.showEnterPinOnDeviceDialog({

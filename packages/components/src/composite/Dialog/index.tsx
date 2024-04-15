@@ -27,6 +27,7 @@ import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
+import { renderToContainer } from './renderToContainer';
 
 import type {
   IDialogCancelProps,
@@ -57,6 +58,7 @@ function DialogFrame({
   onClose,
   title,
   icon,
+  modal,
   description,
   renderContent,
   showFooter = true,
@@ -235,6 +237,7 @@ function DialogFrame({
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
+          zIndex={sheetProps?.zIndex}
         />
         <Sheet.Frame
           unstyled
@@ -255,6 +258,7 @@ function DialogFrame({
   return (
     <TMDialog
       open={open}
+      modal={modal}
       // the native dismissOnOverlayPress used on native side,
       //  so it needs to assign a value to onOpenChange.
       onOpenChange={platformEnv.isNative ? handleOpenChange : undefined}
@@ -269,6 +273,7 @@ function DialogFrame({
             bottom={0}
             alignItems="center"
             justifyContent="center"
+            zIndex={floatingPanelProps?.zIndex}
           >
             <TMDialog.Overlay
               key="overlay"
@@ -282,6 +287,7 @@ function DialogFrame({
                 opacity: 0,
               }}
               onPress={handleBackdropPress}
+              zIndex={floatingPanelProps?.zIndex}
             />
             {
               /* fix missing title warnings in html dialog element on Web */
@@ -394,6 +400,7 @@ export const DialogContainer = forwardRef<
 function dialogShow({
   onClose,
   dialogContainer,
+  portalContainer,
   ...props
 }: IDialogShowProps & {
   dialogContainer?: (o: {
@@ -497,7 +504,9 @@ function dialogShow({
   })();
 
   portalRef = {
-    current: Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
+    current: portalContainer
+      ? renderToContainer(portalContainer, element)
+      : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
     close: async (extra?: { flag?: string }) =>

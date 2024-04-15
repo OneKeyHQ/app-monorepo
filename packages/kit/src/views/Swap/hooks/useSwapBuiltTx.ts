@@ -10,7 +10,10 @@ import type {
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapApproveTransactionStatus,
+  ESwapDirectionType,
+} from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -25,8 +28,8 @@ import {
   useSwapSlippagePercentageAtom,
 } from '../../../states/jotai/contexts/swap';
 
+import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
-import { useSwapAddressInfo } from './uswSwapAccount';
 
 export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -98,7 +101,10 @@ export function useSwapBuildTx() {
 
   const cancelApproveTx = useCallback(() => {
     handleTxFail();
-    setSwapApprovingTransaction(undefined);
+    setSwapApprovingTransaction((pre) => {
+      if (!pre) return pre;
+      return { ...pre, status: ESwapApproveTransactionStatus.CANCEL };
+    });
   }, [handleTxFail, setSwapApprovingTransaction]);
 
   const wrappedTx = useCallback(async () => {
@@ -170,34 +176,39 @@ export function useSwapBuildTx() {
         swapFromAddressInfo.accountInfo?.account?.id &&
         swapFromAddressInfo.address
       ) {
-        setSwapBuildTxFetching(true);
-        const approveInfo: IApproveInfo = {
-          owner: swapFromAddressInfo.address,
-          spender: allowanceInfo.allowanceTarget,
-          amount,
-          isMax,
-          tokenInfo: {
-            ...fromToken,
-            address: fromToken.contractAddress,
-            name: fromToken.name ?? fromToken.symbol,
-          },
-        };
-        if (!onApproveSuccess) {
-          setSwapApprovingTransaction({
-            provider: selectQuote.info.provider,
-            fromToken,
-            toToken,
+        try {
+          setSwapBuildTxFetching(true);
+          const approveInfo: IApproveInfo = {
+            owner: swapFromAddressInfo.address,
+            spender: allowanceInfo.allowanceTarget,
             amount,
-            useAddress: swapFromAddressInfo.address,
-            spenderAddress: allowanceInfo.allowanceTarget,
+            isMax,
+            tokenInfo: {
+              ...fromToken,
+              address: fromToken.contractAddress,
+              name: fromToken.name ?? fromToken.symbol,
+            },
+          };
+          if (!onApproveSuccess) {
+            setSwapApprovingTransaction({
+              provider: selectQuote.info.provider,
+              fromToken,
+              toToken,
+              amount,
+              useAddress: swapFromAddressInfo.address,
+              spenderAddress: allowanceInfo.allowanceTarget,
+              status: ESwapApproveTransactionStatus.PENDING,
+            });
+          }
+          await navigationToSendConfirm({
+            approveInfo,
+            onSuccess: onApproveSuccess || handleApproveTxSuccess,
+            onFail: cancelApproveTx,
+            onCancel: cancelApproveTx,
           });
+        } catch (e) {
+          setSwapBuildTxFetching(false);
         }
-        await navigationToSendConfirm({
-          approveInfo,
-          onSuccess: onApproveSuccess || handleApproveTxSuccess,
-          onFail: cancelApproveTx,
-          onCancel: cancelApproveTx,
-        });
       }
     },
     [
@@ -227,66 +238,70 @@ export function useSwapBuildTx() {
       swapToAddressInfo.address &&
       swapFromAddressInfo.networkId
     ) {
-      setSwapBuildTxFetching(true);
-      const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
-        fromToken,
-        toToken,
-        toTokenAmount: selectQuote.toAmount,
-        fromTokenAmount,
-        slippagePercentage: slippagePercentage.value,
-        receivingAddress: swapToAddressInfo.address,
-        userAddress: swapFromAddressInfo.address,
-        provider: selectQuote.info.provider,
-      });
-      if (res) {
-        let transferInfo: ITransferInfo | undefined;
-        let encodedTx: IEncodedTx | undefined;
-        if (res?.swftOrder) {
-          encodedTx = undefined;
-          // swft order
-          transferInfo = {
-            from: swapFromAddressInfo.address,
-            tokenInfo: {
-              ...fromToken,
-              address: fromToken.contractAddress,
-              name: fromToken.name ?? fromToken.symbol,
-            },
-            to: res.swftOrder.platformAddr,
-            amount: res.swftOrder.depositCoinAmt,
-          };
-        }
-        if (res?.tx) {
-          transferInfo = undefined;
-          const valueHex = toBigIntHex(new BigNumber(res.tx.value));
-          encodedTx = {
-            ...res?.tx,
-            value: valueHex,
-            from: swapFromAddressInfo.address,
-          };
-        }
-        const swapInfo = {
-          sender: {
-            amount: fromTokenAmount,
-            token: fromToken,
-          },
-          receiver: {
-            amount: selectQuote.toAmount,
-            token: toToken,
-          },
-          accountAddress: swapFromAddressInfo.address,
+      try {
+        setSwapBuildTxFetching(true);
+        const res = await backgroundApiProxy.serviceSwap.fetchBuildTx({
+          fromToken,
+          toToken,
+          toTokenAmount: selectQuote.toAmount,
+          fromTokenAmount,
+          slippagePercentage: slippagePercentage.value,
           receivingAddress: swapToAddressInfo.address,
-          swapBuildResData: res,
-        };
-
-        await navigationToSendConfirm({
-          transfersInfo: transferInfo ? [transferInfo] : undefined,
-          encodedTx,
-          swapInfo,
-          onSuccess: handleBuildTxSuccess,
-          onFail: handleTxFail,
-          onCancel: handleTxFail,
+          userAddress: swapFromAddressInfo.address,
+          provider: selectQuote.info.provider,
         });
-      } else {
+        if (res) {
+          let transferInfo: ITransferInfo | undefined;
+          let encodedTx: IEncodedTx | undefined;
+          if (res?.swftOrder) {
+            encodedTx = undefined;
+            // swft order
+            transferInfo = {
+              from: swapFromAddressInfo.address,
+              tokenInfo: {
+                ...fromToken,
+                address: fromToken.contractAddress,
+                name: fromToken.name ?? fromToken.symbol,
+              },
+              to: res.swftOrder.platformAddr,
+              amount: res.swftOrder.depositCoinAmt,
+            };
+          }
+          if (res?.tx) {
+            transferInfo = undefined;
+            const valueHex = toBigIntHex(new BigNumber(res.tx.value));
+            encodedTx = {
+              ...res?.tx,
+              value: valueHex,
+              from: swapFromAddressInfo.address,
+            };
+          }
+          const swapInfo = {
+            sender: {
+              amount: fromTokenAmount,
+              token: fromToken,
+            },
+            receiver: {
+              amount: selectQuote.toAmount,
+              token: toToken,
+            },
+            accountAddress: swapFromAddressInfo.address,
+            receivingAddress: swapToAddressInfo.address,
+            swapBuildResData: res,
+          };
+
+          await navigationToSendConfirm({
+            transfersInfo: transferInfo ? [transferInfo] : undefined,
+            encodedTx,
+            swapInfo,
+            onSuccess: handleBuildTxSuccess,
+            onFail: handleTxFail,
+            onCancel: handleTxFail,
+          });
+        } else {
+          setSwapBuildTxFetching(false);
+        }
+      } catch (e) {
         setSwapBuildTxFetching(false);
       }
     }

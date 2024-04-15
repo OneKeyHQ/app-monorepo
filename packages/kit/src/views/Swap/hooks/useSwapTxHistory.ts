@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { debounce } from 'lodash';
 
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EProtocolOfExchange,
   ESwapTxHistoryStatus,
@@ -14,7 +15,6 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { ETabRoutes } from '../../../routes/Tab/type';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -101,7 +101,7 @@ export function useSwapTxHistoryStateSyncInterval() {
                 : swapTxHistory.baseInfo.toAmount,
             },
           });
-        }, 1000 * 5);
+        }, 1000 * 3);
         internalRef.current[swapTxHistory.txInfo.txId] = interval;
       });
     }, 100),
@@ -186,6 +186,8 @@ export function useSwapTxHistoryActions() {
           swapInfo: {
             instantRate: swapTxInfo.swapBuildResData.result.instantRate ?? '0',
             provider: swapTxInfo.swapBuildResData.result.info,
+            socketBridgeScanUrl:
+              swapTxInfo.swapBuildResData.socketBridgeScanUrl,
             oneKeyFee:
               swapTxInfo.swapBuildResData.result.fee?.percentageFee ?? 0,
           },

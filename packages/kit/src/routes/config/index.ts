@@ -17,14 +17,14 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
+import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
+import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 
 import { rootRouter } from '../router';
 
-import { buildAllowList } from './allowList';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 
-import type { IScreenPathConfig } from './allowList';
 import type { LinkingOptions } from '@react-navigation/native';
 
 const routerPrefix = createURL('/');
@@ -128,19 +128,6 @@ export const useRouterConfig = () => {
   return useMemo(() => {
     // Execute it before component mount.
     registerDeepLinking();
-
-    // Fix the issue where the path route is automatically changed to a window.location.hash value
-    //  when the extension is initialized
-    if (platformEnv.isExtension) {
-      setTimeout(() => {
-        const { href, hash } = window.location;
-        if (!href.includes(extHtmlFileUrl)) {
-          window.location.replace(
-            href.replace(`/${hash.slice(1)}#`, `${extHtmlFileUrl}#`),
-          );
-        }
-      }, 500);
-    }
     return {
       routerConfig: rootRouter,
       containerProps: {

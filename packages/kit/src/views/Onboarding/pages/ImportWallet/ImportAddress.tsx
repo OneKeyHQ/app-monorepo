@@ -1,81 +1,77 @@
-import { Form, Input, Page, useForm } from '@onekeyhq/components';
+import { useMemo } from 'react';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type { IValidateGeneralInputParams } from '@onekeyhq/kit-bg/src/vaults/types';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Tutorials } from '../../components';
 
+import {
+  ImportSingleChainBase,
+  fixInputImportSingleChain,
+} from './ImportSingleChainBase';
+
 function ImportAddress() {
-  const form = useForm({
-    values: {
-      networkId: 'evm--1',
+  const validationParams = useMemo<IValidateGeneralInputParams>(
+    () => ({
       input: '',
-    },
-  });
-  const navigation = useAppNavigation();
+      validateAddress: true,
+      validateXpub: true,
+    }),
+    [],
+  );
 
   const actions = useAccountSelectorActions();
+  const navigation = useAppNavigation();
 
   return (
-    <Page>
-      <Page.Header title="Add to Watchlist" />
-      <Page.Body px="$5">
-        <Form form={form}>
-          <Form.Field label="Network" name="networkId">
-            <ControlledNetworkSelectorTrigger />
-          </Form.Field>
-          <Form.Field label="Address" name="input">
-            <Input
-              placeholder="Address or domain name"
-              size="large"
-              addOns={[
-                {
-                  iconName: 'ScanOutline',
-                  onPress: () => console.log('scan'),
-                },
-              ]}
-              testID="address"
-            />
-          </Form.Field>
-        </Form>
-        <Tutorials
-          list={[
-            {
-              title: 'What is a watch-only account?',
-              description:
-                "Watch-only account in OneKey allows monitoring of a specific address but cannot send or receive funds. It's useful for tracking transactions or monitoring holdings.",
-            },
-          ]}
-        />
-      </Page.Body>
-      <Page.Footer
-        onConfirm={async () => {
-          const values = form.getValues();
-          const r = await backgroundApiProxy.serviceAccount.addWatchingAccount({
-            input: values.input,
-            networkId: values.networkId,
-          });
-          console.log(r, values);
+    <ImportSingleChainBase
+      title="Add to Watchlist"
+      inputLabel="Address"
+      inputPlaceholder="Address or domain name"
+      inputTestID="address"
+      invalidMessage="Invalid address, domain or xpub"
+      validationParams={validationParams}
+      onConfirm={async (form) => {
+        const values = form.getValues();
+        if (!values.input || !values.networkId) {
+          return;
+        }
+        const r = await backgroundApiProxy.serviceAccount.addWatchingAccount({
+          input: fixInputImportSingleChain(values.input),
+          networkId: values.networkId,
+          deriveType: values.deriveType,
+        });
+        console.log(r, values);
 
-          void actions.current.updateSelectedAccount({
-            num: 0,
-            builder: (v) => ({
-              ...v,
-              networkId: values.networkId,
-              focusedWallet: '$$others',
-              walletId: WALLET_TYPE_WATCHING,
-              othersWalletAccountId: r.accounts[0].id,
-              indexedAccountId: undefined,
-            }),
-          });
-          navigation.popStack();
-        }}
+        void actions.current.updateSelectedAccount({
+          num: 0,
+          builder: (v) => ({
+            ...v,
+            networkId: values.networkId,
+            focusedWallet: WALLET_TYPE_WATCHING,
+            walletId: WALLET_TYPE_WATCHING,
+            othersWalletAccountId: r.accounts[0].id,
+            indexedAccountId: undefined,
+          }),
+        });
+        navigation.popStack();
+      }}
+    >
+      <Tutorials
+        list={[
+          {
+            title: 'What is a watch-only account?',
+            description:
+              "Watch-only account in OneKey allows monitoring of a specific address but cannot send or receive funds. It's useful for tracking transactions or monitoring holdings.",
+          },
+        ]}
       />
-    </Page>
+    </ImportSingleChainBase>
   );
 }
 

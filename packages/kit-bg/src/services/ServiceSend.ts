@@ -25,8 +25,6 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
-import type ServiceNFT from './ServiceNFT';
-import type ServiceToken from './ServiceToken';
 import type {
   IBatchSignTransactionParamsBase,
   IBroadcastTransactionParams,
@@ -184,10 +182,8 @@ class ServiceSend extends ServiceBase {
   ): Promise<IDecodedTx> {
     const { networkId, accountId, unsignedTx, feeInfo } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    const buildTxHelper = await this.getBuildTxHelper();
     const decodedTx = await vault.buildDecodedTx({
       unsignedTx,
-      ...buildTxHelper,
     });
 
     if (feeInfo) {
@@ -324,6 +320,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async batchSignAndSendTransaction(
     params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
   ) {
@@ -466,21 +463,6 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
-  public getBuildTxHelper(): Promise<{
-    getToken: ServiceToken['getToken'];
-    getNFT: ServiceNFT['getNFT'];
-  }> {
-    return Promise.resolve({
-      getToken: this.backgroundApi.serviceToken.getToken.bind(
-        this.backgroundApi.serviceToken,
-      ),
-      getNFT: this.backgroundApi.serviceNFT.getNFT.bind(
-        this.backgroundApi.serviceNFT,
-      ),
-    });
-  }
-
-  @backgroundMethod()
   async prepareSendConfirmUnsignedTx(
     params: ISendTxBaseParams & IBuildUnsignedTxParams,
   ) {
@@ -544,6 +526,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async signMessage({
     unsignedMessage,
     networkId,
@@ -560,6 +543,7 @@ class ServiceSend extends ServiceBase {
 
     let validUnsignedMessage = unsignedMessage;
     if (unsignedMessage) {
+      // TODO fix message format and params in vault
       validUnsignedMessage = getValidUnsignedMessage(unsignedMessage);
     }
 
@@ -568,9 +552,10 @@ class ServiceSend extends ServiceBase {
     }
 
     const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify(
-        EReasonForNeedPassword.CreateTransaction,
-      );
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.CreateTransaction,
+      });
     const [signedMessage] = await vault.keyring.signMessage({
       messages: [validUnsignedMessage],
       password,

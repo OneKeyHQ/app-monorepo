@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -7,6 +8,7 @@ import {
 } from 'react';
 import type { CompositionEventHandler, ForwardedRef, RefObject } from 'react';
 
+import { InteractionManager } from 'react-native';
 import {
   Group,
   Input as TMInput,
@@ -28,7 +30,9 @@ import type {
   HostComponent,
   MeasureLayoutOnSuccessCallback,
   MeasureOnSuccessCallback,
+  NativeSyntheticEvent,
   TextInput,
+  TextInputFocusEventData,
 } from 'react-native';
 import type { GetProps } from 'tamagui';
 
@@ -119,6 +123,9 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
     containerProps,
     readonly,
     autoFocus,
+    selectTextOnFocus,
+    onFocus,
+    value,
     ...props
   } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -155,6 +162,27 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
   }));
 
   const selectionColor = useSelectionColor();
+
+  const valueRef = useRef(value);
+  if (valueRef.current !== value) {
+    valueRef.current = value;
+  }
+
+  // workaround for selectTextOnFocus={true} not working on Native App
+  const handleFocus = useCallback(
+    async (e: NativeSyntheticEvent<TextInputFocusEventData>) => {
+      onFocus?.(e);
+      if (platformEnv.isNative && selectTextOnFocus) {
+        const { currentTarget } = e;
+        await InteractionManager.runAfterInteractions(() => {
+          currentTarget.setNativeProps({
+            selection: { start: 0, end: valueRef.current?.length || 0 },
+          });
+        });
+      }
+    },
+    [onFocus, selectTextOnFocus],
+  );
 
   return (
     <Group
@@ -209,6 +237,9 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
           keyboardAppearance={/dark/.test(themeName) ? 'dark' : 'light'}
           borderCurve="continuous"
           autoFocus={reloadAutoFocus}
+          value={value}
+          onFocus={handleFocus}
+          selectTextOnFocus={selectTextOnFocus}
           {...readOnlyStyle}
           {...props}
         />

@@ -1,3 +1,5 @@
+import type { IWalletConnectConnectToWalletParams } from '../walletConnect/types';
+
 export enum EOnboardingPages {
   GetStarted = 'GetStarted',
   // connect hardware wallet
@@ -18,6 +20,7 @@ export enum EOnboardingPages {
 
   // connect 3rd-party wallet
   ConnectWallet = 'ConnectWallet',
+  ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
 
   // finalize wallet setup
   FinalizeWalletSetup = 'FinalizeWalletSetup',
@@ -31,10 +34,17 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ActivateDevice]: undefined;
 
   // create wallet
-  [EOnboardingPages.BeforeShowRecoveryPhrase]: undefined;
-  [EOnboardingPages.RecoveryPhrase]: undefined;
+  [EOnboardingPages.BeforeShowRecoveryPhrase]: {
+    mnemonic?: string;
+    isBackup?: boolean;
+  };
+  [EOnboardingPages.RecoveryPhrase]: {
+    mnemonic?: string;
+    isBackup?: boolean;
+  };
   [EOnboardingPages.VerifyRecoverPhrase]: {
     mnemonic: string;
+    isBackup?: boolean;
   };
 
   // import wallet
@@ -44,7 +54,10 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ImportAddress]: undefined;
 
   // connect 3rd-party wallet
-  [EOnboardingPages.ConnectWallet]: undefined;
+  [EOnboardingPages.ConnectWallet]: IWalletConnectConnectToWalletParams & {
+    title: string;
+  };
+  [EOnboardingPages.ConnectWalletSelectNetworks]: undefined;
 
   // finalize wallet setup
   [EOnboardingPages.FinalizeWalletSetup]: {

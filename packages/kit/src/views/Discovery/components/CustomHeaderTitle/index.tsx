@@ -7,13 +7,27 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
 interface ICustomHeaderTitleProps {
-  handleSearchBarPress: () => void;
+  handleSearchBarPress: (url: string) => void;
 }
+
+const mdHeaderStyle = platformEnv.isNative
+  ? {
+      flex: 1,
+    }
+  : {
+      // TODO: should path react-navigation Header Element on Web
+      // quick fix react-navigation header on md size of web
+      width: 'calc(100vw - 40px)',
+      flex: 1,
+      mt: '$4',
+    };
+
 function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   const intl = useIntl();
   const media = useMedia();
@@ -30,16 +44,14 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
       py="$1.5"
       bg="$bgStrong"
       borderRadius="$3"
-      $md={{
-        flex: 1,
-      }}
+      $md={mdHeaderStyle}
       hoverStyle={{
         bg: '$bgHover',
       }}
       pressStyle={{
         bg: '$bgActive',
       }}
-      onPress={handleSearchBarPress}
+      onPress={() => handleSearchBarPress(tab?.url ?? '')}
       borderCurve="continuous"
     >
       <Icon

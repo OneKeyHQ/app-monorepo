@@ -95,8 +95,11 @@ function buildMergedSelectedAccount({
         networkId: mergedByData.networkId || '',
       })
     ) {
-      result.networkId = mergedByData.networkId;
-      result.deriveType = mergedByData.deriveType;
+      // TODO why should change networkId and driveType? check new network compatibility?
+      // - swap from ETH token to BTC token, select EVM privateKey account, should not change home network and swapFrom network
+      // ----------------------------------------------
+      // result.networkId = mergedByData.networkId;
+      // result.deriveType = mergedByData.deriveType;
     }
   }
 

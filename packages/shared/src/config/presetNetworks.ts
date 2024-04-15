@@ -1956,7 +1956,87 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
-  const chainsOnlyEnabledInDev = [osmosis, cosmoshub, tatom];
+  const lightning = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'lightning',
+    'decimals': 0,
+    'extensions': {
+      'position': 2,
+    },
+    'id': 'lightning--0',
+    'impl': 'lightning',
+    'isTestnet': false,
+    'logoURI': 'https://onekey-asset.com/assets/lnd/lnd.png',
+    'name': 'Lightning Network',
+    'rpcURLs': [
+      {
+        'url': 'https://node.onekey.so/btc',
+      },
+      {
+        'url': 'https://1rpc.io/btc',
+      },
+    ],
+    'shortcode': 'lightning',
+    'shortname': 'Lightning',
+    'symbol': 'sats',
+    'feeMeta': {
+      'code': 'lightning',
+      'decimals': 0,
+      'symbol': 'sats',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'bitcoin',
+        'platform': 'ordinals',
+      },
+    ],
+    'explorers': [],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+  const tlightning = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'tlightning',
+    'decimals': 0,
+    'id': 'tlightning--0',
+    'impl': 'tlightning',
+    'isTestnet': true,
+    'logoURI': 'https://onekey-asset.com/assets/lnd/lnd.png',
+    'name': 'Lightning Network Testnet',
+    'rpcURLs': [],
+    'shortcode': 'tlightning',
+    'shortname': 'LightningTestnet',
+    'symbol': 'sats',
+    'feeMeta': {
+      'code': 'lightning',
+      'decimals': 0,
+      'symbol': 'sats',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'bitcoin',
+      },
+    ],
+    'explorers': [],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const chainsOnlyEnabledInDev = [
+    osmosis,
+    cosmoshub,
+    tatom, // Cosmos Testnet
+    lightning,
+    tlightning,
+  ];
 
   return [
     btc,

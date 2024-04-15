@@ -8,9 +8,12 @@ import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBro
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
+import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 
@@ -60,6 +63,10 @@ export class SimpleDbProxy
     'swapHistory',
   ) as SimpleDbEntitySwapHistory;
 
+  swapConfigs = this._createProxyService(
+    'swapConfigs',
+  ) as SimpleDbEntitySwapConfigs;
+
   localTokens = this._createProxyService(
     'localTokens',
   ) as SimpleDbEntityLocalTokens;
@@ -75,4 +82,12 @@ export class SimpleDbProxy
   riskyTokens = this._createProxyService(
     'riskyTokens',
   ) as SimpleDbEntityRiskyTokens;
+
+  defaultWalletSettings = this._createProxyService(
+    'defaultWalletSettings',
+  ) as SimpleDbEntityDefaultWalletSettings;
+
+  networkSelector = this._createProxyService(
+    'networkSelector',
+  ) as SimpleDbEntityNetworkSelector;
 }

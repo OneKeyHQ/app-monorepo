@@ -10,5 +10,6 @@ export type IClearCacheOnAppState = {
 export enum EReasonForNeedPassword {
   CreateOrRemoveWallet = 'CreateOrRemoveWallet',
   CreateTransaction = 'CreateTransaction',
-  ChangePassword = 'ChangePassword',
+  LightningNetworkAuth = 'LightningNetworkAuth',
+  Security = 'Security',
 }
