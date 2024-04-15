@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,6 +8,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navig
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
@@ -20,6 +21,7 @@ type IThemeValue = 'light' | 'dark' | 'system';
 
 const ThemeListItem = () => {
   const [{ theme }] = useSettingsPersistAtom();
+  const { setFreezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const intl = useIntl();
 
   const options = useMemo<ISelectItem[]>(
@@ -42,9 +44,12 @@ const ThemeListItem = () => {
   );
 
   const onChange = useCallback(
-    async (text: IThemeValue) =>
-      backgroundApiProxy.serviceSetting.setTheme(text),
-    [],
+    async (text: IThemeValue) => {
+      setFreezeOnBlur(false);
+      await backgroundApiProxy.serviceSetting.setTheme(text);
+      setFreezeOnBlur(true);
+    },
+    [setFreezeOnBlur],
   );
 
   return (
