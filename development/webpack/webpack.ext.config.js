@@ -2,6 +2,7 @@ const { merge, mergeWithRules, CustomizeRule } = require('webpack-merge');
 const path = require('path');
 const webpack = require('webpack');
 
+const WebSocket = require('ws');
 const baseConfig = require('./webpack.base.config');
 const analyzerConfig = require('./webpack.analyzer.config');
 const developmentConfig = require('./webpack.development.config');
@@ -27,6 +28,36 @@ function getOutputFolder() {
   // isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser,
   const buildTargetBrowser = TARGET_BROWSER;
   return isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser;
+}
+
+// node create wesocket server via node api
+const wss = new WebSocket.Server({ port: 23121 });
+
+wss.on('connection', () => {
+  console.log('New client connected');
+});
+
+const notifyUpdate = () => {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send('update');
+    }
+  });
+};
+
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      compilation.hooks.finishModules.tap('MyPlugin', (modules) => {
+        modules.forEach((module) => {
+          if (/\/kit-bg\//.test(module.resource)) {
+            console.log(module.resource);
+            notifyUpdate();
+          }
+        });
+      });
+    });
+  }
 }
 
 module.exports = ({
@@ -110,7 +141,6 @@ module.exports = ({
     (isManifestV3 || isManifestV2) && {
       config: {
         name: devUtils.consts.configName.bg,
-        dependencies: [devUtils.consts.configName.ui],
         entry: {
           [devUtils.consts.entry.background]: path.join(
             basePath,
@@ -136,6 +166,7 @@ module.exports = ({
           new webpack.ProvidePlugin({
             process: 'process/browser',
           }),
+          new MyPlugin(),
           // new htmlLazyScript.HtmlLazyScriptPlugin(config),
         ].filter(Boolean);
         return config;

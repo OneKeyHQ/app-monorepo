@@ -10,7 +10,7 @@ import { vaultFactory } from '../vaults/factory';
 import BackgroundApiBase from './BackgroundApiBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
-
+console.log(4455667788)
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
     super();

@@ -150,7 +150,7 @@ const TabDeveloper = () => {
                   navigation.push(ETabDeveloperRoutes.ComponentsGallery);
                 }}
               >
-                Gallery
+                Gallery1244455
               </Button>
             </PartContainer>
 

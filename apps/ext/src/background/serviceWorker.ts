@@ -18,6 +18,18 @@ function disableCacheInBackground() {
   }
 }
 
+if (process.env.NODE_ENV !== 'Production') {
+  new WebSocket('ws://localhost:23121').onmessage = (event) => {
+    console.log('event.data', event.data);
+    if (event.data === 'update') {
+      chrome.tabs.query({ active: true }).then(() => {
+        chrome.runtime.reload()
+        chrome.tabs.reload()
+      })
+    }
+  };
+}
+
 export default {
   disableCacheInBackground,
 };
