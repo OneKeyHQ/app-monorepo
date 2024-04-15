@@ -4,12 +4,11 @@ import BigNumber from 'bignumber.js';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  Icon,
+  Button,
   Page,
   SectionList,
   Select,
   SizableText,
-  XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -143,6 +142,8 @@ const SwapProviderSelectModal = () => {
     <Page>
       <SectionList
         px="$5"
+        pt="$2"
+        pb="$4"
         estimatedItemSize="$10"
         renderItem={renderItem}
         sections={sectionData}
@@ -155,11 +156,16 @@ const SwapProviderSelectModal = () => {
                 onChange={onSelectSortChange}
                 value={providerSort}
                 renderTrigger={({ value, label, placeholder }) => (
-                  <XStack space="$1">
-                    <Icon name="FilterSortSolid" size={20} />
-                    <SizableText>{value ? label : placeholder}</SizableText>
-                    <Icon name="ChevronDownSmallOutline" size={20} />
-                  </XStack>
+                  <Button
+                    alignSelf="flex-start"
+                    variant="tertiary"
+                    icon="FilterSortSolid"
+                    iconAfter="ChevronDownSmallOutline"
+                  >
+                    <SizableText size="$bodyMd">
+                      {value ? label : placeholder}
+                    </SizableText>
+                  </Button>
                 )}
               />
             );

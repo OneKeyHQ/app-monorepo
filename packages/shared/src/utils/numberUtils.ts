@@ -79,20 +79,19 @@ const formatLocalNumber = (
   }
   const decimal = decimalPart ? `.${decimalPart}` : '';
 
+  const formatDecimal = decimal
+    ? appLocale.intl.formatNumber(Number.parseFloat(decimal), {
+        maximumFractionDigits: digits,
+        minimumFractionDigits: digits,
+      })
+    : '';
+
+  const plus = Number(formatDecimal[0] || 0);
+
   const integer = `${
     integerPart === '-0' ? '-' : ''
-  }${appLocale.intl.formatNumber(BigInt(integerPart))}`;
-
-  const result = `${integer}${
-    decimal
-      ? appLocale.intl
-          .formatNumber(Number.parseFloat(decimal), {
-            maximumFractionDigits: digits,
-            minimumFractionDigits: digits,
-          })
-          .slice(1)
-      : ''
-  }`;
+  }${appLocale.intl.formatNumber(BigInt(integerPart) + BigInt(plus))}`;
+  const result = `${integer}${formatDecimal ? formatDecimal.slice(1) : ''}`;
   return keepTrailingZeros ? stripTrailingZero(result) : result;
 };
 
@@ -295,7 +294,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
   const startsNumberIndex = isNegativeNumber ? 1 : 0;
 
   if (invalid) {
-    if (platformEnv.isDev) {
+    if (platformEnv.isDev && !platformEnv.isJest) {
       console.error(
         `fail to format invalid number: ${rawValue}, please check it again`,
       );
