@@ -44,3 +44,14 @@ allprojects {
 def expoCameraMavenPath = new File(["node", "--print", "require.resolve('expo-camera/package.json')"].execute(null, rootDir).text.trim(), "../android/maven")
 allprojects { repositories { maven { url(expoCameraMavenPath) } } }
 // @generated end expo-camera-import
+
+// fix issue:
+// Execution failed for task ':bufgix-react-native-secure-window:compileDebugKotlin'.
+// 'compileDebugJavaWithJavac' task (current target is 17) and 'compileDebugKotlin' task (current target is 11) jvm target compatibility should be set to the same Java version.
+allprojects {
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+        kotlinOptions {
+            jvmTarget = "17"
+        }
+    }
+}

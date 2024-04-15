@@ -77,12 +77,6 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
-      <SectionFieldItem
-        name="enableCopyPasteInOnboardingPage"
-        title="Show Copy/Paste In Onboarding Page"
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
       <SectionPressItem
         title="Clear App Data"
         testID="clear-data-menu"

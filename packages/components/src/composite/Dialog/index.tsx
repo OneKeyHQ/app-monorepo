@@ -62,6 +62,7 @@ function DialogFrame({
   description,
   renderContent,
   showFooter = true,
+  footerProps,
   onConfirm,
   onConfirmText = 'Confirm',
   onCancel,
@@ -203,6 +204,7 @@ function DialogFrame({
       <Footer
         tone={tone}
         showFooter={showFooter}
+        footerProps={footerProps}
         showCancelButton={showCancelButton}
         showConfirmButton={showConfirmButton}
         cancelButtonProps={cancelButtonProps}

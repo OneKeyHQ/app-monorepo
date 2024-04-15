@@ -25,6 +25,7 @@
     "rimraf": "^3"
   },
   "dependencies": {
+    "@bufgix/react-native-secure-window": "0.1.1",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
@@ -58,6 +59,7 @@
     "expo-local-authentication": "13.6.0",
     "expo-localization": "14.5.0",
     "expo-notifications": "0.27.6",
+    "expo-screen-capture": "5.8.1",
     "expo-secure-store": "12.5.0",
     "expo-splash-screen": "0.26.4",
     "expo-status-bar": "~1.6.0",

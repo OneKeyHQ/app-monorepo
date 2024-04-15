@@ -8,8 +8,6 @@ export interface IDevSettings {
   enableTestEndpoint?: boolean;
   // enable dev overlay window
   showDevOverlayWindow?: boolean;
-  // show copy/paste button in onboarding page
-  enableCopyPasteInOnboardingPage?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

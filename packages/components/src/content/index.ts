@@ -12,6 +12,7 @@ export * from './Progress';
 export * from './QRCode';
 export * from './Splash';
 export * from './Divider';
+export * from './SecureView';
 export * from './SheetGrabber';
 export * from './ConfirmHighlighter';
 export * from './DescriptionList';
