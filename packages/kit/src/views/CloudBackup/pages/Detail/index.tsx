@@ -28,6 +28,7 @@ import type {
   ECloudBackupRoutes,
   ICloudBackupParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { showDeleteBackupDialog } from '../../components/DeleteBackupDialog';
@@ -191,6 +192,8 @@ export default function Detail() {
       return;
     }
     setSubmitLoading(true);
+    const { isOnboardingDone } =
+      await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
 
     let result = await handlerImportFromPassword();
     if (result === ERestoreResult.WRONG_PASSWORD) {
@@ -210,6 +213,9 @@ export default function Detail() {
       });
       setSubmitLoading(false);
       return;
+    }
+    if (!isOnboardingDone) {
+      navigation.navigate(ERootRoutes.Main);
     }
     setSubmitLoading(false);
     Toast.success({

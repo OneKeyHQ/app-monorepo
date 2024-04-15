@@ -1,4 +1,4 @@
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -14,5 +14,12 @@ export async function checkBackupEntryStatus() {
     });
     throw new Error('cloud backup is not available');
   }
-  await backgroundApiProxy.serviceCloudBackup.loginIfNeeded(true);
+  try {
+    await backgroundApiProxy.serviceCloudBackup.loginIfNeeded(true);
+  } catch (e) {
+    Toast.error({
+      title: `google auth failed ${e}`,
+    });
+    throw e;
+  }
 }
