@@ -88,6 +88,18 @@ function DesktopCustomTabBar() {
     [result?.pinnedTabs],
   );
 
+  // scroll to bottom when new tab pinned
+  const pinnedTabsScrollViewRef = useRef<RNScrollView>(null);
+  const previousPinnedTabsLength = usePrevious(pinnedData?.length);
+  useEffect(() => {
+    if (
+      previousPinnedTabsLength &&
+      pinnedData?.length > previousPinnedTabsLength
+    ) {
+      pinnedTabsScrollViewRef.current?.scrollToEnd({ animated: false });
+    }
+  }, [pinnedData?.length, previousPinnedTabsLength, tabs.length]);
+
   // scroll to top when new tab is added
   const scrollViewRef = useRef<RNScrollView>(null);
   const previousTabsLength = usePrevious(tabs?.length);
@@ -187,11 +199,6 @@ function DesktopCustomTabBar() {
   }, []);
 
   const pinDataTabsHeight = pinnedData.length * ITEM_HEIGHT;
-  console.log(
-    pinDataTabsHeight,
-    pinContainerHeight,
-    pinContainerHeight + ITEM_HEIGHT / 2 - (pinContainerHeight % ITEM_HEIGHT),
-  );
   return (
     <Stack flex={1} onLayout={handleLayout}>
       <HandleRebuildBrowserData />
@@ -205,7 +212,7 @@ function DesktopCustomTabBar() {
             : pinDataTabsHeight
         }
       >
-        <ScrollView flex={1}>
+        <ScrollView flex={1} ref={pinnedTabsScrollViewRef}>
           {pinnedData.map((t) => (
             <DesktopCustomTabBarItem
               id={t.id}
