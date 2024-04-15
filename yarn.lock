@@ -6331,7 +6331,7 @@ __metadata:
   peerDependenciesMeta:
     expo:
       optional: true
-  checksum: 342bbbedbd2be3098cbc652779254bac395f13a261745dfc2092fd09d4dae1c47242023da1e80fdffb119778110abb2b6b22245291d7c522a15c4aee151c7ff5
+  checksum: 10/342bbbedbd2be3098cbc652779254bac395f13a261745dfc2092fd09d4dae1c47242023da1e80fdffb119778110abb2b6b22245291d7c522a15c4aee151c7ff5
   languageName: node
   linkType: hard
 
@@ -25755,7 +25755,7 @@ __metadata:
 "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs#cba878df6df939e67f326f9381232f5c5a6f9c49":
   version: 2.6.0
   resolution: "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs.git#commit=cba878df6df939e67f326f9381232f5c5a6f9c49"
-  checksum: 54cb4ab2402470e3f0d0c3511d3d84d0d8d9d5a516410a0e78f55b87fe8e8736998ce8f95144961dd6f626b2ee9a28cb0da173b2f48e96028a2b3d067a4e99be
+  checksum: 10/54cb4ab2402470e3f0d0c3511d3d84d0d8d9d5a516410a0e78f55b87fe8e8736998ce8f95144961dd6f626b2ee9a28cb0da173b2f48e96028a2b3d067a4e99be
   languageName: node
   linkType: hard
 

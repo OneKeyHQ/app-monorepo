@@ -50,7 +50,7 @@ const willRemoveList = metaDataList.filter(
 );
 
 describe('filterWillRemoveBackupList', () => {
-  it('should calculate correct willRemoveBackupList', async () => {
+  it('should calculate willRemoveBackupList correctly', async () => {
     expect(
       filterWillRemoveBackupList(metaDataList as IMetaDataObject[]),
     ).toEqual(willRemoveList);
