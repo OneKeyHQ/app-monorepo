@@ -1,7 +1,6 @@
 import { useOnRouterChange } from '@onekeyhq/components';
 import { trackPage } from '@onekeyhq/shared/src/modules3rdParty/mixpanel';
-
-import { ETabHomeRoutes } from '../../../views/Home/router';
+import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { NavigationState, PartialState } from '@react-navigation/routers';
 
