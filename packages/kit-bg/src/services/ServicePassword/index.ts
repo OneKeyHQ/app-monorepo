@@ -436,7 +436,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async rejectPasswordPromptDialog(
     promiseId: number,
-    error: { message: string },
+    error?: { message: string },
   ) {
     void this.backgroundApi.servicePromise.rejectCallback({
       id: promiseId,
