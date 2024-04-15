@@ -28,7 +28,7 @@ export async function isAvailable(): Promise<boolean> {
 async function checkInternet() {
   const result = await axios
     .head('https://www.googleapis.com/auth/drive.file', {
-      timeout: 100,
+      timeout: 1000,
     })
     .then(() => true)
     .catch(() => false);
