@@ -10,7 +10,7 @@ export function ImageNull({ onLoadStart, onLoadEnd, onError }: IImageProps) {
     setTimeout(() => {
       onError?.(new Error('image source is empty') as any);
       onLoadEnd?.();
-    }, 50);
+    }, 0);
   }, [onError, onLoadEnd, onLoadStart]);
   return null;
 }

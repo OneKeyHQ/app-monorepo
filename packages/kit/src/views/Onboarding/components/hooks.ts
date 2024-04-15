@@ -1,20 +1,11 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
 import { InteractionManager, Keyboard } from 'react-native';
 
 import { Toast, type useForm, useKeyboardEvent } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-export const useShowCopyPasteButton = () => {
-  const [devSetting] = useDevSettingsPersistAtom();
-  return (
-    platformEnv.isDev ||
-    (devSetting.enabled && devSetting.settings?.enableCopyPasteInOnboardingPage)
-  );
-};
 
 export const useSearchWords = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -115,9 +106,6 @@ export const useSuggestion = (
       if (!value) {
         resetSuggestions();
       }
-      if (value.length > 4) {
-        Toast.message({ title: 'Max 4 chars' });
-      }
       const text = value.toLowerCase().trim().slice(0, 4);
       const words = fetchSuggestions(text);
       openStatusRef.current = words.length > 0;
@@ -205,16 +193,56 @@ export const useSuggestion = (
     },
     [checkIsValid, selectInputIndex],
   );
-  return {
-    suggestions,
-    onInputFocus,
-    onInputBlur,
-    suggestionsRef,
-    updateInputValue: updateInputValueWithLock,
-    openStatusRef,
-    onInputChange,
-    selectInputIndex,
-    focusNextInput,
-    closePopover: resetSuggestions,
-  };
+
+  const onPasteMnemonic = useCallback(
+    (value: string) => {
+      if (value.length > 4) {
+        const arrays = value.split(' ');
+        if (arrays.length === phraseLength) {
+          setTimeout(() => {
+            form.reset(
+              arrays.reduce((prev, next, index) => {
+                prev[`phrase${index + 1}`] = next;
+                return prev;
+              }, {} as Record<`phrase${number}`, string>),
+            );
+            resetSuggestions();
+          }, 10);
+          return true;
+        }
+        Toast.message({ title: 'Max 4 chars' });
+        return false;
+      }
+      return false;
+    },
+    [form, phraseLength, resetSuggestions],
+  );
+
+  return useMemo(
+    () => ({
+      suggestions,
+      onInputFocus,
+      onInputBlur,
+      onPasteMnemonic,
+      suggestionsRef,
+      updateInputValue: updateInputValueWithLock,
+      openStatusRef,
+      onInputChange,
+      selectInputIndex,
+      focusNextInput,
+      closePopover: resetSuggestions,
+    }),
+    [
+      focusNextInput,
+      onInputBlur,
+      onInputChange,
+      onInputFocus,
+      onPasteMnemonic,
+      resetSuggestions,
+      selectInputIndex,
+      suggestions,
+      suggestionsRef,
+      updateInputValueWithLock,
+    ],
+  );
 };

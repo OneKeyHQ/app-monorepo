@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   ISwapCheckWarningDef,
   ISwapState,
@@ -120,7 +121,11 @@ export function useSwapActionState() {
           ? `Approve Unlimited ${fromToken?.symbol ?? ''} to ${
               quoteCurrentSelect?.info.providerName ?? ''
             }`
-          : `Approve  ${fromTokenAmount} ${fromToken?.symbol ?? ''} to ${
+          : `Approve  ${
+              numberFormat(fromTokenAmount, {
+                formatter: 'balance',
+              }) as string
+            } ${fromToken?.symbol ?? ''} to ${
               quoteCurrentSelect?.info.providerName ?? ''
             }`;
       }

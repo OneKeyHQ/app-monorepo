@@ -1,19 +1,29 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ListView, Page } from '@onekeyhq/components';
+import {
+  Button,
+  Page,
+  SectionList,
+  Select,
+  SizableText,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
-  useSwapQuoteListAtom,
+  useSwapProviderSortAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSortedQuoteListAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProviderListItem from '../../components/SwapProviderListItem';
@@ -23,12 +33,57 @@ const SwapProviderSelectModal = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
-  const [swapQuoteList] = useSwapQuoteListAtom();
+  const [swapSortedList] = useSwapSortedQuoteListAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [, setSwapManualSelect] = useSwapManualSelectQuoteProvidersAtom();
+  const [providerSort, setProviderSort] = useSwapProviderSortAtom();
   const [settingsPersist] = useSettingsPersistAtom();
+  const [currentSelectQuote] = useSwapQuoteCurrentSelectAtom();
+
+  const onSelectSortChange = useCallback(
+    (value: ESwapProviderSort) => {
+      setProviderSort(value);
+      void backgroundApiProxy.simpleDb.swapConfigs.setRawData({
+        providerSort: value,
+      });
+    },
+    [setProviderSort],
+  );
+
+  // todo i18n
+  const swapProviderSortSelectItems = useMemo(
+    () => [
+      { label: 'Recommend', value: ESwapProviderSort.RECOMMENDED },
+      { label: 'Gas fee', value: ESwapProviderSort.GAS_FEE },
+      { label: 'Swap Duration', value: ESwapProviderSort.SWAP_DURATION },
+      { label: 'Received', value: ESwapProviderSort.RECEIVED },
+    ],
+    [],
+  );
+  const sectionData = useMemo(() => {
+    const availableList = swapSortedList.filter((item) => item.toAmount);
+    const unavailableList = swapSortedList.filter((item) => !item.toAmount);
+    return [
+      ...(availableList?.length > 0
+        ? [
+            {
+              title: 'Available',
+              data: availableList,
+            },
+          ]
+        : []),
+      ...(unavailableList?.length > 0
+        ? [
+            {
+              title: 'Unavailable',
+              data: unavailableList,
+            },
+          ]
+        : []),
+    ];
+  }, [swapSortedList]);
   const onSelectQuote = useCallback(
     (item: IFetchQuoteResult) => {
       setSwapManualSelect(item);
@@ -63,30 +118,60 @@ const SwapProviderSelectModal = () => {
                 }
               : undefined
           }
+          selected={item.info.provider === currentSelectQuote?.info.provider}
           fromTokenAmount={fromTokenAmount}
-          fromTokenSymbol={fromToken?.symbol}
+          fromToken={fromToken}
+          toToken={toToken}
           providerResult={item}
           currencySymbol={settingsPersist.currencyInfo.symbol}
-          toAmountSymbol={toToken?.symbol ?? ''}
           disabled={disabled}
         />
       );
     },
     [
-      fromToken?.symbol,
+      currentSelectQuote?.info.provider,
+      fromToken,
       fromTokenAmount,
       onSelectQuote,
       settingsPersist.currencyInfo.symbol,
-      toToken?.symbol,
+      toToken,
     ],
   );
 
   return (
     <Page>
-      <ListView
+      <SectionList
+        px="$5"
+        pt="$2"
+        pb="$4"
         estimatedItemSize="$10"
         renderItem={renderItem}
-        data={swapQuoteList}
+        sections={sectionData}
+        renderSectionHeader={({ section: { title } }) => {
+          if (title === 'Available') {
+            return (
+              <Select
+                title="Sort"
+                items={swapProviderSortSelectItems}
+                onChange={onSelectSortChange}
+                value={providerSort}
+                renderTrigger={({ value, label, placeholder }) => (
+                  <Button
+                    alignSelf="flex-start"
+                    variant="tertiary"
+                    icon="FilterSortSolid"
+                    iconAfter="ChevronDownSmallOutline"
+                  >
+                    <SizableText size="$bodyMd">
+                      {value ? label : placeholder}
+                    </SizableText>
+                  </Button>
+                )}
+              />
+            );
+          }
+          return <SectionList.SectionHeader title={title} />;
+        }}
       />
     </Page>
   );

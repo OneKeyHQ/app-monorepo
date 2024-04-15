@@ -10,4 +10,4 @@ function ReceiveInvoice() {
     </Page>
   );
 }
-export { ReceiveInvoice };
+export default ReceiveInvoice;
