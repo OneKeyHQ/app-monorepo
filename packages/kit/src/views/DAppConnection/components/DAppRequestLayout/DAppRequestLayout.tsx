@@ -22,7 +22,7 @@ function DAppRequestLayout({
   children,
 }: PropsWithChildren<{
   title: string;
-  subtitle: string;
+  subtitle?: string;
   subtitleShown?: boolean;
   origin: string;
   urlSecurityInfo?: IHostSecurity;

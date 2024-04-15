@@ -111,10 +111,7 @@ export function useShouldUpdateConnectedAccount() {
         prevAccountInfo.networkId !== accountInfo.networkId ||
         prevAccountInfo.accountId !== accountInfo.accountId ||
         prevAccountInfo.address !== accountInfo.address;
-      const isValidAccountInfo =
-        accountInfo.walletId &&
-        accountInfo.indexedAccountId &&
-        accountInfo.networkId;
+      const isValidAccountInfo = accountInfo.walletId && accountInfo.address;
 
       return prevAccountInfo && hasAccountChanged && isValidAccountInfo;
     },

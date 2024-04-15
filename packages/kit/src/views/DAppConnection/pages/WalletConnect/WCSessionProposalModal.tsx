@@ -145,7 +145,7 @@ function SessionProposalModal() {
       <Page.Body>
         <DAppRequestLayout
           title="Connection Request"
-          subtitle=""
+          subtitleShown={false}
           origin={origin}
           urlSecurityInfo={urlSecurityInfo}
           favicon={favicon}
