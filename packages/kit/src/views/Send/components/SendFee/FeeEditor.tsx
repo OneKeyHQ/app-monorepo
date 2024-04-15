@@ -18,13 +18,7 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  useCustomFeeAtom,
-  useSendConfirmActions,
-  useSendSelectedFeeAtom,
-  useSendSelectedFeeInfoAtom,
-  useUnsignedTxsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   calculateTotalFeeNative,
   getFeePriceNumber,
@@ -33,6 +27,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type {
   IFeeInfoUnit,
   IFeeSelectorItem,
+  ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 
@@ -40,24 +35,41 @@ type IProps = {
   networkId: string;
   feeSelectorItems: IFeeSelectorItem[];
   setIsEditFeeActive: React.Dispatch<React.SetStateAction<boolean>>;
+  sendSelectedFee: {
+    feeType: EFeeType;
+    presetIndex: number;
+  };
+  originalCustomFee: IFeeInfoUnit | undefined;
+  selectedFee: ISendSelectedFeeInfo | undefined;
+  unsignedTxs: IUnsignedTxPro[];
+  onApplyFeeInfo: ({
+    feeType,
+    presetIndex,
+    customFeeInfo,
+  }: {
+    feeType: EFeeType;
+    presetIndex: number;
+    customFeeInfo: IFeeInfoUnit;
+  }) => void;
 };
 
 const DEFAULT_GAS_LIMIT_MIN = 21000;
 const DEFAULT_GAS_LIMIT_MAX = 15000000;
 
 function FeeEditor(props: IProps) {
-  const { feeSelectorItems, setIsEditFeeActive } = props;
+  const {
+    feeSelectorItems,
+    setIsEditFeeActive,
+    sendSelectedFee,
+    originalCustomFee,
+    selectedFee,
+    unsignedTxs,
+    onApplyFeeInfo,
+  } = props;
   const intl = useIntl();
   const isVerticalLayout = useMedia().md;
 
-  const { updateSendSelectedFee, updateCustomFee } =
-    useSendConfirmActions().current;
-
   const [settings] = useSettingsPersistAtom();
-  const [sendSelectedFee] = useSendSelectedFeeAtom();
-  const [originalCustomFee] = useCustomFeeAtom();
-  const [selectedFee] = useSendSelectedFeeInfoAtom();
-  const [unsignedTxs] = useUnsignedTxsAtom();
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
     sendSelectedFee.feeType === EFeeType.Custom
       ? feeSelectorItems.length - 1
@@ -188,26 +200,18 @@ function FeeEditor(props: IProps) {
   }, []);
 
   const handleApplyFeeInfo = useCallback(() => {
-    if (currentFeeType === EFeeType.Custom) {
-      updateSendSelectedFee({
-        feeType: EFeeType.Custom,
-        presetIndex: 0,
-      });
-      updateCustomFee(customFeeInfo);
-    } else {
-      updateSendSelectedFee({
-        feeType: currentFeeType,
-        presetIndex: currentFeeIndex,
-      });
-    }
+    onApplyFeeInfo({
+      feeType: currentFeeType,
+      presetIndex: currentFeeIndex,
+      customFeeInfo,
+    });
     setIsEditFeeActive(false);
   }, [
     currentFeeIndex,
     currentFeeType,
     customFeeInfo,
+    onApplyFeeInfo,
     setIsEditFeeActive,
-    updateCustomFee,
-    updateSendSelectedFee,
   ]);
 
   const renderFeeTypeSelector = useCallback(() => {
