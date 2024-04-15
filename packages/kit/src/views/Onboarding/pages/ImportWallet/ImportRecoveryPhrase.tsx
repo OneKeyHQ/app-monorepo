@@ -1,3 +1,5 @@
+import { useCallback, useMemo } from 'react';
+
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -11,18 +13,20 @@ import { PhaseInputArea } from '../../components/PhaseInputArea';
 export function ImportRecoveryPhrase() {
   const navigation = useAppNavigation();
 
-  const handleConfirmPress = (mnemonic: string) => {
-    navigation.push(EOnboardingPages.FinalizeWalletSetup, {
-      mnemonic,
-    });
-    trackEvent(ETrackEventNames.ImportWallet, {
-      import_method: 'mnemonic',
-    });
-  };
+  const handleConfirmPress = useCallback(
+    (mnemonic: string) => {
+      navigation.push(EOnboardingPages.FinalizeWalletSetup, {
+        mnemonic,
+      });
+      trackEvent(ETrackEventNames.ImportWallet, {
+        import_method: 'mnemonic',
+      });
+    },
+    [navigation],
+  );
 
-  return (
-    <Page scrollEnabled>
-      <Page.Header title="Import Recovery Phrase" />
+  const renderPhaseInputArea = useMemo(
+    () => (
       <PhaseInputArea
         defaultPhrases={[]}
         onConfirm={handleConfirmPress}
@@ -49,6 +53,13 @@ export function ImportRecoveryPhrase() {
           },
         ]}
       />
+    ),
+    [handleConfirmPress],
+  );
+  return (
+    <Page scrollEnabled>
+      <Page.Header title="Import Recovery Phrase" />
+      {renderPhaseInputArea}
     </Page>
   );
 }

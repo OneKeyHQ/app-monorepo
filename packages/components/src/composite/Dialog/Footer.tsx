@@ -92,6 +92,7 @@ export function Footer(props: IDialogFooterProps) {
     showConfirmButton,
     cancelButtonProps,
     onConfirmText,
+    footerProps,
     confirmButtonProps = {},
     onCancelText,
     tone,
@@ -107,7 +108,7 @@ export function Footer(props: IDialogFooterProps) {
     return null;
   }
   return (
-    <XStack p="$5" pt="$0">
+    <XStack p="$5" pt="$0" space="$2.5" {...footerProps}>
       {showCancelButton ? (
         <Button
           flex={1}
@@ -133,9 +134,6 @@ export function Footer(props: IDialogFooterProps) {
             } as IButtonProps
           }
           {...restConfirmButtonProps}
-          {...(showCancelButton && {
-            ml: '$2.5',
-          })}
           onPress={onConfirm}
         >
           {onConfirmText}
@@ -147,6 +145,7 @@ export function Footer(props: IDialogFooterProps) {
 
 function BasicFooterAction({
   showFooter = true,
+  footerProps,
   showCancelButton = true,
   showConfirmButton = true,
   cancelButtonProps,
@@ -162,6 +161,7 @@ function BasicFooterAction({
   useMemo(() => {
     footerRef.props = {
       showFooter,
+      footerProps,
       showCancelButton,
       showConfirmButton,
       cancelButtonProps,
@@ -178,6 +178,7 @@ function BasicFooterAction({
   useEffect(() => {
     footerRef.props = {
       showFooter,
+      footerProps,
       showCancelButton,
       showConfirmButton,
       cancelButtonProps,
@@ -191,6 +192,7 @@ function BasicFooterAction({
     footerRef.notifyUpdate?.();
   }, [
     showFooter,
+    footerProps,
     showCancelButton,
     showConfirmButton,
     cancelButtonProps,
