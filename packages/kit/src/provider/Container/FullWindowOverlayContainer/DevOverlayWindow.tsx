@@ -18,7 +18,8 @@ function DevOverlayWindow() {
     right?: number;
   }>({
     top: '10%',
-    left: 0,
+    right: 0,
+    left: undefined,
   });
 
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
