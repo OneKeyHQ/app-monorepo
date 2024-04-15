@@ -10,6 +10,7 @@ import {
 
 import { useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { TextArea } from '@onekeyhq/components';
 import {
@@ -22,7 +23,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IAddressInteractionStatus,
@@ -228,7 +228,6 @@ export function AddressInput(props: IAddressInputProps) {
   const [loading, setLoading] = useState(false);
   const textRef = useRef('');
   const rawAddress = watch([name, 'raw'].join('.'));
-  const debounceText = useDebounce(inputText, 300, { trailing: true });
 
   const [queryResult, setQueryResult] = useState<IAddressQueryResult>({});
   const [refreshNum, setRefreshNum] = useState(1);
@@ -256,34 +255,46 @@ export function AddressInput(props: IAddressInputProps) {
     }
   }, [rawAddress, onChangeText]);
 
-  useEffect(() => {
-    async function main() {
-      if (!debounceText) {
+  const queryAddress = useDebouncedCallback(
+    async (params: {
+      address: string;
+      networkId: string;
+      accountId?: string;
+      enableNameResolve?: boolean;
+      enableAddressBook?: boolean;
+      enableWalletName?: boolean;
+      enableAddressInteractionStatus?: boolean;
+    }) => {
+      if (!params.address) {
         setQueryResult({});
         return;
       }
       setLoading(true);
       try {
         const result =
-          await backgroundApiProxy.serviceAccountProfile.queryAddress({
-            networkId,
-            accountId,
-            address: debounceText,
-            enableNameResolve,
-            enableAddressBook,
-            enableWalletName,
-            enableAddressInteractionStatus,
-          });
+          await backgroundApiProxy.serviceAccountProfile.queryAddress(params);
         if (result.input === textRef.current) {
           setQueryResult(result);
         }
       } finally {
         setLoading(false);
       }
-    }
-    void main();
+    },
+    300,
+  );
+
+  useEffect(() => {
+    void queryAddress({
+      address: inputText,
+      networkId,
+      accountId,
+      enableAddressBook,
+      enableAddressInteractionStatus,
+      enableNameResolve,
+      enableWalletName,
+    });
   }, [
-    debounceText,
+    inputText,
     networkId,
     accountId,
     enableNameResolve,
@@ -291,6 +302,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableWalletName,
     enableAddressInteractionStatus,
     refreshNum,
+    queryAddress,
   ]);
 
   useEffect(() => {

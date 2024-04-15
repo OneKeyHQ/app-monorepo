@@ -9,11 +9,15 @@ import { RootNavigator } from '@onekeyhq/kit/src/routes';
 
 import { useRouterConfig } from '../../routes/config';
 
+import { TabFreezeOnBlurContainer } from './TabFreezeOnBlurContainer';
+
 function BasicNavigation({ children }: PropsWithChildren) {
   const { containerProps, routerConfig } = useRouterConfig();
   return (
     <NavigationContainerComponent {...containerProps}>
-      <RootNavigator config={routerConfig} />
+      <TabFreezeOnBlurContainer>
+        <RootNavigator config={routerConfig} />
+      </TabFreezeOnBlurContainer>
       {children}
     </NavigationContainerComponent>
   );
