@@ -6,7 +6,6 @@ import { Dialog, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EPasswordPromptType } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import PasswordSetupContainer from './PasswordSetupContainer';
 import PasswordVerifyContainer from './PasswordVerifyContainer';
@@ -20,21 +19,7 @@ const PasswordVerifyPromptMount = () => {
     });
   }, []);
 
-  const passwordPromptPromiseDataRef = useRef(passwordPromptPromiseTriggerData);
-  if (
-    passwordPromptPromiseDataRef.current !== passwordPromptPromiseTriggerData
-  ) {
-    passwordPromptPromiseDataRef.current = passwordPromptPromiseTriggerData;
-  }
-
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
-
-  const onRejectPasswordPromptVerifyDialog = useCallback(() => {
-    if (passwordPromptPromiseDataRef.current?.idNumber) {
-      onClose(passwordPromptPromiseDataRef.current.idNumber);
-    }
-    void chrome.runtime.sendMessage({ message: 'popupClosed' });
-  }, [onClose]);
 
   const showPasswordSetupPrompt = useCallback(
     (id: number) => {
@@ -109,21 +94,6 @@ const PasswordVerifyPromptMount = () => {
     showPasswordSetupPrompt,
     showPasswordVerifyPrompt,
   ]);
-
-  useEffect(() => {
-    const isExtensionUi = platformEnv.isExtensionUi;
-    if (isExtensionUi) {
-      window.addEventListener('unload', onRejectPasswordPromptVerifyDialog);
-    }
-    return () => {
-      if (isExtensionUi) {
-        window.removeEventListener(
-          'unload',
-          onRejectPasswordPromptVerifyDialog,
-        );
-      }
-    };
-  }, [onRejectPasswordPromptVerifyDialog]);
 
   return null;
 };
