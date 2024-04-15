@@ -18,13 +18,13 @@ export type IBaseListViewProps = {
 export const filterNetwork =
   (key: string, impl?: boolean) =>
   (o: IServerNetwork): boolean => {
-    if (!impl) {
-      return (
-        o.name.toLowerCase().includes(key) ||
-        o.shortname.toLowerCase().includes(key)
-      );
+    if (impl && implArr.includes(key)) {
+      return o.impl === key;
     }
-    return o.impl === key && implArr.includes(key);
+    return (
+      o.name.toLowerCase().includes(key) ||
+      o.shortname.toLowerCase().includes(key)
+    );
   };
 
 export const BaseListView = ({
