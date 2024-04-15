@@ -3,8 +3,6 @@ import { useRef } from 'react';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
@@ -18,6 +16,8 @@ import type {
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -562,7 +562,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       await serviceAccount.removeWallet({ walletId });
       set(accountSelectorEditModeAtom(), false);
 
-      await this.autoSelectAccount.call(set, { num });
+      await this.autoSelectAccount.call(set, {
+        num,
+        triggerBy: 'removeWallet',
+      });
     },
   );
 
@@ -1038,13 +1041,25 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
-  autoSelectAccount = contextAtomMethod(
+  buildSelectedAccountNew = contextAtomMethod(
     async (get, set, { num }: { num: number }) => {
+      const selectedAccount = this.getSelectedAccount.call(set, { num });
+      return cloneDeep(selectedAccount || defaultSelectedAccount());
+    },
+  );
+
+  autoSelectAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      { num, triggerBy }: { num: number; triggerBy?: 'removeWallet' },
+    ) => {
       // wait activeAccount build done
       await timerUtils.wait(300);
       const storageReady = get(accountSelectorStorageReadyAtom());
       const selectedAccount = this.getSelectedAccount.call(set, { num });
       const activeAccount = this.getActiveAccount.call(set, { num });
+
       // TODO auto select account from home scene
       if (activeAccount && activeAccount?.ready && storageReady) {
         const { network, wallet, indexedAccount, account, dbAccount } =
@@ -1055,8 +1070,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           !wallet ||
           (!indexedAccount && !account && !dbAccount)
         ) {
-          const selectedAccountNew = cloneDeep(
-            selectedAccount || defaultSelectedAccount(),
+          const selectedAccountNew = await this.buildSelectedAccountNew.call(
+            set,
+            {
+              num,
+            },
           );
           let selectedWalletId = wallet?.id;
           let selectedWallet = wallet;
@@ -1188,6 +1206,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (selectedAccount.walletId !== selectedAccountNew.walletId) {
             set(accountSelectorEditModeAtom(), false);
           }
+        } else if (triggerBy === 'removeWallet') {
+          const selectedAccountNew = await this.buildSelectedAccountNew.call(
+            set,
+            {
+              num,
+            },
+          );
+          // autofix focusedWallet when remove wallet
+          selectedAccountNew.focusedWallet = selectedAccountNew.walletId;
+          await this.updateSelectedAccount.call(set, {
+            num,
+            builder: () => selectedAccountNew,
+          });
         }
       }
     },
