@@ -27,20 +27,18 @@ const PasswordVerifyPromptMount = () => {
     passwordPromptPromiseDataRef.current = passwordPromptPromiseTriggerData;
   }
 
+  const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+
   const onRejectPasswordPromptVerifyDialog = useCallback(() => {
-    console.log('onRejectPasswordPromptVerifyDialog');
-    if (
-      passwordPromptPromiseDataRef.current?.idNumber &&
-      passwordPromptPromiseDataRef.current?.type ===
-        EPasswordPromptType.PASSWORD_VERIFY
-    ) {
+    if (passwordPromptPromiseDataRef.current?.idNumber) {
       onClose(passwordPromptPromiseDataRef.current.idNumber);
     }
+    void chrome.runtime.sendMessage({ message: 'popupClosed' });
   }, [onClose]);
 
   const showPasswordSetupPrompt = useCallback(
     (id: number) => {
-      const dialog = Dialog.show({
+      dialogRef.current = Dialog.show({
         title: 'Setup Password',
         onClose() {
           onClose(id);
@@ -55,7 +53,6 @@ const PasswordVerifyPromptMount = () => {
                     password: data,
                   },
                 );
-                void dialog.close();
               }}
             />
           </Suspense>
@@ -67,7 +64,7 @@ const PasswordVerifyPromptMount = () => {
   );
   const showPasswordVerifyPrompt = useCallback(
     (id: number) => {
-      const dialog = Dialog.show({
+      dialogRef.current = Dialog.show({
         title: 'ConfirmPassword',
         onClose() {
           onClose(id);
@@ -82,7 +79,6 @@ const PasswordVerifyPromptMount = () => {
                     password: data,
                   },
                 );
-                void dialog.close();
               }}
             />
           </Suspense>
@@ -105,6 +101,8 @@ const PasswordVerifyPromptMount = () => {
       } else {
         showPasswordSetupPrompt(passwordPromptPromiseTriggerData.idNumber);
       }
+    } else {
+      void dialogRef.current?.close();
     }
   }, [
     passwordPromptPromiseTriggerData,
@@ -113,18 +111,14 @@ const PasswordVerifyPromptMount = () => {
   ]);
 
   useEffect(() => {
-    const isExt = platformEnv.isExtension;
-    console.log('registerWindowUnload---', isExt);
-    if (isExt) {
-      window.addEventListener(
-        'beforeunload',
-        onRejectPasswordPromptVerifyDialog,
-      );
+    const isExtensionUi = platformEnv.isExtensionUi;
+    if (isExtensionUi) {
+      window.addEventListener('unload', onRejectPasswordPromptVerifyDialog);
     }
     return () => {
-      if (isExt) {
+      if (isExtensionUi) {
         window.removeEventListener(
-          'beforeunload',
+          'unload',
           onRejectPasswordPromptVerifyDialog,
         );
       }
