@@ -9,8 +9,8 @@ import {
 } from 'react';
 
 import { JsBridgeNativeHost } from '@onekeyfe/onekey-cross-webview';
-import { RefreshControl, StyleSheet } from 'react-native';
 import { WebView } from '@onekeyfe/react-native-webview';
+import { RefreshControl, StyleSheet } from 'react-native';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
