@@ -18,7 +18,7 @@ const defaultFuseOptions: IFuseOptions<any> = {
   minMatchCharLength: 1,
   threshold: 0.8,
   distance: 1000,
-  useExtendedSearch: false,
+  useExtendedSearch: true,
   ignoreLocation: false,
   ignoreFieldNorm: true,
   includeScore: true,
@@ -32,7 +32,7 @@ export function buildFuse<T>(
   options?: IFuseOptions<T>,
   index?: FuseIndex<T>,
 ) {
-  return new Fuse(
+  const fuse = new Fuse(
     list,
     {
       ...defaultFuseOptions,
@@ -40,6 +40,10 @@ export function buildFuse<T>(
     },
     index,
   );
+  fuse.search = function (pattern: string) {
+    return Fuse.prototype.search.bind(fuse)(`'${pattern}`);
+  };
+  return fuse;
 }
 
 export function useFuse<T>(

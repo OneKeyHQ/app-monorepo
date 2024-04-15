@@ -11,6 +11,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swapQuoteFetchInterval,
+  swapQuoteSilenceFetchInterval,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
   swapSlippageAutoValue,
@@ -18,6 +19,7 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapAlertLevel,
+  ESwapApproveTransactionStatus,
   ESwapFetchCancelCause,
   ESwapRateDifferenceUnit,
   ESwapSlippageSegmentKey,
@@ -280,7 +282,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   quoteAction = contextAtomMethod(async (get, set, address?: string) => {
     this.cleanQuoteInterval();
     set(swapBuildTxFetchingAtom(), false);
-    set(swapApprovingTransactionAtom(), undefined);
     const fromToken = get(swapSelectFromTokenAtom());
     const toToken = get(swapSelectToTokenAtom());
     const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -353,6 +354,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   recoverQuoteInterval = contextAtomMethod(
     async (get, set, address?: string) => {
       this.cleanQuoteInterval();
+      set(swapBuildTxFetchingAtom(), false);
+      set(swapApprovingTransactionAtom(), (pre) => {
+        if (!pre) return pre;
+        return {
+          ...pre,
+          status: ESwapApproveTransactionStatus.CANCEL,
+        };
+      });
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
@@ -374,7 +383,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             address,
             true,
           );
-        }, swapQuoteFetchInterval);
+        }, swapQuoteSilenceFetchInterval);
       }
     },
   );
@@ -559,7 +568,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
 
       // price check
-      if ((fromToken && !fromToken?.price) || (toToken && !toToken?.price)) {
+      if (
+        (fromToken &&
+          (!fromToken?.price || new BigNumber(fromToken.price).isZero())) ||
+        (toToken && (!toToken?.price || new BigNumber(toToken.price).isZero()))
+      ) {
         alertsRes = [
           ...alertsRes,
           {
@@ -577,50 +590,52 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
         const fromTokenPrice = new BigNumber(fromToken.price);
         const toTokenPrice = new BigNumber(toToken.price);
-        const marketingRate = fromTokenPrice.dividedBy(toTokenPrice);
-        const quoteRateBN = new BigNumber(quoteResult.instantRate);
-        const difference = quoteRateBN
-          .dividedBy(marketingRate)
-          .minus(1)
-          .multipliedBy(100);
-        if (difference.absoluteValue().gte(swapRateDifferenceMin)) {
-          let unit = ESwapRateDifferenceUnit.POSITIVE;
-          if (difference.isNegative()) {
-            if (difference.lte(swapRateDifferenceMax)) {
-              unit = ESwapRateDifferenceUnit.NEGATIVE;
-            } else {
-              unit = ESwapRateDifferenceUnit.DEFAULT;
+        if (!fromTokenPrice.isZero() && !toTokenPrice.isZero()) {
+          const marketingRate = fromTokenPrice.dividedBy(toTokenPrice);
+          const quoteRateBN = new BigNumber(quoteResult.instantRate);
+          const difference = quoteRateBN
+            .dividedBy(marketingRate)
+            .minus(1)
+            .multipliedBy(100);
+          if (difference.absoluteValue().gte(swapRateDifferenceMin)) {
+            let unit = ESwapRateDifferenceUnit.POSITIVE;
+            if (difference.isNegative()) {
+              if (difference.lte(swapRateDifferenceMax)) {
+                unit = ESwapRateDifferenceUnit.NEGATIVE;
+              } else {
+                unit = ESwapRateDifferenceUnit.DEFAULT;
+              }
             }
-          }
-          rateDifferenceRes = {
-            value: `(${difference.isPositive() ? '+' : ''}${
-              numberFormat(difference.toFixed(), {
-                formatter: 'priceChange',
-              }) as string
-            })`,
-            unit,
-          };
-        }
-        if (quoteRateBN.isZero()) {
-          alertsRes = [
-            ...alertsRes,
-            {
-              message: `100% value drop! High price impact may cause your asset loss.`,
-              alertLevel: ESwapAlertLevel.WARNING,
-            },
-          ];
-        } else if (difference.lt(swapRateDifferenceMax)) {
-          alertsRes = [
-            ...alertsRes,
-            {
-              message: `${
-                numberFormat(difference.absoluteValue().toFixed(), {
+            rateDifferenceRes = {
+              value: `(${difference.isPositive() ? '+' : ''}${
+                numberFormat(difference.toFixed(), {
                   formatter: 'priceChange',
                 }) as string
-              } value drop! High price impact may cause your asset loss.`,
-              alertLevel: ESwapAlertLevel.WARNING,
-            },
-          ];
+              })`,
+              unit,
+            };
+          }
+          if (quoteRateBN.isZero()) {
+            alertsRes = [
+              ...alertsRes,
+              {
+                message: `100% value drop! High price impact may cause your asset loss.`,
+                alertLevel: ESwapAlertLevel.WARNING,
+              },
+            ];
+          } else if (difference.lt(swapRateDifferenceMax)) {
+            alertsRes = [
+              ...alertsRes,
+              {
+                message: `${
+                  numberFormat(difference.absoluteValue().toFixed(), {
+                    formatter: 'priceChange',
+                  }) as string
+                } value drop! High price impact may cause your asset loss.`,
+                alertLevel: ESwapAlertLevel.WARNING,
+              },
+            ];
+          }
         }
       }
 

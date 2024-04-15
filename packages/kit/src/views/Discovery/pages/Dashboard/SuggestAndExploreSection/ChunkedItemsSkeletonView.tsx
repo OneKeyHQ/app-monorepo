@@ -1,15 +1,16 @@
 import { Skeleton, Stack, XStack } from '@onekeyhq/components';
 
 import {
-  CARD_WIDTH_IN_MD,
   type IChunkedItemsViewProps,
   ItemsContainer,
+  useCardWidth,
 } from './ChunkedItemsView';
 
 export function ChunkedItemsSkeletonView({
   isExploreView,
   dataChunks,
 }: Partial<IChunkedItemsViewProps>) {
+  const cardWidth = useCardWidth();
   return (
     <ItemsContainer
       mx="$-5"
@@ -34,7 +35,7 @@ export function ChunkedItemsSkeletonView({
                   flexWrap: 'wrap',
                 }
               : {
-                  w: CARD_WIDTH_IN_MD,
+                  w: cardWidth,
                 }
           }
           $gtMd={{

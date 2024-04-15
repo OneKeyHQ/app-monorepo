@@ -152,7 +152,12 @@ function DefaultWalletSettingsModal() {
     ({ item }: { item: { origin: string; logo: string } }) => (
       <ListItem
         key={item.origin}
-        title={item.origin}
+        title={new URL(item.origin).hostname}
+        titleProps={{
+          style: {
+            wordBreak: 'break-all',
+          },
+        }}
         avatarProps={{
           src: item.logo,
           fallbackProps: {
