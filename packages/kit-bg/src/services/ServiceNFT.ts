@@ -1,3 +1,5 @@
+import qs from 'querystring';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -24,9 +26,7 @@ class ServiceNFT extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.get<{
       data: IFetchAccountNFTsResp;
-    }>('/wallet/v1/account/nft/list', {
-      params,
-    });
+    }>(`/wallet/v1/account/nft/list?${qs.stringify(params)}`);
     return resp.data.data;
   }
 

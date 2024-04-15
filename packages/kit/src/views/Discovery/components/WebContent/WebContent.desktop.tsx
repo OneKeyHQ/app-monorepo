@@ -16,8 +16,8 @@ import WebView from '../WebView';
 import type { IWebTab } from '../../types';
 import type { PageFaviconUpdatedEvent } from '../WebView/DesktopWebView';
 import type { IElectronWebView } from '../WebView/types';
-import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 import type { WebViewProps } from '@onekeyfe/react-native-webview';
+import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {

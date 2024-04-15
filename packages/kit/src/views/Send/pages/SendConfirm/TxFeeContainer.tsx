@@ -57,8 +57,13 @@ function TxFeeContainer(props: IProps) {
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [nativeTokenTransferAmountToUpdate] =
     useNativeTokenTransferAmountToUpdateAtom();
-  const { updateSendSelectedFeeInfo, updateSendFeeStatus, updateSendTxStatus } =
-    useSendConfirmActions().current;
+  const {
+    updateSendSelectedFeeInfo,
+    updateSendFeeStatus,
+    updateSendTxStatus,
+    updateCustomFee,
+    updateSendSelectedFee,
+  } = useSendConfirmActions().current;
 
   const { result: [vaultSettings, network] = [] } =
     usePromiseResult(async () => {
@@ -246,10 +251,31 @@ function TxFeeContainer(props: IProps) {
     unsignedTxs,
   ]);
 
-  const handleFeeSelectorTriggerOnPress = useCallback(() => {
-    if (!txFeeInit.current) return;
-    setIsEditFeeActive((prev) => !prev);
-  }, []);
+  const handleApplyFeeInfo = useCallback(
+    ({
+      feeType,
+      presetIndex,
+      customFeeInfo,
+    }: {
+      feeType: EFeeType;
+      presetIndex: number;
+      customFeeInfo: IFeeInfoUnit;
+    }) => {
+      if (feeType === EFeeType.Custom) {
+        updateSendSelectedFee({
+          feeType: EFeeType.Custom,
+          presetIndex: 0,
+        });
+        updateCustomFee(customFeeInfo);
+      } else {
+        updateSendSelectedFee({
+          feeType,
+          presetIndex,
+        });
+      }
+    },
+    [updateCustomFee, updateSendSelectedFee],
+  );
 
   useEffect(() => {
     if (selectedFee && selectedFee.feeInfo) {
@@ -311,27 +337,36 @@ function TxFeeContainer(props: IProps) {
           )
         }
         contentAdd={
-          <Popover
-            title={intl.formatMessage({ id: 'title__edit_fee' })}
-            open={isEditFeeActive}
-            onOpenChange={handleFeeSelectorTriggerOnPress}
-            renderContent={
-              <FeeEditor
-                networkId={networkId}
-                feeSelectorItems={feeSelectorItems}
-                setIsEditFeeActive={setIsEditFeeActive}
-              />
-            }
-            renderTrigger={
-              <FeeSelectorTrigger
-                onPress={handleFeeSelectorTriggerOnPress}
-                disabled={
-                  sendFeeStatus.status === ESendFeeStatus.Error ||
-                  !txFeeInit.current
-                }
-              />
-            }
-          />
+          txFeeInit.current ? (
+            <Popover
+              title={intl.formatMessage({ id: 'title__edit_fee' })}
+              open={isEditFeeActive}
+              onOpenChange={setIsEditFeeActive}
+              renderContent={
+                <FeeEditor
+                  networkId={networkId}
+                  feeSelectorItems={feeSelectorItems}
+                  setIsEditFeeActive={setIsEditFeeActive}
+                  selectedFee={selectedFee}
+                  sendSelectedFee={sendSelectedFee}
+                  unsignedTxs={unsignedTxs}
+                  originalCustomFee={customFee}
+                  onApplyFeeInfo={handleApplyFeeInfo}
+                />
+              }
+              renderTrigger={
+                <FeeSelectorTrigger
+                  onPress={() => setIsEditFeeActive(true)}
+                  disabled={
+                    sendFeeStatus.status === ESendFeeStatus.Error ||
+                    !txFeeInit.current
+                  }
+                />
+              }
+            />
+          ) : (
+            <Skeleton height="$5" width="$12" />
+          )
         }
         description={{
           content: (

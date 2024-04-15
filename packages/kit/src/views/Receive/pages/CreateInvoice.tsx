@@ -136,4 +136,4 @@ function CreateInvoice() {
   );
 }
 
-export { CreateInvoice };
+export default CreateInvoice;

@@ -295,4 +295,4 @@ function ReceiveToken() {
   );
 }
 
-export { ReceiveToken };
+export default ReceiveToken;
