@@ -34,7 +34,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       pushModal(EModalRoutes.AppUpdateModal, {
         screen: EAppUpdateRoutes.WhatsNew,
         params: {
-          version: appUpdateInfo.version,
+          version: platformEnv.version,
           changeLog: getChangeLog(appUpdateInfo, localVariant),
         },
       });
@@ -68,7 +68,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
           pushModal(EModalRoutes.AppUpdateModal, {
             screen: EAppUpdateRoutes.UpdatePreview,
             params: {
-              version: appUpdateInfo.version,
+              version: platformEnv.version,
               latestVersion: appUpdateInfo.latestVersion,
               isForceUpdate: appUpdateInfo.isForceUpdate,
               changeLog,
@@ -94,13 +94,13 @@ export const useAppUpdateInfo = (isFullModal = false) => {
 
   return useMemo(
     () =>
-      isNeedUpdate(appUpdateInfo.version, appUpdateInfo.latestVersion)
+      isNeedUpdate(appUpdateInfo.latestVersion)
         ? {
             data: appUpdateInfo,
             onUpdateAction,
           }
         : {
-            version: appUpdateInfo.version,
+            version: platformEnv.version,
             onViewReleaseInfo,
           },
     [appUpdateInfo, onUpdateAction, onViewReleaseInfo],

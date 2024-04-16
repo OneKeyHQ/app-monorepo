@@ -81,8 +81,6 @@ export interface IBasicAppUpdateInfo {
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
-  // current version
-  version: string;
   // the last time the app update info was fetched
   updateAt: number;
   // App from app Store
