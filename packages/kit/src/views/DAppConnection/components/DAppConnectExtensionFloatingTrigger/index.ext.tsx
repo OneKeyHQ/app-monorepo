@@ -105,6 +105,8 @@ export default function DAppConnectExtensionFloatingTrigger() {
       }}
       shadowRadius={24}
       shadowColor="rgba(0, 0, 0, 0.09)"
+      borderColor="$border"
+      borderWidth="$px"
       onPress={handlePressFloatingButton}
     >
       <Stack position="relative">
