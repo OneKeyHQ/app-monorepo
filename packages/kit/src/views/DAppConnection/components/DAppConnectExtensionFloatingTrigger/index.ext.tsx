@@ -111,11 +111,7 @@ export default function DAppConnectExtensionFloatingTrigger() {
     >
       <Stack position="relative">
         <Image size="$10" borderRadius="$2">
-          <Image.Source
-            source={{
-              uri: result?.faviconUrl || result?.originFaviconUrl,
-            }}
-          />
+          <Image.Source src={result?.faviconUrl || result?.originFaviconUrl} />
           <Image.Fallback>
             <Icon size="$10" name="GlobusOutline" />
           </Image.Fallback>
