@@ -18,4 +18,4 @@ export const isNeedUpdate = (latestVersion?: string) =>
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) =>
   appUpdateInfo.status !== EAppUpdateStatus.done &&
   appUpdateInfo.latestVersion &&
-  semver.gt(APP_VERSION, appUpdateInfo.latestVersion);
+  semver.gte(APP_VERSION, appUpdateInfo.latestVersion);
