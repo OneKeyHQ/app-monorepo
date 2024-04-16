@@ -1,8 +1,6 @@
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import localDb from '@onekeyhq/kit-bg/src/dbs/local/localDbInstance';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -88,10 +86,11 @@ class ClientLightning {
         networkId,
       }));
     try {
-      const credential = await localDb.getCredential(
-        accountUtils.buildLightingCredentialId({ address: usedAddress }),
-      );
-      return credential.credential;
+      const credential =
+        await this.backgroundApi.simpleDb.lightning.getCredential({
+          address: usedAddress,
+        });
+      return credential;
     } catch (e) {
       console.error('=====>>>getAuthorization failed: ', e);
       return '';

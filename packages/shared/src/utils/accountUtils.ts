@@ -477,10 +477,6 @@ function buildLightningAccountId({
   return `${parts[0]}--${newPath}`;
 }
 
-function buildLightingCredentialId({ address }: { address: string }) {
-  return `lighting--${address}`;
-}
-
 export default {
   buildImportedAccountId,
   buildWatchingAccountId,
@@ -512,6 +508,5 @@ export default {
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,
-  buildLightingCredentialId,
   getWalletConnectMergedNetwork,
 };
