@@ -1,9 +1,6 @@
 // import type { ISimpleDbEntityMarktData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityMarket';
 // import type { ISimpleDbEntityUtxoData } from '@onekeyhq/engine/src/dbs/simple/entity/SimpleDbEntityUtxoAccounts';
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
-
-import type { IHdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
-
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
@@ -11,6 +8,7 @@ import type {
   IDBWallet,
   IDBWalletIdSingleton,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IHdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 // export type ISimpleDBBackUp = {
 //   utxoAccounts: Pick<ISimpleDbEntityUtxoData, 'utxos'>;

@@ -1,6 +1,6 @@
-import { filterWillRemoveBackupList } from './utils/BackupTimeStrategyUtils';
-
 import { subHours, subMonths, subWeeks } from 'date-fns';
+
+import { filterWillRemoveBackupList } from './utils/BackupTimeStrategyUtils';
 
 import type { IMetaDataObject } from './types';
 
