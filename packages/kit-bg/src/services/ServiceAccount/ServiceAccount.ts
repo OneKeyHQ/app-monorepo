@@ -443,6 +443,7 @@ class ServiceAccount extends ServiceBase {
           });
           account.id = accountUtils.buildHDAccountId({
             walletId,
+            networkImpl: account.impl,
             index: account.pathIndex,
             template: account.template,
             idSuffix,
