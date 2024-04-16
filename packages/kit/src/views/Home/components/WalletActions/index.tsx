@@ -10,7 +10,6 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAssetSelectorRoutes,
   EModalReceiveRoutes,
@@ -126,11 +125,7 @@ function WalletActionReceive() {
     });
   }, [account, deriveInfo, deriveType, navigation, network, wallet]);
 
-  return (
-    <RawActions.Receive
-      onPress={platformEnv.isDev ? handleOnReceive : () => {}}
-    />
-  );
+  return <RawActions.Receive onPress={handleOnReceive} />;
 }
 
 function WalletActionSwap() {
