@@ -15,7 +15,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 
-const getChangeLog = (
+const getLocalVariantChangeLog = (
   appUpdateInfo: IAppUpdateInfo,
   localVariant: ILocaleSymbol,
 ) =>
@@ -35,7 +35,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         screen: EAppUpdateRoutes.WhatsNew,
         params: {
           version: platformEnv.version,
-          changeLog: getChangeLog(appUpdateInfo, localVariant),
+          changeLog: getLocalVariantChangeLog(appUpdateInfo, localVariant),
         },
       });
     });
@@ -61,7 +61,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       case EAppUpdateStatus.notify:
       case EAppUpdateStatus.downloading:
         {
-          const changeLog = getChangeLog(appUpdateInfo, localVariant);
+          const changeLog = getLocalVariantChangeLog(appUpdateInfo, localVariant);
           const pushModal = isFullModal
             ? navigation.pushFullModal
             : navigation.pushModal;
