@@ -101,11 +101,7 @@ function CurrentConnectionModal() {
       <Page.Body>
         <XStack p="$5" space="$3">
           <Image size="$10" borderRadius="$2">
-            <Image.Source
-              source={{
-                uri: faviconUrl,
-              }}
-            />
+            <Image.Source src={faviconUrl} />
             <Image.Fallback>
               <Icon size="$10" name="GlobusOutline" />
             </Image.Fallback>
