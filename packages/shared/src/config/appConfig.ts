@@ -34,5 +34,3 @@ export const ONEKEY_APP_TEST_UPDATE_URL =
   'https://data.onekey.so/pre-config.json';
 export const ONEKY_API_URL = 'https://rest.onekeytest.com';
 export const ONEKY_TEST_API_URL = 'https://rest.onekeytest.com';
-// export const ONEKY_API_URL = 'http://192.168.5.152:7001';
-// export const ONEKY_TEST_API_URL = 'http://192.168.5.152:7001';

@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect } from 'react';
+import { Suspense, useCallback, useEffect, useRef } from 'react';
 
 import { isNil } from 'lodash';
 
@@ -19,9 +19,11 @@ const PasswordVerifyPromptMount = () => {
     });
   }, []);
 
+  const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+
   const showPasswordSetupPrompt = useCallback(
     (id: number) => {
-      const dialog = Dialog.show({
+      dialogRef.current = Dialog.show({
         title: 'Setup Password',
         onClose() {
           onClose(id);
@@ -36,7 +38,6 @@ const PasswordVerifyPromptMount = () => {
                     password: data,
                   },
                 );
-                void dialog.close();
               }}
             />
           </Suspense>
@@ -48,7 +49,7 @@ const PasswordVerifyPromptMount = () => {
   );
   const showPasswordVerifyPrompt = useCallback(
     (id: number) => {
-      const dialog = Dialog.show({
+      dialogRef.current = Dialog.show({
         title: 'ConfirmPassword',
         onClose() {
           onClose(id);
@@ -63,7 +64,6 @@ const PasswordVerifyPromptMount = () => {
                     password: data,
                   },
                 );
-                void dialog.close();
               }}
             />
           </Suspense>
@@ -86,12 +86,15 @@ const PasswordVerifyPromptMount = () => {
       } else {
         showPasswordSetupPrompt(passwordPromptPromiseTriggerData.idNumber);
       }
+    } else {
+      void dialogRef.current?.close();
     }
   }, [
     passwordPromptPromiseTriggerData,
     showPasswordSetupPrompt,
     showPasswordVerifyPrompt,
   ]);
+
   return null;
 };
 
