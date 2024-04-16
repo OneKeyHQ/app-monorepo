@@ -39,6 +39,7 @@
     "@react-native-async-storage/async-storage": "1.22.0",
     "@react-native-community/netinfo": "^9.4.1",
     "@react-native-community/slider": "4.4.3",
+    "@react-native-google-signin/google-signin": "^9.1.0",
     "@shopify/flash-list": "^1.6.3",
     "@walletconnect/modal-react-native": "1.1.0",
     "@walletconnect/react-native-compat": "2.11.2",
@@ -71,6 +72,7 @@
     "react-native": "0.73.6",
     "react-native-ble-manager": "^10.0.2",
     "react-native-camera-kit": "14.0.0-beta2",
+    "react-native-cloud-fs": "https://github.com/OneKeyHQ/react-native-cloud-fs#cba878df6df939e67f326f9381232f5c5a6f9c49",
     "react-native-crypto": "^2.2.0",
     "react-native-device-info": "10.11.0",
     "react-native-fast-image": "8.6.3",
@@ -118,7 +120,8 @@
       },
       "ios": {
         "exclude": [
-          "expo-camera"
+          "expo-camera",
+          "@react-native-google-signin/google-signin"
         ]
       }
     }

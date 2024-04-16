@@ -5,18 +5,20 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import type {
   ELiteCardRoutes,
   ILiteCardParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
 export default function SelectWallet() {
   const walletList = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets();
-    const hdWalletList = wallets.filter((x) => x.type === WALLET_TYPE_HD);
+    const hdWalletList = wallets.filter((wallet) =>
+      accountUtils.isHdWallet({ walletId: wallet.id }),
+    );
     return hdWalletList;
   }, []).result;
 

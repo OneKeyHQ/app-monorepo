@@ -1,4 +1,5 @@
 export type IPrefType =
+  | 'default'
   | 'camera'
   | 'bluetooth'
   | 'location'

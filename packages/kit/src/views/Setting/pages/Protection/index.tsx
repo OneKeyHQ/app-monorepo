@@ -37,7 +37,7 @@ const SettingProtectionModal = () => {
         </ListItem>
         <YStack px="$5">
           <SizableText size="$bodySm" color="$textSubdued">
-            You password will be required in these cases even you've already
+            Your password will be required in these cases even you've already
             unlocked OneKey.
           </SizableText>
         </YStack>
