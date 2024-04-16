@@ -71,7 +71,8 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         setLoading(true);
         try {
           if (isBiologyAuthSwitchOn && isSupport) {
-            await setWebAuthEnable(true);
+            const res = await setWebAuthEnable(true);
+            if (!res) return;
           }
           const encodePassword =
             await backgroundApiProxy.servicePassword.encodeSensitiveText({
