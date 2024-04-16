@@ -154,6 +154,7 @@ function isExternalAccount({ accountId }: { accountId: string }) {
 
 function buildHDAccountId({
   walletId,
+  networkImpl,
   path,
   template,
   index,
@@ -161,6 +162,7 @@ function buildHDAccountId({
   isUtxo,
 }: {
   walletId: string;
+  networkImpl?: string;
   path?: string;
   template?: string;
   index?: number;
@@ -184,8 +186,9 @@ function buildHDAccountId({
   if (idSuffix) {
     id = `${walletId}--${usedPath}--${idSuffix}`;
   }
-  // utxo always remove last 0/0
-  if (isUtxo) {
+  const isLightningNetwork = networkUtils.isLightningNetworkByImpl(networkImpl);
+  // utxo and lightning network always remove last 0/0
+  if (isUtxo || isLightningNetwork) {
     id = id.replace(/\/0\/0$/i, '');
   }
   return id;
