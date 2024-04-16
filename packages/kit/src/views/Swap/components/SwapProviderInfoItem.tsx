@@ -44,7 +44,6 @@ const SwapProviderInfoItem = ({
     const formatRate = numberFormat(rateBN.toFixed(), {
       formatter: 'balance',
     });
-    console.log('formatRate', formatRate);
     return `1 ${fromToken.symbol.toUpperCase()} = ${
       formatRate as string
     } ${toToken.symbol.toUpperCase()}`;
