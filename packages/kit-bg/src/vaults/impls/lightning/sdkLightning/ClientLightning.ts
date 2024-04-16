@@ -16,7 +16,11 @@ import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 import type { AxiosInstance } from 'axios';
 
 function isAuthError(error: unknown): boolean {
-  return (error as OneKeyError) && (error as OneKeyError).code === 401;
+  return (
+    (error as OneKeyError) &&
+    ((error as OneKeyError).code === 401 ||
+      (error as OneKeyError).code === 50401)
+  );
 }
 
 class ClientLightning {
