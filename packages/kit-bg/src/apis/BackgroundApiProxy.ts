@@ -35,6 +35,7 @@ import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
+import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSwap from '../services/ServiceSwap';
@@ -93,6 +94,10 @@ class BackgroundApiProxy
   serviceScanQRCode = this._createProxyService(
     'serviceScanQRCode',
   ) as ServiceScanQRCode;
+
+  serviceCloudBackup = this._createProxyService(
+    'serviceCloudBackup',
+  ) as ServiceCloudBackup;
 
   serviceLiteCardMnemonic = this._createProxyService(
     'serviceLiteCardMnemonic',
