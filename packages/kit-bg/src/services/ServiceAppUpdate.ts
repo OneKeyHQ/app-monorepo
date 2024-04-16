@@ -72,7 +72,7 @@ class ServiceAppUpdate extends ServiceBase {
         void this.fetchAppUpdateInfo();
       }, timeout);
       return (
-        Date.now() - updateAt <
+        Date.now() - updateAt >
         timerUtils.getTimeDurationMs({
           day: 1,
         })
