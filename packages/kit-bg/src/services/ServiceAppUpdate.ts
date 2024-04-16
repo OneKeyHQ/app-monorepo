@@ -35,6 +35,8 @@ class ServiceAppUpdate extends ServiceBase {
     super({ backgroundApi });
   }
 
+  cachedUpdateInfo: IAppUpdateInfoData | undefined;
+
   @backgroundMethod()
   async getEndpoints() {
     const settings = await devSettingsPersistAtom.get();
@@ -45,6 +47,23 @@ class ServiceAppUpdate extends ServiceBase {
 
     const key = Math.random().toString();
     return `${url}?&nocache=${key}`;
+  }
+
+  @backgroundMethod()
+  async fetchConfig() {
+    const url = await this.getEndpoints();
+    const response = await AxiosInstance.get<IAppUpdateInfoData>(url);
+    this.cachedUpdateInfo = response.data;
+    return response.data;
+  }
+
+  @backgroundMethod()
+  async getAppLatestInfo({ cached = true }: { cached?: boolean } = {}) {
+    if (cached && this.cachedUpdateInfo) {
+      void this.fetchConfig();
+      return this.cachedUpdateInfo;
+    }
+    return this.fetchConfig();
   }
 
   @backgroundMethod()
@@ -105,9 +124,8 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async fetchChangeLog(version: string) {
-    const url = await this.getEndpoints();
-    const response = await AxiosInstance.get<IAppUpdateInfoData>(url);
-    return getChangeLog(version, response.data.changelog);
+    const response = await this.getAppLatestInfo({ cached: true });
+    return getChangeLog(version, response.changelog);
   }
 
   @backgroundMethod()
@@ -118,9 +136,8 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
-    const url = await this.getEndpoints();
-    const response = await AxiosInstance.get<IAppUpdateInfoData>(url);
-    const releaseInfo = handleReleaseInfo(response.data);
+    const data = await this.getAppLatestInfo();
+    const releaseInfo = handleReleaseInfo(data);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       ...releaseInfo,
