@@ -253,8 +253,7 @@ export const {
 export const {
   atom: swapTxHistoryPendingAtom,
   use: useSwapTxHistoryPendingAtom,
-} = contextAtomComputed((get) => {
+} = contextAtomComputed<ISwapTxHistory[]>((get) => {
   const list = get(swapTxHistoryAtom());
-  get(swapTxHistoryStatusChangeAtom());
   return list.filter((item) => item.status === ESwapTxHistoryStatus.PENDING);
 });

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { Toast } from '@onekeyhq/components';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapApproveTransaction } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveTransactionStatus } from '@onekeyhq/shared/types/swap/types';
@@ -29,6 +30,17 @@ export function useSwapApproving() {
       void approvingStateAction();
     } else {
       cleanApprovingInterval();
+    }
+    if (
+      swapApprovingTransactionAtom?.status ===
+      ESwapApproveTransactionStatus.FAILED
+    ) {
+      Toast.error({ title: 'Failed to approve' });
+    } else if (
+      swapApprovingTransactionAtom?.status ===
+      ESwapApproveTransactionStatus.CANCEL
+    ) {
+      Toast.error({ title: 'Approve canceled' });
     }
     return () => {
       cleanApprovingInterval();

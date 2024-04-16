@@ -29,10 +29,14 @@ export const swapTokenCatchMapMaxCount = 30;
 export const swapApproveResetValue = '0';
 
 export const swapQuoteFetchInterval = timerUtils.getTimeDurationMs({
-  seconds: 20,
-});
-export const swapQuoteSilenceFetchInterval = timerUtils.getTimeDurationMs({
   seconds: 10,
+});
+export const swapApprovingStateFetchInterval = timerUtils.getTimeDurationMs({
+  seconds: 1,
+});
+
+export const swapHistoryStateFetchInterval = timerUtils.getTimeDurationMs({
+  seconds: 1,
 });
 
 export const swapNetworksCommonCount = 8;
