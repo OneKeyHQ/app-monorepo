@@ -15,11 +15,12 @@ import { useAppUpdateInfo } from './hooks';
 
 const UPDATE_STATUS_TEXT_STYLE: Record<
   EAppUpdateStatus,
-  {
-    iconName: IIconProps['name'];
-    iconColor: IIconProps['color'];
-    renderText: (appUpdateInfo: IAppUpdateInfo) => string;
-  }
+  | {
+      iconName: IIconProps['name'];
+      iconColor: IIconProps['color'];
+      renderText: (appUpdateInfo: IAppUpdateInfo) => string;
+    }
+  | undefined
 > = {
   [EAppUpdateStatus.notify]: {
     iconName: 'DownloadOutline',
@@ -47,18 +48,16 @@ const UPDATE_STATUS_TEXT_STYLE: Record<
       return `Error`;
     },
   },
-  [EAppUpdateStatus.done]: {
-    iconName: 'DownloadOutline',
-    iconColor: '$iconSuccess',
-    renderText() {
-      return `App Updated`;
-    },
-  },
+  [EAppUpdateStatus.done]: undefined,
 };
 
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
-  const { iconName, iconColor, renderText } =
-    UPDATE_STATUS_TEXT_STYLE[updateInfo.status];
+  const data = UPDATE_STATUS_TEXT_STYLE[updateInfo.status];
+
+  if (!data) {
+    return null;
+  }
+  const { iconName, iconColor, renderText } = data;
   return (
     <XStack alignItems="center" space="$2" flexShrink={1}>
       <Icon name={iconName} color={iconColor} size="$4" flexShrink={0} />
@@ -76,12 +75,13 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
 
 const UPDATE_ACTION_STYLE: Record<
   EAppUpdateStatus,
-  {
-    label: string;
-    icon?: IIconProps['name'];
-    prefixElement?: ReactElement;
-    variant?: IButtonProps['variant'];
-  }
+  | {
+      label: string;
+      icon?: IIconProps['name'];
+      prefixElement?: ReactElement;
+      variant?: IButtonProps['variant'];
+    }
+  | undefined
 > = {
   [EAppUpdateStatus.notify]: {
     label: 'View',
@@ -106,9 +106,7 @@ const UPDATE_ACTION_STYLE: Record<
     label: 'Retry',
     variant: 'primary',
   },
-  [EAppUpdateStatus.done]: {
-    label: 'View',
-  },
+  [EAppUpdateStatus.done]: undefined,
 };
 
 function UpdateAction({
@@ -118,8 +116,11 @@ function UpdateAction({
   updateInfo: IAppUpdateInfo;
   onUpdateAction: () => void;
 }) {
-  const { icon, label, variant, prefixElement } =
-    UPDATE_ACTION_STYLE[updateInfo.status];
+  const data = UPDATE_ACTION_STYLE[updateInfo.status];
+  if (!data) {
+    return null;
+  }
+  const { icon, label, variant, prefixElement } = data;
   return (
     <XStack space="$4" justifyContent="space-between" alignItems="center">
       {prefixElement}
@@ -135,7 +136,10 @@ function UpdateAction({
   );
 }
 
-const UPDATE_REMINDER_BAR_STYLE: Record<EAppUpdateStatus, IStackProps> = {
+const UPDATE_REMINDER_BAR_STYLE: Record<
+  EAppUpdateStatus,
+  IStackProps | undefined
+> = {
   [EAppUpdateStatus.notify]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
@@ -152,10 +156,7 @@ const UPDATE_REMINDER_BAR_STYLE: Record<EAppUpdateStatus, IStackProps> = {
     bg: '$bgCriticalSubdued',
     borderColor: '$borderSuccessSubdued',
   },
-  [EAppUpdateStatus.done]: {
-    bg: '$bgSuccessSubdued',
-    borderColor: '$borderCriticalSubdued',
-  },
+  [EAppUpdateStatus.done]: undefined,
 };
 
 function BasicUpdateReminder() {
@@ -165,6 +166,10 @@ function BasicUpdateReminder() {
   }
   const { data, onUpdateAction } = appUpdateInfo;
   const style = UPDATE_REMINDER_BAR_STYLE[data.status];
+
+  if (!style) {
+    return null;
+  }
   return (
     <XStack
       px="$5"
