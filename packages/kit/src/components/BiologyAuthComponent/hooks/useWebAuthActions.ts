@@ -23,6 +23,7 @@ export const useWebAuthActions = () => {
         ...v,
         webAuthCredentialId: webAuthCredentialId ?? '',
       }));
+      return webAuthCredentialId;
     },
     [setPasswordPersist],
   );
