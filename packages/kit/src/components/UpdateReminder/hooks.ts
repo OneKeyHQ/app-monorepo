@@ -50,9 +50,6 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         : navigation.pushModal;
       pushModal(EModalRoutes.AppUpdateModal, {
         screen: EAppUpdateRoutes.WhatsNew,
-        params: {
-          version: platformEnv.version,
-        },
       });
     });
   }, [isFullModal, navigation.pushFullModal, navigation.pushModal]);
