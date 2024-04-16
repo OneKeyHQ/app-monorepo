@@ -7,6 +7,7 @@ import { EAppUpdateStatus } from './type';
 import type { IAppUpdateInfo } from './type';
 
 export * from './handle';
+export * from './utils';
 export * from './type';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
