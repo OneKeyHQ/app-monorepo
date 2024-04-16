@@ -6,8 +6,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 // Required value 'version' is missing or invalid. It must be between 1-4 dot-separated integers each between 0 and 65536.
 // beta version cannot be work in chrome store.
 
-// const version = process.env.VERSION;
-const version = '5.0.0';
+const version = process.env.VERSION;
 
 module.exports = {
   // generate extensionId in local
