@@ -55,6 +55,12 @@ export default class ServicePassword extends ServiceBase {
     hour: 2,
   });
 
+  private passwordPromptTTL: number = timerUtils.getTimeDurationMs({
+    minute: 5,
+  });
+
+  private passwordPromptTimeout: NodeJS.Timeout | null = null;
+
   private securitySession?: IPasswordSecuritySession;
 
   @backgroundMethod()
@@ -111,6 +117,12 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async getBgSensitiveTextEncodeKey(): Promise<string> {
     return Promise.resolve(getBgSensitiveTextEncodeKey());
+  }
+
+  clearPasswordPromptTimeout() {
+    if (this.passwordPromptTimeout) {
+      clearTimeout(this.passwordPromptTimeout);
+    }
   }
 
   // cachePassword ------------------------------
@@ -348,6 +360,7 @@ export default class ServicePassword extends ServiceBase {
     }
 
     const isPasswordSet = await this.checkPasswordSet();
+    this.clearPasswordPromptTimeout();
     const res = new Promise((resolve, reject) => {
       const promiseId = this.backgroundApi.servicePromise.createCallback({
         resolve,
@@ -416,10 +429,14 @@ export default class ServicePassword extends ServiceBase {
       ...v,
       passwordPromptPromiseTriggerData: params,
     }));
+    this.passwordPromptTimeout = setTimeout(() => {
+      void this.rejectPasswordPromptDialog(params.idNumber);
+    }, this.passwordPromptTTL);
   }
 
   @backgroundMethod()
   async resolvePasswordPromptDialog(promiseId: number, data: IPasswordRes) {
+    this.clearPasswordPromptTimeout();
     if (data.password) {
       ensureSensitiveTextEncoded(data.password);
     }
@@ -436,8 +453,9 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async rejectPasswordPromptDialog(
     promiseId: number,
-    error: { message: string },
+    error?: { message: string },
   ) {
+    this.clearPasswordPromptTimeout();
     void this.backgroundApi.servicePromise.rejectCallback({
       id: promiseId,
       error,

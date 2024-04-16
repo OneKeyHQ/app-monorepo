@@ -17,6 +17,7 @@ export enum EOnboardingPages {
   ImportRecoveryPhrase = 'ImportRecoveryPhrase',
   ImportPrivateKey = 'ImportPrivateKey',
   ImportAddress = 'ImportAddress',
+  ImportCloudBackup = 'ImportCloudBackup',
 
   // connect 3rd-party wallet
   ConnectWallet = 'ConnectWallet',
@@ -53,6 +54,7 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ImportRecoveryPhrase]: undefined;
   [EOnboardingPages.ImportPrivateKey]: undefined;
   [EOnboardingPages.ImportAddress]: undefined;
+  [EOnboardingPages.ImportCloudBackup]: undefined;
 
   // connect 3rd-party wallet
   [EOnboardingPages.ConnectWallet]: IWalletConnectConnectToWalletParams & {
