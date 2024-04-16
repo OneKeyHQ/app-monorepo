@@ -8,6 +8,7 @@ import { ModalAddressBookRouter } from '../../views/AddressBook/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
+import { CloudBackupPages } from '../../views/CloudBackup/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { ModalDiscoveryStack } from '../../views/Discovery/router';
 import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
@@ -73,6 +74,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.LiteCardModal,
     children: LiteCardPages,
+  },
+  {
+    name: EModalRoutes.CloudBackupModal,
+    children: CloudBackupPages,
   },
   {
     name: EModalRoutes.AddressBookModal,

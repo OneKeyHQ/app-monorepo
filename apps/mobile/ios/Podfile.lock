@@ -1037,6 +1037,8 @@ PODS:
   - react-native-ble-plx (3.0.0):
     - MultiplatformBleAdapter (= 0.1.9)
     - React-Core
+  - react-native-cloud-fs (2.6.0):
+    - React
   - react-native-compat (2.11.2):
     - glog
     - RCT-Folly (= 2022.05.16.00)
@@ -1397,6 +1399,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../../../node_modules/react-native/ReactCommon`)
   - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
   - "react-native-ble-plx (from `../../../node_modules/@onekeyfe/react-native-ble-plx`)"
+  - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
@@ -1590,6 +1593,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-ble-manager"
   react-native-ble-plx:
     :path: "../../../node_modules/@onekeyfe/react-native-ble-plx"
+  react-native-cloud-fs:
+    :path: "../../../node_modules/react-native-cloud-fs"
   react-native-compat:
     :path: "../../../node_modules/@walletconnect/react-native-compat"
   react-native-get-random-values:
@@ -1770,6 +1775,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 84ea43c6c6232049135b1550b8c60b2faac19fab
   react-native-ble-manager: 09724bad4d06b86a85e0cd7bd97196fecca15e9a
   react-native-ble-plx: 4b0b605e4c52453ecbeb82807878bc4a2652d1c9
+  react-native-cloud-fs: cd21282c5cecaf285225e447dd7f3cf2f9015496
   react-native-compat: 3af9add14d349701306d3d052638435f6795ac2c
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-lite-card: cddf236c091281577c86095437a9ae204b74bc6f

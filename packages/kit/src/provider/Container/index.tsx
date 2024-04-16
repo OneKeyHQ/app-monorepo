@@ -19,6 +19,7 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
+import { CloudBackupContainer } from './CloudBackupContainer';
 
 function ErrorToastContainer() {
   useEffect(() => {
@@ -81,6 +82,7 @@ export function Container() {
         <NavigationContainer>
           <JotaiContextRootProvidersAutoMount />
           <HardwareUiStateContainer />
+          <CloudBackupContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
           <ErrorToastContainer />

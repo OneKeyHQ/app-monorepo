@@ -201,6 +201,15 @@ function buildIndexedAccountId({
   return `${walletId}--${index}`;
 }
 
+function parseAccountId({ accountId }: { accountId: string }) {
+  const arr = accountId.split(SEPERATOR);
+  return {
+    walletId: arr[0],
+    usedPath: arr[1],
+    idSuffix: arr[2],
+  };
+}
+
 function parseIndexedAccountId({
   indexedAccountId,
 }: {
@@ -488,6 +497,7 @@ export default {
   isHdAccount,
   isHwAccount,
   isExternalAccount,
+  parseAccountId,
   parseIndexedAccountId,
   shortenAddress,
   beautifyPathTemplate,

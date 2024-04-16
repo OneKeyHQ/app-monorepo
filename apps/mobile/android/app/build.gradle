@@ -129,6 +129,9 @@ android {
     		dimension "dimension"
     	}
     }
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+    }
 }
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`

@@ -39,6 +39,9 @@ const GetStarted = LazyLoadPage(() => import('../pages/GetStarted'));
 const ImportAddress = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportAddress'),
 );
+const ImportCloudBackup = LazyLoadPage(
+  () => import('../pages/ImportWallet/ImportCloudBackup'),
+);
 
 const ImportPrivateKey = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportPrivateKey'),
@@ -106,6 +109,10 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.ImportAddress,
     component: ImportAddress,
+  },
+  {
+    name: EOnboardingPages.ImportCloudBackup,
+    component: ImportCloudBackup,
   },
 
   // connect 3rd-party wallet

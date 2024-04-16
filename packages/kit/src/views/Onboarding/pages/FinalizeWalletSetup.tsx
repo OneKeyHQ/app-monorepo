@@ -9,6 +9,7 @@ import {
   Spinner,
   Stack,
 } from '@onekeyhq/components';
+import { maybeShowBackupToggleDialog } from '@onekeyhq/kit/src/views/CloudBackup/components/BackupToggleDialog';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -22,6 +23,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
@@ -86,13 +88,25 @@ function FinalizeWalletSetupPage({
     };
   }, []);
 
+  const isFirstCreateWallet = useRef(false);
+  const readIsFirstCreateWallet = async () => {
+    const { isOnboardingDone } =
+      await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+    isFirstCreateWallet.current = !isOnboardingDone;
+  };
   useEffect(() => {
+    if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
+      void readIsFirstCreateWallet();
+    }
     if (!showStep) {
       return;
     }
     if (currentStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
         navigation.navigate(ERootRoutes.Main);
+        if (isFirstCreateWallet.current) {
+          void maybeShowBackupToggleDialog(true);
+        }
       }, 1000);
     }
   }, [currentStep, navigation, showStep]);
