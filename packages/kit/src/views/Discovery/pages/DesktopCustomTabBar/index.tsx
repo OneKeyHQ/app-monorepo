@@ -198,20 +198,20 @@ function DesktopCustomTabBar() {
     setPinContainerHeight(height / 2);
   }, []);
 
-  const pinDataTabsHeight = pinnedData.length * ITEM_HEIGHT;
+  const pinnedBarHeight = useMemo(() => {
+    const pinDataTabsHeight = pinnedData.length * ITEM_HEIGHT;
+    return pinContainerHeight < pinDataTabsHeight
+      ? pinContainerHeight +
+          ITEM_HEIGHT / 2 -
+          (pinContainerHeight % ITEM_HEIGHT)
+      : pinDataTabsHeight;
+  }, [pinContainerHeight, pinnedData.length]);
+
   return (
     <Stack flex={1} onLayout={handleLayout}>
       <HandleRebuildBrowserData />
       {/* Pin Tabs */}
-      <Stack
-        height={
-          pinContainerHeight < pinDataTabsHeight
-            ? pinContainerHeight +
-              ITEM_HEIGHT / 2 -
-              (pinContainerHeight % ITEM_HEIGHT)
-            : pinDataTabsHeight
-        }
-      >
+      <Stack height={pinnedBarHeight}>
         <ScrollView flex={1} ref={pinnedTabsScrollViewRef}>
           {pinnedData.map((t) => (
             <DesktopCustomTabBarItem
