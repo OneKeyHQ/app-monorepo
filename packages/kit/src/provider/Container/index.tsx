@@ -14,12 +14,12 @@ import { WalletConnectModalContainer } from '../../components/WalletConnect/Wall
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
 import { AppStateLockContainer } from './AppStateLockContainer';
+import { CloudBackupContainer } from './CloudBackupContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
-import { CloudBackupContainer } from './CloudBackupContainer';
 
 function ErrorToastContainer() {
   useEffect(() => {
