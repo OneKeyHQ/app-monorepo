@@ -677,4 +677,5 @@ module.exports = [
   'ascii',
   'keysend',
   'preimage',
+  'semver',
 ];

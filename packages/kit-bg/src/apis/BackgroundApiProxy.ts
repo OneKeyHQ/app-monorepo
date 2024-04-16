@@ -13,6 +13,7 @@ import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
@@ -93,6 +94,10 @@ class BackgroundApiProxy
   serviceScanQRCode = this._createProxyService(
     'serviceScanQRCode',
   ) as ServiceScanQRCode;
+
+  serviceCloudBackup = this._createProxyService(
+    'serviceCloudBackup',
+  ) as ServiceCloudBackup;
 
   serviceLiteCardMnemonic = this._createProxyService(
     'serviceLiteCardMnemonic',

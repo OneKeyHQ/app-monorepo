@@ -5275,6 +5275,7 @@ __metadata:
     "@react-native-async-storage/async-storage": "npm:1.22.0"
     "@react-native-community/netinfo": "npm:^9.4.1"
     "@react-native-community/slider": "npm:4.4.3"
+    "@react-native-google-signin/google-signin": "npm:^9.1.0"
     "@shopify/flash-list": "npm:^1.6.3"
     "@walletconnect/modal-react-native": "npm:1.1.0"
     "@walletconnect/react-native-compat": "npm:2.11.2"
@@ -5310,6 +5311,7 @@ __metadata:
     react-native-ble-manager: "npm:^10.0.2"
     react-native-bundle-visualizer: "npm:^3.1.3"
     react-native-camera-kit: "npm:14.0.0-beta2"
+    react-native-cloud-fs: "https://github.com/OneKeyHQ/react-native-cloud-fs#cba878df6df939e67f326f9381232f5c5a6f9c49"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
     react-native-fast-image: "npm:8.6.3"
@@ -6308,6 +6310,20 @@ __metadata:
   version: 4.4.3
   resolution: "@react-native-community/slider@npm:4.4.3"
   checksum: 10/e0036f26fc11b38472381d26ba0b81f4e6e74ffe08297a4d8b0a9990d0d4788710410a75429bb20d4b0272b7a772cfad645577e8845e10d31cc8610f58ba5ea2
+  languageName: node
+  linkType: hard
+
+"@react-native-google-signin/google-signin@npm:^9.1.0":
+  version: 9.1.0
+  resolution: "@react-native-google-signin/google-signin@npm:9.1.0"
+  peerDependencies:
+    expo: ">=47.0.0"
+    react: "*"
+    react-native: "*"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+  checksum: 10/342bbbedbd2be3098cbc652779254bac395f13a261745dfc2092fd09d4dae1c47242023da1e80fdffb119778110abb2b6b22245291d7c522a15c4aee151c7ff5
   languageName: node
   linkType: hard
 
@@ -25778,6 +25794,13 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/6affc42ddaa955a86c4c5a01b8dd7851368731b16aea849a27298eaf242b8b77a1f364ee0b31968e756683091e25c02c44cd2bc91455124b4bc28ea30c4d13b8
+  languageName: node
+  linkType: hard
+
+"react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs#cba878df6df939e67f326f9381232f5c5a6f9c49":
+  version: 2.6.0
+  resolution: "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs.git#commit=cba878df6df939e67f326f9381232f5c5a6f9c49"
+  checksum: 10/54cb4ab2402470e3f0d0c3511d3d84d0d8d9d5a516410a0e78f55b87fe8e8736998ce8f95144961dd6f626b2ee9a28cb0da173b2f48e96028a2b3d067a4e99be
   languageName: node
   linkType: hard
 
