@@ -181,7 +181,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
     })();
   }, [actions, num, sceneName, swapToAnotherAccount]);
 
-  return null;
+  return <></>;
 }
 
 export const AccountSelectorEffects = memo(AccountSelectorEffectsCmp);
