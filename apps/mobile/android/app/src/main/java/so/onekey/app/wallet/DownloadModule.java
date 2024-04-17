@@ -8,6 +8,7 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
 
@@ -81,14 +82,29 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         long contentLength = body.contentLength();
         BufferedSource source = body.source();
 
-        BufferedSink sink = Okio.buffer(Okio.sink(new File(filePath.replace("file:///", "/"))));
+        BufferedSink sink = null;
+        try {
+            sink = Okio.buffer(Okio.sink(new File(filePath.replace("file:///", "/"))));
+        } catch (FileNotFoundException e) {
+            this.isDownloading = false;
+            this.sendEvent("update/error", null);
+            promise.reject("Error", e.getMessage());
+            throw new RuntimeException(e);
+        }
         Buffer sinkBuffer = sink.buffer();
 
         long totalBytesRead = 0;
         int bufferSize = 8 * 1024;
         this.sendEvent("update/start", null);
         for (long bytesRead; (bytesRead = source.read(sinkBuffer, bufferSize)) != -1; ) {
-            sink.emit();
+            try {
+                sink.emit();
+            } catch (IOException e) {
+                this.isDownloading = false;
+                this.sendEvent("update/error", null);
+                promise.reject("Error", e.getMessage());
+                throw new RuntimeException(e);
+            }
             totalBytesRead += bytesRead;
             int progress = (int) ((totalBytesRead * 100) / contentLength);
             WritableMap params = Arguments.createMap();
@@ -97,9 +113,16 @@ public class DownloadModule extends ReactContextBaseJavaModule {
             mBuilder.setProgress(100, progress, false);
             mNotifyManager.notify(this.notifiactionId, mBuilder.build());
         }
-        sink.flush();
-        sink.close();
-        source.close();
+        try {
+            sink.flush();
+            sink.close();
+            source.close();
+        } catch (IOException e) {
+            this.isDownloading = false;
+            this.sendEvent("update/error", null);
+            promise.reject("Error", e.getMessage());
+            throw new RuntimeException(e);
+        }
         promise.resolve(null);
         this.sendEvent("update/downloaded", null);
         this.isDownloading = false;
