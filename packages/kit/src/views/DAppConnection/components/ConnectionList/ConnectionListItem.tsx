@@ -1,4 +1,11 @@
-import { Icon, Image, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
@@ -32,7 +39,15 @@ function ConnectionListItem({
     <YStack space="$5" p="$5">
       <XStack alignItems="center" justifyContent="space-between" space="$3">
         <XStack flex={1} alignItems="center" space="$3">
-          <Image w="$10" h="$10" source={{ uri: item.imageURL }} />
+          <Image size="$10">
+            <Image.Source src={item.imageURL} />
+            <Image.Fallback>
+              <Icon size="$10" name="GlobusOutline" />
+            </Image.Fallback>
+            <Image.Loading>
+              <Skeleton width="100%" height="100%" />
+            </Image.Loading>
+          </Image>
           <SizableText
             size="$bodyLgMedium"
             color="$text"

@@ -177,11 +177,16 @@ export function ConnectYourDevicePage() {
       try {
         console.log('ConnectYourDevice -> createHwWallet', device);
         let { features } = device as KnownDevice;
+
+        features = undefined as any; // force getFeatures again
         if (!features) {
+          const now = Date.now();
           features = await backgroundApiProxy.serviceHardware.getFeatures(
             device.connectId || '',
           );
+          console.log('getFeatures duration>>>>>>', (Date.now() - now) / 1000);
         }
+
         await Promise.all([
           await actions.current.createHWWalletWithHidden({
             device,

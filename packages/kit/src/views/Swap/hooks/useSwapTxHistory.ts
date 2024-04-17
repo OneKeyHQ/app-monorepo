@@ -1,6 +1,5 @@
 import { useCallback, useEffect } from 'react';
 
-// import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   ISwapTxHistory,
@@ -8,7 +7,6 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-// import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useSwapActions,
@@ -43,17 +41,6 @@ export function useSwapTxHistoryStateSyncInterval() {
   const [swapTxHistoryPending] = useSwapTxHistoryPendingAtom();
   const { historyStateAction, cleanHistoryStateIntervals } =
     useSwapActions().current;
-
-  // useListenTabFocusState(
-  //   ETabRoutes.Swap,
-  //   (isFocus: boolean, isHiddenModel: boolean) => {
-  //     if (isFocus) {
-  //       void historyStateAction();
-  //     } else {
-  //       cleanHistoryStateIntervals();
-  //     }
-  //   },
-  // );
 
   useEffect(() => {
     void historyStateAction();

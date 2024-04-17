@@ -104,6 +104,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
+    // throw new Error('some error')
     const accounts = await this.eth_accounts(request);
     if (accounts && accounts.length) {
       return accounts;

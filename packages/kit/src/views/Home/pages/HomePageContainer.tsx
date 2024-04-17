@@ -32,6 +32,7 @@ import { UpdateReminder } from '../../../components/UpdateReminder';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { UrlAccountAutoReplaceHistory } from '../../Landing';
 import { OnboardingOnMount } from '../../Onboarding/components';
 import HomeSelector from '../components/HomeSelector';
 import useHomePageWidth from '../hooks/useHomePageWidth';
@@ -336,6 +337,7 @@ function HomePageContainer() {
       <HomePage onPressHide={() => setIsHide((v) => !v)} />
       <DAppConnectExtensionFloatingTrigger />
       <OnboardingOnMount />
+      <UrlAccountAutoReplaceHistory num={0} />
     </AccountSelectorProviderMirror>
   );
 }
