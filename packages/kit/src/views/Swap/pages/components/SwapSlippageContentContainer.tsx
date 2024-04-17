@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -42,7 +42,7 @@ const BaseSlippageInput = ({
     (text: string) => {
       // if (validateAmountInput(text)) {
       setInputValue(text);
-      // onChangeText(text);
+      onChangeText(text);
       // }
     },
     [onChangeText],
@@ -120,7 +120,7 @@ const SwapsSlippageContentContainer = () => {
         status: ESwapSlippageCustomStatus.NORMAL,
         message: '',
       });
-    }, 200),
+    }, 350),
     [],
   );
 
