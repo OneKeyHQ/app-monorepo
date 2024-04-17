@@ -16,6 +16,7 @@ import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.
 import type { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 import { withSwapProvider } from '../WithSwapProvider';
 
 import SwapActionsState from './SwapActionsState';
@@ -30,6 +31,7 @@ const SwapMainLoad = () => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
+  const quoteLoading = useSwapQuoteLoading();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
@@ -88,7 +90,9 @@ const SwapMainLoad = () => {
       >
         <SwapHeaderContainer />
         <SwapQuoteInput onSelectToken={onSelectToken} />
-        {alerts.length > 0 ? <SwapAlertContainer alerts={alerts} /> : null}
+        {alerts.length > 0 && !quoteLoading ? (
+          <SwapAlertContainer alerts={alerts} />
+        ) : null}
         {quoteResult ? (
           <SwapQuoteResult
             onOpenProviderList={onOpenProviderList}

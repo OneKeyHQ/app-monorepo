@@ -54,21 +54,27 @@ const SwapsSlippageContentContainer = () => {
         });
         return;
       }
+      setSwapSlippage({
+        key: ESwapSlippageSegmentKey.CUSTOM,
+        value: valueBN.toNumber(),
+      });
       if (valueBN.lte(swapSlippageWillFailMinValue)) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
           message: 'Your trade may fail due to small slippage.',
         });
+        return;
       }
       if (valueBN.gte(swapSlippageWillAheadMinValue)) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
           message: 'High slippage tolerance may cause your asset loss.',
         });
+        return;
       }
-      setSwapSlippage({
-        key: ESwapSlippageSegmentKey.CUSTOM,
-        value: valueBN.toNumber(),
+      setCustomValueState({
+        status: ESwapSlippageCustomStatus.NORMAL,
+        message: '',
       });
     }, 200),
     [],
