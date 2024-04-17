@@ -6,6 +6,7 @@ import { Badge } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { UrlExternalListItem } from '../../../components/UrlExternalListItem';
 import { Section } from '../Section';
@@ -14,7 +15,7 @@ import { StateLogsItem } from './StateLogsItem';
 
 function ListVersionItem() {
   const appUpdateInfo = useAppUpdateInfo();
-  return appUpdateInfo.data ? (
+  return appUpdateInfo.isNeedUpdate ? (
     <ListItem
       onPress={appUpdateInfo.onUpdateAction}
       icon="InfoCircleOutline"
@@ -39,7 +40,7 @@ function ListVersionItem() {
       title="What’s New"
       drillIn
     >
-      <ListItem.Text primary={appUpdateInfo.version} align="right" />
+      <ListItem.Text primary={platformEnv.version} align="right" />
     </ListItem>
   );
 }

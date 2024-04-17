@@ -22,7 +22,7 @@ function DAppRequestLayout({
   children,
 }: PropsWithChildren<{
   title: string;
-  subtitle: string;
+  subtitle?: string;
   subtitleShown?: boolean;
   origin: string;
   urlSecurityInfo?: IHostSecurity;
@@ -35,7 +35,16 @@ function DAppRequestLayout({
       return null;
     }
     if (!subtitle || !subtitle.length) {
-      return <Skeleton w={118} h="$6" />;
+      return (
+        <Skeleton
+          w={118}
+          h="$6"
+          $md={{
+            w: '75%',
+            h: '$12',
+          }}
+        />
+      );
     }
     return (
       <SizableText color="$textSubdued" size="$bodyLg">

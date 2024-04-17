@@ -278,6 +278,7 @@ class ServiceDappSide extends ServiceBase {
       connectionInfo,
       // newConnection // TODO open newConnection if wallet is disconnected
     });
+    // TODO check address or network matched
     const result = await ctrl.sendTransaction({
       account,
       networkId,
@@ -306,6 +307,7 @@ class ServiceDappSide extends ServiceBase {
     const { connector } = await this.getConnectorCached({
       connectionInfo,
     });
+    // TODO check address or network matched
     const result = await ctrl.signMessage({
       account,
       networkId,

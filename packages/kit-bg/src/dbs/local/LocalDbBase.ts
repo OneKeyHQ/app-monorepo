@@ -467,8 +467,12 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
-  dumpCredentials(password: string): Promise<Record<string, string>> {
-    throw new Error('Method not implemented.');
+  async getCredentials(): Promise<IDBCredentialBase[]> {
+    const db = await this.readyDb;
+    const { records: credentials } = await db.getAllRecords({
+      name: ELocalDBStoreNames.Credential,
+    });
+    return credentials;
   }
 
   async getCredential(credentialId: string): Promise<IDBCredentialBase> {
@@ -478,58 +482,6 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       id: credentialId,
     });
     return credential;
-  }
-
-  // insert lightning network credential
-  async updateLightningCredential({
-    credentialId,
-    credential,
-  }: {
-    credentialId: string;
-    credential: string;
-  }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
-      await this.txUpdateLightningCredential({
-        tx,
-        credentialId,
-        credential,
-        updater: (record) => {
-          record.credential = credential;
-          return record;
-        },
-      });
-    });
-  }
-
-  async txUpdateLightningCredential({
-    tx,
-    credentialId,
-    credential,
-    updater,
-  }: {
-    tx: ILocalDBTransaction;
-    credentialId: string;
-    credential: string;
-    updater: ILocalDBRecordUpdater<ELocalDBStoreNames.Credential>;
-  }) {
-    await this.txAddRecords({
-      tx,
-      skipIfExists: true,
-      name: ELocalDBStoreNames.Credential,
-      records: [
-        {
-          id: credentialId,
-          credential,
-        },
-      ],
-    });
-    await this.txUpdateRecords({
-      tx,
-      name: ELocalDBStoreNames.Credential,
-      ids: [credentialId],
-      updater,
-    });
   }
 
   // ---------------------------------------------- wallet
@@ -1696,8 +1648,11 @@ ssphrase wallet
     return account;
   }
 
-  getAllAccounts(): Promise<IDBAccount[]> {
-    throw new Error('Method not implemented.');
+  async getAllAccounts() {
+    const { records: accounts } = await this.getAllRecords({
+      name: ELocalDBStoreNames.Account,
+    });
+    return { accounts };
   }
 
   getAccounts(accountIds: string[]): Promise<IDBAccount[]> {

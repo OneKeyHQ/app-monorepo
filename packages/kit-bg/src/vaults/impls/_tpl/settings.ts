@@ -33,6 +33,7 @@ const settings: IVaultSettings = {
   nonceRequired: true,
   feeUTXORequired: false,
   editFeeEnabled: true,
+  replaceTxEnabled: false,
 
   accountDeriveInfo,
   networkInfo: {

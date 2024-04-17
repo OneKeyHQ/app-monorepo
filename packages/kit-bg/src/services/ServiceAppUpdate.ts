@@ -3,6 +3,7 @@ import axios from 'axios';
 import {
   EAppUpdateStatus,
   type IAppUpdateInfoData,
+  getChangeLog,
   handleReleaseInfo,
   isFirstLaunchAfterUpdated,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -33,13 +34,35 @@ class ServiceAppUpdate extends ServiceBase {
     super({ backgroundApi });
   }
 
+  cachedUpdateInfo: IAppUpdateInfoData | undefined;
+
   @backgroundMethod()
   async getEndpoints() {
     const settings = await devSettingsPersistAtom.get();
-    if (settings.enabled && settings.settings?.enableTestEndpoint) {
-      return ONEKEY_APP_TEST_UPDATE_URL;
+    const url =
+      settings.enabled && settings.settings?.enableTestEndpoint
+        ? ONEKEY_APP_TEST_UPDATE_URL
+        : ONEKEY_APP_UPDATE_URL;
+
+    const key = Math.random().toString();
+    return `${url}?&nocache=${key}`;
+  }
+
+  @backgroundMethod()
+  async fetchConfig() {
+    const url = await this.getEndpoints();
+    const response = await AxiosInstance.get<IAppUpdateInfoData>(url);
+    this.cachedUpdateInfo = response.data;
+    return response.data;
+  }
+
+  @backgroundMethod()
+  async getAppLatestInfo({ cached = true }: { cached?: boolean } = {}) {
+    if (cached && this.cachedUpdateInfo) {
+      void this.fetchConfig();
+      return this.cachedUpdateInfo;
     }
-    return ONEKEY_APP_UPDATE_URL;
+    return this.fetchConfig();
   }
 
   @backgroundMethod()
@@ -71,7 +94,7 @@ class ServiceAppUpdate extends ServiceBase {
         void this.fetchAppUpdateInfo();
       }, timeout);
       return (
-        Date.now() - updateAt <
+        Date.now() - updateAt >
         timerUtils.getTimeDurationMs({
           day: 1,
         })
@@ -99,6 +122,12 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async fetchChangeLog(version: string) {
+    const response = await this.getAppLatestInfo({ cached: true });
+    return getChangeLog(version, response.changelog);
+  }
+
+  @backgroundMethod()
   public async fetchAppUpdateInfo() {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
@@ -106,12 +135,8 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
-    const url = await this.getEndpoints();
-    const key = Math.random().toString();
-    const response = await AxiosInstance.get<IAppUpdateInfoData>(
-      `${url}?nocache=${key}`,
-    );
-    const releaseInfo = handleReleaseInfo(response.data);
+    const data = await this.getAppLatestInfo();
+    const releaseInfo = handleReleaseInfo(data);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       ...releaseInfo,

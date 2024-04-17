@@ -1,7 +1,14 @@
 import FastImage from 'react-native-fast-image';
 
-import type { IPreloadFunc } from './type';
+import type { IPreloadImageFunc, IPreloadImagesFunc } from './type';
 
 export const ImageNet = FastImage;
 
-export const preload: IPreloadFunc = ImageNet.preload;
+export const preloadImages: IPreloadImagesFunc = (sources) =>
+  new Promise((resolve) => {
+    ImageNet.preload(sources);
+    resolve();
+  });
+
+export const preloadImage: IPreloadImageFunc = (source) =>
+  preloadImages([source]);

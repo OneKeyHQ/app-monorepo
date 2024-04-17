@@ -8,17 +8,17 @@ import {
   SortableListView,
   Stack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+
+import { filterNetwork } from '../BaseView';
 
 type IEditableViewContext = {
   isEditMode?: boolean;
-  searchText?: string;
   networkId?: string;
+  searchText?: string;
   topNetworkIds: Set<string>;
   topNetworks: IServerNetwork[];
   onPressItem?: (item: IServerNetwork) => void;
@@ -96,20 +96,11 @@ const ListHeaderComponent = () => {
     searchText,
     onPressItem,
   } = useContext(EditableViewContext);
-  const networks = useMemo(() => {
-    if (!searchText) {
-      return topNetworks;
-    }
-    return topNetworks.filter((item) => {
-      const name = item.name.toLowerCase();
-      const shortname = item.shortname.toLowerCase();
-      return shortname.includes(searchText) || name.includes(searchText);
-    });
-  }, [topNetworks, searchText]);
-  if (isEditMode && searchText) {
-    return null;
-  }
-  if (isEditMode && searchText) {
+  const networks = useMemo(
+    () => topNetworks.filter(filterNetwork(searchText?.trim() ?? '')),
+    [topNetworks, searchText],
+  );
+  if (searchText) {
     return null;
   }
   return (
@@ -155,6 +146,7 @@ const ListHeaderComponent = () => {
       )}
       onDragEnd={(result) => setTopNetworks?.(result.data)}
       scrollEnabled={false}
+      ListHeaderComponent={<Stack h="$2" />}
       ListFooterComponent={<Stack h="$5" />} // Act as padding bottom
     />
   );
@@ -184,6 +176,7 @@ export const EditableView: FC<IEditableViewProps> = ({
   const [searchText, setSearchText] = useState('');
   const [topNetworks, setTopNetworks] = useState(defaultTopNetworks ?? []);
   const lastIsEditMode = usePrevious(isEditMode);
+  const trimSearchText = searchText.trim();
 
   useEffect(() => {
     if (!isEditMode && lastIsEditMode) {
@@ -195,15 +188,33 @@ export const EditableView: FC<IEditableViewProps> = ({
     setTopNetworks(defaultTopNetworks);
   }, [defaultTopNetworks]);
 
-  const { result: sections } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceNetwork.groupNetworks({
-        networks: allNetworks,
-        searchKey: searchText ?? '',
-      }),
-    [allNetworks, searchText],
-    { initResult: [] },
-  );
+  const sections = useMemo<{ title?: string; data: IServerNetwork[] }[]>(() => {
+    if (trimSearchText) {
+      const data = allNetworks.filter(
+        filterNetwork(trimSearchText.toLowerCase(), true),
+      );
+      return data.length === 0
+        ? []
+        : [
+            {
+              data,
+            },
+          ];
+    }
+    const data = allNetworks.reduce((result, item) => {
+      const char = item.name[0].toUpperCase();
+      if (!result[char]) {
+        result[char] = [];
+      }
+      result[char].push(item);
+
+      return result;
+    }, {} as Record<string, IServerNetwork[]>);
+    return Object.entries(data)
+      .map(([key, value]) => ({ title: key, data: value }))
+      .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
+  }, [allNetworks, trimSearchText]);
+
   const ctx = useMemo<IEditableViewContext>(
     () => ({
       topNetworks,
@@ -212,7 +223,7 @@ export const EditableView: FC<IEditableViewProps> = ({
       onPressItem,
       isEditMode,
       setTopNetworks,
-      searchText,
+      searchText: trimSearchText,
     }),
     [
       topNetworks,
@@ -220,7 +231,7 @@ export const EditableView: FC<IEditableViewProps> = ({
       onPressItem,
       isEditMode,
       setTopNetworks,
-      searchText,
+      trimSearchText,
     ],
   );
   const renderItem = useCallback(
@@ -231,9 +242,12 @@ export const EditableView: FC<IEditableViewProps> = ({
   );
 
   const renderSectionHeader = useCallback(
-    (item: { section: { title: string } }) => (
-      <SectionList.SectionHeader title={item?.section?.title} />
-    ),
+    (item: { section: { title: string } }) => {
+      if (item?.section?.title) {
+        return <SectionList.SectionHeader title={item?.section?.title} />;
+      }
+      return <Stack h="$2" />;
+    },
     [],
   );
 

@@ -42,7 +42,7 @@ import {
 } from './atoms';
 
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import type { WebView } from 'react-native-webview';
+import type { WebView } from '@onekeyfe/react-native-webview';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -304,6 +304,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const updatedBookmarks = [...filteredBookmarks, newBookmark];
       this.buildBookmarkData.call(set, updatedBookmarks);
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
+      void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
     },
   );
 

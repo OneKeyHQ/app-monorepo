@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { isNumber } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -68,6 +69,8 @@ function DAppAccountListItem({
     handleAccountChanged,
   });
 
+  const shouldSyncFromHome = initFromHome && !readonly;
+  const loadingDuration = shouldSyncFromHome ? 800 : 500;
   return (
     <>
       <XGroup
@@ -83,6 +86,7 @@ function DAppAccountListItem({
             num={num}
             beforeShowTrigger={beforeShowTrigger}
             disabled={networkReadonly || readonly}
+            loadingDuration={loadingDuration}
           />
         </Group.Item>
         <Group.Item>
@@ -90,26 +94,32 @@ function DAppAccountListItem({
             num={num}
             compressionUiMode={compressionUiMode}
             beforeShowTrigger={beforeShowTrigger}
+            loadingDuration={loadingDuration}
           />
         </Group.Item>
       </XGroup>
-      {initFromHome && !readonly ? (
-        <DAppAccountListInitFromHome num={num} />
-      ) : null}
+      {shouldSyncFromHome ? <DAppAccountListInitFromHome num={num} /> : null}
     </>
   );
 }
 
+export type IConnectedAccountInfoChangedParams = {
+  num: number;
+  existConnectedAccount: boolean;
+};
 function DAppAccountListStandAloneItem({
   readonly,
   handleAccountChanged,
+  onConnectedAccountInfoChanged,
 }: {
   readonly?: boolean;
   handleAccountChanged?: IHandleAccountChanged;
+  onConnectedAccountInfoChanged?: (
+    params: IConnectedAccountInfoChangedParams,
+  ) => void;
 }) {
   const { serviceDApp, serviceNetwork } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
-  console.log('=====>>>>>DAppAccountListStandAloneItem');
 
   const { result } = usePromiseResult(async () => {
     if (!$sourceInfo?.origin || !$sourceInfo.scope) {
@@ -118,19 +128,38 @@ function DAppAccountListStandAloneItem({
         networkIds: null,
       };
     }
-    const accountSelectorNum = await serviceDApp.getAccountSelectorNum({
-      origin: $sourceInfo.origin,
-      scope: $sourceInfo.scope ?? '',
-      isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
-    });
     const impls = getNetworkImplsFromDappScope($sourceInfo.scope);
     const networkIds = impls
       ? (await serviceNetwork.getNetworkIdsByImpls({ impls })).networkIds
       : null;
 
+    const accountsInfo = await serviceDApp.getConnectedAccountsInfo({
+      origin: $sourceInfo.origin,
+      scope: $sourceInfo.scope ?? '',
+      isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
+    });
+    if (
+      Array.isArray(accountsInfo) &&
+      accountsInfo.length > 0 &&
+      typeof accountsInfo[0]?.num === 'number'
+    ) {
+      return {
+        accountSelectorNum: accountsInfo[0].num,
+        networkIds,
+        existConnectedAccount: true,
+      };
+    }
+
+    const accountSelectorNum = await serviceDApp.getAccountSelectorNum({
+      origin: $sourceInfo.origin,
+      scope: $sourceInfo.scope ?? '',
+      isWalletConnectRequest: $sourceInfo.isWalletConnectRequest,
+    });
+
     return {
       accountSelectorNum,
       networkIds,
+      existConnectedAccount: false,
     };
   }, [
     $sourceInfo?.origin,
@@ -138,6 +167,19 @@ function DAppAccountListStandAloneItem({
     $sourceInfo?.isWalletConnectRequest,
     serviceDApp,
     serviceNetwork,
+  ]);
+
+  useEffect(() => {
+    if (isNumber(result?.accountSelectorNum) && onConnectedAccountInfoChanged) {
+      onConnectedAccountInfoChanged({
+        num: result.accountSelectorNum,
+        existConnectedAccount: result.existConnectedAccount,
+      });
+    }
+  }, [
+    result?.accountSelectorNum,
+    result?.existConnectedAccount,
+    onConnectedAccountInfoChanged,
   ]);
 
   return (
@@ -159,7 +201,7 @@ function DAppAccountListStandAloneItem({
           }}
         >
           <DAppAccountListItem
-            initFromHome
+            initFromHome={!result?.existConnectedAccount}
             num={result?.accountSelectorNum}
             handleAccountChanged={handleAccountChanged}
             readonly={readonly}

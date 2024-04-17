@@ -108,17 +108,22 @@ function buildWatchingAccountId({
   address,
   xpub,
   addressEncoding,
+  isUrlAccount,
 }: {
   coinType: string;
   address?: string;
   xpub?: string;
   addressEncoding?: EAddressEncodings | undefined;
+  isUrlAccount?: boolean;
 }) {
-  const publicKey = xpub || address;
-  if (!publicKey) {
+  if (isUrlAccount) {
+    return `${WALLET_TYPE_WATCHING}--global-url-account`;
+  }
+  const pubOrAddress = xpub || address;
+  if (!pubOrAddress) {
     throw new Error('buildWatchingAccountId ERROR: publicKey is not defined');
   }
-  let id = `${WALLET_TYPE_WATCHING}--${coinType}--${publicKey}`;
+  let id = `${WALLET_TYPE_WATCHING}--${coinType}--${pubOrAddress}`;
   if (addressEncoding) {
     id += `--${addressEncoding}`;
   }
@@ -154,6 +159,7 @@ function isExternalAccount({ accountId }: { accountId: string }) {
 
 function buildHDAccountId({
   walletId,
+  networkImpl,
   path,
   template,
   index,
@@ -161,6 +167,7 @@ function buildHDAccountId({
   isUtxo,
 }: {
   walletId: string;
+  networkImpl?: string;
   path?: string;
   template?: string;
   index?: number;
@@ -184,8 +191,9 @@ function buildHDAccountId({
   if (idSuffix) {
     id = `${walletId}--${usedPath}--${idSuffix}`;
   }
-  // utxo always remove last 0/0
-  if (isUtxo) {
+  const isLightningNetwork = networkUtils.isLightningNetworkByImpl(networkImpl);
+  // utxo and lightning network always remove last 0/0
+  if (isUtxo || isLightningNetwork) {
     id = id.replace(/\/0\/0$/i, '');
   }
   return id;
@@ -199,6 +207,15 @@ function buildIndexedAccountId({
   index: number;
 }) {
   return `${walletId}--${index}`;
+}
+
+function parseAccountId({ accountId }: { accountId: string }) {
+  const arr = accountId.split(SEPERATOR);
+  return {
+    walletId: arr[0],
+    usedPath: arr[1],
+    idSuffix: arr[2],
+  };
 }
 
 function parseIndexedAccountId({
@@ -465,10 +482,6 @@ function buildLightningAccountId({
   return `${parts[0]}--${newPath}`;
 }
 
-function buildLightingCredentialId({ address }: { address: string }) {
-  return `lighting--${address}`;
-}
-
 export default {
   buildImportedAccountId,
   buildWatchingAccountId,
@@ -488,6 +501,7 @@ export default {
   isHdAccount,
   isHwAccount,
   isExternalAccount,
+  parseAccountId,
   parseIndexedAccountId,
   shortenAddress,
   beautifyPathTemplate,
@@ -499,6 +513,5 @@ export default {
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,
-  buildLightingCredentialId,
   getWalletConnectMergedNetwork,
 };

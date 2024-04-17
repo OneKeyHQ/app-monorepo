@@ -115,6 +115,7 @@ export type IVaultSettings = {
   nonceRequired: boolean;
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
+  replaceTxEnabled: boolean;
 
   minTransferAmount?: string;
   utxoDustAmount?: string;
@@ -164,6 +165,7 @@ export type IPrepareWatchingAccountsParams = {
   name: string;
   template?: string; // TODO use deriveInfo, for BTC taproot address importing
   deriveInfo?: IAccountDeriveInfo;
+  isUrlAccount?: boolean;
 };
 export type IPrepareImportedAccountsParams = {
   password: string;

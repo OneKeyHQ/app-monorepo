@@ -23,7 +23,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -322,20 +321,17 @@ function WalletItem({
       return;
     }
     await dialogRef.current?.close();
-    // TODO native dialog cover walletconnect modal
-    if (!platformEnv.isNative) {
-      dialogRef.current = Dialog.show({
-        title: `Connect to ${name || 'Wallet'}`,
-        showFooter: false,
-        dismissOnOverlayPress: false,
-        onClose() {
-          setLoadingRef.current?.(false);
-        },
-        renderContent: (
-          <ConnectToWalletDialogContent onRetryPress={connectToWallet} />
-        ),
-      });
-    }
+    dialogRef.current = Dialog.show({
+      title: `Connect to ${name || 'Wallet'}`,
+      showFooter: false,
+      dismissOnOverlayPress: false,
+      onClose() {
+        setLoadingRef.current?.(false);
+      },
+      renderContent: (
+        <ConnectToWalletDialogContent onRetryPress={connectToWallet} />
+      ),
+    });
     await connectToWallet();
   }, [connectToWallet, loading, name]);
 

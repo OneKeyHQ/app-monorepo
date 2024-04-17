@@ -10,7 +10,6 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAssetSelectorRoutes,
   EModalReceiveRoutes,
@@ -18,6 +17,7 @@ import {
   EModalSendRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -114,6 +114,16 @@ function WalletActionReceive() {
 
   const handleOnReceive = useCallback(() => {
     if (!account || !network || !wallet || !deriveInfo) return;
+    if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
+      navigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.CreateInvoice,
+        params: {
+          networkId: network.id,
+          accountId: account.id,
+        },
+      });
+      return;
+    }
     navigation.pushModal(EModalRoutes.ReceiveModal, {
       screen: EModalReceiveRoutes.ReceiveToken,
       params: {
@@ -126,11 +136,7 @@ function WalletActionReceive() {
     });
   }, [account, deriveInfo, deriveType, navigation, network, wallet]);
 
-  return (
-    <RawActions.Receive
-      onPress={platformEnv.isDev ? handleOnReceive : () => {}}
-    />
-  );
+  return <RawActions.Receive onPress={handleOnReceive} />;
 }
 
 function WalletActionSwap() {

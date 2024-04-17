@@ -2,12 +2,8 @@ import { useCallback, useState } from 'react';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { browserTypeHandler } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { ActionItem } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useSupportToken } from '../../../FiatCrypto/hooks';
 
@@ -21,10 +17,8 @@ export const ActionBase = ({
   icon,
   accountId,
 }: IActionBaseProps) => {
-  const navigation = useAppNavigation();
   const [loading, setLoading] = useState(false);
-  const { handleOpenWebSite } = useBrowserAction().current;
-  const isSupport = useSupportToken({
+  const { result: isSupport } = useSupportToken({
     networkId,
     tokenAddress,
     type,
@@ -43,21 +37,11 @@ export const ActionBase = ({
         Toast.error({ title: 'Failed to get widget url' });
         return;
       }
-      if (browserTypeHandler === 'MultiTabBrowser') {
-        navigation.popStack();
-      }
-      handleOpenWebSite({
-        webSite: { url, title: '' },
-        navigation,
-      });
-      if (platformEnv.isNative) {
-        navigation.switchTab(ETabRoutes.Discovery);
-      }
+      openUrlExternal(url);
     } finally {
       setLoading(false);
     }
-  }, [navigation, handleOpenWebSite, networkId, tokenAddress, type, accountId]);
-
+  }, [networkId, tokenAddress, type, accountId]);
   return (
     <ActionItem
       loading={loading}

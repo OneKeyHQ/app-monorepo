@@ -22,8 +22,10 @@ module.exports = [
   'isXprvt',
   'autofix',
   'derivetype',
+  'nocache',
   'uid',
   'rdns',
+  'textgroup',
   'rdns',
   'pino',
   'vitalik',
@@ -671,4 +673,5 @@ module.exports = [
   'ascii',
   'keysend',
   'preimage',
+  'semver',
 ];

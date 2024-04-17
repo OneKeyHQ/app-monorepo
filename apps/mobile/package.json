@@ -25,18 +25,21 @@
     "rimraf": "^3"
   },
   "dependencies": {
+    "@bufgix/react-native-secure-window": "0.1.1",
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
     "@onekeyfe/react-native-ble-plx": "3.0.0",
     "@onekeyfe/react-native-lite-card": "1.0.5",
     "@onekeyfe/react-native-tab-page-view": "1.0.3",
+    "@onekeyfe/react-native-webview": "13.8.2",
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
     "@onekeyhq/shared": "*",
     "@react-native-async-storage/async-storage": "1.22.0",
     "@react-native-community/netinfo": "^9.4.1",
     "@react-native-community/slider": "4.4.3",
+    "@react-native-google-signin/google-signin": "^9.1.0",
     "@shopify/flash-list": "^1.6.3",
     "@walletconnect/modal-react-native": "1.1.0",
     "@walletconnect/react-native-compat": "2.11.2",
@@ -57,6 +60,7 @@
     "expo-local-authentication": "13.6.0",
     "expo-localization": "14.5.0",
     "expo-notifications": "0.27.6",
+    "expo-screen-capture": "5.8.1",
     "expo-secure-store": "12.5.0",
     "expo-splash-screen": "0.26.4",
     "expo-status-bar": "~1.6.0",
@@ -68,6 +72,7 @@
     "react-native": "0.73.6",
     "react-native-ble-manager": "^10.0.2",
     "react-native-camera-kit": "14.0.0-beta2",
+    "react-native-cloud-fs": "https://github.com/OneKeyHQ/react-native-cloud-fs#cba878df6df939e67f326f9381232f5c5a6f9c49",
     "react-native-crypto": "^2.2.0",
     "react-native-device-info": "10.11.0",
     "react-native-fast-image": "8.6.3",
@@ -91,7 +96,6 @@
     "react-native-tcp-socket": "^6.0.6",
     "react-native-video": "6.0.0-beta.6",
     "react-native-view-shot": "3.1.2",
-    "react-native-webview": "https://github.com/OneKeyHQ/react-native-webview.git#491965afd5198c152b5dda872d30a127e9ef786b",
     "react-native-zip-archive": "^6.0.9",
     "readable-stream": "^3.6.0",
     "realm": "12.3.0",
@@ -116,7 +120,8 @@
       },
       "ios": {
         "exclude": [
-          "expo-camera"
+          "expo-camera",
+          "@react-native-google-signin/google-signin"
         ]
       }
     }

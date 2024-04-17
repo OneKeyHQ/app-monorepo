@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,12 +6,20 @@ import { Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
 import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  ECloudBackupRoutes,
+  EDAppConnectionModal,
   ELiteCardRoutes,
   EModalAddressBookRoutes,
   EModalRoutes,
@@ -80,6 +88,44 @@ const LockNowButton = () => {
   );
 };
 
+const DefaultWalletSetting = () => {
+  const navigation = useAppNavigation();
+  const { result, isLoading, run } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceContextMenu.getDefaultWalletSettingsWithIcon(),
+    [],
+    { checkIsFocused: false },
+  );
+  useEffect(() => {
+    appEventBus.addListener(EAppEventBusNames.ExtensionContextMenuUpdate, run);
+    return () => {
+      appEventBus.removeListener(
+        EAppEventBusNames.ExtensionContextMenuUpdate,
+        run,
+      );
+    };
+  }, [run]);
+  return (
+    <ListItem
+      icon="ThumbtackOutline"
+      title="Default Wallet Settings"
+      drillIn
+      onPress={() => {
+        navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+          screen: EDAppConnectionModal.DefaultWalletSettingsModal,
+        });
+      }}
+    >
+      {isLoading ? null : (
+        <ListItem.Text
+          primary={result?.isDefaultWallet ? 'On' : 'Off'}
+          align="right"
+        />
+      )}
+    </ListItem>
+  );
+};
+
 export const DefaultSection = () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const intl = useIntl();
@@ -87,7 +133,21 @@ export const DefaultSection = () => {
   return (
     <YStack>
       <LockNowButton />
+      {platformEnv.isExtension ? <DefaultWalletSetting /> : null}
       <AddressBookItem />
+      {platformEnv.isNative ? (
+        <ListItem
+          icon="RepeatOutline"
+          title="iCloud Backup"
+          drillIn
+          onPress={async () => {
+            await checkBackupEntryStatus();
+            navigation.pushModal(EModalRoutes.CloudBackupModal, {
+              screen: ECloudBackupRoutes.CloudBackupHome,
+            });
+          }}
+        />
+      ) : null}
       <ListItem
         icon="RepeatOutline"
         title="Migration"

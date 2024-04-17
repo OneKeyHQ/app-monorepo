@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import type { IChangeLog } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
   isFirstLaunchAfterUpdated,
@@ -14,17 +14,34 @@ import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useLocaleVariant } from '../../hooks/useLocaleVariant';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-const getChangeLog = (
-  appUpdateInfo: IAppUpdateInfo,
+const getLocalVariantChangeLog = (
+  changeLog: IChangeLog,
   localVariant: ILocaleSymbol,
-) =>
-  appUpdateInfo.changeLog?.[localVariant] || appUpdateInfo.changeLog?.['en-US'];
+) => changeLog?.[localVariant] || changeLog?.['en-US'];
+
+export const useAppChangeLog = (version?: string) => {
+  const localVariant = useLocaleVariant();
+  const response = usePromiseResult(
+    () =>
+      version
+        ? backgroundApiProxy.serviceAppUpdate.fetchChangeLog(version)
+        : Promise.resolve(null),
+    [version],
+  );
+  return useMemo(
+    () =>
+      response.result
+        ? getLocalVariantChangeLog(response.result, localVariant)
+        : '',
+    [localVariant, response.result],
+  );
+};
 
 export const useAppUpdateInfo = (isFullModal = false) => {
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
-  const localVariant = useLocaleVariant();
 
   const onViewReleaseInfo = useCallback(() => {
     setTimeout(() => {
@@ -33,19 +50,9 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         : navigation.pushModal;
       pushModal(EModalRoutes.AppUpdateModal, {
         screen: EAppUpdateRoutes.WhatsNew,
-        params: {
-          version: appUpdateInfo.version,
-          changeLog: getChangeLog(appUpdateInfo, localVariant),
-        },
       });
     });
-  }, [
-    appUpdateInfo,
-    isFullModal,
-    localVariant,
-    navigation.pushFullModal,
-    navigation.pushModal,
-  ]);
+  }, [isFullModal, navigation.pushFullModal, navigation.pushModal]);
 
   // run only once
   useEffect(() => {
@@ -61,17 +68,14 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       case EAppUpdateStatus.notify:
       case EAppUpdateStatus.downloading:
         {
-          const changeLog = getChangeLog(appUpdateInfo, localVariant);
           const pushModal = isFullModal
             ? navigation.pushFullModal
             : navigation.pushModal;
           pushModal(EModalRoutes.AppUpdateModal, {
             screen: EAppUpdateRoutes.UpdatePreview,
             params: {
-              version: appUpdateInfo.version,
               latestVersion: appUpdateInfo.latestVersion,
               isForceUpdate: appUpdateInfo.isForceUpdate,
-              changeLog,
             },
           });
         }
@@ -87,22 +91,20 @@ export const useAppUpdateInfo = (isFullModal = false) => {
   }, [
     appUpdateInfo,
     isFullModal,
-    localVariant,
     navigation.pushFullModal,
     navigation.pushModal,
   ]);
 
   return useMemo(
-    () =>
-      isNeedUpdate(appUpdateInfo.version, appUpdateInfo.latestVersion)
-        ? {
-            data: appUpdateInfo,
-            onUpdateAction,
-          }
-        : {
-            version: appUpdateInfo.version,
-            onViewReleaseInfo,
-          },
+    () => ({
+      isNeedUpdate: isNeedUpdate(
+        appUpdateInfo.latestVersion,
+        appUpdateInfo.status,
+      ),
+      data: appUpdateInfo,
+      onUpdateAction,
+      onViewReleaseInfo,
+    }),
     [appUpdateInfo, onUpdateAction, onViewReleaseInfo],
   );
 };

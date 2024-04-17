@@ -481,24 +481,30 @@ export class WalletConnectDappSide {
 
     try {
       const connectParams: IWalletConnectConnectParams = {
-        // optionalNamespaces
-        optionalNamespaces: {
-          // evm
-          [EWalletConnectNamespaceType.evm]: {
-            methods: evmMethods,
-            chains: evmChains,
-            events: evmEvents,
-          },
-          // rainbow, metamask does not support non-evm network, will throw error
-          [EWalletConnectNamespaceType.cosmos]: {
-            // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L80
-            methods: ['cosmos_signDirect', 'cosmos_signAmino'],
-            // chains: ['cosmos:cosmoshub-4'],
-            chains: cosmosChains, // all cosmos chains
-            events: [],
-          },
-        },
+        optionalNamespaces: {},
       };
+
+      connectParams.optionalNamespaces = connectParams.optionalNamespaces || {};
+
+      if (evmChains.length) {
+        connectParams.optionalNamespaces[EWalletConnectNamespaceType.evm] = {
+          methods: evmMethods,
+          chains: evmChains,
+          events: evmEvents,
+        };
+      }
+
+      if (cosmosChains.length) {
+        // rainbow, metamask does not support non-evm network, will throw error
+        connectParams.optionalNamespaces[EWalletConnectNamespaceType.cosmos] = {
+          // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L80
+          methods: ['cosmos_signDirect', 'cosmos_signAmino'],
+          chains: cosmosChains,
+          // chains: ['cosmos:cosmoshub-4'],
+          events: [],
+        };
+      }
+
       if (impl) {
         const ns = implToNamespaceMap[impl];
         if (ns) {
