@@ -87,11 +87,11 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         if (platformEnv.isDesktop) {
           window.desktopApi.installUpdate();
         } else if (platformEnv.isNativeAndroid) {
-          NativeModules.DownloadManager.installApk(
-            `${RNFS.CachesDirectoryPath}/apk/${
-              appUpdateInfo.latestVersion || ''
-            }.apk`,
-          );
+          // NativeModules.DownloadManager.installApk(
+          //   `${RNFS.CachesDirectoryPath}/apk/${
+          //     appUpdateInfo.latestVersion || ''
+          //   }.apk`,
+          // );
         }
         break;
       default:

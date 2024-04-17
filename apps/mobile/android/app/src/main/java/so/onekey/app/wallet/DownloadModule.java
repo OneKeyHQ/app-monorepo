@@ -42,7 +42,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
 
 
     @ReactMethod
-    public void installApk(final String url, final Promise promise) {
+    public void installAPK(final String url, final Promise promise) {
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW);
             File file;

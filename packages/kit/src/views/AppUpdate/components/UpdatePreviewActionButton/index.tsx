@@ -6,6 +6,7 @@ import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import { downloadAPK } from '@onekeyhq/shared/src/modules3rdParty/downloadModule';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -30,15 +31,19 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
           });
           window.desktopApi.checkForUpdates();
         } else if (platformEnv.isNativeAndroid) {
-          const dirPath = `file://${RNFS.CachesDirectoryPath}/apk`;
-          await RNFS.mkdir(dirPath);
-          await backgroundApiProxy.serviceAppUpdate.startDownloading();
-          RNFS.downloadFile({
-            fromUrl: appUpdateInfo.data.downloadUrl,
-            toFile: `${dirPath}/${appUpdateInfo.data.latestVersion || ''}.apk`,
-            progress: console.log,
-          });
-          await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+          // const dirPath = `file://${RNFS.CachesDirectoryPath}/apk`;
+          // await RNFS.mkdir(dirPath);
+          downloadAPK(
+            appUpdateInfo.data.downloadUrl,
+            appUpdateInfo.data.latestVersion,
+          );
+          // await backgroundApiProxy.serviceAppUpdate.startDownloading();
+          // RNFS.downloadFile({
+          //   fromUrl: appUpdateInfo.data.downloadUrl,
+          //   toFile: `${dirPath}/${appUpdateInfo.data.latestVersion || ''}.apk`,
+          //   progress: console.log,
+          // });
+          // await backgroundApiProxy.serviceAppUpdate.readyToInstall();
         }
       }
     }
