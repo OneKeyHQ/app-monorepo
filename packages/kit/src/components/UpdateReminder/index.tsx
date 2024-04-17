@@ -150,11 +150,11 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
   },
   [EAppUpdateStatus.ready]: {
     bg: '$bgSuccessSubdued',
-    borderColor: '$borderCriticalSubdued',
+    borderColor: '$borderSuccessSubdued',
   },
   [EAppUpdateStatus.failed]: {
     bg: '$bgCriticalSubdued',
-    borderColor: '$borderSuccessSubdued',
+    borderColor: '$borderCriticalSubdued ',
   },
   [EAppUpdateStatus.done]: undefined,
 };
