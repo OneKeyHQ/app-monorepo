@@ -154,6 +154,7 @@ function isExternalAccount({ accountId }: { accountId: string }) {
 
 function buildHDAccountId({
   walletId,
+  networkImpl,
   path,
   template,
   index,
@@ -161,6 +162,7 @@ function buildHDAccountId({
   isUtxo,
 }: {
   walletId: string;
+  networkImpl?: string;
   path?: string;
   template?: string;
   index?: number;
@@ -184,8 +186,9 @@ function buildHDAccountId({
   if (idSuffix) {
     id = `${walletId}--${usedPath}--${idSuffix}`;
   }
-  // utxo always remove last 0/0
-  if (isUtxo) {
+  const isLightningNetwork = networkUtils.isLightningNetworkByImpl(networkImpl);
+  // utxo and lightning network always remove last 0/0
+  if (isUtxo || isLightningNetwork) {
     id = id.replace(/\/0\/0$/i, '');
   }
   return id;
@@ -474,10 +477,6 @@ function buildLightningAccountId({
   return `${parts[0]}--${newPath}`;
 }
 
-function buildLightingCredentialId({ address }: { address: string }) {
-  return `lighting--${address}`;
-}
-
 export default {
   buildImportedAccountId,
   buildWatchingAccountId,
@@ -509,6 +508,5 @@ export default {
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,
-  buildLightingCredentialId,
   getWalletConnectMergedNetwork,
 };
