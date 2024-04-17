@@ -97,7 +97,10 @@ export const useAppUpdateInfo = (isFullModal = false) => {
 
   return useMemo(
     () => ({
-      isNeedUpdate: isNeedUpdate(appUpdateInfo.latestVersion),
+      isNeedUpdate: isNeedUpdate(
+        appUpdateInfo.latestVersion,
+        appUpdateInfo.status,
+      ),
       data: appUpdateInfo,
       onUpdateAction,
       onViewReleaseInfo,
