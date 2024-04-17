@@ -211,9 +211,7 @@ function SearchModal() {
           keyboardShouldPersistTaps="handled"
           onScrollBeginDrag={Keyboard.dismiss}
         >
-          {displaySearchList ? (
-            <Stack pb="$5">{renderList(searchList)}</Stack>
-          ) : null}
+          {displaySearchList ? renderList(searchList) : null}
 
           {displayBookmarkList ? (
             <Stack>

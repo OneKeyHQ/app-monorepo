@@ -1,19 +1,15 @@
 import { type FC, useCallback, useMemo, useState } from 'react';
 
-import { Empty, ListView, SearchBar, Stack } from '@onekeyhq/components';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { SearchBar, Stack } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+
+import { BaseListView, filterNetwork } from '../BaseView';
 
 type IImmutableViewProps = {
   networks: IServerNetwork[];
   networkId?: string;
   onPressItem?: (network: IServerNetwork) => void;
 };
-
-const ListEmptyComponent = () => (
-  <Empty icon="SearchOutline" title="No Results" />
-);
 
 export const ImmutableView: FC<IImmutableViewProps> = ({
   networks,
@@ -25,14 +21,10 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
     setText(value.trim());
   }, []);
 
-  const data = useMemo(() => {
-    const key = text.toLowerCase();
-    return networks.filter(
-      (o) =>
-        o.name.toLowerCase().includes(key) ||
-        o.shortname.toLowerCase().includes(text),
-    );
-  }, [networks, text]);
+  const data = useMemo(
+    () => networks.filter(filterNetwork(text.toLowerCase())),
+    [networks, text],
+  );
   return (
     <Stack flex={1}>
       <Stack px="$4">
@@ -44,31 +36,10 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
         />
       </Stack>
       <Stack flex={1}>
-        <ListView
-          ListEmptyComponent={ListEmptyComponent}
-          ListHeaderComponent={<Stack h="$2" />}
-          ListFooterComponent={<Stack h="$2" />}
-          estimatedItemSize={48}
-          data={data}
-          renderItem={({ item }) => (
-            <ListItem
-              h={48}
-              renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
-              title={item.name}
-              onPress={() => onPressItem?.(item)}
-              testID={`select-item-${item.id}`}
-            >
-              {networkId === item.id ? (
-                <ListItem.CheckMark
-                  key="checkmark"
-                  enterStyle={{
-                    opacity: 0,
-                    scale: 0,
-                  }}
-                />
-              ) : null}
-            </ListItem>
-          )}
+        <BaseListView
+          networkId={networkId}
+          networks={data}
+          onPressItem={onPressItem}
         />
       </Stack>
     </Stack>
