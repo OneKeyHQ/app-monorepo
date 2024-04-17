@@ -194,6 +194,19 @@ export const useSuggestion = (
     [checkIsValid, selectInputIndex],
   );
 
+  const clearForm = useCallback(() => {
+    form.reset(
+      new Array(phraseLength).reduce(
+        (prev: Record<`phrase${number}`, string>, next, index) => {
+          prev[`phrase${index + 1}`] = '';
+          return prev;
+        },
+        {} as Record<`phrase${number}`, string>,
+      ),
+    );
+    resetSuggestions();
+  }, [form, phraseLength, resetSuggestions]);
+
   const onPasteMnemonic = useCallback(
     (value: string) => {
       if (value.length > 4) {
@@ -231,8 +244,10 @@ export const useSuggestion = (
       selectInputIndex,
       focusNextInput,
       closePopover: resetSuggestions,
+      clearForm,
     }),
     [
+      clearForm,
       focusNextInput,
       onInputBlur,
       onInputChange,
