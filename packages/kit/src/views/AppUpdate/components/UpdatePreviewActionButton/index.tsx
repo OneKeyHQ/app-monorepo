@@ -31,19 +31,11 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
           });
           window.desktopApi.checkForUpdates();
         } else if (platformEnv.isNativeAndroid) {
-          // const dirPath = `file://${RNFS.CachesDirectoryPath}/apk`;
-          // await RNFS.mkdir(dirPath);
-          downloadAPK(
+          void downloadAPK(
             appUpdateInfo.data.downloadUrl,
             appUpdateInfo.data.latestVersion,
           );
-          // await backgroundApiProxy.serviceAppUpdate.startDownloading();
-          // RNFS.downloadFile({
-          //   fromUrl: appUpdateInfo.data.downloadUrl,
-          //   toFile: `${dirPath}/${appUpdateInfo.data.latestVersion || ''}.apk`,
-          //   progress: console.log,
-          // });
-          // await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+          await backgroundApiProxy.serviceAppUpdate.startDownloading();
         }
       }
     }

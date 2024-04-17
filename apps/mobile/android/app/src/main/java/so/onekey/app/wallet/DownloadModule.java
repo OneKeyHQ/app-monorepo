@@ -2,7 +2,6 @@ package so.onekey.app.wallet;
 
 import android.os.Environment;
 import android.database.Cursor;
-// import android.widget.Toast;
 import android.webkit.MimeTypeMap;
 import android.content.IntentFilter;
 import android.os.Build;
@@ -12,12 +11,15 @@ import android.content.Intent;
 import android.net.Uri;
 import android.app.DownloadManager;
 
+import androidx.annotation.Nullable;
 import androidx.core.content.FileProvider;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.HashMap;
 import java.io.File;
 
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.NativeModule;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContext;
@@ -26,6 +28,17 @@ import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.Promise;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+import okio.Buffer;
+import okio.BufferedSink;
+import okio.BufferedSource;
+import okio.Okio;
 
 public class DownloadModule extends ReactContextBaseJavaModule {
 
@@ -38,6 +51,51 @@ public class DownloadModule extends ReactContextBaseJavaModule {
 
     public String getName() {
         return "DownloadManager";
+    }
+
+    private void sendEvent(String eventName, @Nullable WritableMap params) {
+        rContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                .emit(eventName, params);
+    }
+
+
+    @ReactMethod
+    public void downloadAPK(final String url, final String filePath) throws IOException {
+        File downloadedFile = new File(filePath);
+
+        Request request = new Request.Builder().url(url).build();
+        Response response = null;
+        try {
+            response = new OkHttpClient().newCall(request).execute();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        if (response == null) {
+            return;
+        }
+        ResponseBody body = response.body();
+        long contentLength = body.contentLength();
+        BufferedSource source = body.source();
+
+        BufferedSink sink = Okio.buffer(Okio.sink(filePath));
+        Buffer sinkBuffer = sink.buffer();
+
+        long totalBytesRead = 0;
+        int bufferSize = 8 * 1024;
+        this.sendEvent("downloadAPK-start", null);
+        for (long bytesRead; (bytesRead = source.read(sinkBuffer, bufferSize)) != -1; ) {
+            sink.emit();
+            totalBytesRead += bytesRead;
+            int progress = (int) ((totalBytesRead * 100) / contentLength);
+            WritableMap params = Arguments.createMap();
+            params.putInt("progress", progress);
+            this.sendEvent("downloadAPK-progress", params);
+            this.rContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("downloadAPK-start", params);
+        }
+        sink.flush();
+        sink.close();
+        source.close();
     }
 
 
