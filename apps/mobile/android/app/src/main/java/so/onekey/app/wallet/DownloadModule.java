@@ -1,32 +1,20 @@
 package so.onekey.app.wallet;
 
-import android.os.Environment;
-import android.database.Cursor;
-import android.webkit.MimeTypeMap;
-import android.content.IntentFilter;
+import android.app.NotificationManager;
 import android.os.Build;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.app.DownloadManager;
 
 import androidx.annotation.Nullable;
-import androidx.core.content.FileProvider;
+import androidx.core.app.NotificationCompat;
 
 import java.io.IOException;
-import java.util.Map;
-import java.util.HashMap;
 import java.io.File;
 
 import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.NativeModule;
 import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
-import com.facebook.react.bridge.ReadableMap;
-import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
@@ -41,9 +29,12 @@ import okio.BufferedSource;
 import okio.Okio;
 
 public class DownloadModule extends ReactContextBaseJavaModule {
-
+    private NotificationManager mNotifyManager;
+    private NotificationCompat.Builder mBuilder;
     private ReactApplicationContext rContext;
     private Boolean isDownloading = false;
+    private int notifiactionId = 1;
+
 
     DownloadModule(ReactApplicationContext context) {
         super(context);
@@ -62,12 +53,17 @@ public class DownloadModule extends ReactContextBaseJavaModule {
 
 
     @ReactMethod
-    public void downloadAPK(final String url, final String filePath, final Promise promise) throws IOException {
+    public void downloadAPK(final String url, final String filePath, final String notificationTitle, final Promise promise) throws IOException {
         if (this.isDownloading) {
             return;
         }
         this.isDownloading = true;
         File downloadedFile = new File(filePath);
+
+        mBuilder = new NotificationCompat.Builder(this.rContext.getCurrentActivity());
+        mBuilder.setContentTitle(notificationTitle)
+                .setContentText("")
+                .setSmallIcon(R.mipmap.ic_launcher_round);
 
         Request request = new Request.Builder().url(url).build();
         Response response = null;
@@ -98,6 +94,8 @@ public class DownloadModule extends ReactContextBaseJavaModule {
             WritableMap params = Arguments.createMap();
             params.putInt("progress", progress);
             this.sendEvent("update/downloading", params);
+            mBuilder.setProgress(100, progress, false);
+            mNotifyManager.notify(this.notifiactionId, mBuilder.build());
         }
         sink.flush();
         sink.close();
@@ -105,6 +103,9 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         promise.resolve(null);
         this.sendEvent("update/downloaded", null);
         this.isDownloading = false;
+        mBuilder.setContentText("Download completed").setProgress(0,0,false);
+        mNotifyManager.notify(this.notifiactionId, mBuilder.build());
+        notifiactionId += 1;
     }
 
 
