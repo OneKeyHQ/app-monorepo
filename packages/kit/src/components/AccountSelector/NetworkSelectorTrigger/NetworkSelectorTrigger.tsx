@@ -133,7 +133,7 @@ export function ControlledNetworkSelectorTrigger({
   const items = useNetworkSelectorItems();
   return (
     <ChainSelectorInput
-      testID="network-selector"
+      testID="network-selector-input"
       title="Network"
       value={value}
       onChange={onChange}

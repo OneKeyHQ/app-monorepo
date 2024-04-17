@@ -2,7 +2,10 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IPropsWithTestId,
+} from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
@@ -17,7 +20,7 @@ function DesktopCustomTabBarItem({
   displayDisconnectOption,
   onDisconnect,
   testID,
-}: {
+}: IPropsWithTestId<{
   id: string;
   activeTabId: string | null;
   onPress: (id: string) => void;
@@ -26,8 +29,7 @@ function DesktopCustomTabBarItem({
   onClose: (id: string) => void;
   displayDisconnectOption: boolean;
   onDisconnect: (url: string | undefined) => Promise<void>;
-  testID?: string;
-}) {
+}>) {
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
@@ -89,6 +91,7 @@ function DesktopCustomTabBarItem({
       label={tab?.title}
       avatarSrc={tab?.favicon}
       testID={testID}
+      id={id}
       actionList={[
         {
           items: buildActionListItems(),
