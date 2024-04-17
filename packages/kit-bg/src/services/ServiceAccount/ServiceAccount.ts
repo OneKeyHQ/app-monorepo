@@ -443,6 +443,7 @@ class ServiceAccount extends ServiceBase {
           });
           account.id = accountUtils.buildHDAccountId({
             walletId,
+            networkImpl: account.impl,
             index: account.pathIndex,
             template: account.template,
             idSuffix,
@@ -987,12 +988,11 @@ class ServiceAccount extends ServiceBase {
 
         const realDBAccountId = accountUtils.buildHDAccountId({
           walletId,
+          networkImpl: settings.impl,
           index,
           template, // from networkId
           idSuffix,
-          isUtxo:
-            settings.isUtxo ||
-            networkUtils.isLightningNetworkByImpl(settings.impl),
+          isUtxo: settings.isUtxo,
         });
         return this.getAccount({ accountId: realDBAccountId, networkId });
       }),
