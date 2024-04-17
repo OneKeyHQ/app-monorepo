@@ -40,10 +40,10 @@ const BaseSlippageInput = ({
   const [inputValue, setInputValue] = useState('');
   const handleTextChange = useCallback(
     (text: string) => {
-      // if (validateAmountInput(text)) {
-      setInputValue(text);
-      onChangeText(text);
-      // }
+      if (validateAmountInput(text)) {
+        setInputValue(text);
+        onChangeText(text);
+      }
     },
     [onChangeText],
   );
