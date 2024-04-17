@@ -15,7 +15,6 @@ import { StateLogsItem } from './StateLogsItem';
 
 function ListVersionItem() {
   const appUpdateInfo = useAppUpdateInfo();
-  c
   return appUpdateInfo.isNeedUpdate ? (
     <ListItem
       onPress={appUpdateInfo.onUpdateAction}
