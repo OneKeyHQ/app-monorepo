@@ -347,7 +347,7 @@ export const isAppleStoreEnv = isMas || isNativeIOSStore || isNativeIOSPadStore;
 const platformEnv: IPlatformEnv = {
   isNewRouteMode: true,
 
-  version: process.env.VERSION,
+  version: '5.0.1',
   buildNumber: process.env.BUILD_NUMBER,
 
   isJest,
