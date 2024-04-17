@@ -12,8 +12,13 @@ export * from './type';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
 
-export const isNeedUpdate = (latestVersion?: string) =>
-  latestVersion && semver.gt(latestVersion, APP_VERSION);
+export const isNeedUpdate = (
+  latestVersion?: string,
+  status?: EAppUpdateStatus,
+) =>
+  latestVersion &&
+  semver.gt(latestVersion, APP_VERSION) &&
+  status !== EAppUpdateStatus.done;
 
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) =>
   appUpdateInfo.status !== EAppUpdateStatus.done &&

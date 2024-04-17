@@ -96,16 +96,15 @@ export const useAppUpdateInfo = (isFullModal = false) => {
   ]);
 
   return useMemo(
-    () =>
-      isNeedUpdate(appUpdateInfo.latestVersion)
-        ? {
-            data: appUpdateInfo,
-            onUpdateAction,
-          }
-        : {
-            version: platformEnv.version,
-            onViewReleaseInfo,
-          },
+    () => ({
+      isNeedUpdate: isNeedUpdate(
+        appUpdateInfo.latestVersion,
+        appUpdateInfo.status,
+      ),
+      data: appUpdateInfo,
+      onUpdateAction,
+      onViewReleaseInfo,
+    }),
     [appUpdateInfo, onUpdateAction, onViewReleaseInfo],
   );
 };
