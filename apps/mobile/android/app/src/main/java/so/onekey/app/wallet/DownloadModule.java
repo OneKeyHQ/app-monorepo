@@ -1,9 +1,11 @@
 package so.onekey.app.wallet;
 
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -107,9 +109,23 @@ public class DownloadModule extends ReactContextBaseJavaModule {
             }
             totalBytesRead += bytesRead;
             int progress = (int) ((totalBytesRead * 100) / contentLength);
-            WritableMap params = Arguments.createMap();
-            params.putInt("progress", progress);
-            this.sendEvent("update/downloading", params);
+            try {
+                WritableMap params = Arguments.createMap();
+                params.putInt("progress", progress);
+                this.sendEvent("update/downloading", params);
+            } catch (Exception e) {
+                Log.e("update/downloading", e.getMessage());
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                mBuilder.setChannelId(this.rContext.getPackageName());
+
+                NotificationChannel channel = new NotificationChannel(
+                        this.rContext.getPackageName(),
+                        "updateApp",
+                        NotificationManager.IMPORTANCE_HIGH);
+
+                mNotifyManager.createNotificationChannel(channel);
+            }
             mBuilder.setProgress(100, progress, false);
             mNotifyManager.notify(this.notifiactionId, mBuilder.build());
         }
@@ -128,7 +144,6 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         this.isDownloading = false;
         mBuilder.setContentText("Download completed").setProgress(0,0,false);
         mNotifyManager.notify(this.notifiactionId, mBuilder.build());
-        notifiactionId += 1;
     }
 
 
