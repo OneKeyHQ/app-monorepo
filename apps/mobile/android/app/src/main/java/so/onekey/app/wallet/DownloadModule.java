@@ -125,6 +125,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 WritableMap params = Arguments.createMap();
                 params.putInt("progress", progress);
                 this.sendEvent("update/downloading", params);
+                Log.e("update/downloading-progress", progress + "");
             } catch (Exception e) {
                 Log.e("update/downloading", e.getMessage());
             }
