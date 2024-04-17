@@ -161,7 +161,7 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
 
 function BasicUpdateReminder() {
   const appUpdateInfo = useAppUpdateInfo(true);
-  if (!appUpdateInfo.data) {
+  if (!appUpdateInfo.isNeedUpdate) {
     return null;
   }
   const { data, onUpdateAction } = appUpdateInfo;
