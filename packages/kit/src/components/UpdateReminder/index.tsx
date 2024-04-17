@@ -91,7 +91,7 @@ const UPDATE_ACTION_STYLE: Record<
   },
   [EAppUpdateStatus.ready]: {
     label: 'Restart to Update',
-    icon: 'RefreshCcwSolid',
+    icon: 'RestartToUpdateCustom',
     variant: 'primary',
   },
   [EAppUpdateStatus.failed]: {
