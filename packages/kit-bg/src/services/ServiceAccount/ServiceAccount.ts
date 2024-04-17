@@ -712,12 +712,22 @@ class ServiceAccount extends ServiceBase {
     input,
     networkId,
     deriveType,
+    isUrlAccount,
   }: {
     input: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
+    isUrlAccount?: boolean;
   }) {
     const walletId = WALLET_TYPE_WATCHING;
+
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    if (!network) {
+      throw new Error('addWatchingAccount ERROR: network not found');
+    }
+
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
       walletId,
@@ -739,12 +749,16 @@ class ServiceAccount extends ServiceBase {
     const nextAccountId = await localDb.getWalletNextAccountId({
       walletId,
     });
+    const accountName = isUrlAccount
+      ? 'Url Account'
+      : `Account #${nextAccountId}`;
     const params: IPrepareWatchingAccountsParams = {
       address,
       xpub,
-      name: `Account #${nextAccountId}`, // TODO i18n
+      name: accountName,
       networks: [networkId],
       createAtNetwork: networkId,
+      isUrlAccount,
     };
     if (deriveType) {
       const deriveInfo =

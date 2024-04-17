@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 
 import type { EAddressEncodings, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   InvalidAddress,
   OneKeyInternalError,
@@ -39,8 +38,15 @@ export abstract class KeyringWatchingBase extends KeyringBase {
   async basePrepareUtxoWatchingAccounts(
     params: IPrepareWatchingAccountsParams,
   ): Promise<IDBUtxoAccount[]> {
-    const { address, xpub, networks, createAtNetwork, name, deriveInfo } =
-      params;
+    const {
+      address,
+      xpub,
+      networks,
+      createAtNetwork,
+      name,
+      deriveInfo,
+      isUrlAccount,
+    } = params;
     if (!address && !xpub) {
       throw new Error(
         'basePrepareUtxoWatchingAccounts ERROR: address and xpub are not defined',
@@ -60,6 +66,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       address,
       xpub,
       addressEncoding,
+      isUrlAccount,
     });
     let addressFromXpub = '';
     let xpubSegwit = xpub;
@@ -102,7 +109,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       // accountType?: EDBAccountType;
     } = {},
   ): Promise<IDBAccount[]> {
-    const { address, name, networks, createAtNetwork } = params;
+    const { address, name, networks, createAtNetwork, isUrlAccount } = params;
     if (!address) {
       throw new InvalidAddress();
     }
@@ -116,8 +123,13 @@ export abstract class KeyringWatchingBase extends KeyringBase {
     const coinType = options.coinType || settings.coinTypeDefault;
     const impl = options.impl || settings.impl;
 
+    const id = accountUtils.buildWatchingAccountId({
+      coinType,
+      address,
+      isUrlAccount,
+    });
     const account: IDBSimpleAccount = {
-      id: `${WALLET_TYPE_WATCHING}--${coinType}--${address}`,
+      id,
       name: name || '',
       type: EDBAccountType.SIMPLE,
       coinType,
