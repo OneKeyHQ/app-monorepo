@@ -14,6 +14,7 @@ export enum EFinalizeWalletSetupSteps {
   Ready = 'Ready',
 }
 export enum EAppEventBusNames {
+  ConfirmAccountSelected = 'ConfirmAccountSelected',
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   AccountUpdate = 'AccountUpdate',
@@ -41,6 +42,7 @@ export enum EAppEventBusNames {
 }
 
 export interface IAppEventBusPayload {
+  [EAppEventBusNames.ConfirmAccountSelected]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.AccountUpdate]: undefined;

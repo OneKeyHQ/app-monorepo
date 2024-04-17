@@ -155,6 +155,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     const ctrl = await this.factory.getController({
       networkId,
     });
+    // TODO openNativeWalletAppByDeepLink
     return ctrl.sendTransactionByWalletConnect({ ...payload, connector });
   }
 
@@ -170,6 +171,7 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
     const ctrl = await this.factory.getController({
       networkId,
     });
+    // TODO openNativeWalletAppByDeepLink
     return ctrl.signMessageByWalletConnect({ ...payload, connector });
   }
 }

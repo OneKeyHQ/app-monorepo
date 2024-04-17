@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Divider, ScrollView, Stack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -30,8 +30,12 @@ import { useShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
-import type { ScrollView as RNScrollView } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  ScrollView as RNScrollView,
+} from 'react-native';
 
+const ITEM_HEIGHT = 32;
 function DesktopCustomTabBar() {
   // register desktop shortcuts for browser tab
   useShortcuts();
@@ -83,6 +87,18 @@ function DesktopCustomTabBar() {
     () => result?.pinnedTabs ?? [],
     [result?.pinnedTabs],
   );
+
+  // scroll to bottom when new tab pinned
+  const pinnedTabsScrollViewRef = useRef<RNScrollView>(null);
+  const previousPinnedTabsLength = usePrevious(pinnedData?.length);
+  useEffect(() => {
+    if (
+      previousPinnedTabsLength &&
+      pinnedData?.length > previousPinnedTabsLength
+    ) {
+      pinnedTabsScrollViewRef.current?.scrollToEnd({ animated: false });
+    }
+  }, [pinnedData?.length, previousPinnedTabsLength, tabs.length]);
 
   // scroll to top when new tab is added
   const scrollViewRef = useRef<RNScrollView>(null);
@@ -176,24 +192,43 @@ function DesktopCustomTabBar() {
     [setCurrentWebTab, navigation],
   );
 
+  const [pinContainerHeight, setPinContainerHeight] = useState<number>(0);
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    const { height } = e.nativeEvent.layout;
+    setPinContainerHeight(height / 2);
+  }, []);
+
+  const pinnedBarHeight = useMemo(() => {
+    const pinDataTabsHeight = pinnedData.length * ITEM_HEIGHT;
+    return pinContainerHeight < pinDataTabsHeight
+      ? pinContainerHeight +
+          ITEM_HEIGHT / 2 -
+          (pinContainerHeight % ITEM_HEIGHT)
+      : pinDataTabsHeight;
+  }, [pinContainerHeight, pinnedData.length]);
+
   return (
-    <Stack flex={1}>
+    <Stack flex={1} onLayout={handleLayout}>
       <HandleRebuildBrowserData />
       {/* Pin Tabs */}
-      {pinnedData.map((t) => (
-        <DesktopCustomTabBarItem
-          id={t.id}
-          key={t.id}
-          activeTabId={activeTabId}
-          onPress={onTabPress}
-          onBookmarkPress={handleBookmarkPress}
-          onPinnedPress={handlePinnedPress}
-          onClose={handleCloseTab}
-          displayDisconnectOption={t.hasConnectedAccount}
-          onDisconnect={handleDisconnect}
-          testID={`tab-list-stack-pinned-${t.id}`}
-        />
-      ))}
+      <Stack height={pinnedBarHeight}>
+        <ScrollView flex={1} ref={pinnedTabsScrollViewRef}>
+          {pinnedData.map((t) => (
+            <DesktopCustomTabBarItem
+              id={t.id}
+              key={t.id}
+              activeTabId={activeTabId}
+              onPress={onTabPress}
+              onBookmarkPress={handleBookmarkPress}
+              onPinnedPress={handlePinnedPress}
+              onClose={handleCloseTab}
+              displayDisconnectOption={t.hasConnectedAccount}
+              onDisconnect={handleDisconnect}
+              testID={`tab-list-stack-pinned-${t.id}`}
+            />
+          ))}
+        </ScrollView>
+      </Stack>
       {pinnedData.length > 0 ? (
         <Divider m="$1.5" testID="pin-tab-divider" />
       ) : null}
