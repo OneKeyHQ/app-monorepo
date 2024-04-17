@@ -59,6 +59,7 @@ function WordSelector({
           key={word}
           onPress={onPress}
           borderColor={selectedWord === word ? '$borderActive' : undefined}
+          testID={`suggest-${word}`}
         >
           {word}
         </WordButton>

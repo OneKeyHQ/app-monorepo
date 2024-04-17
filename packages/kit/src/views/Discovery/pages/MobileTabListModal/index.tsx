@@ -378,6 +378,7 @@ function MobileTabListModal() {
         borderRadius="$5"
         bg="$bgStrong"
         onLayout={onLayout}
+        testID="tab-pined-container"
       >
         <ListView
           width={listViewWidth}
@@ -427,6 +428,7 @@ function MobileTabListModal() {
             paddingHorizontal: 10,
             paddingBottom: 62,
           }}
+          testID="tab-container"
         />
         {renderPinnedList}
       </Page.Body>

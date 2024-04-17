@@ -44,6 +44,7 @@ export const BaseListView = ({
         renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
         title={item.name}
         onPress={() => onPressItem?.(item)}
+        testID={`select-item-${item.id}`}
       >
         {networkId === item.id ? (
           <ListItem.CheckMark

@@ -1,5 +1,7 @@
 import { AuthenticationType } from 'expo-local-authentication';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
@@ -7,7 +9,9 @@ import type { LocalAuthenticationResult } from 'expo-local-authentication';
 
 const isSupportBiologyAuthFn = () =>
   new Promise<boolean>((resolve) => {
-    const result = window?.desktopApi?.canPromptTouchID();
+    const result = platformEnv.isE2E
+      ? false
+      : window?.desktopApi?.canPromptTouchID();
     resolve(!!result);
   });
 

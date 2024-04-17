@@ -94,6 +94,7 @@ function HeaderLeftToolBar({
         onPress={() => {
           onSearch?.(url);
         }}
+        testID="explore-index-search-input"
         addOns={[
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',

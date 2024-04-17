@@ -39,6 +39,7 @@ const ErrorView: FC<IErrorViewProps> = ({ errorCode, onRefresh }) => {
         buttonProps={{
           children: intl.formatMessage({ id: 'action__refresh' }),
           onPress: () => onRefresh?.(),
+          testID: 'error-view-refresh',
         }}
       />
     </Stack>
