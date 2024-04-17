@@ -489,6 +489,7 @@ export function PhaseInputArea({
     closePopover,
     focusNextInput,
     onPasteMnemonic,
+    clearForm,
   } = useSuggestion(form, Number(phraseLength));
 
   const handleReturnKeyPressed = useCallback(
@@ -513,8 +514,8 @@ export function PhaseInputArea({
     );
 
   const handleClear = useCallback(() => {
-    form.reset();
-  }, [form]);
+    clearForm();
+  }, [clearForm]);
 
   return (
     <>
