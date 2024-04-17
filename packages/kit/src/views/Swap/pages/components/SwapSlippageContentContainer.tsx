@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -22,6 +22,7 @@ import {
   swapSlippageWillAheadMinValue,
   swapSlippageWillFailMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
@@ -29,8 +30,51 @@ import {
 
 import { validateAmountInput } from '../../utils/utils';
 
-const SwapsSlippageContentContainer = () => {
+const BaseSlippageInput = ({
+  swapSlippage,
+  onChangeText,
+}: {
+  swapSlippage: ISwapSlippageSegmentItem;
+  onChangeText: (text: string) => void;
+}) => {
   const [inputValue, setInputValue] = useState('');
+  const handleTextChange = useCallback(
+    (text: string) => {
+      // if (validateAmountInput(text)) {
+      setInputValue(text);
+      // onChangeText(text);
+      // }
+    },
+    [onChangeText],
+  );
+
+  useEffect(() => {
+    if (swapSlippage.key === ESwapSlippageSegmentKey.AUTO) {
+      setInputValue(swapSlippageAutoValue.toString());
+    }
+  }, [swapSlippage.key]);
+
+  return (
+    <Input
+      $gtMd={
+        {
+          size: 'small',
+        } as IInputProps['$gtMd']
+      }
+      value={inputValue}
+      autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
+      addOns={[{ label: '%' }]}
+      textAlign="right"
+      disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
+      placeholder={swapSlippage.value.toString()}
+      onChangeText={handleTextChange}
+    />
+  );
+};
+
+const SlippageInput = memo(BaseSlippageInput);
+
+const SwapsSlippageContentContainer = () => {
   const [swapSlippage, setSwapSlippage] = useSwapSlippagePercentageAtom();
   const intl = useIntl();
   const media = useMedia();
@@ -108,30 +152,11 @@ const SwapsSlippageContentContainer = () => {
                 key: keyValue,
                 value: swapSlippageAutoValue,
               });
-              if (keyValue === ESwapSlippageSegmentKey.AUTO) {
-                setInputValue(swapSlippageAutoValue.toString());
-              }
             }}
           />
-
-          <Input
-            $gtMd={
-              {
-                size: 'small',
-              } as IInputProps['$gtMd']
-            }
-            value={inputValue}
-            autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
-            addOns={[{ label: '%' }]}
-            textAlign="right"
-            disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
-            placeholder={swapSlippage.value.toString()}
-            onChangeText={(text) => {
-              if (validateAmountInput(text)) {
-                setInputValue(text);
-                handleSlippageChange(text);
-              }
-            }}
+          <SlippageInput
+            swapSlippage={swapSlippage}
+            onChangeText={handleSlippageChange}
           />
         </YStack>
         {swapSlippage.key !== ESwapSlippageSegmentKey.AUTO &&
