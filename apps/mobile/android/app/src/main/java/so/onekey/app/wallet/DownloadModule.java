@@ -85,7 +85,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         long contentLength = body.contentLength();
         BufferedSource source = body.source();
 
-        BufferedSink sink = Okio.buffer(Okio.sink(new File(filePath)));
+        BufferedSink sink = Okio.buffer(Okio.sink(new File(filePath.replace("file:///", "/"))));
         Buffer sinkBuffer = sink.buffer();
 
         long totalBytesRead = 0;
