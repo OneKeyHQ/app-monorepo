@@ -67,6 +67,6 @@ export const useDownloadProgress: IUseDownloadProgress = (onDownloaded) => {
       onDownloadingEventListener.remove();
       onDownloadedEventListener.remove();
     };
-  }, [onDownloaded]);
+  }, [onDownloaded, updatePercent]);
   return percent;
 };
