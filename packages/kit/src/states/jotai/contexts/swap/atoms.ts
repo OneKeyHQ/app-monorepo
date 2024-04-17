@@ -99,8 +99,7 @@ export const {
   const list = get(swapQuoteListAtom());
   const sortType = get(swapProviderSortAtom());
   let sortedList = [...list];
-
-  const gasFeeSorted = list.sort((a, b) => {
+  const gasFeeSorted = list.slice().sort((a, b) => {
     const aBig = new BigNumber(a.fee?.estimatedFeeFiatValue || Infinity);
     const bBig = new BigNumber(b.fee?.estimatedFeeFiatValue || Infinity);
     return aBig.comparedTo(bBig);
@@ -109,13 +108,13 @@ export const {
     sortedList = [...gasFeeSorted];
   }
   if (sortType === ESwapProviderSort.SWAP_DURATION) {
-    sortedList = list.sort((a, b) => {
+    sortedList = list.slice().sort((a, b) => {
       const aVal = new BigNumber(a.estimatedTime || Infinity);
       const bVal = new BigNumber(b.estimatedTime || Infinity);
       return aVal.comparedTo(bVal);
     });
   }
-  const receivedSorted = list.sort((a, b) => {
+  const receivedSorted = list.slice().sort((a, b) => {
     const aVal = new BigNumber(a.toAmount || 0);
     const bVal = new BigNumber(b.toAmount || 0);
     if (aVal.isZero() || aVal.isNaN()) {
