@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { range } from 'lodash';
+
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
