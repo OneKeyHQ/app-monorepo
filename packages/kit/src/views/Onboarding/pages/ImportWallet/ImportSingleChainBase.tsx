@@ -15,6 +15,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type {
   IAccountDeriveTypes,
   IValidateGeneralInputParams,
@@ -111,6 +112,8 @@ export function ImportSingleChainBase({
     }
   }, [networkIdText, setValue]);
 
+  const { start } = useScanQrCode();
+
   return (
     <Page>
       <Page.Header title={title} />
@@ -128,7 +131,10 @@ export function ImportSingleChainBase({
               addOns={[
                 {
                   iconName: 'ScanOutline',
-                  onPress: () => console.log('scan'),
+                  onPress: async () => {
+                    const result = await start();
+                    form.setValue('input', result.raw);
+                  },
                 },
               ]}
             />

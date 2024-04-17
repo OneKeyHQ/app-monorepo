@@ -93,7 +93,11 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
     if (activeAccount.account?.address !== currentAddress) {
       await actions.current.updateSelectedAccount({
         num: accountSelectorNum,
-        builder: () => defaultSelectedAccount(),
+        builder: () => ({
+          ...defaultSelectedAccount(),
+          networkId: activeAccount.network?.id,
+          walletId: activeAccount?.wallet?.id,
+        }),
       });
     }
     onBeforeAccountSelectorOpen?.();
