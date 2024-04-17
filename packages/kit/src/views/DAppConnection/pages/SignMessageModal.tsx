@@ -58,6 +58,11 @@ function SignMessageModal() {
       void dappApprove.resolve({
         result,
       });
+      await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
+        networkId,
+        accountId,
+        message: unsignedMessage.message,
+      });
       close?.();
     },
     [unsignedMessage, dappApprove, networkId, accountId],

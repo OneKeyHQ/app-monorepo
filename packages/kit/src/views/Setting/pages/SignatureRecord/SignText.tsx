@@ -1,161 +1,139 @@
+import { useCallback, useContext, useState } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
+  Empty,
   IconButton,
-  Image,
   SectionList,
   SizableText,
+  Stack,
+  TextArea,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import utils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { ISignedMessage } from '@onekeyhq/shared/types/signatureRecord';
 
-const message = {
-  'types': {
-    'EIP712Domain': [
-      {
-        'name': 'name',
-        'type': 'string',
-      },
-      {
-        'name': 'version',
-        'type': 'string',
-      },
-      {
-        'name': 'chainId',
-        'type': 'uint256',
-      },
-      {
-        'name': 'verifyingContract',
-        'type': 'address',
-      },
-    ],
-    'LimitOrder': [
-      {
-        'type': 'address',
-        'name': 'makerToken',
-      },
-      {
-        'type': 'address',
-        'name': 'takerToken',
-      },
-      {
-        'type': 'uint128',
-        'name': 'makerAmount',
-      },
-      {
-        'type': 'uint128',
-        'name': 'takerAmount',
-      },
-      {
-        'type': 'uint128',
-        'name': 'takerTokenFeeAmount',
-      },
-      {
-        'type': 'address',
-        'name': 'maker',
-      },
-      {
-        'type': 'address',
-        'name': 'taker',
-      },
-      {
-        'type': 'address',
-        'name': 'sender',
-      },
-      {
-        'type': 'address',
-        'name': 'feeRecipient',
-      },
-      {
-        'type': 'bytes32',
-        'name': 'pool',
-      },
-      {
-        'type': 'uint64',
-        'name': 'expiry',
-      },
-      {
-        'type': 'uint256',
-        'name': 'salt',
-      },
-    ],
-  },
-  'domain': {
-    'chainId': 137,
-    'verifyingContract': '0xdef1c0ded9bec7f1a1670819833240f027b25eff',
-    'name': 'ZeroEx',
-    'version': '1.0.0',
-  },
-  'primaryType': 'LimitOrder',
-  'message': {
-    'makerToken': '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270',
-    'takerToken': '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
-    'makerAmount': '100000000000000000',
-    'takerAmount': '70170',
-    'takerTokenFeeAmount': '211',
-    'maker': '0xec766119a2021956773f16cf77a3b248ff79b1c7',
-    'taker': '0x0000000000000000000000000000000000000000',
-    'sender': '0x0000000000000000000000000000000000000000',
-    'feeRecipient': '0xaD09FCe8d34fc38241909FA803EA68E27E85c6e0',
-    'pool':
-      '0x0000000000000000000000000000000000000000000000000000000000000000',
-    'expiry': '1713272499',
-    'salt': '1713271899401',
-  },
-};
+import { SignatureContext } from './Context';
+import { groupBy } from './utils';
 
-const SignTextItem = () => (
-  <YStack
-    borderWidth={StyleSheet.hairlineWidth}
-    mx="$5"
-    borderRadius="$3"
-    borderColor="$borderSubdued"
-    overflow="hidden"
-    mb="$3"
-  >
-    <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
-      <SizableText size="$bodyMd">11:40 • OneKey Wallet</SizableText>
-      <IconButton variant="tertiary" icon="OpenOutline" size="small" />
-    </XStack>
-    <XStack justifyContent="space-between" p="$3">
-      <SizableText maxHeight="$24" size="$bodyLgMedium">
-        {JSON.stringify(message, null, 2)}
-      </SizableText>
-    </XStack>
-    <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
-      <Image
-        pl="$1"
-        width={16}
-        height={16}
-        src="https://onekey-asset.com/assets/eth/eth.png"
-        mr="$2"
-      />
-      <SizableText color="$textSubdued">
-        Polygon • 0x123456...1234567
-      </SizableText>
-    </XStack>
-  </YStack>
+const ListEmptyComponent = () => (
+  <Empty
+    title="No Signed Text"
+    description="All text signed through OneKey will appear here"
+    icon="ClockAlertOutline"
+  />
 );
+
+const SignTextItem = ({ item }: { item: ISignedMessage }) => {
+  const { copyText } = useClipboard();
+  const onPress = useCallback(
+    () => copyText(item.message),
+    [item.message, copyText],
+  );
+  return (
+    <YStack
+      borderWidth={StyleSheet.hairlineWidth}
+      mx="$5"
+      borderRadius="$3"
+      borderColor="$borderSubdued"
+      overflow="hidden"
+      mb="$3"
+    >
+      <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
+        <SizableText size="$bodyMd">
+          {formatTime(new Date(item.createdAt), { hideSeconds: true })} •{' '}
+          {item.title}
+        </SizableText>
+        <IconButton
+          variant="tertiary"
+          icon="Copy1Outline"
+          size="small"
+          onPress={onPress}
+        />
+      </XStack>
+      <XStack justifyContent="space-between" p="$3">
+        {item.contentType === 'json' ? (
+          <TextArea
+            maxHeight="$24"
+            disabled
+            value={JSON.stringify(JSON.parse(item.message), null, 2)}
+            backgroundColor="transparent"
+            width="100%"
+            borderWidth={0}
+          />
+        ) : (
+          <SizableText maxHeight="$24" size="$bodyLgMedium">
+            {item.message}
+          </SizableText>
+        )}
+      </XStack>
+      <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
+        <Stack mr="$2">
+          <NetworkAvatar size={16} networkId={item.networkId} />
+        </Stack>
+        <SizableText color="$textSubdued">
+          {item.network.name}
+          {' • '}
+          {utils.shortenAddress({ address: item.address })}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+};
 
 type ISectionListData = {
   title: string;
-  data: { key: number }[];
+  data: ISignedMessage[];
 };
 
-export const SignText = () => (
-  <SectionList
-    sections={
-      [
-        { title: '', data: [{ key: 1 }, { key: 2 }] },
-        { title: '', data: [{ key: 3 }, { key: 4 }] },
-      ] as ISectionListData[]
+export const SignText = () => {
+  const [limit, setLimit] = useState<number>(10);
+  const { networkId } = useContext(SignatureContext);
+  const {
+    result: { sections, len },
+  } = usePromiseResult(
+    async () => {
+      const result =
+        await backgroundApiProxy.serviceSignature.getSignedMessages({
+          limit,
+          networkId,
+          offset: 0,
+        });
+      return { sections: groupBy(result), len: result.length };
+    },
+    [networkId, limit],
+    { initResult: { sections: [], len: 0 } },
+  );
+
+  const onEndReached = useCallback(() => {
+    if (len < limit) {
+      return;
     }
-    estimatedItemSize="$36"
-    ItemSeparatorComponent={null}
-    SectionSeparatorComponent={null}
-    renderSectionHeader={() => (
-      <SectionList.SectionHeader title="JAN 30 2024" />
-    )}
-    renderItem={() => <SignTextItem />}
-  />
-);
+    setLimit((prev) => prev + 10);
+  }, [len, limit]);
+
+  return (
+    <SectionList
+      sections={sections}
+      estimatedItemSize="$36"
+      ItemSeparatorComponent={null}
+      SectionSeparatorComponent={null}
+      renderSectionHeader={({ section }) => (
+        <SectionList.SectionHeader
+          title={(section as ISectionListData).title}
+        />
+      )}
+      renderItem={({ item }) => <SignTextItem item={item} />}
+      ListEmptyComponent={ListEmptyComponent}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={0.3}
+    />
+  );
+};

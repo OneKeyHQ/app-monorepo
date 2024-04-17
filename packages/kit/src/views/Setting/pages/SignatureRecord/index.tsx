@@ -1,23 +1,84 @@
-import { Page, Tab } from '@onekeyhq/components';
+import { useCallback, useContext, useMemo, useState } from 'react';
+
+import { Button, Page, SearchBar, Stack, Tab } from '@onekeyhq/components';
+import {
+  AllNetworksAvatar,
+  NetworkAvatar,
+} from '@onekeyhq/kit/src/components/NetworkAvatar';
+import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 
 import { ConnectedSites } from './ConnectedSites';
+import { SignatureContext } from './Context';
 import { SignText } from './SignText';
 import { Transactions } from './Transactions';
 
-const SignatureRecordPage = () => (
-  <Page>
-    <Page.Header title="SignatureRecord" />
-    <Page.Body>
-      <Tab.Page
-        data={[
-          { title: 'Transactions', page: Transactions },
-          { title: 'Sign Text', page: SignText },
-          { title: 'Connected Sites', page: ConnectedSites },
-        ]}
-        initialScrollIndex={0}
+const ListHeaderComponent = () => {
+  const { searchContent, setSearchContent } = useContext(SignatureContext);
+  return (
+    <Stack px="$4" w="100%">
+      <SearchBar
+        value={searchContent}
+        onChangeText={setSearchContent}
+        placeholder="Enter the address to search"
       />
-    </Page.Body>
-  </Page>
-);
+    </Stack>
+  );
+};
 
-export default SignatureRecordPage;
+const PageView = () => {
+  const [networkId, setNetworkId] = useState<string>('');
+  const [searchContent, setSearchContent] = useState<string>('');
+
+  const memo = useMemo(
+    () => ({ networkId, searchContent, setNetworkId, setSearchContent }),
+    [networkId, searchContent, setNetworkId, setSearchContent],
+  );
+
+  const onShowChainSelector = useConfigurableChainSelector();
+  const onPress = useCallback(() => {
+    onShowChainSelector({
+      defaultNetworkId: networkId,
+      onSelect(network) {
+        setNetworkId?.(network.id);
+      },
+    });
+  }, [onShowChainSelector, networkId, setNetworkId]);
+  const headerRight = useCallback(
+    () => (
+      <Button onPress={onPress} variant="tertiary">
+        {networkId ? (
+          <NetworkAvatar size={24} networkId={networkId} />
+        ) : (
+          <AllNetworksAvatar size={24} />
+        )}
+      </Button>
+    ),
+    [onPress, networkId],
+  );
+
+  const tabConfig = useMemo(
+    () => [
+      { title: 'Transactions', page: Transactions },
+      { title: 'Sign Text', page: SignText },
+      { title: 'Connected Sites', page: ConnectedSites },
+    ],
+    [],
+  );
+
+  return (
+    <Page>
+      <Page.Header title="Signature Record" headerRight={headerRight} />
+      <SignatureContext.Provider value={memo}>
+        <Page.Body>
+          <Tab.Page
+            ListHeaderComponent={<ListHeaderComponent />}
+            data={tabConfig}
+            initialScrollIndex={0}
+          />
+        </Page.Body>
+      </SignatureContext.Provider>
+    </Page>
+  );
+};
+
+export default PageView;

@@ -1,73 +1,218 @@
+import { useCallback, useContext, useState } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
+  Empty,
   IconButton,
-  Image,
   SectionList,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import utils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import type {
+  IApproveTransactionData,
+  ISendTransactionData,
+  ISignedTransaction,
+  ISwapTransactionData,
+} from '@onekeyhq/shared/types/signatureRecord';
 
-const TransactionItem = () => (
-  <YStack
-    borderWidth={StyleSheet.hairlineWidth}
-    mx="$5"
-    borderRadius="$3"
-    borderColor="$borderSubdued"
-    overflow="hidden"
-    mb="$3"
-  >
-    <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
-      <SizableText size="$bodyMd">11:40 • OneKey Wallet</SizableText>
-      <IconButton variant="tertiary" icon="OpenOutline" size="small" />
-    </XStack>
-    <XStack justifyContent="space-between" p="$3">
-      <XStack alignItems="center">
-        <Image
-          width={40}
-          height={40}
-          src="https://onekey-asset.com/assets/eth/eth.png"
-          mr="$3"
-        />
-        <SizableText size="$bodyLgMedium">Send</SizableText>
-      </XStack>
-      <SizableText size="$bodyLgMedium">-0.001 ETH</SizableText>
-    </XStack>
-    <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
-      <Image
-        pl="$1"
-        width={16}
-        height={16}
-        src="https://onekey-asset.com/assets/eth/eth.png"
-        mr="$2"
-      />
-      <SizableText color="$textSubdued">
-        Polygon • 0x123456...1234567
+import { SignatureContext } from './Context';
+import { groupBy } from './utils';
+
+const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => (
+  <XStack justifyContent="space-between" w="100%" alignItems="center">
+    <XStack alignItems="center">
+      <Token size="lg" tokenImageUri={data.token.logoURI} />
+      <SizableText ml="$3" size="$bodyLgMedium">
+        Send
       </SizableText>
     </XStack>
-  </YStack>
+    <SizableText size="$bodyLgMedium">
+      -{data.amount} {data.token.symbol.toUpperCase()}
+    </SizableText>
+  </XStack>
 );
+
+const ApproveTransactionItem = ({
+  data,
+}: {
+  data: IApproveTransactionData;
+}) => (
+  <XStack justifyContent="space-between" w="100%" alignItems="center">
+    <XStack alignItems="center">
+      <Token size="lg" tokenImageUri={data.token.logoURI} />
+      <SizableText ml="$3" size="$bodyLgMedium">
+        Approve
+      </SizableText>
+    </XStack>
+    <SizableText size="$bodyLgMedium">
+      {data.isUnlimited
+        ? 'Unlimited'
+        : `${data.amount} ${data.token.symbol.toUpperCase()}`}
+    </SizableText>
+  </XStack>
+);
+
+const SwapTransactionItem = ({ data }: { data: ISwapTransactionData }) => (
+  <XStack justifyContent="space-between" w="100%">
+    <XStack alignItems="center">
+      <Stack
+        w={40}
+        h={40}
+        alignItems="flex-end"
+        justifyContent="flex-end"
+        mr="$3"
+      >
+        <Stack position="absolute" left="$0" top="$0">
+          <Token size="sm" tokenImageUri={data.fromToken.logoURI} />
+        </Stack>
+        <Stack
+          borderWidth={2}
+          borderColor="$bgApp"
+          borderRadius="$full"
+          zIndex={1}
+        >
+          <Token size="sm" tokenImageUri={data.toToken.logoURI} />
+        </Stack>
+      </Stack>
+      <SizableText size="$bodyLgMedium">Swap</SizableText>
+    </XStack>
+    <YStack alignItems="flex-end">
+      <SizableText size="$bodyLgMedium">
+        {`+${data.toAmount} ${data.toToken.symbol.toUpperCase()}`}
+      </SizableText>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {`-${data.fromAmount} ${data.fromToken.symbol.toUpperCase()}`}
+      </SizableText>
+    </YStack>
+  </XStack>
+);
+
+const TransactionData = ({ data }: { data: ISignedTransaction['data'] }) => {
+  if (data.type === 'send') {
+    return <SendTransactionItem data={data} />;
+  }
+  if (data.type === 'approve') {
+    return <ApproveTransactionItem data={data} />;
+  }
+  if (data.type === 'swap') {
+    return <SwapTransactionItem data={data} />;
+  }
+  return null;
+};
+
+const TransactionItem = ({ item }: { item: ISignedTransaction }) => {
+  const network = item.network;
+  const onPress = useCallback(() => {
+    openUrl(
+      buildExplorerAddressUrl({
+        network,
+        address: item?.address,
+      }),
+    );
+  }, [item?.address, network]);
+  return (
+    <YStack
+      borderWidth={StyleSheet.hairlineWidth}
+      mx="$5"
+      borderRadius="$3"
+      borderColor="$borderSubdued"
+      overflow="hidden"
+      mb="$3"
+    >
+      <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
+        <SizableText size="$bodyMd">
+          {formatTime(new Date(item.createdAt), { hideSeconds: true })}
+          {' • '}
+          {item.title}
+        </SizableText>
+        <IconButton
+          variant="tertiary"
+          icon="OpenOutline"
+          size="small"
+          onPress={onPress}
+        />
+      </XStack>
+      <XStack p="$3">
+        <TransactionData data={item.data} />
+      </XStack>
+      <XStack p="$3" backgroundColor="$bgSubdued" alignItems="center">
+        <Stack mr="$2">
+          <NetworkAvatar size={16} networkId={item.networkId} />
+        </Stack>
+        <SizableText color="$textSubdued">
+          {item.network.name} •{' '}
+          {utils.shortenAddress({ address: item.address })}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+};
 
 type ISectionListData = {
   title: string;
-  data: { key: number }[];
+  data: ISignedTransaction[];
 };
 
-export const Transactions = () => (
-  <SectionList
-    sections={
-      [
-        { title: '', data: [{ key: 1 }, { key: 2 }] },
-        { title: '', data: [{ key: 3 }, { key: 4 }] },
-      ] as ISectionListData[]
-    }
-    estimatedItemSize="$36"
-    ItemSeparatorComponent={null}
-    SectionSeparatorComponent={null}
-    renderSectionHeader={() => (
-      <SectionList.SectionHeader title="JAN 30 2024" />
-    )}
-    renderItem={() => <TransactionItem />}
+const ListEmptyComponent = () => (
+  <Empty
+    title="No Signed Transactions"
+    description="All transactions signed through OneKey will appear here"
+    icon="ClockAlertOutline"
   />
 );
+
+export const Transactions = () => {
+  const [limit, setLimit] = useState<number>(10);
+  const { networkId } = useContext(SignatureContext);
+  const {
+    result: { transactions, len },
+  } = usePromiseResult(
+    async () => {
+      const items =
+        await backgroundApiProxy.serviceSignature.getSignedTransactions({
+          networkId,
+          offset: 0,
+          limit,
+        });
+      return { transactions: groupBy(items), len: items.length };
+    },
+    [networkId, limit],
+    { initResult: { transactions: [], len: 0 } },
+  );
+
+  const onEndReached = useCallback(() => {
+    if (len < limit) {
+      return;
+    }
+    setLimit((prev) => prev + 10);
+  }, [len, limit]);
+
+  return (
+    <SectionList
+      sections={transactions}
+      estimatedItemSize="$36"
+      ItemSeparatorComponent={null}
+      SectionSeparatorComponent={null}
+      renderSectionHeader={({ section }) => (
+        <SectionList.SectionHeader
+          title={(section as ISectionListData).title}
+        />
+      )}
+      renderItem={({ item }) => <TransactionItem item={item} />}
+      ListEmptyComponent={ListEmptyComponent}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={0.3}
+    />
+  );
+};

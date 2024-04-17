@@ -1,15 +1,35 @@
+import { useCallback, useContext, useState } from 'react';
+
 import { StyleSheet } from 'react-native';
 
 import {
-  IconButton,
+  Empty,
   Image,
   SectionList,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import utils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { IConnectedSite } from '@onekeyhq/shared/types/signatureRecord';
 
-const TransactionItem = () => (
+import { SignatureContext } from './Context';
+import { groupBy } from './utils';
+
+const getConnectedSiteTitle = (url: string) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+};
+
+const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
   <YStack
     borderWidth={StyleSheet.hairlineWidth}
     mx="$5"
@@ -19,66 +39,96 @@ const TransactionItem = () => (
     overflow="hidden"
   >
     <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
-      <SizableText size="$bodyMd">11:40 • OneKey Wallet</SizableText>
-      <IconButton variant="tertiary" icon="OpenOutline" size="small" />
+      <SizableText size="$bodyMd">
+        {formatTime(new Date(item.createdAt), { hideSeconds: true })}
+        {' • '}
+        {item.title}
+      </SizableText>
     </XStack>
     <XStack p="$3" alignItems="center">
       <Image
+        borderRadius="$full"
+        overflow="hidden"
         width={40}
         height={40}
-        src="https://onekey-asset.com/assets/eth/eth.png"
+        src={item.logo}
         mr="$3"
       />
-      <SizableText size="$bodyLgMedium">https://app.unisap.org</SizableText>
+      <SizableText size="$bodyLgMedium">
+        {getConnectedSiteTitle(item.url)}
+      </SizableText>
     </XStack>
     <YStack p="$3" backgroundColor="$bgSubdued">
-      <XStack alignItems="center">
-        <Image
-          pl="$1"
-          width={16}
-          height={16}
-          src="https://onekey-asset.com/assets/eth/eth.png"
-          mr="$2"
-        />
-        <SizableText color="$textSubdued">
-          Polygon • 0x123456...1234567
-        </SizableText>
-      </XStack>
-      <XStack alignItems="center">
-        <Image
-          pl="$1"
-          width={16}
-          height={16}
-          src="https://onekey-asset.com/assets/eth/eth.png"
-          mr="$2"
-        />
-        <SizableText color="$textSubdued">
-          Polygon • 0x123456...1234567
-        </SizableText>
-      </XStack>
+      {item.networkIds.map((networkId, i) => (
+        <XStack key={networkId} alignItems="center">
+          <Stack mr="$2">
+            <NetworkAvatar size={16} networkId={networkId} />
+          </Stack>
+          <SizableText color="$textSubdued">
+            {item.networks[i].name}
+            {' • '}
+            {utils.shortenAddress({ address: item.addresses[i] })}
+          </SizableText>
+        </XStack>
+      ))}
     </YStack>
   </YStack>
 );
 
 type ISectionListData = {
   title: string;
-  data: { key: number }[];
+  data: IConnectedSite[];
 };
 
-export const ConnectedSites = () => (
-  <SectionList
-    sections={
-      [
-        { title: '', data: [{ key: 1 }, { key: 2 }] },
-        { title: '', data: [{ key: 3 }, { key: 4 }] },
-      ] as ISectionListData[]
-    }
-    estimatedItemSize="$36"
-    ItemSeparatorComponent={null}
-    SectionSeparatorComponent={null}
-    renderSectionHeader={() => (
-      <SectionList.SectionHeader title="JAN 30 2024" />
-    )}
-    renderItem={() => <TransactionItem />}
+const ListEmptyComponent = () => (
+  <Empty
+    title="No Connected Sites"
+    description="All sites connected through OneKey will appear here"
+    icon="ClockAlertOutline"
   />
 );
+
+export const ConnectedSites = () => {
+  const [limit, setLimit] = useState<number>(10);
+  const { networkId } = useContext(SignatureContext);
+  const {
+    result: { sections, len },
+  } = usePromiseResult(
+    async () => {
+      const items = await backgroundApiProxy.serviceSignature.getConnectedSites(
+        {
+          networkId,
+          offset: 0,
+          limit,
+        },
+      );
+      return { sections: groupBy(items), len: items.length };
+    },
+    [limit, networkId],
+    { initResult: { sections: [], len: 0 } },
+  );
+  const onEndReached = useCallback(() => {
+    if (len < limit) {
+      return;
+    }
+    setLimit((prev) => prev + 10);
+  }, [len, limit]);
+
+  return (
+    <SectionList
+      sections={sections}
+      estimatedItemSize="$36"
+      ItemSeparatorComponent={null}
+      SectionSeparatorComponent={null}
+      renderSectionHeader={({ section }) => (
+        <SectionList.SectionHeader
+          title={(section as ISectionListData).title}
+        />
+      )}
+      renderItem={({ item }) => <ConnectedSiteItem item={item} />}
+      ListEmptyComponent={ListEmptyComponent}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={0.3}
+    />
+  );
+};

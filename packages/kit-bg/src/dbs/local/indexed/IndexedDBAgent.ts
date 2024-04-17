@@ -1,4 +1,4 @@
-import { isNil } from 'lodash';
+import { isNil, isNumber } from 'lodash';
 
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
@@ -135,6 +135,21 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         ELocalDBStoreNames.Address,
       );
 
+      const signMessageStore = this._getOrCreateObjectStore(
+        dbTx,
+        ELocalDBStoreNames.SignedMessage,
+      );
+
+      const signedTransactionStore = this._getOrCreateObjectStore(
+        dbTx,
+        ELocalDBStoreNames.SignedTransaction,
+      );
+
+      const connectedSiteStore = this._getOrCreateObjectStore(
+        dbTx,
+        ELocalDBStoreNames.ConnectedSite,
+      );
+
       const tx: ILocalDBTransaction = {
         stores: {
           [ELocalDBStoreNames.Context]: contextStore as any,
@@ -145,6 +160,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
           [ELocalDBStoreNames.Credential]: credentialStore as any,
           [ELocalDBStoreNames.Device]: deviceStore as any,
           [ELocalDBStoreNames.Address]: addressStore as any,
+          [ELocalDBStoreNames.SignedMessage]: signMessageStore as any,
+          [ELocalDBStoreNames.SignedTransaction]: signedTransactionStore as any,
+          [ELocalDBStoreNames.ConnectedSite]: connectedSiteStore as any,
         },
       };
 
@@ -258,7 +276,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
-    const { tx: paramsTx, name, ids } = params;
+    const { tx: paramsTx, name, ids, limit, offset } = params;
     const fn = async (tx: ILocalDBTransaction) => {
       const store = this._getObjectStoreFromTx(tx, name);
       // TODO add query support
@@ -269,6 +287,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         results = await Promise.all(ids.map((id) => store.get(id)));
       } else {
         results = await store.getAll();
+        if (isNumber(limit) && isNumber(offset)) {
+          results = results.slice(offset, limit + offset);
+        }
       }
 
       const recordPairs: ILocalDBRecordPair<T>[] = [];
@@ -303,7 +324,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         error.$$autoPrintErrorIgnore = true;
         throw error;
       }
-      return [record as any, null];
+      return [record, null];
     };
     return fn(paramsTx);
   }

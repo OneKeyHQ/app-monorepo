@@ -42,6 +42,11 @@ import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type {
+  ICreateConnectedSiteParams,
+  ICreateSignedMessageParams,
+  ICreateSignedTransactionParams,
+} from '@onekeyhq/shared/types/signatureRecord';
 
 import { EDBAccountType } from './consts';
 import { ELocalDBStoreNames } from './localDBStoreNames';
@@ -52,6 +57,7 @@ import type {
   IDBAddAccountDerivationParams,
   IDBAddress,
   IDBApiGetContextOptions,
+  IDBConnectedSite,
   IDBContext,
   IDBCreateHDWalletParams,
   IDBCreateHWWalletParams,
@@ -65,6 +71,8 @@ import type {
   IDBSetAccountNameParams,
   IDBSetAccountTemplateParams,
   IDBSetWalletNameAndAvatarParams,
+  IDBSignedMessage,
+  IDBSignedTransaction,
   IDBUpdateDeviceSettingsParams,
   IDBUpdateFirmwareVerifiedParams,
   IDBWallet,
@@ -524,10 +532,8 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   /**
    * Get all wallets
 
-   * @param includeAllPassphraseWallet Whether to load the hidden Pa
-ssphrase wallet
+   * @param includeAllPassphraseWallet Whether to load the hidden Passphrase wallet
    * @param displayPassphraseWalletIds Need to display Passphrase wallet
-
    */
 
   async getWallets(
@@ -2009,6 +2015,85 @@ ssphrase wallet
         updater: (item) => {
           item.settingsRaw = JSON.stringify(settings);
           return item;
+        },
+      });
+    });
+  }
+
+  // ---------------------------------------------- indexedAccount
+  async addSignedMessage(params: ICreateSignedMessageParams) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      const [ctx] = await this.txGetContext({ tx }); // check context
+      await this.txAddRecords({
+        name: ELocalDBStoreNames.SignedMessage,
+        tx,
+        records: [
+          {
+            ...params,
+            id: String(ctx.nextSigMsgId),
+            createdAt: Date.now(),
+          },
+        ],
+      });
+      await this.txUpdateContext({
+        tx,
+        updater: (r) => {
+          r.nextSigMsgId += 1;
+          return r;
+        },
+      });
+    });
+  }
+
+  async addSignedTransaction(params: ICreateSignedTransactionParams) {
+    const db = await this.readyDb;
+    const { data, ...rest } = params;
+    const dataStringify = JSON.stringify(data);
+    await db.withTransaction(async (tx) => {
+      const [ctx] = await this.txGetContext({ tx }); // check context
+      await this.txAddRecords({
+        name: ELocalDBStoreNames.SignedTransaction,
+        tx,
+        records: [
+          {
+            ...rest,
+            dataStringify,
+            id: String(ctx.nextSigTxId),
+            createdAt: Date.now(),
+          },
+        ],
+      });
+      await this.txUpdateContext({
+        tx,
+        updater: (r) => {
+          r.nextSigTxId += 1;
+          return r;
+        },
+      });
+    });
+  }
+
+  async addConnectedSite(params: ICreateConnectedSiteParams) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      const [ctx] = await this.txGetContext({ tx }); // check context
+      await this.txAddRecords({
+        name: ELocalDBStoreNames.ConnectedSite,
+        tx,
+        records: [
+          {
+            ...params,
+            id: String(ctx.nextConnectedSiteId),
+            createdAt: Date.now(),
+          },
+        ],
+      });
+      await this.txUpdateContext({
+        tx,
+        updater: (r) => {
+          r.nextConnectedSiteId += 1;
+          return r;
         },
       });
     });

@@ -1,3 +1,6 @@
+import { is } from 'date-fns/locale';
+import { isNumber } from 'lodash';
+
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
@@ -152,13 +155,18 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
-    const { name, ids } = params;
+    const { name, ids, limit, offset } = params;
     let objList: Array<{ record: any } | null | undefined> = [];
 
     if (ids) {
-      objList = ids.map((id) => this._getObjectRecordById(name, id));
+      objList = ids.map((id) => this._getObjectRecordById(name, id)) as any;
     } else {
-      objList = this.realm.objects<IRealmDBSchemaMap[T]>(name) as any;
+      objList = this.realm
+        .objects<IRealmDBSchemaMap[T]>(name)
+        .sorted('id', Boolean(params.reverse)) as any;
+      if (isNumber(limit) && isNumber(offset)) {
+        objList = objList.slice(offset, offset + limit);
+      }
     }
 
     const recordPairs: ILocalDBRecordPair<T>[] = [];
@@ -183,7 +191,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     if (!record) {
       throw new Error(`record not found: ${name} ${id}`);
     }
-    return [record as any, obj];
+    return [record, obj];
   }
 
   async txUpdateRecords<T extends ELocalDBStoreNames>(

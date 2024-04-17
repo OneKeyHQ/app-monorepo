@@ -66,6 +66,9 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
           nextWalletNo: 1,
           verifyString: DEFAULT_VERIFY_STRING,
           backupUUID: generateUUID(),
+          nextSigMsgId: 1,
+          nextSigTxId: 1,
+          nextConnectedSiteId: 1,
         }),
         this._addSingletonWalletRecord({
           db,

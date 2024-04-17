@@ -384,6 +384,12 @@ class ServiceSend extends ServiceBase {
         signedTx,
         decodedTx,
       });
+      if (!signOnly) {
+        await this.backgroundApi.serviceSignature.addItemFromSendProcess({
+          signedTx,
+          decodedTx,
+        });
+      }
       if (signedTx && !signOnly) {
         await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
           networkId,
