@@ -20,7 +20,7 @@
     "@noble/secp256k1": "1.7.1",
     "@onekeyfe/cardano-coin-selection": "1.0.0",
     "@onekeyfe/cardano-coin-selection-asmjs": "1.1.0",
-    "@solana/web3.js": "^1.87.2",
+    "@solana/web3.js": "^1.91.3",
     "@starcoin/starcoin": "^2.3.7",
     "@zondax/izari-filecoin": "^1.2.0",
     "algosdk": "^2.6.0",
