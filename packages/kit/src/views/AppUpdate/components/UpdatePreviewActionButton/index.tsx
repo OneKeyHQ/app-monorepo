@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import RNFS from 'react-native-fs';
+
 import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
@@ -11,7 +13,7 @@ import type { IUpdatePreviewActionButton } from './type';
 
 export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
   const appUpdateInfo = useAppUpdateInfo();
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback(async () => {
     if (appUpdateInfo.data) {
       if (appUpdateInfo.data.storeUrl) {
         openUrlExternal(appUpdateInfo.data.storeUrl);
@@ -28,7 +30,15 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
           });
           window.desktopApi.checkForUpdates();
         } else if (platformEnv.isNativeAndroid) {
-          // TODO: in another pr.
+          const dirPath = `file://${RNFS.CachesDirectoryPath}/apk`;
+          await RNFS.mkdir(dirPath);
+          await backgroundApiProxy.serviceAppUpdate.startDownloading();
+          RNFS.downloadFile({
+            fromUrl: appUpdateInfo.data.downloadUrl,
+            toFile: `${dirPath}/${appUpdateInfo.data.latestVersion || ''}.apk`,
+            progress: console.log,
+          });
+          await backgroundApiProxy.serviceAppUpdate.readyToInstall();
         }
       }
     }

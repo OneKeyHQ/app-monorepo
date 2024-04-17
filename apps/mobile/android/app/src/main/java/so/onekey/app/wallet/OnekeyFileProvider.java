@@ -10,6 +10,6 @@ import java.io.File;
 public class OnekeyFileProvider extends FileProvider {
 
    public static Uri getUriForFile(Context context, File file) {
-       return getUriForFile(context, "${context.packageName}.onekeyfile", file);
+       return getUriForFile(context, context.getPackageName() + ".onekeyfile", file);
    }
 }

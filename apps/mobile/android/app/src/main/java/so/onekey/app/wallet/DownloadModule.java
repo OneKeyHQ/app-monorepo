@@ -48,7 +48,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
             File file;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
                 file = new File(url.replace("file:///", "/"));
-                Uri apkUri = FileProvider.getUriForFile(rContext, BuildConfig.APPLICATION_ID + '.provider', file);
+                Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, file);
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
             }else{
@@ -57,7 +57,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 intent.setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive");
             }
             promise.resolve("success");
-            rContext.startActivity(intent);
+            rContext.getCurrentActivity().startActivity(intent);
         } catch (Exception e) {
             promise.reject("Error", e.getMessage());
         }
