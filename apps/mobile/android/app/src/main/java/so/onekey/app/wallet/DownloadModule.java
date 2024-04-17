@@ -62,7 +62,9 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         }
         this.isDownloading = true;
         File downloadedFile = new File(filePath.replace("file:///", "/"));
-
+        if (downloadedFile.exists()){
+            downloadedFile.delete();
+        }
 //        mBuilder = new NotificationCompat.Builder(this.rContext.getApplicationContext());
 //        mBuilder.setContentTitle(notificationTitle)
 //                .setContentText("")
