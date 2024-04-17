@@ -132,11 +132,11 @@ export const {
     sortedList = [...receivedSorted];
   }
   return sortedList.map((p) => {
-    if (p.info.provider === receivedSorted?.[0]?.info?.provider) {
+    if (p.info.provider === receivedSorted?.[0]?.info?.provider && p.toAmount) {
       p.receivedBest = true;
       p.isBest = true;
     }
-    if (p.info.provider === gasFeeSorted?.[0]?.info?.provider) {
+    if (p.info.provider === gasFeeSorted?.[0]?.info?.provider && p.toAmount) {
       p.minGasCost = true;
     }
     return p;

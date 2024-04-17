@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
-import { Image, Skeleton, Stack } from '@onekeyhq/components';
+import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -105,23 +105,15 @@ export default function DAppConnectExtensionFloatingTrigger() {
       }}
       shadowRadius={24}
       shadowColor="rgba(0, 0, 0, 0.09)"
+      borderColor="$border"
+      borderWidth="$px"
       onPress={handlePressFloatingButton}
     >
       <Stack position="relative">
         <Image size="$10" borderRadius="$2">
-          <Image.Source
-            source={{
-              uri: result?.faviconUrl,
-            }}
-          />
+          <Image.Source src={result?.faviconUrl || result?.originFaviconUrl} />
           <Image.Fallback>
-            <Image
-              size="$10"
-              borderRadius="$2"
-              source={{
-                uri: result?.originFaviconUrl,
-              }}
-            />
+            <Icon size="$10" name="GlobusOutline" />
           </Image.Fallback>
           <Image.Loading>
             <Skeleton width="100%" height="100%" />

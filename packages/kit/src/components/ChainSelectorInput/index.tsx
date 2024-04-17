@@ -63,6 +63,7 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       onPress={disabled ? undefined : onPress}
       flexDirection="row"
       alignItems="center"
+      testID="network-selector-input"
       {...rest}
     >
       <NetworkAvatar networkId={current?.id} size="$6" />

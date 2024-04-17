@@ -118,17 +118,21 @@ const SwapProviderListItem = ({
       if (providerResult.limit.min) {
         const minBN = new BigNumber(providerResult.limit.min);
         if (fromTokenAmountBN.lt(minBN)) {
-          return `Min swap amount requires ${minBN.toFixed()} ${
-            fromToken?.symbol ?? 'unknown'
-          }`;
+          return `Min swap amount requires ${
+            numberFormat(providerResult.limit.min, {
+              formatter: 'balance',
+            }) as string
+          } ${fromToken?.symbol ?? 'unknown'}`;
         }
       }
       if (providerResult.limit.max) {
         const maxBN = new BigNumber(providerResult.limit.max);
         if (fromTokenAmountBN.gt(maxBN)) {
-          return `Max swap amount requires ${maxBN.toFixed()} ${
-            fromToken?.symbol ?? 'unknown'
-          }`;
+          return `Max swap amount requires ${
+            numberFormat(providerResult.limit.max, {
+              formatter: 'balance',
+            }) as string
+          } ${fromToken?.symbol ?? 'unknown'}`;
         }
       }
     }
