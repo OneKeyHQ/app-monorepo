@@ -1,7 +1,5 @@
 import { useCallback, useState } from 'react';
 
-import { isEqual } from 'lodash';
-
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
@@ -66,6 +64,7 @@ function WordSelector({
           key={word}
           onPress={onPress}
           borderColor={selectedWord === word ? '$borderActive' : undefined}
+          testID={`suggest-${word}`}
         >
           {word}
         </WordButton>
