@@ -273,6 +273,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           indexedAccountId: indexedAccount?.id,
         }),
       });
+
+      appEventBus.emit(EAppEventBusNames.ConfirmAccountSelected, undefined);
     },
   );
 
