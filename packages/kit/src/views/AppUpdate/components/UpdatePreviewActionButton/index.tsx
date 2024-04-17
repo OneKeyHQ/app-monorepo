@@ -14,7 +14,7 @@ import type { IUpdatePreviewActionButton } from './type';
 
 export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
   const appUpdateInfo = useAppUpdateInfo();
-  const handlePress = useCallback(async () => {
+  const handlePress: () => void = useCallback(async () => {
     if (appUpdateInfo.data) {
       if (appUpdateInfo.data.storeUrl) {
         openUrlExternal(appUpdateInfo.data.storeUrl);
@@ -31,11 +31,12 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
           });
           window.desktopApi.checkForUpdates();
         } else if (platformEnv.isNativeAndroid) {
-          void downloadAPK(
+          await backgroundApiProxy.serviceAppUpdate.startDownloading();
+          await downloadAPK(
             appUpdateInfo.data.downloadUrl,
             appUpdateInfo.data.latestVersion,
           );
-          await backgroundApiProxy.serviceAppUpdate.startDownloading();
+          await backgroundApiProxy.serviceAppUpdate.readyToInstall();
         }
       }
     }

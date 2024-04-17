@@ -43,6 +43,7 @@ import okio.Okio;
 public class DownloadModule extends ReactContextBaseJavaModule {
 
     private ReactApplicationContext rContext;
+    private Boolean isDownloading = false;
 
     DownloadModule(ReactApplicationContext context) {
         super(context);
@@ -61,7 +62,11 @@ public class DownloadModule extends ReactContextBaseJavaModule {
 
 
     @ReactMethod
-    public void downloadAPK(final String url, final String filePath) throws IOException {
+    public void downloadAPK(final String url, final String filePath, final Promise promise) throws IOException {
+        if (this.isDownloading) {
+            return;
+        }
+        this.isDownloading = true;
         File downloadedFile = new File(filePath);
 
         Request request = new Request.Builder().url(url).build();
@@ -69,7 +74,9 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         try {
             response = new OkHttpClient().newCall(request).execute();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            this.isDownloading = false;
+            this.sendEvent("update/error", null);
+            promise.reject("Error", e.getMessage());
         }
         if (response == null) {
             return;
@@ -83,19 +90,21 @@ public class DownloadModule extends ReactContextBaseJavaModule {
 
         long totalBytesRead = 0;
         int bufferSize = 8 * 1024;
-        this.sendEvent("downloadAPK-start", null);
+        this.sendEvent("update/start", null);
         for (long bytesRead; (bytesRead = source.read(sinkBuffer, bufferSize)) != -1; ) {
             sink.emit();
             totalBytesRead += bytesRead;
             int progress = (int) ((totalBytesRead * 100) / contentLength);
             WritableMap params = Arguments.createMap();
             params.putInt("progress", progress);
-            this.sendEvent("downloadAPK-progress", params);
-            this.rContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("downloadAPK-start", params);
+            this.sendEvent("update/downloading", params);
         }
         sink.flush();
         sink.close();
         source.close();
+        promise.resolve(null);
+        this.sendEvent("update/downloaded", null);
+        this.isDownloading = false;
     }
 
 
@@ -114,7 +123,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 intent.setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive");
             }
-            promise.resolve("success");
+            promise.resolve(null);
             rContext.getCurrentActivity().startActivity(intent);
         } catch (Exception e) {
             promise.reject("Error", e.getMessage());
