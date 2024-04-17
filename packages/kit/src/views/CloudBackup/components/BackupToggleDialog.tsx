@@ -7,6 +7,7 @@ import {
   cloudBackupPersistAtom,
   useCloudBackupPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -49,16 +50,25 @@ function BackupToggleDialogFooter({
 }
 
 export async function maybeShowBackupToggleDialog(willIsEnabled: boolean) {
+  if (!platformEnv.isNative) {
+    return;
+  }
   if (willIsEnabled === (await cloudBackupPersistAtom.get()).isEnabled) {
     return;
   }
   return new Promise((resolve) => {
     Dialog.show({
       icon: 'CloudSyncOutline',
-      title: 'iCloud Backup',
+      title: `${backupPlatform().cloudName} Backup`,
       description: !willIsEnabled
-        ? 'iCloud Backup securely syncs your data across devices (excluding hardware wallets), ensuring that both OneKey and Apple cannot access your wallets. Backups are stored in iCloud Drive and can be enabled anytime.'
-        : 'iCloud Backup securely syncs your data across devices (excluding hardware wallets), ensuring that both OneKey and Apple cannot access your wallets.',
+        ? `${
+            backupPlatform().cloudName
+          } Backup securely syncs your data across devices (excluding hardware wallets), ensuring that both OneKey and Apple cannot access your wallets. Backups are stored in ${
+            backupPlatform().cloudName
+          } Drive and can be enabled anytime.`
+        : `${
+            backupPlatform().cloudName
+          } Backup securely syncs your data across devices (excluding hardware wallets), ensuring that both OneKey and Apple cannot access your wallets.`,
       renderContent: (
         <BackupToggleDialogFooter
           willIsEnabled={willIsEnabled}

@@ -8,6 +8,8 @@ import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import BackupDeviceList from '../../components/BackupDeviceList';
 import { maybeShowBackupToggleDialog } from '../../components/BackupToggleDialog';
 
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
+
 export default function Home() {
   const [{ isEnabled, isInProgress }] = useCloudBackupPersistAtom();
   const [submitError, setSubmitError] = useState('');
@@ -17,7 +19,7 @@ export default function Home() {
       <Page.Body>
         <BackupDeviceList
           ListHeaderComponent={
-            <ListItem title="Backup to iCloud">
+            <ListItem title={`Backup to ${backupPlatform().cloudName}`}>
               <Stack
                 pointerEvents="box-only"
                 onPress={() => maybeShowBackupToggleDialog(!isEnabled)}
