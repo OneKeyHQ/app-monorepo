@@ -178,6 +178,9 @@ function BasicUpdateReminder() {
       alignItems="center"
       borderTopWidth="$px"
       borderBottomWidth="$px"
+      $md={{
+        mt: '$2',
+      }}
       {...style}
     >
       <UpdateStatusText updateInfo={data} />
