@@ -5,6 +5,7 @@ import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHis
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
@@ -41,4 +42,6 @@ export class SimpleDb {
   defaultWalletSettings = new SimpleDbEntityDefaultWalletSettings();
 
   networkSelector = new SimpleDbEntityNetworkSelector();
+
+  lightning = new SimpleDbEntityLightning();
 }
