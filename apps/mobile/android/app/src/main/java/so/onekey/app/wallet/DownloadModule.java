@@ -61,12 +61,22 @@ public class DownloadModule extends ReactContextBaseJavaModule {
             return;
         }
         this.isDownloading = true;
-        File downloadedFile = new File(filePath);
+        File downloadedFile = new File(filePath.replace("file:///", "/"));
 
-        mBuilder = new NotificationCompat.Builder(this.rContext.getCurrentActivity());
-        mBuilder.setContentTitle(notificationTitle)
-                .setContentText("")
-                .setSmallIcon(R.mipmap.ic_launcher_round);
+//        mBuilder = new NotificationCompat.Builder(this.rContext.getApplicationContext());
+//        mBuilder.setContentTitle(notificationTitle)
+//                .setContentText("")
+//                .setSmallIcon(R.mipmap.ic_launcher_round);
+//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+//            mBuilder.setChannelId(this.rContext.getPackageName());
+//
+//            NotificationChannel channel = new NotificationChannel(
+//                    this.rContext.getPackageName(),
+//                    "updateApp",
+//                    NotificationManager.IMPORTANCE_HIGH);
+//
+//            mNotifyManager.createNotificationChannel(channel);
+//        }
 
         Request request = new Request.Builder().url(url).build();
         Response response = null;
@@ -86,7 +96,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
 
         BufferedSink sink = null;
         try {
-            sink = Okio.buffer(Okio.sink(new File(filePath.replace("file:///", "/"))));
+            sink = Okio.buffer(Okio.sink(downloadedFile));
         } catch (FileNotFoundException e) {
             this.isDownloading = false;
             this.sendEvent("update/error", null);
@@ -116,18 +126,8 @@ public class DownloadModule extends ReactContextBaseJavaModule {
             } catch (Exception e) {
                 Log.e("update/downloading", e.getMessage());
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                mBuilder.setChannelId(this.rContext.getPackageName());
-
-                NotificationChannel channel = new NotificationChannel(
-                        this.rContext.getPackageName(),
-                        "updateApp",
-                        NotificationManager.IMPORTANCE_HIGH);
-
-                mNotifyManager.createNotificationChannel(channel);
-            }
-            mBuilder.setProgress(100, progress, false);
-            mNotifyManager.notify(this.notifiactionId, mBuilder.build());
+//            mBuilder.setProgress(100, progress, false);
+//            mNotifyManager.notify(this.notifiactionId, mBuilder.build());
         }
         try {
             sink.flush();
@@ -142,8 +142,8 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         promise.resolve(null);
         this.sendEvent("update/downloaded", null);
         this.isDownloading = false;
-        mBuilder.setContentText("Download completed").setProgress(0,0,false);
-        mNotifyManager.notify(this.notifiactionId, mBuilder.build());
+//        mBuilder.setContentText("Download completed").setProgress(0,0,false);
+//        mNotifyManager.notify(this.notifiactionId, mBuilder.build());
     }
 
 
