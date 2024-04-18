@@ -89,7 +89,12 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                     downloadedFile.delete();
                 }
 
-                mBuilder = new NotificationCompat.Builder(rContext.getApplicationContext(), channelId).setContentTitle(notificationTitle).setContentText("Download in progress").setOngoing(true).setPriority(NotificationCompat.PRIORITY_LOW).setSmallIcon(R.drawable.ic_natification);
+                mBuilder = new NotificationCompat.Builder(rContext.getApplicationContext(), channelId)
+                        .setContentTitle(notificationTitle)
+                        .setContentText("Download in progress")
+                        .setOngoing(true)
+                        .setPriority(NotificationCompat.PRIORITY_LOW)
+                        .setSmallIcon(R.drawable.ic_notification);
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     NotificationChannel channel = new NotificationChannel(channelId, "updateApp", NotificationManager.IMPORTANCE_DEFAULT);
