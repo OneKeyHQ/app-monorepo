@@ -1,8 +1,8 @@
-import type { IDownloadAPK, IInstallAPK, IUseDownloadProgress } from './type';
+import type { IDownloadPackage, IInstallPackage, IUseDownloadProgress } from './type';
 
-export const downloadAPK: IDownloadAPK = async () => {};
+export const downloadPackage: IDownloadPackage = async () => {};
 
-export const installAPK: IInstallAPK = async () => {};
+export const installPackage: IInstallPackage = async () => {};
 
 export type * from './type';
 

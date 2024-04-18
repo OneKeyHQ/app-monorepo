@@ -9,8 +9,8 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import {
-  downloadAPK,
-  installAPK,
+  downloadPackage,
+  installPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs/index.native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -67,7 +67,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     }
     if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
       if (platformEnv.isNativeAndroid) {
-        void downloadAPK(
+        void downloadPackage(
           appUpdateInfo.downloadUrl || '',
           appUpdateInfo.latestVersion,
         )
@@ -118,7 +118,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         if (platformEnv.isDesktop) {
           window.desktopApi.installUpdate();
         } else if (platformEnv.isNativeAndroid) {
-          void installAPK(appUpdateInfo.latestVersion).catch((e) =>
+          void installPackage(appUpdateInfo.latestVersion).catch((e) =>
             backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
           );
         }

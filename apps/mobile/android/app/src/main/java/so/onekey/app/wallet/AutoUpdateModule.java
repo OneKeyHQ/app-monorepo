@@ -136,7 +136,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void downloadAPK(final ReadableMap map, final Promise promise) {
+    public void downloadPackage(final ReadableMap map, final Promise promise) {
         String url = map.getString("url");
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
@@ -236,7 +236,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                     sendDownloadError(e, promise);
                     return;
                 }
-                Log.d("UPDATE APP", "downloadAPK: Download completed");
+                Log.d("UPDATE APP", "downloadPackage: Download completed");
                 sendEvent("update/downloaded", null);
 
                 isDownloading = false;
@@ -260,7 +260,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                         .setAutoCancel(true);
 
                 notifyNotification(notifiactionId, mBuilder);
-                Log.d("UPDATE APP", "downloadAPK: notifyNotification done");
+                Log.d("UPDATE APP", "downloadPackage: notifyNotification done");
                 promise.resolve(null);
             }
         }).start();
@@ -280,7 +280,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void installAPK(final ReadableMap map, final Promise promise) {
+    public void installPackage(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
         String sha256 = map.getString("sha256");
         File file = buildFile(filePath);

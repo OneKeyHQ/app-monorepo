@@ -1,8 +1,8 @@
-export type IDownloadAPK = (
+export type IDownloadPackage = (
   downloadUrl?: string,
   latestVersion?: string,
 ) => Promise<void>;
-export type IInstallAPK = (latestVersion?: string) => Promise<void>;
+export type IInstallPackage = (latestVersion?: string) => Promise<void>;
 
 export type IUseDownloadProgress = (
   onSuccess: () => void,

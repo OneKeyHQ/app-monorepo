@@ -12,8 +12,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
-  downloadAPK,
-  installAPK,
+  downloadPackage,
+  installPackage,
   useDownloadProgress,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -49,7 +49,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
             window.desktopApi.checkForUpdates();
           } else if (platformEnv.isNativeAndroid) {
             void backgroundApiProxy.serviceAppUpdate.startDownloading();
-            void downloadAPK(
+            void downloadPackage(
               appUpdateInfo.data.downloadUrl,
               appUpdateInfo.data.latestVersion,
             )
@@ -73,7 +73,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
   const handleToInstall = useCallback(async () => {
     try {
       if (platformEnv.isNativeAndroid) {
-        await installAPK(appUpdateInfo.data.latestVersion);
+        await installPackage(appUpdateInfo.data.latestVersion);
       }
     } catch (error) {
       Toast.error({ title: (error as { message: string }).message });

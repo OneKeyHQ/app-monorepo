@@ -5,7 +5,11 @@ import { useThrottledCallback } from 'use-debounce';
 
 import RNFS from '../react-native-fs';
 
-import type { IDownloadAPK, IInstallAPK, IUseDownloadProgress } from './type';
+import type {
+  IDownloadPackage,
+  IInstallPackage,
+  IUseDownloadProgress,
+} from './type';
 
 const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
 const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
@@ -25,7 +29,10 @@ const { AutoUpdateModule } = NativeModules as {
   };
 };
 
-export const downloadAPK: IDownloadAPK = async (downloadUrl, version) => {
+export const downloadPackage: IDownloadPackage = async (
+  downloadUrl,
+  version,
+) => {
   const info = await RNFS?.getFSInfo();
   if (info?.freeSpace && info.freeSpace < 1024 * 1024 * 300) {
     throw new Error('Insufficient disk space, please clear and retry.');
@@ -41,7 +48,7 @@ export const downloadAPK: IDownloadAPK = async (downloadUrl, version) => {
   });
 };
 
-export const installAPK: IInstallAPK = (version) => {
+export const installPackage: IInstallPackage = (version) => {
   if (!version) {
     return Promise.resolve();
   }
