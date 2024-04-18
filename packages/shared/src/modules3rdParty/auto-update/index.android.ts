@@ -10,8 +10,8 @@ import type { IDownloadAPK, IInstallAPK, IUseDownloadProgress } from './type';
 const DIR_PATH = `file://${RNFS.CachesDirectoryPath}/apk`;
 const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
-const { DownloadManager } = NativeModules as {
-  DownloadManager: {
+const { AutoUpdateModule } = NativeModules as {
+  AutoUpdateModule: {
     installAPK: (params: {
       filePath: string;
       sha256?: string;
@@ -34,7 +34,7 @@ export const downloadAPK: IDownloadAPK = async (downloadUrl, version) => {
   if (!downloadUrl || !version) {
     return;
   }
-  return DownloadManager.downloadAPK({
+  return AutoUpdateModule.downloadAPK({
     url: downloadUrl,
     filePath: buildFilePath(version),
     notificationTitle: `Download OneKey App ${version}`,
@@ -45,12 +45,12 @@ export const installAPK: IInstallAPK = (version) => {
   if (!version) {
     return Promise.resolve();
   }
-  return DownloadManager.installAPK({
+  return AutoUpdateModule.installAPK({
     filePath: buildFilePath(version),
   });
 };
 
-const eventEmitter = new NativeEventEmitter(NativeModules.DownloadManager);
+const eventEmitter = new NativeEventEmitter(NativeModules.AutoUpdateModule);
 export const useDownloadProgress: IUseDownloadProgress = (
   onSuccess,
   onFailed,
