@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -16,6 +16,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSlippagePopoverOpeningAtom,
 } from '../../../states/jotai/contexts/swap';
+import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -28,7 +29,7 @@ export function useSwapQuote() {
   const [swapSlippagePopoverOpening] = useSwapSlippagePopoverOpeningAtom();
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
-  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
   const activeAccountAddressRef = useRef<string | undefined>();
   if (activeAccountAddressRef.current !== swapAddressInfo?.address) {
@@ -39,6 +40,16 @@ export function useSwapQuote() {
   if (swapApprovingTxRef.current !== swapApprovingTransactionAtom) {
     swapApprovingTxRef.current = swapApprovingTransactionAtom;
   }
+
+  const alignmentDecimal = useCallback(() => {
+    const checkedDecimal = truncateDecimalPlaces(
+      fromTokenAmount,
+      fromToken?.decimals,
+    );
+    if (checkedDecimal && checkedDecimal !== fromTokenAmount) {
+      setFromTokenAmount(checkedDecimal);
+    }
+  }, [fromToken?.decimals, fromTokenAmount, setFromTokenAmount]);
 
   useEffect(() => {
     if (swapSlippagePopoverOpening || swapApproveAllowanceSelectOpen) {
@@ -60,6 +71,7 @@ export function useSwapQuote() {
   }, [cleanQuoteInterval, quoteAction, swapApprovingTransactionAtom]);
 
   useEffect(() => {
+    alignmentDecimal();
     void quoteAction(activeAccountAddressRef.current);
     return () => {
       cleanQuoteInterval();
@@ -70,7 +82,7 @@ export function useSwapQuote() {
     swapAddressInfo.address,
     fromToken,
     toToken,
-    fromTokenAmount,
+    alignmentDecimal,
   ]);
 
   useListenTabFocusState(
