@@ -70,10 +70,17 @@ export const useDownloadProgress: IUseDownloadProgress = (onDownloaded) => {
         onDownloaded();
       },
     );
+    const onErrorEventListener = eventEmitter.addListener(
+      'update/error',
+      (params) => {
+        console.log('onErrorEventListener---', params);
+      },
+    );
     return () => {
       onStartEventListener.remove();
       onDownloadingEventListener.remove();
       onDownloadedEventListener.remove();
+      onErrorEventListener.remove();
     };
   }, [onDownloaded, updatePercent]);
   return percent;

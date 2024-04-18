@@ -22,6 +22,7 @@ import androidx.core.content.res.ResourcesCompat;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
+import java.util.concurrent.TimeUnit;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -66,7 +67,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
     private void sendDownloadError(Exception e, Promise promise) {
         isDownloading = false;
         WritableMap params = Arguments.createMap();
-        params.putString("progress", e.getMessage());
+        params.putString("message", e.getMessage());
         sendEvent("update/error", params);
         promise.reject("Error", e.getMessage());
     }
@@ -103,9 +104,12 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 }
 
                 Request request = new Request.Builder().url(url).build();
+                OkHttpClient client = new OkHttpClient.Builder()
+                        .connectTimeout(10, TimeUnit.MILLISECONDS)
+                        .build();
                 Response response = null;
                 try {
-                    response = new OkHttpClient().newCall(request).execute();
+                    response = client.newCall(request).execute();
                 } catch (IOException e) {
                     sendDownloadError(e, promise);
                     return;
