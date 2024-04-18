@@ -126,8 +126,8 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         }
 
         String fileSha256 = this.bytesToHex(digest.digest());
-        Log.d("cal-sha256", fileSha256);
-        if (sha256 != null && fileSha256 != sha256) {
+        Log.d("cal-sha256", sha256 + "" + fileSha256);
+        if (fileSha256 != sha256) {
             promise.reject(new Exception("Installation package possibly compromised"));
             return false;
         }
