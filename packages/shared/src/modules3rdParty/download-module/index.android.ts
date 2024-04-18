@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { NativeEventEmitter, NativeModules } from 'react-native';
-import { useDebouncedCallback } from 'use-debounce';
+import { useDebouncedCallback, useThrottledCallback } from 'use-debounce';
 
 import RNFS from '../react-native-fs';
 
@@ -44,12 +44,12 @@ const eventEmitter = new NativeEventEmitter(NativeModules.DownloadManager);
 export const useDownloadProgress: IUseDownloadProgress = (onDownloaded) => {
   const [percent, setPercent] = useState(0);
 
-  const updatePercent = useDebouncedCallback(
+  const updatePercent = useThrottledCallback(
     ({ progress }: { progress: number }) => {
       console.log('update/downloading', progress);
       setPercent(progress);
     },
-    50,
+    10,
   );
 
   useEffect(() => {
