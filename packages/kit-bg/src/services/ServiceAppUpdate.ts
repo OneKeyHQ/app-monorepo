@@ -132,6 +132,17 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async notifyFailed(message: string) {
+    const errorMessge = '';
+    void appUpdatePersistAtom.set({
+      latestVersion: process.env.VERSION ?? '1.0.0',
+      isForceUpdate: false,
+      updateAt: 0,
+      status: EAppUpdateStatus.failed,
+    });
+  }
+
+  @backgroundMethod()
   public async fetchChangeLog(version: string) {
     const response = await this.getAppLatestInfo({ cached: true });
     return getChangeLog(version, response.changelog);

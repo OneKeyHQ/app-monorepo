@@ -69,9 +69,15 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         void downloadAPK(
           appUpdateInfo.downloadUrl || '',
           appUpdateInfo.latestVersion,
-        ).then(() => {
-          void backgroundApiProxy.serviceAppUpdate.readyToInstall();
-        });
+        )
+          .then(() => {
+            void backgroundApiProxy.serviceAppUpdate.readyToInstall();
+          })
+          .catch(() => {
+            void backgroundApiProxy.serviceAppUpdate.notifyFailed(
+              'Network exception, please check your internet connection.',
+            );
+          });
       }
       if (platformEnv.isDesktop) {
         // TODO

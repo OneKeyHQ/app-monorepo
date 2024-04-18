@@ -37,9 +37,15 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
             void downloadAPK(
               appUpdateInfo.data.downloadUrl,
               appUpdateInfo.data.latestVersion,
-            ).then(() => {
-              void backgroundApiProxy.serviceAppUpdate.readyToInstall();
-            });
+            )
+              .then(() => {
+                void backgroundApiProxy.serviceAppUpdate.readyToInstall();
+              })
+              .catch(() => {
+                void backgroundApiProxy.serviceAppUpdate.notifyFailed(
+                  'Network exception, please check your internet connection.',
+                );
+              });
           }
           close();
         }
