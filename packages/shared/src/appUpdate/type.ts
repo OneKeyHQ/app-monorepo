@@ -89,6 +89,7 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   //  1. notify -> downloading -> ready -> done
   //  2. notify -> failed
   status: EAppUpdateStatus;
+  errorText?: string;
 }
 
 export enum EAppUpdateStatus {
