@@ -136,7 +136,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void downloadPackage(final ReadableMap map, final Promise promise) {
+    public void downloadAPK(final ReadableMap map, final Promise promise) {
         String url = map.getString("url");
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
@@ -280,7 +280,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void installPackage(final ReadableMap map, final Promise promise) {
+    public void installAPK(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
         String sha256 = map.getString("sha256");
         File file = buildFile(filePath);

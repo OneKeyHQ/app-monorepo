@@ -1,4 +1,8 @@
-import type { IDownloadPackage, IInstallPackage, IUseDownloadProgress } from './type';
+import type {
+  IDownloadPackage,
+  IInstallPackage,
+  IUseDownloadProgress,
+} from './type';
 
 export const downloadPackage: IDownloadPackage = async () => {};
 
