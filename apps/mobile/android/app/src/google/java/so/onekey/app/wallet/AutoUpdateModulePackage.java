@@ -10,10 +10,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class DownloadModulePackage implements ReactPackage {
-    ReactNativeHost mReactNativeHost;
+public class AutoUpdateModulePackage implements ReactPackage {
 
-    DownloadModulePackage(ReactNativeHost mReactNativeHost) {
+    AutoUpdateModulePackage(ReactNativeHost mReactNativeHost) {
         super();
     }
 
@@ -26,7 +25,6 @@ public class DownloadModulePackage implements ReactPackage {
     public List<NativeModule> createNativeModules(
             ReactApplicationContext reactContext) {
         List<NativeModule> modules = new ArrayList<>();
-        modules.add(new DownloadModule(reactContext));
         return modules;
     }
 }

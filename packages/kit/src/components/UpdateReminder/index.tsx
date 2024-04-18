@@ -44,8 +44,8 @@ const UPDATE_STATUS_TEXT_STYLE: Record<
   [EAppUpdateStatus.failed]: {
     iconName: 'ErrorOutline',
     iconColor: '$iconCritical',
-    renderText() {
-      return `Error`;
+    renderText(appUpdateInfo) {
+      return appUpdateInfo.errorText || '';
     },
   },
   [EAppUpdateStatus.done]: undefined,
@@ -154,7 +154,7 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
   },
   [EAppUpdateStatus.failed]: {
     bg: '$bgCriticalSubdued',
-    borderColor: '$borderCriticalSubdued ',
+    borderColor: '$borderCriticalSubdued',
   },
   [EAppUpdateStatus.done]: undefined,
 };

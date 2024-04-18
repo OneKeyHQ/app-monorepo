@@ -17,7 +17,7 @@ function ListVersionItem() {
   const appUpdateInfo = useAppUpdateInfo();
   return appUpdateInfo.isNeedUpdate ? (
     <ListItem
-      onPress={appUpdateInfo.onUpdateAction}
+      onPress={appUpdateInfo.toUpdatePreviewPage}
       icon="InfoCircleOutline"
       iconProps={{ color: '$textInfo' }}
       title="App Update Available"

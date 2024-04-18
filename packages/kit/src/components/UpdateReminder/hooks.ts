@@ -9,12 +9,12 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import {
-  downloadAPK,
-  installAPK,
-} from '@onekeyhq/shared/src/modules3rdParty/download-module';
-import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs/index.native';
+  downloadPackage,
+  installPackage,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -65,57 +65,59 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       onViewReleaseInfo();
     }
     if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
-      if (platformEnv.isNativeAndroid) {
-        void downloadAPK(
-          appUpdateInfo.downloadUrl || '',
-          appUpdateInfo.latestVersion,
-        ).then(() => {
+      void downloadPackage(appUpdateInfo)
+        .then(() => {
           void backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        })
+        .catch((e: { message: string }) => {
+          void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
         });
-      }
-      if (platformEnv.isDesktop) {
-        // TODO
-      }
     }
     void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const toUpdatePreviewPage = useCallback(
+    (isFull = false) => {
+      const pushModal = isFull
+        ? navigation.pushFullModal
+        : navigation.pushModal;
+      pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.UpdatePreview,
+        params: {
+          latestVersion: appUpdateInfo.latestVersion,
+          isForceUpdate: appUpdateInfo.isForceUpdate,
+          autoClose: isFull,
+        },
+      });
+    },
+    [
+      appUpdateInfo.isForceUpdate,
+      appUpdateInfo.latestVersion,
+      navigation.pushFullModal,
+      navigation.pushModal,
+    ],
+  );
+
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
       case EAppUpdateStatus.notify:
       case EAppUpdateStatus.downloading:
-        {
-          const pushModal = isFullModal
-            ? navigation.pushFullModal
-            : navigation.pushModal;
-          pushModal(EModalRoutes.AppUpdateModal, {
-            screen: EAppUpdateRoutes.UpdatePreview,
-            params: {
-              latestVersion: appUpdateInfo.latestVersion,
-              isForceUpdate: appUpdateInfo.isForceUpdate,
-            },
-          });
-        }
+        toUpdatePreviewPage(isFullModal);
         break;
       case EAppUpdateStatus.ready:
-        if (platformEnv.isDesktop) {
-          window.desktopApi.installUpdate();
-        } else if (platformEnv.isNativeAndroid) {
-          void installAPK(appUpdateInfo.latestVersion);
-        }
+        void installPackage(appUpdateInfo).catch((e) =>
+          backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
+        );
+        break;
+      case EAppUpdateStatus.failed:
+        openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
         break;
       default:
         break;
     }
-  }, [
-    appUpdateInfo,
-    isFullModal,
-    navigation.pushFullModal,
-    navigation.pushModal,
-  ]);
+  }, [appUpdateInfo, isFullModal, toUpdatePreviewPage]);
 
-  console.log(`${RNFS.CachesDirectoryPath}/apk`);
   return useMemo(
     () => ({
       isNeedUpdate: isNeedUpdate(
@@ -124,8 +126,9 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       ),
       data: appUpdateInfo,
       onUpdateAction,
+      toUpdatePreviewPage,
       onViewReleaseInfo,
     }),
-    [appUpdateInfo, onUpdateAction, onViewReleaseInfo],
+    [appUpdateInfo, onUpdateAction, onViewReleaseInfo, toUpdatePreviewPage],
   );
 };

@@ -27,7 +27,8 @@ import ServiceBase from './ServiceBase';
 
 const AxiosInstance = axios.create();
 
-let timerId: ReturnType<typeof setTimeout>;
+let extensionSyncTimerId: ReturnType<typeof setTimeout>;
+let downloadTimeoutId: ReturnType<typeof setTimeout>;
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -80,7 +81,7 @@ class ServiceAppUpdate extends ServiceBase {
   async isNeedSyncAppUpdateInfo() {
     const { status, updateAt } = await appUpdatePersistAtom.get();
     if (platformEnv.isExtension) {
-      clearTimeout(timerId);
+      clearTimeout(extensionSyncTimerId);
       // add random time to avoid all extension request at the same time.
       const timeout =
         timerUtils.getTimeDurationMs({
@@ -90,7 +91,7 @@ class ServiceAppUpdate extends ServiceBase {
           minute: 5,
         }) *
           Math.random();
-      timerId = setTimeout(() => {
+      extensionSyncTimerId = setTimeout(() => {
         void this.fetchAppUpdateInfo();
       }, timeout);
       return (
@@ -107,6 +108,12 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async startDownloading() {
+    clearTimeout(downloadTimeoutId);
+    downloadTimeoutId = setTimeout(async () => {
+      await this.notifyFailed({
+        message: 'Download timed out, please check your internet connection.',
+      });
+    }, timerUtils.getTimeDurationMs({ minute: 5 }));
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.downloading,
@@ -115,6 +122,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async readyToInstall() {
+    clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.ready,
@@ -124,11 +132,29 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async reset() {
     await appUpdatePersistAtom.set({
-      latestVersion: process.env.VERSION ?? '1.0.0',
+      latestVersion: '0.0.0',
       isForceUpdate: false,
       updateAt: 0,
       status: EAppUpdateStatus.done,
     });
+  }
+
+  @backgroundMethod()
+  public async notifyFailed(e?: { message: string }) {
+    clearTimeout(downloadTimeoutId);
+    let errorText =
+      e?.message || 'Network exception, please check your internet connection.';
+
+    if (errorText.includes('Server not responding')) {
+      errorText = 'Server not responding, please try again later.';
+    } else if (errorText.includes('Software caused connection abort')) {
+      errorText = 'Network instability, please check your internet connection.';
+    }
+    void appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      errorText,
+      status: EAppUpdateStatus.failed,
+    }));
   }
 
   @backgroundMethod()
