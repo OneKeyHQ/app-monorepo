@@ -9,7 +9,7 @@ import { Icon, Image, Stack } from '@onekeyhq/components';
 import type { ImageURISource } from 'react-native';
 
 type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
-export type ITokenProps = {
+type ITokenProps = {
   isNFT?: boolean;
   size?: ITokenSize;
   tokenImageUri?: ImageURISource['uri'];

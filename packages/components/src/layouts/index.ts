@@ -15,4 +15,3 @@ export * from './SpotlightTour';
 export * from './Swiper';
 export * from './TabView';
 export * from './UnorderedList';
-export * from './Accordion';
