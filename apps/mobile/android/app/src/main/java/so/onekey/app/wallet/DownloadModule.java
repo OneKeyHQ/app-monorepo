@@ -188,14 +188,13 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 Intent installIntent = new Intent(Intent.ACTION_VIEW);
 
 
-                if (!checkFilePackage(downloadedFile, promise)) {
-                    return;
-                }
+                boolean isValidAPK = checkFilePackage(downloadedFile, promise);
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
                 installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
                 installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                PendingIntent pendingIntent = PendingIntent.getActivity(rContext, 0, installIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent pendingIntent = isValidAPK ? PendingIntent.getActivity(rContext, 0, installIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+                        : null;
 
                 mNotifyManager.cancel(notifiactionId);
                 mBuilder.setContentText("Download completed, click to install")
