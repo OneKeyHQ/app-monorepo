@@ -14,6 +14,7 @@ export const handleReleaseInfo: IHandleReleaseInfo = (releaseInfo) => {
     result.storeUrl = releaseInfo.android.google.url;
   } else {
     result.downloadUrl = releaseInfo.android.url;
+    result.sha256 = releaseInfo.android.sha256;
   }
   return result;
 };

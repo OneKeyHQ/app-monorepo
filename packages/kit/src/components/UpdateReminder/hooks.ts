@@ -12,7 +12,6 @@ import {
   downloadPackage,
   installPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs/index.native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -67,10 +66,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     }
     if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
       if (platformEnv.isNativeAndroid) {
-        void downloadPackage(
-          appUpdateInfo.downloadUrl || '',
-          appUpdateInfo.latestVersion,
-        )
+        void downloadPackage(appUpdateInfo)
           .then(() => {
             void backgroundApiProxy.serviceAppUpdate.readyToInstall();
           })
@@ -118,7 +114,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         if (platformEnv.isDesktop) {
           window.desktopApi.installUpdate();
         } else if (platformEnv.isNativeAndroid) {
-          void installPackage(appUpdateInfo.latestVersion).catch((e) =>
+          void installPackage(appUpdateInfo).catch((e) =>
             backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
           );
         }
@@ -129,12 +125,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       default:
         break;
     }
-  }, [
-    appUpdateInfo.latestVersion,
-    appUpdateInfo.status,
-    isFullModal,
-    toUpdatePreviewPage,
-  ]);
+  }, [appUpdateInfo, isFullModal, toUpdatePreviewPage]);
 
   return useMemo(
     () => ({

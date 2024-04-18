@@ -49,10 +49,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
             window.desktopApi.checkForUpdates();
           } else if (platformEnv.isNativeAndroid) {
             void backgroundApiProxy.serviceAppUpdate.startDownloading();
-            void downloadPackage(
-              appUpdateInfo.data.downloadUrl,
-              appUpdateInfo.data.latestVersion,
-            )
+            void downloadPackage(appUpdateInfo.data)
               .then(() => {
                 void backgroundApiProxy.serviceAppUpdate.readyToInstall();
               })
@@ -73,12 +70,12 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
   const handleToInstall = useCallback(async () => {
     try {
       if (platformEnv.isNativeAndroid) {
-        await installPackage(appUpdateInfo.data.latestVersion);
+        await installPackage(appUpdateInfo.data);
       }
     } catch (error) {
       Toast.error({ title: (error as { message: string }).message });
     }
-  }, [appUpdateInfo.data.latestVersion]);
+  }, [appUpdateInfo.data]);
 
   const isDownloading =
     EAppUpdateStatus.downloading === appUpdateInfo.data?.status;

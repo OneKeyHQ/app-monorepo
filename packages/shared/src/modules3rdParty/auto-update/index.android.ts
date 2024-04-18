@@ -29,31 +29,34 @@ const { AutoUpdateModule } = NativeModules as {
   };
 };
 
-export const downloadPackage: IDownloadPackage = async (
+export const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
-  version,
-) => {
+  latestVersion,
+  sha256,
+}) => {
   const info = await RNFS?.getFSInfo();
   if (info?.freeSpace && info.freeSpace < 1024 * 1024 * 300) {
     throw new Error('Insufficient disk space, please clear and retry.');
   }
   await RNFS?.mkdir(DIR_PATH);
-  if (!downloadUrl || !version) {
+  if (!downloadUrl || !latestVersion) {
     return;
   }
   return AutoUpdateModule.downloadAPK({
     url: downloadUrl,
-    filePath: buildFilePath(version),
-    notificationTitle: `Download OneKey App ${version}`,
+    filePath: buildFilePath(latestVersion),
+    notificationTitle: `Download OneKey App ${latestVersion}`,
+    sha256,
   });
 };
 
-export const installPackage: IInstallPackage = (version) => {
-  if (!version) {
+export const installPackage: IInstallPackage = ({ latestVersion, sha256 }) => {
+  if (!latestVersion) {
     return Promise.resolve();
   }
   return AutoUpdateModule.installAPK({
-    filePath: buildFilePath(version),
+    filePath: buildFilePath(latestVersion),
+    sha256,
   });
 };
 

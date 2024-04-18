@@ -14,6 +14,7 @@ export const { target: appUpdatePersistAtom, use: useAppUpdatePersistAtom } =
       latestVersion: '0.0.0',
       isForceUpdate: false,
       updateAt: 0,
+      sha256: '',
       status: EAppUpdateStatus.done,
     },
   });
