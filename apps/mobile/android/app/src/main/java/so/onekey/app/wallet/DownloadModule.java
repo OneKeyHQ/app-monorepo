@@ -2,9 +2,12 @@ package so.onekey.app.wallet;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.Context;
 import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -65,20 +68,21 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         if (downloadedFile.exists()){
             downloadedFile.delete();
         }
-//        mBuilder = new NotificationCompat.Builder(this.rContext.getApplicationContext());
-//        mBuilder.setContentTitle(notificationTitle)
-//                .setContentText("")
-//                .setSmallIcon(R.mipmap.ic_launcher_round);
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//            mBuilder.setChannelId(this.rContext.getPackageName());
-//
-//            NotificationChannel channel = new NotificationChannel(
-//                    this.rContext.getPackageName(),
-//                    "updateApp",
-//                    NotificationManager.IMPORTANCE_HIGH);
-//
-//            mNotifyManager.createNotificationChannel(channel);
-//        }
+        mNotifyManager = (NotificationManager)this.rContext.getSystemService(Context.NOTIFICATION_SERVICE);
+        mBuilder = new NotificationCompat.Builder(this.rContext.getApplicationContext());
+        mBuilder.setContentTitle(notificationTitle)
+                .setContentText("")
+                .setSmallIcon(R.drawable.splashscreen_image);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mBuilder.setChannelId(this.rContext.getPackageName());
+
+            NotificationChannel channel = new NotificationChannel(
+                    this.rContext.getPackageName(),
+                    "updateApp",
+                    NotificationManager.IMPORTANCE_HIGH);
+
+            mNotifyManager.createNotificationChannel(channel);
+        }
 
         Request request = new Request.Builder().url(url).build();
         Response response = null;
@@ -129,8 +133,8 @@ public class DownloadModule extends ReactContextBaseJavaModule {
             } catch (Exception e) {
                 Log.e("update/downloading", e.getMessage());
             }
-//            mBuilder.setProgress(100, progress, false);
-//            mNotifyManager.notify(this.notifiactionId, mBuilder.build());
+            mBuilder.setProgress(100, progress, false);
+            mNotifyManager.notify(notifiactionId, mBuilder.build());
         }
         try {
             sink.flush();
@@ -145,8 +149,8 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         promise.resolve(null);
         this.sendEvent("update/downloaded", null);
         this.isDownloading = false;
-//        mBuilder.setContentText("Download completed").setProgress(0,0,false);
-//        mNotifyManager.notify(this.notifiactionId, mBuilder.build());
+        mBuilder.setContentText("Download completed").setProgress(0,0,false);
+        mNotifyManager.notify(notifiactionId, mBuilder.build());
     }
 
 
