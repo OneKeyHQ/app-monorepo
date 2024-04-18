@@ -1,4 +1,5 @@
 import { app, ipcMain } from 'electron';
+import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 
@@ -149,6 +150,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
     const feedUrl = updateSettings.useTestFeedUrl ? TEST_FEEDURL : PROD_FEEDURL;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
+    if (isDev) {
+      Object.defineProperty(app, 'isPackaged', {
+        get() {
+          return true;
+        },
+      });
+    }
     autoUpdater.checkForUpdates().catch((error) => {
       if (isNetworkError(error)) {
         logger.info('auto-updater', `Check for update network error`);
