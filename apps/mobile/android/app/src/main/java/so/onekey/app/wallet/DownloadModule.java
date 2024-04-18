@@ -180,12 +180,16 @@ public class DownloadModule extends ReactContextBaseJavaModule {
     }
 
 
-    public void notifyNotification(int notifiactionId, NotificationCompat.Builder builder) {
-        NotificationManagerCompat mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
-        if (ActivityCompat.checkSelfPermission(this.rContext, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            return;
+    public void notifyNotification(int notificationId, NotificationCompat.Builder builder) {
+        try {
+            NotificationManagerCompat mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
+            if (ActivityCompat.checkSelfPermission(this.rContext, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                return;
+            }
+            mNotifyManager.notify(notificationId, builder.build());
+        } catch(Exception e) {
+            Log.e("notifyNotification error", e.getMessage());
         }
-        mNotifyManager.notify(notifiactionId, builder.build());
     }
 
     @ReactMethod
