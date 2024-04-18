@@ -2,13 +2,22 @@ package so.onekey.app.wallet;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.res.ResourcesCompat;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -32,16 +41,18 @@ import okio.BufferedSource;
 import okio.Okio;
 
 public class DownloadModule extends ReactContextBaseJavaModule {
-    private NotificationManager mNotifyManager;
+    private NotificationManagerCompat mNotifyManager;
     private NotificationCompat.Builder mBuilder;
     private ReactApplicationContext rContext;
     private Boolean isDownloading = false;
     private int notifiactionId = 1;
+    private String channelId = "updateApp";
 
 
     DownloadModule(ReactApplicationContext context) {
         super(context);
         rContext = context;
+        mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
     }
 
     public String getName() {
@@ -49,119 +60,156 @@ public class DownloadModule extends ReactContextBaseJavaModule {
     }
 
     private void sendEvent(String eventName, @Nullable WritableMap params) {
-        rContext
-                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                .emit(eventName, params);
+        rContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, params);
+    }
+
+    private void sendDownloadError(Exception e, Promise promise) {
+        isDownloading = false;
+        WritableMap params = Arguments.createMap();
+        params.putString("progress", e.getMessage());
+        sendEvent("update/error", params);
+        promise.reject("Error", e.getMessage());
+    }
+
+    private File buildFile(String path) {
+        return new File(path.replace("file:///", "/"));
     }
 
 
     @ReactMethod
-    public void downloadAPK(final String url, final String filePath, final String notificationTitle, final Promise promise) throws IOException {
+    public void downloadAPK(final String url, final String filePath, final String notificationTitle, final Promise promise) {
         if (this.isDownloading) {
             return;
         }
         this.isDownloading = true;
-        File downloadedFile = new File(filePath.replace("file:///", "/"));
-        if (downloadedFile.exists()){
-            downloadedFile.delete();
-        }
-//        mBuilder = new NotificationCompat.Builder(this.rContext.getApplicationContext());
-//        mBuilder.setContentTitle(notificationTitle)
-//                .setContentText("")
-//                .setSmallIcon(R.mipmap.ic_launcher_round);
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//            mBuilder.setChannelId(this.rContext.getPackageName());
-//
-//            NotificationChannel channel = new NotificationChannel(
-//                    this.rContext.getPackageName(),
-//                    "updateApp",
-//                    NotificationManager.IMPORTANCE_HIGH);
-//
-//            mNotifyManager.createNotificationChannel(channel);
-//        }
+        new Thread(new Runnable() {
+            public void run() {
+                File downloadedFile = buildFile(filePath);
+                if (downloadedFile.exists()) {
+                    downloadedFile.delete();
+                }
 
-        Request request = new Request.Builder().url(url).build();
-        Response response = null;
-        try {
-            response = new OkHttpClient().newCall(request).execute();
-        } catch (IOException e) {
-            this.isDownloading = false;
-            this.sendEvent("update/error", null);
-            promise.reject("Error", e.getMessage());
-        }
-        if (response == null) {
-            return;
-        }
-        ResponseBody body = response.body();
-        long contentLength = body.contentLength();
-        BufferedSource source = body.source();
+                mBuilder = new NotificationCompat.Builder(rContext.getApplicationContext(), channelId)
+                        .setContentTitle(notificationTitle)
+                        .setContentText("Download in progress")
+                        .setOngoing(true)
+                        .setPriority(NotificationCompat.PRIORITY_LOW)
+                        .setSmallIcon(R.drawable.ic_notification);
 
-        BufferedSink sink = null;
-        try {
-            sink = Okio.buffer(Okio.sink(downloadedFile));
-        } catch (FileNotFoundException e) {
-            this.isDownloading = false;
-            this.sendEvent("update/error", null);
-            promise.reject("Error", e.getMessage());
-            throw new RuntimeException(e);
-        }
-        Buffer sinkBuffer = sink.buffer();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    NotificationChannel channel = new NotificationChannel(channelId, "updateApp", NotificationManager.IMPORTANCE_DEFAULT);
 
-        long totalBytesRead = 0;
-        int bufferSize = 8 * 1024;
-        this.sendEvent("update/start", null);
-        for (long bytesRead; (bytesRead = source.read(sinkBuffer, bufferSize)) != -1; ) {
-            try {
-                sink.emit();
-            } catch (IOException e) {
-                this.isDownloading = false;
-                this.sendEvent("update/error", null);
-                promise.reject("Error", e.getMessage());
-                throw new RuntimeException(e);
+                    mNotifyManager.createNotificationChannel(channel);
+                }
+
+                Request request = new Request.Builder().url(url).build();
+                Response response = null;
+                try {
+                    response = new OkHttpClient().newCall(request).execute();
+                } catch (IOException e) {
+                    sendDownloadError(e, promise);
+                    return;
+                }
+                ResponseBody body = response.body();
+                long contentLength = body.contentLength();
+                BufferedSource source = body.source();
+
+                BufferedSink sink = null;
+                try {
+                    sink = Okio.buffer(Okio.sink(downloadedFile));
+                } catch (FileNotFoundException e) {
+                    sendDownloadError(e, promise);
+                    return;
+                }
+                Buffer sinkBuffer = sink.buffer();
+
+                long totalBytesRead = 0;
+                int bufferSize = 8 * 1024;
+                sendEvent("update/start", null);
+                int prevProgress = 0;
+                try {
+                    for (long bytesRead; (bytesRead = source.read(sinkBuffer, bufferSize)) != -1;) {
+                        try {
+                            sink.emit();
+                        } catch (IOException e) {
+                            sendDownloadError(e, promise);
+                            return;
+                        }
+                        totalBytesRead += bytesRead;
+                        int progress = (int) ((totalBytesRead * 100) / contentLength);
+                        if (prevProgress != progress) {
+                            try {
+                                WritableMap params = Arguments.createMap();
+                                params.putInt("progress", progress);
+                                sendEvent("update/downloading", params);
+                                Log.i("update/progress", progress + "");
+                            } catch (Exception e) {
+                                sendDownloadError(e, promise);
+                                return;
+                            }
+                            mBuilder.setProgress(100, progress, false);
+                            notifyNotification(notifiactionId, mBuilder);
+                            prevProgress = progress;
+                        }
+                    }
+                } catch (IOException e) {
+                    sendDownloadError(e, promise);
+                    return;
+                }
+                try {
+                    sink.flush();
+                    sink.close();
+                    source.close();
+                } catch (IOException e) {
+                    sendDownloadError(e, promise);
+                    return;
+                }
+                Log.d("UPDATE APP", "downloadAPK: Download completed");
+                sendEvent("update/downloaded", null);
+
+                isDownloading = false;
+
+                Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
+                installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                PendingIntent pendingIntent = PendingIntent.getActivity(rContext, 0, installIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+                mNotifyManager.cancel(notifiactionId);
+                mBuilder.setContentText("Download completed, click to install").setProgress(0, 0, false).setOngoing(false).setContentIntent(pendingIntent).setAutoCancel(true);
+
+                notifyNotification(notifiactionId, mBuilder);
+                Log.d("UPDATE APP", "downloadAPK: notifyNotification done");
+                promise.resolve(null);
             }
-            totalBytesRead += bytesRead;
-            int progress = (int) ((totalBytesRead * 100) / contentLength);
-            try {
-                WritableMap params = Arguments.createMap();
-                params.putInt("progress", progress);
-                this.sendEvent("update/downloading", params);
-                Log.i("update/downloading-progress", progress + "");
-            } catch (Exception e) {
-                Log.e("update/downloading", e.getMessage());
-            }
-//            mBuilder.setProgress(100, progress, false);
-//            mNotifyManager.notify(this.notifiactionId, mBuilder.build());
-        }
-        try {
-            sink.flush();
-            sink.close();
-            source.close();
-        } catch (IOException e) {
-            this.isDownloading = false;
-            this.sendEvent("update/error", null);
-            promise.reject("Error", e.getMessage());
-            throw new RuntimeException(e);
-        }
-        promise.resolve(null);
-        this.sendEvent("update/downloaded", null);
-        this.isDownloading = false;
-//        mBuilder.setContentText("Download completed").setProgress(0,0,false);
-//        mNotifyManager.notify(this.notifiactionId, mBuilder.build());
+        }).start();
     }
 
 
+    public void notifyNotification(int notificationId, NotificationCompat.Builder builder) {
+        try {
+            NotificationManagerCompat mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
+            if (ActivityCompat.checkSelfPermission(this.rContext, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                return;
+            }
+            mNotifyManager.notify(notificationId, builder.build());
+        } catch (Exception e) {
+            Log.e("notifyNotification error", e.getMessage());
+        }
+    }
+
     @ReactMethod
-    public void installAPK(final String url, final Promise promise) {
+    public void installAPK(final String filePath, final Promise promise) {
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            File file;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
-                file = new File(url.replace("file:///", "/"));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                File file = buildFile(filePath);
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, file);
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-            }else{
-                file = new File(url);
+            } else {
+                File file = new File(filePath);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 intent.setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive");
             }

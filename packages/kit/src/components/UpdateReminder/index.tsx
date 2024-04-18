@@ -10,7 +10,7 @@ import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { DownloadPercents } from './DownloadPercents';
+import { DownloadProgress } from './DownloadProgress';
 import { useAppUpdateInfo } from './hooks';
 
 const UPDATE_STATUS_TEXT_STYLE: Record<
@@ -32,7 +32,7 @@ const UPDATE_STATUS_TEXT_STYLE: Record<
   [EAppUpdateStatus.downloading]: {
     iconName: 'RefreshCcwSolid',
     iconColor: '$iconInfo',
-    renderText: DownloadPercents,
+    renderText: DownloadProgress,
   },
   [EAppUpdateStatus.ready]: {
     iconName: 'DownloadOutline',

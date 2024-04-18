@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-export function DownloadPercents() {
+export function DownloadProgress() {
   const [percent, setPercent] = useState(0);
   useEffect(() => {
     window.desktopApi.downloadUpdate();

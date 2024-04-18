@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 
-import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/downloadModule';
+import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/download-module';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-export function DownloadPercents() {
+export function DownloadProgress() {
   const onDownloaded = useCallback(() => {
     void backgroundApiProxy.serviceAppUpdate.readyToInstall();
   }, []);
