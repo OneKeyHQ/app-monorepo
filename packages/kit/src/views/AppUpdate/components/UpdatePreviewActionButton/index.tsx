@@ -51,7 +51,9 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
     },
     [appUpdateInfo.data],
   );
-  return appUpdateInfo.data?.status === EAppUpdateStatus.downloading ? null : (
+  return [EAppUpdateStatus.downloading, EAppUpdateStatus.done].includes(
+    appUpdateInfo.data?.status,
+  ) ? null : (
     <Page.Footer onConfirmText="Update Now" onConfirm={handlePress} />
   );
 };
