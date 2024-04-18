@@ -3,21 +3,17 @@ package so.onekey.app.wallet;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.content.Context;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
-import androidx.core.content.res.ResourcesCompat;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -76,6 +72,16 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         return new File(path.replace("file:///", "/"));
     }
 
+    public boolean checkFilePackage(File file, Promise promise) {
+        PackageManager pm = rContext.getPackageManager();
+        PackageInfo info = pm.getPackageArchiveInfo(file.getAbsolutePath(), 0);
+        Log.i("check-packageName:", info.packageName + " " + rContext.getPackageName());
+        if (info.packageName != rContext.getPackageName()) {
+            promise.reject(new Exception("Installation package name mismatch"));
+            return false;
+        }
+        return true;
+    }
 
     @ReactMethod
     public void downloadAPK(final String url, final String filePath, final String notificationTitle, final Promise promise) {
@@ -180,6 +186,11 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 isDownloading = false;
 
                 Intent installIntent = new Intent(Intent.ACTION_VIEW);
+
+
+                if (!checkFilePackage(downloadedFile, promise)) {
+                    return;
+                }
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
                 installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
                 installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -187,7 +198,11 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 PendingIntent pendingIntent = PendingIntent.getActivity(rContext, 0, installIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
                 mNotifyManager.cancel(notifiactionId);
-                mBuilder.setContentText("Download completed, click to install").setProgress(0, 0, false).setOngoing(false).setContentIntent(pendingIntent).setAutoCancel(true);
+                mBuilder.setContentText("Download completed, click to install")
+                        .setProgress(0, 0, false)
+                        .setOngoing(false)
+                        .setContentIntent(pendingIntent)
+                        .setAutoCancel(true);
 
                 notifyNotification(notifiactionId, mBuilder);
                 Log.d("UPDATE APP", "downloadAPK: notifyNotification done");
@@ -211,22 +226,24 @@ public class DownloadModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void installAPK(final String filePath, final Promise promise) {
+        File file = buildFile(filePath);
+        if (!this.checkFilePackage(file, promise)) {
+            return;
+        }
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                File file = buildFile(filePath);
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, file);
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
             } else {
-                File file = new File(filePath);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 intent.setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive");
             }
             promise.resolve(null);
             rContext.getCurrentActivity().startActivity(intent);
         } catch (Exception e) {
-            promise.reject("Error", e.getMessage());
+            promise.reject(e);
         }
     }
 }

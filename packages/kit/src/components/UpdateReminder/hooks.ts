@@ -119,7 +119,9 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         if (platformEnv.isDesktop) {
           window.desktopApi.installUpdate();
         } else if (platformEnv.isNativeAndroid) {
-          void installAPK(appUpdateInfo.latestVersion);
+          void installAPK(appUpdateInfo.latestVersion).catch((e) =>
+            backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
+          );
         }
         break;
       case EAppUpdateStatus.failed:
