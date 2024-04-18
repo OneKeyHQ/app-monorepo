@@ -75,9 +75,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
             void backgroundApiProxy.serviceAppUpdate.readyToInstall();
           })
           .catch((e: { message: string }) => {
-            void backgroundApiProxy.serviceAppUpdate.notifyFailed.notifyFailed(
-              e,
-            );
+            void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
           });
       }
       if (platformEnv.isDesktop) {
