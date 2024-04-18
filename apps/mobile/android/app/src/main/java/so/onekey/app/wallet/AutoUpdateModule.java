@@ -275,7 +275,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             }
             mNotifyManager.notify(notificationId, builder.build());
         } catch (Exception e) {
-            Log.e("notifyNotification error", e.getMessage());
+            Log.d("notification", e.getMessage());
         }
     }
 
