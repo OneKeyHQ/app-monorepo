@@ -7,7 +7,7 @@ import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
-import { downloadAPK } from '@onekeyhq/shared/src/modules3rdParty/downloadModule';
+import { downloadAPK } from '@onekeyhq/shared/src/modules3rdParty/download-module';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
