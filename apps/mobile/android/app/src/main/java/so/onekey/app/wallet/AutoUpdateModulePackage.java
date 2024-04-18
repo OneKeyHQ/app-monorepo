@@ -26,7 +26,7 @@ public class AutoUpdateModulePackage implements ReactPackage {
     public List<NativeModule> createNativeModules(
             ReactApplicationContext reactContext) {
         List<NativeModule> modules = new ArrayList<>();
-        modules.add(new DownloadModule(reactContext));
+        modules.add(new AutoUpdateModule(reactContext));
         return modules;
     }
 }
