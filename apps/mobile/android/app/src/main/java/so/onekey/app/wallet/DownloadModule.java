@@ -2,7 +2,10 @@ package so.onekey.app.wallet;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
 import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
@@ -11,7 +14,10 @@ import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.res.ResourcesCompat;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -35,16 +41,18 @@ import okio.BufferedSource;
 import okio.Okio;
 
 public class DownloadModule extends ReactContextBaseJavaModule {
-    private NotificationManager mNotifyManager;
+    private NotificationManagerCompat mNotifyManager;
     private NotificationCompat.Builder mBuilder;
     private ReactApplicationContext rContext;
     private Boolean isDownloading = false;
     private int notifiactionId = 1;
+    private String channelId = "updateApp";
 
 
     DownloadModule(ReactApplicationContext context) {
         super(context);
         rContext = context;
+        mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
     }
 
     public String getName() {
@@ -65,21 +73,22 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         }
         this.isDownloading = true;
         File downloadedFile = new File(filePath.replace("file:///", "/"));
-        if (downloadedFile.exists()){
+        if (downloadedFile.exists()) {
             downloadedFile.delete();
         }
-        mNotifyManager = (NotificationManager)this.rContext.getSystemService(Context.NOTIFICATION_SERVICE);
-        mBuilder = new NotificationCompat.Builder(this.rContext.getApplicationContext());
-        mBuilder.setContentTitle(notificationTitle)
-                .setContentText("")
-                .setSmallIcon(R.drawable.ic_launcher_round);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            mBuilder.setChannelId(this.rContext.getPackageName());
 
+        mBuilder = new NotificationCompat.Builder(this.rContext.getApplicationContext(), channelId)
+                .setContentTitle(notificationTitle)
+                .setContentText("Download in progress")
+                .setOngoing(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setSmallIcon(R.drawable.ic_natification);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
-                    this.rContext.getPackageName(),
+                    channelId,
                     "updateApp",
-                    NotificationManager.IMPORTANCE_HIGH);
+                    NotificationManager.IMPORTANCE_DEFAULT);
 
             mNotifyManager.createNotificationChannel(channel);
         }
@@ -134,7 +143,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 Log.e("update/downloading", e.getMessage());
             }
             mBuilder.setProgress(100, progress, false);
-            mNotifyManager.notify(notifiactionId, mBuilder.build());
+            notifyNotification(notifiactionId, mBuilder);
         }
         try {
             sink.flush();
@@ -146,25 +155,50 @@ public class DownloadModule extends ReactContextBaseJavaModule {
             promise.reject("Error", e.getMessage());
             throw new RuntimeException(e);
         }
-        promise.resolve(null);
-        this.isDownloading = false;
-        mBuilder.setContentText("Download completed").setProgress(0,0,false);
-        mNotifyManager.notify(notifiactionId, mBuilder.build());
+        Log.d("UPDATE APP", "downloadAPK: Download completed");
         this.sendEvent("update/downloaded", null);
+
+        this.isDownloading = false;
+
+        Intent installIntent = new Intent(Intent.ACTION_VIEW);
+        Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
+        installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+        installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        PendingIntent pendingIntent = PendingIntent.getActivity(rContext, 0, installIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        mNotifyManager.cancel(notifiactionId);
+        mBuilder.setContentText("Download completed, click to install")
+                .setProgress(0, 0, false)
+                .setOngoing(false)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true);
+
+        notifyNotification(notifiactionId, mBuilder);
+        Log.d("UPDATE APP", "downloadAPK: notifyNotification done");
+        promise.resolve(null);
     }
 
+
+    public void notifyNotification(int notifiactionId, NotificationCompat.Builder builder) {
+        NotificationManagerCompat mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
+        if (ActivityCompat.checkSelfPermission(this.rContext, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        mNotifyManager.notify(notifiactionId, builder.build());
+    }
 
     @ReactMethod
     public void installAPK(final String url, final Promise promise) {
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW);
             File file;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N){
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 file = new File(url.replace("file:///", "/"));
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, file);
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-            }else{
+            } else {
                 file = new File(url);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 intent.setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive");
