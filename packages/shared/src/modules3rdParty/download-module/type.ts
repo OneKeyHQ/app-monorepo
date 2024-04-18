@@ -4,4 +4,7 @@ export type IDownloadAPK = (
 ) => Promise<void>;
 export type IInstallAPK = (latestVersion?: string) => Promise<void>;
 
-export type IUseDownloadProgress = (onDownloaded: () => void) => number;
+export type IUseDownloadProgress = (
+  onSuccess: () => void,
+  onFailed: (params: { message: string }) => void,
+) => number;

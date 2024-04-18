@@ -132,14 +132,19 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async notifyFailed(message: string) {
-    void appUpdatePersistAtom.set({
-      latestVersion: process.env.VERSION ?? '1.0.0',
-      isForceUpdate: false,
-      updateAt: 0,
-      errorText: message,
+  public async notifyFailed(e: { message: string }) {
+    const { message } = e;
+    console.log('error-message---', message);
+    let errorText = 'Network exception, please check your internet connection.';
+
+    if (message.startsWith('Server not responding')) {
+      errorText = 'Server not responding, please try again later.';
+    }
+    void appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      errorText,
       status: EAppUpdateStatus.failed,
-    });
+    }));
   }
 
   @backgroundMethod()

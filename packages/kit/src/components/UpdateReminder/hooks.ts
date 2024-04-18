@@ -73,10 +73,8 @@ export const useAppUpdateInfo = (isFullModal = false) => {
           .then(() => {
             void backgroundApiProxy.serviceAppUpdate.readyToInstall();
           })
-          .catch(() => {
-            void backgroundApiProxy.serviceAppUpdate.notifyFailed(
-              'Network exception, please check your internet connection.',
-            );
+          .catch((e) => {
+            void backgroundApiProxy.serviceAppUpdate.notifyFailed.notifyFailed(e);
           });
       }
       if (platformEnv.isDesktop) {
@@ -121,7 +119,6 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     navigation.pushModal,
   ]);
 
-  console.log(`${RNFS.CachesDirectoryPath}/apk`);
   return useMemo(
     () => ({
       isNeedUpdate: isNeedUpdate(

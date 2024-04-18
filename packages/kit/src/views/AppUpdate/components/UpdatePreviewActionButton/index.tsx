@@ -41,10 +41,8 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
               .then(() => {
                 void backgroundApiProxy.serviceAppUpdate.readyToInstall();
               })
-              .catch(() => {
-                void backgroundApiProxy.serviceAppUpdate.notifyFailed(
-                  'Network exception, please check your internet connection.',
-                );
+              .catch((e) => {
+                void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
               });
           }
           close();

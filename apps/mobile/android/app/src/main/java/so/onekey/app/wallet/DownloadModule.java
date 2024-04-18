@@ -69,7 +69,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         WritableMap params = Arguments.createMap();
         params.putString("message", e.getMessage());
         sendEvent("update/error", params);
-        promise.reject("Error", e.getMessage());
+        promise.reject(e);
     }
 
     private File buildFile(String path) {
@@ -114,6 +114,12 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                     sendDownloadError(e, promise);
                     return;
                 }
+
+                if (!response.isSuccessful()) {
+                    sendDownloadError(new Exception("Server not responding, please try again later."), promise);
+                    return;
+                }
+
                 ResponseBody body = response.body();
                 long contentLength = body.contentLength();
                 BufferedSource source = body.source();

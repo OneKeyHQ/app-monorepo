@@ -5,9 +5,12 @@ import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/downlo
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 export function DownloadProgress() {
-  const onDownloaded = useCallback(() => {
+  const onSuccess = useCallback(() => {
     void backgroundApiProxy.serviceAppUpdate.readyToInstall();
   }, []);
-  const percent = useDownloadProgress(onDownloaded);
+  const onFailed = useCallback((e) => {
+    void backgroundApiProxy.serviceAppUpdate.notifyFailed.notifyFailed(e);
+  }, []);
+  const percent = useDownloadProgress(onSuccess, onFailed);
   return `Downloading Package... ${percent}%`;
 }
