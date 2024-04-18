@@ -13,11 +13,17 @@ import type {
   CardInfo,
 } from '@onekeyfe/react-native-lite-card/src/types';
 
+enum ENFCEventCode {
+  CONNECTED = 1,
+  TRANSFERRING_DATA = 2,
+  FINISHED = 3,
+}
+
 export default function useNFC() {
   const willCloseDialogInstance = useRef<IDialogInstance>();
   const handlerNFCConnectStatus = useCallback(({ code }: { code: number }) => {
-    if (code !== 2) {
-      if (code === 3) {
+    if (code !== ENFCEventCode.TRANSFERRING_DATA) {
+      if (code === ENFCEventCode.FINISHED) {
         setTimeout(() => {
           void willCloseDialogInstance.current?.close();
         });
