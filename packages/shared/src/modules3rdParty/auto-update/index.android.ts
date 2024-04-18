@@ -7,7 +7,7 @@ import RNFS from '../react-native-fs';
 
 import type { IDownloadAPK, IInstallAPK, IUseDownloadProgress } from './type';
 
-const DIR_PATH = `file://${RNFS.CachesDirectoryPath}/apk`;
+const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
 const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
 const { AutoUpdateModule } = NativeModules as {

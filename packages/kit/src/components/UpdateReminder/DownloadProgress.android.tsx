@@ -8,7 +8,7 @@ export function DownloadProgress() {
   const onSuccess = useCallback(() => {
     void backgroundApiProxy.serviceAppUpdate.readyToInstall();
   }, []);
-  const onFailed = useCallback((e) => {
+  const onFailed = useCallback((e: { message: string }) => {
     void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
   }, []);
   const percent = useDownloadProgress(onSuccess, onFailed);

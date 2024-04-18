@@ -74,7 +74,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
           .then(() => {
             void backgroundApiProxy.serviceAppUpdate.readyToInstall();
           })
-          .catch((e) => {
+          .catch((e: { message: string }) => {
             void backgroundApiProxy.serviceAppUpdate.notifyFailed.notifyFailed(
               e,
             );
