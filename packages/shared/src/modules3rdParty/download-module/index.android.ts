@@ -22,6 +22,10 @@ const { DownloadManager } = NativeModules as {
 };
 
 export const downloadAPK: IDownloadAPK = async (downloadUrl, version) => {
+  const info = await RNFS?.getFSInfo();
+  if (info?.freeSpace && info.freeSpace < 1024 * 1024 * 300) {
+    throw new Error('Insufficient disk space, please clear and retry.');
+  }
   await RNFS?.mkdir(DIR_PATH);
   if (!downloadUrl || !version) {
     return;
