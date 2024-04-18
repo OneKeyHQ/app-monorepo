@@ -577,8 +577,7 @@ declare module 'tamagui' {
   // override groupNames
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface TypeOverride {
-    groupNames(): 'nftItem';
-    groupNames(): 'card';
+    groupNames(): 'nftItem' | 'card';
   }
 }
 
