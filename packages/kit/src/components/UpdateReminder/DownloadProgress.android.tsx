@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/download-module';
+import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 

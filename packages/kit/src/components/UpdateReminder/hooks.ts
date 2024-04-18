@@ -11,7 +11,7 @@ import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import {
   downloadAPK,
   installAPK,
-} from '@onekeyhq/shared/src/modules3rdParty/download-module';
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs/index.native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
