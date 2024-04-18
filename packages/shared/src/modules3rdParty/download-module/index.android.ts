@@ -12,12 +12,16 @@ const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
 const { DownloadManager } = NativeModules as {
   DownloadManager: {
-    installAPK: (path: string) => Promise<void>;
-    downloadAPK: (
-      url: string,
-      filePath: string,
-      notificationTitle: string,
-    ) => Promise<void>;
+    installAPK: (params: {
+      filePath: string;
+      sha256?: string;
+    }) => Promise<void>;
+    downloadAPK: (params: {
+      url: string;
+      filePath: string;
+      notificationTitle: string;
+      sha256?: string;
+    }) => Promise<void>;
   };
 };
 
@@ -30,18 +34,20 @@ export const downloadAPK: IDownloadAPK = async (downloadUrl, version) => {
   if (!downloadUrl || !version) {
     return;
   }
-  return DownloadManager.downloadAPK(
-    downloadUrl,
-    buildFilePath(version),
-    `Download OneKey App ${version}`,
-  );
+  return DownloadManager.downloadAPK({
+    url: downloadUrl,
+    filePath: buildFilePath(version),
+    notificationTitle: `Download OneKey App ${version}`,
+  });
 };
 
 export const installAPK: IInstallAPK = (version) => {
   if (!version) {
     return Promise.resolve();
   }
-  return DownloadManager.installAPK(buildFilePath(version));
+  return DownloadManager.installAPK({
+    filePath: buildFilePath(version),
+  });
 };
 
 const eventEmitter = new NativeEventEmitter(NativeModules.DownloadManager);
