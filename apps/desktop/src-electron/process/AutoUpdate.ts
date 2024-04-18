@@ -1,6 +1,8 @@
+import checkDiskSpace from 'check-disk-space';
 import { app, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
+import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 
 import { ipcMessageKeys } from '../config';
@@ -138,7 +140,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     },
   );
 
-  ipcMain.on(ipcMessageKeys.UPDATE_CHECK, (_, isManual?: boolean) => {
+  ipcMain.on(ipcMessageKeys.UPDATE_CHECK, async (_, isManual?: boolean) => {
     if (isManual) {
       isManualCheck = true;
     }
@@ -147,6 +149,17 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `Update checking request (manual: ${b2t(isManualCheck)})`,
     );
 
+    const { free } = await checkDiskSpace(rootPath);
+    logger.info('check-free-space', `${free} ${rootPath}`);
+    if (free < 1024 * 1024 * 300) {
+      mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+        err: {
+          message: 'Insufficient disk space, please clear and retry.',
+        },
+        isNetworkError: false,
+      });
+      return;
+    }
     const feedUrl = updateSettings.useTestFeedUrl ? TEST_FEEDURL : PROD_FEEDURL;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);

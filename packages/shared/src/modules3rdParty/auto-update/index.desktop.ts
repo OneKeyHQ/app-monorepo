@@ -39,7 +39,6 @@ window.desktopApi?.on?.('update/downloading', (params) => {
   updateDownloadingTasks.forEach((t) => t(params));
 });
 
-
 const updateDownloadedTasks: (() => void)[] = [];
 window.desktopApi.on('update/downloaded', () => {
   while (updateDownloadedTasks.length) {
@@ -49,11 +48,21 @@ window.desktopApi.on('update/downloaded', () => {
 });
 
 const updateErrorTasks: ((error: { message: string }) => void)[] = [];
-window.desktopApi?.on?.('update/error', (error) => {
-  while (updateErrorTasks.length) {
-    updateErrorTasks.pop()?.(error);
-  }
-});
+window.desktopApi?.on?.(
+  'update/error',
+  ({
+    err,
+    isNetworkError,
+  }: {
+    err: { message: string };
+    isNetworkError: boolean;
+  }) => {
+    console.log('update/error', err, isNetworkError);
+    while (updateErrorTasks.length) {
+      updateErrorTasks.pop()?.(err);
+    }
+  },
+);
 
 export const downloadPackage: IDownloadPackage = () =>
   new Promise((resolve, reject) => {

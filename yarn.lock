@@ -5023,6 +5023,7 @@ __metadata:
     babel-plugin-transform-inline-environment-variables: "npm:^0.4.4"
     bignumber.js: "npm:9.1.2"
     browserify-zlib: "npm:^0.2.0"
+    check-disk-space: "npm:^3.4.0"
     cheerio: "npm:^1.0.0-rc.12"
     copy-webpack-plugin: "npm:^6.0.2"
     cross-env: "npm:^7.0.3"
@@ -5031,6 +5032,7 @@ __metadata:
     date-fns: "npm:^2.30.0"
     duplicate-package-checker-webpack-plugin: "npm:^3.0.0"
     ejs-loader: "npm:^0.5.0"
+    electron-root-path: "npm:^1.1.0"
     eslint: "npm:^8.25.0"
     eslint-config-airbnb: "npm:^19.0.4"
     eslint-config-airbnb-typescript: "npm:^17.0.0"
@@ -13035,6 +13037,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"check-disk-space@npm:^3.4.0":
+  version: 3.4.0
+  resolution: "check-disk-space@npm:3.4.0"
+  checksum: 10/73130c32e26aaa1eda359706d9cbcde21785285dd829ec2b850c59e88ce99d8ebf830d6849315b2d4bc7eed9082aaea7c5f065f1ace591f49d3851f0c21157f9
+  languageName: node
+  linkType: hard
+
 "cheerio-select@npm:^2.1.0":
   version: 2.1.0
   resolution: "cheerio-select@npm:2.1.0"
@@ -15240,6 +15249,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"electron-is-packaged@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "electron-is-packaged@npm:1.0.2"
+  peerDependencies:
+    eslint: ^3.0.0 || ^4.0.0 || ^5.0.0
+  checksum: 10/518a6dc6a220cdc8c28bdb00eb6aeb69926c4def9d9c0e131450f0b36cfe08229dfe1f23cbc74cb156c7f6e5ed551f87a31459f3a95e505cad4cc606908454e8
+  languageName: node
+  linkType: hard
+
 "electron-log@npm:^4.4.8":
   version: 4.4.8
   resolution: "electron-log@npm:4.4.8"
@@ -15259,6 +15277,17 @@ __metadata:
     lazy-val: "npm:^1.0.5"
     mime: "npm:^2.5.2"
   checksum: 10/826a8c7b219f8ffcfa7274effbc8a83e4e0cad665298bf06ca4b9071f828224dfb3407b45cefac0c9dc40af1c6529473dabcb3e30ac951690c0d48d013c2b71e
+  languageName: node
+  linkType: hard
+
+"electron-root-path@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "electron-root-path@npm:1.1.0"
+  dependencies:
+    electron-is-packaged: "npm:^1.0.2"
+  peerDependencies:
+    eslint: ^3.0.0 || ^4.0.0 || ^5.0.0
+  checksum: 10/9a94c9340699a8c90f78ebec226080f80bc62a5f1c2b0bbfc9d570e447b9265d5e483e73ea5537c2ae17ac46ae2ce00f431cf121eb09e704ff0883bc70b913f8
   languageName: node
   linkType: hard
 
