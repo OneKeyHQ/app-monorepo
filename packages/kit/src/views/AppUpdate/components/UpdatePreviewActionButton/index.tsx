@@ -36,28 +36,15 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         if (appUpdateInfo.data.storeUrl) {
           openUrlExternal(appUpdateInfo.data.storeUrl);
         } else if (appUpdateInfo.data.downloadUrl) {
-          if (platformEnv.isDesktop) {
-            void backgroundApiProxy.serviceAppUpdate.startDownloading();
-            window.desktopApi?.on?.('update/checking', () => {
-              console.log('update/checking');
+          void backgroundApiProxy.serviceAppUpdate.startDownloading();
+          void downloadPackage(appUpdateInfo.data)
+            .then(() => {
+              void backgroundApiProxy.serviceAppUpdate.readyToInstall();
+            })
+            .catch((e) => {
+              Toast.error({ title: (e as { message: string }).message });
+              void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
             });
-            window.desktopApi?.on?.('update/available', async ({ version }) => {
-              console.log('update/available, version: ', version);
-              window.desktopApi.downloadUpdate();
-              await backgroundApiProxy.serviceAppUpdate.startDownloading();
-            });
-            window.desktopApi.checkForUpdates();
-          } else if (platformEnv.isNativeAndroid) {
-            void backgroundApiProxy.serviceAppUpdate.startDownloading();
-            void downloadPackage(appUpdateInfo.data)
-              .then(() => {
-                void backgroundApiProxy.serviceAppUpdate.readyToInstall();
-              })
-              .catch((e) => {
-                Toast.error({ title: (e as { message: string }).message });
-                void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
-              });
-          }
           if (autoClose) {
             close();
           }

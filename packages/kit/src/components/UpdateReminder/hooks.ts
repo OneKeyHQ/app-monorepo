@@ -65,18 +65,13 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       onViewReleaseInfo();
     }
     if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
-      if (platformEnv.isNativeAndroid) {
-        void downloadPackage(appUpdateInfo)
-          .then(() => {
-            void backgroundApiProxy.serviceAppUpdate.readyToInstall();
-          })
-          .catch((e: { message: string }) => {
-            void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
-          });
-      }
-      if (platformEnv.isDesktop) {
-        // TODO
-      }
+      void downloadPackage(appUpdateInfo)
+        .then(() => {
+          void backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        })
+        .catch((e: { message: string }) => {
+          void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
+        });
     }
     void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,13 +106,9 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         toUpdatePreviewPage(isFullModal);
         break;
       case EAppUpdateStatus.ready:
-        if (platformEnv.isDesktop) {
-          window.desktopApi.installUpdate();
-        } else if (platformEnv.isNativeAndroid) {
-          void installPackage(appUpdateInfo).catch((e) =>
-            backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
-          );
-        }
+        void installPackage(appUpdateInfo).catch((e) =>
+          backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
+        );
         break;
       case EAppUpdateStatus.failed:
         openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
