@@ -682,12 +682,12 @@ class ServiceCloudBackup extends ServiceBase {
 
   private getDataFromCloud = memoizee(
     async (filename: string) => {
-      if (
-        filename === CLOUD_METADATA_FILE_NAME &&
-        this.metaDataCache.length > 0
-      ) {
-        return this.metaDataCache;
-      }
+      // if (
+      //   filename === CLOUD_METADATA_FILE_NAME &&
+      //   this.metaDataCache.length > 0
+      // ) {
+      //   return this.metaDataCache;
+      // }
       try {
         return await CloudFs.downloadFromCloud(
           platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
