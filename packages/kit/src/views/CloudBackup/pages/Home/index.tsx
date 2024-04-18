@@ -27,7 +27,7 @@ export default function Home() {
                 pointerEvents="box-only"
                 onPress={async () => {
                   await maybeShowBackupToggleDialog(!isEnabled);
-                  if (!isEnabled && platformEnv.isNativeAndroid) {
+                  if (isEnabled && platformEnv.isNativeAndroid) {
                     navigation.pop();
                   }
                 }}
