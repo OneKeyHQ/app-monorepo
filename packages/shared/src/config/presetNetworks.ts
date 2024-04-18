@@ -4436,6 +4436,59 @@ const serverPresetNetworks = [
   },
   {
     'balance2FeeDecimals': 0,
+    'chainId': 'nervos-test',
+    'code': 'nervos-test',
+    'decimals': 8,
+    'id': 'nervos--testnet',
+    'impl': 'nervos',
+    'isTestnet': true,
+    'logoURI': 'https://onekey-asset.com/assets/nervos/nervos.png',
+    'name': 'Nervos Testnet',
+    'rpcURLs': [
+      {
+        'url': 'https://testnet.ckb.dev/rpc',
+      },
+    ],
+    'shortcode': 'tckb',
+    'shortname': 'TCKB',
+    'symbol': 'TCKB',
+    'feeMeta': {
+      'code': 'tckb',
+      'decimals': 8,
+      'symbol': 'TCKB',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'nervos-network',
+      },
+    ],
+    'extensions': {
+      'providerOptions': {
+        'indexer': [
+          {
+            'rpcUrl': 'https://testnet.ckb.dev/rpc',
+            'indexerUrl': 'https://testnet.ckb.dev/indexer',
+          },
+        ],
+      },
+    },
+    'explorers': [
+      {
+        'address': 'https://pudge.explorer.nervos.org/address/{address}',
+        'block': 'https://pudge.explorer.nervos.org/block/{block}',
+        'name': 'https://pudge.explorer.nervos.org',
+        'transaction':
+          'https://pudge.explorer.nervos.org/transaction/{transaction}',
+      },
+    ],
+    'status': 'LISTED',
+    'createdAt': '2024-03-05T00:00:00.004Z',
+    'updatedAt': '2024-03-05T00:00:00.004Z',
+  },
+  {
+    'balance2FeeDecimals': 0,
     'chainId': '0',
     'code': 'neurai',
     'decimals': 8,

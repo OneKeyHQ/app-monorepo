@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import type { Token } from '@onekeyhq/kit/src/store/typings';
 
 import { scriptToAddress } from './address';
+import { decodeBalanceWithCell } from './balance';
 
 import type {
   Cell,
@@ -106,6 +107,23 @@ export function convertHistoryUtxos(
       .shiftedBy(-tokenInfo.decimals)
       .toFixed(),
     balanceValue: new BigNumber(c.cellOutput.capacity, 16).toString(),
+    symbol: tokenInfo.symbol,
+    isMine: scriptToAddress(c.cellOutput.lock, { config }) === mineAddress,
+  }));
+}
+
+export function convertTokenHistoryUtxos(
+  cell: Cell[],
+  mineAddress: string,
+  tokenInfo: Token,
+  config: Config,
+) {
+  return cell?.map((c) => ({
+    address: scriptToAddress(c.cellOutput.lock, { config }),
+    balance: decodeBalanceWithCell(c, config)
+      .shiftedBy(-tokenInfo.decimals)
+      .toFixed(),
+    balanceValue: decodeBalanceWithCell(c, config).toString(),
     symbol: tokenInfo.symbol,
     isMine: scriptToAddress(c.cellOutput.lock, { config }) === mineAddress,
   }));

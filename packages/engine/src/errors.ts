@@ -469,6 +469,17 @@ export class ChangeLessThanMinInputCapacityError extends OneKeyError {
   }
 }
 
+export class MinimumTransferAmountError extends OneKeyError {
+  override key = 'form__str_minimum_transfer';
+
+  constructor(amount: string) {
+    super(`${amount} Minimum Transfer Amount`, {
+      '0': amount,
+    });
+    this.key = 'form__str_minimum_transfer';
+  }
+}
+
 // all networks ----------------------------------------------
 export class AllNetworksMinAccountsError extends OneKeyError {
   override key = 'msg__you_need_str_accounts_on_any_network_to_create';

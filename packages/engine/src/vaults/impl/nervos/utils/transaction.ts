@@ -1,241 +1,62 @@
-import { Script, blockchain } from '@ckb-lumos/base';
+import { blockchain } from '@ckb-lumos/base';
 import { BI } from '@ckb-lumos/bi';
-import { bytes } from '@ckb-lumos/codec';
 import { common } from '@ckb-lumos/common-scripts';
 import {
-  TransactionSkeleton,
   createTransactionFromSkeleton,
-  parseAddress,
+  createTransactionSkeleton,
 } from '@ckb-lumos/helpers';
-import BigNumber from 'bignumber.js';
+import { ResultFormatter } from '@ckb-lumos/rpc';
 
-import {
-  ChangeLessThanMinInputCapacityError,
-  InsufficientBalance,
-} from '@onekeyhq/engine/src/errors';
-import type { Network } from '@onekeyhq/engine/src/types/network';
-import type {
-  IFeeInfoUnit,
-  ITransferInfo,
-} from '@onekeyhq/engine/src/vaults/types';
 import { addHexPrefix } from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 
-import { selectCellsByAddress } from './balance';
+import type { Cell, OutPoint, Transaction } from '@ckb-lumos/base';
+import type {
+  LiveCellFetcher,
+  TransactionSkeletonType,
+} from '@ckb-lumos/helpers';
+import type { RPC } from '@ckb-lumos/rpc';
 
-import type { IEncodedTxNervos } from '../types/IEncodedTx';
-import type { Cell, Transaction, WitnessArgs } from '@ckb-lumos/base';
-import type { Config } from '@ckb-lumos/config-manager';
-import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
-
-export const DEFAULT_FEE = 100000;
 export const DEFAULT_MIN_INPUT_CAPACITY = 61 * 100000000;
 
-export function prepareAndBuildTx({
-  confirmCells,
-  from,
-  network,
-  transferInfo,
-  config,
-  specifiedFeeRate,
+export async function convertTxToTxSkeleton({
+  client,
+  transaction,
 }: {
-  confirmCells: Cell[];
-  from: string;
-  network: Network;
-  transferInfo: ITransferInfo;
-  config: Config;
-  specifiedFeeRate?: IFeeInfoUnit;
-}): IEncodedTxNervos {
-  const { to, amount } = transferInfo;
-  const amountValue = new BigNumber(amount)
-    .shiftedBy(network.decimals)
-    .toFixed();
+  client: RPC;
+  transaction: Transaction;
+}) {
+  const fetcher: LiveCellFetcher = async (
+    outPoint: OutPoint,
+  ): Promise<Cell> => {
+    const content = await client.getLiveCell(outPoint, true);
 
-  let fee = new BigNumber(DEFAULT_FEE);
-  if (specifiedFeeRate?.limit && specifiedFeeRate?.price) {
-    const price = new BigNumber(specifiedFeeRate.price).shiftedBy(
-      network.decimals,
-    );
-    fee = new BigNumber(specifiedFeeRate.limit).multipliedBy(price);
-  }
+    const rpcCell = content.cell;
+    if (!rpcCell) {
+      throw new Error('Cell not found');
+    }
 
-  const allAmount = confirmCells.reduce(
-    (sum, cell) => sum.plus(new BigNumber(cell.cellOutput.capacity, 16)),
-    new BigNumber(0),
-  );
-  const hasMaxSend = new BigNumber(amountValue).isGreaterThanOrEqualTo(
-    allAmount,
-  );
-
-  let expendCapacity: BigNumber;
-  let neededCapacity: BigNumber;
-
-  if (hasMaxSend) {
-    expendCapacity = allAmount;
-    neededCapacity = new BigNumber(amountValue);
-  } else {
-    expendCapacity = new BigNumber(amountValue).plus(fee);
-    neededCapacity = expendCapacity.plus(DEFAULT_MIN_INPUT_CAPACITY);
-  }
-
-  const { collected, collectedSum } = selectCellsByAddress(
-    confirmCells,
-    neededCapacity,
-  );
-
-  const change = collectedSum.minus(expendCapacity);
-  if (!hasMaxSend && change.minus(DEFAULT_MIN_INPUT_CAPACITY).isLessThan(0)) {
-    throw new ChangeLessThanMinInputCapacityError('61');
-  }
-
-  if (collectedSum.isLessThan(amountValue))
-    throw new InsufficientBalance(
-      `Insufficient balance - need: ${amountValue} CKB, available: ${collectedSum.toFixed()} CKB`,
-    );
-
-  const secp256k1Dep = config.SCRIPTS.SECP256K1_BLAKE160;
-  if (!secp256k1Dep) {
-    throw new Error('Not implemented transafe');
-  }
-
-  const sendAmount = hasMaxSend
-    ? collectedSum.minus(fee).toFixed()
-    : amountValue;
-
-  const encodedTxNervos: IEncodedTxNervos = {
-    transferInfo,
-    hasMaxSend,
-    cellDeps: [
-      {
-        outPoint: {
-          txHash: secp256k1Dep.TX_HASH,
-          index: secp256k1Dep.INDEX,
-        },
-        depType: secp256k1Dep.DEP_TYPE,
+    return {
+      outPoint,
+      cellOutput: {
+        capacity: rpcCell.output.capacity,
+        lock: ResultFormatter.toScript({
+          args: rpcCell.output.lock.args,
+          code_hash: rpcCell.output.lock.codeHash,
+          hash_type: rpcCell.output.lock.hashType,
+        }),
+        type: rpcCell.output.type
+          ? ResultFormatter.toScript({
+              args: rpcCell.output.type.args,
+              code_hash: rpcCell.output.type.codeHash,
+              hash_type: rpcCell.output.type.hashType,
+            })
+          : undefined,
       },
-    ],
-    inputs: collected,
-    outputs: [
-      {
-        address: to,
-        value: sendAmount,
-      },
-    ],
-    feeInfo: {
-      limit: specifiedFeeRate?.limit,
-      price: specifiedFeeRate?.price,
-    },
+      data: rpcCell.data.content,
+    };
   };
 
-  if (change.isGreaterThan(0)) {
-    encodedTxNervos.change = {
-      address: from,
-      value: change.toFixed(),
-    };
-  }
-
-  return encodedTxNervos;
-}
-
-/**
- * only from onekey transfer
- */
-export function convertEncodeTxNervosToSkeleton({
-  encodedTxNervos,
-  config,
-}: {
-  encodedTxNervos: IEncodedTxNervos;
-  config: Config;
-}) {
-  let txSkeleton = TransactionSkeleton({});
-
-  txSkeleton = txSkeleton.update('inputs', (inputs) =>
-    inputs.push(...encodedTxNervos.inputs),
-  );
-  txSkeleton = txSkeleton.update('outputs', (outputs) => {
-    const outputsIncludeChange = encodedTxNervos.change
-      ? [...encodedTxNervos.outputs, encodedTxNervos.change]
-      : encodedTxNervos.outputs;
-
-    const newOutputs = outputsIncludeChange.map((output) => {
-      const { address, value, data } = output;
-      const toScript = parseAddress(address, { config });
-      return {
-        cellOutput: {
-          capacity: BI.from(value).toHexString(),
-          lock: toScript,
-        },
-        data: data ?? '0x',
-      };
-    });
-
-    return outputs.push(...newOutputs);
-  });
-
-  txSkeleton = txSkeleton.update('cellDeps', (cellDeps) =>
-    cellDeps.push(...encodedTxNervos.cellDeps),
-  );
-
-  return txSkeleton;
-}
-
-export function fillSkeletonWitnessesWithAccount({
-  sendAccount,
-  txSkeleton: tx,
-  config,
-}: {
-  sendAccount: string;
-  txSkeleton: TransactionSkeletonType;
-  config: Config;
-}): TransactionSkeletonType {
-  let txSkeleton = tx;
-  const firstIndex = txSkeleton
-    .get('inputs')
-    .findIndex((input) =>
-      bytes.equal(
-        blockchain.Script.pack(input.cellOutput.lock),
-        blockchain.Script.pack(parseAddress(sendAccount, { config })),
-      ),
-    );
-
-  if (firstIndex !== -1) {
-    while (firstIndex >= txSkeleton.get('witnesses').size) {
-      txSkeleton = txSkeleton.update('witnesses', (witnesses) =>
-        witnesses.push('0x'),
-      );
-    }
-    let witness: string = txSkeleton.get('witnesses').get(firstIndex)!;
-    const newWitnessArgs: WitnessArgs = {
-      /* 65-byte zeros in hex */
-      lock: '0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000',
-    };
-    if (witness !== '0x') {
-      const witnessArgs = blockchain.WitnessArgs.unpack(bytes.bytify(witness));
-      const { lock } = witnessArgs;
-      if (
-        !!lock &&
-        !!newWitnessArgs.lock &&
-        !bytes.equal(lock, newWitnessArgs.lock)
-      ) {
-        throw new Error(
-          'Lock field in first witness is set aside for signature!',
-        );
-      }
-      const { inputType } = witnessArgs;
-      if (inputType) {
-        newWitnessArgs.inputType = inputType;
-      }
-      const { outputType } = witnessArgs;
-      if (outputType) {
-        newWitnessArgs.outputType = outputType;
-      }
-    }
-    witness = bytes.hexify(blockchain.WitnessArgs.pack(newWitnessArgs));
-    txSkeleton = txSkeleton.update('witnesses', (witnesses) =>
-      witnesses.set(firstIndex, witness),
-    );
-  }
-
-  return txSkeleton;
+  return createTransactionSkeleton(transaction, fetcher);
 }
 
 export function serializeTransactionMessage(
@@ -259,11 +80,6 @@ export function convertTxSkeletonToTransaction(
   txSkeleton: TransactionSkeletonType,
 ) {
   const transaction = createTransactionFromSkeleton(txSkeleton);
-  return transaction;
-}
-
-export function convertRawTxToTransaction(rawTx: string) {
-  const transaction = blockchain.Transaction.unpack(addHexPrefix(rawTx));
   return transaction;
 }
 

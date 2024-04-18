@@ -28,11 +28,9 @@ import {
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { getConfig } from './utils/config';
-import {
-  convertEncodeTxNervosToSkeleton,
-  fillSkeletonWitnessesWithAccount,
-  serializeTransactionMessage,
-} from './utils/transaction';
+import { serializeTransactionMessage } from './utils/transaction';
+
+import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
 
 // @ts-ignore
 export class KeyringHardware extends KeyringHardwareBase {
@@ -145,15 +143,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
     const config = getConfig(chainId);
 
-    let txSkeleton = convertEncodeTxNervosToSkeleton({
-      encodedTxNervos: unsignedTx.payload.encodedTx,
-      config,
-    });
-    txSkeleton = fillSkeletonWitnessesWithAccount({
-      sendAccount: dbAccount.address,
-      txSkeleton,
-      config: getConfig(chainId),
-    });
+    const { txSkeleton } = unsignedTx.payload as {
+      txSkeleton: TransactionSkeletonType;
+    };
+
     const { txSkeleton: txSkeletonWithMessage } =
       serializeTransactionMessage(txSkeleton);
 
@@ -163,6 +156,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     const transaction = createTransactionFromSkeleton(txSkeleton);
+
     const serialize = blockchain.RawTransaction.pack(transaction);
 
     const { connectId, deviceId } = await this.getHardwareInfo();

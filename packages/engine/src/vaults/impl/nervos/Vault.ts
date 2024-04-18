@@ -1,15 +1,25 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
+
+import { BI } from '@ckb-lumos/bi';
 import { Indexer, TransactionCollector } from '@ckb-lumos/ckb-indexer';
-import { parseAddress } from '@ckb-lumos/helpers';
+import { common, secp256k1Blake160 } from '@ckb-lumos/common-scripts';
+import {
+  TransactionSkeleton,
+  minimalCellCapacityCompatible,
+  parseAddress,
+} from '@ckb-lumos/helpers';
 import { RPC } from '@ckb-lumos/rpc';
 import BigNumber from 'bignumber.js';
 import memoizee from 'memoizee';
 
 import {
+  ChangeLessThanMinInputCapacityError,
   InvalidAddress,
+  MinimumTransferAmountError,
   OneKeyInternalError,
 } from '@onekeyhq/engine/src/errors';
 import type { DBSimpleAccount } from '@onekeyhq/engine/src/types/account';
+import type { PartialTokenInfo } from '@onekeyhq/engine/src/types/provider';
 import { TransactionStatus } from '@onekeyhq/engine/src/types/provider';
 import {
   type IDecodedTx,
@@ -18,7 +28,6 @@ import {
   IDecodedTxDirection,
   type IDecodedTxLegacy,
   IDecodedTxStatus,
-  IEncodedTxUpdateType,
   type ITransferInfo,
   type IUnsignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
@@ -31,12 +40,18 @@ import type {
   IHistoryTx,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
-import type { TxInput } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
+import type {
+  TxInput,
+  TxOutput,
+} from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { convertFeeValueToGwei } from '@onekeyhq/engine/src/vaults/utils/feeInfoUtils';
+import type { IVaultInitConfig } from '@onekeyhq/engine/src/vaults/VaultBase';
 import { VaultBase } from '@onekeyhq/engine/src/vaults/VaultBase';
 import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { groupBy } from '@onekeyhq/shared/src/utils/arrayUtils';
+
+import { isHexString } from '../../utils/hexUtils';
 
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -46,30 +61,40 @@ import settings from './settings';
 import { isValidateAddress, scriptToAddress } from './utils/address';
 import {
   DEFAULT_CONFIRM_BLOCK,
-  fetchConfirmCellsByAddress,
+  decodeBalanceWithCell,
+  decodeNaiveBalance,
   getBalancesByAddress,
-  getConfirmBalancesByAddress,
-  getFrozenBalancesByAddress,
 } from './utils/balance';
-import { getConfig } from './utils/config';
+import { getConfig, initCustomConfig } from './utils/config';
 import {
   convertHistoryUtxos,
+  convertTokenHistoryUtxos,
   fetchTransactionHistory,
   fullTransactionHistory,
 } from './utils/history';
+import { createScript } from './utils/script';
 import {
-  convertEncodeTxNervosToSkeleton,
+  DEFAULT_MIN_INPUT_CAPACITY,
   convertRawTxToApiTransaction,
-  fillSkeletonWitnessesWithAccount,
+  convertTxSkeletonToTransaction,
+  convertTxToTxSkeleton,
   getTransactionSizeByTxSkeleton,
-  prepareAndBuildTx,
 } from './utils/transaction';
+import { getTokenInfo, transfer as xUDTTransafer } from './utils/xudt';
 
 import type { IEncodedTxNervos } from './types/IEncodedTx';
 import type { NervosImplOptions } from './types/NervosImplOptions';
+import type { Cell } from '@ckb-lumos/base';
+import type { Config } from '@ckb-lumos/config-manager';
+import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
 
 // @ts-ignore
 export default class Vault extends VaultBase {
+  override async init(config: IVaultInitConfig): Promise<void> {
+    await super.init(config);
+    initCustomConfig(await this.getNetworkChainId());
+  }
+
   keyringMap = {
     hd: KeyringHd,
     hw: KeyringHardware,
@@ -89,6 +114,10 @@ export default class Vault extends VaultBase {
   async getClient() {
     const rpcURL = await this.getRpcUrl();
     return this.getClientCache(rpcURL);
+  }
+
+  async getCurrentConfig() {
+    return getConfig(await this.getNetworkChainId());
   }
 
   getNervosClient(url: string) {
@@ -165,25 +194,8 @@ export default class Vault extends VaultBase {
     return { responseTime: Math.floor(performance.now() - start), latestBlock };
   }
 
-  override async getFrozenBalance({
-    password,
-  }: {
-    password?: string;
-    useRecycleBalance?: boolean;
-    ignoreInscriptions?: boolean;
-    useCustomAddressesBalance?: boolean;
-  } = {}): Promise<number | Record<string, number>> {
-    const indexer = await this.getIndexer();
-    const client = await this.getClient();
-    const dbAccount = await this.getDbAccount();
-    const balance = await getFrozenBalancesByAddress({
-      indexer,
-      address: dbAccount.address,
-      client,
-    });
-
-    const network = await this.engine.getNetwork(this.networkId);
-    return balance.shiftedBy(-network.decimals).toNumber();
+  generateTokenKey(address: string, tokenAddress?: string): string {
+    return `${address}-${tokenAddress ?? 'NATIVE'}`;
   }
 
   override async getBalances(
@@ -192,75 +204,209 @@ export default class Vault extends VaultBase {
     const indexer = await this.getIndexer();
 
     const requestAddress = groupBy(requests, (request) => request.address);
+    const config = await this.getCurrentConfig();
 
     const balances = new Map<string, BigNumber>();
+
     await Promise.all(
       Object.entries(requestAddress).map(async ([address, tokens]) => {
-        try {
-          try {
-            balances.set(
-              address,
-              await getBalancesByAddress({ indexer, address }),
-            );
-          } catch (e) {
-            // ignore
-          }
-        } catch (error) {
-          // ignore account error
-        }
+        await Promise.all(
+          tokens.map(async (req) => {
+            try {
+              const { tokenAddress } = req;
+              const xudt = tokenAddress
+                ? createScript(config.SCRIPTS.XUDT, tokenAddress)
+                : undefined;
+
+              if (tokenAddress && !config.SCRIPTS.XUDT) {
+                throw new Error('XUDT not supported');
+              }
+
+              balances.set(
+                this.generateTokenKey(address, tokenAddress),
+                await getBalancesByAddress({
+                  indexer,
+                  address,
+                  config,
+                  type: xudt,
+                }),
+              );
+            } catch (e) {
+              // ignore
+            }
+          }),
+        );
       }),
     );
 
     return requests.map((req) => {
-      const { address } = req;
-      return balances.get(address) ?? new BigNumber(0);
+      const { address, tokenAddress } = req;
+      const key = this.generateTokenKey(address, tokenAddress);
+      return balances.get(key) ?? new BigNumber(0);
     });
   }
 
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
-    specifiedFeeRate?: IFeeInfoUnit,
   ): Promise<IEncodedTxNervos> {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
-    const { token: tokenAddress } = transferInfo;
-    if (tokenAddress)
-      throw new OneKeyInternalError('Nervos does not support token transfer');
+    const { token: tokenAddress, to, amount } = transferInfo;
 
     const indexer = await this.getIndexer();
     const client = await this.getClient();
-    const config = getConfig(await this.getNetworkChainId());
+    const config = await this.getCurrentConfig();
     const { address: from } = await this.getDbAccount();
 
     const network = await this.getNetwork();
-    const confirmCellsByAddress = await fetchConfirmCellsByAddress({
-      indexer,
-      address: from,
-      client,
-    });
-    const transaction = prepareAndBuildTx({
-      confirmCells: confirmCellsByAddress,
-      from,
-      network,
-      transferInfo,
-      config,
-      specifiedFeeRate,
+
+    let txSkeleton: TransactionSkeletonType = TransactionSkeleton({
+      cellProvider: {
+        collector: (query) =>
+          indexer.collector({ type: 'empty', data: '0x', ...query }),
+      },
     });
 
-    return transaction;
+    const { median } = await client.getFeeRateStatistics();
+
+    let amountValue;
+    if (tokenAddress) {
+      const token = await this.engine.ensureTokenInDB(
+        this.networkId,
+        tokenAddress,
+      );
+      if (!token) {
+        throw new OneKeyInternalError('Invalid token address');
+      }
+      amountValue = new BigNumber(amount).shiftedBy(token.decimals).toFixed();
+      // token transfer
+      // support XUDT
+      txSkeleton = await xUDTTransafer(
+        txSkeleton,
+        from,
+        tokenAddress,
+        to,
+        BI.from(amountValue),
+      );
+    } else {
+      amountValue = new BigNumber(amount).shiftedBy(network.decimals).toFixed();
+
+      if (BI.from(amountValue).lt(DEFAULT_MIN_INPUT_CAPACITY)) {
+        throw new MinimumTransferAmountError('61');
+      }
+
+      // native transfer
+      txSkeleton = await secp256k1Blake160.transferCompatible(
+        txSkeleton,
+        from,
+        to,
+        BI.from(amountValue),
+      );
+    }
+
+    try {
+      txSkeleton = await common.payFeeByFeeRate(
+        txSkeleton,
+        [from],
+        median,
+        undefined,
+        {
+          config,
+        },
+      );
+    } catch (err) {
+      // ignore
+      const outputs = txSkeleton.get('outputs').toArray();
+      const lastIndex = outputs.length - 1;
+      const lastOutput = outputs[lastIndex];
+
+      // check if the last output is less than the minimal cell capacity
+      if (
+        lastOutput &&
+        BI.from(lastOutput.cellOutput.capacity).lt(
+          minimalCellCapacityCompatible(lastOutput),
+        )
+      ) {
+        const miniAmount = new BigNumber(
+          minimalCellCapacityCompatible(lastOutput).toString(),
+        )
+          .shiftedBy(network.decimals)
+          .toFixed();
+        throw new ChangeLessThanMinInputCapacityError(miniAmount);
+      }
+    }
+
+    // remove empty witness
+    txSkeleton = txSkeleton.update('witnesses', (witnesses) =>
+      witnesses.filter((witness) => witness !== '0x'),
+    );
+
+    const allInputAmount = txSkeleton
+      .get('inputs')
+      .toArray()
+      .reduce(
+        (acc, cur) => acc.plus(new BigNumber(cur.cellOutput.capacity, 16)),
+        new BigNumber(0),
+      );
+    const allOutputAmount = txSkeleton
+      .get('outputs')
+      .toArray()
+      .reduce(
+        (acc, cur) => acc.plus(new BigNumber(cur.cellOutput.capacity, 16)),
+        new BigNumber(0),
+      );
+
+    let limit = allInputAmount.minus(allOutputAmount).toString();
+    if (allInputAmount.isLessThanOrEqualTo(allOutputAmount)) {
+      // fix max send fee
+      const size = getTransactionSizeByTxSkeleton(txSkeleton);
+      limit = new BigNumber(median, 16).multipliedBy(size).div(1024).toFixed(0);
+
+      debugLogger.common.info('fix max send fee,', {
+        limit,
+        txSkeleton: txSkeleton.toJSON(),
+      });
+
+      txSkeleton = txSkeleton.update('outputs', (outputs) =>
+        outputs.update(outputs.size - 1, (output: Cell | undefined) => {
+          if (!output) {
+            return output;
+          }
+          output.cellOutput.capacity = BI.from(output.cellOutput.capacity)
+            .sub(limit)
+            .toHexString();
+          return output;
+        }),
+      );
+    }
+
+    const tx = convertTxSkeletonToTransaction(txSkeleton);
+
+    return {
+      transferInfo,
+      tx,
+      feeInfo: {
+        price: '1',
+        limit,
+      },
+    };
   }
 
   override async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxNervos,
   ): Promise<IUnsignedTxPro> {
-    const { inputs, outputs, change } = encodedTx;
+    const config = await this.getCurrentConfig();
 
-    const config = getConfig(await this.getNetworkChainId());
+    const client = await this.getClient();
+    const txs = await convertTxToTxSkeleton({
+      client,
+      transaction: encodedTx.tx,
+    });
 
     const inputsInUnsignedTx: TxInput[] = [];
-    for (const input of inputs) {
-      const value = new BigNumber(input.cellOutput.capacity, 16);
+    for (const input of txs.get('inputs').toArray()) {
+      const value = decodeBalanceWithCell(input, config);
       inputsInUnsignedTx.push({
         address: scriptToAddress(input.cellOutput.lock, { config }),
         value,
@@ -270,27 +416,52 @@ export default class Vault extends VaultBase {
           vout: new BigNumber(input.outPoint?.index ?? '0x00', 16).toNumber(),
           value,
         },
+        tokenAddress: input.cellOutput.type?.args,
       });
     }
 
-    const outputsInUnsignedTx = outputs.map(({ address, value, data }) => ({
-      address,
-      value: new BigNumber(value),
-      payload: { data },
-    }));
-
-    if (change) {
+    const outputsInUnsignedTx: TxOutput[] = [];
+    for (const output of txs.get('outputs').toArray()) {
+      const value = decodeBalanceWithCell(output, config);
       outputsInUnsignedTx.push({
-        address: change.address,
-        value: new BigNumber(change.value),
-        payload: { data: change.data },
+        address: scriptToAddress(output.cellOutput.lock, { config }),
+        value,
+        tokenAddress: output.cellOutput.type?.args,
+        payload: { data: output.data },
       });
+    }
+
+    // check fee is too high
+    const allInputAmount = txs
+      .get('inputs')
+      .toArray()
+      .reduce(
+        (acc, cur) => acc.plus(new BigNumber(cur.cellOutput.capacity, 16)),
+        new BigNumber(0),
+      );
+    const allOutputAmount = txs
+      .get('outputs')
+      .toArray()
+      .reduce(
+        (acc, cur) => acc.plus(new BigNumber(cur.cellOutput.capacity, 16)),
+        new BigNumber(0),
+      );
+
+    if (
+      allInputAmount
+        .minus(allOutputAmount)
+        .isGreaterThan(new BigNumber(1.5 * 100000000))
+    ) {
+      debugLogger.common.error('Fee is too high, transaction: ', txs);
+      throw new OneKeyInternalError('Fee is too high');
     }
 
     const ret = {
       inputs: inputsInUnsignedTx,
       outputs: outputsInUnsignedTx,
-      payload: {},
+      payload: {
+        txSkeleton: txs,
+      },
       encodedTx,
     };
 
@@ -305,90 +476,144 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxNervos,
     payload?: any,
   ): Promise<IDecodedTx> {
-    const { inputs, outputs, feeInfo } = encodedTx;
+    const client = await this.getClient();
+    const txs = await convertTxToTxSkeleton({
+      client,
+      transaction: encodedTx.tx,
+    });
 
-    const config = getConfig(await this.getNetworkChainId());
+    const inputs = txs.get('inputs').toArray();
+    const outputs = txs.get('outputs').toArray();
+
+    const config = await this.getCurrentConfig();
     const network = await this.engine.getNetwork(this.networkId);
     const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
-    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const nativeToken = await this.engine.getNativeTokenInfo(this.networkId);
+
+    const toAddressOutput =
+      outputs.find(
+        (output) =>
+          scriptToAddress(output.cellOutput.lock, { config }) !==
+          dbAccount.address,
+      ) ?? outputs[0];
+
+    if (!toAddressOutput) {
+      throw new OneKeyInternalError('No to address output found');
+    }
+
+    const toAddress = scriptToAddress(toAddressOutput.cellOutput.lock, {
+      config,
+    });
+
+    let actions: IDecodedTxAction[] = [];
 
     const nativeTransfer: IDecodedTxActionNativeTransfer = {
-      tokenInfo: token,
+      tokenInfo: nativeToken,
       utxoFrom: inputs.map((input) => ({
         address: scriptToAddress(input.cellOutput.lock, { config }),
-        balance: new BigNumber(input.cellOutput.capacity, 16)
+        balance: decodeNaiveBalance(input)
           .shiftedBy(-network.decimals)
           .toFixed(),
-        balanceValue:
-          new BigNumber(input.cellOutput.capacity, 16)?.toString() ?? '0',
+        balanceValue: decodeNaiveBalance(input)?.toString() ?? '0',
         symbol: network.symbol,
         isMine: true,
       })),
       utxoTo: outputs.map((output) => ({
-        address: output.address,
-        balance: new BigNumber(output.value)
+        address: scriptToAddress(output.cellOutput.lock, { config }),
+        balance: decodeNaiveBalance(output)
           .shiftedBy(-network.decimals)
           .toFixed(),
-        balanceValue: output.value.toString(),
+        balanceValue: decodeNaiveBalance(output).toString(),
         symbol: network.symbol,
         isMine: false, // output.address === dbAccount.address,
       })),
       from: dbAccount.address,
-      to: outputs[0].address,
-      amount: new BigNumber(outputs[0].value)
+      to: toAddress,
+      amount: decodeNaiveBalance(toAddressOutput)
         .shiftedBy(-network.decimals)
         .toFixed(),
-      amountValue: outputs[0].value,
+      amountValue: decodeNaiveBalance(toAddressOutput).toString(),
       extraInfo: null,
     };
+
+    actions.push({
+      type: IDecodedTxActionType.NATIVE_TRANSFER,
+      direction:
+        toAddress === dbAccount.address
+          ? IDecodedTxDirection.OUT
+          : IDecodedTxDirection.SELF,
+      nativeTransfer,
+    });
+
+    const tokens = inputs.reduce((acc, cur) => {
+      const tokenAddress = cur.cellOutput.type?.args;
+      if (tokenAddress) {
+        return acc.add(tokenAddress);
+      }
+      return acc;
+    }, new Set<string>());
+
+    let existsToken = false;
+    for (const tokenAddress of tokens) {
+      const tokenActions = await this.decodeTokenHistory({
+        txSkeleton: txs,
+        config,
+        tokenAddress,
+      });
+      actions = [...actions, ...tokenActions];
+      if (tokenActions.length > 0) {
+        existsToken = true;
+      }
+    }
+
+    if (existsToken && actions.length > 1) {
+      const action = actions[0];
+      const isNativeToken =
+        action.type === IDecodedTxActionType.NATIVE_TRANSFER;
+
+      const isZero = new BigNumber(
+        action.nativeTransfer?.amount ?? '0',
+      ).isLessThanOrEqualTo('0');
+
+      if (isNativeToken && isZero) {
+        actions = actions.slice(1);
+      }
+    }
+
+    const totalInput = inputs.reduce(
+      (acc, cur) =>
+        acc.plus(
+          decodeBalanceWithCell(cur, config).shiftedBy(-network.decimals),
+        ),
+      new BigNumber(0),
+    );
+    const totalOutput = outputs.reduce(
+      (acc, cur) =>
+        acc.plus(
+          decodeBalanceWithCell(cur, config).shiftedBy(-network.decimals),
+        ),
+      new BigNumber(0),
+    );
+
+    const fee = totalInput.minus(totalOutput).toFixed();
 
     return {
       txid: '',
       owner: dbAccount.address,
       signer: dbAccount.address,
       nonce: 0,
-      actions: [
-        {
-          type: IDecodedTxActionType.NATIVE_TRANSFER,
-          direction:
-            outputs[0].address === dbAccount.address
-              ? IDecodedTxDirection.OUT
-              : IDecodedTxDirection.SELF,
-          nativeTransfer,
-        },
-      ],
+      actions,
       status: IDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
       extraInfo: null,
-      totalFeeInNative: new BigNumber(feeInfo?.limit ?? '0')
-        .multipliedBy(feeInfo?.price ?? '0.00000001')
-        .toFixed(),
+      totalFeeInNative: fee,
     };
   }
 
   async fetchFeeInfo(encodedTx: IEncodedTxNervos): Promise<IFeeInfo> {
     const network = await this.engine.getNetwork(this.networkId);
-    const config = getConfig(await this.getNetworkChainId());
-    const client = await this.getClient();
-
-    let skeleton = convertEncodeTxNervosToSkeleton({
-      encodedTxNervos: encodedTx,
-      config,
-    });
-    skeleton = fillSkeletonWitnessesWithAccount({
-      sendAccount: (await this.getDbAccount()).address,
-      txSkeleton: skeleton,
-      config,
-    });
-
-    const limit = getTransactionSizeByTxSkeleton(skeleton);
-
-    const { median } = await client.getFeeRateStatistics();
-    const price = convertFeeValueToGwei({
-      value: new BigNumber(median, 16).dividedBy(1024).toFixed(0),
-      network,
-    });
+    const { feeInfo } = encodedTx;
 
     return {
       nativeSymbol: network.symbol,
@@ -396,8 +621,13 @@ export default class Vault extends VaultBase {
       feeSymbol: network.feeSymbol,
       feeDecimals: network.feeDecimals,
 
-      limit: new BigNumber(limit).multipliedBy(1.1).toFixed(0),
-      prices: [price],
+      limit: feeInfo?.limit ?? '1',
+      prices: [
+        convertFeeValueToGwei({
+          value: '1',
+          network,
+        }),
+      ],
       defaultPresetIndex: '0',
     };
   }
@@ -407,20 +637,6 @@ export default class Vault extends VaultBase {
     feeInfoValue: IFeeInfoUnit;
   }): Promise<IEncodedTxNervos> {
     const { price, limit } = params.feeInfoValue;
-
-    if (typeof price === 'undefined' || typeof price !== 'string') {
-      throw new OneKeyInternalError('Invalid gas price.');
-    }
-    if (typeof limit !== 'string') {
-      throw new OneKeyInternalError('Invalid fee limit');
-    }
-
-    if (typeof price === 'string' && typeof limit === 'string') {
-      return this.buildEncodedTxFromTransfer(params.encodedTx.transferInfo, {
-        price,
-        limit,
-      });
-    }
 
     return Promise.resolve({
       ...params.encodedTx,
@@ -437,30 +653,6 @@ export default class Vault extends VaultBase {
     payload: IEncodedTxUpdatePayloadTransfer,
     options: IEncodedTxUpdateOptions,
   ): Promise<IEncodedTxNervos> {
-    const { outputs } = encodedTx;
-    if (options.type === IEncodedTxUpdateType.transfer && outputs.length > 0) {
-      const network = await this.getNetwork();
-
-      const fee = new BigNumber(payload.feeInfo?.limit ?? '512').multipliedBy(
-        '1.1',
-      );
-
-      const sendAmount = new BigNumber(payload.totalBalance ?? payload.amount)
-        .shiftedBy(network.decimals)
-        .toFixed(0);
-
-      return Promise.resolve({
-        ...encodedTx,
-        hasMaxSend: true,
-        outputs: [
-          {
-            address: outputs[0].address,
-            value: sendAmount,
-          },
-        ],
-        mass: parseInt(fee.toFixed(0)),
-      });
-    }
     return Promise.resolve(encodedTx);
   }
 
@@ -488,6 +680,33 @@ export default class Vault extends VaultBase {
       const errorMessage = `${errorCode ?? ''} ${message}`;
       throw new OneKeyInternalError(errorMessage);
     }
+  }
+
+  // ====== token ======
+  async getTokenInfo(tokenAddress: string) {
+    const config = await this.getCurrentConfig();
+    return getTokenInfo(tokenAddress, config);
+  }
+
+  override async validateTokenAddress(address: string): Promise<string> {
+    if (!isHexString(address)) {
+      throw new InvalidAddress('Invalid address');
+    }
+    return address;
+  }
+
+  async fetchTokenInfos(
+    tokenAddresses: string[],
+  ): Promise<Array<PartialTokenInfo | undefined>> {
+    return Promise.all(
+      tokenAddresses.map(async (tokenAddress) => {
+        try {
+          return await this.getTokenInfo(tokenAddress);
+        } catch (e) {
+          // pass
+        }
+      }),
+    );
   }
 
   // ====== transfer status ======
@@ -524,6 +743,128 @@ export default class Vault extends VaultBase {
     return txids.map((txid) => txStatuses.get(txid));
   }
 
+  async decodeTokenHistory({
+    txSkeleton,
+    config,
+    tokenAddress,
+  }: {
+    txSkeleton: TransactionSkeletonType;
+    config: Config;
+    tokenAddress: string;
+  }) {
+    const token = await this.engine.ensureTokenInDB(
+      this.networkId,
+      tokenAddress,
+    );
+
+    if (!token) {
+      return [];
+    }
+
+    const dbAccount = (await this.getDbAccount()) as DBSimpleAccount;
+
+    const inputs = txSkeleton
+      .get('inputs')
+      .toArray()
+      .filter(
+        (input) =>
+          input.cellOutput.type?.args.toLowerCase() ===
+          tokenAddress.toLowerCase(),
+      );
+
+    const outputs = txSkeleton
+      .get('outputs')
+      .toArray()
+      .filter(
+        (input) =>
+          input.cellOutput.type?.args.toLowerCase() ===
+          tokenAddress.toLowerCase(),
+      );
+
+    const utxoFrom = convertTokenHistoryUtxos(
+      Array.from(inputs),
+      dbAccount.address,
+      token,
+      config,
+    );
+    const utxoTo = convertTokenHistoryUtxos(
+      Array.from(outputs),
+      dbAccount.address,
+      token,
+      config,
+    );
+
+    const inputWithMine = utxoFrom.find((input) => input.isMine);
+
+    const utxoToWithoutMine = utxoTo.filter((output) => !output.isMine);
+    const utxoToWithMine = utxoTo.filter((output) => output.isMine);
+
+    let direction: IDecodedTxDirection;
+    let from = dbAccount.address;
+    let to = dbAccount.address;
+    let amount = '0';
+    let amountValue = '0';
+
+    if (inputWithMine) {
+      direction = IDecodedTxDirection.OUT;
+      const res = utxoTo.find((output) => !output.isMine);
+      to = res ? res.address : dbAccount.address;
+      amount = utxoToWithoutMine
+        .filter((utxo) => utxo.address === to)
+        .reduce((acc, cur) => acc.plus(cur.balance), new BigNumber(0))
+        .toFixed();
+      amountValue = new BigNumber(amount).shiftedBy(-token.decimals).toFixed();
+    } else {
+      direction = IDecodedTxDirection.IN;
+      const res = utxoFrom.find((output) => !output.isMine);
+      from = res ? res.address : dbAccount.address;
+      amount = utxoToWithMine
+        .reduce((acc, cur) => acc.plus(cur.balance), new BigNumber(0))
+        .toFixed();
+      amountValue = new BigNumber(amount).shiftedBy(-token.decimals).toFixed();
+    }
+
+    let actions: IDecodedTxAction[];
+    if (utxoToWithoutMine && utxoToWithoutMine.length) {
+      const outputTo =
+        direction === IDecodedTxDirection.OUT
+          ? utxoToWithoutMine
+          : utxoToWithMine;
+
+      actions = outputTo.map((utxo) => ({
+        type: IDecodedTxActionType.TOKEN_TRANSFER,
+        direction,
+        tokenTransfer: {
+          tokenInfo: token,
+          from,
+          to: utxo.address,
+          amount,
+          amountValue,
+          extraInfo: null,
+        },
+      }));
+    } else {
+      actions = [
+        {
+          type: IDecodedTxActionType.TOKEN_TRANSFER,
+          direction,
+          tokenTransfer: {
+            tokenInfo: token,
+            from,
+            // For out transaction, use first address as to.
+            // For in or self transaction, use first owned address as to.
+            to,
+            amount,
+            amountValue,
+            extraInfo: null,
+          },
+        },
+      ];
+    }
+
+    return actions;
+  }
+
   override async fetchOnChainHistory(options: {
     tokenIdOnNetwork?: string;
     localHistory?: IHistoryTx[];
@@ -538,7 +879,7 @@ export default class Vault extends VaultBase {
     const transactionCollector = await this.getTransactionCollector(address);
 
     const transferHistoryArray = await fetchTransactionHistory({
-      limit: 10,
+      limit: 20,
       transactionCollector,
     });
 
@@ -547,7 +888,7 @@ export default class Vault extends VaultBase {
       transferHistoryArray,
     });
 
-    const config = getConfig(await this.getNetworkChainId());
+    const config = await this.getCurrentConfig();
     const chainBlockNumber = new BigNumber(
       await client.getTipBlockNumber(),
       16,
@@ -575,22 +916,22 @@ export default class Vault extends VaultBase {
 
         const token = await this.engine.getNativeTokenInfo(this.networkId);
         const utxoFrom = convertHistoryUtxos(
-          Array.from(inputs),
+          Array.from(inputs.filter((input) => input.cellOutput.type === null)),
           dbAccount.address,
           token,
           config,
         );
         const utxoTo = convertHistoryUtxos(
-          Array.from(outputs),
+          Array.from(outputs.filter((input) => input.cellOutput.type === null)),
           dbAccount.address,
           token,
           config,
         );
 
-        const inputWithMine = utxoFrom.find((input) => input.isMine);
+        const inputIncludeMine = utxoFrom.find((input) => input.isMine);
 
-        const utxoToWithoutMine = utxoTo.filter((output) => !output.isMine);
-        const utxoToWithMine = utxoTo.filter((output) => output.isMine);
+        const outputWithoutMine = utxoTo.filter((output) => !output.isMine);
+        const outputWithMine = utxoTo.filter((output) => output.isMine);
 
         let direction: IDecodedTxDirection;
         let from = dbAccount.address;
@@ -598,11 +939,11 @@ export default class Vault extends VaultBase {
         let amount = '0';
         let amountValue = '0';
 
-        if (inputWithMine) {
+        if (inputIncludeMine) {
           direction = IDecodedTxDirection.OUT;
           const res = utxoTo.find((output) => !output.isMine);
           to = res ? res.address : dbAccount.address;
-          amount = utxoToWithoutMine
+          amount = outputWithoutMine
             .filter((utxo) => utxo.address === to)
             .reduce((acc, cur) => acc.plus(cur.balance), new BigNumber(0))
             .toFixed();
@@ -613,7 +954,7 @@ export default class Vault extends VaultBase {
           direction = IDecodedTxDirection.IN;
           const res = utxoFrom.find((output) => !output.isMine);
           from = res ? res.address : dbAccount.address;
-          amount = utxoToWithMine
+          amount = outputWithMine
             .reduce((acc, cur) => acc.plus(cur.balance), new BigNumber(0))
             .toFixed();
           amountValue = new BigNumber(amount)
@@ -622,11 +963,11 @@ export default class Vault extends VaultBase {
         }
 
         let actions: IDecodedTxAction[];
-        if (utxoToWithoutMine && utxoToWithoutMine.length) {
+        if (outputWithoutMine && outputWithoutMine.length) {
           const outputTo =
             direction === IDecodedTxDirection.OUT
-              ? utxoToWithoutMine
-              : utxoToWithMine;
+              ? outputWithoutMine
+              : outputWithMine;
 
           actions = outputTo.map((utxo) => ({
             type: IDecodedTxActionType.NATIVE_TRANSFER,
@@ -637,8 +978,8 @@ export default class Vault extends VaultBase {
               utxoTo,
               from,
               to: utxo.address,
-              amount: utxo.balance,
-              amountValue: utxo.balanceValue,
+              amount,
+              amountValue,
               extraInfo: null,
             },
           }));
@@ -661,6 +1002,41 @@ export default class Vault extends VaultBase {
               },
             },
           ];
+        }
+
+        const tokens = inputs.reduce((acc, cur) => {
+          const tokenAddress = cur.cellOutput.type?.args;
+          if (tokenAddress) {
+            return acc.add(tokenAddress);
+          }
+          return acc;
+        }, new Set<string>());
+
+        let existsToken = false;
+        for (const tokenAddress of tokens) {
+          const tokenActions = await this.decodeTokenHistory({
+            txSkeleton: tx.txSkeleton,
+            config,
+            tokenAddress,
+          });
+          actions = [...actions, ...tokenActions];
+          if (tokenActions.length > 0) {
+            existsToken = true;
+          }
+        }
+
+        if (existsToken && actions.length > 1) {
+          const action = actions[0];
+          const isNativeToken =
+            action.type === IDecodedTxActionType.NATIVE_TRANSFER;
+
+          const isZero = new BigNumber(
+            action.nativeTransfer?.amount ?? '0',
+          ).isLessThanOrEqualTo('0');
+
+          if (isNativeToken && isZero) {
+            actions = actions.slice(1);
+          }
         }
 
         const allInputAmount = inputs.reduce(
@@ -716,7 +1092,7 @@ export default class Vault extends VaultBase {
 
   // ===== validate util =====
   override async validateAddress(address: string) {
-    const config = getConfig(await this.getNetworkChainId());
+    const config = await this.getCurrentConfig();
     if (isValidateAddress(address, { config })) return Promise.resolve(address);
     return Promise.reject(new InvalidAddress());
   }
