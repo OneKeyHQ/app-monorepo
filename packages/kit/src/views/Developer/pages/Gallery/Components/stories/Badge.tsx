@@ -12,12 +12,10 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-
-import { Token } from '../../../../../../components/Token';
+import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 
 import { Layout } from './utils/Layout';
-
-import type { ITokenProps } from '../../../../../../components/Token';
 
 type IEvaluateOption = 'best' | 'maxReceived';
 
@@ -223,17 +221,25 @@ function SwapProviderItem({
                       {...(rowIndex !== 0 && { mt: '$3.5' })}
                       justifyContent="space-between"
                     >
-                      <Stack
+                      <XStack
                         position="absolute"
                         top={0}
                         left={0}
                         right={0}
                         h="$3.5"
-                        borderWidth={0}
-                        borderBottomWidth={2}
-                        borderBottomColor="$borderSubdued"
-                        borderStyle="dashed"
-                      />
+                        alignItems="flex-end"
+                        space="$1"
+                      >
+                        {/* generate a array with 10 empty fill */}
+                        {new Array(40).fill(null).map((_, index) => (
+                          <Stack
+                            key={index}
+                            h="$0.5"
+                            bg="$borderSubdued"
+                            flex={1}
+                          />
+                        ))}
+                      </XStack>
                       {row.map((item, itemIndex) => (
                         <Stack key={itemIndex} bg="$bgApp" alignItems="center">
                           <XStack>
