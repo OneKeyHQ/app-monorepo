@@ -15,9 +15,13 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 
+import java.io.BufferedInputStream;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
 
 import com.facebook.react.bridge.Arguments;
@@ -25,6 +29,7 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.Promise;
+import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
@@ -71,20 +76,71 @@ public class DownloadModule extends ReactContextBaseJavaModule {
     private File buildFile(String path) {
         return new File(path.replace("file:///", "/"));
     }
+    private String bytesToHex(byte[] bytes) {
+        StringBuffer result = new StringBuffer();
+        for (byte byt : bytes) {
+            result.append(Integer.toString((byt & 0xff) + 0x100, 16).substring(1));
+        }
+        return result.toString();
+    }
 
-    public boolean checkFilePackage(File file, Promise promise) {
+    public boolean checkFilePackage(File file, @Nullable String sha256, Promise promise) {
         PackageManager pm = rContext.getPackageManager();
         PackageInfo info = pm.getPackageArchiveInfo(file.getAbsolutePath(), 0);
-        Log.i("check-packageName:", info.packageName + " " + rContext.getPackageName());
+        Log.d("check-packageName:", info.packageName + " " + rContext.getPackageName());
         if (info.packageName != rContext.getPackageName()) {
             promise.reject(new Exception("Installation package name mismatch"));
             return false;
         }
+
+        byte[] buffer= new byte[8192];
+        int count;
+        MessageDigest digest = null;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            promise.reject(e);
+            return false;
+        }
+        BufferedInputStream bis = null;
+        try {
+            bis = new BufferedInputStream(new FileInputStream(file));
+        } catch (FileNotFoundException e) {
+            promise.reject(e);
+            return false;
+        }
+        while (true) {
+            try {
+                if (!((count = bis.read(buffer)) > 0)) break;
+            } catch (IOException e) {
+                promise.reject(e);
+                return false;
+            }
+            digest.update(buffer, 0, count);
+        }
+        try {
+            bis.close();
+        } catch (IOException e) {
+            promise.reject(e);
+            return false;
+        }
+
+        String fileSha256 = this.bytesToHex(digest.digest());
+        Log.d("cal-sha256", fileSha256);
+        if (sha256 != null && fileSha256 != sha256) {
+            promise.reject(new Exception("Installation package possibly compromised"));
+            return false;
+        }
+
         return true;
     }
 
     @ReactMethod
-    public void downloadAPK(final String url, final String filePath, final String notificationTitle, final Promise promise) {
+    public void downloadAPK(final ReadableMap map, final Promise promise) {
+        String url = map.getString("url");
+        String filePath = map.getString("filePath");
+        String notificationTitle = map.getString("notificationTitle");
+        String sha256 = map.getString("sha256");
         if (this.isDownloading) {
             return;
         }
@@ -188,7 +244,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 Intent installIntent = new Intent(Intent.ACTION_VIEW);
 
 
-                boolean isValidAPK = checkFilePackage(downloadedFile, promise);
+                boolean isValidAPK = checkFilePackage(downloadedFile, sha256, promise);
                 Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
                 installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
                 installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -224,9 +280,11 @@ public class DownloadModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void installAPK(final String filePath, final Promise promise) {
+    public void installAPK(final ReadableMap map, final Promise promise) {
+        String filePath = map.getString("filePath");
+        String sha256 = map.getString("sha256");
         File file = buildFile(filePath);
-        if (!this.checkFilePackage(file, promise)) {
+        if (!this.checkFilePackage(file, sha256, promise)) {
             return;
         }
         try {
