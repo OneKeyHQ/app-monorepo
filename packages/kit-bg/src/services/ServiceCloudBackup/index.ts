@@ -45,8 +45,6 @@ import type {
   IPublicBackupData,
 } from './types';
 
-import { Toast } from '@onekeyhq/components';
-
 const { shortenAddress } = accountUtils;
 
 const CLOUD_FLODER_NAME = 'onekey_backup_V5/';
@@ -684,20 +682,17 @@ class ServiceCloudBackup extends ServiceBase {
 
   private getDataFromCloud = memoizee(
     async (filename: string) => {
-      // if (
-      //   filename === CLOUD_METADATA_FILE_NAME &&
-      //   this.metaDataCache.length > 0
-      // ) {
-      //   return this.metaDataCache;
-      // }
+      if (
+        filename === CLOUD_METADATA_FILE_NAME &&
+        this.metaDataCache.length > 0
+      ) {
+        return this.metaDataCache;
+      }
       try {
         return await CloudFs.downloadFromCloud(
           platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
         );
       } catch (e) {
-        Toast.error({
-          title: e?.message ?? e,
-        });
         return '[]';
       }
     },
