@@ -24,6 +24,10 @@ window.desktopApi?.on?.('update/available', ({ version }) => {
   }
 });
 
+window.desktopApi?.on?.('update/download', ({ version }) => {
+  console.log('update/download, version: ', version);
+});
+
 let updateDownloadingTasks: ((params: {
   total: number;
   delta: number;
@@ -34,6 +38,7 @@ let updateDownloadingTasks: ((params: {
 window.desktopApi?.on?.('update/downloading', (params) => {
   updateDownloadingTasks.forEach((t) => t(params));
 });
+
 
 const updateDownloadedTasks: (() => void)[] = [];
 window.desktopApi.on('update/downloaded', () => {
