@@ -121,8 +121,9 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                 long totalBytesRead = 0;
                 int bufferSize = 8 * 1024;
                 sendEvent("update/start", null);
+                int prevProgress = 0;
                 try {
-                    for (long bytesRead; (bytesRead = source.read(sinkBuffer, bufferSize)) != -1; ) {
+                    for (long bytesRead; (bytesRead = source.read(sinkBuffer, bufferSize)) != -1;) {
                         try {
                             sink.emit();
                         } catch (IOException e) {
@@ -131,17 +132,20 @@ public class DownloadModule extends ReactContextBaseJavaModule {
                         }
                         totalBytesRead += bytesRead;
                         int progress = (int) ((totalBytesRead * 100) / contentLength);
-                        try {
-                            WritableMap params = Arguments.createMap();
-                            params.putInt("progress", progress);
-                            sendEvent("update/downloading", params);
-                            Log.i("update/progress", progress + "");
-                        } catch (Exception e) {
-                            sendDownloadError(e, promise);
-                            return;
+                        if (prevProgress != progress) {
+                            try {
+                                WritableMap params = Arguments.createMap();
+                                params.putInt("progress", progress);
+                                sendEvent("update/downloading", params);
+                                Log.i("update/progress", progress + "");
+                            } catch (Exception e) {
+                                sendDownloadError(e, promise);
+                                return;
+                            }
+                            mBuilder.setProgress(100, progress, false);
+                            notifyNotification(notifiactionId, mBuilder);
+                            prevProgress = progress;
                         }
-                        mBuilder.setProgress(100, progress, false);
-                        notifyNotification(notifiactionId, mBuilder);
                     }
                 } catch (IOException e) {
                     sendDownloadError(e, promise);
