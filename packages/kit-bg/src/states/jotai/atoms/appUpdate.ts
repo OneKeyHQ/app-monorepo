@@ -11,7 +11,7 @@ export const { target: appUpdatePersistAtom, use: useAppUpdatePersistAtom } =
     persist: true,
     name: EAtomNames.appUpdatePersistAtom,
     initialValue: {
-      latestVersion: process.env.VERSION ?? '1.0.0',
+      latestVersion: '0.0.0',
       isForceUpdate: false,
       updateAt: 0,
       status: EAppUpdateStatus.done,

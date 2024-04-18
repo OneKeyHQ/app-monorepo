@@ -132,7 +132,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async reset() {
     await appUpdatePersistAtom.set({
-      latestVersion: process.env.VERSION ?? '1.0.0',
+      latestVersion: '0.0.0',
       isForceUpdate: false,
       updateAt: 0,
       status: EAppUpdateStatus.done,

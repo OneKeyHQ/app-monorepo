@@ -23,4 +23,4 @@ export const isNeedUpdate = (
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) =>
   appUpdateInfo.status !== EAppUpdateStatus.done &&
   appUpdateInfo.latestVersion &&
-  semver.gte(APP_VERSION, appUpdateInfo.latestVersion);
+  semver.eq(APP_VERSION, appUpdateInfo.latestVersion);
