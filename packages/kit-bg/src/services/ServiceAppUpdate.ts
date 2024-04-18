@@ -145,8 +145,10 @@ class ServiceAppUpdate extends ServiceBase {
     let errorText =
       e?.message || 'Network exception, please check your internet connection.';
 
-    if (errorText.startsWith('Server not responding')) {
+    if (errorText.includes('Server not responding')) {
       errorText = 'Server not responding, please try again later.';
+    } else if (errorText.includes('Software caused connection abort')) {
+      errorText = 'Network instability, please check your internet connection.';
     }
     void appUpdatePersistAtom.set((prev) => ({
       ...prev,
