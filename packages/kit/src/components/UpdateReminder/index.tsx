@@ -91,7 +91,7 @@ const UPDATE_ACTION_STYLE: Record<
   },
   [EAppUpdateStatus.ready]: {
     label: 'Restart to Update',
-    icon: 'RefreshCcwSolid',
+    icon: 'RestartToUpdateCustom',
     variant: 'primary',
   },
   [EAppUpdateStatus.failed]: {
@@ -150,11 +150,11 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
   },
   [EAppUpdateStatus.ready]: {
     bg: '$bgSuccessSubdued',
-    borderColor: '$borderCriticalSubdued',
+    borderColor: '$borderSuccessSubdued',
   },
   [EAppUpdateStatus.failed]: {
     bg: '$bgCriticalSubdued',
-    borderColor: '$borderSuccessSubdued',
+    borderColor: '$borderCriticalSubdued ',
   },
   [EAppUpdateStatus.done]: undefined,
 };
@@ -178,6 +178,9 @@ function BasicUpdateReminder() {
       alignItems="center"
       borderTopWidth="$px"
       borderBottomWidth="$px"
+      $md={{
+        mt: '$2',
+      }}
       {...style}
     >
       <UpdateStatusText updateInfo={data} />

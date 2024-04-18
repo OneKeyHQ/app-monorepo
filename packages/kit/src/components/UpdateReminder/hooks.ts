@@ -8,6 +8,11 @@ import {
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import {
+  downloadAPK,
+  installAPK,
+} from '@onekeyhq/shared/src/modules3rdParty/downloadModule';
+import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs/index.native';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -59,6 +64,19 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
     }
+    if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
+      if (platformEnv.isNativeAndroid) {
+        void downloadAPK(
+          appUpdateInfo.downloadUrl || '',
+          appUpdateInfo.latestVersion,
+        ).then(() => {
+          void backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        });
+      }
+      if (platformEnv.isDesktop) {
+        // TODO
+      }
+    }
     void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -83,6 +101,8 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       case EAppUpdateStatus.ready:
         if (platformEnv.isDesktop) {
           window.desktopApi.installUpdate();
+        } else if (platformEnv.isNativeAndroid) {
+          void installAPK(appUpdateInfo.latestVersion);
         }
         break;
       default:
@@ -95,6 +115,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     navigation.pushModal,
   ]);
 
+  console.log(`${RNFS.CachesDirectoryPath}/apk`);
   return useMemo(
     () => ({
       isNeedUpdate: isNeedUpdate(

@@ -28,7 +28,6 @@ import ServiceBase from './ServiceBase';
 const AxiosInstance = axios.create();
 
 let timerId: ReturnType<typeof setTimeout>;
-
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -120,6 +119,16 @@ class ServiceAppUpdate extends ServiceBase {
       ...prev,
       status: EAppUpdateStatus.ready,
     }));
+  }
+
+  @backgroundMethod()
+  public async reset() {
+    await appUpdatePersistAtom.set({
+      latestVersion: process.env.VERSION ?? '1.0.0',
+      isForceUpdate: false,
+      updateAt: 0,
+      status: EAppUpdateStatus.done,
+    });
   }
 
   @backgroundMethod()

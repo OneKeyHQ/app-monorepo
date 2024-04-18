@@ -51,5 +51,14 @@
       </intent-filter>
     </activity>
     <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>
-  </application>
+      <provider
+          android:name="so.onekey.app.wallet.OnekeyFileProvider"
+          android:authorities="${applicationId}.onekeyfile"
+          android:exported="false"
+          android:grantUriPermissions="true">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              android:resource="@xml/provider_paths"/>
+      </provider>
+      </application>
 </manifest>

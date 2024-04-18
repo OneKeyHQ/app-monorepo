@@ -131,6 +131,12 @@ export const DevSettingsSection = () => {
           });
         }}
       />
+      <SectionPressItem
+        title="Reset App Update Status"
+        onPress={() => {
+          void backgroundApiProxy.serviceAppUpdate.reset();
+        }}
+      />
     </Section>
   );
 };
