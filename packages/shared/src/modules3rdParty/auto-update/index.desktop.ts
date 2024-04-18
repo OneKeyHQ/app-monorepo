@@ -52,9 +52,6 @@ window.desktopApi?.on?.('update/error', (error) => {
 
 export const downloadPackage: IDownloadPackage = () =>
   new Promise((resolve, reject) => {
-    window.desktopApi?.on?.('update/available', async ({ version }) => {
-      console.log('update/available, version: ', version);
-    });
     updateAvailableTasks.push(() => {
       window.desktopApi.downloadUpdate();
     });
