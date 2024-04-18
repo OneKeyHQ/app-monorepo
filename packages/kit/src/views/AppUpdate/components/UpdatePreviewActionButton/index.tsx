@@ -21,7 +21,11 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { IUpdatePreviewActionButton } from './type';
 
-export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
+export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
+  autoClose,
+}: {
+  autoClose: boolean;
+}) => {
   const appUpdateInfo = useAppUpdateInfo();
   const downloadSuccess = useCallback(() => {}, []);
   const downloadFailed = useCallback(() => {}, []);
@@ -53,14 +57,17 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
                 void backgroundApiProxy.serviceAppUpdate.readyToInstall();
               })
               .catch((e) => {
+                Toast.error({ title: (e as { message: string }).message });
                 void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
               });
           }
-          close();
+          if (autoClose) {
+            close();
+          }
         }
       }
     },
-    [appUpdateInfo.data],
+    [appUpdateInfo.data, autoClose],
   );
 
   const handleToInstall = useCallback(async () => {

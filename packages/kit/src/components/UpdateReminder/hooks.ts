@@ -98,6 +98,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         params: {
           latestVersion: appUpdateInfo.latestVersion,
           isForceUpdate: appUpdateInfo.isForceUpdate,
+          autoClose: isFull,
         },
       });
     },

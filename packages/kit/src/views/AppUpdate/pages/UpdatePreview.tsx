@@ -34,12 +34,12 @@ const ExtPluginText = platformEnv.isExtension ? (
 function UpdatePreview({
   route,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
-  const { latestVersion, isForceUpdate } = route.params || {};
-  const [isLock, setIsLock] = useState(!!isForceUpdate);
-  usePreventRemove(isLock, () => {});
-  const handleConfirm = useCallback(() => {
-    setIsLock(false);
-  }, []);
+  const {
+    latestVersion,
+    isForceUpdate,
+    autoClose = false,
+  } = route.params || {};
+  usePreventRemove(!!isForceUpdate, () => {});
   const changeLog = useAppChangeLog(latestVersion);
   return (
     <Page>
@@ -69,7 +69,7 @@ function UpdatePreview({
           </ScrollView>
         ) : null}
       </Page.Body>
-      <UpdatePreviewActionButton onConfirm={handleConfirm} />
+      <UpdatePreviewActionButton autoClose={autoClose} />
     </Page>
   );
 }
