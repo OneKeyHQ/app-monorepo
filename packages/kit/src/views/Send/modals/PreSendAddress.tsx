@@ -55,6 +55,7 @@ type RouteProps = RouteProp<SendRoutesParams, SendModalRoutes.PreSendAddress>;
 type FormValues = {
   to: string;
   destinationTag?: string;
+  paymentId?: string;
 };
 
 function PreSendAddress() {
@@ -66,6 +67,7 @@ function PreSendAddress() {
   const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [isValidatingAddress, setIsValidatingAddress] = useState(false);
   const [displayDestinationTag, setDisplayDestinationTag] = useState(false);
+  const [displayPaymentId, setDisplayPaymentId] = useState(false);
   const [isAddressBook, setIsAddressBook] = useState(false);
   const [addressBookLabel, setAddressBookLabel] = useState<
     string | undefined
@@ -219,6 +221,7 @@ function PreSendAddress() {
         networkId,
       );
       setDisplayDestinationTag(vaultSettings?.withDestinationTag ?? false);
+      setDisplayPaymentId(vaultSettings?.withPaymentId ?? false);
     })();
   }, [networkId]);
   //
@@ -449,6 +452,7 @@ function PreSendAddress() {
               accountId,
               to: toVal,
               destinationTag: values.destinationTag,
+              paymentId: values.paymentId,
             },
           },
         });

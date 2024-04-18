@@ -87,3 +87,32 @@ export type IOnChainBalance = {
   legacy_wallet: boolean;
   wallet: string;
 };
+
+export type IOnChainNodeInfo = {
+  min_tx_fee: number;
+};
+
+export type IUnspentOutput = {
+  prevIndex: number;
+  globalIndex: number;
+  txPubkey: string;
+  prevOutPubkey: string;
+  amount: number;
+};
+
+export type IEncodedTxDynex = {
+  from: string;
+  to: string;
+  amount: string;
+  fee: string;
+  paymentId?: string;
+  inputs: IUnspentOutput[];
+  decodedFrom: {
+    spend: string;
+    view: string;
+  };
+  decodedTo: {
+    spend: string;
+    view: string;
+  };
+};

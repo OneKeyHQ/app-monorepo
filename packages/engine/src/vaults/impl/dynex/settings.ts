@@ -21,6 +21,8 @@ const settings: IVaultSettings = Object.freeze({
 
   hideInAllNetworksMode: true,
 
+  withPaymentId: true,
+
   accountNameInfo: {
     default: {
       prefix: 'DNX',

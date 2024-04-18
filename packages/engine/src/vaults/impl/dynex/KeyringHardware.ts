@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import { convertDeviceError } from '@onekeyhq/shared/src/device/deviceErrorUtils';
@@ -13,14 +14,16 @@ import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import { AccountType, type DBAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
+import { encodeVarInt, encodeVarIntLittleEndian } from './utils';
+
 import type { DBSimpleAccount } from '../../../types/account';
 import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
-  ISignCredentialOptions,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
+import type { IEncodedTxDynex } from './types';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
@@ -133,11 +136,114 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
   }
 
-  override signTransaction(
+  override async signTransaction(
     unsignedTx: IUnsignedTxPro,
-    options: ISignCredentialOptions,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    debugLogger.common.info('signTransaction', unsignedTx);
+    const { payload } = unsignedTx;
+    const encodedTx = payload.encodedTx as IEncodedTxDynex;
+    const dbAccount = await this.getDbAccount();
+    const network = await this.getNetwork();
+    const params = {
+      path: dbAccount.path,
+      inputs: encodedTx.inputs,
+      toAddress: encodedTx.to,
+      amount: new BigNumber(encodedTx.amount)
+        .shiftedBy(network.decimals)
+        .toFixed(),
+      fee: new BigNumber(encodedTx.fee)
+        .shiftedBy(network.feeDecimals)
+        .toFixed(),
+      paymentIdHex: encodedTx.paymentId,
+    };
+    const { connectId, deviceId } = await this.getHardwareInfo();
+    const passphraseState = await this.getWalletPassphraseState();
+
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const response = await HardwareSDK.dnxSignTransaction(connectId, deviceId, {
+      ...passphraseState,
+      ...(params as unknown as any),
+    });
+
+    if (response.success) {
+      const { txKey, computedKeyImages, signatures, outputKeys } =
+        response.payload;
+      console.log('signTransaction response', response.payload);
+
+      let rawTx = '';
+
+      const version = '01';
+      const unlockTime = '00';
+      const inputTypeTag = '02';
+      const outputTypeTag = '02';
+      const txPubkeyTag = '01';
+      const fromAddressTag = '04';
+      const toAddressTag = '05';
+      const amountTag = '06';
+      const txSecTag = '07';
+      const { decodedFrom, decodedTo } = encodedTx;
+      const totalInputAmountBN = params.inputs.reduce(
+        (acc, input) => acc.plus(input.amount),
+        new BigNumber(0),
+      );
+      const chargeAmount = totalInputAmountBN
+        .minus(params.amount)
+        .minus(params.fee);
+      debugger;
+      rawTx += version;
+      rawTx += unlockTime;
+      rawTx += encodeVarInt(params.inputs.length);
+
+      for (let i = 0; i < params.inputs.length; i += 1) {
+        const input = params.inputs[i];
+        rawTx += inputTypeTag;
+        rawTx += encodeVarInt(input.amount);
+        rawTx += encodeVarInt(1);
+        rawTx += encodeVarInt(input.globalIndex);
+        rawTx += computedKeyImages[i];
+      }
+
+      rawTx += encodeVarInt(outputKeys.length);
+
+      for (let i = 0; i < outputKeys.length; i += 1) {
+        const outputKey = outputKeys[i];
+        rawTx += encodeVarInt(
+          i === outputKeys.length - 1
+            ? chargeAmount.toNumber()
+            : Number(params.amount),
+        );
+        rawTx += outputTypeTag;
+        rawTx += outputKey;
+      }
+
+      rawTx += txPubkeyTag;
+      rawTx += txKey.ephemeralTxPubKey;
+
+      rawTx += fromAddressTag;
+      rawTx += decodedFrom.spend;
+      rawTx += decodedFrom.view;
+
+      rawTx += toAddressTag;
+      rawTx += decodedTo.spend;
+      rawTx += decodedTo.view;
+
+      rawTx += amountTag;
+      rawTx += encodeVarIntLittleEndian(Number(params.amount));
+
+      rawTx += txSecTag;
+      rawTx += txKey.ephemeralTxSecKey;
+
+      for (const signature of signatures) {
+        rawTx += signature;
+      }
+
+      return {
+        txid: '',
+        rawTx,
+      };
+    }
+
+    throw convertDeviceError(response.payload);
   }
 
   override signMessage(): Promise<string[]> {

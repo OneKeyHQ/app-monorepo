@@ -204,14 +204,16 @@ export function useFeeInfoPayload({
               eip1559: info.eip1559,
               ...(info.eip1559
                 ? {
-                    price1559: info.prices[
-                      Number(info.defaultPresetIndex)
-                    ] as EIP1559Fee,
+                    price1559:
+                      (info.prices[
+                        Number(info.defaultPresetIndex)
+                      ] as EIP1559Fee) ?? info.prices[0],
                   }
                 : {
-                    price: info.prices[
-                      Number(info.defaultPresetIndex)
-                    ] as string,
+                    price:
+                      (info.prices[
+                        Number(info.defaultPresetIndex)
+                      ] as string) ?? info.prices[0],
                   }),
             };
           }

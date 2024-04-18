@@ -4480,7 +4480,7 @@ const serverPresetNetworks = [
     'balance2FeeDecimals': 0,
     'chainId': '0',
     'code': 'dynex',
-    'decimals': 8,
+    'decimals': 9,
     'id': 'dynex--0',
     'impl': 'dynex',
     'isTestnet': false,
@@ -4488,7 +4488,7 @@ const serverPresetNetworks = [
     'name': 'Dynex',
     'rpcURLs': [
       {
-        'url': 'https://node.onekeytest.com/dynex',
+        'url': 'http://node.dynexcoin.org:18333',
       },
     ],
     'shortcode': 'dnx',
@@ -4496,7 +4496,7 @@ const serverPresetNetworks = [
     'symbol': 'DNX',
     'feeMeta': {
       'code': 'dnx',
-      'decimals': 8,
+      'decimals': 9,
       'symbol': 'DNX',
     },
     'defaultEnabled': true,
