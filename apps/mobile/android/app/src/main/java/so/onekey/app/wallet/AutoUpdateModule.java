@@ -42,7 +42,7 @@ import okio.BufferedSink;
 import okio.BufferedSource;
 import okio.Okio;
 
-public class DownloadModule extends ReactContextBaseJavaModule {
+public class AutoUpdateModule extends ReactContextBaseJavaModule {
     private NotificationManagerCompat mNotifyManager;
     private NotificationCompat.Builder mBuilder;
     private ReactApplicationContext rContext;
@@ -51,14 +51,14 @@ public class DownloadModule extends ReactContextBaseJavaModule {
     private String channelId = "updateApp";
 
 
-    DownloadModule(ReactApplicationContext context) {
+    AutoUpdateModule(ReactApplicationContext context) {
         super(context);
         rContext = context;
         mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
     }
 
     public String getName() {
-        return "DownloadManager";
+        return "AutoUpdateModule";
     }
 
     private void sendEvent(String eventName, @Nullable WritableMap params) {
