@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { NativeEventEmitter, NativeModules } from 'react-native';
-import { useDebouncedCallback, useThrottledCallback } from 'use-debounce';
+import { useThrottledCallback } from 'use-debounce';
 
 import RNFS from '../react-native-fs';
 
@@ -41,7 +41,10 @@ export const installAPK: IInstallAPK = (version) => {
 };
 
 const eventEmitter = new NativeEventEmitter(NativeModules.DownloadManager);
-export const useDownloadProgress: IUseDownloadProgress = (onDownloaded) => {
+export const useDownloadProgress: IUseDownloadProgress = (
+  onSuccess,
+  onFailed,
+) => {
   const [percent, setPercent] = useState(0);
 
   const updatePercent = useThrottledCallback(
@@ -66,15 +69,11 @@ export const useDownloadProgress: IUseDownloadProgress = (onDownloaded) => {
     );
     const onDownloadedEventListener = eventEmitter.addListener(
       'update/downloaded',
-      () => {
-        onDownloaded();
-      },
+      onSuccess,
     );
     const onErrorEventListener = eventEmitter.addListener(
       'update/error',
-      (params) => {
-        console.log('onErrorEventListener---', params);
-      },
+      onFailed,
     );
     return () => {
       onStartEventListener.remove();
@@ -82,6 +81,6 @@ export const useDownloadProgress: IUseDownloadProgress = (onDownloaded) => {
       onDownloadedEventListener.remove();
       onErrorEventListener.remove();
     };
-  }, [onDownloaded, updatePercent]);
+  }, [onFailed, onSuccess, updatePercent]);
   return percent;
 };
