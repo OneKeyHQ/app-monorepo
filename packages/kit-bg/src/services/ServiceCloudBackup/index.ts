@@ -45,6 +45,8 @@ import type {
   IPublicBackupData,
 } from './types';
 
+import { Toast } from '@onekeyhq/components';
+
 const { shortenAddress } = accountUtils;
 
 const CLOUD_FLODER_NAME = 'onekey_backup_V5/';
@@ -693,6 +695,9 @@ class ServiceCloudBackup extends ServiceBase {
           platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
         );
       } catch (e) {
+        Toast.error({
+          title: e?.message ?? e,
+        });
         return '[]';
       }
     },
