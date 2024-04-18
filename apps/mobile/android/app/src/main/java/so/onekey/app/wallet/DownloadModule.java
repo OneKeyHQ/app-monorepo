@@ -72,7 +72,7 @@ public class DownloadModule extends ReactContextBaseJavaModule {
         mBuilder = new NotificationCompat.Builder(this.rContext.getApplicationContext());
         mBuilder.setContentTitle(notificationTitle)
                 .setContentText("")
-                .setSmallIcon(R.drawable.splashscreen_image);
+                .setSmallIcon(R.drawable.ic_launcher_round);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             mBuilder.setChannelId(this.rContext.getPackageName());
 
@@ -147,10 +147,10 @@ public class DownloadModule extends ReactContextBaseJavaModule {
             throw new RuntimeException(e);
         }
         promise.resolve(null);
-        this.sendEvent("update/downloaded", null);
         this.isDownloading = false;
         mBuilder.setContentText("Download completed").setProgress(0,0,false);
         mNotifyManager.notify(notifiactionId, mBuilder.build());
+        this.sendEvent("update/downloaded", null);
     }
 
 
