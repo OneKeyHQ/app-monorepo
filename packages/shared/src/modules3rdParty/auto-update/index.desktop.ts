@@ -24,6 +24,10 @@ window.desktopApi?.on?.('update/available', ({ version }) => {
   }
 });
 
+window.desktopApi?.on?.('update/not-available', (params) => {
+  console.log('update/not-available', params);
+});
+
 window.desktopApi?.on?.('update/download', ({ version }) => {
   console.log('update/download, version: ', version);
 });
@@ -35,9 +39,19 @@ let updateDownloadingTasks: ((params: {
   percent: number;
   bytesPerSecond: number;
 }) => void)[] = [];
-window.desktopApi?.on?.('update/downloading', (params) => {
-  updateDownloadingTasks.forEach((t) => t(params));
-});
+window.desktopApi?.on?.(
+  'update/downloading',
+  (params: {
+    percent: number;
+    delta: number;
+    bytesPerSecond: number;
+    total: number;
+    transferred: number;
+  }) => {
+    console.log('update/downloading', params);
+    updateDownloadingTasks.forEach((t) => t(params));
+  },
+);
 
 const updateDownloadedTasks: (() => void)[] = [];
 window.desktopApi.on('update/downloaded', () => {
@@ -58,11 +72,11 @@ window.desktopApi?.on?.(
     isNetworkError: boolean;
   }) => {
     console.log('update/error', err, isNetworkError);
-    const errorMessage =
+    const message =
       err.message ||
       'Network exception, please check your internet connection.';
     while (updateErrorTasks.length) {
-      updateErrorTasks.pop()?.(err);
+      updateErrorTasks.pop()?.({ message });
     }
   },
 );
@@ -98,7 +112,7 @@ export const useDownloadProgress: IUseDownloadProgress = (
       bytesPerSecond: number;
     }) => {
       console.log('update/downloading', progress);
-      setPercent(percent);
+      setPercent(progress);
     },
     10,
   );
