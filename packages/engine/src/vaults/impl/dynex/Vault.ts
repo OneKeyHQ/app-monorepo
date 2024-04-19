@@ -20,6 +20,7 @@ import {
   type ITransferInfo,
   type IUnsignedTxPro,
 } from '../../types';
+import { coinSelect } from '../../utils/btcForkChain/utils';
 import { VaultBase } from '../../VaultBase';
 
 import { ClientDynex } from './helper/ClientDynex';
@@ -211,7 +212,6 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('Invalid transferInfo.to params');
     }
-    const client = await this.getClient();
     const network = await this.getNetwork();
 
     const unspentOutputs = await this._collectUnspentOutputs();
@@ -223,11 +223,6 @@ export default class Vault extends VaultBase {
       fee: new BigNumber(DEFAULT_TX_MIN_FEE).toFixed(),
     });
 
-    const [decodedFrom, decodedTo] = await Promise.all([
-      client.decodeAddress(transferInfo.from),
-      client.decodeAddress(transferInfo.to),
-    ]);
-
     return {
       from: transferInfo.from,
       to: transferInfo.to,
@@ -237,8 +232,6 @@ export default class Vault extends VaultBase {
         .shiftedBy(-network.feeDecimals)
         .toFixed(),
       inputs,
-      decodedFrom,
-      decodedTo,
     };
   }
 
@@ -371,7 +364,7 @@ export default class Vault extends VaultBase {
       new BigNumber(0),
     );
 
-    if (totalUnspentOutputsAmount.lt(fee)) {
+    if (totalUnspentOutputsAmount.lte(fee)) {
       throw new Error('Insufficient balance');
     }
 
@@ -379,22 +372,41 @@ export default class Vault extends VaultBase {
       finalAmount = totalUnspentOutputsAmount.minus(fee);
     }
 
-    unspentOutputs.sort((a, b) => a.amount - b.amount);
+    const inputsForCoinSelect = unspentOutputs.map((output) => ({
+      txId: '',
+      vout: 0,
+      value: output.amount,
+      address: '',
+      path: '',
+      ...output,
+    }));
 
-    let currentAmount = new BigNumber(0);
-    for (const output of unspentOutputs) {
-      if (currentAmount.plus(output.amount).gte(totalAmount)) {
-        inputs.push(output);
-        break;
-      } else {
-        inputs.push(output);
-        currentAmount = currentAmount.plus(output.amount);
-      }
-    }
+    const outputsForCoinSelect = [
+      {
+        address: '',
+        value: finalAmount.toNumber(),
+      },
+    ];
+
+    const { inputs: inputsFromCoinSelect } = coinSelect({
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+      feeRate: '0',
+    });
 
     return {
       finalAmount: finalAmount.toFixed(),
-      inputs,
+      inputs:
+        inputsFromCoinSelect?.map((input) => {
+          const tempInput = input as unknown as IUnspentOutput;
+          return {
+            globalIndex: tempInput.globalIndex,
+            prevIndex: tempInput.prevIndex,
+            prevOutPubkey: tempInput.prevOutPubkey,
+            txPubkey: tempInput.txPubkey,
+            amount: tempInput.amount,
+          };
+        }) ?? [],
     };
   }
 
@@ -426,7 +438,7 @@ export default class Vault extends VaultBase {
         });
       }
 
-      transaction.outputs_with_address.forEach((output, index) => {
+      transaction.outputs_with_address?.forEach((output, index) => {
         if (output.address_to === accountAddress) {
           unspentOutputs[output.globalIndex] = {
             prevIndex: index,

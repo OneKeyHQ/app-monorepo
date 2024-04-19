@@ -14,7 +14,12 @@ import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import { AccountType, type DBAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import { encodeVarInt, integerToLittleEndianHex } from './utils';
+import {
+  cnFastHash,
+  decodeAddress,
+  encodeVarInt,
+  integerToLittleEndianHex,
+} from './utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type {
@@ -184,7 +189,10 @@ export class KeyringHardware extends KeyringHardwareBase {
       const toAddressTag = '05';
       const amountTag = '06';
       const txSecTag = '07';
-      const { decodedFrom, decodedTo } = encodedTx;
+      const extraNonceTag = '02';
+      const extraNoncePaymentIdTag = '00';
+      const decodedFrom = decodeAddress(encodedTx.from);
+      const decodedTo = decodeAddress(encodedTx.to);
       const totalInputAmountBN = params.inputs.reduce(
         (acc, input) => acc.plus(input.amount),
         new BigNumber(0),
@@ -221,6 +229,15 @@ export class KeyringHardware extends KeyringHardwareBase {
 
       let extra = '';
 
+      if (params.paymentIdHex) {
+        extra += extraNonceTag;
+        extra += encodeVarInt(
+          (extraNoncePaymentIdTag + params.paymentIdHex).length,
+        );
+        extra += extraNoncePaymentIdTag;
+        extra += params.paymentIdHex;
+      }
+
       extra += txPubkeyTag;
       extra += txKey.ephemeralTxPubKey;
 
@@ -249,7 +266,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
 
       return {
-        txid: '',
+        txid: cnFastHash(rawTx),
         rawTx,
       };
     }

@@ -25,6 +25,11 @@ import type {
   INFTInfo,
   ITransferInfo,
 } from '@onekeyhq/engine/src/vaults/types';
+import {
+  addHexPrefix,
+  isHexString,
+  stripHexPrefix,
+} from '@onekeyhq/engine/src/vaults/utils/hexUtils';
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { isLightningNetworkByImpl } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -500,6 +505,30 @@ function PreSendAddress() {
     );
   }, [control, displayDestinationTag, intl]);
 
+  const PaymentIdForm = useMemo(() => {
+    if (!displayPaymentId) return null;
+
+    return (
+      <Form.Item
+        control={control}
+        name="paymentId"
+        rules={{
+          validate: (value) => {
+            if (!value) return undefined;
+            if (
+              !isHexString(addHexPrefix(value)) ||
+              stripHexPrefix(value).length !== 64
+            ) {
+              return 'Payment ID must be a 64 char hex string';
+            }
+          },
+        }}
+      >
+        <Form.Input type="text" placeholder="Payment ID" />
+      </Form.Item>
+    );
+  }, [control, displayPaymentId]);
+
   const helpTextOfNameServiceResolver = useCallback(
     (value) => (
       <NameServiceResolver
@@ -717,6 +746,7 @@ function PreSendAddress() {
                 />
               </Form.Item>
               {DestinationTagForm}
+              {PaymentIdForm}
             </Form>
             {!validateMessage.errorMessage && (
               <AddressLabel

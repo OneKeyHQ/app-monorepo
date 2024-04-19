@@ -98,26 +98,6 @@ export class ClientDynex extends BaseClient {
     return resp.isvalid;
   }
 
-  async decodeAddress(address: string): Promise<{
-    spend: string;
-    view: string;
-  }> {
-    const resp = await this.rpc.call<{
-      status: string;
-      spendPublicKey: string;
-      viewPublicKey: string;
-    }>(RPC_METHODS.VALIDATE_ADDRESS, {
-      address,
-    });
-
-    this.checkDynexNodeResponse({ resp, method: 'decodeAddress' });
-
-    return {
-      spend: resp.spendPublicKey,
-      view: resp.viewPublicKey,
-    };
-  }
-
   async getNodeInfo(): Promise<IOnChainNodeInfo> {
     const resp = await axios.get<IOnChainNodeInfo>(`${this.baseURL}/getinfo`);
     return resp.data;

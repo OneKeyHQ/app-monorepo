@@ -107,12 +107,4 @@ export type IEncodedTxDynex = {
   fee: string;
   paymentId?: string;
   inputs: IUnspentOutput[];
-  decodedFrom: {
-    spend: string;
-    view: string;
-  };
-  decodedTo: {
-    spend: string;
-    view: string;
-  };
 };
