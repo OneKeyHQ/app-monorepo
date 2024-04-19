@@ -58,6 +58,9 @@ window.desktopApi?.on?.(
     isNetworkError: boolean;
   }) => {
     console.log('update/error', err, isNetworkError);
+    const errorMessage =
+      err.message ||
+      'Network exception, please check your internet connection.';
     while (updateErrorTasks.length) {
       updateErrorTasks.pop()?.(err);
     }
