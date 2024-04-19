@@ -102,13 +102,19 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   autoUpdater.on('error', (err) => {
     logger.error('auto-updater', `An error happened: ${err.toString()}`);
-    if (isNetworkError(err)) {
-      mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-        err,
-        version: ILatestVersion.version,
-        isNetworkError: true,
-      });
+    const isNetwork = isNetworkError(err);
+    let message = isNetwork
+      ? 'Network exception, please check your internet connection.'
+      : err.message;
+    if (err.message.includes('sha512 checksum mismatch')) {
+      message = 'Installation package possibly compromised';
     }
+
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+      err: { message },
+      version: ILatestVersion.version,
+      isNetworkError: isNetworkError(err),
+    });
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
@@ -202,7 +208,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
     autoUpdater
       .downloadUpdate(updateCancellationToken)
       .then(() => logger.info('auto-updater', 'Update downloaded'))
-      .catch(() => logger.info('auto-updater', 'Update cancelled'));
+      .catch(() => {
+        logger.info('auto-updater', 'Update cancelled');
+        mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+          err: {},
+          isNetworkError: false,
+        });
+      });
   });
 
   ipcMain.on(ipcMessageKeys.UPDATE_INSTALL, () => {
