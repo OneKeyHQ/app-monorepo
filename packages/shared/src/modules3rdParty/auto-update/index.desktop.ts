@@ -39,9 +39,19 @@ let updateDownloadingTasks: ((params: {
   percent: number;
   bytesPerSecond: number;
 }) => void)[] = [];
-window.desktopApi?.on?.('update/downloading', (params) => {
-  updateDownloadingTasks.forEach((t) => t(params));
-});
+window.desktopApi?.on?.(
+  'update/downloading',
+  (params: {
+    percent: number;
+    delta: number;
+    bytesPerSecond: number;
+    total: number;
+    transferred: number;
+  }) => {
+    console.log('update/downloading', params);
+    updateDownloadingTasks.forEach((t) => t(params));
+  },
+);
 
 const updateDownloadedTasks: (() => void)[] = [];
 window.desktopApi.on('update/downloaded', () => {
@@ -102,7 +112,7 @@ export const useDownloadProgress: IUseDownloadProgress = (
       bytesPerSecond: number;
     }) => {
       console.log('update/downloading', progress);
-      setPercent(percent);
+      setPercent(progress);
     },
     10,
   );
