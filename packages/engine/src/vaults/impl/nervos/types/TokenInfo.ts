@@ -1,7 +1,9 @@
 export type XUDTInfoResponse = {
-  id: string;
-  type: string;
-  attributes: XUDTAttributes;
+  data: {
+    id: string;
+    type: string;
+    attributes: XUDTAttributes;
+  };
 };
 
 export type XUDTAttributes = {

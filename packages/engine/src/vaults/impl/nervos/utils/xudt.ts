@@ -10,10 +10,16 @@ import {
   minimalCellCapacityCompatible,
   parseAddress,
 } from '@ckb-lumos/helpers';
-import axios from 'axios';
+import BigNumber from 'bignumber.js';
+import fetch from 'cross-fetch';
 import { List, Set } from 'immutable';
 
-import { getFiatEndpoint } from '../../../../endpoint';
+import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
+
+import {
+  MinimumTransferBalanceRequiredForSendingAssetError,
+  OneKeyValidatorError,
+} from '../../../../errors';
 
 import { addCellDep } from './script';
 
@@ -55,6 +61,7 @@ export function packAmount(amount: BIish): HexString {
 export async function transfer(
   txSkeleton: TransactionSkeletonType,
   fromAddress: Address,
+  token: IToken,
   xudtToken: Token,
   toAddress: Address | null | undefined,
   amount: BIish,
@@ -215,6 +222,9 @@ export async function transfer(
   let _totalCapacity = BI.from(0);
   let _totalAmount = BI.from(0);
 
+  let _totalTokenCapacity = BI.from(0);
+  let _requiresExtraNativeToken = BI.from(0);
+
   let done = false;
   for (const { cellCollector } of cellCollectorInfos) {
     for await (const inputCell of cellCollector.collect()) {
@@ -264,6 +274,9 @@ export async function transfer(
 
       _totalCapacity = _totalCapacity.add(inputCapacity);
       _totalAmount = _totalAmount.add(inputAmount);
+      if (inputCell.cellOutput.type?.args === xudtToken) {
+        _totalTokenCapacity = _totalTokenCapacity.add(inputCapacity);
+      }
 
       const requiresAmount = _amount;
 
@@ -277,6 +290,7 @@ export async function transfer(
         minimalCellCapacityCompatible(changeCellWithoutXudt),
       );
 
+      _requiresExtraNativeToken = targetCapacity.sub(_totalTokenCapacity);
       if (
         _totalCapacity.gt(targetCapacity) &&
         _totalAmount.gte(requiresAmount)
@@ -290,8 +304,14 @@ export async function transfer(
     }
   }
 
-  if (changeAmount.lt(0) || changeCapacity.lt(0)) {
-    throw new Error('Not enough capacity or amount in from infos!');
+  if (!done || changeAmount.lt(0) || changeCapacity.lt(0)) {
+    throw new MinimumTransferBalanceRequiredForSendingAssetError(
+      `${new BigNumber(amount.toString())
+        .shiftedBy(-token.decimals)
+        .toString()} ${token.symbol}`,
+      _requiresExtraNativeToken.div(10 ** 8).toString(),
+      'CKB',
+    );
   }
 
   const minimalChangeCellWithoutSudtCapacity = BI.from(
@@ -350,8 +370,8 @@ export async function getTokenInfo(
   const scriptHash = utils.computeScriptHash(xudtScript);
 
   try {
-    const response = await axios.get<XUDTInfoResponse>(
-      `${getFiatEndpoint()}/nervos/xudts/${scriptHash}`,
+    const response = await fetch(
+      `https://mainnet-api.explorer.nervos.org/api/v1/xudts/${scriptHash}`,
       {
         headers: {
           'Content-Type': 'application/vnd.api+json',
@@ -360,15 +380,18 @@ export async function getTokenInfo(
       },
     );
 
-    if (
-      response.data.attributes.type_script.args.toLowerCase() ===
-      token.toLowerCase()
-    ) {
-      return {
-        name: response.data.attributes.full_name,
-        symbol: response.data.attributes.symbol,
-        decimals: parseInt(response.data.attributes.decimal),
-      };
+    if (response.status === 200) {
+      const res = JSON.parse(await response.text()) as XUDTInfoResponse;
+      if (
+        res.data.attributes.type_script.args.toLowerCase() ===
+        token.toLowerCase()
+      ) {
+        return {
+          name: res.data.attributes.full_name,
+          symbol: res.data.attributes.symbol,
+          decimals: parseInt(res.data.attributes.decimal),
+        };
+      }
     }
   } catch (error) {
     // ignore

@@ -285,6 +285,7 @@ export default class Vault extends VaultBase {
       txSkeleton = await xUDTTransafer(
         txSkeleton,
         from,
+        token,
         tokenAddress,
         to,
         BI.from(amountValue),
@@ -453,6 +454,7 @@ export default class Vault extends VaultBase {
         .isGreaterThan(new BigNumber(1.5 * 100000000))
     ) {
       debugLogger.common.error('Fee is too high, transaction: ', txs);
+
       throw new OneKeyInternalError('Fee is too high');
     }
 
@@ -752,10 +754,23 @@ export default class Vault extends VaultBase {
     config: Config;
     tokenAddress: string;
   }) {
-    const token = await this.engine.ensureTokenInDB(
+    const tokenDb = await this.engine.ensureTokenInDB(
       this.networkId,
       tokenAddress,
     );
+
+    let token: PartialTokenInfo | undefined;
+    if (tokenDb) {
+      token = {
+        symbol: tokenDb.symbol,
+        name: tokenDb.name,
+        decimals: tokenDb.decimals,
+      };
+    }
+
+    if (!token) {
+      token = await getTokenInfo(tokenAddress, config);
+    }
 
     if (!token) {
       return [];
@@ -1019,7 +1034,13 @@ export default class Vault extends VaultBase {
             config,
             tokenAddress,
           });
+
+          if (actions.length === 0 && tokenActions.length === 0) {
+            return await Promise.resolve(null);
+          }
+
           actions = [...actions, ...tokenActions];
+
           if (tokenActions.length > 0) {
             existsToken = true;
           }
