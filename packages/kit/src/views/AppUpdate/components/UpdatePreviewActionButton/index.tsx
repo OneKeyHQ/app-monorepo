@@ -41,8 +41,11 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
             .then(() => {
               void backgroundApiProxy.serviceAppUpdate.readyToInstall();
             })
-            .catch((e) => {
-              Toast.error({ title: (e as { message: string }).message });
+            .catch((e: { message: string }) => {
+              const { message } = e as { message: string };
+              if (message) {
+                Toast.error({ title: message });
+              }
               void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
             });
           if (autoClose) {
@@ -60,7 +63,10 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         await installPackage(appUpdateInfo.data);
       }
     } catch (error) {
-      Toast.error({ title: (error as { message: string }).message });
+      const { message } = error as { message: string };
+      if (message) {
+        Toast.error({ title: message });
+      }
     }
   }, [appUpdateInfo.data]);
 

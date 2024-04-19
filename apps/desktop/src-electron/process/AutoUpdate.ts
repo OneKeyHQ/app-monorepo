@@ -202,7 +202,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
     autoUpdater
       .downloadUpdate(updateCancellationToken)
       .then(() => logger.info('auto-updater', 'Update downloaded'))
-      .catch(() => logger.info('auto-updater', 'Update cancelled'));
+      .catch(() => {
+        logger.info('auto-updater', 'Update cancelled');
+        mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+          err: {},
+          isNetworkError: false,
+        });
+      });
   });
 
   ipcMain.on(ipcMessageKeys.UPDATE_INSTALL, () => {
