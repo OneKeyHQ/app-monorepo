@@ -90,7 +90,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String appPackageName = getReactApplicationContext().getPackageName();
         if (info != null && info.packageName != null) {
             Log.d("check-packageName:", info.packageName + " " + appPackageName + " " + String.valueOf(info.packageName.equals(appPackageName)));
-            if (info.packageName.equals(appPackageName)) {
+            if (!info.packageName.equals(appPackageName)) {
                 promise.reject(new Exception("Installation package name mismatch"));
                 return false;
             }
