@@ -85,12 +85,15 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     }
 
     public boolean checkFilePackage(File file, @Nullable String sha256, Promise promise) {
-        PackageManager pm = rContext.getPackageManager();
+        PackageManager pm = getReactApplicationContext().getPackageManager();
         PackageInfo info = pm.getPackageArchiveInfo(file.getAbsolutePath(), 0);
-        Log.d("check-packageName:", info.packageName + " " + rContext.getPackageName());
-        if (info.packageName != rContext.getPackageName()) {
-            promise.reject(new Exception("Installation package name mismatch"));
-            return false;
+        String appPackageName = getReactApplicationContext().getPackageName();
+        if (info != null && info.packageName != null) {
+            Log.d("check-packageName:", info.packageName + " " + appPackageName + " " + String.valueOf(info.packageName.equals(appPackageName)));
+            if (!info.packageName.equals(appPackageName)) {
+                promise.reject(new Exception("Installation package name mismatch"));
+                return false;
+            }
         }
 
         byte[] buffer= new byte[8192];
@@ -126,8 +129,8 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         }
 
         String fileSha256 = this.bytesToHex(digest.digest());
-        Log.d("cal-sha256", sha256 + "" + fileSha256);
-        if (fileSha256 != sha256) {
+        Log.d("cal-sha256", sha256 + " " + fileSha256 + " " + String.valueOf(fileSha256.equals(sha256)));
+        if (!fileSha256.equals(sha256)) {
             promise.reject(new Exception("Installation package possibly compromised"));
             return false;
         }
