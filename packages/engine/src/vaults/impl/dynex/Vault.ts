@@ -31,7 +31,7 @@ import settings from './settings';
 
 import type { AccountCredentialType } from '../../../types/account';
 import type { PartialTokenInfo } from '../../../types/provider';
-import type { ISignedTxPro } from '../../types';
+import type { IHistoryTx, ISignedTxPro } from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IEncodedTxDynex, IUnspentOutput } from './types';
 
@@ -102,16 +102,8 @@ export default class Vault extends VaultBase {
   }
 
   override async fetchFeeInfo(): Promise<IFeeInfo> {
-    const client = await this.getClient();
     const network = await this.getNetwork();
-    let minFee = DEFAULT_TX_MIN_FEE;
-
-    try {
-      const nodeInfo = await client.getNodeInfo();
-      minFee = nodeInfo.min_tx_fee;
-    } catch (e) {
-      // pass
-    }
+    const minFee = DEFAULT_TX_MIN_FEE;
 
     const prices = [
       new BigNumber(minFee).shiftedBy(-network.feeDecimals).toFixed(),
@@ -223,7 +215,6 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
 
     const unspentOutputs = await this._collectUnspentOutputs();
-
     const { inputs, finalAmount } = this._collectInputs({
       unspentOutputs: Object.values(unspentOutputs),
       amount: new BigNumber(transferInfo.amount)
@@ -263,16 +254,88 @@ export default class Vault extends VaultBase {
       rawTx: signedTx.rawTx,
     });
     const client = await this.getClient();
-    const txid = await client.sendRawTransaction(signedTx.rawTx);
+    const txid = await client.broadcastTransaction(signedTx.rawTx);
     debugLogger.engine.info('broadcastTransaction END:', {
       txid,
       rawTx: signedTx.rawTx,
     });
-    return {
-      ...signedTx,
-      txid,
-      encodedTx: signedTx.encodedTx,
-    };
+    return signedTx;
+  }
+
+  override async fetchOnChainHistory(options: {
+    tokenIdOnNetwork?: string;
+    localHistory: IHistoryTx[];
+  }): Promise<IHistoryTx[]> {
+    const client = await this.getClient();
+    const { localHistory } = options;
+    const address = await this.getAccountAddress();
+    const token = await this.engine.getNativeTokenInfo(this.networkId);
+    const network = await this.getNetwork();
+    const txs = await client.getTransactionsByAddress(address);
+
+    const promises = txs.map(async (tx) => {
+      try {
+        const historyTxToMerge = localHistory.find(
+          (item) => item.decodedTx.txid === tx.hash,
+        );
+        if (historyTxToMerge && historyTxToMerge.decodedTx.isFinal) {
+          return null;
+        }
+
+        let direction = IDecodedTxDirection.OUT;
+        if (tx.to_address.includes(address)) {
+          direction =
+            tx.from_address === address
+              ? IDecodedTxDirection.SELF
+              : IDecodedTxDirection.IN;
+        }
+
+        const amountValue = parseInt(tx.amount[0], 16);
+
+        const decodedTx: IDecodedTx = {
+          txid: tx.hash ?? '',
+          owner: address,
+          signer: tx.from_address,
+          nonce: 0,
+          actions: [
+            {
+              type: IDecodedTxActionType.NATIVE_TRANSFER,
+              direction,
+              nativeTransfer: {
+                tokenInfo: token,
+                from: tx.from_address,
+                to: tx.to_address[0],
+                amount: new BigNumber(amountValue)
+                  .shiftedBy(-network.decimals)
+                  .toFixed(),
+                amountValue: amountValue.toString(10),
+                extraInfo: null,
+              },
+            },
+          ],
+          status: IDecodedTxStatus.Confirmed,
+          totalFeeInNative: new BigNumber(tx.fee)
+            .shiftedBy(-network.feeDecimals)
+            .toFixed(),
+          networkId: this.networkId,
+          accountId: this.accountId,
+          extraInfo: null,
+        };
+        decodedTx.updatedAt = new Date(tx.timestamp * 1000).getTime();
+        decodedTx.createdAt =
+          historyTxToMerge?.decodedTx.createdAt ?? decodedTx.updatedAt;
+        decodedTx.isFinal = decodedTx.status === IDecodedTxStatus.Confirmed;
+        return await this.buildHistoryTx({
+          decodedTx,
+          historyTxToMerge,
+        });
+      } catch (e) {
+        console.error(e);
+        return Promise.resolve(null);
+      }
+    });
+
+    return (await Promise.all(promises)).filter(Boolean);
   }
 
   _validateAddressMemo = memoizee(

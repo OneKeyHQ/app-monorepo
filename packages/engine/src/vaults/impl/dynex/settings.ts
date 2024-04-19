@@ -17,7 +17,7 @@ const settings: IVaultSettings = Object.freeze({
   watchingAccountEnabled: false,
   softwareAccountDisabled: true,
 
-  isUTXOModel: false,
+  isUTXOModel: true,
 
   hideInAllNetworksMode: true,
 
@@ -29,6 +29,8 @@ const settings: IVaultSettings = Object.freeze({
       category: `44'/${COINTYPE_DYNEX}'`,
       template: `m/44'/${COINTYPE_DYNEX}'/0'/0'/${INDEX_PLACEHOLDER}'`,
       coinType: COINTYPE_DYNEX,
+      label: 'Default',
+      subDesc: `m/44'/${COINTYPE_DYNEX}'/0'/0'/x'`,
     },
   },
 });

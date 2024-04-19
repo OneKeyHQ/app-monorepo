@@ -14,9 +14,9 @@ import { getAccountNameInfoByImpl } from '../../../managers/impl';
 import { AccountType, type DBAccount } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 
-import { encodeVarInt, encodeVarIntLittleEndian } from './utils';
+import { encodeVarInt, integerToLittleEndianHex } from './utils';
 
-import type { DBSimpleAccount } from '../../../types/account';
+import type { DBUTXOAccount } from '../../../types/account';
 import type {
   IHardwareGetAddressParams,
   IPrepareHardwareAccountsParams,
@@ -28,7 +28,7 @@ import type { IEncodedTxDynex } from './types';
 export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
-  ): Promise<DBAccount[]> {
+  ): Promise<DBUTXOAccount[]> {
     const { indexes, names, template } = params;
     const { pathPrefix } = slicePathTemplate(template);
     const paths = indexes.map((index) => `${pathPrefix}/${index}'`);
@@ -57,7 +57,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       throw convertDeviceError(addressesResponse.payload);
     }
 
-    const ret: DBSimpleAccount[] = [];
+    const ret: DBUTXOAccount[] = [];
     let index = 0;
     for (const addressInfo of addressesResponse.payload) {
       const { address, path } = addressInfo;
@@ -66,14 +66,17 @@ export class KeyringHardware extends KeyringHardwareBase {
         throw new OneKeyHardwareError({ message: 'Get Dynex Address error.' });
       }
       const name = (names || [])[index] || `${prefix} #${indexes[index] + 1}`;
+      const addressRelPath = '0/0';
       ret.push({
         id: `${this.walletId}--${path}`,
         name,
-        type: AccountType.SIMPLE,
+        type: AccountType.UTXO,
         path,
         coinType: COIN_TYPE,
         pub: '',
+        xpub: '',
         address,
+        addresses: { [addressRelPath]: address },
       });
       index += 1;
     }
@@ -189,7 +192,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const chargeAmount = totalInputAmountBN
         .minus(params.amount)
         .minus(params.fee);
-      debugger;
+
       rawTx += version;
       rawTx += unlockTime;
       rawTx += encodeVarInt(params.inputs.length);
@@ -208,7 +211,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       for (let i = 0; i < outputKeys.length; i += 1) {
         const outputKey = outputKeys[i];
         rawTx += encodeVarInt(
-          i === outputKeys.length - 1
+          i === outputKeys.length - 1 && chargeAmount.gt(0)
             ? chargeAmount.toNumber()
             : Number(params.amount),
         );
@@ -216,22 +219,30 @@ export class KeyringHardware extends KeyringHardwareBase {
         rawTx += outputKey;
       }
 
-      rawTx += txPubkeyTag;
-      rawTx += txKey.ephemeralTxPubKey;
+      let extra = '';
 
-      rawTx += fromAddressTag;
-      rawTx += decodedFrom.spend;
-      rawTx += decodedFrom.view;
+      extra += txPubkeyTag;
+      extra += txKey.ephemeralTxPubKey;
 
-      rawTx += toAddressTag;
-      rawTx += decodedTo.spend;
-      rawTx += decodedTo.view;
+      extra += fromAddressTag;
+      extra += decodedFrom.spend;
+      extra += decodedFrom.view;
 
-      rawTx += amountTag;
-      rawTx += encodeVarIntLittleEndian(Number(params.amount));
+      extra += toAddressTag;
+      extra += decodedTo.spend;
+      extra += decodedTo.view;
 
-      rawTx += txSecTag;
-      rawTx += txKey.ephemeralTxSecKey;
+      extra += amountTag;
+      extra += integerToLittleEndianHex({
+        number: Number(params.amount),
+        bytes: 8,
+      });
+
+      extra += txSecTag;
+      extra += txKey.ephemeralTxSecKey;
+
+      rawTx += encodeVarInt(extra.length / 2);
+      rawTx += extra;
 
       for (const signature of signatures) {
         rawTx += signature;

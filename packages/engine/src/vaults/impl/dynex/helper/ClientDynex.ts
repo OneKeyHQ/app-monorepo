@@ -26,7 +26,6 @@ export enum RPC_METHODS {
   GET_TRANSACTION = 'gettransaction',
   GET_BLOCK_COUNT = 'getblockcount',
   VALIDATE_ADDRESS = 'validateaddress',
-  SEND_RAW_TRANSACTION = 'sendrawtransaction',
 }
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export enum PARAMS_ENCODINGS {
@@ -55,21 +54,6 @@ export class ClientDynex extends BaseClient {
     if (!resp || !resp.status || resp.status.toLowerCase() !== 'ok') {
       throw new Error(`${method}: Failed to get response from Dynex node`);
     }
-  }
-
-  async sendRawTransaction(tx: string): Promise<string> {
-    const resp = await axios.post<{ status: string }>(
-      `${this.baseURL}/sendrawtransaction`,
-      {
-        tx_as_hex: tx,
-        do_not_relay: false,
-      },
-    );
-
-    if (!resp.data.status || resp.data.status !== 'OK')
-      throw new Error('Failed to send transaction');
-
-    return resp.data.status;
   }
 
   async getBlockCount(): Promise<number> {
@@ -184,8 +168,19 @@ export class ClientDynex extends BaseClient {
     throw new NotImplemented();
   }
 
-  override broadcastTransaction(): Promise<string> {
-    throw new NotImplemented();
+  override async broadcastTransaction(rawTx: string): Promise<string> {
+    const resp = await axios.post<{ status: string }>(
+      `${this.baseURL}/sendrawtransaction`,
+      {
+        tx_as_hex: rawTx,
+        do_not_relay: false,
+      },
+    );
+
+    if (!resp.data.status || resp.data.status !== 'OK')
+      throw new Error('Failed to send transaction');
+
+    return resp.data.status;
   }
 
   override getBalances(): Promise<(BigNumber | undefined)[]> {
