@@ -45,6 +45,9 @@ export type IOnboardingRoutesParams = {
   [EOnboardingRoutes.ThirdPartyWallet]:
     | IOnboardingConnectWalletParams
     | undefined;
+  [EOnboardingRoutes.BTCExternalWallet]:
+    | IOnboardingConnectWalletParams
+    | undefined;
 
   [EOnboardingRoutes.ImportWallet]: IOnboardingImportWalletParams | undefined;
   [EOnboardingRoutes.RecoveryWallet]: IOnboardingImportWalletParams & {

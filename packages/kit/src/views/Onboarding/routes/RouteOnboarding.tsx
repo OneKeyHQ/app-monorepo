@@ -6,6 +6,7 @@ import { RouteKeytag } from '@onekeyhq/kit/src/views/KeyTag/Routes/RouteKeytag';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ConnectHardware from '../../CreateWallet/HardwareWallet/ConnectHardware';
+import BTCExternalWallet from '../screens/BTCExternalWallet';
 import ConnectWallet from '../screens/ConnectWallet';
 import BehindTheScene from '../screens/CreateWallet/BehindTheScene';
 import RecoveryPhrase from '../screens/CreateWallet/RecoveryPhrase';
@@ -40,6 +41,10 @@ export const stackScreenList = [
   {
     name: EOnboardingRoutes.ThirdPartyWallet,
     component: ThirdPartyWallet,
+  },
+  {
+    name: EOnboardingRoutes.BTCExternalWallet,
+    component: BTCExternalWallet,
   },
   {
     name: EOnboardingRoutes.ImportWallet,

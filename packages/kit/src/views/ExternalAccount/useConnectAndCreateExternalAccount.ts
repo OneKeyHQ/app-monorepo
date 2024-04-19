@@ -3,7 +3,6 @@ import { useCallback } from 'react';
 import type { IAccount } from '@onekeyhq/engine/src/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useWalletConnectQrcodeModal } from '../../components/WalletConnect/useWalletConnectQrcodeModal';
@@ -75,7 +74,7 @@ export function useConnectAndCreateExternalAccount({
   const goToOnboardingConnectWallet = useCallback(
     () =>
       navigation.navigate(RootRoutes.Onboarding, {
-        screen: EOnboardingRoutes.ThirdPartyWallet,
+        screen: EOnboardingRoutes.BTCExternalWallet,
         params: {
           disableAnimation: true,
           disableOnboardingDone: true,
@@ -84,17 +83,17 @@ export function useConnectAndCreateExternalAccount({
     [navigation],
   );
 
-  const connectAndCreateExternalAccount = useCallback(async () => {
+  const connectAndCreateExternalAccount = useCallback(() => {
     // Web can connect to injected and wallet-connect
     // so go to onboarding for selecting wallet
-    if (platformEnv.isWeb) {
-      goToOnboardingConnectWallet();
-      return;
-    }
+    goToOnboardingConnectWallet();
+    // if (platformEnv.isWeb) {
+    //   return;
+    // }
 
-    // Desktop and App can ONLY connect wallet-connect
-    await connectToWcWalletDirectly();
-  }, [connectToWcWalletDirectly, goToOnboardingConnectWallet]);
+    // // Desktop and App can ONLY connect wallet-connect
+    // await connectToWcWalletDirectly();
+  }, [goToOnboardingConnectWallet]);
 
   return {
     goToOnboardingConnectWallet,

@@ -144,7 +144,7 @@ const Welcome = () => {
   const onPressThirdPartyWallet = useCallback(() => {
     resetLayoutAnimation();
     backgroundApiProxy.dispatch(setOnBoardingLoadingBehindModal(false));
-    setTimeout(() => navigation.navigate(EOnboardingRoutes.ThirdPartyWallet));
+    setTimeout(() => navigation.navigate(EOnboardingRoutes.BTCExternalWallet));
   }, [navigation, resetLayoutAnimation]);
 
   return (
@@ -177,16 +177,12 @@ const Welcome = () => {
           <Box flexDirection={{ sm: 'row' }} w={{ sm: '100%' }}>
             <PressableListItem
               icon="PlusCircleOutline"
-              label={intl.formatMessage({
-                id: 'action__create_wallet',
-              })}
-              description={intl.formatMessage({
-                id: 'content__create_wallet_desc',
-              })}
+              label="Connect Wallet"
+              description=""
               roundedBottom={{ base: 0, sm: 'xl' }}
-              onPress={onPressCreateWallet}
+              onPress={onPressThirdPartyWallet}
             />
-            <PressableListItem
+            {/* <PressableListItem
               icon="ArrowDownCircleOutline"
               label={intl.formatMessage({
                 id: 'action__import_wallet',
@@ -220,10 +216,10 @@ const Welcome = () => {
                   />
                 </Box>
               </Hidden>
-            </PressableListItem>
+            </PressableListItem> */}
           </Box>
         </Box>
-        <Hidden till="sm">
+        {/* <Hidden till="sm">
           <Box flexDirection="row" alignItems="center" mt="24px" mb="-12px">
             <Divider flex={1} />
             <Text mx="14px" typography="Subheading" color="text-disabled">
@@ -232,7 +228,7 @@ const Welcome = () => {
             <Divider flex={1} />
           </Box>
         </Hidden>
-        <ConnectThirdPartyWallet onPress={onPressThirdPartyWallet} />
+        <ConnectThirdPartyWallet onPress={onPressThirdPartyWallet} /> */}
       </Layout>
       <TermsOfService />
     </>
