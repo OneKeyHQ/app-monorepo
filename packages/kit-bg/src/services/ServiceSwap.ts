@@ -177,12 +177,14 @@ export default class ServiceSwap extends ServiceBase {
     fromTokenAmount,
     userAddress,
     slippagePercentage,
+    blockNumber,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
     fromTokenAmount: string;
     userAddress?: string;
     slippagePercentage: number;
+    blockNumber?: number;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
     const params: IFetchQuotesParams = {
@@ -194,6 +196,7 @@ export default class ServiceSwap extends ServiceBase {
       protocol: EProtocolOfExchange.SWAP,
       userAddress,
       slippagePercentage,
+      blockNumber,
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient();

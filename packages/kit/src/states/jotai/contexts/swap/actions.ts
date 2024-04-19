@@ -253,6 +253,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       slippagePercentage: number,
       address?: string,
       loadingDelayEnable?: boolean,
+      blockNumber?: number,
     ) => {
       let enableInterval = true;
       try {
@@ -265,6 +266,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromTokenAmount,
           userAddress: address,
           slippagePercentage,
+          blockNumber,
         });
 
         if (!loadingDelayEnable) {
@@ -292,34 +294,38 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  quoteAction = contextAtomMethod(async (get, set, address?: string) => {
-    this.cleanQuoteInterval();
-    set(swapBuildTxFetchingAtom(), false);
-    const fromToken = get(swapSelectFromTokenAtom());
-    const toToken = get(swapSelectToTokenAtom());
-    const fromTokenAmount = get(swapFromTokenAmountAtom());
-    const swapSlippage = get(swapSlippagePercentageAtom());
-    const fromTokenAmountNumber = Number(fromTokenAmount);
-    if (
-      fromToken &&
-      toToken &&
-      !Number.isNaN(fromTokenAmountNumber) &&
-      fromTokenAmountNumber > 0
-    ) {
-      void this.runQuote.call(
-        set,
-        fromToken,
-        toToken,
-        fromTokenAmount,
-        swapSlippage.value,
-        address,
-      );
-    } else {
-      await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
-      set(swapQuoteFetchingAtom(), false);
-      set(swapQuoteListAtom(), []);
-    }
-  });
+  quoteAction = contextAtomMethod(
+    async (get, set, address?: string, blockNumber?: number) => {
+      this.cleanQuoteInterval();
+      set(swapBuildTxFetchingAtom(), false);
+      const fromToken = get(swapSelectFromTokenAtom());
+      const toToken = get(swapSelectToTokenAtom());
+      const fromTokenAmount = get(swapFromTokenAmountAtom());
+      const swapSlippage = get(swapSlippagePercentageAtom());
+      const fromTokenAmountNumber = Number(fromTokenAmount);
+      if (
+        fromToken &&
+        toToken &&
+        !Number.isNaN(fromTokenAmountNumber) &&
+        fromTokenAmountNumber > 0
+      ) {
+        void this.runQuote.call(
+          set,
+          fromToken,
+          toToken,
+          fromTokenAmount,
+          swapSlippage.value,
+          address,
+          false,
+          blockNumber,
+        );
+      } else {
+        await backgroundApiProxy.serviceSwap.cancelFetchQuotes();
+        set(swapQuoteFetchingAtom(), false);
+        set(swapQuoteListAtom(), []);
+      }
+    },
+  );
 
   approvingStateRunSync = contextAtomMethod(
     async (get, set, networkId: string, txId: string) => {
@@ -332,8 +338,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         txState.state === ESwapTxHistoryStatus.FAILED
       ) {
         set(swapApprovingTransactionAtom(), (pre) => {
-          if (!pre || txState.state === ESwapTxHistoryStatus.SUCCESS) {
-            return undefined;
+          if (!pre) return pre;
+          if (txState.state === ESwapTxHistoryStatus.SUCCESS) {
+            return {
+              ...pre,
+              blockNumber: txState.blockNumber,
+              status: ESwapApproveTransactionStatus.SUCCESS,
+            };
           }
           return {
             ...pre,
