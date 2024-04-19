@@ -303,6 +303,9 @@ function createMainWindow() {
   ipcMain.on(ipcMessageKeys.APP_FOCUS, () => {
     showMainWindow();
   });
+  ipcMain.on(ipcMessageKeys.APP_VERSION, (event) => {
+    event.returnValue = app.getVersion();
+  });
   ipcMain.on(ipcMessageKeys.APP_QUIT, () => {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     quitOrMinimizeApp();

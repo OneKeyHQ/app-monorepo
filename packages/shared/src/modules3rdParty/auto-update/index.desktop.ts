@@ -24,6 +24,10 @@ window.desktopApi?.on?.('update/available', ({ version }) => {
   }
 });
 
+window.desktopApi?.on?.('update/not-available', (params) => {
+  console.log('update/not-available', params);
+});
+
 window.desktopApi?.on?.('update/download', ({ version }) => {
   console.log('update/download, version: ', version);
 });

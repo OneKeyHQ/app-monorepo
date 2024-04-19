@@ -40,7 +40,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
   });
 
   let isManualCheck = false;
-  let ILatestVersion: ILatestVersion = {} as ILatestVersion;
+  let latestVersion: ILatestVersion = {} as ILatestVersion;
   let updateCancellationToken: CancellationToken;
   const updateSettings = store.getUpdateSettings();
 
@@ -71,11 +71,8 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `- Manual check: ${b2t(isManualCheck)}`,
     ]);
 
-    ILatestVersion = { version, releaseDate, isManualCheck };
-    mainWindow.webContents.send(
-      ipcMessageKeys.UPDATE_AVAILABLE,
-      ILatestVersion,
-    );
+    latestVersion = { version, releaseDate, isManualCheck };
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_AVAILABLE, latestVersion);
 
     // Reset manual check flag
     isManualCheck = false;
@@ -90,10 +87,10 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `- Manual check: ${b2t(isManualCheck)}`,
     ]);
 
-    ILatestVersion = { version, releaseDate, isManualCheck };
+    latestVersion = { version, releaseDate, isManualCheck };
     mainWindow.webContents.send(
       ipcMessageKeys.UPDATE_NOT_AVAILABLE,
-      ILatestVersion,
+      latestVersion,
     );
 
     // Reset manual check flag
@@ -112,7 +109,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
       err: { message },
-      version: ILatestVersion.version,
+      version: latestVersion.version,
       isNetworkError: isNetworkError(err),
     });
   });
