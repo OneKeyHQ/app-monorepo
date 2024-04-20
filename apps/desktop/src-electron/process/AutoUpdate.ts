@@ -1,5 +1,5 @@
 import checkDiskSpace from 'check-disk-space';
-import { BrowserWindow, app, ipcMain } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
@@ -217,16 +217,26 @@ const init = ({ mainWindow, store }: IDependencies) => {
   ipcMain.on(ipcMessageKeys.UPDATE_INSTALL, () => {
     logger.info('auto-updater', 'Installation request');
 
-    // Removing listeners & closing window (https://github.com/electron-userland/electron-builder/issues/1604)
-    setImmediate(() => {
-      app.removeAllListeners('window-all-closed');
-      mainWindow.removeAllListeners('close');
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.close();
-        window.destroy();
-      }
-      setTimeout(() => autoUpdater.quitAndInstall(false), 1000);
-    });
+    void dialog
+      .showMessageBox({
+        type: 'question',
+        buttons: ['Install and Restart', 'Later'],
+        defaultId: 0,
+        message:
+          'A new update has been downloaded. Would you like to install and restart the app now?',
+      })
+      .then((selection) => {
+        if (selection.response === 0) {
+          // User clicked 'Install and Restart'
+          // app.removeAllListeners('window-all-closed');
+          mainWindow.removeAllListeners('close');
+          for (const window of BrowserWindow.getAllWindows()) {
+            window.close();
+            window.destroy();
+          }
+          autoUpdater.quitAndInstall(false);
+        }
+      });
   });
 
   ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {
