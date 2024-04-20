@@ -18,7 +18,7 @@ interface ILatestVersion {
 }
 
 const PROD_FEEDURL = 'https://web.onekey-asset.com/app-monorepo/assets/';
-const TEST_FEEDURL = 'https://web.onekey-asset.com/app-monorepo/pre-release/';
+const TEST_FEEDURL = 'http://localhost:8080/';
 
 function isNetworkError(errorObject: Error) {
   return (
