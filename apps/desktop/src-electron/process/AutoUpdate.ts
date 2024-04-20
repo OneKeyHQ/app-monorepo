@@ -107,11 +107,27 @@ const init = ({ mainWindow, store }: IDependencies) => {
       message = 'Installation package possibly compromised';
     }
 
-    mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-      err: { message },
-      version: latestVersion.version,
-      isNetworkError: isNetworkError(err),
-    });
+    if (mainWindow.isDestroyed()) {
+      void dialog
+        .showMessageBox({
+          type: 'error',
+          buttons: ['Restart Now'],
+          defaultId: 0,
+          message,
+        })
+        .then((selection) => {
+          if (selection.response === 0) {
+            app.relaunch();
+            app.exit();
+          }
+        });
+    } else {
+      mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+        err: { message },
+        version: latestVersion.version,
+        isNetworkError: isNetworkError(err),
+      });
+    }
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
@@ -216,7 +232,6 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   ipcMain.on(ipcMessageKeys.UPDATE_INSTALL, () => {
     logger.info('auto-updater', 'Installation request');
-
     void dialog
       .showMessageBox({
         type: 'question',
