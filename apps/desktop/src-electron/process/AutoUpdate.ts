@@ -1,5 +1,5 @@
 import checkDiskSpace from 'check-disk-space';
-import { app, ipcMain } from 'electron';
+import { BrowserWindow, app, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
@@ -218,11 +218,15 @@ const init = ({ mainWindow, store }: IDependencies) => {
     logger.info('auto-updater', 'Installation request');
 
     // Removing listeners & closing window (https://github.com/electron-userland/electron-builder/issues/1604)
-    app.removeAllListeners('window-all-closed');
-    mainWindow.removeAllListeners('close');
-    mainWindow.close();
-
-    autoUpdater.quitAndInstall();
+    setImmediate(() => {
+      app.removeAllListeners('window-all-closed');
+      mainWindow.removeAllListeners('close');
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.close();
+        window.destroy();
+      }
+      setTimeout(() => autoUpdater.quitAndInstall(false), 1000);
+    });
   });
 
   ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {
