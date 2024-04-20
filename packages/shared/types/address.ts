@@ -34,6 +34,7 @@ export type IFetchAccountDetailsResp = {
   labels?: [];
   balanceParsed?: string;
   nonce?: number;
+  accountNumber?: number;
   isContract?: boolean;
   netWorth?: string;
   utxos?: IUtxoInfo[];
