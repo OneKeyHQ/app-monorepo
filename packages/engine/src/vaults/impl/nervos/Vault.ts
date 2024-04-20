@@ -850,7 +850,15 @@ export default class Vault extends VaultBase {
         type: IDecodedTxActionType.TOKEN_TRANSFER,
         direction,
         tokenTransfer: {
-          tokenInfo: token,
+          tokenInfo: {
+            id: '',
+            networkId: this.networkId,
+            symbol: token?.symbol ?? '',
+            name: token?.name ?? '',
+            decimals: token?.decimals ?? 0,
+            tokenIdOnNetwork: tokenAddress,
+            logoURI: '',
+          },
           from,
           to: utxo.address,
           amount,
@@ -864,7 +872,15 @@ export default class Vault extends VaultBase {
           type: IDecodedTxActionType.TOKEN_TRANSFER,
           direction,
           tokenTransfer: {
-            tokenInfo: token,
+            tokenInfo: {
+              id: '',
+              networkId: this.networkId,
+              symbol: token?.symbol ?? '',
+              name: token?.name ?? '',
+              decimals: token?.decimals ?? 0,
+              tokenIdOnNetwork: tokenAddress,
+              logoURI: '',
+            },
             from,
             // For out transaction, use first address as to.
             // For in or self transaction, use first owned address as to.

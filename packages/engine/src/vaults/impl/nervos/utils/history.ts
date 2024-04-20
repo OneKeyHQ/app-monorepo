@@ -6,6 +6,7 @@ import type { Token } from '@onekeyhq/kit/src/store/typings';
 import { scriptToAddress } from './address';
 import { decodeBalanceWithCell } from './balance';
 
+import type { PartialTokenInfo } from '../../../../types/provider';
 import type {
   Cell,
   Header,
@@ -115,7 +116,7 @@ export function convertHistoryUtxos(
 export function convertTokenHistoryUtxos(
   cell: Cell[],
   mineAddress: string,
-  tokenInfo: Token,
+  tokenInfo: PartialTokenInfo,
   config: Config,
 ) {
   return cell?.map((c) => ({

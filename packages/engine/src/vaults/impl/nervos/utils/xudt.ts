@@ -16,10 +16,7 @@ import { List, Set } from 'immutable';
 
 import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
 
-import {
-  MinimumTransferBalanceRequiredForSendingAssetError,
-  OneKeyValidatorError,
-} from '../../../../errors';
+import { MinimumTransferBalanceRequiredForSendingAssetError } from '../../../../errors';
 
 import { addCellDep } from './script';
 
@@ -63,7 +60,7 @@ export async function transfer(
   fromAddress: Address,
   token: IToken,
   xudtToken: Token,
-  toAddress: Address | null | undefined,
+  toAddress: Address,
   amount: BIish,
   changeAddress?: Address,
   capacity?: BIish,
