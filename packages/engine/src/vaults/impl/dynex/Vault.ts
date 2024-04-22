@@ -14,7 +14,6 @@ import {
   IDecodedTxDirection,
   type IDecodedTxLegacy,
   IDecodedTxStatus,
-  type IEncodedTxUpdateOptions,
   type IFeeInfo,
   type IFeeInfoUnit,
   type ITransferInfo,
@@ -36,10 +35,9 @@ import type {
   TransactionStatus,
 } from '../../../types/provider';
 import type { IHistoryTx, ISignedTxPro } from '../../types';
-import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IEncodedTxDynex, IUnspentOutput } from './types';
 
-const DEFAULT_TX_MIN_FEE = 1000000;
+const DEFAULT_TX_FEE = 1000000;
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -107,7 +105,7 @@ export default class Vault extends VaultBase {
 
   override async fetchFeeInfo(): Promise<IFeeInfo> {
     const network = await this.getNetwork();
-    const minFee = DEFAULT_TX_MIN_FEE;
+    const minFee = DEFAULT_TX_FEE;
 
     const prices = [
       new BigNumber(minFee).shiftedBy(-network.feeDecimals).toFixed(),
@@ -223,7 +221,7 @@ export default class Vault extends VaultBase {
       amount: new BigNumber(transferInfo.amount)
         .shiftedBy(network.decimals)
         .toFixed(),
-      fee: new BigNumber(DEFAULT_TX_MIN_FEE).toFixed(),
+      fee: new BigNumber(DEFAULT_TX_FEE).toFixed(),
     });
 
     return {
@@ -231,7 +229,7 @@ export default class Vault extends VaultBase {
       to: transferInfo.to,
       amount: new BigNumber(finalAmount).shiftedBy(-network.decimals).toFixed(),
       paymentId: transferInfo.paymentId,
-      fee: new BigNumber(DEFAULT_TX_MIN_FEE)
+      fee: new BigNumber(DEFAULT_TX_FEE)
         .shiftedBy(-network.feeDecimals)
         .toFixed(),
       inputs,
@@ -371,9 +369,7 @@ export default class Vault extends VaultBase {
     fee: string;
     unspentOutputs: IUnspentOutput[];
   }) {
-    const inputs = [];
     let finalAmount = new BigNumber(amount);
-    const totalAmount = finalAmount.plus(fee);
     const totalUnspentOutputsAmount = unspentOutputs.reduce(
       (acc, output) => acc.plus(output.amount),
       new BigNumber(0),
