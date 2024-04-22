@@ -46,7 +46,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         direction={ESwapDirectionType.FROM}
         selectTokenLoading={fetchLoading}
         onAmountChange={(value) => {
-          if (validateAmountInput(value)) {
+          if (validateAmountInput(value, fromToken?.decimals)) {
             setFromInputAmount(value);
           }
         }}
