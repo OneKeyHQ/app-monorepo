@@ -5,12 +5,12 @@ import { BaseClient } from '@onekeyhq/engine/src/client/BaseClient';
 import { JsonRPCRequest } from '@onekeyhq/shared/src/request/JsonRPCRequest';
 
 import { NotImplemented } from '../../../../errors';
+import { TransactionStatus } from '../../../../types/provider';
 
 import type {
   AddressInfo,
   ClientInfo,
   FeePricePerUnit,
-  TransactionStatus,
 } from '../../../../types/provider';
 import type {
   IOnChainBalance,
@@ -115,6 +115,18 @@ export class ClientDynex extends BaseClient {
     return resp.transaction;
   }
 
+  async getTransactionStatus(txid: string): Promise<TransactionStatus> {
+    try {
+      const tx = await this.getTransaction(txid);
+      if (tx.inBlockchain) {
+        return TransactionStatus.CONFIRM_AND_SUCCESS;
+      }
+      return TransactionStatus.PENDING;
+    } catch (err) {
+      return TransactionStatus.PENDING;
+    }
+  }
+
   async getTransactionsByAddress(
     address: string,
   ): Promise<IOnChainTransactionsItem[]> {
@@ -138,12 +150,6 @@ export class ClientDynex extends BaseClient {
     throw new NotImplemented();
   }
 
-  override getTransactionStatuses(): Promise<
-    (TransactionStatus | undefined)[]
-  > {
-    throw new NotImplemented();
-  }
-
   override getFeePricePerUnit(): Promise<FeePricePerUnit> {
     throw new NotImplemented();
   }
@@ -164,6 +170,12 @@ export class ClientDynex extends BaseClient {
   }
 
   override getBalances(): Promise<(BigNumber | undefined)[]> {
+    throw new NotImplemented();
+  }
+
+  override getTransactionStatuses(): Promise<
+    (TransactionStatus | undefined)[]
+  > {
     throw new NotImplemented();
   }
 }

@@ -31,7 +31,10 @@ import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
 import type { AccountCredentialType } from '../../../types/account';
-import type { PartialTokenInfo } from '../../../types/provider';
+import type {
+  PartialTokenInfo,
+  TransactionStatus,
+} from '../../../types/provider';
 import type { IHistoryTx, ISignedTxPro } from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IEncodedTxDynex, IUnspentOutput } from './types';
@@ -331,6 +334,18 @@ export default class Vault extends VaultBase {
     return (await Promise.all(promises)).filter(Boolean);
   }
 
+  override async getTransactionStatuses(
+    txids: string[],
+  ): Promise<(TransactionStatus | undefined)[]> {
+    const client = await this.getClient();
+    return Promise.all(
+      txids.map(async (txid) => {
+        const response = client.getTransactionStatus(txid);
+        return response;
+      }),
+    );
+  }
+
   _validateAddressMemo = memoizee(
     async (address: string) => {
       const client = await this.getClient();
@@ -342,7 +357,7 @@ export default class Vault extends VaultBase {
       return Promise.resolve(address);
     },
     {
-      max: 1,
+      max: 5,
       maxAge: getTimeDurationMs({ minute: 3 }),
     },
   );
@@ -384,7 +399,7 @@ export default class Vault extends VaultBase {
     const outputsForCoinSelect = [
       {
         address: '',
-        value: finalAmount.toNumber(),
+        value: finalAmount.plus(fee).toNumber(),
       },
     ];
 

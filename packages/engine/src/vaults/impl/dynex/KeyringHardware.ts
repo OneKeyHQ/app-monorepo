@@ -11,8 +11,9 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { OneKeyHardwareError } from '../../../errors';
 import { slicePathTemplate } from '../../../managers/derivation';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
-import { AccountType, type DBAccount } from '../../../types/account';
+import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
+import { stripHexPrefix } from '../../utils/hexUtils';
 
 import {
   cnFastHash,
@@ -231,9 +232,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
       if (params.paymentIdHex) {
         extra += extraNonceTag;
-        extra += encodeVarInt(
-          (extraNoncePaymentIdTag + params.paymentIdHex).length,
-        );
+        extra += '21';
         extra += extraNoncePaymentIdTag;
         extra += params.paymentIdHex;
       }
@@ -266,7 +265,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
 
       return {
-        txid: cnFastHash(rawTx),
+        txid: stripHexPrefix(cnFastHash(rawTx)),
         rawTx,
       };
     }

@@ -4488,7 +4488,8 @@ const serverPresetNetworks = [
     'name': 'Dynex',
     'rpcURLs': [
       {
-        'url': 'https://dynexrpc.dynexcoin.org:18334',
+        'url':
+          'https://node-fra-infra-01.dynexcoin.org/rpc/34e68104-238a-43ad-953d-83e9ea76c810',
       },
     ],
     'shortcode': 'dnx',
