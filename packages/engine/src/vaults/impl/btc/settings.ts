@@ -17,7 +17,7 @@ const settings: IVaultSettings = Object.freeze({
 
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
-  externalAccountEnabled: false,
+  externalAccountEnabled: true,
   watchingAccountEnabled: true,
 
   minTransferAmount: '0.00000546',

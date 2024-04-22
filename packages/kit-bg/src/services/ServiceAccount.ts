@@ -23,6 +23,7 @@ import type {
   Account,
   DBAccount,
   DBVariantAccount,
+  IPrivateBTCExternalAccount,
 } from '@onekeyhq/engine/src/types/account';
 import { AccountType } from '@onekeyhq/engine/src/types/account';
 import type { Network } from '@onekeyhq/engine/src/types/network';
@@ -63,6 +64,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  COINTYPE_BTC,
   COINTYPE_ETH,
   IMPL_ADA,
   IMPL_CFX,
@@ -807,6 +809,43 @@ class ServiceAccount extends ServiceBase {
       address,
       name,
       walletType: 'external',
+      checkExists: true,
+    });
+
+    await this.postAccountAdded({
+      networkId,
+      account,
+      walletType: 'external',
+      checkOnBoarding: true,
+      checkPasswordSet: false,
+      shouldBackup: false,
+    });
+
+    return { account, networkId };
+  }
+
+  @backgroundMethod()
+  async addBtcExternalAccount({
+    externalAccount,
+  }: {
+    externalAccount: IPrivateBTCExternalAccount;
+  }) {
+    const networkId =
+      externalAccount.coinType === COINTYPE_BTC
+        ? OnekeyNetwork.btc
+        : OnekeyNetwork.tbtc;
+    const { engine } = this.backgroundApi;
+
+    const externalWallet = await engine.getExternalWallet();
+    const nextAccountId = externalWallet?.nextAccountIds?.global;
+    const name = nextAccountId ? `External #${nextAccountId}` : '';
+
+    const account = await engine.addWatchingOrExternalAccount({
+      networkId,
+      address: externalAccount.xpub,
+      name,
+      walletType: 'external',
+      template: externalAccount.path,
       checkExists: true,
     });
 

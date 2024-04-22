@@ -1,42 +1,63 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
 
-import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Box, Center, Hidden, Text, ToastManager } from '@onekeyhq/components';
+import { Box, ToastManager } from '@onekeyhq/components';
 import LogoOneKey from '@onekeyhq/kit/assets/logo_black.png';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import {
-  ConnectWalletListItem,
-  ConnectWalletListView,
-} from '../../../../components/WalletConnect/WalletConnectQrcodeModal';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
+  COINTYPE_BTC,
+  INDEX_PLACEHOLDER,
+} from '@onekeyhq/shared/src/engine/engineConsts';
+import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
+
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+import { ConnectWalletListItem } from '../../../../components/WalletConnect/WalletConnectQrcodeModal';
 import { useOnboardingDone } from '../../../../hooks/useOnboardingRequired';
 import { wait } from '../../../../utils/helper';
-import { useAddExternalAccount } from '../../../ExternalAccount/useAddExternalAccount';
 import Layout from '../../Layout';
-
-import type { EOnboardingRoutes } from '../../routes/enums';
-import type { IOnboardingRoutesParams } from '../../routes/types';
-import type { RouteProp } from '@react-navigation/native';
-
-type RouteProps = RouteProp<
-  IOnboardingRoutesParams,
-  EOnboardingRoutes.BTCExternalWallet
->;
 
 const BTCExternalWallet = () => {
   const intl = useIntl();
-
-  const { addExternalAccount } = useAddExternalAccount();
   const onboardingDone = useOnboardingDone();
 
-  const route = useRoute<RouteProps>();
-  const disableOnboardingDone = route.params?.disableOnboardingDone;
-  const onSuccess = route.params?.onSuccess;
-
-  const navigation = useAppNavigation();
+  const addBtcExternalAccount = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (!window.$onekey?.$privateExternalAccount) {
+      console.log('OneKey Provider Not Found.: ', window);
+      ToastManager.show(
+        {
+          title: 'OneKey Provider Not Found.',
+        },
+        {
+          type: 'error',
+        },
+      );
+      return;
+    }
+    console.log('OneKey');
+    const result =
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      await window.$onekey.$privateExternalAccount?.btc_requestAccount(
+        'mainnet',
+      );
+    debugLogger.walletConnect.info(
+      'OneKey injected account will create: ',
+      result,
+    );
+    const addedResult =
+      await backgroundApiProxy.serviceAccount.addBtcExternalAccount({
+        externalAccount: result,
+      });
+    const accountId = addedResult.account.id;
+    await backgroundApiProxy.serviceAccount.changeActiveExternalWalletName(
+      accountId,
+    );
+    await onboardingDone();
+    await wait(600);
+    ToastManager.show({
+      title: intl.formatMessage({ id: 'msg__account_imported' }),
+    });
+  }, [intl, onboardingDone]);
 
   return (
     <Layout title={intl.formatMessage({ id: 'title__connect_with' })}>
@@ -47,7 +68,7 @@ const BTCExternalWallet = () => {
           label="OneKey Injected"
           logoSource={LogoOneKey}
           isLoading={false}
-          onPress={() => console.log('OneKey')}
+          onPress={addBtcExternalAccount}
         />
       </Box>
     </Layout>

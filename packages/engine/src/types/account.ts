@@ -93,3 +93,11 @@ export type {
   ImportableHDAccount,
   BtcForkChainUsedAccount,
 };
+
+export type IPrivateBTCExternalAccount = {
+  address: string;
+  coinType: string;
+  path: string;
+  xpub: string;
+  template: string;
+};
