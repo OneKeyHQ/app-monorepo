@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import {
   Dialog,
+  Empty,
   Heading,
   type IPageNavigationProp,
   Page,
@@ -79,6 +80,7 @@ const SwapHistoryListModal = () => {
 
   const onDeleteHistory = useCallback(() => {
     // dialog
+    if (!swapTxHistoryList?.length) return;
     Dialog.confirm({
       title: 'Are you sure to delete all history?',
       onConfirm: () => {
@@ -86,7 +88,7 @@ const SwapHistoryListModal = () => {
       },
       onConfirmText: 'Delete',
     });
-  }, [cleanSwapHistoryItems]);
+  }, [cleanSwapHistoryItems, swapTxHistoryList?.length]);
 
   const deleteButton = useCallback(
     () => <HeaderIconButton onPress={onDeleteHistory} icon="DeleteOutline" />,
@@ -131,6 +133,7 @@ const SwapHistoryListModal = () => {
           </XStack>
         )}
         estimatedItemSize="$10"
+        ListEmptyComponent={<Empty icon="InboxOutline" title="No Results" />}
       />
     </Page>
   );
