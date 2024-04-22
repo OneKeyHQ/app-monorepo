@@ -91,7 +91,7 @@ const formatLocalNumber = (
   const integer = `${
     integerPart === '-0' ? '-' : ''
   }${appLocale.intl.formatNumber(
-    new BigNumber(integerPart).plus(plus).toFixed() as any,
+    new BigNumber(integerPart).plus(plus).toFixed() as `${number}`,
   )}`;
   const result = `${integer}${formatDecimal ? formatDecimal.slice(1) : ''}`;
   return keepTrailingZeros ? stripTrailingZero(result) : result;
