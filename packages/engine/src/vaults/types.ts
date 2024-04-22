@@ -167,6 +167,8 @@ export type IVaultSettings = {
 
   hideInAllNetworksMode?: boolean;
   mnemonicAsPrivatekey?: boolean;
+
+  enableOnClassicOnly?: boolean;
 };
 export type IVaultFactoryOptions = {
   networkId: string;

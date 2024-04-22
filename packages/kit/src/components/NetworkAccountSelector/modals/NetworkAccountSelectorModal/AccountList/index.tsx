@@ -25,7 +25,9 @@ import {
   useActiveWalletAccount,
   useDebounce,
   useNetwork,
+  useWallet,
 } from '../../../../../hooks';
+import { isHwClassic } from '../../../../../utils/hardware';
 import { scrollToSectionItem } from '../../../../WalletSelector';
 import { AccountSectionLoadingSkeleton } from '../../../AccountSectionLoadingSkeleton';
 import { ACCOUNT_SELECTOR_AUTO_SCROLL_DELAY_ACCOUNT } from '../../../consts';
@@ -78,6 +80,26 @@ const EmptyAccountState: FC<EmptyAccountStateProps> = ({
     networkId,
   });
   const { network } = useNetwork({ networkId });
+  const { wallet } = useWallet({ walletId });
+
+  if (
+    network?.settings.enableOnClassicOnly &&
+    !isHwClassic(wallet?.deviceType)
+  ) {
+    return (
+      <Empty
+        emoji="🔗"
+        title={intl.formatMessage(
+          {
+            id: 'empty__chain_support_wallettype_only',
+          },
+          { 'walletType': '「Classic」' },
+        )}
+        flex={1}
+        mt={8}
+      />
+    );
+  }
   return (
     <Empty
       emoji="💳"

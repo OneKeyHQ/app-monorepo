@@ -24,6 +24,7 @@ import backgroundApiProxy from '../../../../background/instance/backgroundApiPro
 import { useAppSelector, useNavigation } from '../../../../hooks';
 import reducerAccountSelector from '../../../../store/reducers/reducerAccountSelector';
 import { setFistTimeShowCheckRPCNodeTooltip } from '../../../../store/reducers/status';
+import { isHwClassic } from '../../../../utils/hardware';
 import { wait } from '../../../../utils/helper';
 import { useRpcMeasureStatus } from '../../../../views/ManageNetworks/hooks';
 import { ManageNetworkModalRoutes } from '../../../../views/ManageNetworks/types';
@@ -62,13 +63,36 @@ function Header({
     (s) => s.status.firstTimeShowCheckRPCNodeTooltip,
   );
   const [isOpen, setIsOpen] = useState(false);
-  const { selectedNetwork, isLoading } = accountSelectorInfo;
+  const {
+    selectedNetwork,
+    selectedNetworkSettings,
+    selectedWallet,
+    isLoading,
+  } = accountSelectorInfo;
   const { loading, status } = useRpcMeasureStatus(
     (showCustomLegacyHeader ? selectedNetwork?.id : '') ?? '',
   );
   const { dispatch } = backgroundApiProxy;
   const navigation = useNavigation<NavigationProps>();
   const close = useModalClose();
+
+  const shouldHideCreateAccount = useMemo(() => {
+    if (hideCreateAccount) {
+      return true;
+    }
+
+    if (
+      selectedNetworkSettings?.enableOnClassicOnly &&
+      !isHwClassic(selectedWallet?.deviceType)
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    hideCreateAccount,
+    selectedNetworkSettings?.enableOnClassicOnly,
+    selectedWallet?.deviceType,
+  ]);
 
   const toCheckNodePage = useCallback(() => {
     setIsOpen(false);
@@ -198,7 +222,7 @@ function Header({
       <Box flexDirection="row" alignItems="center">
         <WalletSelectDropdown
           accountSelectorInfo={accountSelectorInfo}
-          hideCreateAccount={hideCreateAccount}
+          hideCreateAccount={shouldHideCreateAccount}
           multiSelect={multiSelect}
           selectedAccounts={selectedAccounts}
           walletsToHide={walletsToHide}

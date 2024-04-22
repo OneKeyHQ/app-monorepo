@@ -10,6 +10,7 @@ import { useActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import { RootRoutes } from '@onekeyhq/kit/src/routes/routesEnum';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { isHwClassic } from '../../utils/hardware';
 import {
   NETWORK_NOT_SUPPORT_CREATE_ACCOUNT_I18N_KEY,
   useCreateAccountInWallet,
@@ -59,6 +60,28 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
   const hasNoWallet = !walletId;
   const isAccountCompatibleNetwork =
     !!accountId && (checkCompatibleNetwork ? isCompatibleNetwork : true);
+  const enableOnClassicOnly = network?.settings.enableOnClassicOnly;
+
+  if (enableOnClassicOnly && !isHwClassic(wallet?.deviceType)) {
+    return (
+      <Box
+        testID="IdentityAssertion-enableOnClassicOnly"
+        flex="1"
+        justifyContent="center"
+        bg="background-default"
+      >
+        <Empty
+          emoji="🔗"
+          title={intl.formatMessage(
+            {
+              id: 'empty__chain_support_wallettype_only',
+            },
+            { 'walletType': '「Classic」' },
+          )}
+        />
+      </Box>
+    );
+  }
 
   if (hasNoWallet) {
     return (

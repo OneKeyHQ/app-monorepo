@@ -23,6 +23,8 @@ const settings: IVaultSettings = Object.freeze({
 
   withPaymentId: true,
 
+  enableOnClassicOnly: true,
+
   accountNameInfo: {
     default: {
       prefix: 'DNX',
