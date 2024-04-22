@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import type { ReactElement } from 'react';
 
 import type {
@@ -9,6 +10,7 @@ import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DownloadProgress } from './DownloadProgress';
 import { useAppUpdateInfo } from './hooks';
@@ -73,6 +75,26 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   );
 }
 
+function OpenOnGithub() {
+  const handlePress = useCallback(() => {
+    openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
+  }, []);
+  return (
+    <XStack
+      space="$2"
+      justifyContent="space-between"
+      alignItems="center"
+      cursor="pointer"
+      onPress={handlePress}
+    >
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        Download on Github
+      </SizableText>
+      <Icon name="ArrowTopRightOutline" size="$4.5" />
+    </XStack>
+  );
+}
+
 const UPDATE_ACTION_STYLE: Record<
   EAppUpdateStatus,
   | {
@@ -95,14 +117,7 @@ const UPDATE_ACTION_STYLE: Record<
     variant: 'primary',
   },
   [EAppUpdateStatus.failed]: {
-    prefixElement: (
-      <XStack space="$2" justifyContent="space-between" alignItems="center">
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
-          Download on Github
-        </SizableText>
-        <Icon name="ArrowTopRightOutline" size="$4.5" />
-      </XStack>
-    ),
+    prefixElement: <OpenOnGithub />,
     label: 'Retry',
     variant: 'primary',
   },
