@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { AnimatePresence } from 'tamagui';
 
-import { View } from '../../optimization';
+import { OptimizationView } from '../../optimization';
 import { Spinner, Stack } from '../../primitives';
 
 import type { IBasicPageProps } from './type';
@@ -30,7 +30,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
   }, []);
 
   return (
-    <View style={{ flex: 1 }}>
+    <OptimizationView style={{ flex: 1 }}>
       {showChildren ? children : null}
       <AnimatePresence>
         {showLoading ? (
@@ -51,7 +51,7 @@ function LoadingScreen({ children }: PropsWithChildren<unknown>) {
           </Stack>
         ) : null}
       </AnimatePresence>
-    </View>
+    </OptimizationView>
   );
 }
 

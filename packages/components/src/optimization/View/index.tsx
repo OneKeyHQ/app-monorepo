@@ -1,7 +1,7 @@
 import { Stack } from '../../primitives/Stack';
 
-import type { IViewType } from './type';
+import type { IOptimizationViewType } from './type';
 
-export function View(props: IViewType) {
+export function OptimizationView(props: IOptimizationViewType) {
   return <Stack {...props} />;
 }

@@ -1,3 +1,3 @@
-export { View as SecureView } from '../../optimization/View';
+export { OptimizationView as SecureView } from '../../optimization/View';
 
 export * from './type';
