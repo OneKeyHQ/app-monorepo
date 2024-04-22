@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -313,14 +314,35 @@ const SwapProviderListItem = ({
               <SizableText pl="$2" size="$bodySmMedium" color="$textSubdued">
                 Route
               </SizableText>
-
-              <Stack animation="quick" rotate={routeOpen ? '90deg' : '0deg'}>
+              <MotiView
+                {...(routeOpen
+                  ? {
+                      from: {
+                        rotate: '0deg',
+                      },
+                      animate: {
+                        rotate: '90deg',
+                      },
+                    }
+                  : {
+                      from: {
+                        rotate: '90deg',
+                      },
+                      animate: {
+                        rotate: '0deg',
+                      },
+                    })}
+                transition={{
+                  type: 'timing',
+                  duration: 150,
+                }}
+              >
                 <Icon
                   name="ChevronRightSmallOutline"
                   size="$5"
                   color="$iconSubdued"
                 />
-              </Stack>
+              </MotiView>
             </XStack>
           </XStack>
           <HeightTransition>
