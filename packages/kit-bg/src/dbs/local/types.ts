@@ -149,6 +149,7 @@ export type IDBSetAccountNameParams = {
 };
 export type IDBGetWalletsParams = {
   nestedHiddenWallets?: boolean | undefined;
+  ignoreEmptySingletonWalletAccounts?: boolean | undefined;
 };
 // ---------------------------------------------- account
 export type IDBAvatar = string; // stringify(IAvatarInfo)

@@ -80,16 +80,22 @@ export function ImportSingleChainBase({
         await backgroundApiProxy.servicePassword.encodeSensitiveText({
           text: fixInputImportSingleChain(inputTextDebounced),
         });
-      const result =
-        await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
-          {
-            ...validationParams,
-            input,
-            networkId: networkIdText,
-          },
-        );
-      setValidateResult(result);
-      console.log('validateGeneralInputOfImporting result', result);
+      try {
+        const result =
+          await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
+            {
+              ...validationParams,
+              input,
+              networkId: networkIdText,
+            },
+          );
+        setValidateResult(result);
+        console.log('validateGeneralInputOfImporting result', result);
+      } catch (error) {
+        setValidateResult({
+          isValid: false,
+        });
+      }
     } else {
       setValidateResult(undefined);
     }

@@ -173,6 +173,12 @@ export function ConnectYourDevicePage() {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
     }) => {
+      if ((device as { mode?: string } | undefined)?.mode === 'bootloader') {
+        Toast.error({
+          title: 'Device is in bootloader mode',
+        });
+        throw new Error('Device is in bootloader mode');
+      }
       navigation.push(EOnboardingPages.FinalizeWalletSetup);
       try {
         console.log('ConnectYourDevice -> createHwWallet', device);

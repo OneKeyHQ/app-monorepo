@@ -130,6 +130,31 @@ function buildWatchingAccountId({
   return id;
 }
 
+function buildIndexedAccountName({ pathIndex }: { pathIndex: number }) {
+  return `Account #${pathIndex + 1}`;
+}
+
+function buildHDAccountName({
+  pathIndex,
+  namePrefix,
+}: {
+  pathIndex: number;
+  // VaultSettings.accountDeriveInfo.default.namePrefix
+  namePrefix: string;
+}) {
+  return `${namePrefix} #${pathIndex + 1}`;
+}
+
+function buildBaseAccountName({
+  mainName = 'Account',
+  nextAccountId,
+}: {
+  mainName?: string;
+  nextAccountId: number;
+}) {
+  return `${mainName} #${nextAccountId}`;
+}
+
 function buildImportedAccountId({
   coinType,
   pub,
@@ -483,6 +508,9 @@ function buildLightningAccountId({
 }
 
 export default {
+  buildBaseAccountName,
+  buildHDAccountName,
+  buildIndexedAccountName,
   buildImportedAccountId,
   buildWatchingAccountId,
   buildLocalTokenId,

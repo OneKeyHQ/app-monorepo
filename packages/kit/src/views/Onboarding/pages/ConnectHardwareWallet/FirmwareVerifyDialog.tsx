@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { Linking, StyleSheet } from 'react-native';
 
 import type { IButtonProps, IStackProps } from '@onekeyhq/components';
@@ -15,6 +16,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -24,6 +26,8 @@ type IFirmwareAuthenticationState =
   | 'unofficial'
   | 'error';
 
+type IFirmwareErrorState = 'UnexpectedBootloaderMode' | undefined;
+
 function useFirmwareVerifyBase({
   device,
   skipDeviceCancel,
@@ -32,9 +36,11 @@ function useFirmwareVerifyBase({
   skipDeviceCancel?: boolean;
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
+  const [errorState, setErrorState] = useState<IFirmwareErrorState>();
 
   const verify = useCallback(async () => {
     try {
+      setErrorState(undefined);
       const authResult =
         await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
           device,
@@ -49,6 +55,12 @@ function useFirmwareVerifyBase({
       }
     } catch (error) {
       setResult('error');
+      if (
+        (error as OneKeyError).code ===
+        HardwareErrorCode.DeviceUnexpectedBootloaderMode
+      ) {
+        setErrorState('UnexpectedBootloaderMode');
+      }
       throw error;
     } finally {
       await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog({
@@ -68,7 +80,12 @@ function useFirmwareVerifyBase({
     // }, 3000);
   }, [verify]);
 
-  return { result, setResult, verify };
+  const reset = useCallback(() => {
+    setResult('unknown');
+    setErrorState(undefined);
+  }, []);
+
+  return { result, reset, errorState, verify };
 }
 
 export function FirmwareAuthenticationDialogContentLegacy({
@@ -80,7 +97,7 @@ export function FirmwareAuthenticationDialogContentLegacy({
   device: SearchDevice;
   skipDeviceCancel?: boolean;
 }) {
-  const { result, setResult, verify } = useFirmwareVerifyBase({
+  const { result, reset, verify } = useFirmwareVerifyBase({
     device,
     skipDeviceCancel,
   });
@@ -174,7 +191,7 @@ export function FirmwareAuthenticationDialogContentLegacy({
               })}
               {...(result === 'error' && {
                 onPress: async () => {
-                  setResult('unknown');
+                  reset();
                   // Retry
                   await verify();
                 },
@@ -193,7 +210,7 @@ export function FirmwareAuthenticationDialogContentLegacy({
               m="$0"
               onPress={() => onContinue({ checked: false })}
             >
-              Continue Anyway
+              Continue Anyway(Legacy)
             </Button>
           </Stack>
         ) : null}
@@ -215,7 +232,7 @@ export function FirmwareAuthenticationDialogContent({
 }) {
   const [isShowingRiskWarning, setIsShowingRiskWarning] = useState(true);
 
-  const { result, setResult, verify } = useFirmwareVerifyBase({
+  const { result, reset, errorState, verify } = useFirmwareVerifyBase({
     device,
     skipDeviceCancel,
   });
@@ -267,7 +284,7 @@ export function FirmwareAuthenticationDialogContent({
       },
       error: {
         onPress: async () => {
-          setResult('unknown');
+          reset();
           setIsShowingRiskWarning(true);
           await verify();
         },
@@ -321,45 +338,49 @@ export function FirmwareAuthenticationDialogContent({
         </Stack>
       ) : null;
 
+    let errorContinueButton: JSX.Element | null = isShowingRiskWarning ? (
+      <Button
+        $md={
+          {
+            size: 'large',
+          } as IButtonProps
+        }
+        onPress={() =>
+          noContinue
+            ? onContinue({ checked: false })
+            : setIsShowingRiskWarning(false)
+        }
+      >
+        I Understand
+      </Button>
+    ) : (
+      <Button
+        key="continue-anyway"
+        $md={
+          {
+            size: 'large',
+          } as IButtonProps
+        }
+        variant="destructive"
+        //   variant="tertiary"
+        //   mx="$0"
+        onPress={() => onContinue({ checked: false })}
+      >
+        Continue Anyway
+      </Button>
+    );
+    let errorMessage = `We're currently unable to verify your device. Continuing may pose
+    security risks.`;
+    if (result === 'error' && errorState === 'UnexpectedBootloaderMode') {
+      errorContinueButton = null;
+      errorMessage = 'Device is in unexpected bootloader mode.';
+    }
     const riskText =
       result === 'error' ? (
         <Stack {...stackPropsShared}>
-          <SizableText>
-            We're currently unable to verify your device. Continuing may pose
-            security risks.
-          </SizableText>
+          <SizableText>{errorMessage}</SizableText>
 
-          {isShowingRiskWarning ? (
-            <Button
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              onPress={() =>
-                noContinue
-                  ? onContinue({ checked: false })
-                  : setIsShowingRiskWarning(false)
-              }
-            >
-              I Understand
-            </Button>
-          ) : (
-            <Button
-              key="continue-anyway"
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              variant="destructive"
-              //   variant="tertiary"
-              //   mx="$0"
-              onPress={() => onContinue({ checked: false })}
-            >
-              Continue Anyway
-            </Button>
-          )}
+          {errorContinueButton}
         </Stack>
       ) : null;
 
@@ -372,12 +393,13 @@ export function FirmwareAuthenticationDialogContent({
       </Stack>
     );
   }, [
-    isShowingRiskWarning,
+    result,
     noContinue,
+    isShowingRiskWarning,
+    errorState,
     onContinue,
     requestsUrl,
-    result,
-    setResult,
+    reset,
     verify,
   ]);
 
