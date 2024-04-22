@@ -107,4 +107,4 @@ jobs:
         if: ${{ !github.event.workflow_run }}
         run: |
           cd apps/mobile
-          eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
+          eas build --profile=production-store --platform android --non-interactive --no-wait --resource-class large
