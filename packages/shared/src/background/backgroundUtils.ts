@@ -286,6 +286,7 @@ export const scopeNetworks: Record<
   'nostr': undefined,
   '$hardware_sdk': undefined,
   '$private': undefined,
+  '$privateExternalAccount': [IMPL_BTC, IMPL_TBTC],
   '$walletConnect': undefined,
 };
 
