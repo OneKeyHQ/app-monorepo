@@ -116,15 +116,21 @@ function SOLAssetDetailContent({
     setMenuLoading(true);
     let uploadResParams: DeviceUploadResourceParams | undefined;
     try {
-      uploadResParams = await generateUploadNFTParams(uri, {
-        header:
-          asset.name && asset.name.length > 0
-            ? asset.name
-            : `#${asset.tokenId as string}`,
-        subheader: asset.description ?? '',
-        network: network?.name ?? '',
-        owner: asset.owner,
-      });
+      uploadResParams = await generateUploadNFTParams(
+        uri,
+        {
+          header:
+            asset.name && asset.name.length > 0
+              ? asset.name
+              : `#${asset.tokenId as string}`,
+          subheader: asset.description ?? '',
+          network: network?.name ?? '',
+          owner: asset.owner,
+        },
+        {
+          deviceType: device?.deviceType,
+        },
+      );
       debugLogger.hardwareSDK.info('should upload: ', uploadResParams);
     } catch (e) {
       debugLogger.hardwareSDK.info('image operate error: ', e);
