@@ -118,7 +118,7 @@ function SwapProviderItem({
             </Stack>
           ) : null}
         </Stack>
-        <Stack px="$3">
+        <Stack px="$3" flex={1}>
           <SizableText size="$bodyLgMedium">{estReceiveAmount}</SizableText>
           <SizableText size="$bodyMd" color="$textSubdued" pt="$1">
             {providerName}
@@ -344,7 +344,7 @@ const ButtonsGallery = () => (
               />
               <SwapProviderItem
                 providerLogoUri=""
-                estReceiveAmount="4.932 USDT"
+                estReceiveAmount="4.932 USDTfdsnafidjsnfjsndafjdnsajkfndsjakf"
                 providerName="1inch"
                 approved={false}
                 evaluates={['best', 'maxReceived']}

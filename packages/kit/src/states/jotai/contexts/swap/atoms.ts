@@ -149,7 +149,10 @@ export const {
 } = contextAtomComputed((get) => {
   const list = get(swapSortedQuoteListAtom());
   const manualSelectQuoteProviders = get(swapManualSelectQuoteProvidersAtom());
-  return manualSelectQuoteProviders
+  const manualSelectQuoteResult = list.find(
+    (item) => item.info.provider === manualSelectQuoteProviders?.info.provider,
+  );
+  return manualSelectQuoteProviders && manualSelectQuoteResult?.toAmount
     ? list.find(
         (item) =>
           item.info.provider === manualSelectQuoteProviders.info.provider,
