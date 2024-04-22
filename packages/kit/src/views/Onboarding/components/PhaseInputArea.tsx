@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 
-import { compact } from 'lodash';
+import { compact, range } from 'lodash';
 import { Dimensions, View } from 'react-native';
 
 import type {
@@ -442,20 +442,20 @@ export function PhaseInputArea({
   tutorials: ITutorialsListItemProps[];
   defaultPhrases?: string[];
 }) {
-  const { serviceAccount, servicePassword } = backgroundApiProxy;
-  const defaultPhrasesMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    defaultPhrases?.forEach((text, i) => {
-      map[`phrase${i + 1}`] = text;
-    });
-    return map;
-  }, [defaultPhrases]);
-  const form = useForm({
-    defaultValues: defaultPhrasesMap,
-  });
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
+  const { serviceAccount, servicePassword } = backgroundApiProxy;
+  const defaultPhrasesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    range(0, Number(phraseLength))?.forEach((_, i) => {
+      map[`phrase${i + 1}`] = defaultPhrases[i] || '';
+    });
+    return map;
+  }, [defaultPhrases, phraseLength]);
+  const form = useForm({
+    defaultValues: defaultPhrasesMap,
+  });
 
   const invalidWordsLength = 0;
   const invalidPhrase = false;
@@ -513,8 +513,11 @@ export function PhaseInputArea({
     );
 
   const handleClear = useCallback(() => {
-    form.reset();
-  }, [form]);
+    // form.reset(); // not working if all words filled
+    Object.entries(defaultPhrasesMap).forEach(([key, value]) => {
+      form.setValue(key, value);
+    });
+  }, [defaultPhrasesMap, form]);
 
   return (
     <>

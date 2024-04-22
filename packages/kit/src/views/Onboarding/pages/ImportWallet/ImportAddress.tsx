@@ -48,16 +48,11 @@ function ImportAddress() {
         });
         console.log(r, values);
 
-        void actions.current.updateSelectedAccount({
+        void actions.current.updateSelectedAccountForSingletonAccount({
           num: 0,
-          builder: (v) => ({
-            ...v,
-            networkId: values.networkId,
-            focusedWallet: WALLET_TYPE_WATCHING,
-            walletId: WALLET_TYPE_WATCHING,
-            othersWalletAccountId: r.accounts[0].id,
-            indexedAccountId: undefined,
-          }),
+          networkId: values.networkId,
+          walletId: WALLET_TYPE_WATCHING,
+          othersWalletAccountId: r.accounts[0].id,
         });
         navigation.popStack();
       }}

@@ -51,14 +51,10 @@ export function AccountSelectorCreateAddressButton({
         actions.current.refresh({ num });
 
         if (selectAfterCreate) {
-          await actions.current.updateSelectedAccount({
+          await actions.current.updateSelectedAccountForHdOrHwAccount({
             num,
-            builder: (v) => ({
-              ...v,
-              walletId: c?.walletId,
-              othersWalletAccountId: undefined,
-              indexedAccountId: c?.indexedAccountId,
-            }),
+            walletId: c?.walletId,
+            indexedAccountId: c?.indexedAccountId,
           });
         }
       }}
