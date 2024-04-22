@@ -125,7 +125,7 @@ export const DevSettingsSection = () => {
           void backgroundApiProxy.serviceAppUpdate.reset();
         }}
       />
-      {platformEnv.isNative ? (
+      {platformEnv.isNativeAndroid ? (
         <SectionPressItem
           copyable
           title={`Android Channel: ${process.env.ANDROID_CHANNEL || ''}`}
