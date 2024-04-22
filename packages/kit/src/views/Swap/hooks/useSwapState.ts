@@ -156,7 +156,7 @@ export function useSwapActionState() {
 
   const stepState: ISwapState = {
     label: actionInfo.label,
-    isLoading: buildTxFetching || quoteLoading,
+    isLoading: buildTxFetching,
     disabled: actionInfo.disable,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
