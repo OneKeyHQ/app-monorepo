@@ -2,13 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Dialog,
-  ESwitchSize,
-  Switch,
-  YStack,
-  useClipboard,
-} from '@onekeyhq/components';
+import { Dialog, ESwitchSize, Switch, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -24,7 +18,6 @@ export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
 
-  const { copyText } = useClipboard();
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
       title: 'Disable the dev mode',
@@ -48,12 +41,7 @@ export const DevSettingsSection = () => {
         onPress={handleDevModeOnChange}
       />
       {GITHUB_SHA ? (
-        <SectionPressItem
-          title={`BuildHash: ${GITHUB_SHA}`}
-          onPress={() => {
-            copyText(GITHUB_SHA);
-          }}
-        />
+        <SectionPressItem title={`BuildHash: ${GITHUB_SHA}`} copyable />
       ) : null}
       <SectionFieldItem
         name="enableTestEndpoint"
@@ -137,6 +125,32 @@ export const DevSettingsSection = () => {
           void backgroundApiProxy.serviceAppUpdate.reset();
         }}
       />
+      <SectionPressItem
+        title="Reset App Update Status to Failed"
+        onPress={() => {
+          void backgroundApiProxy.serviceAppUpdate.notifyFailed();
+        }}
+      />
+      {platformEnv.isNativeAndroid ? (
+        <SectionPressItem
+          copyable
+          title={`Android Channel: ${process.env.ANDROID_CHANNEL || ''}`}
+        />
+      ) : null}
+      {platformEnv.isDesktop ? (
+        <>
+          <SectionPressItem
+            copyable
+            title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${
+              window?.desktopApi?.channel || ''
+            } ${window?.desktopApi?.isMas ? 'mas' : ''}`}
+          />
+          <SectionPressItem
+            copyable
+            title={`Desktop arch: ${window?.desktopApi?.arch || ''}`}
+          />
+        </>
+      ) : null}
     </Section>
   );
 };

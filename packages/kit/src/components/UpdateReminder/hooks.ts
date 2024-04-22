@@ -12,7 +12,6 @@ import {
   downloadPackage,
   installPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -111,7 +110,14 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         );
         break;
       case EAppUpdateStatus.failed:
-        openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
+        void backgroundApiProxy.serviceAppUpdate.startDownloading();
+        void downloadPackage(appUpdateInfo)
+          .then(() => {
+            void backgroundApiProxy.serviceAppUpdate.readyToInstall();
+          })
+          .catch((e: { message: string }) => {
+            void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
+          });
         break;
       default:
         break;

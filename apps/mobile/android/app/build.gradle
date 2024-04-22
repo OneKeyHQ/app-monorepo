@@ -122,6 +122,9 @@ android {
     }
     flavorDimensions "dimension"
     productFlavors {
+    	huawei {
+    		dimension "dimension"
+    	}
     	google {
     		dimension "dimension"
     	}

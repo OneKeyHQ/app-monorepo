@@ -112,7 +112,7 @@ export const useDownloadProgress: IUseDownloadProgress = (
       bytesPerSecond: number;
     }) => {
       console.log('update/downloading', progress);
-      setPercent(Number(Number(progress).toFixed()));
+      setPercent((prev) => Math.max(Number(Number(progress).toFixed()), prev));
     },
     10,
   );
