@@ -201,9 +201,7 @@ function DesktopCustomTabBar() {
   const pinnedBarHeight = useMemo(() => {
     const pinDataTabsHeight = pinnedData.length * ITEM_HEIGHT;
     return pinContainerHeight < pinDataTabsHeight
-      ? pinContainerHeight +
-          ITEM_HEIGHT / 2 -
-          (pinContainerHeight % ITEM_HEIGHT)
+      ? pinContainerHeight - (pinContainerHeight % ITEM_HEIGHT)
       : pinDataTabsHeight;
   }, [pinContainerHeight, pinnedData.length]);
 
