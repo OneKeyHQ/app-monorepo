@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { Page } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -21,7 +22,7 @@ const SwapPageContainer = () => {
     [],
   );
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled skipLoading={platformEnv.isNativeIOS}>
       <Page.Header headerLeft={headerLeft} />
       <Page.Body>
         <SwapMainLand />
