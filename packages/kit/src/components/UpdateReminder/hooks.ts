@@ -105,11 +105,19 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         toUpdatePreviewPage(isFullModal);
         break;
       case EAppUpdateStatus.ready:
-      case EAppUpdateStatus.failed:
-        void backgroundApiProxy.serviceAppUpdate.startDownloading();
         void installPackage(appUpdateInfo).catch((e) =>
           backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
         );
+        break;
+      case EAppUpdateStatus.failed:
+        void backgroundApiProxy.serviceAppUpdate.startDownloading();
+        void downloadPackage(appUpdateInfo)
+          .then(() => {
+            void backgroundApiProxy.serviceAppUpdate.readyToInstall();
+          })
+          .catch((e: { message: string }) => {
+            void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
+          });
         break;
       default:
         break;
