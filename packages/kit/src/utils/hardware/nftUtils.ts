@@ -11,7 +11,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { formatBytes } from './homescreens';
 
-import type { DeviceType, DeviceUploadResourceParams } from '@onekeyfe/hd-core';
+import type {
+  DeviceUploadResourceParams,
+  IDeviceType,
+} from '@onekeyfe/hd-core';
 import type { Action } from 'expo-image-manipulator';
 
 export type NFTMetaData = {
@@ -22,7 +25,7 @@ export type NFTMetaData = {
 };
 
 export type DeviceInfo = {
-  deviceType?: DeviceType;
+  deviceType?: IDeviceType | string;
 };
 
 const getImageSize: (
