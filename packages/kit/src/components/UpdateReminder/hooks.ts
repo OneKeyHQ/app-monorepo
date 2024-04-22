@@ -105,12 +105,11 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         toUpdatePreviewPage(isFullModal);
         break;
       case EAppUpdateStatus.ready:
+      case EAppUpdateStatus.failed:
+        void backgroundApiProxy.serviceAppUpdate.startDownloading();
         void installPackage(appUpdateInfo).catch((e) =>
           backgroundApiProxy.serviceAppUpdate.notifyFailed(e),
         );
-        break;
-      case EAppUpdateStatus.failed:
-        openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
         break;
       default:
         break;
