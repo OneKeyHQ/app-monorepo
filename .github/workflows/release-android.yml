@@ -100,7 +100,7 @@ jobs:
         run: |
           cd apps/mobile
           eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
-          eas build --profile=production-store --platform android --non-interactive --no-wait --resource-class large --auto-submit
+          eas build --profile=production-store --platform android --non-interactive --no-wait --resource-class large
           # eas build --profile=production-huawei --platform android --non-interactive --no-wait --resource-class large
 
       - name: Build on EAS

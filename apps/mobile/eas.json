@@ -27,8 +27,8 @@
         "ENVIRONMENT": "production"
       },
       "android": {
-        "buildType": "app-bundle",
-        "gradleCommand": ":app:bundleGoogleRelease",
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleGoogleRelease",
         "env": {
           "ANDROID_CHANNEL": "google"
         }
