@@ -125,6 +125,12 @@ export const DevSettingsSection = () => {
           void backgroundApiProxy.serviceAppUpdate.reset();
         }}
       />
+      <SectionPressItem
+        title="Reset App Update Status to Failed"
+        onPress={() => {
+          void backgroundApiProxy.serviceAppUpdate.notifyFailed();
+        }}
+      />
       {platformEnv.isNativeAndroid ? (
         <SectionPressItem
           copyable
