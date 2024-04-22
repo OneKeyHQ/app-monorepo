@@ -1,16 +1,16 @@
 import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { StyleSheet } from 'react-native';
 
 import {
   Badge,
-  Button,
+  HeightTransition,
   Icon,
   NumberSizeableText,
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
@@ -19,8 +19,9 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapProviderIcon } from './SwapProviderIcon';
-import SwapRoutePath from './SwapRoutePath';
+import SwapRoutePaths from './SwapRoutePaths';
 
+import type { IRouteRows } from './SwapRoutePaths';
 import type { IListItemProps } from '../../../components/ListItem';
 
 export type ISwapProviderListItemProps = {
@@ -45,7 +46,7 @@ const SwapProviderListItem = ({
   const networkFeeComponent = useMemo(() => {
     if (providerResult.fee?.estimatedFeeFiatValue) {
       return (
-        <XStack py="$0.5" space="$1" alignItems="center">
+        <XStack space="$1" alignItems="center">
           <Icon name="GasOutline" size="$4" color="$iconSubdued" />
           <NumberSizeableText
             size="$bodyMd"
@@ -79,7 +80,7 @@ const SwapProviderListItem = ({
         displayTime = `${timeInMinutes}min`;
       }
       return (
-        <XStack py="$0.5" space="$1" alignItems="center">
+        <XStack space="$1" alignItems="center">
           <Icon name="ClockTimeHistoryOutline" size="$4" color="$iconSubdued" />
           <SizableText size="$bodyMd" color="$textSubdued">
             {displayTime}
@@ -92,7 +93,7 @@ const SwapProviderListItem = ({
 
   const protocolFeeComponent = useMemo(
     () => (
-      <XStack py="$0.5" space="$1" alignItems="center">
+      <XStack space="$1" alignItems="center">
         <Icon name="HandCoinsOutline" size="$4" color="$iconSubdued" />
         <NumberSizeableText
           size="$bodyMd"
@@ -155,6 +156,38 @@ const SwapProviderListItem = ({
 
   const [routeOpen, setRouteOpen] = useState(false);
 
+  const routeContent = useMemo<IRouteRows>(() => {
+    const routeRows: IRouteRows =
+      providerResult.routesData?.map((route) => {
+        const fromTokenItem = {
+          images: [{ logoImageUri: fromToken?.logoURI }],
+          label: route.part ? `${route.part}%` : '',
+        };
+        const toTokenItem = {
+          images: [{ logoImageUri: toToken?.logoURI }],
+          label: '',
+        };
+        const subRoutes =
+          route.subRoutes?.map((providers) => {
+            let images =
+              providers?.map((provider) => ({
+                logoImageUri: provider.logo,
+              })) ?? [];
+            images = images?.length > 3 ? images.slice(0, 3) : images;
+            let label = 'protocols';
+            if (providers.length === 1) {
+              label = providers[0].name;
+            }
+            return {
+              images,
+              label,
+            };
+          }) ?? [];
+        return [fromTokenItem, ...subRoutes, toTokenItem];
+      }) ?? [];
+    return routeRows;
+  }, [fromToken?.logoURI, providerResult.routesData, toToken?.logoURI]);
+
   const routeComponents = useMemo(() => {
     const routesData = providerResult.routesData;
     if (providerResult.info.provider === 'swap_swft') {
@@ -174,112 +207,128 @@ const SwapProviderListItem = ({
         </SizableText>
       );
     }
-    return routesData?.map((route, index) => (
-      <SwapRoutePath
-        key={index}
-        route={route}
-        fromToken={fromToken}
-        toToken={toToken}
-      />
-    ));
-  }, [
-    fromToken,
-    providerResult.info.provider,
-    providerResult.routesData,
-    toToken,
-  ]);
+    return <SwapRoutePaths routeContent={routeContent} />;
+  }, [providerResult.info.provider, providerResult.routesData, routeContent]);
 
   return (
-    <YStack
+    <Stack
+      role="button"
+      group="card"
+      borderRadius="$4"
       my="$2"
-      borderRadius="$3"
+      overflow="hidden"
+      borderCurve="continuous"
       opacity={disabled ? 0.5 : 1}
-      disabled={disabled}
-      hoverStyle={{ borderColor: '$borderHover' }}
-      borderWidth="$0.25"
+      borderWidth={StyleSheet.hairlineWidth}
       borderColor={selected ? '$borderActive' : '$borderSubdued'}
+      userSelect="none"
+      focusStyle={{
+        outlineWidth: 2,
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineOffset: 2,
+      }}
       {...rest}
     >
       <XStack
-        py="$4"
-        px="$3"
+        px="$3.5"
+        py="$3"
         bg="$bgSubdued"
+        $group-card-hover={{
+          bg: '$bgHover',
+        }}
         alignItems="center"
-        justifyContent="space-between"
-        borderTopRightRadius="$3"
-        borderTopLeftRadius="$3"
-        {...(!providerResult.toAmount
-          ? { borderBottomRightRadius: '$3', borderBottomLeftRadius: '$3' }
-          : {})}
       >
-        <XStack space="$3" alignItems="center">
+        <Stack>
           <SwapProviderIcon
             providerLogo={providerResult.info.providerLogo}
             lock={!!providerResult.allowanceResult}
           />
-          <YStack>
-            <XStack space="$1.5" alignItems="center">
-              <SizableText color="$text" size="$bodyLgMedium">
-                {leftMainLabel}
-              </SizableText>
-            </XStack>
-            <SizableText color="$textSubdued" size="$bodyMdMedium">
-              {providerResult.info.providerName}
-            </SizableText>
-          </YStack>
-        </XStack>
-        <XStack flex={1} justifyContent="flex-end" flexWrap="wrap" m={-3}>
-          {providerResult.isBest ? (
-            <Stack p={3}>
-              <Badge badgeType="success">Best</Badge>
-            </Stack>
-          ) : null}
-          {providerResult.receivedBest ? (
-            <Stack p={3}>
-              <Badge badgeType="info">Max received</Badge>
-            </Stack>
-          ) : null}
-          {providerResult.minGasCost ? (
-            <Stack p={3}>
-              <Badge badgeType="info">Minimum gas fee</Badge>
-            </Stack>
-          ) : null}
-        </XStack>
+        </Stack>
+        <Stack px="$3">
+          <SizableText color="$text" size="$bodyLgMedium">
+            {leftMainLabel}
+          </SizableText>
+
+          <SizableText color="$textSubdued" size="$bodyMdMedium" pt="$1">
+            {providerResult.info.providerName}
+          </SizableText>
+        </Stack>
+        {providerResult.isBest ||
+        providerResult.receivedBest ||
+        providerResult.minGasCost ? (
+          <XStack flexWrap="wrap" justifyContent="flex-end" m={-3} flex={1}>
+            {providerResult.isBest ? (
+              <Stack p={3}>
+                <Badge badgeType="success">Best</Badge>
+              </Stack>
+            ) : null}
+            {providerResult.receivedBest ? (
+              <Stack p={3}>
+                <Badge badgeType="info">Max received</Badge>
+              </Stack>
+            ) : null}
+            {providerResult.minGasCost ? (
+              <Stack p={3}>
+                <Badge badgeType="info">Minimum gas fee</Badge>
+              </Stack>
+            ) : null}
+          </XStack>
+        ) : null}
       </XStack>
       {providerResult.toAmount ? (
-        <YStack
-          py="$2"
-          px="$3"
-          space="$3"
-          borderBottomRightRadius="$3"
-          borderBottomLeftRadius="$3"
-        >
-          <XStack justifyContent="space-between">
-            <XStack space="$3.5">
-              {networkFeeComponent}
-              {estimatedTimeComponent}
-              {protocolFeeComponent}
-            </XStack>
-            <Button
-              size="small"
-              variant="tertiary"
-              iconAfter={
-                routeOpen
-                  ? 'ChevronDownSmallOutline'
-                  : 'ChevronRightSmallOutline'
-              }
-              onPress={() => {
-                setRouteOpen((pre) => !pre);
+        <Stack py="$2" px="$3.5">
+          <XStack space="$3.5" alignItems="center">
+            {networkFeeComponent}
+            {estimatedTimeComponent}
+            {protocolFeeComponent}
+            <XStack
+              role="button"
+              borderRadius="$2"
+              alignItems="center"
+              onPress={(e) => {
+                setRouteOpen(!routeOpen);
+                e.stopPropagation();
+              }}
+              ml="auto"
+              pr="$1"
+              my="$-0.5"
+              py="$0.5"
+              mr="$-1"
+              $platform-native={{
+                hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
+              }}
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusStyle={{
+                outlineWidth: 2,
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
               }}
             >
-              Route
-            </Button>
-          </XStack>
+              <SizableText pl="$2" size="$bodySmMedium" color="$textSubdued">
+                Route
+              </SizableText>
 
-          {routeOpen ? routeComponents : null}
-        </YStack>
+              <Stack animation="quick" rotate={routeOpen ? '90deg' : '0deg'}>
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size="$5"
+                  color="$iconSubdued"
+                />
+              </Stack>
+            </XStack>
+          </XStack>
+          <HeightTransition>
+            {routeOpen ? routeComponents : null}
+          </HeightTransition>
+        </Stack>
       ) : null}
-    </YStack>
+    </Stack>
   );
 };
 
