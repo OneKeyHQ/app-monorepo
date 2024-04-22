@@ -6,7 +6,10 @@ import { HeaderLeft } from './HedaerLeft';
 
 import type { ITabPageHeaderProp } from './type';
 
-export function TabPageHeader({ sceneName }: ITabPageHeaderProp) {
+export function TabPageHeader({
+  sceneName,
+  showHeaderRight,
+}: ITabPageHeaderProp) {
   const { top } = useSafeAreaInsets();
   return (
     <>
@@ -20,7 +23,7 @@ export function TabPageHeader({ sceneName }: ITabPageHeaderProp) {
         <View>
           <HeaderLeft sceneName={sceneName} />
         </View>
-        <HeaderRight />
+        {showHeaderRight ? <HeaderRight /> : null}
       </XStack>
     </>
   );

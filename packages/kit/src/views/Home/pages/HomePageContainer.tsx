@@ -172,7 +172,10 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
       return (
         <>
-          <TabPageHeader sceneName={EAccountSelectorSceneName.home} />
+          <TabPageHeader
+            showHeaderRight
+            sceneName={EAccountSelectorSceneName.home}
+          />
           <Page.Body>{renderHomePageContent()}</Page.Body>
         </>
       );
@@ -180,7 +183,10 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
 
     return (
       <>
-        <TabPageHeader sceneName={EAccountSelectorSceneName.home} />
+        <TabPageHeader
+          showHeaderRight
+          sceneName={EAccountSelectorSceneName.home}
+        />
         <Page.Body>
           <Stack h="100%" justifyContent="center">
             <EmptyWallet />
