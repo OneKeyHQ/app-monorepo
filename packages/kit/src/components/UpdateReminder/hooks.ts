@@ -12,7 +12,6 @@ import {
   downloadPackage,
   installPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
