@@ -245,7 +245,7 @@ const SwapProviderListItem = ({
             lock={!!providerResult.allowanceResult}
           />
         </Stack>
-        <Stack px="$3">
+        <Stack px="$3" flex={1}>
           <SizableText color="$text" size="$bodyLgMedium">
             {leftMainLabel}
           </SizableText>

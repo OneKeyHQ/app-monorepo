@@ -100,7 +100,12 @@ export function useSwapFromAccountNetworkSync() {
     void (async () => {
       await checkTokenForAccountNetworkDebounce();
     })();
-  }, [checkTokenForAccountNetworkDebounce, fromToken, toToken]);
+  }, [
+    checkTokenForAccountNetworkDebounce,
+    fromToken,
+    toToken,
+    swapProviderSupportReceiveAddress,
+  ]);
 }
 
 export function useSwapAddressInfo(type: ESwapDirectionType) {
