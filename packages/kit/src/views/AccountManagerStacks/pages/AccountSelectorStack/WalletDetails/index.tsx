@@ -525,14 +525,10 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                   walletId: section.walletId,
                 });
                 console.log('addHDNextIndexedAccount>>>', c);
-                void actions.current.updateSelectedAccount({
+                void actions.current.updateSelectedAccountForHdOrHwAccount({
                   num,
-                  builder: (v) => ({
-                    ...v,
-                    walletId: focusedWalletInfo?.wallet?.id,
-                    othersWalletAccountId: undefined,
-                    indexedAccountId: c.indexedAccountId,
-                  }),
+                  walletId: focusedWalletInfo?.wallet?.id,
+                  indexedAccountId: c.indexedAccountId,
                 });
               }}
             >
