@@ -62,10 +62,11 @@ function SignMessageModal() {
         networkId,
         accountId,
         message: unsignedMessage.message,
+        sourceInfo: $sourceInfo,
       });
       close?.();
     },
-    [unsignedMessage, dappApprove, networkId, accountId],
+    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo],
   );
 
   return (

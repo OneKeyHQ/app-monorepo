@@ -331,6 +331,7 @@ class ServiceSend extends ServiceBase {
       feeInfo: sendSelectedFeeInfo,
       nativeAmountInfo,
       signOnly,
+      sourceInfo,
     } = params;
 
     const newUnsignedTxs = [];
@@ -379,16 +380,16 @@ class ServiceSend extends ServiceBase {
           decodedTx,
         },
       });
-
-      result.push({
+      const data = {
         signedTx,
         decodedTx,
-      });
+      };
+      result.push(data);
       if (!signOnly) {
-        await this.backgroundApi.serviceSignature.addItemFromSendProcess({
-          signedTx,
-          decodedTx,
-        });
+        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+          data,
+          sourceInfo,
+        );
       }
       if (signedTx && !signOnly) {
         await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({

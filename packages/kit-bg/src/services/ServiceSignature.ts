@@ -2,6 +2,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type {
   IBaseSignedMessageContentType,
   IConnectedSite,
@@ -165,20 +167,25 @@ class ServiceSignature extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addItemFromSendProcess(data: ISendTxOnSuccessData) {
+  async addItemFromSendProcess(
+    data: ISendTxOnSuccessData,
+    sourceInfo?: IDappSourceInfo,
+  ) {
     const { signedTx, decodedTx } = data;
     const actions = decodedTx.actions;
     const networkId = decodedTx.networkId;
     const address = decodedTx.signer;
     const swapInfo = signedTx.swapInfo;
-    const defaultTitle = 'OneKey Wallet';
+    const title = sourceInfo?.origin
+      ? uriUtils.getHostNameFromUrl({ url: sourceInfo?.origin })
+      : 'OneKey Wallet';
     if (swapInfo) {
       const fromToken = swapInfo.sender.token;
       const toToken = swapInfo.receiver.token;
       await this.addSignedTransaction({
         networkId,
         address,
-        title: defaultTitle,
+        title,
         hash: signedTx.txid,
         data: {
           type: 'swap',
@@ -215,7 +222,7 @@ class ServiceSignature extends ServiceBase {
         await this.addSignedTransaction({
           networkId,
           address,
-          title: defaultTitle,
+          title,
           hash: signedTx.txid,
           data: {
             type: 'approve',
@@ -240,7 +247,7 @@ class ServiceSignature extends ServiceBase {
       await this.addSignedTransaction({
         networkId,
         address,
-        title: defaultTitle,
+        title,
         hash: signedTx.txid,
         data: {
           type: 'send',
@@ -261,8 +268,12 @@ class ServiceSignature extends ServiceBase {
     networkId: string;
     accountId: string;
     message: string;
+    sourceInfo?: IDappSourceInfo;
   }) {
-    const { networkId, accountId, message } = data;
+    const { sourceInfo, networkId, accountId, message } = data;
+    const title = sourceInfo?.origin
+      ? uriUtils.getHostNameFromUrl({ url: sourceInfo?.origin })
+      : 'OneKey Wallet';
     const address =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,
@@ -279,7 +290,7 @@ class ServiceSignature extends ServiceBase {
     await this.addSignedMessage({
       networkId,
       address,
-      title: 'OneKey Wallet',
+      title,
       message,
       contentType: getContentType(message),
     });
