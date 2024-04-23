@@ -3,7 +3,7 @@ import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
 import { toast } from 'burnt';
-import { getTokens } from 'tamagui';
+import { SizableText, YStack, getTokens } from 'tamagui';
 
 import { Portal } from '../../hocs';
 import { Icon } from '../../primitives';
@@ -50,6 +50,16 @@ const iconMap = {
   },
 };
 
+const renderLines = (lines: string[]) => (
+  <YStack flex={1}>
+    {lines.map((text, index) => (
+      <SizableText wordWrap="break-word" width="100%" key={index}>
+        {text}
+      </SizableText>
+    ))}
+  </YStack>
+);
+
 function burntToast({
   title,
   message,
@@ -57,9 +67,13 @@ function burntToast({
   haptic,
   preset = 'custom',
 }: IToastBaseProps) {
+  const titleLines = title?.split('\n') || [];
+  const messageLines = message?.split('\n') || [];
   toast({
-    title,
-    message,
+    title: (titleLines.length > 1 ? renderLines(titleLines) : title) as any,
+    message: (messageLines.length > 1
+      ? renderLines(messageLines)
+      : message) as any,
     duration,
     haptic,
     preset,
