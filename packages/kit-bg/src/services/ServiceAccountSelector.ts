@@ -389,7 +389,6 @@ class ServiceAccountSelector extends ServiceBase {
     return selectedAccountsMapInDB;
   }
 
-  // TODO move to serviceAccountSelector
   @backgroundMethod()
   async getAccountSelectorAccountsListSectionData({
     focusedWallet,

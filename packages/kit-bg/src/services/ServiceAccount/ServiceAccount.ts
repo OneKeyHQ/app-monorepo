@@ -33,8 +33,8 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -389,8 +389,7 @@ class ServiceAccount extends ServiceBase {
 
     return this.backgroundApi.serviceHardware.withHardwareProcessing(
       async () => {
-        // TODO move to vault
-        // TODO show hardware UI
+        // addHDOrHWAccounts
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
         await localDb.addAccountsToWallet({
           walletId,
@@ -453,6 +452,7 @@ class ServiceAccount extends ServiceBase {
         }),
       );
     }
+    // restoreAccountsToWallet
     await localDb.addAccountsToWallet({
       walletId,
       accounts,
@@ -532,9 +532,7 @@ class ServiceAccount extends ServiceBase {
     });
     // TODO privateKey should be HEX format
     ensureSensitiveTextEncoded(credential);
-    const nextAccountId = await localDb.getWalletNextAccountId({
-      walletId,
-    });
+
     const privateKeyDecoded = decodeSensitiveText({ encodedText: credential });
 
     const { password } =
@@ -549,7 +547,7 @@ class ServiceAccount extends ServiceBase {
     });
     const params: IPrepareImportedAccountsParams = {
       password,
-      name: `Account #${nextAccountId}`, // TODO i18n
+      name: '',
       importedCredential: credentialEncrypt,
       createAtNetwork: networkId,
     };
@@ -568,6 +566,8 @@ class ServiceAccount extends ServiceBase {
       walletId,
       accounts,
       importedCredential: credentialEncrypt,
+      accountNameBuilder: ({ nextAccountId }) =>
+        accountUtils.buildBaseAccountName({ nextAccountId }),
     });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     return {
@@ -615,9 +615,6 @@ class ServiceAccount extends ServiceBase {
     connectResult: IExternalConnectWalletResult;
   }) {
     const walletId = WALLET_TYPE_EXTERNAL;
-    const nextAccountId = await localDb.getWalletNextAccountId({
-      walletId,
-    });
 
     const isWalletConnect = !!connectResult.connectionInfo.walletConnect;
 
@@ -626,8 +623,6 @@ class ServiceAccount extends ServiceBase {
     const { notSupportedNetworkIds, connectionInfo, accountInfo } =
       connectResult;
     const { addresses, networkIds, impl, createAtNetwork, name } = accountInfo;
-
-    const accountName = `${name || 'Account'} #${nextAccountId}`;
 
     if (isWalletConnect) {
       // walletconnect should create multiple chain accounts
@@ -644,7 +639,7 @@ class ServiceAccount extends ServiceBase {
         const account: IDBExternalAccount = {
           id: accountId,
           type: EDBAccountType.VARIANT,
-          name: accountName,
+          name: '',
           connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
           addresses: {},
           connectedAddresses: addresses, // TODO merge with addresses
@@ -671,7 +666,7 @@ class ServiceAccount extends ServiceBase {
       const account: IDBExternalAccount = {
         id: accountId,
         type: EDBAccountType.VARIANT,
-        name: accountName,
+        name: '',
         connectionInfoRaw: stringUtils.safeStringify(connectionInfo),
         addresses: {},
         connectedAddresses: addresses, // TODO merge with addresses
@@ -687,9 +682,15 @@ class ServiceAccount extends ServiceBase {
       accounts = [account];
     }
 
+    // addExternalAccount
     await localDb.addAccountsToWallet({
       walletId,
       accounts,
+      accountNameBuilder: ({ nextAccountId }) =>
+        accountUtils.buildBaseAccountName({
+          mainName: name || 'Account',
+          nextAccountId,
+        }),
     });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
 
@@ -746,16 +747,11 @@ class ServiceAccount extends ServiceBase {
     if (!address && !xpub) {
       throw new Error('input not valid');
     }
-    const nextAccountId = await localDb.getWalletNextAccountId({
-      walletId,
-    });
-    const accountName = isUrlAccount
-      ? 'Url Account'
-      : `Account #${nextAccountId}`;
+
     const params: IPrepareWatchingAccountsParams = {
       address,
       xpub,
-      name: accountName,
+      name: '',
       networks: [networkId],
       createAtNetwork: networkId,
       isUrlAccount,
@@ -774,6 +770,10 @@ class ServiceAccount extends ServiceBase {
     await localDb.addAccountsToWallet({
       walletId,
       accounts,
+      accountNameBuilder: ({ nextAccountId }) =>
+        isUrlAccount
+          ? 'Url Account'
+          : accountUtils.buildBaseAccountName({ nextAccountId }),
     });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     return {

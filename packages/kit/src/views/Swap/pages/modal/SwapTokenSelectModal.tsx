@@ -29,6 +29,7 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -209,7 +210,7 @@ const SwapTokenSelectPage = () => {
   const openChainSelector = useConfigurableChainSelector();
 
   return (
-    <Page>
+    <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header
         title="Select Token"
         headerSearchBarOptions={{
