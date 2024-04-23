@@ -41,6 +41,11 @@ export function useSwapApproving() {
       ESwapApproveTransactionStatus.CANCEL
     ) {
       Toast.error({ title: 'Approve canceled' });
+    } else if (
+      swapApprovingTransactionAtom?.status ===
+      ESwapApproveTransactionStatus.SUCCESS
+    ) {
+      Toast.success({ title: 'Approve success' });
     }
     return () => {
       cleanApprovingInterval();

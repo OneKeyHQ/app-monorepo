@@ -95,11 +95,13 @@ export interface ISwapApproveTransaction {
   amount: string;
   status: ESwapApproveTransactionStatus;
   txId?: string;
+  blockNumber?: number;
 }
 export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
   slippagePercentage?: number;
+  blockNumber?: number;
 }
 interface ISocketAsset {
   address: string;
@@ -280,6 +282,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
   gasFeeFiatValue?: string;
   timestamp?: number;
   dealReceiveAmount?: string;
+  blockNumber?: number;
 }
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
