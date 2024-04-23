@@ -205,7 +205,7 @@ export function useCreateAccountInWallet({
     }
 
     if (activeWallet?.type === 'external') {
-      await connectAndCreateExternalAccount();
+      connectAndCreateExternalAccount();
       return;
     }
     if (activeWallet?.type === 'imported') {
