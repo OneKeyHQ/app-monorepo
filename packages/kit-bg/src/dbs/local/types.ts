@@ -48,8 +48,8 @@ export type IDBContext = {
   verifyString: string;
   networkOrderChanged?: boolean;
   backupUUID: string;
-  nextSigMsgId: number;
-  nextSigTxId: number;
+  nextSignatureMessageId: number;
+  nextSignatureTransactionId: number;
   nextConnectedSiteId: number;
 };
 export type IDBApiGetContextOptions = {

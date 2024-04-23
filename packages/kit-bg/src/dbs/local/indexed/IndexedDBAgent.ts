@@ -324,7 +324,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         error.$$autoPrintErrorIgnore = true;
         throw error;
       }
-      return [record, null];
+      return [record as any, null];
     };
     return fn(paramsTx);
   }

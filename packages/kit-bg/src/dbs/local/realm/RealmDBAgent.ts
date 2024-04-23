@@ -1,4 +1,3 @@
-import { is } from 'date-fns/locale';
 import { isNumber } from 'lodash';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -187,11 +186,13 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   ): Promise<ILocalDBTxGetRecordByIdResult<T>> {
     const { id, name } = params;
     const obj = this._getObjectRecordById(name, id);
+    // @ts-ignore
     const record = obj?.record;
     if (!record) {
       throw new Error(`record not found: ${name} ${id}`);
     }
-    return [record, obj];
+    // eslint-disable-next-line
+    return [record as any, obj];
   }
 
   async txUpdateRecords<T extends ELocalDBStoreNames>(

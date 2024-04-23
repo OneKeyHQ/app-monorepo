@@ -19,9 +19,9 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
 
   public backupUUID!: string;
 
-  public nextSigMsgId!: number;
+  public nextSignatureMessageId!: number;
 
-  public nextSigTxId!: number;
+  public nextSignatureTransactionId!: number;
 
   public nextConnectedSiteId!: number;
 
@@ -35,8 +35,8 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       verifyString: 'string',
       networkOrderChanged: { type: 'bool', default: false },
       backupUUID: { type: 'string', default: '' },
-      nextSigMsgId: { type: 'int', default: 1 },
-      nextSigTxId: { type: 'int', default: 1 },
+      nextSignatureMessageId: { type: 'int', default: 1 },
+      nextSignatureTransactionId: { type: 'int', default: 1 },
       nextConnectedSiteId: { type: 'int', default: 1 },
     },
   };
@@ -49,8 +49,8 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       verifyString: this.verifyString,
       networkOrderChanged: this.networkOrderChanged || false,
       backupUUID: this.backupUUID,
-      nextSigMsgId: this.nextSigMsgId,
-      nextSigTxId: this.nextSigTxId,
+      nextSignatureMessageId: this.nextSignatureMessageId,
+      nextSignatureTransactionId: this.nextSignatureTransactionId,
       nextConnectedSiteId: this.nextConnectedSiteId,
     };
   }

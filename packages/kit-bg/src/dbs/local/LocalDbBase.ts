@@ -2020,7 +2020,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
-  // ---------------------------------------------- indexedAccount
+  // ---------------------------------------------- signature record
   async addSignedMessage(params: ICreateSignedMessageParams) {
     const db = await this.readyDb;
     await db.withTransaction(async (tx) => {
@@ -2031,7 +2031,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
         records: [
           {
             ...params,
-            id: String(ctx.nextSigMsgId),
+            id: String(ctx.nextSignatureMessageId),
             createdAt: Date.now(),
           },
         ],
@@ -2039,7 +2039,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       await this.txUpdateContext({
         tx,
         updater: (r) => {
-          r.nextSigMsgId += 1;
+          r.nextSignatureMessageId += 1;
           return r;
         },
       });
@@ -2059,7 +2059,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
           {
             ...rest,
             dataStringify,
-            id: String(ctx.nextSigTxId),
+            id: String(ctx.nextSignatureTransactionId),
             createdAt: Date.now(),
           },
         ],
@@ -2067,7 +2067,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       await this.txUpdateContext({
         tx,
         updater: (r) => {
-          r.nextSigTxId += 1;
+          r.nextSignatureTransactionId += 1;
           return r;
         },
       });
