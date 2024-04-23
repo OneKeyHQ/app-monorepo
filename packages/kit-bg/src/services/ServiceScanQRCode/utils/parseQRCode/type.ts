@@ -5,6 +5,7 @@ export enum EQRCodeHandlerType {
   UNKNOWN,
   BITCOIN,
   ETHEREUM,
+  SOLANA,
   LIGHTNING_NETWORK,
   URL,
   WALLET_CONNECT,
@@ -43,6 +44,15 @@ export interface IEthereumValue extends IChainValue {
   n?: number;
   // byte code data for transaction
   code?: string;
+}
+export interface ISolanaValue extends Omit<IChainValue, 'address'> {
+  recipient?: string;
+  // eslint-disable-next-line spellcheck/spell-checker
+  spl_token?: string;
+  reference?: string[];
+  label?: string;
+  message?: string;
+  memo?: string;
 }
 export interface ILightningNetworkValue extends IBaseValue {
   tag?: string;
