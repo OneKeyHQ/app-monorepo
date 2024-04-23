@@ -31,6 +31,7 @@ export type IPlatformEnv = {
 
   version: string | undefined;
   buildNumber: string | undefined;
+  githubSHA: string | undefined;
   NODE_ENV?: string;
   JEST_WORKER_ID?: string;
 
@@ -349,6 +350,7 @@ const platformEnv: IPlatformEnv = {
 
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
+  githubSHA: process.env.GITHUB_SHA,
 
   isJest,
 

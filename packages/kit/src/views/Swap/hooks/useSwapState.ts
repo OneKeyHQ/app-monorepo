@@ -156,8 +156,8 @@ export function useSwapActionState() {
 
   const stepState: ISwapState = {
     label: actionInfo.label,
-    isLoading: buildTxFetching || quoteLoading,
-    disabled: actionInfo.disable,
+    isLoading: buildTxFetching,
+    disabled: actionInfo.disable || quoteLoading,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,

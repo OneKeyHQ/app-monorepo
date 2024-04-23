@@ -11,6 +11,7 @@ import {
   FirmwareVersionTooLow,
   InitIframeLoadFail,
   InitIframeTimeout,
+  NotInBootLoaderMode,
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -341,6 +342,10 @@ class ServiceHardware extends ServiceBase {
     };
   }> {
     const { connectId, deviceType } = device;
+    // web-sdk won't throw Error, but can test by device.mode
+    if ((device as { mode?: string } | undefined)?.mode === 'bootloader') {
+      throw new NotInBootLoaderMode();
+    }
     if (!connectId) {
       throw new Error(
         'firmwareAuthenticate ERROR: device connectId is undefined',

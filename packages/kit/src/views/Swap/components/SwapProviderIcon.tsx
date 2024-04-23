@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import type { IImageProps } from '@onekeyhq/components';
 import { Icon, Image, Stack } from '@onekeyhq/components';
 
@@ -13,9 +11,9 @@ export function SwapProviderIcon({
   lock,
   ...props
 }: ISwapProviderIconProps) {
-  const providerIcon = useMemo(
-    () => (
-      <Image width="$10" height="$10" borderRadius="$2" {...props}>
+  return (
+    <>
+      <Image size="$10" borderRadius="$2" delayMs={1000} {...props}>
         <Image.Source
           source={{
             uri: providerLogo,
@@ -25,28 +23,22 @@ export function SwapProviderIcon({
           alignItems="center"
           justifyContent="center"
           bg="$bgStrong"
-          delayMs={1000}
         >
-          <Icon size="$7" name="CoinOutline" color="$iconDisabled" />
+          <Icon name="Image2MountainsSolid" color="$iconDisabled" />
         </Image.Fallback>
       </Image>
-    ),
-    [props, providerLogo],
-  );
-  if (!lock) return providerIcon;
-  return (
-    <Stack position="relative" width="$10" height="$10">
-      {providerIcon}
-      <Stack
-        position="absolute"
-        right="$-1"
-        bottom="$-1"
-        p="$0.5"
-        bg="$bgSubdued"
-        borderRadius="$full"
-      >
-        <Icon size="$4" name="LockOutline" />
-      </Stack>
-    </Stack>
+      {lock ? (
+        <Stack
+          p="$0.5"
+          borderRadius="$full"
+          bg="$bgSubdued"
+          position="absolute"
+          right="$-1"
+          bottom="$-1"
+        >
+          <Icon size="$4" name="LockOutline" />
+        </Stack>
+      ) : null}
+    </>
   );
 }

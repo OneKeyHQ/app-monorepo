@@ -97,7 +97,12 @@ export abstract class KeyringBase extends VaultContext {
       }
 
       const pathIndex = usedIndexes[idx];
-      const name = names?.[idx] || `${namePrefix} #${pathIndex + 1}`;
+      const name =
+        names?.[idx] ||
+        accountUtils.buildHDAccountName({
+          pathIndex,
+          namePrefix,
+        });
 
       const id = accountUtils.buildHDAccountId({
         walletId,
