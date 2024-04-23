@@ -11,6 +11,7 @@ import type {
   IEncodedTx,
   ISignedTxPro,
 } from '@onekeyhq/engine/src/vaults/types';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import { isExternalAccount } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
@@ -21,7 +22,10 @@ import { closeExtensionWindowIfOnboardingFinished } from '../../../hooks/useOnbo
 import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 import { AuthExternalAccountInfo } from '../../ExternalAccount/SendConfirm/AuthExternalAccountInfo';
-import { useSignOrSendOfExternalAccount } from '../../ExternalAccount/SendConfirm/useSignOrSendOfExternalAccount';
+import {
+  useSignOrSendOfBtcExternalAccount,
+  useSignOrSendOfExternalAccount,
+} from '../../ExternalAccount/SendConfirm/useSignOrSendOfExternalAccount';
 import { BaseSendModal } from '../components/BaseSendModal';
 import { DecodeTxButtonTest } from '../components/DecodeTxButtonTest';
 
@@ -96,8 +100,19 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     signOnly,
   });
 
+  const { sendTxForBtcExternalAccount } = useSignOrSendOfBtcExternalAccount({
+    encodedTx,
+    sourceInfo,
+    networkId,
+    accountId,
+    signOnly,
+  });
+
   const sendTx = useCallback(async (): Promise<ISignedTxPro | undefined> => {
     if (isExternal) {
+      if (isBTCNetwork(networkId)) {
+        return sendTxForBtcExternalAccount();
+      }
       return sendTxForExternalAccount();
     }
 
@@ -124,6 +139,7 @@ const SendAuth: FC<EnableLocalAuthenticationProps> = ({
     accountId,
     encodedTx,
     sendTxForExternalAccount,
+    sendTxForBtcExternalAccount,
     signOnly,
   ]);
 

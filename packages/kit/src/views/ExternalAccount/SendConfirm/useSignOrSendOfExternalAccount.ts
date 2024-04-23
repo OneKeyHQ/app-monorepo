@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { useCallback } from 'react';
 
 import { cloneDeep, isString } from 'lodash';
@@ -7,12 +9,17 @@ import {
   ETHMessageTypes,
   getEthProviderMethodFromMessageType,
 } from '@onekeyhq/engine/src/types/message';
-import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
+import type {
+  IEncodedTxBtc,
+  IUnsignedMessageBtc,
+} from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
+import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
@@ -154,5 +161,53 @@ export function useSignOrSendOfExternalAccount({
     externalAccountInfo,
     sendTxForExternalAccount,
     signMsgForExternalAccount,
+  };
+}
+
+export function useSignOrSendOfBtcExternalAccount({
+  encodedTx,
+  networkId,
+}: {
+  encodedTx: IEncodedTx | undefined;
+  sourceInfo?: IDappSourceInfo | undefined;
+  networkId: string;
+  accountId: string;
+  signOnly: boolean;
+}) {
+  const intl = useIntl();
+  const { engine } = backgroundApiProxy;
+
+  const sendTxForBtcExternalAccount = useCallback(async () => {
+    const currentNetwork = await engine.getNetwork(networkId);
+    if (!isBTCNetwork(currentNetwork.id)) {
+      throw new Error('Network is not BTC');
+    }
+    const tx = encodedTx as IEncodedTxBtc;
+    if (!tx) {
+      throw new Error('encodedTx is missing!');
+    }
+    const result =
+      await window.$onekey.$privateExternalAccount?.btc_signTransaction({
+        encodedTx: {
+          inputs: tx.inputs,
+          outputs: tx.outputs,
+          // @ts-expect-error
+          inputsForCoinSelect: tx.inputsForCoinSelect,
+          // @ts-expect-error
+          outputsForCoinSelect: tx.outputsForCoinSelect,
+          fee: tx.totalFee,
+        },
+        network:
+          currentNetwork.id === OnekeyNetwork.btc ? 'mainnet' : 'testnet',
+      });
+    return {
+      txid: result.txid,
+      rawTx: result.rawTx,
+      encodedTx,
+    };
+  }, [encodedTx, networkId, engine]);
+
+  return {
+    sendTxForBtcExternalAccount,
   };
 }
