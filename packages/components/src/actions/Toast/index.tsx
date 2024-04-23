@@ -53,7 +53,7 @@ const iconMap = {
 function burntToast({
   title,
   message,
-  duration,
+  duration = 2,
   haptic,
   preset = 'custom',
 }: IToastBaseProps) {
