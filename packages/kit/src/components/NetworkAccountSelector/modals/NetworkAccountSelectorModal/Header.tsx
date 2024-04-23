@@ -82,7 +82,7 @@ function Header({
     }
 
     if (
-      selectedNetworkSettings?.enableOnClassicOnly &&
+      selectedNetworkSettings?.enabledOnClassicOnly &&
       !isHwClassic(selectedWallet?.deviceType)
     ) {
       return true;
@@ -90,7 +90,7 @@ function Header({
     return false;
   }, [
     hideCreateAccount,
-    selectedNetworkSettings?.enableOnClassicOnly,
+    selectedNetworkSettings?.enabledOnClassicOnly,
     selectedWallet?.deviceType,
   ]);
 

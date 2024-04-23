@@ -23,7 +23,7 @@ const settings: IVaultSettings = Object.freeze({
 
   withPaymentId: true,
 
-  enableOnClassicOnly: true,
+  enabledOnClassicOnly: true,
 
   accountNameInfo: {
     default: {

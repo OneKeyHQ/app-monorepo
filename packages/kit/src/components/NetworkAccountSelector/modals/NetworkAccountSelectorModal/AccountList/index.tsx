@@ -83,7 +83,7 @@ const EmptyAccountState: FC<EmptyAccountStateProps> = ({
   const { wallet } = useWallet({ walletId });
 
   if (
-    network?.settings.enableOnClassicOnly &&
+    network?.settings.enabledOnClassicOnly &&
     !isHwClassic(wallet?.deviceType)
   ) {
     return (

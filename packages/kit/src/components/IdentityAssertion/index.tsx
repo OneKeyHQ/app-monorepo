@@ -60,12 +60,12 @@ const IdentityAssertion: FC<{ checkCompatibleNetwork?: boolean }> = ({
   const hasNoWallet = !walletId;
   const isAccountCompatibleNetwork =
     !!accountId && (checkCompatibleNetwork ? isCompatibleNetwork : true);
-  const enableOnClassicOnly = network?.settings.enableOnClassicOnly;
+  const enabledOnClassicOnly = network?.settings.enabledOnClassicOnly;
 
-  if (enableOnClassicOnly && !isHwClassic(wallet?.deviceType)) {
+  if (enabledOnClassicOnly && !isHwClassic(wallet?.deviceType)) {
     return (
       <Box
-        testID="IdentityAssertion-enableOnClassicOnly"
+        testID="IdentityAssertion-enabledOnClassicOnly"
         flex="1"
         justifyContent="center"
         bg="background-default"
