@@ -106,8 +106,8 @@ class ServiceAccountSelector extends ServiceBase {
         });
         if (swapDataMerged) {
           const usedNetworkId =
-            swapDataMerged.networkId ??
-            swapMap[num]?.networkId ??
+            // swapDataMerged.networkId ??
+            // swapMap[num]?.networkId ??
             homeData?.networkId;
           swapMap[num] = swapDataMerged;
           if (swapMap && swapMap[num]) {

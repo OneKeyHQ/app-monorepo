@@ -6,7 +6,13 @@ import { SizableText, XStack } from '@onekeyhq/components';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
-const SwapHeaderContainer = () => {
+interface ISwapHeaderContainerProps {
+  hiddenRightAction?: boolean;
+}
+
+const SwapHeaderContainer = ({
+  hiddenRightAction,
+}: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
   return (
@@ -20,10 +26,9 @@ const SwapHeaderContainer = () => {
           <SizableText size="$headingLg">
             {intl.formatMessage({ id: 'form__limit' })}
           </SizableText>
-          {/* <Badge badgeSize="sm">Soon</Badge> */}
         </XStack>
       </XStack>
-      {headerRight()}
+      {!hiddenRightAction ? headerRight() : null}
     </XStack>
   );
 };

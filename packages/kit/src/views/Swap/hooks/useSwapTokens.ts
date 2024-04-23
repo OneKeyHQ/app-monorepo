@@ -32,8 +32,8 @@ import { useSwapAddressInfo } from './useSwapAccount';
 
 export function useSwapNetworkList() {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
-  const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
-  const [toToken, setToToken] = useSwapSelectToTokenAtom();
+  const [, setFromToken] = useSwapSelectFromTokenAtom();
+  const [, setToToken] = useSwapSelectToTokenAtom();
   const [, setSelectSort] = useSwapProviderSortAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [defaultTokenLoading, setDefaultTokenLoading] = useState<boolean>(true);
@@ -83,10 +83,6 @@ export function useSwapNetworkList() {
     }
   }, [setSwapNetworks, swapNetworks.length]);
   const syncDefaultSelectedToken = useCallback(async () => {
-    if (fromToken || toToken) {
-      setDefaultTokenLoading(false);
-      return;
-    }
     if (
       !swapAddressInfo.accountInfo?.ready ||
       !swapAddressInfo.networkId ||
@@ -153,7 +149,6 @@ export function useSwapNetworkList() {
       }
     }
   }, [
-    fromToken,
     setFromToken,
     setToToken,
     swapAddressInfo.accountInfo?.account,
@@ -161,10 +156,8 @@ export function useSwapNetworkList() {
     swapAddressInfo.address,
     swapAddressInfo.networkId,
     swapNetworks,
-    toToken,
   ]);
   useEffect(() => {
-    if (swapNetworks.length) return;
     void (async () => {
       await fetchSwapNetworks();
     })();

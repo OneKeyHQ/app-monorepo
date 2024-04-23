@@ -25,7 +25,12 @@ import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 
-const SwapMainLoad = () => {
+interface ISwapMainLoadProps {
+  hiddenSwapHeader?: boolean;
+  children?: React.ReactNode;
+}
+
+const SwapMainLoad = ({ hiddenSwapHeader }: ISwapMainLoadProps) => {
   const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -88,7 +93,7 @@ const SwapMainLoad = () => {
           pt: '$5',
         }}
       >
-        <SwapHeaderContainer />
+        {!hiddenSwapHeader ? <SwapHeaderContainer /> : null}
         <SwapQuoteInput onSelectToken={onSelectToken} />
         {alerts.length > 0 && !quoteLoading ? (
           <SwapAlertContainer alerts={alerts} />
@@ -108,4 +113,4 @@ const SwapMainLoad = () => {
     </YStack>
   );
 };
-export default memo(withSwapProvider(SwapMainLoad));
+export default memo(withSwapProvider<ISwapMainLoadProps>(SwapMainLoad));

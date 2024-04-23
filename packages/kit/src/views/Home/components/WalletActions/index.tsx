@@ -15,8 +15,12 @@ import {
   EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
+  EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  IModalSendParamList,
+  IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -140,7 +144,13 @@ function WalletActionReceive() {
 }
 
 function WalletActionSwap() {
-  const handleOnSwap = useCallback(() => {}, []);
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const handleOnSwap = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+    });
+  }, [navigation]);
   return <RawActions.Swap onPress={handleOnSwap} />;
 }
 
