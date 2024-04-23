@@ -90,7 +90,9 @@ const formatLocalNumber = (
 
   const integer = `${
     integerPart === '-0' ? '-' : ''
-  }${appLocale.intl.formatNumber(BigInt(integerPart) + BigInt(plus))}`;
+  }${appLocale.intl.formatNumber(
+    new BigNumber(integerPart).plus(plus).toFixed() as any,
+  )}`;
   const result = `${integer}${formatDecimal ? formatDecimal.slice(1) : ''}`;
   return keepTrailingZeros ? stripTrailingZero(result) : result;
 };

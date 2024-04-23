@@ -5,7 +5,7 @@ import { FlashList } from '@shopify/flash-list';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { getTokenValue } from 'tamagui';
 
-import { View } from '../../optimization';
+import { OptimizationView } from '../../optimization';
 
 import type { FlashListProps, ListRenderItem } from '@shopify/flash-list';
 import type { StackStyleProps, Tokens } from '@tamagui/web/types/types';
@@ -86,7 +86,9 @@ function BaseListView<T>(
   return (
     // FlashList doesn't support the style, so we have to wrap it,
     // and we set default flex = 1 just like FlatList
-    <View style={[{ flex: 1, minHeight: 2 }, style as StyleProp<ViewStyle>]}>
+    <OptimizationView
+      style={[{ flex: 1, minHeight: 2 }, style as StyleProp<ViewStyle>]}
+    >
       <FlashList<T>
         ref={ref}
         ListHeaderComponentStyle={listHeaderStyle}
@@ -97,7 +99,7 @@ function BaseListView<T>(
         estimatedItemSize={itemSize}
         {...restProps}
       />
-    </View>
+    </OptimizationView>
   );
 }
 

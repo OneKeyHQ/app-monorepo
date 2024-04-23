@@ -5,7 +5,7 @@ import { styled, withStaticProperties } from 'tamagui';
 import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
 import { useThemeValue } from '../../hooks/useStyle';
-import { View } from '../../optimization';
+import { OptimizationView } from '../../optimization';
 
 import ICON_CONFIG from './Icons';
 
@@ -81,7 +81,7 @@ function BasicIconContainer({ name, style }: IIconContainerProps, _: any) {
   ) : (
     <Suspense
       fallback={
-        <View
+        <OptimizationView
           style={{
             width: componentWidth,
             height: componentHeight,

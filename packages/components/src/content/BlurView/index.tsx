@@ -6,7 +6,7 @@ import { BlurView as NativeBlurView } from 'expo-blur';
 import { type View as IView, type ViewStyle } from 'react-native';
 
 import { useThemeName } from '../../hooks';
-import { View } from '../../optimization';
+import { OptimizationView } from '../../optimization';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { BlurViewProps } from 'expo-blur';
@@ -36,7 +36,7 @@ function BasicBlurView(
   });
 
   return (
-    <View
+    <OptimizationView
       style={{
         ...(style as ViewStyle),
         overflow: 'hidden',
@@ -48,7 +48,7 @@ function BasicBlurView(
         {...restProps}
         ref={ref}
       />
-    </View>
+    </OptimizationView>
   );
 }
 

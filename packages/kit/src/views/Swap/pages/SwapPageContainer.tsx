@@ -1,33 +1,17 @@
-import { useCallback } from 'react';
-
 import { Page } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { AccountSelectorTriggerSwap } from '../../../components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerSwap';
+import { TabPageHeader } from '../../../components/TabPageHeader';
 
 import SwapMainLand from './components/SwapMainLand';
 
-const SwapPageContainer = () => {
-  const headerLeft = useCallback(
-    () => (
-      <AccountSelectorProviderMirror
-        config={{ sceneName: EAccountSelectorSceneName.swap, sceneUrl: '' }}
-        enabledNum={[0]}
-      >
-        <AccountSelectorTriggerSwap num={0} />
-      </AccountSelectorProviderMirror>
-    ),
-    [],
-  );
-  return (
-    <Page scrollEnabled skipLoading={platformEnv.isNativeIOS}>
-      <Page.Header headerLeft={headerLeft} />
-      <Page.Body>
-        <SwapMainLand />
-      </Page.Body>
-    </Page>
-  );
-};
+const SwapPageContainer = () => (
+  <Page scrollEnabled skipLoading={platformEnv.isNativeIOS}>
+    <TabPageHeader sceneName={EAccountSelectorSceneName.swap} />
+    <Page.Body>
+      <SwapMainLand />
+    </Page.Body>
+  </Page>
+);
 export default SwapPageContainer;
