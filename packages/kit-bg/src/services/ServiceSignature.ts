@@ -183,13 +183,14 @@ class ServiceSignature extends ServiceBase {
     const networkId = decodedTx.networkId;
     const address = decodedTx.signer;
     const swapInfo = signedTx.swapInfo;
+    const defaultTitle = 'OneKey Wallet';
     if (swapInfo) {
       const fromToken = swapInfo.sender.token;
       const toToken = swapInfo.receiver.token;
       await this.addSignedTransaction({
         networkId,
         address,
-        title: 'OneKey Wallet',
+        title: defaultTitle,
         hash: signedTx.txid,
         data: {
           type: 'swap',
@@ -211,55 +212,59 @@ class ServiceSignature extends ServiceBase {
           },
         },
       });
-    } else if (actions.length >= 1) {
-      const approveAction = actions.find(
-        (action) => action.type === EDecodedTxActionType.TOKEN_APPROVE,
-      );
-      if (approveAction && approveAction.tokenApprove) {
-        const tokenApprove = approveAction.tokenApprove;
-        if (tokenApprove) {
-          await this.addSignedTransaction({
-            networkId,
-            address,
-            title: 'OneKey Wallet',
-            hash: signedTx.txid,
-            data: {
-              type: 'approve',
-              amount: tokenApprove.amount,
-              token: {
-                name: tokenApprove.name,
-                symbol: tokenApprove.symbol,
-                address: tokenApprove.tokenIdOnNetwork,
-                logoURI: tokenApprove.icon,
-              },
-              isUnlimited: tokenApprove.isInfiniteAmount,
-            },
-          });
-        }
-        return;
-      }
-      const transferAction = actions.find(
-        (action) => action.type === EDecodedTxActionType.ASSET_TRANSFER,
-      );
-      if (transferAction && transferAction.assetTransfer) {
-        const assetTransfer = transferAction.assetTransfer;
+      return;
+    }
+    // add stake action here
+    if (actions.length < 1) {
+      return;
+    }
+    const approveAction = actions.find(
+      (action) => action.type === EDecodedTxActionType.TOKEN_APPROVE,
+    );
+    if (approveAction && approveAction.tokenApprove) {
+      const tokenApprove = approveAction.tokenApprove;
+      if (tokenApprove) {
         await this.addSignedTransaction({
           networkId,
           address,
-          title: 'OneKey Wallet',
+          title: defaultTitle,
           hash: signedTx.txid,
           data: {
-            type: 'send',
-            amount: assetTransfer.sends[0].amount,
+            type: 'approve',
+            amount: tokenApprove.amount,
             token: {
-              name: assetTransfer.sends[0].name,
-              symbol: assetTransfer.sends[0].symbol,
-              address: assetTransfer.sends[0].tokenIdOnNetwork,
-              logoURI: assetTransfer.sends[0].icon,
+              name: tokenApprove.name,
+              symbol: tokenApprove.symbol,
+              address: tokenApprove.tokenIdOnNetwork,
+              logoURI: tokenApprove.icon,
             },
+            isUnlimited: tokenApprove.isInfiniteAmount,
           },
         });
       }
+      return;
+    }
+    const transferAction = actions.find(
+      (action) => action.type === EDecodedTxActionType.ASSET_TRANSFER,
+    );
+    if (transferAction && transferAction.assetTransfer) {
+      const assetTransfer = transferAction.assetTransfer;
+      await this.addSignedTransaction({
+        networkId,
+        address,
+        title: defaultTitle,
+        hash: signedTx.txid,
+        data: {
+          type: 'send',
+          amount: assetTransfer.sends[0].amount,
+          token: {
+            name: assetTransfer.sends[0].name,
+            symbol: assetTransfer.sends[0].symbol,
+            address: assetTransfer.sends[0].tokenIdOnNetwork,
+            logoURI: assetTransfer.sends[0].icon,
+          },
+        },
+      });
     }
   }
 
