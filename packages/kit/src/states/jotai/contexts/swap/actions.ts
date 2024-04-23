@@ -323,27 +323,34 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   approvingStateRunSync = contextAtomMethod(
     async (get, set, networkId: string, txId: string) => {
-      const txState = await backgroundApiProxy.serviceSwap.fetchTxState({
-        txId,
-        networkId,
-      });
-      if (
-        txState.state === ESwapTxHistoryStatus.SUCCESS ||
-        txState.state === ESwapTxHistoryStatus.FAILED
-      ) {
-        set(swapApprovingTransactionAtom(), (pre) => {
-          if (!pre || txState.state === ESwapTxHistoryStatus.SUCCESS) {
-            return undefined;
-          }
-          return {
-            ...pre,
-            txId: undefined,
-            status: ESwapApproveTransactionStatus.FAILED,
-          };
+      let enableInterval = true;
+      try {
+        const txState = await backgroundApiProxy.serviceSwap.fetchTxState({
+          txId,
+          networkId,
         });
-        set(swapBuildTxFetchingAtom(), false);
-      } else {
-        void this.approvingStateAction.call(set);
+
+        if (
+          txState.state === ESwapTxHistoryStatus.SUCCESS ||
+          txState.state === ESwapTxHistoryStatus.FAILED
+        ) {
+          enableInterval = false;
+          set(swapApprovingTransactionAtom(), (pre) => {
+            if (!pre || txState.state === ESwapTxHistoryStatus.SUCCESS) {
+              return undefined;
+            }
+            return {
+              ...pre,
+              txId: undefined,
+              status: ESwapApproveTransactionStatus.FAILED,
+            };
+          });
+          set(swapBuildTxFetchingAtom(), false);
+        }
+      } finally {
+        if (enableInterval) {
+          void this.approvingStateAction.call(set);
+        }
       }
     },
   );
@@ -406,44 +413,50 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   historyStateRunSync = contextAtomMethod(
     async (get, set, swapTxHistory: ISwapTxHistory) => {
-      const txStatusRes = await backgroundApiProxy.serviceSwap.fetchTxState({
-        txId: swapTxHistory.txInfo.txId,
-        provider: swapTxHistory.swapInfo.provider.provider,
-        protocol: EProtocolOfExchange.SWAP,
-        networkId: swapTxHistory.baseInfo.fromToken.networkId,
-        ctx: swapTxHistory.ctx,
-        toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
-        receivedAddress: swapTxHistory.txInfo.receiver,
-      });
-      if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
-        await this.updateSwapHistoryItem.call(set, {
-          ...swapTxHistory,
-          status: txStatusRes.state,
-          txInfo: {
-            ...swapTxHistory.txInfo,
-            receiverTransactionId: txStatusRes.crossChainReceiveTxHash || '',
-            gasFeeInNative: txStatusRes.gasFee
-              ? txStatusRes.gasFee
-              : swapTxHistory.txInfo.gasFeeInNative,
-            gasFeeFiatValue: txStatusRes.gasFeeFiatValue
-              ? txStatusRes.gasFeeFiatValue
-              : swapTxHistory.txInfo.gasFeeFiatValue,
-          },
-          baseInfo: {
-            ...swapTxHistory.baseInfo,
-            toAmount: txStatusRes.dealReceiveAmount
-              ? txStatusRes.dealReceiveAmount
-              : swapTxHistory.baseInfo.toAmount,
-          },
+      let enableInterval = true;
+      try {
+        const txStatusRes = await backgroundApiProxy.serviceSwap.fetchTxState({
+          txId: swapTxHistory.txInfo.txId,
+          provider: swapTxHistory.swapInfo.provider.provider,
+          protocol: EProtocolOfExchange.SWAP,
+          networkId: swapTxHistory.baseInfo.fromToken.networkId,
+          ctx: swapTxHistory.ctx,
+          toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
+          receivedAddress: swapTxHistory.txInfo.receiver,
         });
-        this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
-      } else {
-        this.historyStateIntervals[swapTxHistory.txInfo.txId] = setTimeout(
-          () => {
-            void this.historyStateRunSyncTimeOut.call(set, swapTxHistory);
-          },
-          swapHistoryStateFetchInterval,
-        );
+        if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
+          enableInterval = false;
+          await this.updateSwapHistoryItem.call(set, {
+            ...swapTxHistory,
+            status: txStatusRes.state,
+            txInfo: {
+              ...swapTxHistory.txInfo,
+              receiverTransactionId: txStatusRes.crossChainReceiveTxHash || '',
+              gasFeeInNative: txStatusRes.gasFee
+                ? txStatusRes.gasFee
+                : swapTxHistory.txInfo.gasFeeInNative,
+              gasFeeFiatValue: txStatusRes.gasFeeFiatValue
+                ? txStatusRes.gasFeeFiatValue
+                : swapTxHistory.txInfo.gasFeeFiatValue,
+            },
+            baseInfo: {
+              ...swapTxHistory.baseInfo,
+              toAmount: txStatusRes.dealReceiveAmount
+                ? txStatusRes.dealReceiveAmount
+                : swapTxHistory.baseInfo.toAmount,
+            },
+          });
+          this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+        }
+      } finally {
+        if (enableInterval) {
+          this.historyStateIntervals[swapTxHistory.txInfo.txId] = setTimeout(
+            () => {
+              void this.historyStateRunSyncTimeOut.call(set, swapTxHistory);
+            },
+            swapHistoryStateFetchInterval,
+          );
+        }
       }
     },
   );
