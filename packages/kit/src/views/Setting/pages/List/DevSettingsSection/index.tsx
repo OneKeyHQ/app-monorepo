@@ -41,12 +41,8 @@ export const DevSettingsSection = () => {
       />
       {platformEnv.githubSHA ? (
         <SectionPressItem
+          copyable
           title={`BuildHash: ${platformEnv.githubSHA}`}
-          onPress={() => {
-            if (platformEnv.githubSHA) {
-              copyText(platformEnv.githubSHA);
-            }
-          }}
         />
       ) : null}
       <SectionFieldItem
