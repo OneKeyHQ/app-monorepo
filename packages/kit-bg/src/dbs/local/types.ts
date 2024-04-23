@@ -364,6 +364,7 @@ export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.SignedMessage]: {
     key: string;
     value: IDBSignedMessage;
+    indexes: { intId: number };
   };
   [ELocalDBStoreNames.SignedTransaction]: {
     key: string;

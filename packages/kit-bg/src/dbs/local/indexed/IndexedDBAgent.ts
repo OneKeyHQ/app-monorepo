@@ -32,6 +32,8 @@ import {
   type ILocalDBWithTransactionTask,
 } from '../types';
 
+import { IntIdLocalDBStoreNames } from './config';
+
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
 export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
@@ -278,18 +280,38 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
     const { tx: paramsTx, name, ids, limit, offset } = params;
     const fn = async (tx: ILocalDBTransaction) => {
-      const store = this._getObjectStoreFromTx(tx, name);
+      const store = this._getObjectStoreFromTx<T>(tx, name);
       // TODO add query support
       // query?: StoreKey<DBTypes, StoreName> | IDBKeyRange | null, count?: number
       let results: unknown[] = [];
 
       if (ids) {
         results = await Promise.all(ids.map((id) => store.get(id)));
+      } else if (isNumber(limit) && isNumber(offset)) {
+        const indexStore =
+          store as ILocalDBTransactionStores[ELocalDBStoreNames.SignedMessage];
+        if (indexStore.indexNames.contains('intId')) {
+          const cursor = await indexStore
+            .index('intId')
+            .openCursor(null, 'prev');
+
+          let skipped = 0;
+          while (cursor) {
+            if (skipped < offset) {
+              skipped += 1;
+            } else if (results.length <= limit) {
+              results.push(cursor.value);
+            }
+            const data = await cursor.continue();
+            if (!data || results.length >= limit) {
+              break;
+            }
+          }
+        } else {
+          results = await store.getAll();
+        }
       } else {
         results = await store.getAll();
-        if (isNumber(limit) && isNumber(offset)) {
-          results = results.slice(offset, limit + offset);
-        }
       }
 
       const recordPairs: ILocalDBRecordPair<T>[] = [];
@@ -365,7 +387,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         }
       }
       if (shouldAdd) {
-        await store.add(record as any);
+        let addItem: any = record;
+        if (IntIdLocalDBStoreNames.includes(name)) {
+          addItem = { ...record, intId: Number(record.id) };
+        }
+        await store.add(addItem);
         result.added += 1;
         result.addedIds.push(record.id);
       } else {

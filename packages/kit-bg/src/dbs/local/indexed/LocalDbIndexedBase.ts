@@ -15,6 +15,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 
+import { IntIdLocalDBStoreNames } from './config';
 import { IndexedDBAgent } from './IndexedDBAgent';
 
 import type { IDBWalletIdSingleton, IIndexedDBSchemaMap } from '../types';
@@ -151,6 +152,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     storeName: T,
   ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'versionchange'> {
     const store = tx.objectStore(storeName);
+    // @ts-ignore
     return store;
   }
 
@@ -172,6 +174,12 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         keyPath: 'id',
       });
       const store = this._getObjectStoreAtVersionChange(tx, storeName);
+      if (IntIdLocalDBStoreNames.includes(storeName)) {
+        // @ts-ignore
+        store.createIndex('intId', 'intId', {
+          unique: true,
+        });
+      }
       return store;
     }
   }
