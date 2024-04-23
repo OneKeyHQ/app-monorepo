@@ -94,3 +94,10 @@ export type IConnectedSite = IBaseConnectedSite &
     logo: string;
     networks: IServerNetwork[];
   };
+
+export type ISignatureItemQueryParams = {
+  networkId?: string;
+  address?: string;
+  limit?: number;
+  offset?: number;
+};

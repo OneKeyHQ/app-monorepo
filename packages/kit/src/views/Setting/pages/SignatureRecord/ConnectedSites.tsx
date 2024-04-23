@@ -1,5 +1,3 @@
-import { useCallback, useContext, useState } from 'react';
-
 import { StyleSheet } from 'react-native';
 
 import {
@@ -13,13 +11,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IConnectedSite } from '@onekeyhq/shared/types/signatureRecord';
 
-import { SignatureContext } from './Context';
-import { groupBy } from './utils';
+import { useGetSignatureSections } from './hooks';
 
 const getConnectedSiteTitle = (url: string) => {
   try {
@@ -89,30 +85,9 @@ const ListEmptyComponent = () => (
 );
 
 export const ConnectedSites = () => {
-  const [limit, setLimit] = useState<number>(10);
-  const { networkId } = useContext(SignatureContext);
-  const {
-    result: { sections, len },
-  } = usePromiseResult(
-    async () => {
-      const items = await backgroundApiProxy.serviceSignature.getConnectedSites(
-        {
-          networkId,
-          offset: 0,
-          limit,
-        },
-      );
-      return { sections: groupBy(items), len: items.length };
-    },
-    [limit, networkId],
-    { initResult: { sections: [], len: 0 } },
+  const { sections, onEndReached } = useGetSignatureSections(async (params) =>
+    backgroundApiProxy.serviceSignature.getConnectedSites(params),
   );
-  const onEndReached = useCallback(() => {
-    if (len < limit) {
-      return;
-    }
-    setLimit((prev) => prev + 10);
-  }, [len, limit]);
 
   return (
     <SectionList

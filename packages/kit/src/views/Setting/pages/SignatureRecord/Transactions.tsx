@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState } from 'react';
+import { useCallback } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -14,7 +14,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -26,8 +25,7 @@ import type {
   ISwapTransactionData,
 } from '@onekeyhq/shared/types/signatureRecord';
 
-import { SignatureContext } from './Context';
-import { groupBy } from './utils';
+import { useGetSignatureSections } from './hooks';
 
 const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => (
   <XStack justifyContent="space-between" w="100%" alignItems="center">
@@ -173,34 +171,13 @@ const ListEmptyComponent = () => (
 );
 
 export const Transactions = () => {
-  const [limit, setLimit] = useState<number>(10);
-  const { networkId } = useContext(SignatureContext);
-  const {
-    result: { transactions, len },
-  } = usePromiseResult(
-    async () => {
-      const items =
-        await backgroundApiProxy.serviceSignature.getSignedTransactions({
-          networkId,
-          offset: 0,
-          limit,
-        });
-      return { transactions: groupBy(items), len: items.length };
-    },
-    [networkId, limit],
-    { initResult: { transactions: [], len: 0 } },
+  const { sections, onEndReached } = useGetSignatureSections(async (params) =>
+    backgroundApiProxy.serviceSignature.getSignedTransactions(params),
   );
-
-  const onEndReached = useCallback(() => {
-    if (len < limit) {
-      return;
-    }
-    setLimit((prev) => prev + 10);
-  }, [len, limit]);
 
   return (
     <SectionList
-      sections={transactions}
+      sections={sections}
       estimatedItemSize="$36"
       ItemSeparatorComponent={null}
       SectionSeparatorComponent={null}

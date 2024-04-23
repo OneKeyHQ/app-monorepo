@@ -7,6 +7,7 @@ import type {
   IConnectedSite,
   ICreateSignedMessageParams,
   ICreateSignedTransactionParams,
+  ISignatureItemQueryParams,
   ISignedMessage,
   ISignedTransaction,
 } from '@onekeyhq/shared/types/signatureRecord';
@@ -30,12 +31,9 @@ class ServiceSignature extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getSignedMessages(params?: {
-    networkId?: string;
-    address?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<ISignedMessage[]> {
+  public async getSignedMessages(
+    params?: ISignatureItemQueryParams,
+  ): Promise<ISignedMessage[]> {
     const { networkId, address, limit, offset } = params ?? {};
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
@@ -77,12 +75,9 @@ class ServiceSignature extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getSignedTransactions(params?: {
-    networkId?: string;
-    address?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<ISignedTransaction[]> {
+  public async getSignedTransactions(
+    params?: ISignatureItemQueryParams,
+  ): Promise<ISignedTransaction[]> {
     const { networkId, address, limit, offset } = params ?? {};
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
@@ -134,12 +129,9 @@ class ServiceSignature extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async getConnectedSites(params?: {
-    networkId?: string;
-    address?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<IConnectedSite[]> {
+  public async getConnectedSites(
+    params?: ISignatureItemQueryParams,
+  ): Promise<IConnectedSite[]> {
     const { networkId, address, limit, offset } = params ?? {};
     const isSearch = Boolean(networkId || address);
     const limitOffset = isSearch ? undefined : { limit, offset };
