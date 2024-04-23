@@ -1,9 +1,11 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -14,13 +16,13 @@ export type IPrivateBTCExternalAccount = {
   address: string;
   coinType: string;
   path: string;
-  pub: string;
+  xpub: string;
+  template: string;
 };
 
 @backgroundClass()
 class ProviderApiPrivateExternalAccount extends ProviderApiBase {
-  // public providerName = IInjectedProviderNames.$privateExternalAccount;
-  public providerName = '$privateExternalAccount' as any;
+  public providerName = IInjectedProviderNames.$privateExternalAccount;
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
@@ -58,37 +60,86 @@ class ProviderApiPrivateExternalAccount extends ProviderApiBase {
   ): Promise<IPrivateBTCExternalAccount> {
     const accounts = await this.getAccounts(request);
     if (accounts && accounts.length) {
-      return accounts[0];
+      return this.parseFirstAccount(accounts);
     }
     await this.backgroundApi.serviceDApp.openConnectionModal(request);
     const newAccounts = await this.getAccounts(request);
     if (newAccounts && newAccounts.length) {
-      return newAccounts[0];
+      return this.parseFirstAccount(accounts);
     }
     throw new Error('No account found');
   }
 
   @providerApiMethod()
   async getAccounts(request: IJsBridgeMessagePayload) {
+    if (!request.origin) {
+      throw new Error('origin is required');
+    }
     const accountsInfo =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    if (!accountsInfo) {
+      await this.backgroundApi.serviceDApp.getConnectedAccounts({
+        origin: request.origin ?? '',
+        scope: request.scope,
+        isWalletConnectRequest: request.isWalletConnectRequest,
+        options: {
+          networkImpl:
+            // @ts-expect-error
+            request.data?.network === 'testnet' ? IMPL_TBTC : IMPL_BTC,
+        },
+      });
+    if (
+      !accountsInfo ||
+      (Array.isArray(accountsInfo) && !accountsInfo.length)
+    ) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(
-      accountsInfo.map(
-        (i) =>
-          ({
-            address: i.account.address,
-            coinType: i.account.coinType,
-            path: i.account.path,
-            // @ts-expect-error
-            pub: i.account.xpubSegwit,
-          } as IPrivateBTCExternalAccount),
-      ),
-    );
+    return accountsInfo;
+  }
+
+  private parseFirstAccount(
+    accountsInfo: Awaited<ReturnType<typeof this.getAccounts>>,
+  ): IPrivateBTCExternalAccount {
+    if (accountsInfo && accountsInfo.length) {
+      const account = accountsInfo[0].account;
+      return {
+        address: account.address,
+        coinType: account.coinType,
+        path: account.path,
+        // @ts-expect-error
+        xpub: account.xpub,
+        template: account.template ?? '',
+      };
+    }
+    return {} as IPrivateBTCExternalAccount;
+  }
+
+  @providerApiMethod()
+  async btc_signTransaction(request: IJsBridgeMessagePayload) {
+    console.log('===>sign data: ', request.data);
+    const { encodedTx, network } = (
+      request.data as {
+        method: string;
+        params: {
+          encodedTx: IEncodedTxBtc;
+          network: 'mainnet' | 'testnet';
+        };
+      }
+    ).params;
+    if (!network) {
+      throw new Error('network is required');
+    }
+    if (!encodedTx) {
+      throw new Error('encodedTx is required');
+    }
+    const accountsInfo = await this.getAccounts(request);
+    const connectedAccount = accountsInfo[0];
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx,
+        accountId: connectedAccount.accountInfo.accountId,
+        networkId: connectedAccount.accountInfo.networkId ?? '',
+      });
+    return result;
   }
 }
 
