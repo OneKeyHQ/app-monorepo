@@ -4,7 +4,8 @@ import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
 import { InteractionManager, Keyboard } from 'react-native';
 
-import { Toast, type useForm, useKeyboardEvent } from '@onekeyhq/components';
+import type { useForm } from '@onekeyhq/components';
+import { Toast, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useSearchWords = () => {
@@ -194,12 +195,16 @@ export const useSuggestion = (
     [checkIsValid, selectInputIndex],
   );
 
+  const { copyText } = useClipboard();
+
   const onPasteMnemonic = useCallback(
     (value: string) => {
       if (value.length > 4) {
         const arrays = value.split(' ');
         if (arrays.length === phraseLength) {
           setTimeout(() => {
+            copyText('');
+            Toast.success({ title: 'Pasted and clipboard cleared' });
             form.reset(
               arrays.reduce((prev, next, index) => {
                 prev[`phrase${index + 1}`] = next;
@@ -215,7 +220,7 @@ export const useSuggestion = (
       }
       return false;
     },
-    [form, phraseLength, resetSuggestions],
+    [copyText, form, phraseLength, resetSuggestions],
   );
 
   return useMemo(
