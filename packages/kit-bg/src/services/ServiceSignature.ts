@@ -39,7 +39,6 @@ class ServiceSignature extends ServiceBase {
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
       name: ELocalDBStoreNames.SignedMessage,
-      reverse: true,
       ...limitOffset,
     });
     const promises = records.map(async (item) => {
@@ -83,7 +82,6 @@ class ServiceSignature extends ServiceBase {
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
       name: ELocalDBStoreNames.SignedTransaction,
-      reverse: true,
       ...limitOffset,
     });
     const promises = records.map(async (item) => {
@@ -136,7 +134,6 @@ class ServiceSignature extends ServiceBase {
     const limitOffset = isSearch ? undefined : { limit, offset };
     const { records } = await localDb.getAllRecords({
       name: ELocalDBStoreNames.ConnectedSite,
-      reverse: true,
       ...limitOffset,
     });
     const data = records.map(async (item) => {

@@ -160,12 +160,12 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     if (ids) {
       objList = ids.map((id) => this._getObjectRecordById(name, id)) as any;
     } else {
-      objList = this.realm
-        .objects<IRealmDBSchemaMap[T]>(name)
-        .sorted('id', Boolean(params.reverse)) as any;
-      if (isNumber(limit) && isNumber(offset)) {
-        objList = objList.slice(offset, offset + limit);
+      const isSlice = isNumber(limit) && isNumber(offset);
+      let items = this.realm.objects<IRealmDBSchemaMap[T]>(name);
+      if (isSlice) {
+        items = items.sorted('id', true).slice(offset, offset + limit) as any;
       }
+      objList = items as any;
     }
 
     const recordPairs: ILocalDBRecordPair<T>[] = [];

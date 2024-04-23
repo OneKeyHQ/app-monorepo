@@ -488,7 +488,6 @@ export type ILocalDBGetRecordsQuery = {
   ids?: string[];
   limit?: number;
   offset?: number;
-  reverse?: boolean;
 };
 export type ILocalDBTxGetAllRecordsParams<T extends ELocalDBStoreNames> = {
   tx: ILocalDBTransaction;
