@@ -5,7 +5,7 @@ import Animated from 'react-native-reanimated';
 
 import { EPageType, usePageType } from '../../hocs';
 import { useSafeAreaInsets } from '../../hooks';
-import { View } from '../../optimization';
+import { OptimizationView } from '../../optimization';
 
 import { useSafeKeyboardAnimationStyle } from './hooks';
 import { PageContext } from './PageContext';
@@ -22,7 +22,7 @@ const useSafeAreaBottom = () => {
 
 const Placeholder = () => {
   const bottom = useSafeAreaBottom();
-  return bottom > 0 ? <View style={{ height: bottom }} /> : null;
+  return bottom > 0 ? <OptimizationView style={{ height: bottom }} /> : null;
 };
 
 const PageFooterContainer = ({ children }: PropsWithChildren) => {
