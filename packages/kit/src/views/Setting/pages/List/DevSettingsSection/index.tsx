@@ -13,7 +13,6 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
 
-const { GITHUB_SHA } = process.env;
 export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
@@ -40,8 +39,15 @@ export const DevSettingsSection = () => {
         title="Disable the dev mode"
         onPress={handleDevModeOnChange}
       />
-      {GITHUB_SHA ? (
-        <SectionPressItem title={`BuildHash: ${GITHUB_SHA}`} copyable />
+      {platformEnv.githubSHA ? (
+        <SectionPressItem
+          title={`BuildHash: ${platformEnv.githubSHA}`}
+          onPress={() => {
+            if (platformEnv.githubSHA) {
+              copyText(platformEnv.githubSHA);
+            }
+          }}
+        />
       ) : null}
       <SectionFieldItem
         name="enableTestEndpoint"
