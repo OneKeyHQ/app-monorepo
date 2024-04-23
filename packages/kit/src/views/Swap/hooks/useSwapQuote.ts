@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
+  ESwapApproveTransactionStatus,
   ESwapDirectionType,
   type ISwapApproveTransaction,
 } from '@onekeyhq/shared/types/swap/types';
@@ -65,8 +66,16 @@ export function useSwapQuote() {
   ]);
 
   useEffect(() => {
-    if (!swapApprovingTransactionAtom) {
-      void quoteAction(activeAccountAddressRef.current);
+    if (
+      swapApprovingTransactionAtom &&
+      swapApprovingTransactionAtom.txId &&
+      swapApprovingTransactionAtom.status ===
+        ESwapApproveTransactionStatus.SUCCESS
+    ) {
+      void quoteAction(
+        activeAccountAddressRef.current,
+        swapApprovingTransactionAtom.blockNumber,
+      );
     }
   }, [cleanQuoteInterval, quoteAction, swapApprovingTransactionAtom]);
 
