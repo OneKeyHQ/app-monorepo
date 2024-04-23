@@ -42,10 +42,7 @@ function SendConfirmContainer() {
     sourceInfo,
     signOnly,
   } = route.params;
-  usePageUnMounted(() => {
-    console.log('usePageUnMounted---');
-    onCancel?.();
-  });
+  usePageUnMounted(onCancel);
   usePromiseResult(async () => {
     updateUnsignedTxs(unsignedTxs);
     updateNativeTokenInfo({

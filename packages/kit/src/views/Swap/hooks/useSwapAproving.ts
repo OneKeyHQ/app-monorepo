@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { useIsFocused } from '@react-navigation/core';
+
+import { Toast, usePageType } from '@onekeyhq/components';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapApproveTransaction } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveTransactionStatus } from '@onekeyhq/shared/types/swap/types';
@@ -57,12 +59,34 @@ export function useSwapApproving() {
     swapApprovingTransactionAtom?.txId,
   ]);
 
+  const pageType = usePageType();
+  const pageTypeRef = useRef<string | undefined>();
+  if (pageTypeRef.current !== pageType) {
+    pageTypeRef.current = pageType;
+  }
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
+      if (pageTypeRef.current !== 'modal') {
+        if (
+          isFocus &&
+          !isHiddenModel &&
+          swapApprovingTxRef.current?.txId &&
+          swapApprovingTxRef.current?.status ===
+            ESwapApproveTransactionStatus.PENDING
+        ) {
+          void approvingStateAction();
+        } else {
+          cleanApprovingInterval();
+        }
+      }
+    },
+  );
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (pageType === 'modal') {
       if (
-        isFocus &&
-        !isHiddenModel &&
+        isFocused &&
         swapApprovingTxRef.current?.txId &&
         swapApprovingTxRef.current?.status ===
           ESwapApproveTransactionStatus.PENDING
@@ -71,6 +95,6 @@ export function useSwapApproving() {
       } else {
         cleanApprovingInterval();
       }
-    },
-  );
+    }
+  }, [approvingStateAction, cleanApprovingInterval, isFocused, pageType]);
 }
