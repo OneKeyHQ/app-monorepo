@@ -119,13 +119,12 @@ class ServiceSignature extends ServiceBase {
   @backgroundMethod()
   public async addConnectedSite(params: {
     url: string;
-    title: string;
     items: { networkId: string; address: string }[];
   }) {
-    const { url, title, items } = params;
+    const { url, items } = params;
     const networkIds = items.map((item) => item.networkId);
     const addresses = items.map((item) => item.address);
-    await localDb.addConnectedSite({ url, networkIds, addresses, title });
+    await localDb.addConnectedSite({ url, networkIds, addresses });
   }
 
   @backgroundMethod()

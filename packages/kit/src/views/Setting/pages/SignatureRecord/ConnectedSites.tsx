@@ -37,8 +37,6 @@ const ConnectedSiteItem = ({ item }: { item: IConnectedSite }) => (
     <XStack justifyContent="space-between" pt="$3" px="$3" pb="$1">
       <SizableText size="$bodyMd">
         {formatTime(new Date(item.createdAt), { hideSeconds: true })}
-        {' • '}
-        {item.title}
       </SizableText>
     </XStack>
     <XStack p="$3" alignItems="center">

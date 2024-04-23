@@ -73,7 +73,6 @@ export type IBaseConnectedSite = {
   networkIds: string[];
   addresses: string[];
   url: string;
-  title: string;
 };
 
 export type ICreateConnectedSiteParams = IBaseConnectedSite;

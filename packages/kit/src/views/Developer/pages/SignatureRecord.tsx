@@ -68,7 +68,6 @@ const ConnectSiteButton = () => {
       onConfirm: () => {
         void backgroundApiProxy.serviceSignature.addConnectedSite({
           url: 'https://app.uniswap.org/swap',
-          title: 'Uniswap',
           items: [
             {
               networkId: 'evm--1',

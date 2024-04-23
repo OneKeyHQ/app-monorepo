@@ -7,8 +7,6 @@ import type Realm from 'realm';
 class RealmSchemaConnectedSite extends RealmObjectBase<IDBConnectedSite> {
   public id!: string;
 
-  public title!: string;
-
   public networkIds!: string[];
 
   public addresses!: string[];
@@ -22,7 +20,6 @@ class RealmSchemaConnectedSite extends RealmObjectBase<IDBConnectedSite> {
     primaryKey: 'id',
     properties: {
       id: 'string',
-      title: 'string',
       networkIds: 'string[]',
       addresses: 'string[]',
       url: 'string',
@@ -33,7 +30,6 @@ class RealmSchemaConnectedSite extends RealmObjectBase<IDBConnectedSite> {
   get record(): IDBConnectedSite {
     return {
       id: this.id,
-      title: this.title,
       networkIds: this.networkIds,
       addresses: this.addresses,
       url: this.url,

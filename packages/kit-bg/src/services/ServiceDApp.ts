@@ -331,7 +331,6 @@ class ServiceDApp extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
     await this.backgroundApi.serviceSignature.addConnectedSite({
       url: origin,
-      title: 'OneKey Wallet',
       items: accountsInfo.map((i) => ({
         networkId: i.networkId ?? '',
         address: i.address,
