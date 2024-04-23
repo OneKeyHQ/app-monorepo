@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "คำสั่งซื้อของคุณจะแสดงที่นี่",
   "empty__your_watchlist_is_empty": "รายการเฝ้าดูของคุณว่างเปล่า",
   "empty__your_watchlist_is_empty_desc": "เพิ่มโทเค็นที่คุณชื่นชอบในรายการเฝ้าดู",
+  "error__payment_id_standard": "Payment ID ต้องเป็นสตริงเฮ็กซ์ 64 ตัวอักษร",
   "form__24h%_uppercase": "24H%",
   "form__24h_high": "สูง 24 ชั่วโมง",
   "form__24h_low": "ต่ำ 24 ชั่วโมง",

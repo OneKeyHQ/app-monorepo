@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Здесь будут отображаться ваши заказы.",
   "empty__your_watchlist_is_empty": "Ваш список наблюдения пуст",
   "empty__your_watchlist_is_empty_desc": "Добавьте свои любимые токены в список наблюдения",
+  "error__payment_id_standard": "Payment ID должен быть 64-значной шестнадцатеричной строкой",
   "form__24h%_uppercase": "24ч%",
   "form__24h_high": "24 часа высокий",
   "form__24h_low": "24 часа Низкий",

@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Ang iyong mga order ay ipapakita dito.",
   "empty__your_watchlist_is_empty": "Walang laman ang iyong Watchlist",
   "empty__your_watchlist_is_empty_desc": "Idagdag ang iyong mga paboritong token sa watchlist",
+  "error__payment_id_standard": "Ang Payment ID ay dapat na isang 64 char hex string",
   "form__24h%_uppercase": "24H%",
   "form__24h_high": "24H High",
   "form__24h_low": "24H Mababa",

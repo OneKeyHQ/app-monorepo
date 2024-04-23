@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "귀하의 주문이 여기에 표시됩니다.",
   "empty__your_watchlist_is_empty": "관심 목록이 비어 있습니다.",
   "empty__your_watchlist_is_empty_desc": "관심 목록에 좋아하는 토큰 추가",
+  "error__payment_id_standard": "Payment ID는 64자리 16진수 문자열이어야 합니다",
   "form__24h%_uppercase": "24시간%",
   "form__24h_high": "24시간 높음",
   "form__24h_low": "24시간 낮음",

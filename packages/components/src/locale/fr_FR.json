@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Vos commandes seront affichées ici.",
   "empty__your_watchlist_is_empty": "Votre liste de suivi est vide",
   "empty__your_watchlist_is_empty_desc": "Ajoutez vos jetons préférés à la liste de surveillance",
+  "error__payment_id_standard": "Le Payment ID doit être une chaîne hexadécimale de 64 caractères",
   "form__24h%_uppercase": "24H%",
   "form__24h_high": "24H haute",
   "form__24h_low": "24H bas",

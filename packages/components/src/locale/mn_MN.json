@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Таны захиалга энд харагдах болно.",
   "empty__your_watchlist_is_empty": "Таны үзэх жагсаалт хоосон байна",
   "empty__your_watchlist_is_empty_desc": "Өөрийн дуртай токенуудыг үзэх жагсаалтад нэмнэ үү",
+  "error__payment_id_standard": "Payment ID нь 64 тэмдэгтийн шестеричийн тэмдэгт мөр байх ёстой",
   "form__24h%_uppercase": "24Ц%",
   "form__24h_high": "24 цагийн өндөр",
   "form__24h_low": "24 цаг бага",

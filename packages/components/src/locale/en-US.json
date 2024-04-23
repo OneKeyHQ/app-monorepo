@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Your orders will be displayed here.",
   "empty__your_watchlist_is_empty": "Your Watchlist is Empty",
   "empty__your_watchlist_is_empty_desc": "Add your favoite tokens to watchlist",
+  "error__payment_id_standard": "Payment ID must be a 64 char hex string",
   "form__24h%_uppercase": "24H%",
   "form__24h_high": "24h High",
   "form__24h_low": "24h Low",

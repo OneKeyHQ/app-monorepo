@@ -519,7 +519,7 @@ function PreSendAddress() {
               !isHexString(addHexPrefix(value)) ||
               stripHexPrefix(value).length !== 64
             ) {
-              return 'Payment ID must be a 64 char hex string';
+              return intl.formatMessage({ id: 'error__payment_id_standard' });
             }
           },
         }}
@@ -527,7 +527,7 @@ function PreSendAddress() {
         <Form.Input type="text" placeholder="Payment ID" />
       </Form.Item>
     );
-  }, [control, displayPaymentId]);
+  }, [control, displayPaymentId, intl]);
 
   const helpTextOfNameServiceResolver = useCallback(
     (value) => (

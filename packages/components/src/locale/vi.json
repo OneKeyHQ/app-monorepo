@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Đơn đặt hàng của bạn sẽ được hiển thị ở đây.",
   "empty__your_watchlist_is_empty": "Danh sách theo dõi của bạn trống",
   "empty__your_watchlist_is_empty_desc": "Thêm mã thông báo yêu thích của bạn vào danh sách theo dõi",
+  "error__payment_id_standard": "Payment ID phải là một chuỗi hex gồm 64 ký tự",
   "form__24h%_uppercase": "24H%",
   "form__24h_high": "24H cao",
   "form__24h_low": "24H Thấp",

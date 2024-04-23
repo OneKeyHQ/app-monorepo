@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Tus pedidos se mostrarán aquí.",
   "empty__your_watchlist_is_empty": "Tu lista de observación está vacía",
   "empty__your_watchlist_is_empty_desc": "Agrega tus tokens favoritos a la lista de observación",
+  "error__payment_id_standard": "El Payment ID debe ser una cadena hexadecimal de 64 caracteres",
   "form__24h%_uppercase": "24H%",
   "form__24h_high": "24H alto",
   "form__24h_low": "24 horas bajo",

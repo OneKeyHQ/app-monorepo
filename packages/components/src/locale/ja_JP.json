@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "ここに注文が表示される。",
   "empty__your_watchlist_is_empty": "あなたのウォッチリストは空です",
   "empty__your_watchlist_is_empty_desc": "お気に入りのトークンをウォッチリストに追加する",
+  "error__payment_id_standard": "Payment IDは64文字の16進数文字列でなければなりません",
   "form__24h%_uppercase": "24時間%",
   "form__24h_high": "24時間の最高価格",
   "form__24h_low": "24時間の最低価格",

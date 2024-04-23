@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Тут відображатимуться ваші замовлення.",
   "empty__your_watchlist_is_empty": "Ваш список спостереження порожній",
   "empty__your_watchlist_is_empty_desc": "Додайте свої улюблені токени до списку спостереження",
+  "error__payment_id_standard": "Payment ID повинен бути 64-значним шістнадцятковим рядком",
   "form__24h%_uppercase": "24 години%",
   "form__24h_high": "24 години висока",
   "form__24h_low": "Низький за 24 години",

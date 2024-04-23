@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "आपके आदेश यहां प्रदर्शित किए जाएंगे।",
   "empty__your_watchlist_is_empty": "आपकी ध्यानसूची खाली है",
   "empty__your_watchlist_is_empty_desc": "वॉचलिस्ट में अपने पसंदीदा टोकन जोड़ें",
+  "error__payment_id_standard": "Payment ID एक 64 वर्ण हेक्स स्ट्रिंग होना चाहिए",
   "form__24h%_uppercase": "24एच%",
   "form__24h_high": "24H उच्च",
   "form__24h_low": "24H कम",

@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Hier werden Ihre Bestellungen angezeigt.",
   "empty__your_watchlist_is_empty": "Ihre Beobachtungsliste ist leer",
   "empty__your_watchlist_is_empty_desc": "Fügen Sie Ihre Lieblingstoken zur Beobachtungsliste hinzu",
+  "error__payment_id_standard": "Payment ID muss eine 64 Zeichen lange Hexadezimal-Zeichenkette sein",
   "form__24h%_uppercase": "24H%",
   "form__24h_high": "24 Stunden hoch",
   "form__24h_low": "24 Std. niedrig",

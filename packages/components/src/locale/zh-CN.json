@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "您的订单将显示在这里",
   "empty__your_watchlist_is_empty": "您的观察列表是空的",
   "empty__your_watchlist_is_empty_desc": "添加你喜爱的代币到观察列表",
+  "error__payment_id_standard": "Payment ID 必须是 64 个字符的十六进制字符串",
   "form__24h%_uppercase": "24小时波动",
   "form__24h_high": "24 小时最高价",
   "form__24h_low": "24 小时最低价",

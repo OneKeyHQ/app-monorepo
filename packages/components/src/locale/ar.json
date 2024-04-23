@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "سيتم عرض طلباتك هنا.",
   "empty__your_watchlist_is_empty": "قائمة الرغبات الخاصة بك فارغة",
   "empty__your_watchlist_is_empty_desc": "أضف الرموز المميزة المفضلة لديك إلى قائمة المراقبة",
+  "error__payment_id_standard": "يجب أن يكون Payment ID عبارة عن سلسلة هكساديسيمال من 64 حرفًا",
   "form__24h%_uppercase": "24 ساعة",
   "form__24h_high": "24 ساعة عالية",
   "form__24h_low": "24 ساعة منخفضة",

@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "Pesanan Anda akan ditampilkan di sini.",
   "empty__your_watchlist_is_empty": "Daftar Pantauan Anda Kosong",
   "empty__your_watchlist_is_empty_desc": "Tambahkan token favorit Anda ke daftar pantauan",
+  "error__payment_id_standard": "Payment ID harus berupa string heksadesimal 64 karakter",
   "form__24h%_uppercase": "24 jam%",
   "form__24h_high": "24 jam Tinggi",
   "form__24h_low": "24 jam Rendah",

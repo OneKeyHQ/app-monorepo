@@ -1129,6 +1129,7 @@
   "empty__you_have_no_orders_desc": "আপনার অর্ডার এখানে প্রদর্শিত হবে.",
   "empty__your_watchlist_is_empty": "আপনার ওয়াচলিস্ট খালি",
   "empty__your_watchlist_is_empty_desc": "ওয়াচলিস্টে আপনার প্রিয় টোকেন যোগ করুন",
+  "error__payment_id_standard": "Payment ID অবশ্যই 64 অক্ষরের হেক্স স্ট্রিং হতে হবে",
   "form__24h%_uppercase": "24H%",
   "form__24h_high": "24H উচ্চ",
   "form__24h_low": "24H কম",
