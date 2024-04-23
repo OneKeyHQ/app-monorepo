@@ -290,16 +290,11 @@ function WalletItem({
         account,
         networkId: account.createAtNetwork || selectedAccount.networkId,
       });
-      await actions.current.updateSelectedAccount({
+      await actions.current.updateSelectedAccountForSingletonAccount({
         num: 0,
-        builder: (v) => ({
-          ...v,
-          networkId: usedNetworkId,
-          focusedWallet: WALLET_TYPE_EXTERNAL,
-          walletId: WALLET_TYPE_EXTERNAL,
-          othersWalletAccountId: account.id,
-          indexedAccountId: undefined,
-        }),
+        networkId: usedNetworkId,
+        walletId: WALLET_TYPE_EXTERNAL,
+        othersWalletAccountId: account.id,
       });
       navigation.popStack();
       await dialogRef.current?.close();

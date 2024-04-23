@@ -73,6 +73,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
       // serviceAccount.getHDAndHWWallets({
       serviceAccount.getWallets({
         nestedHiddenWallets: true,
+        ignoreEmptySingletonWalletAccounts: true,
       }),
     [serviceAccount],
     {
@@ -86,19 +87,18 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
       await reloadWallets();
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, fn);
     };
   }, [reloadWallets]);
 
   const onWalletPress = useCallback(
     (focusedWallet: IAccountSelectorFocusedWallet) => {
-      void actions.current.updateSelectedAccount({
+      void actions.current.updateSelectedAccountFocusedWallet({
         num,
-        builder: (account) => ({
-          ...account,
-          focusedWallet,
-        }),
+        focusedWallet,
       });
     },
     [actions, num],

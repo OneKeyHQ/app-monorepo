@@ -54,16 +54,11 @@ function ImportPrivateKey() {
         });
         console.log(r, values);
 
-        void actions.current.updateSelectedAccount({
+        void actions.current.updateSelectedAccountForSingletonAccount({
           num: 0,
-          builder: (v) => ({
-            ...v,
-            networkId: values.networkId,
-            focusedWallet: WALLET_TYPE_IMPORTED,
-            walletId: WALLET_TYPE_IMPORTED,
-            othersWalletAccountId: r.accounts[0].id,
-            indexedAccountId: undefined,
-          }),
+          networkId: values.networkId,
+          walletId: WALLET_TYPE_IMPORTED,
+          othersWalletAccountId: r.accounts[0].id,
         });
         navigation.popStack();
       }}

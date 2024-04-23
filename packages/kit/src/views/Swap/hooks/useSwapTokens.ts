@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
   ESwapTxHistoryStatus,
@@ -34,42 +37,138 @@ export function useSwapNetworkList() {
   const [, setSelectSort] = useSwapProviderSortAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [defaultTokenLoading, setDefaultTokenLoading] = useState<boolean>(true);
-  const { isLoading } = usePromiseResult(
-    async () => {
-      let networks = await backgroundApiProxy.serviceSwap.fetchSwapNetworks();
-      const swapNetworksSortList =
-        await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
-
-      if (!networks?.length && swapNetworksSortList?.data) {
-        networks = swapNetworksSortList.data;
-      }
-      if (swapNetworksSortList?.data && networks?.length) {
-        const sortNetworks = swapNetworksSortList.data;
-        networks = sortNetworks
-          .filter((network) =>
-            networks.find((n) => n.networkId === network.networkId),
-          )
-          .map((net) => {
-            const serverNetwork = networks.find(
-              (n) => n.networkId === net.networkId,
-            );
-            return { ...net, ...serverNetwork };
-          })
-          .concat(
-            networks.filter(
-              (network) =>
-                !sortNetworks.find((n) => n.networkId === network.networkId),
-            ),
+  const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
+  const fetchSwapNetworks = useCallback(async () => {
+    if (swapNetworks.length) {
+      setNetworkListFetching(false);
+      return;
+    }
+    const swapNetworksSortList =
+      await backgroundApiProxy.simpleDb.swapNetworksSort.getRawData();
+    if (swapNetworksSortList?.data?.length) {
+      setSwapNetworks(swapNetworksSortList.data);
+      setNetworkListFetching(false);
+    }
+    let networks: ISwapNetwork[] = [];
+    const fetchNetworks =
+      await backgroundApiProxy.serviceSwap.fetchSwapNetworks();
+    if (!fetchNetworks?.length && swapNetworksSortList?.data) {
+      networks = swapNetworksSortList.data;
+    }
+    if (swapNetworksSortList?.data && fetchNetworks?.length) {
+      const sortNetworks = swapNetworksSortList.data;
+      networks = sortNetworks
+        .filter((network) =>
+          fetchNetworks.find((n) => n.networkId === network.networkId),
+        )
+        .map((net) => {
+          const serverNetwork = fetchNetworks.find(
+            (n) => n.networkId === net.networkId,
           );
-      }
-      await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
-        data: networks,
-      });
+          return { ...net, ...serverNetwork };
+        })
+        .concat(
+          fetchNetworks.filter(
+            (network) =>
+              !sortNetworks.find((n) => n.networkId === network.networkId),
+          ),
+        );
+    }
+    await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
+      data: networks,
+    });
+    if (!swapNetworksSortList?.data?.length) {
       setSwapNetworks(networks);
-    },
-    [setSwapNetworks],
-    { watchLoading: true },
-  );
+      setNetworkListFetching(false);
+    }
+  }, [setSwapNetworks, swapNetworks.length]);
+  const syncDefaultSelectedToken = useCallback(async () => {
+    if (fromToken || toToken) {
+      setDefaultTokenLoading(false);
+      return;
+    }
+    if (
+      !swapAddressInfo.accountInfo?.ready ||
+      !swapAddressInfo.networkId ||
+      !swapNetworks.length
+    ) {
+      return;
+    }
+    const accountNetwork = swapNetworks.find(
+      (net) => net.networkId === swapAddressInfo.networkId,
+    );
+    if (accountNetwork) {
+      if (
+        !isNil(accountNetwork.defaultSelectToken?.from) ||
+        !isNil(accountNetwork.defaultSelectToken?.to)
+      ) {
+        try {
+          const tokenInfos =
+            await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+              networkId: accountNetwork.networkId,
+              accountAddress: swapAddressInfo.address,
+              xpub: (swapAddressInfo.accountInfo?.account as IDBUtxoAccount)
+                ?.xpub,
+              contractAddress: `${
+                !isNil(accountNetwork.defaultSelectToken?.from)
+                  ? accountNetwork.defaultSelectToken?.from
+                  : ''
+              }${
+                !isNil(accountNetwork.defaultSelectToken?.to)
+                  ? `${
+                      !isNil(accountNetwork.defaultSelectToken?.from) ? ',' : ''
+                    }${accountNetwork.defaultSelectToken?.to}`
+                  : ''
+              }`,
+            });
+          const defaultFromToken = tokenInfos?.find(
+            (token) =>
+              token.contractAddress.toLowerCase() ===
+              accountNetwork.defaultSelectToken?.from?.toLowerCase(),
+          );
+          const defaultToToken = tokenInfos?.find(
+            (token) =>
+              token.contractAddress.toLowerCase() ===
+              accountNetwork.defaultSelectToken?.to?.toLowerCase(),
+          );
+          if (defaultFromToken) {
+            setFromToken({
+              ...defaultFromToken,
+              networkLogoURI: accountNetwork.logoURI,
+            });
+          }
+          if (defaultToToken) {
+            setToToken({
+              ...defaultToToken,
+              networkLogoURI: accountNetwork.logoURI,
+            });
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setDefaultTokenLoading(false);
+        }
+      } else {
+        setDefaultTokenLoading(false);
+      }
+    }
+  }, [
+    fromToken,
+    setFromToken,
+    setToToken,
+    swapAddressInfo.accountInfo?.account,
+    swapAddressInfo.accountInfo?.ready,
+    swapAddressInfo.address,
+    swapAddressInfo.networkId,
+    swapNetworks,
+    toToken,
+  ]);
+  useEffect(() => {
+    if (swapNetworks.length) return;
+    void (async () => {
+      await fetchSwapNetworks();
+    })();
+  }, [fetchSwapNetworks, swapNetworks.length]);
 
   useEffect(() => {
     void (async () => {
@@ -82,87 +181,16 @@ export function useSwapNetworkList() {
   }, [setSelectSort]);
 
   useEffect(() => {
-    if (
-      !swapAddressInfo.accountInfo?.ready ||
-      !swapAddressInfo.networkId ||
-      isLoading
-    ) {
-      return;
-    }
-    const accountNetwork = swapNetworks.find(
-      (net) => net.networkId === swapAddressInfo.networkId,
-    );
-    if (accountNetwork) {
-      if (
-        !isNil(accountNetwork.defaultSelectToken?.from) ||
-        !isNil(accountNetwork.defaultSelectToken?.to)
-      ) {
-        void (async () => {
-          try {
-            const tokenInfos =
-              await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-                networkId: accountNetwork.networkId,
-                accountAddress: swapAddressInfo.address,
-                xpub: (swapAddressInfo.accountInfo?.account as IDBUtxoAccount)
-                  ?.xpub,
-                contractAddress: `${
-                  !isNil(accountNetwork.defaultSelectToken?.from)
-                    ? accountNetwork.defaultSelectToken?.from
-                    : ''
-                }${
-                  !isNil(accountNetwork.defaultSelectToken?.to)
-                    ? `${
-                        !isNil(accountNetwork.defaultSelectToken?.from)
-                          ? ','
-                          : ''
-                      }${accountNetwork.defaultSelectToken?.to}`
-                    : ''
-                }`,
-              });
-            const defaultFromToken = tokenInfos?.find(
-              (token) =>
-                token.contractAddress.toLowerCase() ===
-                accountNetwork.defaultSelectToken?.from?.toLowerCase(),
-            );
-            const defaultToToken = tokenInfos?.find(
-              (token) =>
-                token.contractAddress.toLowerCase() ===
-                accountNetwork.defaultSelectToken?.to?.toLowerCase(),
-            );
-            if (
-              defaultFromToken &&
-              (toToken?.networkId !== defaultFromToken.networkId ||
-                toToken?.contractAddress !== defaultFromToken.contractAddress)
-            ) {
-              setFromToken({
-                ...defaultFromToken,
-                networkLogoURI: accountNetwork.logoURI,
-              });
-            }
-            if (
-              defaultToToken &&
-              (fromToken?.networkId !== defaultToToken.networkId ||
-                fromToken?.contractAddress !== defaultToToken.contractAddress)
-            ) {
-              setToToken({
-                ...defaultToToken,
-                networkLogoURI: accountNetwork.logoURI,
-              });
-            }
-          } catch (e) {
-            console.error(e);
-          } finally {
-            setDefaultTokenLoading(false);
-          }
-        })();
-      } else {
-        setDefaultTokenLoading(false);
-      }
-    }
+    void (async () => {
+      await syncDefaultSelectedToken();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swapAddressInfo.accountInfo?.ready, isLoading]);
+  }, [swapAddressInfo.accountInfo?.ready, swapNetworks.length]);
 
-  return { fetchLoading: isLoading || defaultTokenLoading };
+  return {
+    fetchLoading: networkListFetching || defaultTokenLoading,
+    fetchSwapNetworks,
+  };
 }
 
 export function useSwapTokenList(

@@ -179,16 +179,11 @@ export function UrlAccountAutoCreate({
             isUrlAccount: true,
           });
 
-          void actions.current.updateSelectedAccount({
+          void actions.current.updateSelectedAccountForSingletonAccount({
             num: 0,
-            builder: (v) => ({
-              ...v,
-              networkId: routeParams?.networkId,
-              focusedWallet: WALLET_TYPE_WATCHING,
-              walletId: WALLET_TYPE_WATCHING,
-              othersWalletAccountId: r.accounts[0].id,
-              indexedAccountId: undefined,
-            }),
+            networkId: routeParams?.networkId,
+            walletId: WALLET_TYPE_WATCHING,
+            othersWalletAccountId: r.accounts[0].id,
           });
         } catch (error) {
           Toast.error({

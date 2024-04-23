@@ -157,6 +157,7 @@ const SwapProviderSelectModal = () => {
                 value={providerSort}
                 renderTrigger={({ value, label, placeholder }) => (
                   <Button
+                    mt="$1"
                     alignSelf="flex-start"
                     variant="tertiary"
                     icon="FilterSortSolid"
@@ -170,7 +171,7 @@ const SwapProviderSelectModal = () => {
               />
             );
           }
-          return <SectionList.SectionHeader title={title} />;
+          return <SectionList.SectionHeader title={title} px="$0" />;
         }}
       />
     </Page>
