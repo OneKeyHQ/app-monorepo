@@ -5,6 +5,8 @@ import { ToastProvider } from '@tamagui/toast';
 import { toast } from 'burnt';
 import { SizableText, YStack, getTokens } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { Portal } from '../../hocs';
 import { Icon } from '../../primitives';
 
@@ -50,15 +52,26 @@ const iconMap = {
   },
 };
 
-const renderLines = (lines: string[]) => (
-  <YStack flex={1}>
-    {lines.map((text, index) => (
-      <SizableText wordWrap="break-word" width="100%" key={index}>
-        {text}
-      </SizableText>
-    ))}
-  </YStack>
-);
+const renderLines = (text?: string) => {
+  if (platformEnv.isNativeIOS) {
+    return text;
+  }
+  if (!text) {
+    return text;
+  }
+  const lines = text?.split('\n') || [];
+  return lines.length > 1 ? (
+    <YStack flex={1}>
+      {lines.map((v, index) => (
+        <SizableText wordWrap="break-word" width="100%" key={index}>
+          {v}
+        </SizableText>
+      ))}
+    </YStack>
+  ) : (
+    text
+  );
+};
 
 function burntToast({
   title,
@@ -67,13 +80,9 @@ function burntToast({
   haptic,
   preset = 'custom',
 }: IToastBaseProps) {
-  const titleLines = title?.split('\n') || [];
-  const messageLines = message?.split('\n') || [];
   toast({
-    title: (titleLines.length > 1 ? renderLines(titleLines) : title) as any,
-    message: (messageLines.length > 1
-      ? renderLines(messageLines)
-      : message) as any,
+    title: renderLines(title) as any,
+    message: renderLines(message) as any,
     duration,
     haptic,
     preset,
