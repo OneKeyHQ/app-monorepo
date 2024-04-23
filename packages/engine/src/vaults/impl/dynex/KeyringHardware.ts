@@ -1,3 +1,4 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
@@ -268,6 +269,13 @@ export class KeyringHardware extends KeyringHardwareBase {
         txid: stripHexPrefix(cnFastHash(rawTx)),
         rawTx,
       };
+    }
+
+    if (
+      response.payload.code === HardwareErrorCode.RuntimeError &&
+      response.payload.error.indexOf('Invalid number of inputs') !== -1
+    ) {
+      throw new Error('Exceeded UTXO inputs limit.');
     }
 
     throw convertDeviceError(response.payload);

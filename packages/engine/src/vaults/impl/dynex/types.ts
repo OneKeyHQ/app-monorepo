@@ -29,18 +29,6 @@ export type IOnChainTransaction = {
   }[];
   mixin: number;
   outputs: {
-    globalIndex: number;
-    output: {
-      amount: number;
-      target: {
-        data: {
-          key: string;
-        };
-        type: string;
-      };
-    };
-  }[];
-  outputs_with_address: {
     address_to: string;
     globalIndex: number;
     output: {

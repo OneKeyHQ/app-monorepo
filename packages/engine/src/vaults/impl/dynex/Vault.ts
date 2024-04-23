@@ -284,7 +284,7 @@ export default class Vault extends VaultBase {
               : IDecodedTxDirection.IN;
         }
 
-        const amountValue = parseInt(tx.amount[0], 16);
+        const amountValue = tx.amount[0];
 
         const decodedTx: IDecodedTx = {
           txid: tx.hash ?? '',
@@ -302,7 +302,7 @@ export default class Vault extends VaultBase {
                 amount: new BigNumber(amountValue)
                   .shiftedBy(-network.decimals)
                   .toFixed(),
-                amountValue: amountValue.toString(10),
+                amountValue,
                 extraInfo: null,
               },
             },
@@ -449,7 +449,7 @@ export default class Vault extends VaultBase {
         });
       }
 
-      transaction.outputs_with_address?.forEach((output, index) => {
+      transaction.outputs?.forEach((output, index) => {
         if (output.address_to === accountAddress) {
           unspentOutputs[output.globalIndex] = {
             prevIndex: index,
