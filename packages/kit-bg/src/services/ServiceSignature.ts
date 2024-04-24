@@ -54,18 +54,20 @@ class ServiceSignature extends ServiceBase {
     });
     let items = await Promise.all(promises);
     if (isSearch) {
-      items = items.filter((item) => {
-        if (networkId && item.networkId !== networkId) {
+      items = items
+        .filter((item) => {
+          if (networkId && item.networkId === networkId) {
+            return true;
+          }
+          if (
+            address &&
+            item.address.toLowerCase().includes(address.toLowerCase())
+          ) {
+            return true;
+          }
           return false;
-        }
-        if (
-          address &&
-          item.address.toLowerCase().includes(address.toLowerCase())
-        ) {
-          return false;
-        }
-        return true;
-      });
+        })
+        .sort((a, b) => b.createdAt - a.createdAt);
     }
     return items;
   }
@@ -100,18 +102,20 @@ class ServiceSignature extends ServiceBase {
     });
     let items = await Promise.all(promises);
     if (isSearch) {
-      items = items.filter((item) => {
-        if (networkId && item.networkId !== networkId) {
+      items = items
+        .filter((item) => {
+          if (networkId && item.networkId === networkId) {
+            return true;
+          }
+          if (
+            address &&
+            item.address.toLowerCase().includes(address.toLowerCase())
+          ) {
+            return true;
+          }
           return false;
-        }
-        if (
-          address &&
-          item.address.toLowerCase().includes(address.toLowerCase())
-        ) {
-          return false;
-        }
-        return true;
-      });
+        })
+        .sort((a, b) => b.createdAt - a.createdAt);
     }
     return items;
   }
@@ -153,15 +157,18 @@ class ServiceSignature extends ServiceBase {
     });
     const items = await Promise.all(data);
     if (isSearch) {
-      return items.filter((item) => {
-        if (networkId && item.networkIds.includes(networkId)) {
-          return true;
-        }
-        if (address && item.addresses.includes(address)) {
-          return true;
-        }
-        return false;
-      });
+      return items
+        .filter((item) => {
+          if (networkId) {
+            return item.networkIds.includes(networkId);
+          }
+          if (address && item.addresses.length) {
+            const allAddresses = item.addresses.map((o) => o.toLowerCase());
+            return allAddresses.some((o) => o.includes(address.toLowerCase()));
+          }
+          return false;
+        })
+        .sort((a, b) => b.createdAt - a.createdAt);
     }
     return items;
   }

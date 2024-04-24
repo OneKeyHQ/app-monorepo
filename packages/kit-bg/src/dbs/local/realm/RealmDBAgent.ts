@@ -2,6 +2,7 @@ import { isNumber } from 'lodash';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
+import { storeNameSupportCreatedAt } from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 
 import { realmDBSchemasMap } from './schemas';
@@ -161,9 +162,12 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       objList = ids.map((id) => this._getObjectRecordById(name, id)) as any;
     } else {
       const isSlice = isNumber(limit) && isNumber(offset);
+      const hasCreatedAtIndex = storeNameSupportCreatedAt.includes(name);
       let items = this.realm.objects<IRealmDBSchemaMap[T]>(name);
-      if (isSlice) {
-        items = items.sorted('id', true).slice(offset, offset + limit) as any;
+      if (isSlice && hasCreatedAtIndex) {
+        items = items
+          .sorted('createdAt', true)
+          .slice(offset, offset + limit) as any;
       }
       objList = items as any;
     }

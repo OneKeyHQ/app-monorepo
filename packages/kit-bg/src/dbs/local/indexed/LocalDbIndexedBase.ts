@@ -12,10 +12,10 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import { storeNameSupportCreatedAt } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 
-import { IntIdLocalDBStoreNames } from './config';
 import { IndexedDBAgent } from './IndexedDBAgent';
 
 import type { IDBWalletIdSingleton, IIndexedDBSchemaMap } from '../types';
@@ -174,9 +174,9 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         keyPath: 'id',
       });
       const store = this._getObjectStoreAtVersionChange(tx, storeName);
-      if (IntIdLocalDBStoreNames.includes(storeName)) {
+      if (storeNameSupportCreatedAt.includes(storeName)) {
         // @ts-ignore
-        store.createIndex('intId', 'intId', {
+        store.createIndex('createdAt', 'createdAt', {
           unique: true,
         });
       }

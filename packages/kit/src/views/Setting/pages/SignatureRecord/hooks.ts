@@ -32,23 +32,27 @@ export const useGetSignatureSections = <T extends { createdAt: number }>(
     offset: 0,
     limit: 10,
   });
-  const { networkId } = useContext(SignatureContext);
+  const { networkId, searchContent: address } = useContext(SignatureContext);
   const {
     result: { sections, ending },
   } = usePromiseResult(
     async () => {
       const resp = await methodRef.current({
         networkId,
+        address,
         offset: query.offset,
         limit: query.limit,
       });
-      ref.current.splice(query.offset, query.limit, ...resp);
+      const isSearch = networkId || address;
+      if (!isSearch) {
+        ref.current.splice(query.offset, query.limit, ...resp);
+      }
       return {
-        sections: groupBy(ref.current),
+        sections: groupBy(isSearch ? resp : ref.current),
         ending: resp.length < query.limit,
       };
     },
-    [networkId, query.limit, query.offset],
+    [networkId, query.limit, query.offset, address],
     { initResult: { sections: [], ending: false } },
   );
 

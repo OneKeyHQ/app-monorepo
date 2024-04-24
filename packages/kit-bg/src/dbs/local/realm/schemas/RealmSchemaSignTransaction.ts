@@ -29,7 +29,7 @@ class RealmSchemaSignTransaction extends RealmObjectBase<IDBSignedTransaction> {
       address: 'string',
       dataStringify: 'string',
       hash: 'string',
-      createdAt: 'int',
+      createdAt: { type: 'int', indexed: true },
     },
   };
 

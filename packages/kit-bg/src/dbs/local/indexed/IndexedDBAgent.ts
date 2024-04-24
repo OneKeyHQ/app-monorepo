@@ -32,8 +32,6 @@ import {
   type ILocalDBWithTransactionTask,
 } from '../types';
 
-import { IntIdLocalDBStoreNames } from './config';
-
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
 export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
@@ -290,9 +288,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       } else if (isNumber(limit) && isNumber(offset)) {
         const indexStore =
           store as ILocalDBTransactionStores[ELocalDBStoreNames.SignedMessage];
-        if (indexStore.indexNames.contains('intId')) {
+        if (indexStore.indexNames.contains('createdAt')) {
           const cursor = await indexStore
-            .index('intId')
+            .index('createdAt')
             .openCursor(null, 'prev');
 
           let skipped = 0;
@@ -387,11 +385,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         }
       }
       if (shouldAdd) {
-        let addItem: any = record;
-        if (IntIdLocalDBStoreNames.includes(name)) {
-          addItem = { ...record, intId: Number(record.id) };
-        }
-        await store.add(addItem);
+        await store.add(record as any);
         result.added += 1;
         result.addedIds.push(record.id);
       } else {

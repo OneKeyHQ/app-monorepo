@@ -8,7 +8,6 @@ const SignMessageButton = () => {
   const onPress = useCallback(async () => {
     Dialog.show({
       title: 'Sign Message',
-      description: 'Function used to simulate sign Message',
       confirmButtonProps: {
         variant: 'destructive',
       },
@@ -16,7 +15,7 @@ const SignMessageButton = () => {
         ref.current += 1;
         void backgroundApiProxy.serviceSignature.addSignedMessage({
           networkId: 'evm--1',
-          address: '0xec766119A2021956773F16Cf77A3B248FF79b1c7',
+          address: '0x76f3f64cb3cD19debEE51436dF630a342B736C24',
           message: 'hello world',
           contentType: 'text',
           title: `Sign Message Test ${ref.current}`,
@@ -31,7 +30,7 @@ const SignTransactionButton = () => {
   const ref = useRef<number>(0);
   const onPress = useCallback(async () => {
     Dialog.show({
-      title: 'Sign Message',
+      title: 'Sign Transaction',
       confirmButtonProps: {
         variant: 'destructive',
       },

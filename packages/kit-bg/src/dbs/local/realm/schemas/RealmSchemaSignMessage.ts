@@ -29,7 +29,7 @@ class RealmSchemaSignMessage extends RealmObjectBase<IDBSignedMessage> {
       address: 'string',
       contentType: 'string',
       message: 'string',
-      createdAt: 'int',
+      createdAt: { type: 'int', indexed: true },
     },
   };
 

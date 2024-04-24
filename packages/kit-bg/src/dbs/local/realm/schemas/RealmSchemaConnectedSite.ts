@@ -23,7 +23,7 @@ class RealmSchemaConnectedSite extends RealmObjectBase<IDBConnectedSite> {
       networkIds: 'string[]',
       addresses: 'string[]',
       url: 'string',
-      createdAt: 'int',
+      createdAt: { type: 'int', indexed: true },
     },
   };
 
