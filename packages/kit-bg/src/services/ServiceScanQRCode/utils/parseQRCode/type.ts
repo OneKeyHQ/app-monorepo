@@ -48,7 +48,7 @@ export interface IEthereumValue extends IChainValue {
 export interface ISolanaValue extends Omit<IChainValue, 'address'> {
   recipient?: string;
   // eslint-disable-next-line spellcheck/spell-checker
-  spl_token?: string;
+  splToken?: string;
   reference?: string[];
   label?: string;
   message?: string;

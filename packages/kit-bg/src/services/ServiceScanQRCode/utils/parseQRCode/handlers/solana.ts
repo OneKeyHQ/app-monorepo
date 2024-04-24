@@ -13,7 +13,7 @@ export const solana: IQRCodeHandler<ISolanaValue> = async (value, options) => {
   if (urlValue && /solana/i.test(urlValue.data.urlSchema)) {
     const solanaValue = urlValue.data.urlParamList;
     // eslint-disable-next-line spellcheck/spell-checker
-    solanaValue.spl_token = solanaValue['spl-token'];
+    solanaValue.splToken = solanaValue['spl-token'];
     solanaValue.recipient = urlValue.data.urlPathList[0];
     return {
       type: EQRCodeHandlerType.SOLANA,

@@ -323,7 +323,7 @@ describe('useParseQRCode', () => {
           recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
           amount: '0.01',
           // eslint-disable-next-line spellcheck/spell-checker
-          spl_token: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+          splToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
         }),
       }),
     );
