@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import {
   Empty,
   IconButton,
+  NumberSizeableText,
   SectionList,
   SizableText,
   Stack,
@@ -35,9 +36,16 @@ const SendTransactionItem = ({ data }: { data: ISendTransactionData }) => (
         Send
       </SizableText>
     </XStack>
-    <SizableText size="$bodyLgMedium">
-      -{data.amount} {data.token.symbol.toUpperCase()}
-    </SizableText>
+    <NumberSizeableText
+      size="$bodyLgMedium"
+      formatter="balance"
+      formatterOptions={{
+        tokenSymbol: data.token.symbol.toUpperCase(),
+        showPlusMinusSigns: true,
+      }}
+    >
+      {`-${data.amount}`}
+    </NumberSizeableText>
   </XStack>
 );
 
@@ -53,11 +61,22 @@ const ApproveTransactionItem = ({
         Approve
       </SizableText>
     </XStack>
-    <SizableText size="$bodyLgMedium">
-      {data.isUnlimited
-        ? 'Unlimited'
-        : `${data.amount} ${data.token.symbol.toUpperCase()}`}
-    </SizableText>
+    <XStack>
+      {data.isUnlimited ? (
+        <SizableText size="$bodyLgMedium" />
+      ) : (
+        <NumberSizeableText
+          size="$bodyLgMedium"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: data.token.symbol.toUpperCase(),
+            showPlusMinusSigns: true,
+          }}
+        >
+          {`-${data.amount}`}
+        </NumberSizeableText>
+      )}
+    </XStack>
   </XStack>
 );
 
@@ -86,12 +105,27 @@ const SwapTransactionItem = ({ data }: { data: ISwapTransactionData }) => (
       <SizableText size="$bodyLgMedium">Swap</SizableText>
     </XStack>
     <YStack alignItems="flex-end">
-      <SizableText size="$bodyLgMedium">
-        {`+${data.toAmount} ${data.toToken.symbol.toUpperCase()}`}
-      </SizableText>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {`-${data.fromAmount} ${data.fromToken.symbol.toUpperCase()}`}
-      </SizableText>
+      <NumberSizeableText
+        size="$bodyLgMedium"
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: data.toToken.symbol.toUpperCase(),
+          showPlusMinusSigns: true,
+        }}
+      >
+        {`+${data.toAmount}`}
+      </NumberSizeableText>
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$textSubdued"
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: data.fromToken.symbol.toUpperCase(),
+          showPlusMinusSigns: true,
+        }}
+      >
+        {`-${data.fromAmount}`}
+      </NumberSizeableText>
     </YStack>
   </XStack>
 );
