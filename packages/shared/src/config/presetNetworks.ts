@@ -33,56 +33,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/eth/eth.png',
     'name': 'Ethereum',
-    'rpcURLs': [
-      {
-        'url': 'https://node.onekey.so/eth',
-      },
-      {
-        'url': 'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-      },
-      {
-        'url': 'https://cloudflare-eth.com',
-      },
-      {
-        'url': 'https://rpc.ankr.com/eth',
-      },
-      {
-        'url': 'https://rpc.flashbots.net',
-      },
-      {
-        'url':
-          'https://eth-mainnet.alchemyapi.io/v2/QKMdAyFAARxN-dEm_USOu8-u0klcBuTO',
-      },
-      {
-        'url':
-          'https://eth-mainnet.gateway.pokt.network/v1/lb/611156b4a585a20035148406',
-      },
-      {
-        'url': 'https://api.mycryptoapi.com/eth',
-      },
-      {
-        'url':
-          'https://eth-mainnet.gateway.pokt.network/v1/5f3453978e354ab992c4da79',
-      },
-      {
-        'url': 'https://eth.public-rpc.com',
-      },
-      {
-        'url': 'https://main-light.eth.linkpool.io',
-      },
-      {
-        'url': 'https://mainnet-eth.compound.finance',
-      },
-      {
-        'url': 'https://eth626892d.jccdex.cn',
-      },
-      {
-        'url': 'https://1rpc.io/eth',
-      },
-      {
-        'url': 'https://onekey-eth.rpc.blxrbdn.com',
-      },
-    ],
     'shortcode': 'eth',
     'shortname': 'ETH',
     'symbol': 'ETH',
@@ -128,10 +78,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
-  const goerli: IServerNetwork = {
+  const sepolia: IServerNetwork = {
     'balance2FeeDecimals': 9,
-    'chainId': '5',
-    'code': 'goerli',
+    'chainId': '11155111',
+    'code': 'sepolia',
     'decimals': 18,
     'extensions': {
       'providerOptions': {
@@ -139,27 +89,16 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
         'preferMetamask': true,
       },
     },
-    'id': 'evm--5',
+    'id': 'evm--11155111',
     'impl': 'evm',
     'isTestnet': true,
     'logoURI': 'https://onekey-asset.com/assets/teth/teth.png',
-    'name': 'Ethereum Görli (Goerli) Testnet',
-    'rpcURLs': [
-      {
-        'url': 'https://rpc.ankr.com/eth_goerli',
-      },
-      {
-        'url': 'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-      },
-      {
-        'url': 'https://eth-goerli.public.blastapi.io',
-      },
-    ],
-    'shortcode': 'goerli',
-    'shortname': 'Görli',
+    'name': 'Ethereum Sepolia Testnet',
+    'shortcode': 'sepolia',
+    'shortname': 'Sepolia',
     'symbol': 'TETH',
     'feeMeta': {
-      'code': 'goerli',
+      'code': 'sepolia',
       'decimals': 9,
       'symbol': 'Gwei',
     },
@@ -167,10 +106,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'priceConfigs': [],
     'explorers': [
       {
-        'address': 'https://goerli.etherscan.io/address/{address}',
-        'block': 'https://goerli.etherscan.io/block/{block}',
-        'name': 'https://goerli.etherscan.io/',
-        'transaction': 'https://goerli.etherscan.io/tx/{transaction}',
+        'address': 'https://sepolia.etherscan.io/address/{address}',
+        'block': 'https://sepolia.etherscan.io/block/{block}',
+        'name': 'https://sepolia.etherscan.io/',
+        'transaction': 'https://sepolia.etherscan.io/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,
@@ -194,14 +133,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/btc/btc.png',
     'name': 'Bitcoin',
-    'rpcURLs': [
-      {
-        'url': 'https://node.onekey.so/btc',
-      },
-      {
-        'url': 'https://1rpc.io/btc',
-      },
-    ],
     'shortcode': 'btc',
     'shortname': 'BTC',
     'symbol': 'BTC',
@@ -241,11 +172,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': true,
     'logoURI': 'https://onekey-asset.com/assets/tbtc/tbtc.png',
     'name': 'Bitcoin Testnet',
-    'rpcURLs': [
-      {
-        'url': 'https://node.onekey.so/tbtc',
-      },
-    ],
     'shortcode': 'tbtc',
     'shortname': 'TBTC',
     'symbol': 'TBTC',
@@ -279,14 +205,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/doge/doge.png',
     'name': 'Dogecoin',
-    'rpcURLs': [
-      {
-        'url': 'https://fiat.onekeycn.com/book/doge',
-      },
-      {
-        'url': 'https://node.onekey.so/doge',
-      },
-    ],
     'shortcode': 'doge',
     'shortname': 'DOGE',
     'symbol': 'DOGE',
@@ -331,14 +249,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://common.onekey-asset.com/chain/bch.png',
     'name': 'Bitcoin Cash',
-    'rpcURLs': [
-      {
-        'url': 'https://fiat.onekeycn.com/book/bch',
-      },
-      {
-        'url': 'https://node.onekey.so/bch',
-      },
-    ],
     'shortcode': 'bch',
     'shortname': 'BCH',
     'symbol': 'BCH',
@@ -386,14 +296,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://common.onekey-asset.com/chain/ltc.png',
     'name': 'Litecoin',
-    'rpcURLs': [
-      {
-        'url': 'https://fiat.onekeycn.com/book/ltc',
-      },
-      {
-        'url': 'https://node.onekey.so/ltc',
-      },
-    ],
     'shortcode': 'ltc',
     'shortname': 'LTC',
     'symbol': 'LTC',
@@ -450,14 +352,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': true,
     'logoURI': 'https://onekey-asset.com/assets/cosmos/cosmos.png',
     'name': 'Cosmos Testnet',
-    'rpcURLs': [
-      {
-        'url': 'https://rest.sentry-01.theta-testnet.polypore.xyz',
-      },
-      {
-        'url': 'https://rest.sentry-02.theta-testnet.polypore.xyz',
-      },
-    ],
     'shortcode': 'tatom',
     'shortname': 'TCosmos',
     'symbol': 'TATOM',
@@ -503,20 +397,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/cosmos/cosmos.png',
     'name': 'Cosmos',
-    'rpcURLs': [
-      {
-        'url': 'https://lcd-cosmoshub.keplr.app',
-      },
-      {
-        'url': 'https://cosmos-lcd.quickapi.com',
-      },
-      {
-        'url': 'https://lcd-cosmoshub.blockapsis.com',
-      },
-      {
-        'url': 'https://node.onekey.so/cosmos',
-      },
-    ],
     'shortcode': 'cosmoshub',
     'shortname': 'Cosmos',
     'symbol': 'ATOM',
@@ -572,23 +452,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/osmosis/osmosis.png',
     'name': 'Osmosis',
-    'rpcURLs': [
-      {
-        'url': 'https://lcd-osmosis.keplr.app/',
-      },
-      {
-        'url': 'https://lcd-osmosis.blockapsis.com/',
-      },
-      {
-        'url': 'https://lcd.osmosis.zone',
-      },
-      {
-        'url': 'https://osmosis-lcd.quickapi.com',
-      },
-      {
-        'url': 'https://node.onekey.so/osmosis',
-      },
-    ],
     'shortcode': 'osmosis',
     'shortname': 'Osmosis',
     'symbol': 'OSMO',
@@ -644,38 +507,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/polygon/polygon.png',
     'name': 'Polygon',
-    'rpcURLs': [
-      {
-        'url': 'https://polygon-rpc.com',
-      },
-      {
-        'url': 'https://rpc-mainnet.matic.network',
-      },
-      {
-        'url': 'https://rpc-mainnet.maticvigil.com',
-      },
-      {
-        'url': 'https://rpc-mainnet.matic.quiknode.pro',
-      },
-      {
-        'url': 'https://matic-mainnet.chainstacklabs.com',
-      },
-      {
-        'url': 'https://matic-mainnet-full-rpc.bwarelabs.com',
-      },
-      {
-        'url': 'https://matic-mainnet-archive-rpc.bwarelabs.com',
-      },
-      {
-        'url': 'https://node.onekey.so/polygon',
-      },
-      {
-        'url': 'https://1rpc.io/matic',
-      },
-      {
-        'url': 'https://onekey-polygon.rpc.blxrbdn.com',
-      },
-    ],
     'shortcode': 'polygon',
     'shortname': 'Polygon',
     'symbol': 'MATIC',
@@ -728,68 +559,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/bsc/bsc.png',
     'name': 'BNB Smart Chain',
-    'rpcURLs': [
-      {
-        'url': 'https://bsc-dataseed1.ninicoin.io',
-      },
-      {
-        'url': 'https://bsc-dataseed2.ninicoin.io',
-      },
-      {
-        'url': 'https://bsc-dataseed3.ninicoin.io',
-      },
-      {
-        'url': 'https://bsc-dataseed4.ninicoin.io',
-      },
-      {
-        'url': 'https://bsc-dataseed.binance.org',
-      },
-      {
-        'url': 'https://bsc-dataseed1.binance.org',
-      },
-      {
-        'url': 'https://bsc-dataseed2.binance.org',
-      },
-      {
-        'url': 'https://bsc-dataseed3.binance.org',
-      },
-      {
-        'url': 'https://bsc-dataseed4.binance.org',
-      },
-      {
-        'url': 'https://bsc-dataseed1.defibit.io',
-      },
-      {
-        'url': 'https://bsc-dataseed2.defibit.io',
-      },
-      {
-        'url': 'https://bsc-dataseed3.defibit.io',
-      },
-      {
-        'url': 'https://bsc-dataseed4.defibit.io',
-      },
-      {
-        'url': 'https://binance.ankr.com',
-      },
-      {
-        'url': 'https://binance.nodereal.io',
-      },
-      {
-        'url': 'https://rpc-bsc.bnb48.club/',
-      },
-      {
-        'url': 'https://bscrpc.com',
-      },
-      {
-        'url': 'https://node.onekey.so/bsc',
-      },
-      {
-        'url': 'https://1rpc.io/bnb',
-      },
-      {
-        'url': 'https://onekey-bnb.rpc.blxrbdn.com',
-      },
-    ],
     'shortcode': 'bsc',
     'shortname': 'BSC',
     'symbol': 'BNB',
@@ -841,32 +610,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/fantom/fantom.png',
     'name': 'Fantom',
-    'rpcURLs': [
-      {
-        'url': 'https://rpc.ftm.tools',
-      },
-      {
-        'url': 'https://rpc.fantom.network',
-      },
-      {
-        'url': 'https://rpcapi.fantom.network',
-      },
-      {
-        'url': 'https://rpc2.fantom.network',
-      },
-      {
-        'url': 'https://rpc3.fantom.network',
-      },
-      {
-        'url': 'https://rpc.ankr.com/fantom',
-      },
-      {
-        'url': 'https://node.onekey.so/fantom',
-      },
-      {
-        'url': 'https://1rpc.io/ftm',
-      },
-    ],
     'shortcode': 'fantom',
     'shortname': 'FTM',
     'symbol': 'FTM',
@@ -918,20 +661,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/arbitrum/arbitrum.png',
     'name': 'Arbitrum',
-    'rpcURLs': [
-      {
-        'url': 'https://arb1.arbitrum.io/rpc',
-      },
-      {
-        'url': 'https://rpc.ankr.com/arbitrum',
-      },
-      {
-        'url': 'https://node.onekey.so/arbitrum',
-      },
-      {
-        'url': 'https://1rpc.io/arb',
-      },
-    ],
     'shortcode': 'arbitrum',
     'shortname': 'Arbitrum',
     'symbol': 'ETH',
@@ -984,20 +713,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/avalanche/avalanche.png',
     'name': 'Avalanche',
-    'rpcURLs': [
-      {
-        'url': 'https://api.avax.network/ext/bc/C/rpc',
-      },
-      {
-        'url': 'https://rpc.ankr.com/avalanche',
-      },
-      {
-        'url': 'https://node.onekey.so/avalanche',
-      },
-      {
-        'url': 'https://1rpc.io/avax/c',
-      },
-    ],
     'shortcode': 'avalanche',
     'shortname': 'Avalanche',
     'symbol': 'AVAX',
@@ -1048,17 +763,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/heco/heco.png',
     'name': 'Huobi ECO Chain',
-    'rpcURLs': [
-      {
-        'url': 'https://http-mainnet.hecochain.com',
-      },
-      {
-        'url': 'https://http-mainnet-node.defibox.com',
-      },
-      {
-        'url': 'https://node.onekey.so/heco',
-      },
-    ],
     'shortcode': 'heco',
     'shortname': 'HECO',
     'symbol': 'HT',
@@ -1106,14 +810,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/okt/okt.png',
     'name': 'OKX Chain',
-    'rpcURLs': [
-      {
-        'url': 'https://exchainrpc.okex.org',
-      },
-      {
-        'url': 'https://node.onekey.so/okt',
-      },
-    ],
     'shortcode': 'okt',
     'shortname': 'OKC',
     'symbol': 'OKT',
@@ -1164,17 +860,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/optimism/optimism.png',
     'name': 'Optimism',
-    'rpcURLs': [
-      {
-        'url': 'https://mainnet.optimism.io',
-      },
-      {
-        'url': 'https://node.onekey.so/optimism',
-      },
-      {
-        'url': 'https://1rpc.io/op',
-      },
-    ],
     'shortcode': 'optimism',
     'shortname': 'Optimism',
     'symbol': 'ETH',
@@ -1225,26 +910,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/xdai/gno.png',
     'name': 'Gnosis Chain',
-    'rpcURLs': [
-      {
-        'url': 'https://rpc.gnosischain.com',
-      },
-      {
-        'url': 'https://gnosis-mainnet.public.blastapi.io',
-      },
-      {
-        'url': 'https://rpc.ankr.com/gnosis',
-      },
-      {
-        'url': 'https://xdai-rpc.gateway.pokt.network',
-      },
-      {
-        'url': 'https://gnosischain-rpc.gateway.pokt.network',
-      },
-      {
-        'url': 'https://node.onekey.so/xdai',
-      },
-    ],
     'shortcode': 'xdai',
     'shortname': 'GNO',
     'symbol': 'xDAI',
@@ -1292,20 +957,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/celo/celo.png',
     'name': 'Celo',
-    'rpcURLs': [
-      {
-        'url': 'https://rpc.ankr.com/celo',
-      },
-      {
-        'url': 'https://forno.celo.org',
-      },
-      {
-        'url': 'https://node.onekey.so/celo',
-      },
-      {
-        'url': 'https://1rpc.io/celo',
-      },
-    ],
     'shortcode': 'celo',
     'shortname': 'CELO',
     'symbol': 'CELO',
@@ -1345,20 +996,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--8453',
     'logoURI': 'https://onekey-asset.com/assets/base/base.png',
     'name': 'Base',
-    'rpcURLs': [
-      {
-        'url': 'https://mainnet.base.org',
-      },
-      {
-        'url': 'https://base.meowrpc.com',
-      },
-      {
-        'url': 'https://1rpc.io/base',
-      },
-      {
-        'url': 'https://base.blockpi.network/v1/rpc/public',
-      },
-    ],
     'shortcode': 'base',
     'shortname': 'Base',
     'feeMeta': {
@@ -1402,17 +1039,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/aurora/aurora.png',
     'name': 'Aurora',
-    'rpcURLs': [
-      {
-        'url': 'https://mainnet.aurora.dev',
-      },
-      {
-        'url': 'https://node.onekey.so/aurora',
-      },
-      {
-        'url': 'https://1rpc.io/aurora',
-      },
-    ],
     'shortcode': 'aurora',
     'shortname': 'Aurora',
     'symbol': 'ETH',
@@ -1452,21 +1078,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/boba/boba_1.png',
     'name': 'Boba Network',
-    'rpcURLs': [
-      {
-        'url': 'https://mainnet.boba.network',
-      },
-      {
-        'url': 'https://lightning-replica.boba.network',
-      },
-      {
-        'url':
-          'https://boba-mainnet.gateway.pokt.network/v1/lb/623ad21b20354900396fed7f',
-      },
-      {
-        'url': 'https://node.onekey.so/boba',
-      },
-    ],
     'shortcode': 'boba',
     'shortname': 'Boba',
     'symbol': 'ETH',
@@ -1510,14 +1121,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/cfx/cfx.png',
     'name': 'Conflux eSpace',
-    'rpcURLs': [
-      {
-        'url': 'https://evm.confluxrpc.com',
-      },
-      {
-        'url': 'https://conflux-espace-public.unifra.io',
-      },
-    ],
     'shortcode': 'cfxespace',
     'shortname': 'CFXESPACE',
     'symbol': 'CFX',
@@ -1560,29 +1163,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/cronos/cronos.png',
     'name': 'Cronos',
-    'rpcURLs': [
-      {
-        'url': 'https://mmf-rpc.xstaking.sg',
-      },
-      {
-        'url': 'https://cronosrpc-1.xstaking.sg',
-      },
-      {
-        'url': 'https://cronosrpc-2.xstaking.sg',
-      },
-      {
-        'url': 'https://gateway.nebkas.ro/',
-      },
-      {
-        'url': 'https://rpc.nebkas.ro/',
-      },
-      {
-        'url': 'https://rpc.vvs.finance',
-      },
-      {
-        'url': 'https://node.onekey.so/cronos',
-      },
-    ],
     'shortcode': 'cronos',
     'shortname': 'CRO',
     'symbol': 'CRO',
@@ -1626,14 +1206,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/etc/etc.png',
     'name': 'Ethereum Classic',
-    'rpcURLs': [
-      {
-        'url': 'https://www.ethercluster.com/etc',
-      },
-      {
-        'url': 'https://node.onekey.so/etc',
-      },
-    ],
     'shortcode': 'etc',
     'shortname': 'ETC',
     'symbol': 'ETC',
@@ -1677,14 +1249,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/etf/etf.png',
     'name': 'Ethereum Fair',
-    'rpcURLs': [
-      {
-        'url': 'https://rpc.etherfair.org',
-      },
-      {
-        'url': 'https://node.onekey.so/etf',
-      },
-    ],
     'shortcode': 'etf',
     'shortname': 'ETHF',
     'symbol': 'ETHF',
@@ -1728,14 +1292,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/ethw/ethw.png',
     'name': 'EthereumPoW',
-    'rpcURLs': [
-      {
-        'url': 'https://mainnet.ethereumpow.org',
-      },
-      {
-        'url': 'https://node.onekey.so/ethw',
-      },
-    ],
     'shortcode': 'ethw',
     'shortname': 'ETHW',
     'symbol': 'ETHW',
@@ -1770,14 +1326,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--59144',
     'logoURI': 'https://onekey-asset.com/assets/linea/linea.png',
     'name': 'Linea',
-    'rpcURLs': [
-      {
-        'url': 'https://rpc.linea.build',
-      },
-      {
-        'url': 'https://linea.blockpi.network/v1/rpc/public',
-      },
-    ],
     'shortcode': 'linea',
     'shortname': 'Linea',
     'feeMeta': {
@@ -1817,17 +1365,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--5000',
     'logoURI': 'https://onekey-asset.com/assets/mantle/mantle.png',
     'name': 'Mantle',
-    'rpcURLs': [
-      {
-        'url': 'https://rpc.mantle.xyz',
-      },
-      {
-        'url': 'https://mantle-mainnet.public.blastapi.io',
-      },
-      {
-        'url': 'https://mantle.publicnode.com',
-      },
-    ],
     'shortcode': 'mantle',
     'shortname': 'Mantle',
     'feeMeta': {
@@ -1870,14 +1407,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/mvn/mvm.png',
     'name': 'Mixin Virtual Machine',
-    'rpcURLs': [
-      {
-        'url': 'https://geth.mvm.dev',
-      },
-      {
-        'url': 'https://node.onekey.so/mvm',
-      },
-    ],
     'shortcode': 'mvm',
     'shortname': 'MVM',
     'symbol': 'ETH',
@@ -1917,17 +1446,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/fil/fil.png',
     'name': 'Filecoin FEVM',
-    'rpcURLs': [
-      {
-        'url': 'https://node.onekey.so/fevm',
-      },
-      {
-        'url': 'https://rpc.ankr.com/filecoin',
-      },
-      {
-        'url': 'https://api.node.glif.io',
-      },
-    ],
     'shortcode': 'fevm',
     'shortname': 'FEVM',
     'symbol': 'FIL',
@@ -1969,14 +1487,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': false,
     'logoURI': 'https://onekey-asset.com/assets/lnd/lnd.png',
     'name': 'Lightning Network',
-    'rpcURLs': [
-      {
-        'url': 'https://node.onekey.so/btc',
-      },
-      {
-        'url': 'https://1rpc.io/btc',
-      },
-    ],
     'shortcode': 'lightning',
     'shortname': 'Lightning',
     'symbol': 'sats',
@@ -2008,7 +1518,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'isTestnet': true,
     'logoURI': 'https://onekey-asset.com/assets/lnd/lnd.png',
     'name': 'Lightning Network Testnet',
-    'rpcURLs': [],
     'shortcode': 'tlightning',
     'shortname': 'LightningTestnet',
     'symbol': 'sats',
@@ -2045,7 +1554,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     ltc,
     tbtc,
     eth,
-    goerli,
+    sepolia,
     base,
     bsc,
     op,
