@@ -1,5 +1,3 @@
-function Toaster() {
-  return null;
-}
+import { Toasts } from '@backpackapp-io/react-native-toast';
 
-export default Toaster;
+export default Toasts;

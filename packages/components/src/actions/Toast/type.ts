@@ -1,6 +1,5 @@
 export type IToastMessageOptions = {
   title: JSX.Element;
-  message?: string;
   /**
    * Defaults to `done`.
    */
@@ -19,5 +18,4 @@ export type IToastMessageOptions = {
    * @platform ios
    */
   from?: 'top' | 'bottom';
-  icon?: JSX.Element;
 };

@@ -26,15 +26,15 @@ const flexStyle = { flex: 1 };
 export function KitProvider() {
   return (
     <GlobalJotaiReady>
-      <ThemeProvider>
-        <SplashProvider>
-          <GestureHandlerRootView style={flexStyle}>
+      <GestureHandlerRootView style={flexStyle}>
+        <ThemeProvider>
+          <SplashProvider>
             <Container />
-          </GestureHandlerRootView>
-        </SplashProvider>
-        <PasswordVerifyPromptMount />
-        <LastActivityTracker />
-      </ThemeProvider>
+          </SplashProvider>
+          <PasswordVerifyPromptMount />
+          <LastActivityTracker />
+        </ThemeProvider>
+      </GestureHandlerRootView>
     </GlobalJotaiReady>
   );
 }

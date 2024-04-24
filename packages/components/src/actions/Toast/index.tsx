@@ -51,9 +51,6 @@ const RenderLines = ({
   size: ISizableTextProps['size'];
   icon?: JSX.Element;
 }) => {
-  if (platformEnv.isNativeIOS) {
-    return text;
-  }
   if (!text) {
     return null;
   }
