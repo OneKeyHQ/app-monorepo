@@ -94,7 +94,7 @@ export class VaultContext {
   }
 
   async getRpcUrl() {
-    return (await this.getNetwork({ cached: false })).rpcURLs[0]?.url;
+    return '';
   }
 
   // async getClientApi<T>() {
