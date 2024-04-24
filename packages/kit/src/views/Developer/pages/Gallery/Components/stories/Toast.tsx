@@ -43,6 +43,16 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.success({
+                  title: '',
+                  message: 'title is empty string',
+                });
+              }}
+            >
+              title is empty string
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.success({
                   duration: 999999,
                   title: `Lorem ipsum dolor sit amet, 
                     consectetur adipiscing elit. 

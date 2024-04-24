@@ -1,5 +1,5 @@
 export type IToastMessageOptions = {
-  title: string;
+  title: JSX.Element;
   message?: string;
   /**
    * Defaults to `done`.

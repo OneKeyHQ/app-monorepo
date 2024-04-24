@@ -11,11 +11,7 @@ function Toaster() {
 
   return (
     <WebToaster
-      {...(media.md
-        ? {
-            position: 'top-center',
-          }
-        : { position: 'bottom-right' })}
+      position={media.md ? 'top-center' : 'bottom-right'}
       closeButton
       theme={themeName}
     />
