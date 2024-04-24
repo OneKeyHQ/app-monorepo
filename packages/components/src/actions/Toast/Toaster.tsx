@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { Toaster as WebToaster } from 'burnt/web';
+import { Toaster as WebToaster } from 'sonner';
 import { useMedia } from 'tamagui';
 
 import { useThemeName } from '../../hooks/useStyle';
