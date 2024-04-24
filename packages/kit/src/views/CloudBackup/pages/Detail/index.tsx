@@ -31,6 +31,7 @@ import type {
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
+import BackupListLoading from '../../components/BackupListLoading';
 import { showDeleteBackupDialog } from '../../components/DeleteBackupDialog';
 import { showRestorePasswordVerifyDialog } from '../../components/ResotrePasswordVerify';
 
@@ -252,52 +253,57 @@ export default function Detail() {
             ]}
           />
         </Stack>
-        <SectionList
-          sections={segmentValueSections}
-          renderItem={({
-            item,
-          }: {
-            item: {
-              title: string;
-              detail: string;
-              icon?: IIconProps['name'];
-              walletAvatar?: IPublicBackupData['HDWallets'][string]['avatar'];
-            };
-          }) => (
-            <ListItem
-              title={item.title}
-              renderIcon={
-                item.walletAvatar ? (
-                  <WalletAvatar
-                    // @ts-expect-error
-                    wallet={{
-                      avatarInfo: item.walletAvatar,
-                    }}
-                  />
-                ) : (
-                  <Stack bg="$bgStrong" p="$2" borderRadius="$3">
-                    <Icon name={item.icon} size="$6" color="$icon" />
-                  </Stack>
-                )
-              }
-            >
-              <ListItem.Text secondary={item.detail} align="right" />
-            </ListItem>
-          )}
-          estimatedItemSize="$16"
-          ListEmptyComponent={
-            <Empty
-              icon="SearchOutline"
-              title="No Data"
-              description="All the data in this backup is already present on the current device."
-            />
-          }
-          renderSectionHeader={({
-            section,
-          }: {
-            section: { title: string };
-          }) => <SectionList.SectionHeader title={section.title} />}
-        />
+        {diffData ? (
+          <SectionList
+            sections={segmentValueSections}
+            renderItem={({
+              item,
+            }: {
+              item: {
+                title: string;
+                detail: string;
+                icon?: IIconProps['name'];
+                walletAvatar?: IPublicBackupData['HDWallets'][string]['avatar'];
+              };
+            }) => (
+              <ListItem
+                title={item.title}
+                renderIcon={
+                  item.walletAvatar ? (
+                    <WalletAvatar
+                      // @ts-expect-error
+                      wallet={{
+                        avatarInfo: item.walletAvatar,
+                      }}
+                    />
+                  ) : (
+                    <Stack bg="$bgStrong" p="$2" borderRadius="$3">
+                      <Icon name={item.icon} size="$6" color="$icon" />
+                    </Stack>
+                  )
+                }
+              >
+                <ListItem.Text secondary={item.detail} align="right" />
+              </ListItem>
+            )}
+            estimatedItemSize="$16"
+            ListEmptyComponent={
+              <Empty
+                icon="SearchOutline"
+                title="No Data"
+                description="All the data in this backup is already present on the current device."
+              />
+            }
+            renderSectionHeader={({
+              section,
+            }: {
+              section: { title: string };
+            }) => <SectionList.SectionHeader title={section.title} />}
+          />
+        ) : (
+          <BackupListLoading />
+        )}
+
         <Button
           m="$5"
           borderRadius="$3"

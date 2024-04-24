@@ -1,4 +1,5 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ECloudBackupRoutes } from '@onekeyhq/shared/src/routes';
 import type { ICloudBackupParamList } from '@onekeyhq/shared/src/routes';
@@ -22,7 +23,7 @@ export const CloudBackupPages: IModalFlowNavigatorConfig<
   {
     name: ECloudBackupRoutes.CloudBackupHome,
     component: CloudBackupHome,
-    translationId: 'iCloud Backup',
+    translationId: `${backupPlatform().cloudName} Backup`,
   },
   {
     name: ECloudBackupRoutes.CloudBackupList,
