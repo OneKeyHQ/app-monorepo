@@ -11,9 +11,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Portal } from '../../hocs';
 import { Icon } from '../../primitives';
 
-import { ShowToaster, ShowToasterClose } from './ShowToaster';
+import { ShowCustom, ShowToasterClose } from './ShowCustom';
 
-import type { IShowToasterInstance, IShowToasterProps } from './ShowToaster';
+import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IPortalManager } from '../../hocs';
 
 export interface IToastProps {
@@ -139,9 +139,9 @@ export const Toast = {
     portalRef = {
       current: Portal.Render(
         Portal.Constant.TOASTER_OVERLAY_PORTAL,
-        <ShowToaster ref={instanceRef} onClose={handleClose} {...others}>
+        <ShowCustom ref={instanceRef} onClose={handleClose} {...others}>
           {children}
-        </ShowToaster>,
+        </ShowCustom>,
       ),
     };
     const r: IToastShowResult = {
@@ -153,8 +153,8 @@ export const Toast = {
   Close: ShowToasterClose,
 };
 
-export { useToaster } from './ShowToaster';
-export type { IShowToasterProps } from './ShowToaster';
+export { useToaster } from './ShowCustom';
+export type { IShowToasterProps } from './ShowCustom';
 
 export function ShowToastProvider() {
   return (
