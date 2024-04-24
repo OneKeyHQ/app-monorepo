@@ -3,6 +3,7 @@ import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
 import { toast } from 'burnt';
+import { useWindowDimensions } from 'react-native';
 import { SizableText, YStack, getTokens } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -52,16 +53,17 @@ const iconMap = {
   },
 };
 
-const renderLines = (text?: string) => {
+const RenderLines = ({ children: text }: { children?: string }) => {
+  const { height } = useWindowDimensions();
   if (platformEnv.isNativeIOS) {
     return text;
   }
   if (!text) {
-    return text;
+    return null;
   }
   const lines = text?.split('\n') || [];
   return lines.length > 1 ? (
-    <YStack flex={1}>
+    <YStack flex={1} maxHeight={height - 100} overflow="hidden">
       {lines.map((v, index) => (
         <SizableText wordWrap="break-word" width="100%" key={index}>
           {v}
@@ -81,8 +83,8 @@ function burntToast({
   preset = 'custom',
 }: IToastBaseProps) {
   toast({
-    title: renderLines(title) as any,
-    message: renderLines(message) as any,
+    title: (<RenderLines>{title}</RenderLines>) as any,
+    message: (<RenderLines>{message}</RenderLines>) as any,
     duration,
     haptic,
     preset,
