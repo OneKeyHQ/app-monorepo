@@ -9,6 +9,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMetaDataObject } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import { ECloudBackupRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { ICloudBackupParamList } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -83,7 +84,9 @@ export default function List() {
             <Empty
               icon="SearchOutline"
               title="No Data"
-              description="You have no iCloud backups on this device"
+              description={`You have no ${
+                backupPlatform().cloudName
+              } backups on this device`}
             />
           }
         />

@@ -2,13 +2,15 @@ import { useState } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   cloudBackupPersistAtom,
   useCloudBackupPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { checkBackupEntryStatus } from './CheckBackupEntryStatus';
 
 function BackupToggleDialogFooter({
   willIsEnabled,
@@ -20,7 +22,6 @@ function BackupToggleDialogFooter({
   const [loading, setLoading] = useState(false);
   const [cloudBackup, setCloudBackup] = useCloudBackupPersistAtom();
 
-  const navigation = useAppNavigation();
   return (
     <Dialog.Footer
       confirmButtonProps={{
@@ -33,12 +34,14 @@ function BackupToggleDialogFooter({
           await timerUtils.wait(500);
           setCloudBackup({ ...cloudBackup, isEnabled: willIsEnabled });
           callback?.(willIsEnabled);
-          if (!willIsEnabled && platformEnv.isNativeAndroid) {
-            await backgroundApiProxy.serviceCloudBackup
-              .logoutFromGoogleDrive(false)
-              .then(() => {
-                navigation.pop();
-              });
+          if (platformEnv.isNativeAndroid) {
+            if (willIsEnabled) {
+              await checkBackupEntryStatus();
+            } else {
+              await backgroundApiProxy.serviceCloudBackup.logoutFromGoogleDrive(
+                false,
+              );
+            }
           }
         } finally {
           setLoading(false);
@@ -49,16 +52,25 @@ function BackupToggleDialogFooter({
 }
 
 export async function maybeShowBackupToggleDialog(willIsEnabled: boolean) {
+  if (!platformEnv.isNative) {
+    return;
+  }
   if (willIsEnabled === (await cloudBackupPersistAtom.get()).isEnabled) {
     return;
   }
   return new Promise((resolve) => {
     Dialog.show({
       icon: 'CloudSyncOutline',
-      title: 'iCloud Backup',
+      title: `${backupPlatform().cloudName} Backup`,
       description: !willIsEnabled
-        ? 'iCloud Backup securely syncs your data across devices (excluding hardware wallets), ensuring that both OneKey and Apple cannot access your wallets. Backups are stored in iCloud Drive and can be enabled anytime.'
-        : 'iCloud Backup securely syncs your data across devices (excluding hardware wallets), ensuring that both OneKey and Apple cannot access your wallets.',
+        ? `${
+            backupPlatform().cloudName
+          } Backup securely syncs your data across devices (excluding hardware wallets), ensuring that both OneKey and Apple cannot access your wallets. Backups are stored in ${
+            backupPlatform().cloudName
+          } Drive and can be enabled anytime.`
+        : `${
+            backupPlatform().cloudName
+          } Backup securely syncs your data across devices (excluding hardware wallets), ensuring that both OneKey and Apple cannot access your wallets.`,
       renderContent: (
         <BackupToggleDialogFooter
           willIsEnabled={willIsEnabled}

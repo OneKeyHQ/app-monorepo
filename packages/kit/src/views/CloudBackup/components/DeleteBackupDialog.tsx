@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 
 function DeleteBackupDialogFooter({
   filename,
@@ -39,8 +40,9 @@ export function showDeleteBackupDialog(filename: string) {
     Dialog.show({
       title: 'Delete this Backup?',
       icon: 'DeleteOutline',
-      description:
-        'This file will be permanently deleted from iCloud. Make sure you have wrtten down the recovery phrases as you won’t be able to restore the wallets otherwise.',
+      description: `This file will be permanently deleted from ${
+        backupPlatform().cloudName
+      }. Make sure you have wrtten down the recovery phrases as you won’t be able to restore the wallets otherwise.`,
       tone: 'destructive',
       renderContent: (
         <DeleteBackupDialogFooter filename={filename} callback={resolve} />

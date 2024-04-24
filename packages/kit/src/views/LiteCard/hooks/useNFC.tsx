@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import LiteCard from '@onekeyfe/react-native-lite-card';
 import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
@@ -13,8 +13,44 @@ import type {
   CardInfo,
 } from '@onekeyfe/react-native-lite-card/src/types';
 
+enum ENFCEventCode {
+  CONNECTED = 1,
+  TRANSFERRING_DATA = 2,
+  FINISHED = 3,
+}
+
 export default function useNFC() {
   const willCloseDialogInstance = useRef<IDialogInstance>();
+  const handlerNFCConnectStatus = useCallback(({ code }: { code: number }) => {
+    if (code !== ENFCEventCode.TRANSFERRING_DATA) {
+      if (code === ENFCEventCode.FINISHED) {
+        setTimeout(() => {
+          void willCloseDialogInstance.current?.close();
+        });
+      }
+      return;
+    }
+    void willCloseDialogInstance.current?.close?.();
+    willCloseDialogInstance.current = Dialog.show({
+      title: 'Transferring Data...',
+      description:
+        'The device is connected, please keep the card in place and do not move it.',
+      showFooter: false,
+      renderContent: (
+        <LottieView
+          source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_connecting.json')}
+          height={225}
+        />
+      ),
+    });
+  }, []);
+  useEffect(() => {
+    if (!platformEnv.isNativeAndroid) {
+      return;
+    }
+    LiteCard.addConnectListener(handlerNFCConnectStatus);
+    return () => LiteCard.removeConnectListeners();
+  }, [handlerNFCConnectStatus]);
   const checkNFCEnabledPermission = useCallback(
     () =>
       new Promise<void>((resolve, reject) => {
@@ -169,76 +205,42 @@ export default function useNFC() {
       }),
     [hideNFCConnectDialog],
   );
-  const showNFCConnectDialog = useCallback(
-    () =>
-      new Promise<void>((resolve) => {
-        if (platformEnv.isNativeAndroid) {
-          willCloseDialogInstance.current = Dialog.show({
-            title: 'Searching for device...',
-            description:
-              'Please keep Lite placed with the phone until the device is found.',
-            showFooter: false,
-            onClose: void LiteCard.removeConnectListeners,
-            renderContent: (
-              <LottieView
-                source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
-                height={205}
-              />
-            ),
-          });
-          const handlerNFCConnectStatus = ({ code }: { code: number }) => {
-            if (code !== 2) {
-              if (code === 3) {
-                setTimeout(() => {
-                  void willCloseDialogInstance.current?.close();
-                });
-              }
-              return;
-            }
-            void willCloseDialogInstance.current?.close?.();
-            willCloseDialogInstance.current = Dialog.show({
-              title: 'Transferring Data...',
-              description:
-                'The device is connected, please keep the card in place and do not move it.',
-              showFooter: false,
-              onClose: void LiteCard.removeConnectListeners,
-              renderContent: (
-                <LottieView
-                  source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_connecting.json')}
-                  height={225}
-                />
-              ),
-            });
-          };
-          LiteCard.addConnectListener(handlerNFCConnectStatus);
-          resolve();
-          return;
-        }
-        willCloseDialogInstance.current = Dialog.confirm({
-          title: 'Place OneKey Lite Close to the Phone',
+  const createNFCConnection = useCallback(
+    (callback: () => void) => async () => {
+      if (platformEnv.isNativeAndroid) {
+        willCloseDialogInstance.current = Dialog.show({
+          title: 'Searching for device...',
           description:
-            'Place the Lite and phone as shown in the figure below, then click "connect.”',
+            'Please keep Lite placed with the phone until the device is found.',
+          showFooter: false,
           renderContent: (
             <LottieView
               source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
               height={205}
             />
           ),
-          onConfirmText: 'Connect',
-          onConfirm: ({ preventClose }) => {
-            preventClose();
-            resolve();
-          },
         });
-      }),
-    [],
-  );
-  const createNFCConnection = useCallback(
-    (callback: () => void) => async () => {
-      await showNFCConnectDialog();
-      callback();
+        callback();
+        return;
+      }
+      willCloseDialogInstance.current = Dialog.confirm({
+        title: 'Place OneKey Lite Close to the Phone',
+        description:
+          'Place the Lite and phone as shown in the figure below, then click "connect.”',
+        renderContent: (
+          <LottieView
+            source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
+            height={205}
+          />
+        ),
+        onConfirmText: 'Connect',
+        onConfirm: ({ preventClose }) => {
+          preventClose();
+          callback();
+        },
+      });
     },
-    [showNFCConnectDialog],
+    [],
   );
   return useMemo(
     () => ({

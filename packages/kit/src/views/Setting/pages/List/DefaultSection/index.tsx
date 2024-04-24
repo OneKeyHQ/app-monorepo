@@ -12,6 +12,7 @@ import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -138,7 +139,7 @@ export const DefaultSection = () => {
       {platformEnv.isNative ? (
         <ListItem
           icon="RepeatOutline"
-          title="iCloud Backup"
+          title={`${backupPlatform().cloudName} Backup`}
           drillIn
           onPress={async () => {
             await checkBackupEntryStatus();
