@@ -1806,6 +1806,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@backpackapp-io/react-native-toast@npm:0.10.0":
+  version: 0.10.0
+  resolution: "@backpackapp-io/react-native-toast@npm:0.10.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-gesture-handler: ">=2.2.1"
+    react-native-reanimated: ">=2.8.0"
+    react-native-safe-area-context: ">=4.2.4"
+  checksum: 10/3e35e69af07c63191223c0986ebda652e154c63655966d0c29353543c4d29ada6395abd9e5bf696b7886ef153146e4d6d4a6fd24c630f0e67af37a8e09723b55
+  languageName: node
+  linkType: hard
+
 "@bcoe/v8-coverage@npm:^0.2.3":
   version: 0.2.3
   resolution: "@bcoe/v8-coverage@npm:0.2.3"
@@ -5271,6 +5284,7 @@ __metadata:
   resolution: "@onekeyhq/mobile@workspace:apps/mobile"
   dependencies:
     "@babel/core": "npm:^7.20.0"
+    "@backpackapp-io/react-native-toast": "npm:0.10.0"
     "@bufgix/react-native-secure-window": "npm:0.1.1"
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"

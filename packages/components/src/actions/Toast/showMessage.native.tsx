@@ -1,1 +1,3 @@
-export { toast as showMessage } from 'burnt';
+import type { IToastMessageOptions } from './type';
+
+export function showMessage({ title, ...options }: IToastMessageOptions) {}

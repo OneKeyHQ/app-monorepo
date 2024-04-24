@@ -8,7 +8,7 @@ import { SizableText, YStack } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../hocs';
-import { Icon, View, XStack } from '../../primitives';
+import { Icon, XStack } from '../../primitives';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
@@ -108,7 +108,7 @@ function Title({
   );
 }
 
-function burntToast({
+function toastMessage({
   title,
   message,
   duration = 2000,
@@ -136,13 +136,13 @@ export type IToastShowResult = {
 };
 export const Toast = {
   success: (props: IToastProps) => {
-    burntToast({ haptic: 'success', ...props });
+    toastMessage({ haptic: 'success', ...props });
   },
   error: (props: IToastProps) => {
-    burntToast({ haptic: 'error', ...props });
+    toastMessage({ haptic: 'error', ...props });
   },
   message: (props: IToastProps) => {
-    burntToast({ haptic: 'warning', preset: 'none', ...props });
+    toastMessage({ haptic: 'warning', preset: 'none', ...props });
   },
   /* show custom view on Toast */
   show: ({
