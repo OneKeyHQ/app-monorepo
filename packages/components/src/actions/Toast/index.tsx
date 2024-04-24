@@ -107,6 +107,7 @@ export const Toast = {
   message: (props: IToastProps) => {
     burntToast({ haptic: 'warning', preset: 'none', ...props });
   },
+  /* show custom view on Toast */
   show: ({
     onClose,
     children,
