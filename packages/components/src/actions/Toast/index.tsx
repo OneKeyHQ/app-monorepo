@@ -94,7 +94,14 @@ function Title({
   const { height } = useWindowDimensions();
 
   return (
-    <YStack flex={1} maxHeight={height - 100} overflow="hidden">
+    <YStack
+      flex={1}
+      maxHeight={height - 100}
+      $platform-native={{
+        maxHeight: height - 200,
+      }}
+      overflow="hidden"
+    >
       <YStack>
         <RenderLines size="$headingSm" icon={icon}>
           {title}
