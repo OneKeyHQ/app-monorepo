@@ -17,7 +17,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import { swapToAnotherAccountSwitchOnAtom } from '../states/jotai/atoms';
+import { settingsAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -64,8 +64,7 @@ class ServiceAccountSelector extends ServiceBase {
       },
     ];
 
-    const swapToAnotherAccountSwitchOn =
-      await swapToAnotherAccountSwitchOnAtom.get();
+    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
     if (!swapToAnotherAccountSwitchOn) {
       syncScenes.push({
         sceneName: EAccountSelectorSceneName.swap,
@@ -119,8 +118,7 @@ class ServiceAccountSelector extends ServiceBase {
 
       updateSwapMap(0);
 
-      const swapToAnotherAccountSwitchOn =
-        await swapToAnotherAccountSwitchOnAtom.get();
+      const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
       if (!swapToAnotherAccountSwitchOn) {
         updateSwapMap(1);
       }

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
 
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePageType } from '@onekeyhq/components';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
@@ -24,11 +26,10 @@ import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/co
 export function useSwapFromAccountNetworkSync() {
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
-  const [swapToAnotherAccount, setSwapToAnotherAccount] =
-    useSwapToAnotherAccountAddressAtom();
+  const [swapToAnotherAccount] = useSwapToAnotherAccountAddressAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
-  const [, setSettings] = useSettingsPersistAtom();
+  const [, setSettings] = useSettingsAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const fromTokenRef = useRef<ISwapToken | undefined>();
   const toTokenRef = useRef<ISwapToken | undefined>();
@@ -77,34 +78,43 @@ export function useSwapFromAccountNetworkSync() {
           ...v,
           swapToAnotherAccountSwitchOn: false,
         }));
-        setSwapToAnotherAccount((v) => ({
-          ...v,
-          networkId: toTokenRef.current?.networkId,
-        }));
       }
     }, 100),
     [setSettings, updateSelectedAccountNetwork],
   );
 
+  const pageType = usePageType();
+  const pageTypeRef = useRef<string | undefined>();
+  if (pageTypeRef.current !== pageType) {
+    pageTypeRef.current = pageType;
+  }
+
   useListenTabFocusState(
     ETabRoutes.Swap,
     async (isFocus: boolean, isHideByModal: boolean) => {
-      if (isHideByModal) return;
-      if (isFocus) {
-        await checkTokenForAccountNetworkDebounce();
+      if (pageTypeRef.current !== 'modal') {
+        if (isHideByModal) return;
+        if (isFocus) {
+          await checkTokenForAccountNetworkDebounce();
+        }
       }
     },
   );
 
+  const isFocused = useIsFocused();
   useEffect(() => {
     void (async () => {
-      await checkTokenForAccountNetworkDebounce();
+      if (pageType === 'modal' && isFocused) {
+        await checkTokenForAccountNetworkDebounce();
+      }
     })();
   }, [
     checkTokenForAccountNetworkDebounce,
     fromToken,
     toToken,
     swapProviderSupportReceiveAddress,
+    isFocused,
+    pageType,
   ]);
 }
 
@@ -112,7 +122,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
   const { activeAccount } = useActiveAccount({
     num: type === ESwapDirectionType.FROM ? 0 : 1,
   });
-  const [settingsPersistAtom] = useSettingsPersistAtom();
+  const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
   const [swapToAnotherAccountAddressAtom] =
     useSwapToAnotherAccountAddressAtom();
   const addressInfo = useMemo(() => {
@@ -127,7 +137,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     };
     if (
       type === ESwapDirectionType.TO &&
-      settingsPersistAtom.swapToAnotherAccountSwitchOn &&
+      swapToAnotherAccountSwitchOn &&
       swapToAnotherAccountAddressAtom.address &&
       swapToAnotherAccountAddressAtom.networkId
     ) {
@@ -149,7 +159,7 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     return res;
   }, [
     activeAccount,
-    settingsPersistAtom.swapToAnotherAccountSwitchOn,
+    swapToAnotherAccountSwitchOn,
     swapToAnotherAccountAddressAtom.accountInfo,
     swapToAnotherAccountAddressAtom.address,
     swapToAnotherAccountAddressAtom.networkId,

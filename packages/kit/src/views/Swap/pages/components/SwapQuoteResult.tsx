@@ -6,7 +6,10 @@ import {
   useSwapSelectToTokenAtom,
   useSwapSlippagePopoverOpeningAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -22,11 +25,13 @@ interface ISwapQuoteResultProps {
   receivedAddress?: string;
   quoteResult: IFetchQuoteResult;
   onOpenProviderList?: () => void;
+  pageType?: 'modal' | undefined;
 }
 
 const SwapQuoteResult = ({
   onOpenProviderList,
   quoteResult,
+  pageType,
 }: ISwapQuoteResultProps) => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -62,7 +67,13 @@ const SwapQuoteResult = ({
         <SwapSlippageTriggerContainer
           isLoading={swapQuoteLoading}
           renderPopoverContent={() => (
-            <SwapProviderMirror>
+            <SwapProviderMirror
+              storeName={
+                pageType === 'modal'
+                  ? EJotaiContextStoreNames.swapModal
+                  : EJotaiContextStoreNames.swap
+              }
+            >
               <SwapSlippageContentContainer />
             </SwapProviderMirror>
           )}

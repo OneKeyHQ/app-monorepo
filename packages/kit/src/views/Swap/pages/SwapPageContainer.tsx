@@ -7,7 +7,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { AccountSelectorTriggerSwap } from '../../../components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerSwap';
 
-import SwapMainLand from './components/SwapMainLand';
+import SwapMainLandWithPageType from './components/SwapMainLand';
 
 const SwapPageContainer = () => {
   const headerLeft = useCallback(
@@ -25,7 +25,7 @@ const SwapPageContainer = () => {
     <Page scrollEnabled skipLoading={platformEnv.isNativeIOS}>
       <Page.Header headerLeft={headerLeft} />
       <Page.Body>
-        <SwapMainLand />
+        <SwapMainLandWithPageType />
       </Page.Body>
     </Page>
   );

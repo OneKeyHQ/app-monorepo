@@ -3,18 +3,32 @@ import { memo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
 interface ISwapHeaderContainerProps {
   hiddenRightAction?: boolean;
+  pageType?: 'modal' | undefined;
 }
 
 const SwapHeaderContainer = ({
   hiddenRightAction,
+  pageType,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
-  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
+  const headerRight = useCallback(
+    () => (
+      <SwapHeaderRightActionContainer
+        storeName={
+          pageType === 'modal'
+            ? EJotaiContextStoreNames.swapModal
+            : EJotaiContextStoreNames.swap
+        }
+      />
+    ),
+    [pageType],
+  );
   return (
     <XStack justifyContent="space-between">
       <XStack space="$5">

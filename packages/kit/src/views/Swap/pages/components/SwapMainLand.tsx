@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { YStack } from '@onekeyhq/components';
@@ -7,17 +7,21 @@ import {
   useSwapAlertsAtom,
   useSwapQuoteCurrentSelectAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapInitParams } from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
-import { withSwapProvider } from '../WithSwapProvider';
+import { useSwapInit } from '../../hooks/useSwapTokens';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
@@ -28,30 +32,63 @@ import SwapQuoteResult from './SwapQuoteResult';
 interface ISwapMainLoadProps {
   hiddenSwapHeader?: boolean;
   children?: React.ReactNode;
+  swapInitParams?: ISwapInitParams;
+  pageType?: 'modal' | undefined;
 }
 
-const SwapMainLoad = ({ hiddenSwapHeader }: ISwapMainLoadProps) => {
+const SwapMainLoad = ({
+  hiddenSwapHeader,
+  swapInitParams,
+  pageType,
+}: ISwapMainLoadProps) => {
   const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();
+  const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
+  const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const quoteLoading = useSwapQuoteLoading();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapTokenSelect,
-        params: { type },
+        params: {
+          type,
+          storeName:
+            pageType === 'modal'
+              ? EJotaiContextStoreNames.swapModal
+              : EJotaiContextStoreNames.swap,
+        },
       });
     },
-    [navigation],
+    [navigation, pageType],
   );
 
   const onOpenProviderList = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapProviderSelect,
+      params: {
+        storeName:
+          pageType === 'modal'
+            ? EJotaiContextStoreNames.swapModal
+            : EJotaiContextStoreNames.swap,
+      },
     });
-  }, [navigation]);
+  }, [navigation, pageType]);
+
+  const onToAnotherAddressModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapToAnotherAddress,
+      params: {
+        address: toAddressInfo.address,
+        storeName:
+          pageType === 'modal'
+            ? EJotaiContextStoreNames.swapModal
+            : EJotaiContextStoreNames.swap,
+      },
+    });
+  }, [navigation, pageType, toAddressInfo.address]);
 
   const onBuildTx = useCallback(async () => {
     await buildTx();
@@ -94,7 +131,11 @@ const SwapMainLoad = ({ hiddenSwapHeader }: ISwapMainLoadProps) => {
         }}
       >
         {!hiddenSwapHeader ? <SwapHeaderContainer /> : null}
-        <SwapQuoteInput onSelectToken={onSelectToken} />
+        <SwapQuoteInput
+          onSelectToken={onSelectToken}
+          selectLoading={fetchLoading}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+        />
         {alerts.length > 0 && !quoteLoading ? (
           <SwapAlertContainer alerts={alerts} />
         ) : null}
@@ -102,6 +143,7 @@ const SwapMainLoad = ({ hiddenSwapHeader }: ISwapMainLoadProps) => {
           <SwapQuoteResult
             onOpenProviderList={onOpenProviderList}
             quoteResult={quoteResult}
+            pageType={pageType}
           />
         ) : null}
       </YStack>
@@ -113,4 +155,17 @@ const SwapMainLoad = ({ hiddenSwapHeader }: ISwapMainLoadProps) => {
     </YStack>
   );
 };
-export default memo(withSwapProvider<ISwapMainLoadProps>(SwapMainLoad));
+
+const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => (
+  <SwapProviderMirror
+    storeName={
+      props?.pageType === 'modal'
+        ? EJotaiContextStoreNames.swapModal
+        : EJotaiContextStoreNames.swap
+    }
+  >
+    <SwapMainLoad {...props} />
+  </SwapProviderMirror>
+);
+
+export default SwapMainLandWithPageType;

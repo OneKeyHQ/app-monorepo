@@ -143,14 +143,15 @@ function WalletActionReceive() {
   return <RawActions.Receive onPress={handleOnReceive} />;
 }
 
-function WalletActionSwap() {
+function WalletActionSwap({ networkId }: { networkId?: string }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const handleOnSwap = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
+      params: { importNetworkId: networkId },
     });
-  }, [navigation]);
+  }, [navigation, networkId]);
   return <RawActions.Swap onPress={handleOnSwap} />;
 }
 
@@ -166,7 +167,7 @@ function WalletActions() {
         networkId={network?.id ?? ''}
         accountId={account?.id ?? ''}
       />
-      <WalletActionSwap />
+      <WalletActionSwap networkId={network?.id} />
       <WalletActionMore />
     </RawActions>
   );

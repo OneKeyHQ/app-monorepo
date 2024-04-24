@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+
 import {
   Dialog,
   Empty,
@@ -27,7 +29,9 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
+
+import type { RouteProp } from '@react-navigation/core';
 
 interface ISectionData {
   title: string;
@@ -139,4 +143,17 @@ const SwapHistoryListModal = () => {
   );
 };
 
-export default withSwapProvider(SwapHistoryListModal);
+const SwapHistoryListModalWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapHistoryListModal />
+    </SwapProviderMirror>
+  );
+};
+
+export default SwapHistoryListModalWithProvider;

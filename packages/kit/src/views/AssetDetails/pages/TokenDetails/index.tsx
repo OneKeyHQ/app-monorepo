@@ -29,6 +29,7 @@ import {
   EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
+  EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
@@ -103,6 +104,37 @@ export function TokenDetails() {
         watchLoading: true,
       },
     );
+
+  const handleOnSwap = useCallback(async () => {
+    const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+      networkId,
+    });
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: networkId,
+        importFromToken: {
+          contractAddress: tokenInfo.address,
+          symbol: tokenInfo.symbol,
+          networkId,
+          isNative: tokenInfo.isNative,
+          decimals: tokenInfo.decimals,
+          name: tokenInfo.name,
+          logoURI: tokenInfo.logoURI,
+          networkLogoURI: network?.logoURI,
+        },
+      },
+    });
+  }, [
+    navigation,
+    networkId,
+    tokenInfo.address,
+    tokenInfo.decimals,
+    tokenInfo.isNative,
+    tokenInfo.logoURI,
+    tokenInfo.name,
+    tokenInfo.symbol,
+  ]);
 
   const handleReceivePress = useCallback(() => {
     navigation.pushModal(EModalRoutes.ReceiveModal, {
@@ -341,7 +373,7 @@ export function TokenDetails() {
                 <RawActions>
                   <RawActions.Send onPress={handleSendPress} />
                   <RawActions.Receive onPress={handleReceivePress} />
-                  <RawActions.Swap onPress={() => {}} />
+                  <RawActions.Swap onPress={handleOnSwap} />
                   <ActionBuy
                     networkId={networkId}
                     accountId={accountId}

@@ -66,6 +66,16 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
   contextAtom<ISwapToken | undefined>(undefined);
 
 export const {
+  atom: swapSwapModalSelectFromTokenAtom,
+  use: useSwapModalSelectFromTokenAtom,
+} = contextAtom<ISwapToken | undefined>(undefined);
+
+export const {
+  atom: swapSwapModalSelectToTokenAtom,
+  use: useSwapModalSelectToTokenAtom,
+} = contextAtom<ISwapToken | undefined>(undefined);
+
+export const {
   atom: swapFromTokenAmountAtom,
   use: useSwapFromTokenAmountAtom,
 } = contextAtom<string>('');
