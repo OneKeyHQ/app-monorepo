@@ -61,12 +61,18 @@ const RenderLines = ({
         index === 0 ? (
           <XStack alignItems="center" key={index} space="$1.5">
             {icon}
-            <SizableText size={size} wordWrap="break-word" width="100%">
+            <SizableText
+              selectable={false}
+              size={size}
+              wordWrap="break-word"
+              width="100%"
+            >
               {v}
             </SizableText>
           </XStack>
         ) : (
           <SizableText
+            selectable={false}
             size={size}
             wordWrap="break-word"
             width="100%"

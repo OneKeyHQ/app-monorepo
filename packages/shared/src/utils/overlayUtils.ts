@@ -9,3 +9,4 @@ export const RESET_OVERLAY_Z_INDEX = APP_STATE_LOCK_Z_INDEX + 2;
 //  the z-index of the Popover 15e4.
 
 //  the z-index of burnt toast is 1e6.
+export const TOAST_Z_INDEX = 1e6;
