@@ -203,7 +203,7 @@ export const useSuggestion = (
         const arrays = value.split(' ');
         if (arrays.length === phraseLength) {
           setTimeout(() => {
-            copyText('');
+            copyText(' ');
             Toast.success({ title: 'Pasted and clipboard cleared' });
             form.reset(
               arrays.reduce((prev, next, index) => {
