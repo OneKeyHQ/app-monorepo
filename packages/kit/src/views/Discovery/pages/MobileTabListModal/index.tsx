@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -21,7 +21,6 @@ import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -40,41 +39,9 @@ import {
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IWebTab } from '../../types';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { View } from 'react-native';
 
 export const tabGridRefs: Record<string, View> = {};
-
-const useFixAndroidListViewWidth = platformEnv.isNativeAndroid
-  ? (webTabs: IWebTab[]) => {
-      const [listViewWidth, setListViewWidth] = useState<number | undefined>(
-        undefined,
-      );
-      const handleLayout = useCallback((e: LayoutChangeEvent) => {
-        if (!platformEnv.isNativeAndroid) {
-          return;
-        }
-        const { width } = e.nativeEvent.layout;
-        if (width) {
-          setListViewWidth(width);
-        }
-      }, []);
-
-      // estimatedItemSize="$28"
-      const width = webTabs.length * 112 + 15;
-      return useMemo(
-        () => ({
-          onLayout: handleLayout,
-          listViewWidth: listViewWidth
-            ? Math.min(width, listViewWidth || 0)
-            : undefined,
-        }),
-        [handleLayout, listViewWidth, width],
-      );
-    }
-  : () => ({
-      onLayout: undefined,
-      listViewWidth: undefined,
-    });
 
 function TabToolBar({
   closeAllDisabled,
@@ -364,7 +331,6 @@ function MobileTabListModal() {
     [navigation, setCurrentWebTab, activeTabId, handleCloseTab, showTabOptions],
   );
 
-  const { onLayout, listViewWidth } = useFixAndroidListViewWidth(pinnedData);
   const renderPinnedList = useMemo(() => {
     if (pinnedData.length === 0) {
       return null;
@@ -377,11 +343,9 @@ function MobileTabListModal() {
         right="$2.5"
         borderRadius="$5"
         bg="$bgStrong"
-        onLayout={onLayout}
         testID="tab-pined-container"
       >
         <ListView
-          width={listViewWidth}
           contentContainerStyle={{
             p: '$1',
           }}
@@ -396,13 +360,7 @@ function MobileTabListModal() {
         />
       </BlurView>
     );
-  }, [
-    listViewWidth,
-    onLayout,
-    onPinnedListLayout,
-    pinnedData,
-    renderPinnedItem,
-  ]);
+  }, [onPinnedListLayout, pinnedData, renderPinnedItem]);
 
   return (
     <Page>
