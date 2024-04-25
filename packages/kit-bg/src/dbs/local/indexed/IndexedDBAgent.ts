@@ -1,4 +1,4 @@
-import { isNil } from 'lodash';
+import { isNil, isNumber } from 'lodash';
 
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
@@ -135,6 +135,21 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         ELocalDBStoreNames.Address,
       );
 
+      const signMessageStore = this._getOrCreateObjectStore(
+        dbTx,
+        ELocalDBStoreNames.SignedMessage,
+      );
+
+      const signedTransactionStore = this._getOrCreateObjectStore(
+        dbTx,
+        ELocalDBStoreNames.SignedTransaction,
+      );
+
+      const connectedSiteStore = this._getOrCreateObjectStore(
+        dbTx,
+        ELocalDBStoreNames.ConnectedSite,
+      );
+
       const tx: ILocalDBTransaction = {
         stores: {
           [ELocalDBStoreNames.Context]: contextStore as any,
@@ -145,6 +160,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
           [ELocalDBStoreNames.Credential]: credentialStore as any,
           [ELocalDBStoreNames.Device]: deviceStore as any,
           [ELocalDBStoreNames.Address]: addressStore as any,
+          [ELocalDBStoreNames.SignedMessage]: signMessageStore as any,
+          [ELocalDBStoreNames.SignedTransaction]: signedTransactionStore as any,
+          [ELocalDBStoreNames.ConnectedSite]: connectedSiteStore as any,
         },
       };
 
@@ -258,15 +276,38 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
-    const { tx: paramsTx, name, ids } = params;
+    const { tx: paramsTx, name, ids, limit, offset } = params;
     const fn = async (tx: ILocalDBTransaction) => {
-      const store = this._getObjectStoreFromTx(tx, name);
+      const store = this._getObjectStoreFromTx<T>(tx, name);
       // TODO add query support
       // query?: StoreKey<DBTypes, StoreName> | IDBKeyRange | null, count?: number
       let results: unknown[] = [];
 
       if (ids) {
         results = await Promise.all(ids.map((id) => store.get(id)));
+      } else if (isNumber(limit) && isNumber(offset)) {
+        const indexStore =
+          store as ILocalDBTransactionStores[ELocalDBStoreNames.SignedMessage];
+        if (indexStore.indexNames.contains('createdAt')) {
+          const cursor = await indexStore
+            .index('createdAt')
+            .openCursor(null, 'prev');
+
+          let skipped = 0;
+          while (cursor) {
+            if (skipped < offset) {
+              skipped += 1;
+            } else if (results.length <= limit) {
+              results.push(cursor.value);
+            }
+            const data = await cursor.continue();
+            if (!data || results.length >= limit) {
+              break;
+            }
+          }
+        } else {
+          results = await store.getAll();
+        }
       } else {
         results = await store.getAll();
       }

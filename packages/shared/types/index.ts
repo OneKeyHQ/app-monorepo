@@ -64,7 +64,6 @@ export type IServerNetwork = {
   status: ENetworkStatus;
   clientApi?: Record<string, string>;
   isTestnet: boolean;
-  rpcURLs: INetworkRpcURL[];
   priceConfigs: INetworkPriceConfig[];
   explorers: INetworkExplorerConfig[];
   extensions?: Record<string, unknown>;

@@ -307,7 +307,7 @@ class ServiceCloudBackup extends ServiceBase {
         }
         return backupDeviceList;
       }, {} as Record<string, IMetaDataObject>),
-    );
+    ).sort((a, b) => b.backupTime - a.backupTime);
   }
 
   @backgroundMethod()
@@ -316,11 +316,13 @@ class ServiceCloudBackup extends ServiceBase {
     osName: string;
   }) {
     const metaData = await this.getMetaDataFromCloud();
-    return metaData.filter(
-      (item) =>
-        item.deviceInfo.deviceName === deviceInfo.deviceName &&
-        item.deviceInfo.osName === deviceInfo.osName,
-    );
+    return metaData
+      .filter(
+        (item) =>
+          item.deviceInfo.deviceName === deviceInfo.deviceName &&
+          item.deviceInfo.osName === deviceInfo.osName,
+      )
+      .sort((a, b) => b.backupTime - a.backupTime);
   }
 
   // migrate the v4 data modal
@@ -356,13 +358,6 @@ class ServiceCloudBackup extends ServiceBase {
         });
       } catch {
         //
-      }
-    });
-    privateData.discoverBookmarks?.forEach((item) => {
-      // @ts-expect-error
-      const { icon } = item;
-      if (icon && !item.logo) {
-        item.logo = icon;
       }
     });
     return privateData;
@@ -687,25 +682,23 @@ class ServiceCloudBackup extends ServiceBase {
 
   private getDataFromCloud = memoizee(
     async (filename: string) => {
-      let content = '[]';
-      try {
-        content = await CloudFs.downloadFromCloud(
-          platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
-        );
-      } catch (e) {
-        //
-      }
       if (
         filename === CLOUD_METADATA_FILE_NAME &&
         this.metaDataCache.length > 0
       ) {
         return this.metaDataCache;
       }
-      return content;
+      try {
+        return await CloudFs.downloadFromCloud(
+          platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
+        );
+      } catch (e) {
+        return '[]';
+      }
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 30 }),
       max: 50,
     },
   );
