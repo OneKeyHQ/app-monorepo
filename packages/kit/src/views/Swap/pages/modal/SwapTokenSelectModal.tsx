@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -49,7 +49,7 @@ import {
 import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainSelector';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -299,9 +299,18 @@ const SwapTokenSelectPage = () => {
   );
 };
 
-const SwapTokenSelectPageWithProvider = memo(
-  withSwapProvider(SwapTokenSelectPage),
-);
+const SwapTokenSelectPageWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapTokenSelectPage />
+    </SwapProviderMirror>
+  );
+};
 export default function SwapTokenSelectModal() {
   return (
     <AccountSelectorProviderMirror
