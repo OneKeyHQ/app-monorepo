@@ -22,6 +22,8 @@ import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ECloudBackupRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
+import BackupListLoading from './BackupListLoading';
+
 export default function BackupDeviceList<T>({
   ListEmptyComponent,
   ...restProps
@@ -39,7 +41,8 @@ export default function BackupDeviceList<T>({
   const iconList: Record<string, string> = useMemo(
     () => ({
       'iOS': 'PhoneOutline',
-      'iPad': 'SuqarePlaceholderOutline',
+      'Android': 'PhoneOutline',
+      'iPadOS': 'SuqarePlaceholderOutline',
     }),
     [],
   );
@@ -69,6 +72,9 @@ export default function BackupDeviceList<T>({
       void run();
     }
   }, [isInProgress, isFocused, run]);
+  if (!data) {
+    return <BackupListLoading />;
+  }
   return (
     <SectionList
       sections={
