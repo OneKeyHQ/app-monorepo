@@ -9,6 +9,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IFeeInfoUnit,
@@ -337,6 +338,7 @@ export interface IBatchSignTransactionParamsBase {
   feeInfo?: ISendSelectedFeeInfo;
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
+  sourceInfo?: IDappSourceInfo;
 }
 
 export interface ISignMessageParams {
