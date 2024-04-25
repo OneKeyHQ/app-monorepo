@@ -47,6 +47,7 @@ const useParseQRCode = () => {
       switch (result.type) {
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:
+        case EQRCodeHandlerType.SOLANA:
           {
             if (!account) {
               break;

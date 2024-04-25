@@ -295,6 +295,69 @@ describe('useParseQRCode', () => {
       }),
     );
   });
+  it('should parse as solana', async () => {
+    expect(
+      await parse(
+        'solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=1&label=Michael&message=Thanks%20for%20all%20the%20fish&memo=OrderId12345',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SOLANA,
+        data: expect.objectContaining({
+          recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+          amount: '1',
+          label: 'Michael',
+          message: 'Thanks for all the fish',
+          memo: 'OrderId12345',
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&spl-token=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SOLANA,
+        data: expect.objectContaining({
+          recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+          amount: '0.01',
+          // eslint-disable-next-line spellcheck/spell-checker
+          splToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&reference=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&reference=HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SOLANA,
+        data: expect.objectContaining({
+          recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+          amount: '0.01',
+          reference: [
+            'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH',
+          ],
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?label=Michael',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SOLANA,
+        data: expect.objectContaining({
+          recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+          label: 'Michael',
+        }),
+      }),
+    );
+  });
   it('should parse as url', async () => {
     expect(await parse('https://www.google.com/search?q=onekey')).toEqual(
       expect.objectContaining({
