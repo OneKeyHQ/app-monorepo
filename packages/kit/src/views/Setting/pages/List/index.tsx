@@ -2,6 +2,7 @@ import type { ComponentProps, FC } from 'react';
 import { useCallback } from 'react';
 
 import {
+  Dialog,
   IconButton,
   Page,
   ScrollView,
@@ -9,6 +10,7 @@ import {
   Stack,
   XStack,
   YStack,
+  usePreventRemove,
 } from '@onekeyhq/components';
 import {
   DISCORD_URL,
@@ -19,6 +21,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 import { handleOpenDevMode } from '../../utils/devMode';
 
 import { AdvancedSection } from './AdvancedSection';
@@ -73,8 +76,18 @@ const SocialButtonGroup = () => (
 );
 
 export default function SettingListModal() {
+  const navigation = useAppNavigation();
+  usePreventRemove(true, ({ data }) => {
+    Dialog.show({
+      title: 'Confirm?',
+      onConfirm: () => {
+        navigation.dispatch(data.action);
+      },
+    });
+  });
   return (
     <Page>
+      <Page.Header />
       <ScrollView>
         <Stack pb="$2">
           <DefaultSection />
