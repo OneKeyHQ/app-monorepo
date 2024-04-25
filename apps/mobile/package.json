@@ -69,7 +69,7 @@
     "lottie-react-native": "6.3.1",
     "path-browserify": "^1.0.1",
     "react": "18.2.0",
-    "react-native": "0.73.6",
+    "react-native": "0.73.7",
     "react-native-ble-manager": "^10.0.2",
     "react-native-camera-kit": "14.0.0-beta2",
     "react-native-cloud-fs": "https://github.com/OneKeyHQ/react-native-cloud-fs#cba878df6df939e67f326f9381232f5c5a6f9c49",
