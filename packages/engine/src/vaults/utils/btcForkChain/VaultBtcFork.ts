@@ -1579,7 +1579,7 @@ export default class VaultBtcFork extends VaultBase {
     },
   );
 
-  private getFeeRate = memoizee(
+  getFeeRate = memoizee(
     async () => {
       // getRpcClient
       const client = await (await this.getProvider()).blockbook;

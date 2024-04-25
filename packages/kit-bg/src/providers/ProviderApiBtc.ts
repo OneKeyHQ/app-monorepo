@@ -591,6 +591,81 @@ class ProviderApiBtc extends ProviderApiBase {
 
     return respPsbt.toHex();
   }
+
+  @providerApiMethod()
+  public async getNetworkFees() {
+    const { account, network } = getActiveWalletAccount();
+    if (!account || !network) return null;
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId: network.id,
+      accountId: account.id,
+    })) as VaultBtcFork;
+
+    const result = await vault.getFeeRate();
+    if (result.length !== 3) {
+      throw new Error('Invalid fee rate');
+    }
+    const [hourFee, halfHourFee, fastestFee] = result;
+    return {
+      fastestFee,
+      halfHourFee,
+      hourFee,
+      economyFee: hourFee,
+      minimumFee: hourFee,
+    };
+  }
+
+  @providerApiMethod()
+  public async getUtxos(
+    request: IJsBridgeMessagePayload,
+    params: {
+      address: string;
+      amount: number;
+    },
+  ) {
+    const { account, network } = getActiveWalletAccount();
+    if (!account || !network) return null;
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId: network.id,
+      accountId: account.id,
+    })) as VaultBtcFork;
+    const { utxos } = await vault.collectUTXOsInfo({
+      checkInscription: true,
+    });
+    const confirmedUtxos = utxos.filter(
+      (v) => v.address === params.address && Number(v?.confirmations ?? 0) > 0,
+    );
+    let sum = 0;
+    let index = 0;
+    for (const utxo of confirmedUtxos) {
+      sum += new BigNumber(utxo.value).toNumber();
+      index += 1;
+      if (sum > params.amount) {
+        break;
+      }
+    }
+    if (sum < params.amount) {
+      return [];
+    }
+    const sliced = confirmedUtxos.slice(0, index);
+    const result = [];
+    for (const utxo of sliced) {
+      const txDetails =
+        await this.backgroundApi.serviceTransaction.getTransactionDetail({
+          txId: utxo.txid,
+          networkId: network.id,
+        });
+      result.push({
+        txid: utxo.txid,
+        vout: utxo.vout,
+        value: new BigNumber(utxo.value).toNumber(),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        scriptPubKey: txDetails?.vout?.[utxo.vout].hex ?? '',
+      });
+    }
+
+    return result;
+  }
 }
 
 export default ProviderApiBtc;
