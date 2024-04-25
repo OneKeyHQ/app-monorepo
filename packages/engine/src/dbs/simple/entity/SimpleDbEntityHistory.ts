@@ -55,6 +55,21 @@ class SimpleDbEntityHistory extends SimpleDbEntityBase<ISimpleDbEntityHistoryDat
     return null;
   }
 
+  async getMinPendingNonce(props: {
+    accountId: string;
+    networkId: string;
+  }): Promise<number | null> {
+    const nonceList = await this.getPendingNonceList(props);
+    if (nonceList.length) {
+      const nonce = Math.min(...nonceList);
+      if (Number.isNaN(nonce) || nonce === Infinity || nonce === -Infinity) {
+        return null;
+      }
+      return nonce;
+    }
+    return null;
+  }
+
   _getAccountHistoryInList({
     allData,
     accountId,

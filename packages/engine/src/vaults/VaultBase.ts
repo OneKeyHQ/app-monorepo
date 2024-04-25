@@ -202,6 +202,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return 0;
   }
 
+  async isEarliestPendingTx({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx;
+  }): Promise<boolean> {
+    return true;
+  }
+
   async fetchBalanceDetails({
     password,
     useRecycleBalance,

@@ -148,7 +148,9 @@ function ScreenSendEditFee({ ...rest }) {
     accountId,
     encodedTx: encodedTxForFeeInfo,
     fetchAnyway: true,
-    ignoreFetchFeeCalling: oldSendConfirmParams?.ignoreFetchFeeCalling,
+    ignoreFetchFeeCalling: autoConfirmAfterFeeSaved
+      ? false
+      : oldSendConfirmParams?.ignoreFetchFeeCalling,
     useFeeInTx: oldSendConfirmParams?.feeInfoUseFeeInTx,
     forBatchSend,
     pollingInterval: FEE_INFO_POLLING_INTERVAL,
