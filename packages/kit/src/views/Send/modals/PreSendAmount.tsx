@@ -41,6 +41,7 @@ import {
   useTokenBalanceWithoutFrozen,
 } from '../../../hooks/useOverview';
 import { useFrozenBalance, useSingleToken } from '../../../hooks/useTokens';
+import { deviceUtils } from '../../../utils/hardware';
 import { wait } from '../../../utils/helper';
 import {
   showAccountBalanceDetailsOverlay,
@@ -440,10 +441,7 @@ function PreSendAmount() {
               { type: 'error' },
             );
           } else {
-            ToastManager.show(
-              { title: typeof e === 'string' ? e : (e as Error).message },
-              { type: 'error' },
-            );
+            deviceUtils.showErrorToast(e);
           }
         } finally {
           setIsLoading(false);
