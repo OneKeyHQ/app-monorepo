@@ -7,6 +7,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
+  ESwapDirectionType,
   ESwapRateDifferenceUnit,
   IFetchQuoteResult,
   ISwapAlertState,
@@ -64,6 +65,16 @@ export const {
 
 export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
   contextAtom<ISwapToken | undefined>(undefined);
+
+export const {
+  atom: swapSwapModalSelectFromTokenAtom,
+  use: useSwapModalSelectFromTokenAtom,
+} = contextAtom<ISwapToken | undefined>(undefined);
+
+export const {
+  atom: swapSwapModalSelectToTokenAtom,
+  use: useSwapModalSelectToTokenAtom,
+} = contextAtom<ISwapToken | undefined>(undefined);
 
 export const {
   atom: swapFromTokenAmountAtom,
@@ -162,6 +173,14 @@ export const {
 
 export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
   contextAtom<boolean>(false);
+
+export const {
+  atom: swapSelectTokenDetailFetchingAtom,
+  use: useSwapSelectTokenDetailFetchingAtom,
+} = contextAtom<Record<ESwapDirectionType, boolean>>({
+  'from': false,
+  'to': false,
+});
 
 export const {
   atom: swapSilenceQuoteLoading,
