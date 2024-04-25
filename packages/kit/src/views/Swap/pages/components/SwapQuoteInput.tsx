@@ -16,17 +16,21 @@ import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapApproving } from '../../hooks/useSwapAproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
 import { useSwapQuoteLoading } from '../../hooks/useSwapState';
-import { useSwapNetworkList } from '../../hooks/useSwapTokens';
 import { validateAmountInput } from '../../utils/utils';
 
 import SwapInputContainer from './SwapInputContainer';
 
 interface ISwapQuoteInputProps {
+  selectLoading?: boolean;
   onSelectToken: (type: ESwapDirectionType) => void;
+  onToAnotherAddressModal?: () => void;
 }
 
-const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
-  const { fetchLoading } = useSwapNetworkList();
+const SwapQuoteInput = ({
+  onSelectToken,
+  selectLoading,
+  onToAnotherAddressModal,
+}: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -44,7 +48,7 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
       <SwapInputContainer
         token={fromToken}
         direction={ESwapDirectionType.FROM}
-        selectTokenLoading={fetchLoading}
+        selectTokenLoading={selectLoading}
         onAmountChange={(value) => {
           if (validateAmountInput(value, fromToken?.decimals)) {
             setFromInputAmount(value);
@@ -68,11 +72,12 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         <SwapInputContainer
           token={toToken}
           inputLoading={swapQuoteLoading}
-          selectTokenLoading={fetchLoading}
+          selectTokenLoading={selectLoading}
           direction={ESwapDirectionType.TO}
           amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
           onSelectToken={onSelectToken}
           balance={toTokenBalance}
+          onToAnotherAddressModal={onToAnotherAddressModal}
         />
       </YStack>
     </YStack>
