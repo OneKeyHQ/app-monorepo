@@ -1,24 +1,64 @@
+import { bytes, number } from '@ckb-lumos/codec';
 import { parseAddress } from '@ckb-lumos/helpers';
 import BigNumber from 'bignumber.js';
 
+import { getConfig } from './config';
+
 import type { Cell, Script } from '@ckb-lumos/base';
 import type { Indexer } from '@ckb-lumos/ckb-indexer';
+import type { Config } from '@ckb-lumos/config-manager';
 import type { RPC } from '@ckb-lumos/rpc';
 
 export const DEFAULT_CONFIRM_BLOCK = 24;
 
+export function decodeNaiveBalance(cell: Cell): BigNumber {
+  // Native CKB
+  return new BigNumber(cell.cellOutput.capacity, 16);
+}
+
+export function decodeBalanceWithCell(cell: Cell, config: Config): BigNumber {
+  if (cell?.cellOutput?.type) {
+    // XUDT
+    if (cell?.cellOutput?.type?.codeHash === config.SCRIPTS.XUDT?.CODE_HASH) {
+      return new BigNumber(
+        number.Uint128.unpack(bytes.bytify(cell.data).slice(0, 16)).toString(),
+      );
+    }
+
+    // SUDT
+    if (cell?.cellOutput?.type?.codeHash === config.SCRIPTS.SUDT?.CODE_HASH) {
+      return new BigNumber(
+        number.Uint128LE.unpack(
+          bytes.bytify(cell.data).slice(0, 16),
+        ).toString(),
+      );
+    }
+  }
+
+  // Native CKB
+  return decodeNaiveBalance(cell);
+}
+
 async function collectFilteredCellsByAddress({
   indexer,
   address,
+  type,
   onAllowCollect = () => true,
 }: {
   indexer: Indexer;
   address: string;
-  type?: Script | string;
+  type?: Script;
   onAllowCollect?: (cell: Cell) => Promise<boolean> | boolean;
 }) {
-  const script = parseAddress(address);
-  const collector = indexer.collector({ lock: script, type: 'empty' });
+  let config;
+  if (address.startsWith('ckt')) {
+    config = getConfig('testnet');
+  } else {
+    config = getConfig('mainnet');
+  }
+
+  const script = parseAddress(address, { config });
+  const collector = indexer.collector({ lock: script, type: type ?? 'empty' });
   const collected: Cell[] = [];
   for await (const cell of collector.collect()) {
     if (await onAllowCollect?.(cell)) {
@@ -35,7 +75,7 @@ export async function fetchCellsByAddress({
 }: {
   indexer: Indexer;
   address: string;
-  type?: Script | string;
+  type?: Script;
 }) {
   return collectFilteredCellsByAddress({
     indexer,
@@ -53,7 +93,7 @@ export async function fetchConfirmCellsByAddress({
   indexer: Indexer;
   address: string;
   client: RPC;
-  type?: Script | string;
+  type?: Script;
 }) {
   const blockNumber = await client.getTipBlockNumber();
 
@@ -77,7 +117,7 @@ export async function fetchFrozenCellsByAddress({
   indexer: Indexer;
   address: string;
   client: RPC;
-  type?: Script | string;
+  type?: Script;
 }) {
   const blockNumber = await client.getTipBlockNumber();
 
@@ -101,7 +141,7 @@ export async function getFrozenBalancesByAddress({
   indexer: Indexer;
   address: string;
   client: RPC;
-  type?: Script | string;
+  type?: Script;
 }) {
   const cells = await fetchFrozenCellsByAddress({
     indexer,
@@ -137,14 +177,18 @@ export function selectCellsByAddress(
 export async function getBalancesByAddress({
   indexer,
   address,
+  config,
+  type,
 }: {
   indexer: Indexer;
   address: string;
+  type?: Script;
+  config: Config;
 }) {
-  const cells = await fetchCellsByAddress({ indexer, address });
+  const cells = await fetchCellsByAddress({ indexer, address, type });
 
   return cells.reduce(
-    (acc, cell) => acc.plus(new BigNumber(cell.cellOutput.capacity, 16)),
+    (acc, cell) => acc.plus(decodeBalanceWithCell(cell, config)),
     new BigNumber(0),
   );
 }

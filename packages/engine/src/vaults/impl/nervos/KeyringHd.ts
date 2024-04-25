@@ -25,17 +25,14 @@ import { KeyringHdBase } from '../../keyring/KeyringHdBase';
 
 import { pubkeyToAddress } from './utils/address';
 import { getConfig } from './utils/config';
-import {
-  convertEncodeTxNervosToSkeleton,
-  fillSkeletonWitnessesWithAccount,
-  serializeTransactionMessage,
-} from './utils/transaction';
+import { serializeTransactionMessage } from './utils/transaction';
 
 import type {
   IPrepareSoftwareAccountsParams,
   ISignCredentialOptions,
   SignedTxResult,
 } from '../../types';
+import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
 
 // @ts-ignore
 export class KeyringHd extends KeyringHdBase {
@@ -121,17 +118,10 @@ export class KeyringHd extends KeyringHdBase {
     const signers = await this.getSigners(options.password || '', [sender]);
     const signer = signers[sender];
 
-    const chainId = await this.getNetworkChainId();
-    const { encodedTx } = unsignedTx.payload;
-    let txSkeleton = convertEncodeTxNervosToSkeleton({
-      encodedTxNervos: encodedTx,
-      config: getConfig(chainId),
-    });
-    txSkeleton = fillSkeletonWitnessesWithAccount({
-      sendAccount: sender,
-      txSkeleton,
-      config: getConfig(chainId),
-    });
+    const { txSkeleton } = unsignedTx.payload as {
+      txSkeleton: TransactionSkeletonType;
+    };
+
     const { txSkeleton: txSkeletonWithMessage, message } =
       serializeTransactionMessage(txSkeleton);
 
@@ -142,6 +132,7 @@ export class KeyringHd extends KeyringHdBase {
     const [signature, recoveryParam] = await signer.sign(
       Buffer.from(stripHexPrefix(message), 'hex'),
     );
+
     const recoveryParamHex = recoveryParam.toString(16).padStart(2, '0');
     const sig = addHexPrefix(bytesToHex(signature) + recoveryParamHex);
 
