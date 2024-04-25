@@ -24,6 +24,12 @@ export enum ESwapRateDifferenceUnit {
   DEFAULT = 'default',
 }
 
+export interface ISwapInitParams {
+  importFromToken?: ISwapToken;
+  importToToken?: ISwapToken;
+  importNetworkId?: string;
+}
+
 // token & network
 
 export interface ISwapNetworkBase {
@@ -48,7 +54,7 @@ export interface ISwapToken {
   logoURI?: string;
 
   balanceParsed?: string;
-  price: string;
+  price?: string;
   fiatValue?: string;
 
   accountAddress?: string;
