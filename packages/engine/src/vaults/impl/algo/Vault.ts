@@ -456,7 +456,15 @@ export default class Vault extends VaultBase {
         groupId = Buffer.from(nativeTx.grp).toString('base64');
       }
       if (nativeTx.note) {
-        notes.push(nativeTx.note.toString());
+        let noteString = nativeTx.note.toString();
+        if (noteString.length === 1) {
+          try {
+            noteString = `0x${Buffer.from(noteString).toString('hex')}`;
+          } catch {
+            // pass
+          }
+        }
+        notes.push(noteString);
       }
     }
 
