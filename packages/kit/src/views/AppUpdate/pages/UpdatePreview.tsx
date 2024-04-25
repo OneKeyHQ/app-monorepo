@@ -20,6 +20,7 @@ import type {
   IAppUpdatePagesParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
 import { UpdatePreviewActionButton } from '../components/UpdatePreviewActionButton';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
@@ -32,15 +33,14 @@ const ExtPluginText = platformEnv.isExtension ? (
 
 function UpdatePreview({
   route,
-  navigation,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
-  const { version, latestVersion, changeLog, isForceUpdate } =
-    route.params || {};
-  const [isLock, setIsLock] = useState(!!isForceUpdate);
-  usePreventRemove(isLock, () => {});
-  const handleConfirm = useCallback(() => {
-    setIsLock(false);
-  }, []);
+  const {
+    latestVersion,
+    isForceUpdate,
+    autoClose = false,
+  } = route.params || {};
+  usePreventRemove(!!isForceUpdate, () => {});
+  const changeLog = useAppChangeLog(latestVersion);
   return (
     <Page>
       <Page.Header title="App Update" />
@@ -50,7 +50,7 @@ function UpdatePreview({
           {ExtPluginText}
           <XStack space="$2.5" alignItems="center">
             <Badge badgeType="default" badgeSize="lg">
-              {version}
+              {platformEnv.version}
             </Badge>
             <Icon name="ArrowRightSolid" size="$4" />
             <Badge badgeType="info" badgeSize="lg">
@@ -69,7 +69,7 @@ function UpdatePreview({
           </ScrollView>
         ) : null}
       </Page.Body>
-      <UpdatePreviewActionButton onConfirm={handleConfirm} />
+      <UpdatePreviewActionButton autoClose={autoClose} />
     </Page>
   );
 }

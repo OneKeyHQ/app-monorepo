@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -22,12 +23,17 @@ import {
   useSwapSortedQuoteListAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import type {
+  EModalSwapRoutes,
+  IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes/swap';
 import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProviderListItem from '../../components/SwapProviderListItem';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
+
+import type { RouteProp } from '@react-navigation/core';
 
 const SwapProviderSelectModal = () => {
   const navigation =
@@ -178,4 +184,17 @@ const SwapProviderSelectModal = () => {
   );
 };
 
-export default withSwapProvider(SwapProviderSelectModal);
+const SwapProviderSelectModalWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapProviderSelectModal />
+    </SwapProviderMirror>
+  );
+};
+
+export default SwapProviderSelectModalWithProvider;

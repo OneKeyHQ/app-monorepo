@@ -3,13 +3,13 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { TabPageHeader } from '../../../components/TabPageHeader';
 
-import SwapMainLand from './components/SwapMainLand';
+import SwapMainLandWithPageType from './components/SwapMainLand';
 
 const SwapPageContainer = () => (
   <Page scrollEnabled>
     <TabPageHeader sceneName={EAccountSelectorSceneName.swap} />
     <Page.Body>
-      <SwapMainLand />
+      <SwapMainLandWithPageType />
     </Page.Body>
   </Page>
 );
