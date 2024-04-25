@@ -1,8 +1,8 @@
-import { getVersionAndChangeLog } from './utils';
+import { getVersion } from './utils';
 
 import type { IHandleReleaseInfo } from './type';
 
 export const handleReleaseInfo: IHandleReleaseInfo = (releaseInfo) => ({
-  ...getVersionAndChangeLog(releaseInfo.ios, releaseInfo.changelog),
+  ...getVersion(releaseInfo.ios),
   storeUrl: releaseInfo.ios.url,
 });
