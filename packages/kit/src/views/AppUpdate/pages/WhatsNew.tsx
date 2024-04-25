@@ -17,7 +17,7 @@ function WhatsNew() {
   const changeLog = useAppChangeLog(version);
   return (
     <Page>
-      <Page.Header title="App Update" />
+      <Page.Header title="What's New" />
       <Page.Body m="$5">
         <YStack space="$3">
           {gtMd ? (
