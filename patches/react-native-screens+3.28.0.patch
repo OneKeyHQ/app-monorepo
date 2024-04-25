@@ -333,9 +333,18 @@ index 6fc0542..a1f946f 100644
      toViewController.view.transform = CGAffineTransformIdentity;
      [[transitionContext containerView] insertSubview:toViewController.view belowSubview:fromViewController.view];
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-index 4fa7506..e908622 100644
+index 4fa7506..6fdac29 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
+@@ -146,7 +146,7 @@ - (void)updateViewControllerIfNeeded
+   BOOL isInFullScreenModal = nav == nil && _screenView.stackPresentation == RNSScreenStackPresentationFullScreenModal;
+   // if nav is nil, it means we can be in a fullScreen modal, so there is no nextVC, but we still want to update
+   if (vc != nil && (nextVC == vc || isInFullScreenModal || isPresentingVC)) {
+-    [RNSScreenStackHeaderConfig updateViewController:self.screenView.controller withConfig:self animated:YES];
++    [RNSScreenStackHeaderConfig updateViewController:self.screenView.controller withConfig:self animated:NO];
+     // As the header might have change in `updateViewController` we need to ensure that header height
+     // returned by the `onHeaderHeightChange` event is correct.
+     [self.screenView.controller calculateAndNotifyHeaderHeightChangeIsModal:NO];
 @@ -475,7 +475,22 @@ + (void)updateViewController:(UIViewController *)vc
    if (!shouldHide && !config.translucent) {
      // when nav bar is not translucent we chage edgesForExtendedLayout to avoid system laying out

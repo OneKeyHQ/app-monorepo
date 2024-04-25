@@ -6,7 +6,6 @@ import { Animated, Easing } from 'react-native';
 import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -196,10 +195,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     );
   }, [ready, wallet, renderHomePageContent]);
 
-  return useMemo(
-    () => <Page skipLoading={platformEnv.isNativeIOS}>{renderHomePage()}</Page>,
-    [renderHomePage],
-  );
+  return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
 }
 
 function HomePageContainer() {
