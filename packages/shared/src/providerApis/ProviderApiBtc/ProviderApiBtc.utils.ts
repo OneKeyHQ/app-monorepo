@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/engine/src/types/nft';
 import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
+import { initBitcoinEcc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 
 import { isBTCNetwork } from '../../engine/engineConsts';
 
@@ -109,6 +110,22 @@ export function mapInscriptionToNFTBTCAssetModel(inscription: Inscription) {
   return asset;
 }
 
+function scriptPkToAddress(
+  scriptPk: string | Buffer,
+  psbtNetwork: BitcoinJS.networks.Network,
+) {
+  initBitcoinEcc();
+  try {
+    const address = BitcoinJS.address.fromOutputScript(
+      typeof scriptPk === 'string' ? Buffer.from(scriptPk, 'hex') : scriptPk,
+      psbtNetwork,
+    );
+    return address;
+  } catch (e) {
+    return '';
+  }
+}
+
 export function getInputsToSignFromPsbt({
   psbt,
   psbtNetwork,
@@ -134,7 +151,7 @@ export function getInputsToSignFromPsbt({
     const isSigned = v.finalScriptSig || v.finalScriptWitness;
 
     if (script && !isSigned) {
-      const address = BitcoinJS.address.fromOutputScript(script, psbtNetwork);
+      const address = scriptPkToAddress(script, psbtNetwork);
       if (account.address === address) {
         inputsToSign.push({
           index,
