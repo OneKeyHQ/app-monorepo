@@ -1,13 +1,7 @@
 import { useCallback } from 'react';
 
 import type { IPageFooterProps } from '@onekeyhq/components';
-import {
-  Page,
-  Progress,
-  SizableText,
-  Toast,
-  YStack,
-} from '@onekeyhq/components';
+import { Page, Toast, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
@@ -75,20 +69,26 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 
   const isReadyToInstall =
     EAppUpdateStatus.ready === appUpdateInfo.data?.status;
+
+  const renderButtonText = useCallback(() => {
+    if (isDownloading) {
+      return `${progress}% Downloading...`;
+    }
+
+    if (isReadyToInstall) {
+      return platformEnv.isNativeAndroid ? 'Install Now' : 'Restart to Update';
+    }
+    return 'Update Now';
+  }, [isDownloading, isReadyToInstall, progress]);
   return (
     <Page.Footer>
       <YStack>
-        {isDownloading ? (
-          <YStack mx="$10" alignItems="center">
-            {progress > 0 && progress < 100 ? (
-              <SizableText>{`${progress}%`}</SizableText>
-            ) : null}
-            <Progress value={progress} />
-          </YStack>
-        ) : null}
         <Page.FooterActions
-          confirmButtonProps={{ disabled: isDownloading }}
-          onConfirmText={isReadyToInstall ? 'Restart to Update' : 'Update Now'}
+          confirmButtonProps={{
+            disabled: isDownloading,
+            loading: isDownloading,
+          }}
+          onConfirmText={renderButtonText()}
           onConfirm={isReadyToInstall ? handleToInstall : handleToUpdate}
         />
       </YStack>

@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import { storeNameSupportCreatedAt } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 
@@ -123,6 +124,9 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         nextWalletNo: 1,
         verifyString: DEFAULT_VERIFY_STRING,
         backupUUID: generateUUID(),
+        nextSignatureMessageId: 1,
+        nextSignatureTransactionId: 1,
+        nextConnectedSiteId: 1,
       }),
       this._addSingletonWalletRecord({
         walletStore,
@@ -148,6 +152,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     storeName: T,
   ): IDBPObjectStore<IIndexedDBSchemaMap, T[], T, 'versionchange'> {
     const store = tx.objectStore(storeName);
+    // @ts-ignore
     return store;
   }
 
@@ -169,6 +174,12 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
         keyPath: 'id',
       });
       const store = this._getObjectStoreAtVersionChange(tx, storeName);
+      if (storeNameSupportCreatedAt.includes(storeName)) {
+        // @ts-ignore
+        store.createIndex('createdAt', 'createdAt', {
+          unique: true,
+        });
+      }
       return store;
     }
   }

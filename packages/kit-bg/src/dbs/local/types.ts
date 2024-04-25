@@ -12,6 +12,13 @@ import type {
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
+import type {
+  IBaseConnectedSite,
+  IBaseCreatedAt,
+  IBaseSignedMessage,
+  IBaseSignedTransaction,
+  IBaseSignedTransactionDataStringify,
+} from '@onekeyhq/shared/types/signatureRecord';
 
 import type { EDBAccountType, EDBCredentialType } from './consts';
 import type { ELocalDBStoreNames } from './localDBStoreNames';
@@ -30,6 +37,7 @@ import type { DBSchema, IDBPObjectStore } from 'idb';
 export type IDBBaseObject = {
   id: string;
 };
+
 export type IDBBaseObjectWithName = IDBBaseObject & {
   name: string;
 };
@@ -40,6 +48,9 @@ export type IDBContext = {
   verifyString: string;
   networkOrderChanged?: boolean;
   backupUUID: string;
+  nextSignatureMessageId: number;
+  nextSignatureTransactionId: number;
+  nextConnectedSiteId: number;
 };
 export type IDBApiGetContextOptions = {
   verifyPassword?: string;
@@ -149,6 +160,7 @@ export type IDBSetAccountNameParams = {
 };
 export type IDBGetWalletsParams = {
   nestedHiddenWallets?: boolean | undefined;
+  ignoreEmptySingletonWalletAccounts?: boolean | undefined;
 };
 // ---------------------------------------------- account
 export type IDBAvatar = string; // stringify(IAvatarInfo)
@@ -274,6 +286,18 @@ export type IDBAddress = IDBBaseObject & {
   wallets: Record<string, string>; // walletId -> indexedAccountId/accountId
 };
 
+export type IDBSignedMessage = IDBBaseObject &
+  IBaseSignedMessage &
+  IBaseCreatedAt;
+export type IDBSignedTransaction = IDBBaseObject &
+  IBaseSignedTransaction &
+  IBaseSignedTransactionDataStringify &
+  IBaseCreatedAt;
+
+export type IDBConnectedSite = IDBBaseObject &
+  IBaseConnectedSite &
+  IBaseCreatedAt;
+
 // DB SCHEMA map ----------------------------------------------
 export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.Context]: IDBContext;
@@ -284,6 +308,9 @@ export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.IndexedAccount]: IDBIndexedAccount;
   [ELocalDBStoreNames.Device]: IDBDevice;
   [ELocalDBStoreNames.Address]: IDBAddress;
+  [ELocalDBStoreNames.SignedMessage]: IDBSignedMessage;
+  [ELocalDBStoreNames.SignedTransaction]: IDBSignedTransaction;
+  [ELocalDBStoreNames.ConnectedSite]: IDBConnectedSite;
 }
 
 export interface IRealmDBSchemaMap {
@@ -295,6 +322,9 @@ export interface IRealmDBSchemaMap {
   [ELocalDBStoreNames.IndexedAccount]: RealmSchemaIndexedAccount;
   [ELocalDBStoreNames.Device]: RealmSchemaDevice;
   [ELocalDBStoreNames.Address]: RealmSchemaAddress;
+  [ELocalDBStoreNames.SignedMessage]: IDBSignedMessage;
+  [ELocalDBStoreNames.SignedTransaction]: IDBSignedTransaction;
+  [ELocalDBStoreNames.ConnectedSite]: IDBConnectedSite;
 }
 
 export interface IIndexedDBSchemaMap extends DBSchema {
@@ -330,6 +360,19 @@ export interface IIndexedDBSchemaMap extends DBSchema {
   [ELocalDBStoreNames.Address]: {
     key: string;
     value: IDBAddress;
+  };
+  [ELocalDBStoreNames.SignedMessage]: {
+    key: string;
+    value: IDBSignedMessage;
+    indexes: { createdAt: number };
+  };
+  [ELocalDBStoreNames.SignedTransaction]: {
+    key: string;
+    value: IDBSignedTransaction;
+  };
+  [ELocalDBStoreNames.ConnectedSite]: {
+    key: string;
+    value: IDBConnectedSite;
   };
 }
 
@@ -382,6 +425,24 @@ export type ILocalDBTransactionStores = {
     ELocalDBStoreNames.Address,
     'readwrite'
   >;
+  [ELocalDBStoreNames.SignedMessage]: IDBPObjectStore<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames.SignedMessage[],
+    ELocalDBStoreNames.SignedMessage,
+    'readwrite'
+  >;
+  [ELocalDBStoreNames.SignedTransaction]: IDBPObjectStore<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames.SignedTransaction[],
+    ELocalDBStoreNames.SignedTransaction,
+    'readwrite'
+  >;
+  [ELocalDBStoreNames.ConnectedSite]: IDBPObjectStore<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames.ConnectedSite[],
+    ELocalDBStoreNames.ConnectedSite,
+    'readwrite'
+  >;
 };
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
@@ -425,6 +486,8 @@ export type ILocalDBGetRecordByIdResult<T extends ELocalDBStoreNames> =
 // GetRecords
 export type ILocalDBGetRecordsQuery = {
   ids?: string[];
+  limit?: number;
+  offset?: number;
 };
 export type ILocalDBTxGetAllRecordsParams<T extends ELocalDBStoreNames> = {
   tx: ILocalDBTransaction;
