@@ -32,7 +32,6 @@ import {
   IMPL_BCH,
   IMPL_BTC,
   IMPL_DOGE,
-  IMPL_DYNEX,
   IMPL_LTC,
   IMPL_NEURAI,
   IMPL_TBTC,
@@ -78,15 +77,9 @@ function fromDBNetworkToChainInfo(dbNetwork: DBNetwork): ChainInfo {
 
   let code = dbNetwork.id;
   if (
-    [
-      IMPL_BTC,
-      IMPL_DOGE,
-      IMPL_LTC,
-      IMPL_BCH,
-      IMPL_TBTC,
-      IMPL_NEURAI,
-      IMPL_DYNEX,
-    ].includes(dbNetwork.impl)
+    [IMPL_BTC, IMPL_DOGE, IMPL_LTC, IMPL_BCH, IMPL_TBTC, IMPL_NEURAI].includes(
+      dbNetwork.impl,
+    )
   ) {
     code = dbNetwork.impl;
   }
