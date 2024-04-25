@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -10,7 +10,7 @@ import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInp
 import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapToAnotherAccountAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -19,7 +19,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { SubmitHandler } from 'react-hook-form';
@@ -41,7 +41,7 @@ const SwapToAnotherAddressPage = () => {
     ESwapDirectionType.TO,
   );
 
-  const [, setSettings] = useSettingsPersistAtom();
+  const [, setSettings] = useSettingsAtom();
   const [, setSwapToAddress] = useSwapToAnotherAccountAddressAtom();
   const intl = useIntl();
   const form = useForm({
@@ -150,9 +150,19 @@ const SwapToAnotherAddressPage = () => {
   );
 };
 
-const SwapToAnotherAddressPageWithProvider = memo(
-  withSwapProvider(SwapToAnotherAddressPage),
-);
+const SwapToAnotherAddressPageWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapToAnotherAddressPage />
+    </SwapProviderMirror>
+  );
+};
+
 export default function SwapToAnotherAddressPageModal() {
   return (
     <AccountSelectorProviderMirror
