@@ -6,7 +6,32 @@ import { ENetworkStatus } from '@onekeyhq/shared/types';
 
 import platformEnv from '../platformEnv';
 
-// export const NETWORK_ID_ETC = 'evm--61'; // move to networkIds
+// dangerNetwork represents a virtual network
+export const dangerAllNetworkRepresent: IServerNetwork = {
+  'balance2FeeDecimals': 0,
+  'chainId': '0',
+  'code': '',
+  'decimals': 0,
+  'id': 'all--0',
+  'impl': 'all',
+  'isTestnet': false,
+  'logoURI': 'https://common.onekey-asset.com/chain/all.png',
+  'name': 'All Networks',
+  'shortcode': '',
+  'shortname': '',
+  'symbol': '',
+  'feeMeta': {
+    'code': '',
+    'decimals': 0,
+    'symbol': '0',
+  },
+  'defaultEnabled': true,
+  'priceConfigs': [],
+  'explorers': [],
+  'status': ENetworkStatus.LISTED,
+  'createdAt': '2023-05-31T00:29:24.951Z',
+  'updatedAt': '2023-05-31T00:29:24.951Z',
+};
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   // shortcode
