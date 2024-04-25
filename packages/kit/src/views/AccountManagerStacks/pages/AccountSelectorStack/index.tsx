@@ -12,7 +12,7 @@ import { AccountSelectorWalletListSideBar } from './WalletList';
 export function AccountSelectorStack({ num }: { num: number }) {
   return (
     <Page safeAreaEnabled={false}>
-      <Page.Header headerShown={false} />
+      <Page.Header headerShown={false} dismissOnOverlayPress={false} />
       <Page.Body flexDirection="row">
         <AccountSelectorWalletListSideBar num={num} />
         <WalletDetails num={num} />
