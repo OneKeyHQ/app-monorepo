@@ -8,4 +8,7 @@ export enum ELocalDBStoreNames {
   IndexedAccount = 'indexed_accounts',
   Device = 'devices',
   Address = 'addresses',
+  SignedMessage = 'signed_messages',
+  SignedTransaction = 'signed_transactions',
+  ConnectedSite = 'connected_sites',
 }
