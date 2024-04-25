@@ -11,11 +11,10 @@ export const { target: appUpdatePersistAtom, use: useAppUpdatePersistAtom } =
     persist: true,
     name: EAtomNames.appUpdatePersistAtom,
     initialValue: {
-      version: process.env.VERSION ?? '1.0.0',
-      latestVersion: process.env.VERSION ?? '1.0.0',
+      latestVersion: '0.0.0',
       isForceUpdate: false,
-      changeLog: undefined,
       updateAt: 0,
+      sha256: '',
       status: EAppUpdateStatus.done,
     },
   });

@@ -1,22 +1,25 @@
 import type { IPackageChangelog } from './type';
 
-export const getVersionAndChangeLog = (
-  {
-    version,
-    miniVersion,
-    minVersion,
-  }: {
-    version?: number[];
-    miniVersion?: number[];
-    minVersion?: number[];
-  },
-  changeLogs: IPackageChangelog[],
-) => {
+export const getVersion = ({
+  version,
+  miniVersion,
+  minVersion,
+}: {
+  version?: number[];
+  miniVersion?: number[];
+  minVersion?: number[];
+}) => {
   const latestVersion = (miniVersion ?? minVersion ?? version)?.join('.');
-  const changeLog = changeLogs?.find((v) => v.version === latestVersion);
   return {
     latestVersion,
-    changeLog: changeLog?.locale,
     isForceUpdate: !!(miniVersion ?? minVersion),
   };
+};
+
+export const getChangeLog = (
+  version: string,
+  changeLogs: IPackageChangelog[],
+) => {
+  const changeLog = changeLogs?.find((v) => v.version === version);
+  return changeLog?.locale;
 };

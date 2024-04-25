@@ -3,6 +3,7 @@ import axios from 'axios';
 import {
   EAppUpdateStatus,
   type IAppUpdateInfoData,
+  getChangeLog,
   handleReleaseInfo,
   isFirstLaunchAfterUpdated,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -26,21 +27,43 @@ import ServiceBase from './ServiceBase';
 
 const AxiosInstance = axios.create();
 
-let timerId: ReturnType<typeof setTimeout>;
-
+let extensionSyncTimerId: ReturnType<typeof setTimeout>;
+let downloadTimeoutId: ReturnType<typeof setTimeout>;
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
+  cachedUpdateInfo: IAppUpdateInfoData | undefined;
+
   @backgroundMethod()
   async getEndpoints() {
     const settings = await devSettingsPersistAtom.get();
-    if (settings.enabled && settings.settings?.enableTestEndpoint) {
-      return ONEKEY_APP_TEST_UPDATE_URL;
+    const url =
+      settings.enabled && settings.settings?.enableTestEndpoint
+        ? ONEKEY_APP_TEST_UPDATE_URL
+        : ONEKEY_APP_UPDATE_URL;
+
+    const key = Math.random().toString();
+    return `${url}?&nocache=${key}`;
+  }
+
+  @backgroundMethod()
+  async fetchConfig() {
+    const url = await this.getEndpoints();
+    const response = await AxiosInstance.get<IAppUpdateInfoData>(url);
+    this.cachedUpdateInfo = response.data;
+    return response.data;
+  }
+
+  @backgroundMethod()
+  async getAppLatestInfo({ cached = true }: { cached?: boolean } = {}) {
+    if (cached && this.cachedUpdateInfo) {
+      void this.fetchConfig();
+      return this.cachedUpdateInfo;
     }
-    return ONEKEY_APP_UPDATE_URL;
+    return this.fetchConfig();
   }
 
   @backgroundMethod()
@@ -58,7 +81,7 @@ class ServiceAppUpdate extends ServiceBase {
   async isNeedSyncAppUpdateInfo() {
     const { status, updateAt } = await appUpdatePersistAtom.get();
     if (platformEnv.isExtension) {
-      clearTimeout(timerId);
+      clearTimeout(extensionSyncTimerId);
       // add random time to avoid all extension request at the same time.
       const timeout =
         timerUtils.getTimeDurationMs({
@@ -68,11 +91,11 @@ class ServiceAppUpdate extends ServiceBase {
           minute: 5,
         }) *
           Math.random();
-      timerId = setTimeout(() => {
+      extensionSyncTimerId = setTimeout(() => {
         void this.fetchAppUpdateInfo();
       }, timeout);
       return (
-        Date.now() - updateAt <
+        Date.now() - updateAt >
         timerUtils.getTimeDurationMs({
           day: 1,
         })
@@ -85,6 +108,12 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async startDownloading() {
+    clearTimeout(downloadTimeoutId);
+    downloadTimeoutId = setTimeout(async () => {
+      await this.notifyFailed({
+        message: 'Download timed out, please check your internet connection.',
+      });
+    }, timerUtils.getTimeDurationMs({ minute: 5 }));
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.downloading,
@@ -93,10 +122,45 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async readyToInstall() {
+    clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.ready,
     }));
+  }
+
+  @backgroundMethod()
+  public async reset() {
+    await appUpdatePersistAtom.set({
+      latestVersion: '0.0.0',
+      isForceUpdate: false,
+      updateAt: 0,
+      status: EAppUpdateStatus.done,
+    });
+  }
+
+  @backgroundMethod()
+  public async notifyFailed(e?: { message: string }) {
+    clearTimeout(downloadTimeoutId);
+    let errorText =
+      e?.message || 'Network exception, please check your internet connection.';
+
+    if (errorText.includes('Server not responding')) {
+      errorText = 'Server not responding, please try again later.';
+    } else if (errorText.includes('Software caused connection abort')) {
+      errorText = 'Network instability, please check your internet connection.';
+    }
+    void appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      errorText,
+      status: EAppUpdateStatus.failed,
+    }));
+  }
+
+  @backgroundMethod()
+  public async fetchChangeLog(version: string) {
+    const response = await this.getAppLatestInfo({ cached: true });
+    return getChangeLog(version, response.changelog);
   }
 
   @backgroundMethod()
@@ -107,12 +171,8 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
-    const url = await this.getEndpoints();
-    const key = Math.random().toString();
-    const response = await AxiosInstance.get<IAppUpdateInfoData>(
-      `${url}?nocache=${key}`,
-    );
-    const releaseInfo = handleReleaseInfo(response.data);
+    const data = await this.getAppLatestInfo();
+    const releaseInfo = handleReleaseInfo(data);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       ...releaseInfo,

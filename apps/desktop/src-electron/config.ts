@@ -24,6 +24,7 @@ export const ipcMessageKeys = {
   TOUCH_UPDATE_PROGRESS: 'touch/update-progress',
 
   // App
+  APP_VERSION: 'app/version',
   APP_STATE: 'appState',
   APP_READY: 'app/ready',
   APP_RELOAD: 'app/reload',

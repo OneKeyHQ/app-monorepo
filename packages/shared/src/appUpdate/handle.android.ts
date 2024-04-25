@@ -1,13 +1,12 @@
 import platformEnv from '../platformEnv';
 
-import { getVersionAndChangeLog } from './utils';
+import { getVersion } from './utils';
 
 import type { IAppUpdateInfo, IHandleReleaseInfo } from './type';
 
 export const handleReleaseInfo: IHandleReleaseInfo = (releaseInfo) => {
-  const result: IAppUpdateInfo = getVersionAndChangeLog(
+  const result: IAppUpdateInfo = getVersion(
     releaseInfo.android,
-    releaseInfo.changelog,
   ) as unknown as IAppUpdateInfo;
   if (platformEnv.isNativeAndroidHuawei) {
     result.storeUrl = releaseInfo.android.huawei.url;
@@ -15,6 +14,7 @@ export const handleReleaseInfo: IHandleReleaseInfo = (releaseInfo) => {
     result.storeUrl = releaseInfo.android.google.url;
   } else {
     result.downloadUrl = releaseInfo.android.url;
+    result.sha256 = releaseInfo.android.sha256;
   }
   return result;
 };

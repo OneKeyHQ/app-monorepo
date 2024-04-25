@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import type { ReactElement } from 'react';
 
 import type {
@@ -9,17 +10,19 @@ import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { DownloadPercents } from './DownloadPercents';
+import { DownloadProgress } from './DownloadProgress';
 import { useAppUpdateInfo } from './hooks';
 
 const UPDATE_STATUS_TEXT_STYLE: Record<
   EAppUpdateStatus,
-  {
-    iconName: IIconProps['name'];
-    iconColor: IIconProps['color'];
-    renderText: (appUpdateInfo: IAppUpdateInfo) => string;
-  }
+  | {
+      iconName: IIconProps['name'];
+      iconColor: IIconProps['color'];
+      renderText: (appUpdateInfo: IAppUpdateInfo) => string;
+    }
+  | undefined
 > = {
   [EAppUpdateStatus.notify]: {
     iconName: 'DownloadOutline',
@@ -31,7 +34,7 @@ const UPDATE_STATUS_TEXT_STYLE: Record<
   [EAppUpdateStatus.downloading]: {
     iconName: 'RefreshCcwSolid',
     iconColor: '$iconInfo',
-    renderText: DownloadPercents,
+    renderText: DownloadProgress,
   },
   [EAppUpdateStatus.ready]: {
     iconName: 'DownloadOutline',
@@ -43,22 +46,20 @@ const UPDATE_STATUS_TEXT_STYLE: Record<
   [EAppUpdateStatus.failed]: {
     iconName: 'ErrorOutline',
     iconColor: '$iconCritical',
-    renderText() {
-      return `Error`;
+    renderText(appUpdateInfo) {
+      return appUpdateInfo.errorText || '';
     },
   },
-  [EAppUpdateStatus.done]: {
-    iconName: 'DownloadOutline',
-    iconColor: '$iconSuccess',
-    renderText() {
-      return `App Updated`;
-    },
-  },
+  [EAppUpdateStatus.done]: undefined,
 };
 
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
-  const { iconName, iconColor, renderText } =
-    UPDATE_STATUS_TEXT_STYLE[updateInfo.status];
+  const data = UPDATE_STATUS_TEXT_STYLE[updateInfo.status];
+
+  if (!data) {
+    return null;
+  }
+  const { iconName, iconColor, renderText } = data;
   return (
     <XStack alignItems="center" space="$2" flexShrink={1}>
       <Icon name={iconName} color={iconColor} size="$4" flexShrink={0} />
@@ -74,14 +75,35 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   );
 }
 
+function OpenOnGithub() {
+  const handlePress = useCallback(() => {
+    openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
+  }, []);
+  return (
+    <XStack
+      space="$2"
+      justifyContent="space-between"
+      alignItems="center"
+      cursor="pointer"
+      onPress={handlePress}
+    >
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        Download on Github
+      </SizableText>
+      <Icon name="ArrowTopRightOutline" size="$4.5" />
+    </XStack>
+  );
+}
+
 const UPDATE_ACTION_STYLE: Record<
   EAppUpdateStatus,
-  {
-    label: string;
-    icon?: IIconProps['name'];
-    prefixElement?: ReactElement;
-    variant?: IButtonProps['variant'];
-  }
+  | {
+      label: string;
+      icon?: IIconProps['name'];
+      prefixElement?: ReactElement;
+      variant?: IButtonProps['variant'];
+    }
+  | undefined
 > = {
   [EAppUpdateStatus.notify]: {
     label: 'View',
@@ -91,24 +113,15 @@ const UPDATE_ACTION_STYLE: Record<
   },
   [EAppUpdateStatus.ready]: {
     label: 'Restart to Update',
-    icon: 'RefreshCcwSolid',
+    icon: 'RestartToUpdateCustom',
     variant: 'primary',
   },
   [EAppUpdateStatus.failed]: {
-    prefixElement: (
-      <XStack space="$2" justifyContent="space-between" alignItems="center">
-        <SizableText size="$bodyMdMedium" color="$textSubdued">
-          Download on Github
-        </SizableText>
-        <Icon name="ArrowTopRightOutline" size="$4.5" />
-      </XStack>
-    ),
+    prefixElement: <OpenOnGithub />,
     label: 'Retry',
     variant: 'primary',
   },
-  [EAppUpdateStatus.done]: {
-    label: 'View',
-  },
+  [EAppUpdateStatus.done]: undefined,
 };
 
 function UpdateAction({
@@ -118,8 +131,11 @@ function UpdateAction({
   updateInfo: IAppUpdateInfo;
   onUpdateAction: () => void;
 }) {
-  const { icon, label, variant, prefixElement } =
-    UPDATE_ACTION_STYLE[updateInfo.status];
+  const data = UPDATE_ACTION_STYLE[updateInfo.status];
+  if (!data) {
+    return null;
+  }
+  const { icon, label, variant, prefixElement } = data;
   return (
     <XStack space="$4" justifyContent="space-between" alignItems="center">
       {prefixElement}
@@ -135,7 +151,10 @@ function UpdateAction({
   );
 }
 
-const UPDATE_REMINDER_BAR_STYLE: Record<EAppUpdateStatus, IStackProps> = {
+const UPDATE_REMINDER_BAR_STYLE: Record<
+  EAppUpdateStatus,
+  IStackProps | undefined
+> = {
   [EAppUpdateStatus.notify]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
@@ -146,25 +165,26 @@ const UPDATE_REMINDER_BAR_STYLE: Record<EAppUpdateStatus, IStackProps> = {
   },
   [EAppUpdateStatus.ready]: {
     bg: '$bgSuccessSubdued',
-    borderColor: '$borderCriticalSubdued',
+    borderColor: '$borderSuccessSubdued',
   },
   [EAppUpdateStatus.failed]: {
     bg: '$bgCriticalSubdued',
-    borderColor: '$borderSuccessSubdued',
-  },
-  [EAppUpdateStatus.done]: {
-    bg: '$bgSuccessSubdued',
     borderColor: '$borderCriticalSubdued',
   },
+  [EAppUpdateStatus.done]: undefined,
 };
 
 function BasicUpdateReminder() {
   const appUpdateInfo = useAppUpdateInfo(true);
-  if (!appUpdateInfo.data) {
+  if (!appUpdateInfo.isNeedUpdate) {
     return null;
   }
   const { data, onUpdateAction } = appUpdateInfo;
   const style = UPDATE_REMINDER_BAR_STYLE[data.status];
+
+  if (!style) {
+    return null;
+  }
   return (
     <XStack
       px="$5"
@@ -173,6 +193,9 @@ function BasicUpdateReminder() {
       alignItems="center"
       borderTopWidth="$px"
       borderBottomWidth="$px"
+      $md={{
+        mt: '$2',
+      }}
       {...style}
     >
       <UpdateStatusText updateInfo={data} />
