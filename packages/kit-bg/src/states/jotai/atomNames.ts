@@ -3,6 +3,7 @@ export enum EAtomNames {
   demoPriceNotPersistAtom = 'demoPriceNotPersistAtom',
   // accountIdAtom = 'accountIdAtom',
   settingsPersistAtom = 'settingsPersistAtom',
+  settingsAtom = 'settingsAtom',
   devSettingsPersistAtom = 'devSettingsPersistAtom',
   settingsLastActivityAtom = 'settingsLastActivityAtom',
   cloudBackupPersistAtom = 'cloudBackupPersistAtom',

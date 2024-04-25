@@ -17,7 +17,10 @@ import {
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
 import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListRootProvider';
-import { SwapRootProvider } from '../../../views/Swap/pages/SwapRootProvider';
+import {
+  SwapModalRootProvider,
+  SwapRootProvider,
+} from '../../../views/Swap/pages/SwapRootProvider';
 
 import { buildJotaiContextStoreId } from './jotaiContextStore';
 
@@ -124,6 +127,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.swap: {
             return <SwapRootProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.swapModal: {
+            return <SwapModalRootProvider key={key} />;
           }
           default: {
             const exhaustiveCheck: never = storeName;

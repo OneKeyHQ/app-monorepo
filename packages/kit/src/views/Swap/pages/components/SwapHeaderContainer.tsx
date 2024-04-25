@@ -2,13 +2,29 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { EPageType, SizableText, XStack } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
-const SwapHeaderContainer = () => {
+interface ISwapHeaderContainerProps {
+  pageType?: EPageType.modal;
+}
+
+const SwapHeaderContainer = ({ pageType }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
-  const headerRight = useCallback(() => <SwapHeaderRightActionContainer />, []);
+  const headerRight = useCallback(
+    () => (
+      <SwapHeaderRightActionContainer
+        storeName={
+          pageType === EPageType.modal
+            ? EJotaiContextStoreNames.swapModal
+            : EJotaiContextStoreNames.swap
+        }
+      />
+    ),
+    [pageType],
+  );
   return (
     <XStack justifyContent="space-between">
       <XStack space="$5">
@@ -20,7 +36,6 @@ const SwapHeaderContainer = () => {
           <SizableText size="$headingLg">
             {intl.formatMessage({ id: 'form__limit' })}
           </SizableText>
-          {/* <Badge badgeSize="sm">Soon</Badge> */}
         </XStack>
       </XStack>
       {headerRight()}

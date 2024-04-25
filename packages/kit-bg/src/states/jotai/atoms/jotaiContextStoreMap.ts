@@ -11,6 +11,7 @@ export enum EJotaiContextStoreNames {
   homeTokenList = 'homeTokenList',
   discoveryBrowser = 'discoveryBrowser',
   swap = 'swap',
+  swapModal = 'swapModal',
 }
 export type IJotaiContextStoreData = {
   storeName: EJotaiContextStoreNames;

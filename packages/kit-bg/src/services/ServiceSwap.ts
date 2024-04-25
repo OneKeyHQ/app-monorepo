@@ -210,6 +210,7 @@ export default class ServiceSwap extends ServiceBase {
         },
       );
       this._quoteAbortController = undefined;
+
       if (data?.code === 0 && data?.data) {
         return data?.data;
       }
@@ -264,12 +265,21 @@ export default class ServiceSwap extends ServiceBase {
       receivingAddress,
       slippagePercentage,
     };
-    const client = await this.getClient();
-    const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
-      '/swap/v1/build-tx',
-      { params },
-    );
-    return data?.data;
+    try {
+      const client = await this.getClient();
+      const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
+        '/swap/v1/build-tx',
+        { params },
+      );
+      return data?.data;
+    } catch (e) {
+      const error = e as { code: number; message: string };
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: 'error',
+        message: error?.message,
+      });
+    }
   }
 
   @backgroundMethod()

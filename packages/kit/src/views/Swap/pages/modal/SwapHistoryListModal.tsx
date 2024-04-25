@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+
 import {
   Dialog,
   Empty,
@@ -27,14 +29,20 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
+
+import type { RouteProp } from '@react-navigation/core';
 
 interface ISectionData {
   title: string;
   data: ISwapTxHistory[];
 }
 
-const SwapHistoryListModal = () => {
+interface ISwapHistoryListModalProps {
+  storeName?: string;
+}
+
+const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   const [swapTxHistoryList] = useSwapTxHistoryAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -102,11 +110,12 @@ const SwapHistoryListModal = () => {
         onClickCell={() => {
           navigation.push(EModalSwapRoutes.SwapHistoryDetail, {
             txHistory: item,
+            storeName,
           });
         }}
       />
     ),
-    [navigation],
+    [navigation, storeName],
   );
   return (
     <Page>
@@ -139,4 +148,17 @@ const SwapHistoryListModal = () => {
   );
 };
 
-export default withSwapProvider(SwapHistoryListModal);
+const SwapHistoryListModalWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapHistoryListModal />
+    </SwapProviderMirror>
+  );
+};
+
+export default SwapHistoryListModalWithProvider;
