@@ -1,5 +1,7 @@
 import qs from 'querystring';
 
+import { isNil, omitBy } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -24,7 +26,7 @@ class ServiceDefi extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.get<{
       data: IFetchAccountDefiResp;
-    }>(`/wallet/v1/account/defi/list?${qs.stringify(params)}`);
+    }>(`/wallet/v1/account/defi/list?${qs.stringify(omitBy(params, isNil))}`);
     return resp.data.data;
   }
 }

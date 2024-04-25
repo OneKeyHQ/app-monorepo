@@ -5,6 +5,11 @@ import { ELocalDBStoreNames } from './localDBStoreNames';
 export const ALL_LOCAL_DB_STORE_NAMES: ELocalDBStoreNames[] =
   Object.values(ELocalDBStoreNames);
 
+export const storeNameSupportCreatedAt = [
+  ELocalDBStoreNames.SignedMessage,
+  ELocalDBStoreNames.SignedTransaction,
+  ELocalDBStoreNames.ConnectedSite,
+];
 // ---------------------------------------------- enums
 
 export enum EDBAccountType {
