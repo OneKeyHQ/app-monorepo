@@ -2783,117 +2783,120 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ckb-lumos/base@npm:0.21.1":
-  version: 0.21.1
-  resolution: "@ckb-lumos/base@npm:0.21.1"
+"@ckb-lumos/base@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/base@npm:0.22.2"
   dependencies:
-    "@ckb-lumos/bi": 0.21.1
-    "@ckb-lumos/codec": 0.21.1
-    "@ckb-lumos/toolkit": 0.21.1
+    "@ckb-lumos/bi": 0.22.2
+    "@ckb-lumos/codec": 0.22.2
+    "@ckb-lumos/toolkit": 0.22.2
     "@types/blake2b": ^2.1.0
     "@types/lodash.isequal": ^4.5.5
     blake2b: ^2.1.3
     js-xxhash: ^1.0.4
     lodash.isequal: ^4.5.0
-  checksum: 14e3dcdb1536cb9252a43d50f1a53487bc55878240b1911717912cb8477846a2ac380e74dd3a293447243fcfaf62b9114983df65a316b6c47d14f267b0df505f
+  checksum: 7411bd2677974b2d61c9a59e7646eccd8f49a4bc9c491d27cc62619afd4ddcf411c52cc12a1de3e402b6ddb63b542f7fa55900d74fb616d47f8e30ea9ac9b3b3
   languageName: node
   linkType: hard
 
-"@ckb-lumos/bi@npm:0.21.1":
-  version: 0.21.1
-  resolution: "@ckb-lumos/bi@npm:0.21.1"
+"@ckb-lumos/bi@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/bi@npm:0.22.2"
   dependencies:
     jsbi: ^4.1.0
-  checksum: 24b948ba7aab6b1cd7c6334c5bcd92d0536149c420b2cbcf7decc0a76c5e65847bd4b1235d971bd22724ba978265090c72b727542f8f2786fee3b7d7fa1b5fea
+  checksum: 48f29ae77df3b9768599fe32195cd277ffd16a5edec80af18bbd0d5343b2c907317b8d5208298ed7dbba2bb68d680e4ef21a15fb24523dd5018fa45b8c2b97b9
   languageName: node
   linkType: hard
 
-"@ckb-lumos/ckb-indexer@npm:^0.21.1":
-  version: 0.21.1
-  resolution: "@ckb-lumos/ckb-indexer@npm:0.21.1"
+"@ckb-lumos/ckb-indexer@npm:^0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/ckb-indexer@npm:0.22.2"
   dependencies:
-    "@ckb-lumos/base": 0.21.1
-    "@ckb-lumos/bi": 0.21.1
-    "@ckb-lumos/codec": 0.21.1
-    "@ckb-lumos/rpc": 0.21.1
-    "@ckb-lumos/toolkit": 0.21.1
+    "@ckb-lumos/base": 0.22.2
+    "@ckb-lumos/bi": 0.22.2
+    "@ckb-lumos/codec": 0.22.2
+    "@ckb-lumos/rpc": 0.22.2
+    "@ckb-lumos/toolkit": 0.22.2
     cross-fetch: ^3.1.5
     events: ^3.3.0
-  checksum: a57cc077ca5a23a895caa707cb5e095d51aeca8f96e14793fb70fbfc5aa53044a6f0d78c27bd070c9e85c71f5b9880f2792efab9af398020f365422060dad460
+  checksum: ab1c7336d8c2ae13ecb3d2154ccc55af862c77318081c9c0795fee1c8bebaf6157613a52c993e4540a29a8508d5a72c33419093d95fb2e17e138c4954990398c
   languageName: node
   linkType: hard
 
-"@ckb-lumos/codec@npm:0.21.1":
-  version: 0.21.1
-  resolution: "@ckb-lumos/codec@npm:0.21.1"
+"@ckb-lumos/codec@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/codec@npm:0.22.2"
   dependencies:
-    "@ckb-lumos/bi": 0.21.1
-  checksum: ccc192a4b6e0b5ae6bfd7d906954c9a5847e0aa32fcea35818a215cda0bc7eff820dcba04b1534344bad3c6cdc4edbf495db3d06494792c05396564ee49358ac
+    "@ckb-lumos/bi": 0.22.2
+  checksum: cc142ba17386c8a0b9581cf568f0ae9a944e60764dac0cccbbc5298795a7d311eba225a1a18f500cc8ca3312beaaa2e98b242990010e92d592637527ff66173e
   languageName: node
   linkType: hard
 
-"@ckb-lumos/common-scripts@npm:^0.21.1":
-  version: 0.21.1
-  resolution: "@ckb-lumos/common-scripts@npm:0.21.1"
+"@ckb-lumos/common-scripts@npm:^0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/common-scripts@npm:0.22.2"
   dependencies:
-    "@ckb-lumos/base": 0.21.1
-    "@ckb-lumos/bi": 0.21.1
-    "@ckb-lumos/codec": 0.21.1
-    "@ckb-lumos/config-manager": 0.21.1
-    "@ckb-lumos/helpers": 0.21.1
-    "@ckb-lumos/rpc": 0.21.1
-    "@ckb-lumos/toolkit": 0.21.1
+    "@ckb-lumos/base": 0.22.2
+    "@ckb-lumos/bi": 0.22.2
+    "@ckb-lumos/codec": 0.22.2
+    "@ckb-lumos/config-manager": 0.22.2
+    "@ckb-lumos/helpers": 0.22.2
+    "@ckb-lumos/rpc": 0.22.2
+    "@ckb-lumos/toolkit": 0.22.2
+    bech32: ^2.0.0
+    bs58: ^5.0.0
     immutable: ^4.3.0
-  checksum: b713b2397fb15ed5dabb32fa922bbbf84421e384fdabcbc81b53e9cd0bec3e9f146708759728a6728d9e04bc153580a495f69d6652e2e2403c4eab238fb8f982
+  checksum: b5c0999620c9de1b06c70c1fcb014b93c384fbb75499ead8ef7575a916ddc39efafabdbb8185d0361b77fd8dff1a5fca4979ca4e9ffae14befba3e687f1dda2f
   languageName: node
   linkType: hard
 
-"@ckb-lumos/config-manager@npm:0.21.1":
-  version: 0.21.1
-  resolution: "@ckb-lumos/config-manager@npm:0.21.1"
+"@ckb-lumos/config-manager@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/config-manager@npm:0.22.2"
   dependencies:
-    "@ckb-lumos/base": 0.21.1
-    "@ckb-lumos/bi": 0.21.1
-    "@ckb-lumos/codec": 0.21.1
+    "@ckb-lumos/base": 0.22.2
+    "@ckb-lumos/bi": 0.22.2
+    "@ckb-lumos/codec": 0.22.2
+    "@ckb-lumos/rpc": 0.22.2
     "@types/deep-freeze-strict": ^1.1.0
     deep-freeze-strict: ^1.1.1
-  checksum: c0296b08c0a953c6ceea076ed08d8220cf9725ba1287275d8f573c6a9097d779c630fd46529ef9ffd245d68773654b6c2bbc1323888b86bfc5885ebbf366be19
+  checksum: 8a5226a0f3043bf1ea33a712273da3ae73977fe441f87cd9249763cd7e1cdbfccc347fd29937883bf7324232f4ef8c6378353bdc1f0b6226a2e58e0bdf918d1b
   languageName: node
   linkType: hard
 
-"@ckb-lumos/helpers@npm:0.21.1, @ckb-lumos/helpers@npm:^0.21.1":
-  version: 0.21.1
-  resolution: "@ckb-lumos/helpers@npm:0.21.1"
+"@ckb-lumos/helpers@npm:0.22.2, @ckb-lumos/helpers@npm:^0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/helpers@npm:0.22.2"
   dependencies:
-    "@ckb-lumos/base": 0.21.1
-    "@ckb-lumos/bi": 0.21.1
-    "@ckb-lumos/codec": 0.21.1
-    "@ckb-lumos/config-manager": 0.21.1
-    "@ckb-lumos/toolkit": 0.21.1
+    "@ckb-lumos/base": 0.22.2
+    "@ckb-lumos/bi": 0.22.2
+    "@ckb-lumos/codec": 0.22.2
+    "@ckb-lumos/config-manager": 0.22.2
+    "@ckb-lumos/toolkit": 0.22.2
     bech32: ^2.0.0
     immutable: ^4.3.0
-  checksum: f72a988c78b560e45580dbd3c59261672af0b1408c51a352d5156f9c0b4a7ae348066b6602b2b82a9276fcd19d0bf84ad25fe91d1fa8c9d5d3fb4091eab85d5d
+  checksum: 901ff46f032e4bdc7618d3ab9572d71a31277f7eadc6e314409c13ee6dc831ca96a4cad5d6a27c8d806d8d61620af74def8a5f8406d44463412b94d5e2f6dc2c
   languageName: node
   linkType: hard
 
-"@ckb-lumos/rpc@npm:0.21.1":
-  version: 0.21.1
-  resolution: "@ckb-lumos/rpc@npm:0.21.1"
+"@ckb-lumos/rpc@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/rpc@npm:0.22.2"
   dependencies:
-    "@ckb-lumos/base": 0.21.1
-    "@ckb-lumos/bi": 0.21.1
+    "@ckb-lumos/base": 0.22.2
+    "@ckb-lumos/bi": 0.22.2
     abort-controller: ^3.0.0
     cross-fetch: ^3.1.5
-  checksum: d5edd740f86fc96cf23b9b2bdafd6bcdf48b648635ddf5f4b2310ae8224d1ab217c3c356ca301a5e760a1e35dd82754d4a99d8d3fbd9e964bd36edd61e73dd05
+  checksum: 8af38f001d007a36168acaae0ad896c02af16e63e4a38e2d67aa60dda94e1565077366fd780f3d126c4459317d9b65bf755d5f2fde6923deaf5c47148a5e4a6b
   languageName: node
   linkType: hard
 
-"@ckb-lumos/toolkit@npm:0.21.1":
-  version: 0.21.1
-  resolution: "@ckb-lumos/toolkit@npm:0.21.1"
+"@ckb-lumos/toolkit@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/toolkit@npm:0.22.2"
   dependencies:
-    "@ckb-lumos/bi": 0.21.1
-  checksum: ae2f735c18a9af902b39ebf6ef8b04f332f3c7101d1b21d2c106cffcb6d1ed18836361d21535a9e34c52dfd53b006fa0cf42f230b41164a49e706b7b2d6fe135
+    "@ckb-lumos/bi": 0.22.2
+  checksum: 2d3c75c5fd2ac6ae7f5cfcf71d7833ddd621169d6051d41b18491d3ef4e7c4943408524132e38128a7f76ce7f4c67c93765192da1e548705c3646bc0038e20e3
   languageName: node
   linkType: hard
 
@@ -6933,9 +6936,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/engine@workspace:packages/engine"
   dependencies:
-    "@ckb-lumos/ckb-indexer": ^0.21.1
-    "@ckb-lumos/common-scripts": ^0.21.1
-    "@ckb-lumos/helpers": ^0.21.1
+    "@ckb-lumos/ckb-indexer": ^0.22.2
+    "@ckb-lumos/common-scripts": ^0.22.2
+    "@ckb-lumos/helpers": ^0.22.2
     "@conflux-dev/conflux-address-js": ^1.3.13
     "@ethersproject/keccak256": ^5.6.0
     "@ethersproject/transactions": ^5.6.0
