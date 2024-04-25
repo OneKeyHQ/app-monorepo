@@ -119,10 +119,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         // have catch
         if (JSON.stringify(catchTokens.data) !== JSON.stringify(newTokens)) {
           // catch data not equal
-          swapTokenMap.tokenCatch[key] = {
+          const newTokenCatch = { ...swapTokenMap.tokenCatch };
+          newTokenCatch[key] = {
             data: newTokens,
             updatedAt: dateNow,
           };
+          swapTokenMap.tokenCatch = { ...newTokenCatch };
         }
         catchCount = Object.keys(swapTokenMap.tokenCatch).length;
       } else {
