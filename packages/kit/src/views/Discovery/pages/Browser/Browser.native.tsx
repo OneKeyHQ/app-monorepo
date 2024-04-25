@@ -124,7 +124,7 @@ function MobileBrowser() {
   const { top } = useSafeAreaInsets();
 
   return (
-    <Page skipLoading={platformEnv.isNativeIOS}>
+    <Page>
       <Page.Header headerShown={false} />
       {/* custom header */}
       <XStack
