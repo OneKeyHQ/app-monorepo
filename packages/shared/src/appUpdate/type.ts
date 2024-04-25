@@ -9,6 +9,7 @@ export interface IIOS {
 
 export interface IChannelInfo {
   url: string;
+  sha256?: string;
   version: number[];
 }
 
@@ -78,11 +79,11 @@ export interface IBasicAppUpdateInfo {
   isForceUpdate: boolean;
   // change log text
   changeLog?: IChangeLog;
+  // sha256 for downloaded package
+  sha256?: string;
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
-  // current version
-  version: string;
   // the last time the app update info was fetched
   updateAt: number;
   // App from app Store
@@ -91,6 +92,7 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   //  1. notify -> downloading -> ready -> done
   //  2. notify -> failed
   status: EAppUpdateStatus;
+  errorText?: string;
 }
 
 export enum EAppUpdateStatus {
