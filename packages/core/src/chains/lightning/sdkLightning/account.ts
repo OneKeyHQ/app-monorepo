@@ -1,6 +1,11 @@
 import bs58check from 'bs58check';
 
-import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  COINTYPE_BTC,
+  COINTYPE_TBTC,
+  IMPL_BTC,
+  IMPL_TBTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import { batchGetPublicKeys } from '../../../secret';
@@ -20,7 +25,7 @@ export const generateNativeSegwitAccounts = async ({
   password: string;
   isTestnet: boolean;
 }) => {
-  const pathPrefix = `m/84'/0'`;
+  const pathPrefix = `m/84'/${isTestnet ? COINTYPE_TBTC : COINTYPE_BTC}'`;
   const relPaths: string[] = indexes.map(
     (index) => `${index.toString()}'`, // btc
   );

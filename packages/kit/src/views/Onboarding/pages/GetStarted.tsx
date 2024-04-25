@@ -13,6 +13,7 @@ import {
   ThemeableStack,
   XStack,
 } from '@onekeyhq/components';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -38,8 +39,8 @@ function ActionsGroup({ items }: IActionsProp) {
       }}
       separator={<Divider />}
     >
-      {items.map((item) => (
-        <Group.Item>
+      {items.map((item, index) => (
+        <Group.Item key={index}>
           <XStack
             flexDirection="row"
             py="$3.5"
@@ -100,9 +101,11 @@ export function GetStarted() {
   };
 
   const handleConnectWalletPress = async () => {
-    navigation.push(EOnboardingPages.ConnectWallet);
+    navigation.push(EOnboardingPages.ConnectWalletSelectNetworks);
   };
 
+  const termsLink = useHelpLink({ path: 'articles/360002014776' });
+  const privacyLink = useHelpLink({ path: 'articles/360002003315 ' });
   return (
     <Page>
       <Page.Header headerShown={false} />
@@ -205,7 +208,7 @@ export function GetStarted() {
         >
           Use implies consent to our{' '}
           <Anchor
-            href="https://help.onekey.so/hc/articles/360002014776"
+            href={termsLink}
             size="$bodySm"
             color="$text"
             target="_blank"
@@ -215,7 +218,7 @@ export function GetStarted() {
           </Anchor>{' '}
           &{' '}
           <Anchor
-            href="https://help.onekey.so/hc/articles/360002003315"
+            href={privacyLink}
             size="$bodySm"
             color="$text"
             target="_blank"

@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import {
   Dialog,
+  ESwitchSize,
   SizableText,
   Spinner,
   Stack,
@@ -16,6 +17,7 @@ import { WalletOptionItem } from './WalletOptionItem';
 
 type IDeviceAdvanceSettingsProps = {
   wallet?: IDBWallet;
+  onFail?: (error: Error) => void;
 };
 
 function EnterPinOnSoftwareSwitch(
@@ -28,7 +30,7 @@ function EnterPinOnSoftwareSwitch(
 
   return (
     <Switch
-      size="small"
+      size={ESwitchSize.small}
       value={enterPinOnSoftware}
       onChange={async (v) => {
         try {
@@ -56,7 +58,7 @@ function EnablePassphraseSwitch(
 
   return (
     <Switch
-      size="small"
+      size={ESwitchSize.small}
       value={enablePassphrase}
       onChange={async (v) => {
         try {
@@ -75,13 +77,18 @@ function EnablePassphraseSwitch(
 }
 
 function AdvanceDialogContent(props: IDeviceAdvanceSettingsProps) {
-  const { result } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceHardware.getDeviceAdvanceSettings({
+  const { onFail } = props;
+  const { result } = usePromiseResult(async () => {
+    try {
+      return await backgroundApiProxy.serviceHardware.getDeviceAdvanceSettings({
         walletId: props?.wallet?.id || '',
-      }),
-    [props?.wallet?.id],
-  );
+      });
+    } catch (error) {
+      onFail?.(error as Error);
+      throw error;
+    }
+  }, [onFail, props?.wallet?.id]);
+
   if (!result) {
     return (
       <Stack borderRadius="$3" p="$5" bg="$bgSubdued" borderCurve="continuous">
@@ -92,12 +99,14 @@ function AdvanceDialogContent(props: IDeviceAdvanceSettingsProps) {
 
   return (
     <Stack mx="$-5">
-      <ListItem title="Enter Pin on App" pt="$0">
-        <EnterPinOnSoftwareSwitch
-          {...props}
-          defaultValue={result.inputPinOnSoftware}
-        />
-      </ListItem>
+      {result.inputPinOnSoftwareSupport ? (
+        <ListItem title="Enter Pin on App" pt="$0">
+          <EnterPinOnSoftwareSwitch
+            {...props}
+            defaultValue={result.inputPinOnSoftware}
+          />
+        </ListItem>
+      ) : null}
       <ListItem title="Passphrase">
         <EnablePassphraseSwitch
           {...props}
@@ -118,13 +127,20 @@ export function Advance(props: IDeviceAdvanceSettingsProps) {
     <WalletOptionItem
       icon="SwitchOutline"
       label="Advance"
-      onPress={() =>
-        Dialog.show({
+      onPress={() => {
+        const dialog = Dialog.show({
           title: 'Advance',
-          renderContent: <AdvanceDialogContent {...props} />,
+          renderContent: (
+            <AdvanceDialogContent
+              {...props}
+              onFail={() => {
+                void dialog.close();
+              }}
+            />
+          ),
           showFooter: false,
-        })
-      }
+        });
+      }}
     />
   );
 }

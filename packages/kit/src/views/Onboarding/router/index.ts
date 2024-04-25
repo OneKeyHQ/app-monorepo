@@ -28,6 +28,9 @@ const VerifyRecoveryPhrase = LazyLoadPage(
 );
 
 const ConnectWallet = LazyLoadPage(() => import('../pages/ConnectWallet'));
+const ConnectWalletSelectNetworks = LazyLoadPage(
+  () => import('../pages/ConnectWalletSelectNetworks'),
+);
 const FinalizeWalletSetup = LazyLoadPage(
   () => import('../pages/FinalizeWalletSetup'),
 );
@@ -35,6 +38,9 @@ const GetStarted = LazyLoadPage(() => import('../pages/GetStarted'));
 
 const ImportAddress = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportAddress'),
+);
+const ImportCloudBackup = LazyLoadPage(
+  () => import('../pages/ImportWallet/ImportCloudBackup'),
 );
 
 const ImportPrivateKey = LazyLoadPage(
@@ -104,11 +110,19 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
     name: EOnboardingPages.ImportAddress,
     component: ImportAddress,
   },
+  {
+    name: EOnboardingPages.ImportCloudBackup,
+    component: ImportCloudBackup,
+  },
 
   // connect 3rd-party wallet
   {
     name: EOnboardingPages.ConnectWallet,
     component: ConnectWallet,
+  },
+  {
+    name: EOnboardingPages.ConnectWalletSelectNetworks,
+    component: ConnectWalletSelectNetworks,
   },
 
   // finalize wallet setup

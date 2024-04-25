@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
-import { Page } from '@onekeyhq/components';
+import { Page, rootNavigationRef } from '@onekeyhq/components';
 import type {
   IModalNavigationProp,
   IPageNavigationProp,
@@ -48,7 +48,7 @@ function useAppNavigation<
         params?: ITabStackParamList[T][keyof ITabStackParamList[T]];
       },
     ) => {
-      navigationRef.current.navigate(ERootRoutes.Main, {
+      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
         screen: route,
         params,
       });

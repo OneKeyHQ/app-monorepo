@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useRef } from 'react';
 
 import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { useSwapToAnotherAccountSwitchOnAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -25,15 +25,18 @@ import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
 
 function useExternalAccountActivate({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
-  const topic = (activeAccount.account as IDBExternalAccount | undefined)
-    ?.wcTopic;
+  const connectionInfo = (
+    activeAccount.account as IDBExternalAccount | undefined
+  )?.connectionInfo;
+
   useEffect(() => {
-    if (topic) {
-      void backgroundApiProxy.serviceWalletConnect.activateSession({
-        topic,
-      });
+    if (!connectionInfo) {
+      return;
     }
-  }, [topic]);
+    void backgroundApiProxy.serviceDappSide.activateConnector({
+      connectionInfo,
+    });
+  }, [connectionInfo]);
 }
 
 function AccountSelectorEffectsCmp({ num }: { num: number }) {
@@ -42,7 +45,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
     { num },
   );
   const [, setContextData] = useAccountSelectorContextDataAtom();
-  const [swapToAnotherAccount] = useSwapToAnotherAccountSwitchOnAtom();
+  const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
 
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
@@ -169,16 +172,16 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   useEffect(() => {
     void (async () => {
       if (
-        !swapToAnotherAccount &&
+        !swapToAnotherAccountSwitchOn &&
         sceneName === EAccountSelectorSceneName.swap &&
         num === 1
       ) {
         await actions.current.reloadSwapToAccountFromHome();
       }
     })();
-  }, [actions, num, sceneName, swapToAnotherAccount]);
+  }, [actions, num, sceneName, swapToAnotherAccountSwitchOn]);
 
-  return null;
+  return <></>;
 }
 
 export const AccountSelectorEffects = memo(AccountSelectorEffectsCmp);

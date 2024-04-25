@@ -32,7 +32,7 @@ import {
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { getSwapHistoryStatusTextProps } from '../../utils/utils';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -82,7 +82,7 @@ const SwapHistoryDetailModal = () => {
       icon: txHistory.baseInfo.fromToken.logoURI ?? '',
       isNFT: false,
       isNative: !!txHistory.baseInfo.fromToken.isNative,
-      price: txHistory.baseInfo.fromToken.price.toString(),
+      price: txHistory.baseInfo.fromToken?.price ?? '0',
     };
 
     const toAsset = {
@@ -91,7 +91,7 @@ const SwapHistoryDetailModal = () => {
       icon: txHistory.baseInfo.toToken.logoURI ?? '',
       isNFT: false,
       isNative: !!txHistory.baseInfo.toToken.isNative,
-      price: txHistory.baseInfo.toToken.price.toString(),
+      price: txHistory.baseInfo.toToken?.price ?? '0',
     };
 
     return (
@@ -163,12 +163,12 @@ const SwapHistoryDetailModal = () => {
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory.txInfo;
     const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
-    const gasFeeDisplay = gasFeeInNativeBN
-      .decimalPlaces(6, BigNumber.ROUND_DOWN)
-      .toFixed();
+    const gasFeeDisplay = gasFeeInNativeBN.toFixed();
     return (
       <SizableText size={14} color="$textSubdued">
-        {gasFeeDisplay}
+        <NumberSizeableText color="$textSubdued" formatter="balance">
+          {gasFeeDisplay}
+        </NumberSizeableText>
         {txHistory.baseInfo.fromNetwork?.symbol ?? ''}(
         <NumberSizeableText
           color="$textSubdued"
@@ -289,4 +289,17 @@ const SwapHistoryDetailModal = () => {
   );
 };
 
-export default withSwapProvider(SwapHistoryDetailModal);
+const SwapHistoryDetailModalWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapHistoryDetailModal />
+    </SwapProviderMirror>
+  );
+};
+
+export default SwapHistoryDetailModalWithProvider;

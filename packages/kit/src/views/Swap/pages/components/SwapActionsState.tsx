@@ -32,11 +32,10 @@ const SwapActionsState = ({
   onApprove,
   onWrapped,
 }: ISwapActionsStateProps) => {
-  const swapActionState = useSwapActionState();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const { cleanQuoteInterval } = useSwapActions().current;
-
+  const swapActionState = useSwapActionState();
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({

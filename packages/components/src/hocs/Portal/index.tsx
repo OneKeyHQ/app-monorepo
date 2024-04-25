@@ -26,8 +26,9 @@ function isPortalExisted(name: string): boolean {
   return portalManagers.has(name);
 }
 
-enum EConstantName {
+export enum EPortalContainerConstantName {
   WEB_TAB_BAR = 'ONEKEY_WEB_TAB_BAR',
+  APP_STATE_LOCK_CONTAINER_OVERLAY = 'APP_STATE_LOCK_CONTAINER_OVERLAY',
   FULL_WINDOW_OVERLAY_PORTAL = 'ONEKEY-Root-FullWindowOverlay',
   TOASTER_OVERLAY_PORTAL = 'ONEKEY_TOASTER_OVERLAY_PORTAL',
   ACCOUNT_SELECTOR = 'ONEKEY_ACCOUNT_SELECTOR',
@@ -43,7 +44,7 @@ export interface IPortalManager {
 }
 
 function renderToPortal(
-  container: EConstantName,
+  container: EPortalContainerConstantName,
   guest: ReactNode,
   callback?: () => void,
 ): IPortalManager {
@@ -72,7 +73,7 @@ const MAX_RETRY_TIMES = 5;
 
 function PortalRender(props: {
   children: ReactNode;
-  container?: EConstantName;
+  container?: EPortalContainerConstantName;
 }) {
   const { children, container } = props;
 
@@ -224,5 +225,5 @@ export const Portal = withStaticProperties(PortalContainer, {
   Container: PortalContainer,
   Body: MemoPortalRender,
   Render: renderToPortal,
-  Constant: EConstantName,
+  Constant: EPortalContainerConstantName,
 });

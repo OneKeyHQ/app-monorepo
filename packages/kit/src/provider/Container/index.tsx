@@ -14,6 +14,7 @@ import { WalletConnectModalContainer } from '../../components/WalletConnect/Wall
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
 import { AppStateLockContainer } from './AppStateLockContainer';
+import { CloudBackupContainer } from './CloudBackupContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
@@ -81,6 +82,7 @@ export function Container() {
         <NavigationContainer>
           <JotaiContextRootProvidersAutoMount />
           <HardwareUiStateContainer />
+          <CloudBackupContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
           <ErrorToastContainer />

@@ -28,7 +28,7 @@ export function AccountRemoveDialog({
         variant: 'destructive',
         loading,
       }}
-      onConfirm={async () => {
+      onConfirm={async ({ close }) => {
         try {
           setLoading(true);
           await actions.current.removeAccount({
@@ -37,6 +37,7 @@ export function AccountRemoveDialog({
           });
         } finally {
           setLoading(false);
+          await close();
         }
       }}
     />

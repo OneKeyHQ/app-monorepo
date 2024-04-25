@@ -28,7 +28,10 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IChainSelectorRouteParams } from '@onekeyhq/shared/src/routes';
+import type {
+  IAccountChainSelectorRouteParams,
+  IAccountSelectorRouteParamsExtraConfig,
+} from '@onekeyhq/shared/src/routes';
 import {
   EAccountManagerStacksRoutes,
   EChainSelectorPages,
@@ -117,6 +120,26 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }),
   );
 
+  updateSelectedAccountFocusedWallet = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: {
+        num: number;
+        focusedWallet: string | undefined;
+      },
+    ) => {
+      const { num, focusedWallet } = payload;
+      await this.updateSelectedAccount.call(set, {
+        num,
+        builder: (v) => ({
+          ...v,
+          focusedWallet,
+        }),
+      });
+    },
+  );
+
   updateSelectedAccountNetwork = contextAtomMethod(
     async (
       get,
@@ -154,6 +177,55 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         builder: (v) => ({
           ...v,
           deriveType: deriveType || 'default',
+        }),
+      });
+    },
+  );
+
+  updateSelectedAccountForHdOrHwAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: {
+        num: number;
+        walletId: string | undefined;
+        indexedAccountId: string | undefined;
+      },
+    ) => {
+      const { num, walletId, indexedAccountId } = payload;
+      await this.updateSelectedAccount.call(set, {
+        num,
+        builder: (v) => ({
+          ...v,
+          walletId,
+          indexedAccountId,
+          othersWalletAccountId: undefined,
+        }),
+      });
+    },
+  );
+
+  updateSelectedAccountForSingletonAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: {
+        num: number;
+        networkId: string | undefined;
+        walletId: IDBWalletIdSingleton;
+        othersWalletAccountId: string | undefined;
+      },
+    ) => {
+      const { num, walletId, networkId, othersWalletAccountId } = payload;
+      await this.updateSelectedAccount.call(set, {
+        num,
+        builder: (v) => ({
+          ...v,
+          networkId,
+          walletId,
+          othersWalletAccountId,
+          focusedWallet: walletId,
+          indexedAccountId: undefined,
         }),
       });
     },
@@ -220,6 +292,32 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  clearSelectedAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: {
+        num: number;
+        clearAccount: boolean;
+      },
+    ) => {
+      const { num, clearAccount } = payload;
+      await this.updateSelectedAccount.call(set, {
+        num,
+        builder: (v) => {
+          const newValue = {
+            ...v,
+          };
+          if (clearAccount) {
+            newValue.indexedAccountId = undefined;
+            newValue.othersWalletAccountId = undefined;
+          }
+          return newValue;
+        },
+      });
+    },
+  );
+
   confirmAccountSelect = contextAtomMethod(
     async (
       get,
@@ -228,9 +326,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccount: IDBIndexedAccount | undefined;
         othersWalletAccount: IDBAccount | undefined;
         num: number;
+        autoChangeToAccountMatchedNetworkId?: string;
       },
     ) => {
-      const { num, othersWalletAccount, indexedAccount } = params;
+      const {
+        num,
+        othersWalletAccount,
+        indexedAccount,
+        autoChangeToAccountMatchedNetworkId,
+      } = params;
       if (othersWalletAccount && indexedAccount) {
         throw new Error(
           'confirmSelectAccount ERROR: othersWalletAccount and indexedAccount can not be both defined',
@@ -251,6 +355,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const accountNetworkId = this.getAutoSelectNetworkIdForAccount.call(set, {
         num,
         account: othersWalletAccount,
+        autoChangeToAccountMatchedNetworkId,
       });
 
       await this.updateSelectedAccount.call(set, {
@@ -263,6 +368,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           indexedAccountId: indexedAccount?.id,
         }),
       });
+
+      appEventBus.emit(EAppEventBusNames.ConfirmAccountSelected, undefined);
     },
   );
 
@@ -275,25 +382,24 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num,
         sceneName,
         sceneUrl,
-        linkNetwork, // show account address of current network
+        ...others
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
-        linkNetwork?: boolean;
-      } & IAccountSelectorRouteParams,
+      } & IAccountSelectorRouteParams &
+        IAccountSelectorRouteParamsExtraConfig,
     ) => {
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
       if (activeAccountInfo?.wallet?.id) {
-        let focusedWalletNew: IAccountSelectorFocusedWallet =
+        // focus to active wallet when open selector
+        const focusedWalletNew: IAccountSelectorFocusedWallet =
           activeAccountInfo?.wallet?.id;
         if (accountUtils.isOthersWallet({ walletId: focusedWalletNew })) {
-          focusedWalletNew = '$$others';
+          // focus to grouped Others Tab
+          // focusedWalletNew = '$$others';
         }
-        await this.updateSelectedAccount.call(set, {
+        await this.updateSelectedAccountFocusedWallet.call(set, {
           num,
-          builder: (v) => ({
-            ...v,
-            focusedWallet: focusedWalletNew,
-          }),
+          focusedWallet: focusedWalletNew,
         });
       }
       set(accountSelectorEditModeAtom(), false);
@@ -303,7 +409,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           num,
           sceneName,
           sceneUrl,
-          linkNetwork,
+          ...others,
         },
       });
     },
@@ -318,32 +424,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ...routeParams
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
-      } & IChainSelectorRouteParams,
+      } & IAccountChainSelectorRouteParams,
     ) => {
       navigation.pushModal(EModalRoutes.ChainSelectorModal, {
-        screen: EChainSelectorPages.ChainSelector,
+        screen: EChainSelectorPages.AccountChainSelector,
         params: routeParams,
-      });
-    },
-  );
-
-  autoSelectToCreatedWallet = contextAtomMethod(
-    async (
-      _,
-      set,
-      {
-        wallet,
-        indexedAccount,
-      }: { wallet: IDBWallet; indexedAccount: IDBIndexedAccount },
-    ) => {
-      await this.updateSelectedAccount.call(set, {
-        num: 0,
-        builder: (v) => ({
-          ...v,
-          indexedAccountId: indexedAccount.id,
-          walletId: wallet.id,
-          focusedWallet: wallet.id,
-        }),
       });
     },
   );
@@ -481,7 +566,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         createWalletFn: async () => {
           let { wallet, device, indexedAccount } =
             await this.createHWWallet.call(set, params);
-          // add hidden wallet if device passphrase enabled
+          // add hidden wallet if device passphrase enabled (SearchedDevice.features is cached in web sdk)
           if (device && device.featuresInfo?.passphrase_protection) {
             // wait previous action done, wait device ready
             if (!params.hideCheckingDeviceLoading) {
@@ -550,7 +635,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       await serviceAccount.removeWallet({ walletId });
       set(accountSelectorEditModeAtom(), false);
 
-      await this.autoSelectAccount.call(set, { num });
+      await this.autoSelectAccount.call(set, {
+        num,
+        triggerBy: 'removeWallet',
+      });
     },
   );
 
@@ -913,15 +1001,21 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       {
         num,
         account,
+        autoChangeToAccountMatchedNetworkId,
       }: {
         num: number;
         account: IDBAccount | undefined;
+        autoChangeToAccountMatchedNetworkId?: string;
       },
     ) => {
       if (!account) {
         return '';
       }
-      const { networkId } = this.getSelectedAccount.call(set, { num });
+      const { networkId: currentNetworkId } = this.getSelectedAccount.call(
+        set,
+        { num },
+      );
+      const networkId = autoChangeToAccountMatchedNetworkId || currentNetworkId;
       if (!networkId) {
         return '';
       }
@@ -929,7 +1023,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         account,
         networkId,
       });
-      if (accountNetworkId && accountNetworkId !== networkId) {
+      if (accountNetworkId && accountNetworkId !== currentNetworkId) {
         return accountNetworkId;
       }
       return '';
@@ -962,14 +1056,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         account,
       });
       if (accountNetworkId) {
-        await this.updateSelectedAccount.call(set, {
+        await this.updateSelectedAccountNetwork.call(set, {
           num,
-          builder: (v) => ({
-            ...v,
-            networkId: accountNetworkId,
-          }),
+          networkId: accountNetworkId,
         });
       }
+    },
+  );
+
+  buildSelectedAccountNew = contextAtomMethod(
+    async (get, set, { num }: { num: number }) => {
+      const selectedAccount = this.getSelectedAccount.call(set, { num });
+      return cloneDeep(selectedAccount || defaultSelectedAccount());
     },
   );
 
@@ -1011,7 +1109,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 networkId: accountNetworkId || v.networkId,
                 indexedAccountId: undefined,
                 walletId: wallet.id,
-                focusedWallet: '$$others',
+                focusedWallet: wallet.id,
               }),
             });
           }
@@ -1020,13 +1118,39 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  autoSelectToCreatedWallet = contextAtomMethod(
+    async (
+      _,
+      set,
+      {
+        wallet,
+        indexedAccount,
+      }: { wallet: IDBWallet; indexedAccount: IDBIndexedAccount },
+    ) => {
+      await this.updateSelectedAccount.call(set, {
+        num: 0,
+        builder: (v) => ({
+          ...v,
+          indexedAccountId: indexedAccount.id,
+          walletId: wallet.id,
+          focusedWallet: wallet.id,
+        }),
+      });
+    },
+  );
+
   autoSelectAccount = contextAtomMethod(
-    async (get, set, { num }: { num: number }) => {
+    async (
+      get,
+      set,
+      { num, triggerBy }: { num: number; triggerBy?: 'removeWallet' },
+    ) => {
       // wait activeAccount build done
       await timerUtils.wait(300);
       const storageReady = get(accountSelectorStorageReadyAtom());
       const selectedAccount = this.getSelectedAccount.call(set, { num });
       const activeAccount = this.getActiveAccount.call(set, { num });
+
       // TODO auto select account from home scene
       if (activeAccount && activeAccount?.ready && storageReady) {
         const { network, wallet, indexedAccount, account, dbAccount } =
@@ -1037,8 +1161,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           !wallet ||
           (!indexedAccount && !account && !dbAccount)
         ) {
-          const selectedAccountNew = cloneDeep(
-            selectedAccount || defaultSelectedAccount(),
+          const selectedAccountNew = await this.buildSelectedAccountNew.call(
+            set,
+            {
+              num,
+            },
           );
           let selectedWalletId = wallet?.id;
           let selectedWallet = wallet;
@@ -1100,7 +1227,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             Boolean(selectedWalletId) && !isHdWallet && !isHwWallet;
 
           if (isOthers) {
-            selectedAccountNew.focusedWallet = '$$others';
+            selectedAccountNew.focusedWallet = selectedWalletId;
             selectedAccountNew.walletId = selectedWalletId;
             selectedAccountNew.indexedAccountId = undefined;
           }
@@ -1125,7 +1252,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                     account: firstAccount,
                     networkId: network?.id || '',
                   });
-                selectedAccountNew.focusedWallet = '$$others';
+                selectedAccountNew.focusedWallet = singletonWalletId;
                 selectedAccountNew.networkId = accountNetworkId || network?.id;
                 selectedAccountNew.deriveType = 'default';
                 selectedAccountNew.walletId = singletonWalletId;
@@ -1170,6 +1297,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (selectedAccount.walletId !== selectedAccountNew.walletId) {
             set(accountSelectorEditModeAtom(), false);
           }
+        } else if (triggerBy === 'removeWallet') {
+          const selectedAccountNew = await this.buildSelectedAccountNew.call(
+            set,
+            {
+              num,
+            },
+          );
+          // autofix focusedWallet when remove wallet
+          selectedAccountNew.focusedWallet = selectedAccountNew.walletId;
+          await this.updateSelectedAccount.call(set, {
+            num,
+            builder: () => selectedAccountNew,
+          });
         }
       }
     },
@@ -1185,11 +1325,19 @@ export function useAccountSelectorActions() {
   const getActiveAccount = actions.getActiveAccount.use();
   const initFromStorage = actions.initFromStorage.use();
   const saveToStorage = actions.saveToStorage.use();
-  const updateSelectedAccount = actions.updateSelectedAccount.use();
+
+  const clearSelectedAccount = actions.clearSelectedAccount.use();
+  const updateSelectedAccountFocusedWallet =
+    actions.updateSelectedAccountFocusedWallet.use();
   const updateSelectedAccountNetwork =
     actions.updateSelectedAccountNetwork.use();
   const updateSelectedAccountDeriveType =
     actions.updateSelectedAccountDeriveType.use();
+  const updateSelectedAccountForHdOrHwAccount =
+    actions.updateSelectedAccountForHdOrHwAccount.use();
+  const updateSelectedAccountForSingletonAccount =
+    actions.updateSelectedAccountForSingletonAccount.use();
+
   const refresh = actions.refresh.use();
   const showAccountSelector = actions.showAccountSelector.use();
   const showChainSelector = actions.showChainSelector.use();
@@ -1217,9 +1365,12 @@ export function useAccountSelectorActions() {
     refresh,
     initFromStorage,
     saveToStorage,
-    updateSelectedAccount,
+    clearSelectedAccount,
     updateSelectedAccountNetwork,
     updateSelectedAccountDeriveType,
+    updateSelectedAccountFocusedWallet,
+    updateSelectedAccountForHdOrHwAccount,
+    updateSelectedAccountForSingletonAccount,
     showAccountSelector,
     showChainSelector,
     removeWallet,

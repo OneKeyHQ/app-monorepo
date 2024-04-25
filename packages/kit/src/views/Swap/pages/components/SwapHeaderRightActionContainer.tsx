@@ -7,7 +7,7 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSwapTxHistoryStatusChangeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
@@ -16,20 +16,25 @@ import {
   useSwapTxHistoryListSyncFromSimpleDb,
   useSwapTxHistoryStateSyncInterval,
 } from '../../hooks/useSwapTxHistory';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
-const SwapHeaderRightActionContainer = () => {
+const SwapHeaderRightActionContainer = ({
+  storeName,
+}: {
+  storeName: EJotaiContextStoreNames;
+}) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   useSwapTxHistoryListSyncFromSimpleDb();
   const { swapTxHistoryPending } = useSwapTxHistoryStateSyncInterval();
-  const [, setSwapTxHistoryStatusChange] = useSwapTxHistoryStatusChangeAtom();
   const onOpenHistoryListModal = useCallback(() => {
-    setSwapTxHistoryStatusChange([]);
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
+      params: {
+        storeName,
+      },
     });
-  }, [navigation, setSwapTxHistoryStatusChange]);
+  }, [navigation, storeName]);
   return (
     <HeaderButtonGroup>
       {swapTxHistoryPending.length > 0 ? (
@@ -56,4 +61,14 @@ const SwapHeaderRightActionContainer = () => {
   );
 };
 
-export default withSwapProvider(SwapHeaderRightActionContainer);
+const SwapHeaderRightActionContainerWithProvider = ({
+  storeName,
+}: {
+  storeName: EJotaiContextStoreNames;
+}) => (
+  <SwapProviderMirror storeName={storeName}>
+    <SwapHeaderRightActionContainer storeName={storeName} />
+  </SwapProviderMirror>
+);
+
+export default SwapHeaderRightActionContainerWithProvider;

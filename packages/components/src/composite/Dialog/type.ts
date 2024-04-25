@@ -1,6 +1,12 @@
-import type { MutableRefObject, PropsWithChildren, ReactNode } from 'react';
+import type {
+  MutableRefObject,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 
-import type { IButtonProps, IKeyOfIcons } from '../../primitives';
+import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
+import type { IButtonProps, IKeyOfIcons, IStackProps } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
   DialogContentProps as TMDialogContentProps,
@@ -27,6 +33,7 @@ type IDialogButtonProps = Omit<IButtonProps, 'children'> & {
 export interface IDialogFooterProps extends PropsWithChildren {
   tone?: 'default' | 'destructive' | 'warning' | 'success';
   showFooter?: boolean;
+  footerProps?: Omit<IStackProps, 'children'>;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;
   onConfirmText?: string;
@@ -73,6 +80,7 @@ export type IDialogContainerProps = PropsWithChildren<
 
 export interface IDialogShowProps
   extends Omit<IDialogContainerProps, 'name' | 'onClose'> {
+  portalContainer?: EPortalContainerConstantName;
   /* Run it after dialog is closed  */
   onClose?: (extra?: { flag?: string }) => void | Promise<void>;
 }
@@ -102,3 +110,8 @@ export interface IDialogInstance {
 export type IDialogFormProps = PropsWithChildren<{
   formProps: UseFormProps;
 }>;
+
+export type IRenderToContainer = (
+  container: EPortalContainerConstantName,
+  element: ReactElement,
+) => IPortalManager;

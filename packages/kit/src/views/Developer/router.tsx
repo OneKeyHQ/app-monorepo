@@ -8,6 +8,7 @@ const TabDeveloper = LazyLoadPage(() => import('./pages/TabDeveloper'));
 const DevHome = LazyLoadPage(() => import('./pages/DevHome'));
 const DevHomeStack1 = LazyLoadPage(() => import('./pages/DevHomeStack1'));
 const DevHomeStack2 = LazyLoadPage(() => import('./pages/DevHomeStack2'));
+const SignatureRecord = LazyLoadPage(() => import('./pages/SignatureRecord'));
 
 export const developerRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
@@ -32,5 +33,9 @@ export const developerRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabDeveloperRoutes.DevHomeStack2,
     component: DevHomeStack2,
     translationId: 'wallet__wallet',
+  },
+  {
+    name: ETabDeveloperRoutes.SignatureRecord,
+    component: SignatureRecord,
   },
 ];

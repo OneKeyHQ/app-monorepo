@@ -1,9 +1,6 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -13,25 +10,24 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAssetSelectorRoutes,
+  EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
+  EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  IModalSendParamList,
+  IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { EModalReceiveRoutes } from '../../../Receive/router/type';
-
 import { RawActions } from './RawActions';
-
-function WalletActionBuy() {
-  return <RawActions.Buy onPress={() => {}} />;
-}
+import { WalletActionBuy } from './WalletActionBuy';
+import { WalletActionMore } from './WalletActionMore';
 
 function WalletActionSend() {
   const navigation =
@@ -114,86 +110,65 @@ function WalletActionSend() {
 }
 
 function WalletActionReceive() {
+  const {
+    activeAccount: { account, network, wallet, deriveInfo, deriveType },
+  } = useActiveAccount({ num: 0 });
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
 
   const handleOnReceive = useCallback(() => {
+    if (!account || !network || !wallet || !deriveInfo) return;
+    if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
+      navigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.CreateInvoice,
+        params: {
+          networkId: network.id,
+          accountId: account.id,
+        },
+      });
+      return;
+    }
     navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.LightningCreateInvoice,
+      screen: EModalReceiveRoutes.ReceiveToken,
       params: {
-        accountId: account?.id ?? '',
-        networkId: network?.id ?? '',
+        networkId: network.id,
+        accountId: account.id,
+        walletId: wallet.id,
+        deriveInfo,
+        deriveType,
       },
     });
-  }, [navigation, network, account]);
+  }, [account, deriveInfo, deriveType, navigation, network, wallet]);
 
-  return (
-    <RawActions.Receive
-      onPress={platformEnv.isDev ? handleOnReceive : () => {}}
-    />
-  );
+  return <RawActions.Receive onPress={handleOnReceive} />;
 }
 
-function WalletActionSwap() {
-  const handleOnSwap = useCallback(() => {}, []);
+function WalletActionSwap({ networkId }: { networkId?: string }) {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const handleOnSwap = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: { importNetworkId: networkId },
+    });
+  }, [navigation, networkId]);
   return <RawActions.Swap onPress={handleOnSwap} />;
 }
 
-function ActionMore() {
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
-  const intl = useIntl();
-  const { copyText } = useClipboard();
-
-  return (
-    <RawActions.More
-      sections={[
-        {
-          items: [
-            {
-              label: intl.formatMessage({ id: 'action__sell_crypto' }),
-              icon: 'MinusLargeOutline',
-              onPress: () => {},
-            },
-          ],
-        },
-        {
-          items: [
-            {
-              label: intl.formatMessage({ id: 'action__view_in_explorer' }),
-              icon: 'GlobusOutline',
-              onPress: () =>
-                openUrl(
-                  buildExplorerAddressUrl({
-                    network,
-                    address: account?.address,
-                  }),
-                ),
-            },
-            {
-              label: intl.formatMessage({ id: 'action__copy_address' }),
-              icon: 'Copy1Outline',
-              onPress: () => copyText(account?.address || ''),
-            },
-          ],
-        },
-      ]}
-    />
-  );
-}
-
 function WalletActions() {
+  const {
+    activeAccount: { network, account },
+  } = useActiveAccount({ num: 0 });
   return (
     <RawActions>
       <WalletActionSend />
       <WalletActionReceive />
-      <WalletActionBuy />
-      <WalletActionSwap />
-      <ActionMore />
+      <WalletActionBuy
+        networkId={network?.id ?? ''}
+        accountId={account?.id ?? ''}
+      />
+      <WalletActionSwap networkId={network?.id} />
+      <WalletActionMore />
     </RawActions>
   );
 }

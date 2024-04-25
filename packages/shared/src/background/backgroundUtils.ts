@@ -105,6 +105,7 @@ export function warningIfNotRunInBackground({
       throw new NotAutoPrintError();
     } catch (error) {
       const err = error as Error;
+      err.$$autoPrintErrorIgnore = true;
       if (
         err.stack &&
         !err.stack.includes('backgroundApiInit') &&

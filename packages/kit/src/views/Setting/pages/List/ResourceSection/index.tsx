@@ -2,13 +2,48 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Badge } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { UrlExternalListItem } from '../../../components/UrlExternalListItem';
 import { Section } from '../Section';
 
 import { StateLogsItem } from './StateLogsItem';
+
+function ListVersionItem() {
+  const appUpdateInfo = useAppUpdateInfo();
+  return appUpdateInfo.isNeedUpdate ? (
+    <ListItem
+      onPress={appUpdateInfo.toUpdatePreviewPage}
+      icon="InfoCircleOutline"
+      iconProps={{ color: '$textInfo' }}
+      title="App Update Available"
+      titleProps={{ color: '$textInfo' }}
+      drillIn
+    >
+      <ListItem.Text
+        primary={
+          <Badge badgeType="info" badgeSize="lg">
+            {appUpdateInfo.data.latestVersion}
+          </Badge>
+        }
+        align="right"
+      />
+    </ListItem>
+  ) : (
+    <ListItem
+      onPress={appUpdateInfo.onViewReleaseInfo}
+      icon="InfoCircleOutline"
+      title="What’s New"
+      drillIn
+    >
+      <ListItem.Text primary={platformEnv.version} align="right" />
+    </ListItem>
+  );
+}
 
 export const ResourceSection = () => {
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
@@ -16,16 +51,10 @@ export const ResourceSection = () => {
   const requestUrl = useHelpLink({ path: 'requests/new' });
   const onPress = useCallback(() => {}, []);
   const intl = useIntl();
+
   return (
     <Section title="Resources">
-      <ListItem
-        onPress={onPress}
-        icon="SpeakerPromoteOutline"
-        title="What’s New"
-        drillIn
-      >
-        <ListItem.Text>4.17</ListItem.Text>
-      </ListItem>
+      <ListVersionItem />
       <ListItem
         onPress={onPress}
         icon="HelpSupportOutline"

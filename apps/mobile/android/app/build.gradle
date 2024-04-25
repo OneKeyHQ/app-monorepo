@@ -122,12 +122,18 @@ android {
     }
     flavorDimensions "dimension"
     productFlavors {
+    	huawei {
+    		dimension "dimension"
+    	}
     	google {
     		dimension "dimension"
     	}
     	prod {
     		dimension "dimension"
     	}
+    }
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
     }
 }
 

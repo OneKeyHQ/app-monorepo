@@ -1,7 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import {
   SendConfirmWithProvider,
-  SendCustomFee,
   SendDataInputWithProvider,
 } from '@onekeyhq/kit/src/views/Send';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
@@ -24,9 +23,5 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendConfirmFromDApp,
     component: SendConfirmFromDApp,
-  },
-  {
-    name: EModalSendRoutes.SendCustomFee,
-    component: SendCustomFee,
   },
 ];

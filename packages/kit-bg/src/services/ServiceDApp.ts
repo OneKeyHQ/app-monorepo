@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -196,13 +197,17 @@ class ServiceDApp extends ServiceBase {
   );
 
   @backgroundMethod()
-  async openConnectionModal(request: IJsBridgeMessagePayload) {
+  async openConnectionModal(
+    request: IJsBridgeMessagePayload,
+    params?: Record<string, any>,
+  ) {
     const result = await this.openModal({
       request,
       screens: [
         EModalRoutes.DAppConnectionModal,
         EDAppConnectionModal.ConnectionModal,
       ],
+      params,
       fullScreen: true,
     });
 
@@ -324,6 +329,13 @@ class ServiceDApp extends ServiceBase {
       walletConnectTopic,
     });
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
+    await this.backgroundApi.serviceSignature.addConnectedSite({
+      url: origin,
+      items: accountsInfo.map((i) => ({
+        networkId: i.networkId ?? '',
+        address: i.address,
+      })),
+    });
   }
 
   @backgroundMethod()
@@ -410,6 +422,7 @@ class ServiceDApp extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
   }
 
+  @backgroundMethod()
   async getConnectedAccountsInfo({
     origin,
     scope,
@@ -740,7 +753,7 @@ class ServiceDApp extends ServiceBase {
       body: [request.id ? request : { ...request, id: 0 }],
     });
 
-    return results.data.data.data.result;
+    return parseRPCResponse(results.data.data.data);
   }
 }
 

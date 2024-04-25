@@ -9,6 +9,7 @@ import {
   Spinner,
   Stack,
 } from '@onekeyhq/components';
+import { maybeShowBackupToggleDialog } from '@onekeyhq/kit/src/views/CloudBackup/components/BackupToggleDialog';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -22,9 +23,11 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 
 function FinalizeWalletSetupPage({
   route,
@@ -53,8 +56,12 @@ function FinalizeWalletSetupPage({
     void (async () => {
       try {
         if (mnemonic && !created.current) {
-          await actions.current.createHDWallet({
-            mnemonic,
+          await withPromptPasswordVerify({
+            run: async () => {
+              await actions.current.createHDWallet({
+                mnemonic,
+              });
+            },
           });
           created.current = true;
         } else {
@@ -81,13 +88,25 @@ function FinalizeWalletSetupPage({
     };
   }, []);
 
+  const isFirstCreateWallet = useRef(false);
+  const readIsFirstCreateWallet = async () => {
+    const { isOnboardingDone } =
+      await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
+    isFirstCreateWallet.current = !isOnboardingDone;
+  };
   useEffect(() => {
+    if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
+      void readIsFirstCreateWallet();
+    }
     if (!showStep) {
       return;
     }
     if (currentStep === EFinalizeWalletSetupSteps.Ready) {
       setTimeout(() => {
         navigation.navigate(ERootRoutes.Main);
+        if (isFirstCreateWallet.current) {
+          void maybeShowBackupToggleDialog(true);
+        }
       }, 1000);
     }
   }, [currentStep, navigation, showStep]);
@@ -129,16 +148,15 @@ function FinalizeWalletSetupPage({
           </AnimatePresence>
         </Stack>
         <AnimatePresence exitBeforeEnter>
-          <Stack key={currentStep}>
-            <Heading
-              mt="$5"
-              size="$headingMd"
-              animation="quick"
-              enterStyle={{
-                opacity: 0,
-                x: 12,
-              }}
-            >
+          <Stack
+            key={currentStep}
+            animation="quick"
+            enterStyle={{
+              opacity: 0,
+              x: 12,
+            }}
+          >
+            <Heading mt="$5" size="$headingMd">
               {steps[currentStep]}
             </Heading>
           </Stack>

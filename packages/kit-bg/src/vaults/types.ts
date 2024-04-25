@@ -9,6 +9,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IFeeInfoUnit,
@@ -115,6 +116,7 @@ export type IVaultSettings = {
   nonceRequired: boolean;
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
+  replaceTxEnabled: boolean;
 
   minTransferAmount?: string;
   utxoDustAmount?: string;
@@ -164,6 +166,7 @@ export type IPrepareWatchingAccountsParams = {
   name: string;
   template?: string; // TODO use deriveInfo, for BTC taproot address importing
   deriveInfo?: IAccountDeriveInfo;
+  isUrlAccount?: boolean;
 };
 export type IPrepareImportedAccountsParams = {
   password: string;
@@ -335,6 +338,7 @@ export interface IBatchSignTransactionParamsBase {
   feeInfo?: ISendSelectedFeeInfo;
   nativeAmountInfo?: INativeAmountInfo;
   signOnly?: boolean;
+  sourceInfo?: IDappSourceInfo;
 }
 
 export interface ISignMessageParams {

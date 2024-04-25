@@ -24,10 +24,8 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
-import localDb from '../../../dbs/local/localDbInstance';
 import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringExternal } from './KeyringExternal';
@@ -36,7 +34,6 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import ClientLightning from './sdkLightning/ClientLightning';
-import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -216,8 +213,8 @@ export default class Vault extends VaultBase {
       timestamp,
       randomSeed: signTemplate.randomSeed,
     });
-    await localDb.updateLightningCredential({
-      credentialId: accountUtils.buildLightingCredentialId({ address }),
+    await this.backgroundApi.simpleDb.lightning.updateCredential({
+      address,
       credential: res.accessToken,
     });
     return res;

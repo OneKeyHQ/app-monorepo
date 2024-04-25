@@ -60,6 +60,7 @@ class ServiceAddressBook extends ServiceBase {
       ...prev,
       updateTimestamp: Date.now(),
     }));
+    void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
   }
 
   private async getItems(): Promise<IAddressItem[]> {
@@ -169,7 +170,7 @@ class ServiceAddressBook extends ServiceBase {
   private async validateItem(item: IAddressItem) {
     const { serviceAccountProfile } = this.backgroundApi;
     if (item.name.length > 24) {
-      return new Error('Name is too long');
+      throw new Error('Name is too long');
     }
     let result = await this.findItem({ address: item.address });
     if (result && (!item.id || result.id !== item.id)) {
@@ -179,11 +180,11 @@ class ServiceAddressBook extends ServiceBase {
     if (result && (!item.id || result.id !== item.id)) {
       throw new Error('Name already exist');
     }
-    const isValid = await serviceAccountProfile.validateAddress({
+    const validStatus = await serviceAccountProfile.validateAddress({
       networkId: item.networkId,
       address: item.address,
     });
-    if (!isValid) {
+    if (validStatus !== 'valid') {
       throw new Error('Invalid address');
     }
   }

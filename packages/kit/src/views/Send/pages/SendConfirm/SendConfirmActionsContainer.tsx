@@ -79,8 +79,8 @@ function SendConfirmActionsContainer(props: IProps) {
               }
             : undefined,
           signOnly,
+          sourceInfo,
         });
-
       onSuccess?.(result);
       setIsSubmitting(false);
       Toast.success({
@@ -102,9 +102,10 @@ function SendConfirmActionsContainer(props: IProps) {
       navigation.popStack();
     } catch (e: any) {
       setIsSubmitting(false);
-      Toast.error({
-        title: (e as Error).message,
-      });
+      // show toast by @toastIfError() in background method
+      // Toast.error({
+      //   title: (e as Error).message,
+      // });
       onFail?.(e as Error);
       void dappApprove.reject(e);
       throw e;
@@ -122,6 +123,7 @@ function SendConfirmActionsContainer(props: IProps) {
     sendSelectedFeeInfo,
     signOnly,
     unsignedTxs,
+    sourceInfo,
     vaultSettings?.signOnlyFullTxRequired,
   ]);
 

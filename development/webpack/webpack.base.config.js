@@ -295,6 +295,9 @@ module.exports = ({ platform, basePath, configName }) => ({
         test: /\.worker\.(js|ts)$/,
         use: {
           loader: 'worker-loader',
+          options: {
+            inline: 'fallback',
+          },
         },
       },
     ],

@@ -450,6 +450,7 @@ const mergedTokens = createTokens({
     4: 16,
     5: 20,
     6: 24,
+    7: 28,
     8: 32,
     9: 36,
     10: 40,
@@ -459,6 +460,8 @@ const mergedTokens = createTokens({
     24: 96,
     28: 112,
     32: 128,
+    46: 184,
+    54: 216,
     '-px': -1,
     '-0.5': -2,
     '-1': -4,
@@ -574,7 +577,7 @@ declare module 'tamagui' {
   // override groupNames
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface TypeOverride {
-    groupNames(): 'nftItem';
+    groupNames(): 'nftItem' | 'card';
   }
 }
 

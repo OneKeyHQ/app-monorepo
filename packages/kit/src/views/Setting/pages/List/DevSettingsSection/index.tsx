@@ -2,9 +2,10 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Switch, YStack, useClipboard } from '@onekeyhq/components';
+import { Dialog, ESwitchSize, Switch, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Section } from '../Section';
 
@@ -12,12 +13,10 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
 
-const { GITHUB_SHA } = process.env;
 export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
 
-  const { copyText } = useClipboard();
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
       title: 'Disable the dev mode',
@@ -40,32 +39,33 @@ export const DevSettingsSection = () => {
         title="Disable the dev mode"
         onPress={handleDevModeOnChange}
       />
-      {GITHUB_SHA ? (
+      {platformEnv.githubSHA ? (
         <SectionPressItem
-          title={`BuildHash: ${GITHUB_SHA}`}
-          onPress={() => {
-            copyText(GITHUB_SHA);
-          }}
+          copyable
+          title={`BuildHash: ${platformEnv.githubSHA}`}
         />
       ) : null}
       <SectionFieldItem
         name="enableTestEndpoint"
         title={intl.formatMessage({ id: 'action__test_onekey_service' })}
+        onValueChange={
+          platformEnv.isDesktop
+            ? (enabled: boolean) => {
+                window.desktopApi?.setAutoUpdateSettings?.({
+                  useTestFeedUrl: enabled,
+                });
+              }
+            : undefined
+        }
       >
-        <Switch size="small" />
+        <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem
         name="showDevOverlayWindow"
         title="show dev overlay window"
         testID="show-dev-overlay"
       >
-        <Switch size="small" />
-      </SectionFieldItem>
-      <SectionFieldItem
-        name="enableCopyPasteInOnboardingPage"
-        title="Show Copy/Paste In Onboarding Page"
-      >
-        <Switch size="small" />
+        <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionPressItem
         title="Clear App Data"
@@ -121,6 +121,38 @@ export const DevSettingsSection = () => {
           });
         }}
       />
+      <SectionPressItem
+        title="Reset App Update Status"
+        onPress={() => {
+          void backgroundApiProxy.serviceAppUpdate.reset();
+        }}
+      />
+      <SectionPressItem
+        title="Reset App Update Status to Failed"
+        onPress={() => {
+          void backgroundApiProxy.serviceAppUpdate.notifyFailed();
+        }}
+      />
+      {platformEnv.isNativeAndroid ? (
+        <SectionPressItem
+          copyable
+          title={`Android Channel: ${process.env.ANDROID_CHANNEL || ''}`}
+        />
+      ) : null}
+      {platformEnv.isDesktop ? (
+        <>
+          <SectionPressItem
+            copyable
+            title={`Desktop Channel:${process.env.DESK_CHANNEL || ''} ${
+              window?.desktopApi?.channel || ''
+            } ${window?.desktopApi?.isMas ? 'mas' : ''}`}
+          />
+          <SectionPressItem
+            copyable
+            title={`Desktop arch: ${window?.desktopApi?.arch || ''}`}
+          />
+        </>
+      ) : null}
     </Section>
   );
 };

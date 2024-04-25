@@ -4,9 +4,13 @@ import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserB
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
+import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
 
@@ -25,6 +29,8 @@ export class SimpleDb {
 
   swapHistory = new SimpleDbEntitySwapHistory();
 
+  swapConfigs = new SimpleDbEntitySwapConfigs();
+
   localTokens = new SimpleDbEntityLocalTokens();
 
   addressBook = new SimpleDbEntityAddressBook();
@@ -32,4 +38,10 @@ export class SimpleDb {
   localHistory = new SimpleDbEntityLocalHistory();
 
   riskyTokens = new SimpleDbEntityRiskyTokens();
+
+  defaultWalletSettings = new SimpleDbEntityDefaultWalletSettings();
+
+  networkSelector = new SimpleDbEntityNetworkSelector();
+
+  lightning = new SimpleDbEntityLightning();
 }

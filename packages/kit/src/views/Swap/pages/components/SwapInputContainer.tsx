@@ -4,6 +4,11 @@ import BigNumber from 'bignumber.js';
 
 import { SizableText, YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import {
+  useRateDifferenceAtom,
+  useSwapAlertsAtom,
+  useSwapSelectTokenDetailFetchingAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -11,7 +16,6 @@ import {
   ESwapRateDifferenceUnit,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapActionState } from '../../hooks/useSwapState';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
@@ -27,6 +31,7 @@ interface ISwapInputContainerProps {
   inputLoading?: boolean;
   selectTokenLoading?: boolean;
   onBalanceMaxPress?: () => void;
+  onToAnotherAddressModal?: () => void;
 }
 
 const SwapInputContainer = ({
@@ -38,14 +43,17 @@ const SwapInputContainer = ({
   inputLoading,
   onSelectToken,
   onBalanceMaxPress,
+  onToAnotherAddressModal,
   balance,
 }: ISwapInputContainerProps) => {
-  const { isLoading } = useSwapSelectedTokenInfo({
+  useSwapSelectedTokenInfo({
     token,
     type: direction,
   });
+  const [tokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const swapActionState = useSwapActionState();
+  const [alerts] = useSwapAlertsAtom();
+  const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
     if (!token?.price) return '0.0';
     const tokenPriceBN = new BigNumber(token.price ?? 0);
@@ -59,36 +67,35 @@ const SwapInputContainer = ({
 
   const fromInputHasError = useMemo(
     () =>
-      swapActionState.alerts?.some((item) => item.inputShowError) &&
+      alerts?.some((item) => item.inputShowError) &&
       direction === ESwapDirectionType.FROM,
-    [direction, swapActionState.alerts],
+    [direction, alerts],
   );
 
   const valueMoreComponent = useMemo(() => {
-    if (swapActionState.rateDifference && direction === ESwapDirectionType.TO) {
+    if (rateDifference && direction === ESwapDirectionType.TO) {
       let color = '$textSubdued';
-      if (
-        swapActionState.rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE
-      ) {
+      if (rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE) {
         color = '$textCritical';
       }
-      if (
-        swapActionState.rateDifference.unit === ESwapRateDifferenceUnit.POSITIVE
-      ) {
+      if (rateDifference.unit === ESwapRateDifferenceUnit.POSITIVE) {
         color = '$textSuccess';
       }
       return (
         <SizableText size="$bodyMd" color={color}>
-          {swapActionState.rateDifference.value}
+          {rateDifference.value}
         </SizableText>
       );
     }
     return null;
-  }, [direction, swapActionState.rateDifference]);
+  }, [direction, rateDifference]);
 
   return (
     <YStack>
-      <SwapAccountAddressContainer type={direction} />
+      <SwapAccountAddressContainer
+        type={direction}
+        onToAnotherAddressModal={onToAnotherAddressModal}
+      />
       <AmountInput
         onChange={onAmountChange}
         value={amountValue}
@@ -96,7 +103,7 @@ const SwapInputContainer = ({
         balanceProps={{
           value: balance,
           onPress: onBalanceMaxPress,
-          loading: token && isLoading,
+          loading: token && tokenDetailLoading[direction],
         }}
         valueProps={{
           value: amountPrice,

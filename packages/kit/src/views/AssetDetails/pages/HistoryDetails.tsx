@@ -305,7 +305,8 @@ function HistoryDetails() {
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {historyTx.decodedTx.status === EDecodedTxStatus.Pending ? (
+        {vaultSettings?.replaceTxEnabled &&
+        historyTx.decodedTx.status === EDecodedTxStatus.Pending ? (
           <XStack ml="$5">
             <Button size="small" variant="primary">
               Speed Up
@@ -317,7 +318,7 @@ function HistoryDetails() {
         ) : null}
       </XStack>
     );
-  }, [historyTx.decodedTx.status, intl]);
+  }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
 
   const renderTxId = useCallback(
     (txid: string) => (

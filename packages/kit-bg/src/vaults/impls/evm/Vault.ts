@@ -782,7 +782,7 @@ export default class Vault extends VaultBase {
         name: token.name,
         symbol: token.symbol,
         tokenIdOnNetwork: token.address,
-        isMax: amount === InfiniteAmountText,
+        isInfiniteAmount: amount === InfiniteAmountText,
       },
     };
 

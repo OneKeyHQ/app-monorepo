@@ -3,6 +3,7 @@
 
 // eslint-disable-next-line import/order
 
+import externalWalletFactory from '../connectors/externalWalletFactory';
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
@@ -14,6 +15,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
     super();
     vaultFactory.setBackgroundApi(this);
+    externalWalletFactory.setBackgroundApi(this);
     void this.serviceBootstrap.init();
   }
 
@@ -192,6 +194,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceCloudBackup() {
+    const ServiceCloudBackup =
+      require('../services/ServiceCloudBackup') as typeof import('../services/ServiceCloudBackup');
+    const value = new ServiceCloudBackup.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceCloudBackup', { value });
+    return value;
+  }
+
   get serviceLiteCardMnemonic() {
     const ServiceLiteCardMnemonic =
       require('../services/ServiceLiteCardMnemonic') as typeof import('../services/ServiceLiteCardMnemonic');
@@ -252,6 +264,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceDappSide() {
+    const ServiceDappSide =
+      require('../services/ServiceDappSide') as typeof import('../services/ServiceDappSide');
+    const value = new ServiceDappSide.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDappSide', { value });
+    return value;
+  }
+
   get serviceWalletConnect() {
     const ServiceWalletConnect =
       require('../services/ServiceWalletConnect') as typeof import('../services/ServiceWalletConnect');
@@ -302,6 +324,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceAppUpdate() {
+    const ServiceAppUpdate =
+      require('../services/ServiceAppUpdate') as typeof import('../services/ServiceAppUpdate');
+    const value = new ServiceAppUpdate.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceAppUpdate', { value });
+    return value;
+  }
+
   get serviceE2E() {
     const Service =
       require('../services/ServiceE2E') as typeof import('../services/ServiceE2E');
@@ -329,6 +361,36 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceLogger', { value });
+    return value;
+  }
+
+  get serviceContextMenu() {
+    const ServiceContextMenu =
+      require('../services/ServiceContextMenu') as typeof import('../services/ServiceContextMenu');
+    const value = new ServiceContextMenu.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceContextMenu', { value });
+    return value;
+  }
+
+  get serviceFiatCrypto() {
+    const ServiceFiatCrypto =
+      require('../services/ServiceFiatCrypto') as typeof import('../services/ServiceFiatCrypto');
+    const value = new ServiceFiatCrypto.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceFiatCrypto', { value });
+    return value;
+  }
+
+  get serviceSignature() {
+    const ServiceSignature =
+      require('../services/ServiceSignature') as typeof import('../services/ServiceSignature');
+    const value = new ServiceSignature.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceSignature', { value });
     return value;
   }
 }

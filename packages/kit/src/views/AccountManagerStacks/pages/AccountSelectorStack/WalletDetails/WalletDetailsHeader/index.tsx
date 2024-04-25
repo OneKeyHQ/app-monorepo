@@ -24,6 +24,14 @@ export function WalletDetailsHeader({
   onEditButtonPress,
   ...rest
 }: IWalletDetailsHeaderProps) {
+  const showAboutDevice =
+    accountUtils.isHwWallet({ walletId: wallet?.id }) &&
+    !accountUtils.isHwHiddenWallet({ wallet });
+  const showRemoveButton = wallet?.id
+    ? !accountUtils.isOthersWallet({
+        walletId: wallet?.id,
+      })
+    : false;
   return (
     <ListItem mt="$1.5" justifyContent="flex-end" {...rest}>
       {editMode && editable ? (
@@ -34,11 +42,8 @@ export function WalletDetailsHeader({
           borderRightWidth={StyleSheet.hairlineWidth}
           borderRightColor="$borderSubdued"
         >
-          {accountUtils.isHwWallet({ walletId: wallet?.id }) &&
-          !accountUtils.isHwHiddenWallet({ wallet }) ? (
-            <AboutDevice />
-          ) : null}
-          <WalletRemoveButton wallet={wallet} />
+          {showAboutDevice ? <AboutDevice /> : null}
+          {showRemoveButton ? <WalletRemoveButton wallet={wallet} /> : null}
         </XStack>
       ) : null}
       {editable ? (

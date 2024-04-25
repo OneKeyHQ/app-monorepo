@@ -320,6 +320,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   public async batchSignAndSendTransaction(
     params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
   ) {
@@ -330,6 +331,7 @@ class ServiceSend extends ServiceBase {
       feeInfo: sendSelectedFeeInfo,
       nativeAmountInfo,
       signOnly,
+      sourceInfo,
     } = params;
 
     const newUnsignedTxs = [];
@@ -378,11 +380,17 @@ class ServiceSend extends ServiceBase {
           decodedTx,
         },
       });
-
-      result.push({
+      const data = {
         signedTx,
         decodedTx,
-      });
+      };
+      result.push(data);
+      if (!signOnly) {
+        await this.backgroundApi.serviceSignature.addItemFromSendProcess(
+          data,
+          sourceInfo,
+        );
+      }
       if (signedTx && !signOnly) {
         await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
           networkId,
@@ -525,6 +533,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async signMessage({
     unsignedMessage,
     networkId,
@@ -541,6 +550,7 @@ class ServiceSend extends ServiceBase {
 
     let validUnsignedMessage = unsignedMessage;
     if (unsignedMessage) {
+      // TODO fix message format and params in vault
       validUnsignedMessage = getValidUnsignedMessage(unsignedMessage);
     }
 
@@ -549,9 +559,10 @@ class ServiceSend extends ServiceBase {
     }
 
     const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerify(
-        EReasonForNeedPassword.CreateTransaction,
-      );
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.CreateTransaction,
+      });
     const [signedMessage] = await vault.keyring.signMessage({
       messages: [validUnsignedMessage],
       password,

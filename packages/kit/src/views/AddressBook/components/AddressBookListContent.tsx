@@ -241,6 +241,7 @@ export const AddressBookListContent = ({
       sections={memoSections}
       renderSectionHeader={renderSectionHeader}
       renderItem={renderItem}
+      SectionSeparatorComponent={null}
       ListEmptyComponent={
         sections.length ? (
           RenderNoSearchResult

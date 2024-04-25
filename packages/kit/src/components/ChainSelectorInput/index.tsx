@@ -5,9 +5,10 @@ import type { Input } from '@onekeyhq/components';
 import { Icon, SizableText, Stack } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
+
+import { NetworkAvatar } from '../NetworkAvatar';
 
 type IChainSelectorInputProps = Pick<
   ComponentProps<typeof Input>,
@@ -62,9 +63,10 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       onPress={disabled ? undefined : onPress}
       flexDirection="row"
       alignItems="center"
+      testID="network-selector-input"
       {...rest}
     >
-      <Token tokenImageUri={current?.logoURI} size="sm" />
+      <NetworkAvatar networkId={current?.id} size="$6" />
       <SizableText
         px={sharedStyles.px}
         flex={1}

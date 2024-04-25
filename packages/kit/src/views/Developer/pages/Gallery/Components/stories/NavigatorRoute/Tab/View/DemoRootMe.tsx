@@ -60,7 +60,7 @@ const DemoRootMe = () => {
           element: (
             <Stack>
               {new Array(1000).fill({}).map((_, index) => (
-                <SizableText>
+                <SizableText key={index}>
                   这是有1000个 View 的 BottomTab 卡顿测试{index}
                 </SizableText>
               ))}

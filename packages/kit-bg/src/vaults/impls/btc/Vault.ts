@@ -613,7 +613,6 @@ export default class VaultBtc extends VaultBase {
         })) ?? [],
       );
     }
-
     const ret = {
       inputs: inputsInUnsignedTx,
       outputs: outputsInUnsignedTx,

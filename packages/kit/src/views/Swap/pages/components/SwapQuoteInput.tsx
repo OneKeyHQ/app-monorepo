@@ -5,7 +5,6 @@ import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
-  useSwapQuoteFetchingAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -16,19 +15,24 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapApproving } from '../../hooks/useSwapAproving';
 import { useSwapQuote } from '../../hooks/useSwapQuote';
-import { useSwapNetworkList } from '../../hooks/useSwapTokens';
+import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 import { validateAmountInput } from '../../utils/utils';
 
 import SwapInputContainer from './SwapInputContainer';
 
 interface ISwapQuoteInputProps {
+  selectLoading?: boolean;
   onSelectToken: (type: ESwapDirectionType) => void;
+  onToAnotherAddressModal?: () => void;
 }
 
-const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
-  const { fetchLoading } = useSwapNetworkList();
+const SwapQuoteInput = ({
+  onSelectToken,
+  selectLoading,
+  onToAnotherAddressModal,
+}: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [quoteFetching] = useSwapQuoteFetchingAtom();
+  const swapQuoteLoading = useSwapQuoteLoading();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const { alternationToken } = useSwapActions().current;
@@ -44,9 +48,9 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
       <SwapInputContainer
         token={fromToken}
         direction={ESwapDirectionType.FROM}
-        selectTokenLoading={fetchLoading}
+        selectTokenLoading={selectLoading}
         onAmountChange={(value) => {
-          if (validateAmountInput(value)) {
+          if (validateAmountInput(value, fromToken?.decimals)) {
             setFromInputAmount(value);
           }
         }}
@@ -67,12 +71,13 @@ const SwapQuoteInput = ({ onSelectToken }: ISwapQuoteInputProps) => {
         />
         <SwapInputContainer
           token={toToken}
-          inputLoading={quoteFetching}
-          selectTokenLoading={fetchLoading}
+          inputLoading={swapQuoteLoading}
+          selectTokenLoading={selectLoading}
           direction={ESwapDirectionType.TO}
           amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
           onSelectToken={onSelectToken}
           balance={toTokenBalance}
+          onToAnotherAddressModal={onToAnotherAddressModal}
         />
       </YStack>
     </YStack>

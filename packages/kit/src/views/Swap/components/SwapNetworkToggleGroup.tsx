@@ -1,18 +1,13 @@
 import { memo, useCallback } from 'react';
 
 import { XStack, useMedia } from '@onekeyhq/components';
-import type {
-  ESwapDirectionType,
-  ISwapNetwork,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { NetworksFilterItem } from '../../../components/NetworksFilterItem';
 
 interface ISwapNetworkToggleGroupProps {
   networks: ISwapNetwork[];
   moreNetworksCount?: number;
-  type: ESwapDirectionType;
-  onlySupportSingleNetWork?: string;
   isOnlySupportSingleNetWork?: () => boolean;
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
@@ -22,8 +17,6 @@ interface ISwapNetworkToggleGroupProps {
 const SwapNetworkToggleGroup = ({
   networks,
   selectedNetwork,
-  onlySupportSingleNetWork,
-  type,
   onSelectNetwork,
   moreNetworksCount,
   onMoreNetwork,
@@ -48,13 +41,6 @@ const SwapNetworkToggleGroup = ({
           tooltipContent={
             network.name ?? network.symbol ?? network.shortcode ?? 'Unknown'
           }
-          disabled={
-            !!(
-              type === 'to' &&
-              onlySupportSingleNetWork &&
-              network.networkId !== onlySupportSingleNetWork
-            )
-          }
           isSelected={
             network?.networkId === selectedNetwork?.networkId ||
             (!selectedNetwork && network.networkId === 'all')
@@ -69,7 +55,6 @@ const SwapNetworkToggleGroup = ({
           networkName={`${moreNetworksCount}+`}
           flex={1}
           onPress={onMoreNetwork}
-          disabled={!!(type === 'to' && onlySupportSingleNetWork)}
         />
       ) : null}
     </XStack>

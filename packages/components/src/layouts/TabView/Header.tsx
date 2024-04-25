@@ -54,7 +54,6 @@ const HeaderComponent = (
   const normalColor = itemTitleNormalStyle.color;
   const selectedColor = itemTitleSelectedStyle.color;
   const [rawNormalColor, rawSelectedColor] = useThemeValue(
-    // @ts-expect-error
     [normalColor, selectedColor],
     undefined,
     true,

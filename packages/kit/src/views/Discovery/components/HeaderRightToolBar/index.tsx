@@ -64,8 +64,22 @@ function SingleAccountAndNetworkSelectorTrigger({
   });
   return (
     <>
-      <NetworkSelectorTriggerBrowserSingle num={num} />
-      <AccountSelectorTriggerBrowserSingle num={num} />
+      <Stack
+        $gtMd={{
+          flexShrink: 1,
+          minWidth: '$32',
+        }}
+      >
+        <NetworkSelectorTriggerBrowserSingle num={num} />
+      </Stack>
+      <Stack
+        $gtMd={{
+          flexShrink: 1,
+          minWidth: '$36',
+        }}
+      >
+        <AccountSelectorTriggerBrowserSingle num={num} />
+      </Stack>
     </>
   );
 }
@@ -89,7 +103,7 @@ function AvatarStackTrigger({
   return (
     <XStack role="button" testID="multi-avatar">
       {accounts?.slice(0, 2).map((account, index) => (
-        <Stack borderWidth={2} borderColor="$bgApp" ml="$-0.5">
+        <Stack key={index} borderWidth={2} borderColor="$bgApp" ml="$-0.5">
           <AccountAvatar
             key={account?.account.id}
             account={account.account}
@@ -235,9 +249,15 @@ function HeaderRightToolBar() {
     }
     if (connectedAccountsInfo.length === 1) {
       return (
-        <>
-          {connectedAccountsInfo.map((accountInfo) => (
+        <Stack
+          $gtMd={{
+            width: '100%',
+            flexDirection: 'row-reverse',
+          }}
+        >
+          {connectedAccountsInfo.map((accountInfo, index) => (
             <AccountSelectorProviderMirror
+              key={index}
               config={{
                 sceneName: EAccountSelectorSceneName.discover,
                 sceneUrl: origin ?? '',
@@ -249,7 +269,7 @@ function HeaderRightToolBar() {
                 },
               }}
             >
-              <XStack mr="$-1.5">
+              <XStack mr="$-1.5" flexShrink={1}>
                 <SingleAccountAndNetworkSelectorTrigger
                   origin={origin}
                   num={accountInfo.num}
@@ -259,7 +279,7 @@ function HeaderRightToolBar() {
               </XStack>
             </AccountSelectorProviderMirror>
           ))}
-        </>
+        </Stack>
       );
     }
     return (

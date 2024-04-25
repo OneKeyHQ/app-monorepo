@@ -66,6 +66,9 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
           nextWalletNo: 1,
           verifyString: DEFAULT_VERIFY_STRING,
           backupUUID: generateUUID(),
+          nextSignatureMessageId: 1,
+          nextSignatureTransactionId: 1,
+          nextConnectedSiteId: 1,
         }),
         this._addSingletonWalletRecord({
           db,
@@ -90,16 +93,10 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
     db: RealmDBAgent;
     walletId: IDBWalletIdSingleton;
   }) {
-    db._getOrAddObjectRecord(ELocalDBStoreNames.Wallet, {
-      id: walletId,
-      name: walletId,
-      type: walletId,
-      backuped: true,
-      accounts: [],
-      nextIndex: 0,
-      walletNo: 0,
-      nextAccountIds: { 'global': 1 },
-    });
+    db._getOrAddObjectRecord(
+      ELocalDBStoreNames.Wallet,
+      this.buildSingletonWalletRecord({ walletId }),
+    );
   }
 
   deleteDb() {

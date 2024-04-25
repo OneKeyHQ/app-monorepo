@@ -8,6 +8,7 @@ export type IConnectionAccountInfo = IAccountSelectorSelectedAccount & {
   networkImpl: string;
   accountId: string;
   address: string;
+  num?: number;
 };
 export interface IConnectionItem {
   origin: string;

@@ -18,8 +18,6 @@ export class VaultFactory {
     this.vaultCreator = vaultCreator;
   }
 
-  backgroundApi?: IBackgroundApi;
-
   vaultCacheOptions: IMemoizeeOptions = {
     promise: true,
     primitive: true,
@@ -30,6 +28,8 @@ export class VaultFactory {
       await vault.destroy();
     },
   };
+
+  backgroundApi?: IBackgroundApi;
 
   setBackgroundApi(backgroundApi: IBackgroundApi) {
     this.backgroundApi = backgroundApi;

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
@@ -89,13 +90,17 @@ const SwapTxHistoryListCell = ({
       <ListItem.Text
         align="right"
         primary={`+${
-          item.baseInfo.toAmount
+          numberFormat(item.baseInfo.toAmount, {
+            formatter: 'balance',
+          }) as string
         } ${item.baseInfo.toToken.symbol.toUpperCase()}`}
         primaryTextProps={{
           color: '$textSuccess',
         }}
         secondary={`-${
-          item.baseInfo.fromAmount
+          numberFormat(item.baseInfo.fromAmount, {
+            formatter: 'balance',
+          }) as string
         } ${item.baseInfo.fromToken.symbol.toUpperCase()}`}
       />
     </ListItem>

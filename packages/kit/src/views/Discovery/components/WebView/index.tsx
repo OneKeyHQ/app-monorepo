@@ -17,7 +17,7 @@ import type {
   WebViewNavigationEvent,
   WebViewOpenWindowEvent,
   WebViewSource,
-} from 'react-native-webview/lib/WebViewTypes';
+} from '@onekeyfe/react-native-webview/lib/WebViewTypes';
 
 interface IWebViewProps extends IElectronWebViewEvents {
   id?: string;
@@ -40,7 +40,6 @@ interface IWebViewProps extends IElectronWebViewEvents {
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
   onScroll?: IWebViewOnScroll;
-  webviewHeight?: number;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
 }

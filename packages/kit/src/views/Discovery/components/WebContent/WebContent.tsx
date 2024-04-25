@@ -7,7 +7,7 @@ import { webviewRefs } from '../../utils/explorerUtils';
 import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
-import type { WebViewProps } from 'react-native-webview';
+import type { WebViewProps } from '@onekeyfe/react-native-webview';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {

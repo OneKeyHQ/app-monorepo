@@ -14,6 +14,7 @@ export enum EFinalizeWalletSetupSteps {
   Ready = 'Ready',
 }
 export enum EAppEventBusNames {
+  ConfirmAccountSelected = 'ConfirmAccountSelected',
   WalletClear = 'WalletClear',
   WalletUpdate = 'WalletUpdate',
   AccountUpdate = 'AccountUpdate',
@@ -30,6 +31,7 @@ export enum EAppEventBusNames {
   WalletConnectModalState = 'WalletConnectModalState',
   ShowToast = 'ShowToast',
   RealmInit = 'RealmInit',
+  ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -40,6 +42,7 @@ export enum EAppEventBusNames {
 }
 
 export interface IAppEventBusPayload {
+  [EAppEventBusNames.ConfirmAccountSelected]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.AccountUpdate]: undefined;
@@ -78,6 +81,7 @@ export interface IAppEventBusPayload {
     duration?: number;
   };
   [EAppEventBusNames.RealmInit]: undefined;
+  [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

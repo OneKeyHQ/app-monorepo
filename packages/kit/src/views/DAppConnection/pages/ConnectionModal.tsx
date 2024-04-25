@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
@@ -19,6 +20,7 @@ import {
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
+import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
 import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
 
 function ConnectionModal() {
@@ -43,6 +45,9 @@ function ConnectionModal() {
   const [rawSelectedAccount, setRawSelectedAccount] =
     useState<IAccountSelectorSelectedAccount | null>(null);
 
+  const [connectedAccountInfo, setConnectedAccountInfo] =
+    useState<IConnectedAccountInfoChangedParams | null>(null);
+
   const handleAccountChanged = useCallback<IHandleAccountChanged>(
     ({ activeAccount, selectedAccount: rawSelectedAccountData }) => {
       setSelectedAccount(activeAccount);
@@ -54,6 +59,13 @@ function ConnectionModal() {
     },
     [],
   );
+
+  const subtitle = useMemo(() => {
+    if (!selectedAccount?.network?.name) {
+      return '';
+    }
+    return `Allow this site to access your ${selectedAccount?.network?.name} address.`;
+  }, [selectedAccount?.network?.name]);
 
   const confirmDisabled = useMemo(() => {
     if (!canContinueOperate) {
@@ -94,11 +106,24 @@ function ConnectionModal() {
         focusedWallet: rawSelectedAccount?.focusedWallet,
         othersWalletAccountId: rawSelectedAccount?.othersWalletAccountId,
       };
-      await serviceDApp.saveConnectionSession({
-        origin: $sourceInfo?.origin,
-        accountsInfo: [accountInfo],
-        storageType: 'injectedProvider',
-      });
+      if (connectedAccountInfo?.existConnectedAccount) {
+        if (!isNumber(connectedAccountInfo?.num)) {
+          dappApprove.reject();
+          throw new Error('no accountSelectorNum');
+        }
+        await serviceDApp.updateConnectionSession({
+          origin: $sourceInfo?.origin,
+          updatedAccountInfo: accountInfo,
+          storageType: 'injectedProvider',
+          accountSelectorNum: connectedAccountInfo.num,
+        });
+      } else {
+        await serviceDApp.saveConnectionSession({
+          origin: $sourceInfo?.origin,
+          accountsInfo: [accountInfo],
+          storageType: 'injectedProvider',
+        });
+      }
       await dappApprove.resolve({
         close,
         result: accountInfo,
@@ -117,6 +142,7 @@ function ConnectionModal() {
       serviceDApp,
       selectedAccount,
       rawSelectedAccount,
+      connectedAccountInfo,
     ],
   );
 
@@ -126,11 +152,13 @@ function ConnectionModal() {
       <Page.Body>
         <DAppRequestLayout
           title="Connection Request"
+          subtitle={subtitle}
           origin={$sourceInfo?.origin ?? ''}
           urlSecurityInfo={urlSecurityInfo}
         >
           <DAppAccountListStandAloneItem
             handleAccountChanged={handleAccountChanged}
+            onConnectedAccountInfoChanged={setConnectedAccountInfo}
           />
           <DAppRequestedPermissionContent />
         </DAppRequestLayout>

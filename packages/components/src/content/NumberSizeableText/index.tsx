@@ -40,11 +40,14 @@ export function NumberSizeableText({
     <SizableText {...props}>{result}</SizableText>
   ) : (
     <SizableText {...props}>
-      {result.map((r) =>
+      {result.map((r, index) =>
         typeof r === 'string' ? (
-          <SizableText {...props}>{r}</SizableText>
+          <SizableText key={index} {...props}>
+            {r}
+          </SizableText>
         ) : (
           <SizableText
+            key={index}
             {...props}
             {...subTextStyles[r.type as keyof typeof subTextStyles]}
             {...subTextStyle}

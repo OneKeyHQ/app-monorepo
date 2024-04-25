@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type { IPasswordSecuritySession } from '@onekeyhq/shared/types/password';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
@@ -53,6 +54,14 @@ export default class ServicePassword extends ServiceBase {
   private cachedPasswordTTL: number = timerUtils.getTimeDurationMs({
     hour: 2,
   });
+
+  private passwordPromptTTL: number = timerUtils.getTimeDurationMs({
+    minute: 5,
+  });
+
+  private passwordPromptTimeout: NodeJS.Timeout | null = null;
+
+  private securitySession?: IPasswordSecuritySession;
 
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
@@ -108,6 +117,12 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async getBgSensitiveTextEncodeKey(): Promise<string> {
     return Promise.resolve(getBgSensitiveTextEncodeKey());
+  }
+
+  clearPasswordPromptTimeout() {
+    if (this.passwordPromptTimeout) {
+      clearTimeout(this.passwordPromptTimeout);
+    }
   }
 
   // cachePassword ------------------------------
@@ -320,9 +335,10 @@ export default class ServicePassword extends ServiceBase {
 
   // ui ------------------------------
   @backgroundMethod()
-  async promptPasswordVerify(
-    reason?: EReasonForNeedPassword,
-  ): Promise<IPasswordRes> {
+  async promptPasswordVerify(options?: {
+    reason?: EReasonForNeedPassword;
+  }): Promise<IPasswordRes> {
+    const { reason } = options || {};
     // check ext ui open
     if (
       platformEnv.isExtension &&
@@ -332,8 +348,7 @@ export default class ServicePassword extends ServiceBase {
       throw new OneKeyError.OneKeyInternalError();
     }
 
-    const needReenterPassword =
-      await this.backgroundApi.serviceSetting.isAlwaysReenterPassword(reason);
+    const needReenterPassword = await this.isAlwaysReenterPassword(reason);
     if (!needReenterPassword) {
       const cachedPassword = await this.getCachedPassword();
       if (cachedPassword) {
@@ -345,6 +360,7 @@ export default class ServicePassword extends ServiceBase {
     }
 
     const isPasswordSet = await this.checkPasswordSet();
+    this.clearPasswordPromptTimeout();
     const res = new Promise((resolve, reject) => {
       const promiseId = this.backgroundApi.servicePromise.createCallback({
         resolve,
@@ -384,7 +400,7 @@ export default class ServicePassword extends ServiceBase {
       accountUtils.isHdWallet({ walletId }) ||
       accountUtils.isImportedWallet({ walletId })
     ) {
-      ({ password } = await this.promptPasswordVerify(reason));
+      ({ password } = await this.promptPasswordVerify({ reason }));
     }
     return {
       password,
@@ -413,10 +429,14 @@ export default class ServicePassword extends ServiceBase {
       ...v,
       passwordPromptPromiseTriggerData: params,
     }));
+    this.passwordPromptTimeout = setTimeout(() => {
+      void this.rejectPasswordPromptDialog(params.idNumber);
+    }, this.passwordPromptTTL);
   }
 
   @backgroundMethod()
   async resolvePasswordPromptDialog(promiseId: number, data: IPasswordRes) {
+    this.clearPasswordPromptTimeout();
     if (data.password) {
       ensureSensitiveTextEncoded(data.password);
     }
@@ -433,8 +453,9 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async rejectPasswordPromptDialog(
     promiseId: number,
-    error: { message: string },
+    error?: { message: string },
   ) {
+    this.clearPasswordPromptTimeout();
     void this.backgroundApi.servicePromise.rejectCallback({
       id: promiseId,
       error,
@@ -486,5 +507,58 @@ export default class ServicePassword extends ServiceBase {
     if (idleDuration >= appLockDuration) {
       await passwordAtom.set((v) => ({ ...v, unLock: false }));
     }
+  }
+
+  @backgroundMethod()
+  public async isAlwaysReenterPassword(
+    reason?: EReasonForNeedPassword,
+  ): Promise<boolean> {
+    const isPasswordSet = await this.checkPasswordSet();
+    if (!reason || !isPasswordSet) {
+      return false;
+    }
+    const { protectCreateOrRemoveWallet, protectCreateTransaction } =
+      await settingsPersistAtom.get();
+
+    // always reenter password for Security, eg change password/backup wallet
+    if (reason === EReasonForNeedPassword.Security) {
+      return true;
+    }
+
+    const result =
+      (reason === EReasonForNeedPassword.CreateOrRemoveWallet &&
+        protectCreateOrRemoveWallet) ||
+      (reason === EReasonForNeedPassword.CreateTransaction &&
+        protectCreateTransaction);
+
+    const now = Date.now();
+    if (
+      !result ||
+      !this.securitySession ||
+      now - this.securitySession.startAt > this.securitySession.timeout
+      // return result immediately if result is false or last visit is timeout/ not exist
+    ) {
+      return result;
+    }
+    const lastVisit = this.securitySession.lastVisit[reason];
+    if (lastVisit) {
+      return now - lastVisit > this.securitySession.timeout;
+    }
+    this.securitySession.lastVisit[reason] = now;
+    return result;
+  }
+
+  @backgroundMethod()
+  async openPasswordSecuritySession(params?: { timeout?: number }) {
+    this.securitySession = {
+      startAt: Date.now(),
+      timeout: params?.timeout ?? 1000 * 60, // default 1 minute
+      lastVisit: {},
+    };
+  }
+
+  @backgroundMethod()
+  async closePasswordSecuritySession() {
+    this.securitySession = undefined;
   }
 }

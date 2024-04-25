@@ -93,6 +93,9 @@ const encodeVarString = (buffer: Buffer) =>
   Buffer.concat([VaruintBitCoinEncode(buffer.byteLength), buffer]);
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  async getCoinName() {
+    return Promise.resolve('BTC');
+  }
   protected decodeAddress(address: string): string {
     return address;
   }

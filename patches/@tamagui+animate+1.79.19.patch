@@ -1,0 +1,90 @@
+diff --git a/node_modules/@tamagui/animate/dist/cjs/Animate.js b/node_modules/@tamagui/animate/dist/cjs/Animate.js
+index 6513b59..1fb20d4 100644
+--- a/node_modules/@tamagui/animate/dist/cjs/Animate.js
++++ b/node_modules/@tamagui/animate/dist/cjs/Animate.js
+@@ -27,8 +27,12 @@ function Animate({ children, type, ...props }) {
+       enterVariant: props.enterVariant,
+       exitVariant: props.exitVariant,
+       enterExitVariant: props.enterExitVariant,
+-      presenceAffectsLayout: props.presenceAffectsLayout || !0,
++      // fixed in tamagui 1.91.0
++      // BUGFIX: this causes continous re-renders if keepChildrenMounted is true, see HeaderMenu
++      // but since we always re-render this component on open changes this should be fine to leave off?
++      presenceAffectsLayout: !1,
+       isPresent: props.present,
++      custom: props.custom,
+       children
+     }
+   ) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_animate_presence.AnimatePresence, { ...props, children: props.present ? children : null }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children });
+diff --git a/node_modules/@tamagui/animate/dist/cjs/Animate.native.js b/node_modules/@tamagui/animate/dist/cjs/Animate.native.js
+index 121d149..b869223 100644
+--- a/node_modules/@tamagui/animate/dist/cjs/Animate.native.js
++++ b/node_modules/@tamagui/animate/dist/cjs/Animate.native.js
+@@ -28,8 +28,12 @@ function Animate({ children, type, ...props }) {
+       enterVariant: props.enterVariant,
+       exitVariant: props.exitVariant,
+       enterExitVariant: props.enterExitVariant,
+-      presenceAffectsLayout: props.presenceAffectsLayout || !0,
++      // fixed in tamagui 1.91.0
++      // BUGFIX: this causes continous re-renders if keepChildrenMounted is true, see HeaderMenu
++      // but since we always re-render this component on open changes this should be fine to leave off?
++      presenceAffectsLayout: !1,
+       isPresent: props.present,
++      custom: props.custom,
+       children
+     }
+   ) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_animate_presence.AnimatePresence, { ...props, children: props.present ? children : null }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_jsx_runtime.Fragment, { children });
+diff --git a/node_modules/@tamagui/animate/dist/esm/Animate.js b/node_modules/@tamagui/animate/dist/esm/Animate.js
+index fd0b227..9c99ffd 100644
+--- a/node_modules/@tamagui/animate/dist/esm/Animate.js
++++ b/node_modules/@tamagui/animate/dist/esm/Animate.js
+@@ -12,8 +12,12 @@ function Animate({ children, type, ...props }) {
+       enterVariant: props.enterVariant,
+       exitVariant: props.exitVariant,
+       enterExitVariant: props.enterExitVariant,
+-      presenceAffectsLayout: props.presenceAffectsLayout || !0,
++      // fixed in tamagui 1.91.0
++      // BUGFIX: this causes continous re-renders if keepChildrenMounted is true, see HeaderMenu
++      // but since we always re-render this component on open changes this should be fine to leave off?
++      presenceAffectsLayout: !1,
+       isPresent: props.present,
++      custom: props.custom,
+       children
+     }
+   ) : /* @__PURE__ */ jsx(AnimatePresence, { ...props, children: props.present ? children : null }) : /* @__PURE__ */ jsx(Fragment, { children });
+diff --git a/node_modules/@tamagui/animate/dist/esm/Animate.native.js b/node_modules/@tamagui/animate/dist/esm/Animate.native.js
+index fd0b227..9c99ffd 100644
+--- a/node_modules/@tamagui/animate/dist/esm/Animate.native.js
++++ b/node_modules/@tamagui/animate/dist/esm/Animate.native.js
+@@ -12,8 +12,12 @@ function Animate({ children, type, ...props }) {
+       enterVariant: props.enterVariant,
+       exitVariant: props.exitVariant,
+       enterExitVariant: props.enterExitVariant,
+-      presenceAffectsLayout: props.presenceAffectsLayout || !0,
++      // fixed in tamagui 1.91.0
++      // BUGFIX: this causes continous re-renders if keepChildrenMounted is true, see HeaderMenu
++      // but since we always re-render this component on open changes this should be fine to leave off?
++      presenceAffectsLayout: !1,
+       isPresent: props.present,
++      custom: props.custom,
+       children
+     }
+   ) : /* @__PURE__ */ jsx(AnimatePresence, { ...props, children: props.present ? children : null }) : /* @__PURE__ */ jsx(Fragment, { children });
+diff --git a/node_modules/@tamagui/animate/src/Animate.tsx b/node_modules/@tamagui/animate/src/Animate.tsx
+index ddf673e..d5592ae 100644
+--- a/node_modules/@tamagui/animate/src/Animate.tsx
++++ b/node_modules/@tamagui/animate/src/Animate.tsx
+@@ -45,8 +45,12 @@ export function Animate({ children, type, ...props }: AnimateProps) {
+           enterVariant={props.enterVariant}
+           exitVariant={props.exitVariant}
+           enterExitVariant={props.enterExitVariant}
+-          presenceAffectsLayout={props.presenceAffectsLayout || true}
++          // fixed in tamagui 1.91.0
++          // BUGFIX: this causes continous re-renders if keepChildrenMounted is true, see HeaderMenu
++          // but since we always re-render this component on open changes this should be fine to leave off?
++          presenceAffectsLayout={false}
+           isPresent={props.present}
++          custom={props.custom}
+         >
+           {children as any}
+         </PresenceChild>

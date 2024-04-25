@@ -374,6 +374,13 @@ const ChainSelectorGallery = LazyLoadPage(
     ),
 );
 
+const MarkdownGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Markdown'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -532,5 +539,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentChainSelector,
     component: ChainSelectorGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentMarkdown,
+    component: MarkdownGallery,
   },
 ];

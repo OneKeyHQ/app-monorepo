@@ -15,8 +15,8 @@ export type IRadioProps = IFormFieldProps<
 export function Radio({ value, onChange, disabled, options }: IRadioProps) {
   return (
     <RadioGroup value={value} onValueChange={onChange} disabled={disabled}>
-      {options.map(({ label, value: v }) => (
-        <XStack alignItems="center" py="$2">
+      {options.map(({ label, value: v }, index) => (
+        <XStack alignItems="center" py="$2" key={index}>
           <RadioGroup.Item
             value={v}
             id={v}

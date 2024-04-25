@@ -1,11 +1,14 @@
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
+import type { IAppUpdatePagesParamList } from './appUpdate';
 import type { IModalAssetDetailsParamList } from './assetDetails';
 import type { IModalAssetListParamList } from './assetList';
 import type { IAssetSelectorParamList } from './assetSelector';
 import type { IChainSelectorParamList } from './chainSelector';
+import type { ICloudBackupParamList } from './cloudBackup';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
 import type { IDiscoveryModalParamList } from './discovery';
+import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { ILiteCardParamList } from './liteCard';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalReceiveParamList } from './receive';
@@ -29,8 +32,11 @@ export enum EModalRoutes {
   ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
   LiteCardModal = 'LiteCardModal',
+  CloudBackupModal = 'CloudBackupModal',
   AddressBookModal = 'AddressBookModal',
   DAppConnectionModal = 'DAppConnectionModal',
+  AppUpdateModal = 'AppUpdateModal',
+  FiatCryptoModal = 'FiatCryptoModal',
 }
 
 export type IModalParamList = {
@@ -48,6 +54,9 @@ export type IModalParamList = {
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
+  [EModalRoutes.CloudBackupModal]: ICloudBackupParamList;
   [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
+  [EModalRoutes.AppUpdateModal]: IAppUpdatePagesParamList;
+  [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
 };

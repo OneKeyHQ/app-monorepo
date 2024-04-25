@@ -2,7 +2,6 @@ import { type FC, useCallback, useEffect, useRef } from 'react';
 
 import { ActionList, IconButton } from '@onekeyhq/components';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
-import { defaultSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
@@ -91,9 +90,9 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       num: accountSelectorNum,
     });
     if (activeAccount.account?.address !== currentAddress) {
-      await actions.current.updateSelectedAccount({
+      await actions.current.clearSelectedAccount({
         num: accountSelectorNum,
-        builder: () => defaultSelectedAccount(),
+        clearAccount: true,
       });
     }
     onBeforeAccountSelectorOpen?.();
@@ -123,7 +122,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       ]}
       renderTrigger={
         <IconButton
-          title="Paste"
+          title="Contacts"
           variant="tertiary"
           icon="DotVerOutline"
           testID={testID}

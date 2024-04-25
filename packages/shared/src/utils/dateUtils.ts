@@ -3,7 +3,6 @@ import {
   formatDistanceStrict as fnsFormatDistanceStrict,
   formatDistanceToNow as fnsFormatDistanceToNow,
   formatDuration as fnsFormatDuration,
-  formatRelative,
   isToday,
   isYesterday,
   parseISO,

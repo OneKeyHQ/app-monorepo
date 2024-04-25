@@ -11,7 +11,7 @@ import { NativeWebView } from './NativeWebView';
 
 import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
-import type { WebViewProps } from 'react-native-webview';
+import type { WebViewProps } from '@onekeyfe/react-native-webview';
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (
@@ -31,7 +31,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onLoadEnd,
       onScroll,
       androidLayerType,
-      webviewHeight,
       displayProgressBar,
       onProgress,
     }: IInpageProviderWebViewProps,
@@ -123,7 +122,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         <NativeWebView
           ref={setWebViewRef}
           src={src}
-          webviewHeight={webviewHeight}
           onSrcChange={onSrcChange}
           receiveHandler={receiveHandler}
           injectedJavaScriptBeforeContentLoaded={nativeInjectedJsCode}

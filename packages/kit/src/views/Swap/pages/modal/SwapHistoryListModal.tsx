@@ -1,7 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
+import { useRoute } from '@react-navigation/core';
+
 import {
   Dialog,
+  Empty,
   Heading,
   type IPageNavigationProp,
   Page,
@@ -26,14 +29,20 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
+
+import type { RouteProp } from '@react-navigation/core';
 
 interface ISectionData {
   title: string;
   data: ISwapTxHistory[];
 }
 
-const SwapHistoryListModal = () => {
+interface ISwapHistoryListModalProps {
+  storeName?: string;
+}
+
+const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   const [swapTxHistoryList] = useSwapTxHistoryAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -79,6 +88,7 @@ const SwapHistoryListModal = () => {
 
   const onDeleteHistory = useCallback(() => {
     // dialog
+    if (!swapTxHistoryList?.length) return;
     Dialog.confirm({
       title: 'Are you sure to delete all history?',
       onConfirm: () => {
@@ -86,7 +96,7 @@ const SwapHistoryListModal = () => {
       },
       onConfirmText: 'Delete',
     });
-  }, [cleanSwapHistoryItems]);
+  }, [cleanSwapHistoryItems, swapTxHistoryList?.length]);
 
   const deleteButton = useCallback(
     () => <HeaderIconButton onPress={onDeleteHistory} icon="DeleteOutline" />,
@@ -100,11 +110,12 @@ const SwapHistoryListModal = () => {
         onClickCell={() => {
           navigation.push(EModalSwapRoutes.SwapHistoryDetail, {
             txHistory: item,
+            storeName,
           });
         }}
       />
     ),
-    [navigation],
+    [navigation, storeName],
   );
   return (
     <Page>
@@ -131,9 +142,23 @@ const SwapHistoryListModal = () => {
           </XStack>
         )}
         estimatedItemSize="$10"
+        ListEmptyComponent={<Empty icon="InboxOutline" title="No Results" />}
       />
     </Page>
   );
 };
 
-export default withSwapProvider(SwapHistoryListModal);
+const SwapHistoryListModalWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapHistoryListModal />
+    </SwapProviderMirror>
+  );
+};
+
+export default SwapHistoryListModalWithProvider;

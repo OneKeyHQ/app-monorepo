@@ -19,6 +19,10 @@ import type { Psbt } from 'bitcoinjs-lib';
 import * as sdkBch from './sdkBch';
 
 export default class CoreChainSoftware extends CoreChainSoftwareBtc {
+  override async getCoinName() {
+    return Promise.resolve('BCH');
+  }
+
   override decodeAddress(address: string): string {
     return sdkBch.decodeAddress(address);
   }

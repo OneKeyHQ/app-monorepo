@@ -42,7 +42,7 @@ import {
 } from './atoms';
 
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
-import type { WebView } from 'react-native-webview';
+import type { WebView } from '@onekeyfe/react-native-webview';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -304,6 +304,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const updatedBookmarks = [...filteredBookmarks, newBookmark];
       this.buildBookmarkData.call(set, updatedBookmarks);
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
+      void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
     },
   );
 
@@ -735,6 +736,7 @@ export function useBrowserTabActions() {
   const buildWebTabs = actions.buildWebTabs.use();
   const refreshTabs = actions.refreshTabs.use();
   const setWebTabData = actions.setWebTabData.use();
+  const getWebTabById = actions.getWebTabById.use();
   const closeWebTab = actions.closeWebTab.use();
   const closeAllWebTabs = actions.closeAllWebTabs.use();
   const setCurrentWebTab = actions.setCurrentWebTab.use();
@@ -747,6 +749,7 @@ export function useBrowserTabActions() {
     buildWebTabs,
     refreshTabs,
     setWebTabData,
+    getWebTabById,
     closeWebTab,
     closeAllWebTabs,
     setCurrentWebTab,

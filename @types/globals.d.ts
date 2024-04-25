@@ -82,6 +82,11 @@ declare global {
     extJsBridgeOffscreenToBg: JsBridgeBase;
     ONEKEY_DESKTOP_DEEP_LINKS: any[];
   }
+
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  interface Error extends Error {
+    $$autoPrintErrorIgnore?: boolean;
+  }
 }
 
 declare global {

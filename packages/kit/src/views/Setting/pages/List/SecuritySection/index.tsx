@@ -72,9 +72,9 @@ const ChangePasswordItem = () => {
   const intl = useIntl();
   const onPress = useCallback(async () => {
     const oldEncodedPassword =
-      await backgroundApiProxy.servicePassword.promptPasswordVerify(
-        EReasonForNeedPassword.ChangePassword,
-      );
+      await backgroundApiProxy.servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
     const dialog = Dialog.show({
       title: intl.formatMessage({ id: 'form__change_password' }),
       renderContent: (
@@ -166,7 +166,11 @@ const ConnectedSitesItem = () => {
 };
 
 const SignatureRecordItem = () => {
-  const onPress = useCallback(() => {}, []);
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingSignatureRecordModal);
+  }, [navigation]);
   return (
     <ListItem
       onPress={onPress}

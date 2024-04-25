@@ -27,6 +27,7 @@ import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
+import { renderToContainer } from './renderToContainer';
 
 import type {
   IDialogCancelProps,
@@ -57,9 +58,11 @@ function DialogFrame({
   onClose,
   title,
   icon,
+  modal,
   description,
   renderContent,
   showFooter = true,
+  footerProps,
   onConfirm,
   onConfirmText = 'Confirm',
   onCancel,
@@ -201,6 +204,7 @@ function DialogFrame({
       <Footer
         tone={tone}
         showFooter={showFooter}
+        footerProps={footerProps}
         showCancelButton={showCancelButton}
         showConfirmButton={showConfirmButton}
         cancelButtonProps={cancelButtonProps}
@@ -256,6 +260,7 @@ function DialogFrame({
   return (
     <TMDialog
       open={open}
+      modal={modal}
       // the native dismissOnOverlayPress used on native side,
       //  so it needs to assign a value to onOpenChange.
       onOpenChange={platformEnv.isNative ? handleOpenChange : undefined}
@@ -397,6 +402,7 @@ export const DialogContainer = forwardRef<
 function dialogShow({
   onClose,
   dialogContainer,
+  portalContainer,
   ...props
 }: IDialogShowProps & {
   dialogContainer?: (o: {
@@ -500,7 +506,9 @@ function dialogShow({
   })();
 
   portalRef = {
-    current: Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
+    current: portalContainer
+      ? renderToContainer(portalContainer, element)
+      : Portal.Render(Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL, element),
   };
   return {
     close: async (extra?: { flag?: string }) =>

@@ -1,12 +1,25 @@
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
+
 export enum EModalReceiveRoutes {
-  QrCode = 'QrCode',
-  LightningCreateInvoice = 'LightningCreateInvoice',
+  ReceiveToken = 'ReceiveToken',
+  CreateInvoice = 'CreateInvoice',
+  ReceiveInvoice = 'ReceiveInvoice',
 }
 
 export type IModalReceiveParamList = {
-  [EModalReceiveRoutes.QrCode]: undefined;
-  [EModalReceiveRoutes.LightningCreateInvoice]: {
+  [EModalReceiveRoutes.CreateInvoice]: {
     accountId: string;
     networkId: string;
   };
+  [EModalReceiveRoutes.ReceiveToken]: {
+    networkId: string;
+    accountId: string;
+    walletId: string;
+    deriveInfo: IAccountDeriveInfo;
+    deriveType: IAccountDeriveTypes;
+  };
+  [EModalReceiveRoutes.ReceiveInvoice]: undefined;
 };

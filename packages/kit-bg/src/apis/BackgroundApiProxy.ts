@@ -11,12 +11,17 @@ import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
+import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
+import type ServiceCloudBackup from '../services/ServiceCloudBackup';
+import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
+import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceE2E from '../services/ServiceE2E';
+import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHistory from '../services/ServiceHistory';
@@ -33,6 +38,7 @@ import type ServicePromise from '../services/ServicePromise';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
+import type ServiceSignature from '../services/ServiceSignature';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
@@ -90,6 +96,10 @@ class BackgroundApiProxy
     'serviceScanQRCode',
   ) as ServiceScanQRCode;
 
+  serviceCloudBackup = this._createProxyService(
+    'serviceCloudBackup',
+  ) as ServiceCloudBackup;
+
   serviceLiteCardMnemonic = this._createProxyService(
     'serviceLiteCardMnemonic',
   ) as ServiceLiteCardMnemonic;
@@ -105,6 +115,10 @@ class BackgroundApiProxy
   ) as ServiceDiscovery;
 
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
+
+  serviceDappSide = this._createProxyService(
+    'serviceDappSide',
+  ) as ServiceDappSide;
 
   serviceWalletConnect = this._createProxyService(
     'serviceWalletConnect',
@@ -132,6 +146,10 @@ class BackgroundApiProxy
     'serviceAddressBook',
   ) as ServiceAddressBook;
 
+  serviceAppUpdate = this._createProxyService(
+    'serviceAppUpdate',
+  ) as ServiceAppUpdate;
+
   serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
 
   serviceLightning = this._createProxyService(
@@ -139,6 +157,18 @@ class BackgroundApiProxy
   ) as ServiceLightning;
 
   serviceLogger = this._createProxyService('serviceLogger') as ServiceLogger;
+
+  serviceContextMenu = this._createProxyService(
+    'serviceContextMenu',
+  ) as ServiceContextMenu;
+
+  serviceFiatCrypto = this._createProxyService(
+    'serviceFiatCrypto',
+  ) as ServiceFiatCrypto;
+
+  serviceSignature = this._createProxyService(
+    'serviceSignature',
+  ) as ServiceSignature;
 }
 
 export default BackgroundApiProxy;

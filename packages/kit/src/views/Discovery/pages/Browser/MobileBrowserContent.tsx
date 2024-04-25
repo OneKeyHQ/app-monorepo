@@ -3,16 +3,12 @@ import { useCallback, useMemo, useState } from 'react';
 import { Freeze } from 'react-freeze';
 
 import { Stack } from '@onekeyhq/components';
-import {
-  homeTab,
-  useBrowserHistoryAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
-import DiscoveryDashboard from '../Dashboard/DashboardContent';
 
 import type { IWebViewOnScrollEvent } from '../../components/WebView/types';
 
@@ -33,10 +29,6 @@ function MobileBrowserContent({
     () => activeTabId === tab?.id,
     [tab?.id, activeTabId],
   );
-  const showHome = useMemo(
-    () => isActive && tab?.url === homeTab.url,
-    [isActive, tab?.url],
-  );
 
   const initCaptureViewRef = useCallback(
     ($ref: any) => {
@@ -51,11 +43,6 @@ function MobileBrowserContent({
     }
     return (
       <>
-        <Freeze freeze={!showHome}>
-          <Stack flex={1}>
-            <DiscoveryDashboard />
-          </Stack>
-        </Freeze>
         <Freeze key={tab.id} freeze={!isActive}>
           <Stack
             ref={initCaptureViewRef}
@@ -81,7 +68,7 @@ function MobileBrowserContent({
       </>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, isActive, showHome]);
+  }, [tab, isActive]);
   return <>{content}</>;
 }
 

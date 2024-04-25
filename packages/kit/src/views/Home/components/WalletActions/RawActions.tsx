@@ -119,4 +119,4 @@ RawActions.Send = ActionSend;
 RawActions.Receive = ActionReceive;
 RawActions.Swap = ActionSwap;
 
-export { RawActions };
+export { RawActions, ActionItem };

@@ -11,6 +11,7 @@ import {
   FirmwareVersionTooLow,
   InitIframeLoadFail,
   InitIframeTimeout,
+  NotInBootLoaderMode,
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -50,6 +51,7 @@ import type {
 import type { IHardwareUiPayload } from '../states/jotai/atoms';
 import type {
   CoreApi,
+  CoreMessage,
   DeviceSettingsParams,
   DeviceUploadResourceParams,
   DeviceVerifySignature,
@@ -140,6 +142,12 @@ class ServiceHardware extends ServiceBase {
         console.log('todo: features cache');
       });
     }
+  }
+
+  @backgroundMethod()
+  async passHardwareEventsFromOffscreenToBackground(eventMessage: CoreMessage) {
+    const sdk = await this.getSDKInstance();
+    sdk.emit(eventMessage.event, eventMessage);
   }
 
   // startDeviceScan
@@ -334,6 +342,10 @@ class ServiceHardware extends ServiceBase {
     };
   }> {
     const { connectId, deviceType } = device;
+    // web-sdk won't throw Error, but can test by device.mode
+    if ((device as { mode?: string } | undefined)?.mode === 'bootloader') {
+      throw new NotInBootLoaderMode();
+    }
     if (!connectId) {
       throw new Error(
         'firmwareAuthenticate ERROR: device connectId is undefined',
@@ -452,6 +464,7 @@ class ServiceHardware extends ServiceBase {
   async getDeviceAdvanceSettings({ walletId }: { walletId: string }): Promise<{
     passphraseEnabled: boolean;
     inputPinOnSoftware: boolean;
+    inputPinOnSoftwareSupport: boolean;
   }> {
     const dbDevice = await localDb.getWalletDevice({ walletId });
 
@@ -461,21 +474,20 @@ class ServiceHardware extends ServiceBase {
         await this.unlockDevice({ connectId: dbDevice.connectId });
 
         const features = await this.getFeaturesByWallet({ walletId });
-        // const supportFeatures = await this.getDeviceSupportFeatures(
-        //   dbDevice.connectId,
-        // );
-        // const inputPinOnSoftwareSupport = Boolean(
-        //   supportFeatures?.inputPinOnSoftware?.support,
-        // );
+        const supportFeatures = await this.getDeviceSupportFeatures(
+          dbDevice.connectId,
+        );
+        const inputPinOnSoftwareSupport = Boolean(
+          supportFeatures?.inputPinOnSoftware?.support,
+        );
         const passphraseEnabled = Boolean(features?.passphrase_protection);
         const inputPinOnSoftware = Boolean(
           dbDevice?.settings?.inputPinOnSoftware,
         );
         return {
           passphraseEnabled,
-          // TODO check if device support inputPinOnSoftware
           inputPinOnSoftware,
-          // inputPinOnSoftwareSupport,
+          inputPinOnSoftwareSupport,
         };
       },
       {
@@ -518,6 +530,7 @@ class ServiceHardware extends ServiceBase {
     inputPinOnSoftware: boolean;
   }) {
     const device = await localDb.getWalletDevice({ walletId });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: dbDeviceId, deviceId, connectId } = device;
 
     let minSupportVersion: string | undefined = '';

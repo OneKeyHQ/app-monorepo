@@ -11,7 +11,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
+import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -48,6 +50,11 @@ export function ImportWalletOptions() {
 
   const handleImportAddressPress = async () => {
     navigation.push(EOnboardingPages.ImportAddress);
+  };
+
+  const handleImportFromCloud = async () => {
+    await checkBackupEntryStatus();
+    navigation.push(EOnboardingPages.ImportCloudBackup);
   };
 
   const options: IOptionSection[] = [
@@ -134,17 +141,23 @@ export function ImportWalletOptions() {
         },
       ],
     },
-    {
-      sectionTitle: 'Others',
-      data: [
-        {
-          icon: 'CloudSyncOutline',
-          title: 'iCloud',
-          description: 'Import your wallet from iCloud',
-          onPress: () => console.log('pressed'),
-        },
-      ],
-    },
+    ...(platformEnv.isNative
+      ? [
+          {
+            sectionTitle: 'Others',
+            data: [
+              {
+                icon: 'CloudSyncOutline',
+                title: backupPlatform().cloudName,
+                description: `Import your wallet from ${
+                  backupPlatform().cloudName
+                }`,
+                onPress: handleImportFromCloud,
+              },
+            ],
+          } as IOptionSection,
+        ]
+      : []),
   ];
 
   return (

@@ -3,41 +3,20 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import {
-  Page,
-  Stack,
-  Tab,
-  XStack,
-  YStack,
-  useSafeAreaInsets,
-} from '@onekeyhq/components';
-import {
-  HeaderButtonGroup,
-  HeaderIconButton,
-} from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
-import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EModalSettingRoutes,
-  ERootRoutes,
-  ETabRoutes,
-  ETabSwapRoutes,
-} from '@onekeyhq/shared/src/routes';
-import { getAllowPathFromScreenNames } from '@onekeyhq/shared/src/utils/routeUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
-} from '../../../components/AccountSelector';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
-import useAppNavigation from '../../../hooks/useAppNavigation';
+import { TabPageHeader } from '../../../components/TabPageHeader';
+import { UpdateReminder } from '../../../components/UpdateReminder';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { UrlAccountAutoReplaceHistory } from '../../Landing';
 import { OnboardingOnMount } from '../../Onboarding/components';
 import HomeSelector from '../components/HomeSelector';
 import useHomePageWidth from '../hooks/useHomePageWidth';
@@ -71,6 +50,14 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
   const {
     activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
   } = useActiveAccount({ num: 0 });
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const addressType = deriveInfo?.labelKey
+    ? intl.formatMessage({
+        id: deriveInfo?.labelKey,
+      })
+    : deriveInfo?.label ?? '';
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
 
@@ -119,69 +106,6 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     [intl, isNFTEnabled],
   );
 
-  const { top } = useSafeAreaInsets();
-
-  const headerLeft = useCallback(
-    () =>
-      isHide ? null : (
-        <AccountSelectorProviderMirror
-          enabledNum={[0]}
-          config={{
-            sceneName: EAccountSelectorSceneName.home,
-            sceneUrl: '',
-          }}
-        >
-          <AccountSelectorTriggerHome num={0} />
-        </AccountSelectorProviderMirror>
-      ),
-    [isHide],
-  );
-
-  const navigation = useAppNavigation();
-  const scanQrCode = useScanQrCode();
-  const openSettingPage = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListModal,
-    });
-  }, [navigation]);
-  const onScanButtonPressed = useCallback(
-    () => scanQrCode.start(),
-    [scanQrCode],
-  );
-
-  const openExtensionExpandTab = useCallback(async () => {
-    await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-      routes: '',
-    });
-  }, []);
-
-  const renderHeaderRight = useCallback(
-    () => (
-      <HeaderButtonGroup testID="Wallet-Page-Header-Right">
-        {platformEnv.isExtensionUiPopup ? (
-          <HeaderIconButton
-            title="Expand View"
-            icon="CameraExposureSquareOutline"
-            onPress={openExtensionExpandTab}
-          />
-        ) : (
-          <HeaderIconButton
-            title="Scan"
-            icon="ScanOutline"
-            onPress={onScanButtonPressed}
-          />
-        )}
-        <HeaderIconButton
-          title="Settings"
-          icon="SettingsOutline"
-          testID="setting"
-          onPress={openSettingPage}
-        />
-      </HeaderButtonGroup>
-    ),
-    [openExtensionExpandTab, onScanButtonPressed, openSettingPage],
-  );
-
   const renderTabs = useCallback(
     () => (
       <Tab
@@ -200,6 +124,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     if (!account) {
       return (
         <YStack height="100%">
+          <UpdateReminder />
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             <EmptyAccount
@@ -247,67 +172,29 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
       return (
         <>
-          <Page.Header
-            headerShown={!platformEnv.isNative}
-            headerLeft={headerLeft}
-            headerRight={renderHeaderRight}
+          <TabPageHeader
+            showHeaderRight
+            sceneName={EAccountSelectorSceneName.home}
           />
-          <Page.Body>
-            {platformEnv.isNative ? (
-              <XStack
-                justifyContent="space-between"
-                px="$4"
-                pt={top}
-                mt={platformEnv.isNativeAndroid ? '$3' : undefined}
-              >
-                <Stack flex={1}>{headerLeft()}</Stack>
-                {renderHeaderRight()}
-              </XStack>
-            ) : null}
-            {/* {process.env.NODE_ENV !== 'production' ? (
-              <Button
-                onPress={async () => {
-                  setIsHide((v) => !v);
-                  await timerUtils.wait(1000);
-                  onPressHide();
-                }}
-              >
-                home-hide-test
-              </Button>
-            ) : null} */}
-            {renderHomePageContent()}
-          </Page.Body>
+          <Page.Body>{renderHomePageContent()}</Page.Body>
         </>
       );
     }
 
     return (
       <>
-        <Page.Header
-          headerShown={!platformEnv.isNative}
-          headerRight={renderHeaderRight}
+        <TabPageHeader
+          showHeaderRight
+          sceneName={EAccountSelectorSceneName.home}
         />
         <Page.Body>
-          {platformEnv.isNative ? (
-            <XStack justifyContent="space-between" px="$4" pt={top}>
-              <Stack flex={1} />
-              {renderHeaderRight()}
-            </XStack>
-          ) : null}
           <Stack h="100%" justifyContent="center">
             <EmptyWallet />
           </Stack>
         </Page.Body>
       </>
     );
-  }, [
-    ready,
-    wallet,
-    headerLeft,
-    renderHeaderRight,
-    top,
-    renderHomePageContent,
-  ]);
+  }, [ready, wallet, renderHomePageContent]);
 
   return useMemo(
     () => <Page skipLoading={platformEnv.isNativeIOS}>{renderHomePage()}</Page>,
@@ -333,6 +220,7 @@ function HomePageContainer() {
       <HomePage onPressHide={() => setIsHide((v) => !v)} />
       <DAppConnectExtensionFloatingTrigger />
       <OnboardingOnMount />
+      <UrlAccountAutoReplaceHistory num={0} />
     </AccountSelectorProviderMirror>
   );
 }

@@ -5,9 +5,11 @@ import { isNil } from 'lodash';
 
 import {
   Divider,
+  Icon,
   Image,
   Page,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -77,6 +79,12 @@ function CurrentConnectionModal() {
     });
   }, [navigation]);
 
+  const onPressDefaultWalletSettings = useCallback(() => {
+    navigation.pushModal(EModalRoutes.DAppConnectionModal, {
+      screen: EDAppConnectionModal.DefaultWalletSettingsModal,
+    });
+  }, [navigation]);
+
   const onDisconnect = useCallback(async () => {
     if (accountsInfo?.[0].storageType) {
       await backgroundApiProxy.serviceDApp.disconnectWebsite({
@@ -92,7 +100,15 @@ function CurrentConnectionModal() {
       <Page.Header title="Connect" />
       <Page.Body>
         <XStack p="$5" space="$3">
-          <Image size="$10" source={{ uri: faviconUrl }} borderRadius="$2" />
+          <Image size="$10" borderRadius="$2">
+            <Image.Source src={faviconUrl} />
+            <Image.Fallback>
+              <Icon size="$10" name="GlobusOutline" />
+            </Image.Fallback>
+            <Image.Loading>
+              <Skeleton width="100%" height="100%" />
+            </Image.Loading>
+          </Image>
           <YStack>
             <SizableText size="$bodyLgMedium">
               {new URL(origin).hostname}
@@ -145,6 +161,12 @@ function CurrentConnectionModal() {
         <YStack bg="$bgSubdued" py="$3" space="$2">
           <ListItem key="manage-connection" onPress={onPressManageConnection}>
             <SizableText size="$bodyMd">Manage dApp Connections</SizableText>
+          </ListItem>
+          <ListItem
+            key="default-wallet-settings"
+            onPress={onPressDefaultWalletSettings}
+          >
+            <SizableText size="$bodyMd">Default Wallet Settings</SizableText>
           </ListItem>
           <Divider mx="$5" />
           <ListItem key="disconnection" onPress={onDisconnect}>

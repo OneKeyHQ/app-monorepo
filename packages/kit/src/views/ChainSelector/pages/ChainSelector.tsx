@@ -1,128 +1,42 @@
-import { useEffect, useState } from 'react';
-
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Button, Page } from '@onekeyhq/components';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { useAccountSelectorAvailableNetworks } from '../../../components/AccountSelector/hooks/useAccountSelectorAvailableNetworks';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '../../../states/jotai/contexts/accountSelector';
-import { ListNetworkView } from '../components/ListNetworkView';
-
-function getHeaderRightComponent(
-  isEditMode: boolean,
-  handleEditButtonPress: () => void,
-) {
-  return (
-    <Button variant="tertiary" onPress={handleEditButtonPress}>
-      {isEditMode ? 'Done' : 'Edit'}
-    </Button>
-  );
-}
-
-function ChainSelector({ num }: { num: number }) {
-  const {
-    activeAccount: { network },
-  } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
-  const selectedChain = network?.id;
-  const [isEditMode, setIsEditMode] = useState(false);
-  const { serviceNetwork } = backgroundApiProxy;
-
-  const { networkIds } = useAccountSelectorAvailableNetworks({ num });
-
-  const {
-    result: { networks },
-  } = usePromiseResult(
-    () =>
-      serviceNetwork.getNetworksByIds({
-        networkIds: networkIds || [],
-      }),
-    [networkIds, serviceNetwork],
-    {
-      initResult: {
-        networks: [],
-      },
-    },
-  );
-
-  const handleListItemPress = (networkId: string) => {
-    void actions.current.updateSelectedAccountNetwork({
-      num,
-      networkId,
-    });
-    navigation.popStack();
-  };
-
-  const handleEditButtonPress = () => {
-    setIsEditMode(!isEditMode);
-  };
-
-  const [topNetworks, setTopNetworks] = useState<IServerNetwork[]>([]);
-  const [searchText, setSearchText] = useState('');
-
-  useEffect(() => {
-    if (networks.length) {
-      setTopNetworks(networks.slice(0, 4));
-    }
-  }, [networks]);
-
-  return (
-    <Page>
-      <Page.Header
-        title="Networks"
-        headerRight={() =>
-          getHeaderRightComponent(isEditMode, handleEditButtonPress)
-        }
-        headerSearchBarOptions={{
-          placeholder: 'Search',
-          onChangeText: (e) => setSearchText(e.nativeEvent.text),
-        }}
-      />
-      <Page.Body>
-        <ListNetworkView
-          searchText={searchText.trim()}
-          isEditMode={isEditMode}
-          topNetworks={topNetworks}
-          allNetworks={networks}
-          selectNetworkId={selectedChain}
-          onChangeTopNetworks={(items) => {
-            setTopNetworks(items);
-          }}
-          onPressItem={(item) => handleListItemPress(item.id)}
-        />
-      </Page.Body>
-    </Page>
-  );
-}
+import { ChainSelectorPageView } from '../components/PageView';
 
 export default function ChainSelectorPage({
   route,
+  navigation,
 }: IPageScreenProps<
   IChainSelectorParamList,
   EChainSelectorPages.ChainSelector
 >) {
-  const { num, sceneName, sceneUrl } = route.params;
+  const {
+    onSelect,
+    defaultNetworkId,
+    networkIds,
+    title = 'Networks',
+  } = route.params ?? {};
+  const { result } = usePromiseResult(() => {
+    if (networkIds && networkIds.length > 0) {
+      return backgroundApiProxy.serviceNetwork.getNetworksByIds({ networkIds });
+    }
+    return backgroundApiProxy.serviceNetwork.getAllNetworks();
+  }, [networkIds]);
+
   return (
-    <AccountSelectorProviderMirror
-      enabledNum={[num]}
-      config={{
-        sceneName,
-        sceneUrl,
+    <ChainSelectorPageView
+      title={title}
+      networkId={defaultNetworkId}
+      networks={result?.networks ?? []}
+      onPressItem={(network) => {
+        onSelect?.(network);
+        navigation.goBack();
       }}
-    >
-      <ChainSelector num={num} />
-    </AccountSelectorProviderMirror>
+    />
   );
 }

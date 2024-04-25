@@ -11,7 +11,7 @@ import type {
   WebViewNavigationEvent,
   WebViewSharedProps,
   WebViewSource,
-} from 'react-native-webview/lib/WebViewTypes';
+} from '@onekeyfe/react-native-webview/lib/WebViewTypes';
 
 type IFirstParameterOrUndefined<T> = T extends (
   first: infer P,
@@ -42,7 +42,6 @@ export interface IInpageProviderWebViewProps
   onLoad?: (event: WebViewNavigationEvent) => void;
   onLoadEnd?: (event: WebViewNavigationEvent | WebViewErrorEvent) => void;
   onScroll?: IWebViewOnScroll;
-  webviewHeight?: number;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
 }

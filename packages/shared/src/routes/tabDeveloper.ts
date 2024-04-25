@@ -1,4 +1,4 @@
-import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
+import { EGalleryRoutes } from './gallery';
 
 export enum ETabDeveloperRoutes {
   TabDeveloper = 'TabDeveloper',
@@ -6,6 +6,7 @@ export enum ETabDeveloperRoutes {
   DevHome = 'DevHome',
   DevHomeStack1 = 'DevHomeStack1',
   DevHomeStack2 = 'DevHomeStack2',
+  SignatureRecord = 'SignatureRecord',
 }
 
 export type ITabDeveloperParamList = {
@@ -14,4 +15,5 @@ export type ITabDeveloperParamList = {
   [ETabDeveloperRoutes.DevHome]: undefined;
   [ETabDeveloperRoutes.DevHomeStack1]: { a: string; b: string };
   [ETabDeveloperRoutes.DevHomeStack2]: undefined;
+  [ETabDeveloperRoutes.SignatureRecord]: undefined;
 };

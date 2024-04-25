@@ -18,9 +18,9 @@ export function getFilteredNftsBySearchKey({
 
   const filteredNfts = nfts.filter(
     (nft) =>
-      nft.collectionAddress.toLowerCase() === searchKey ||
-      nft.collectionName.toLowerCase().includes(searchKey) ||
-      nft.metadata?.name.toLowerCase().includes(searchKey),
+      nft.collectionAddress?.toLowerCase() === searchKey ||
+      nft.collectionName?.toLowerCase().includes(searchKey) ||
+      nft.metadata?.name?.toLowerCase().includes(searchKey),
   );
 
   return filteredNfts;

@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 
-import { compact } from 'lodash';
+import { compact, range } from 'lodash';
 import { Dimensions, View } from 'react-native';
 
 import type {
@@ -27,11 +27,11 @@ import {
   Page,
   Popover,
   ScrollView,
+  SecureView,
   Select,
   SizableText,
   Stack,
   XStack,
-  useClipboard,
   useForm,
   useIsKeyboardShown,
   useMedia,
@@ -40,7 +40,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useShowCopyPasteButton, useSuggestion } from './hooks';
+import { useSuggestion } from './hooks';
 import { Tutorials } from './Tutorials';
 
 import type { ITutorialsListItemProps } from './Tutorials';
@@ -202,6 +202,7 @@ function BasicPhaseInput(
     onInputChange,
     onInputFocus,
     onInputBlur,
+    onPasteMnemonic,
     suggestionsRef,
     updateInputValue,
     selectInputIndex,
@@ -216,6 +217,7 @@ function BasicPhaseInput(
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
+    onPasteMnemonic: (text: string) => boolean;
     onInputBlur: (index: number) => void;
     suggestionsRef: RefObject<string[]>;
     selectInputIndex: number;
@@ -277,11 +279,16 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
+      if (onPasteMnemonic(v)) {
+        onInputChange('');
+        onChange?.('');
+        return;
+      }
       const rawText = v.replaceAll(PINYIN_COMPOSITION_SPACE, '');
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [onChange, onInputChange],
+    [onChange, onInputChange, onPasteMnemonic],
   );
 
   const handleOpenChange = useCallback(
@@ -435,21 +442,20 @@ export function PhaseInputArea({
   tutorials: ITutorialsListItemProps[];
   defaultPhrases?: string[];
 }) {
-  const { serviceAccount, servicePassword } = backgroundApiProxy;
-  const defaultPhrasesMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    defaultPhrases?.forEach((text, i) => {
-      map[`phrase${i + 1}`] = text;
-    });
-    return map;
-  }, [defaultPhrases]);
-  const form = useForm({
-    defaultValues: defaultPhrasesMap,
-  });
-  const { getClipboard } = useClipboard();
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
+  const { serviceAccount, servicePassword } = backgroundApiProxy;
+  const defaultPhrasesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    range(0, Number(phraseLength))?.forEach((_, i) => {
+      map[`phrase${i + 1}`] = defaultPhrases[i] || '';
+    });
+    return map;
+  }, [defaultPhrases, phraseLength]);
+  const form = useForm({
+    defaultValues: defaultPhrasesMap,
+  });
 
   const invalidWordsLength = 0;
   const invalidPhrase = false;
@@ -459,8 +465,6 @@ export function PhaseInputArea({
     }
     return `${length} invalid words`;
   };
-
-  const isShowCopyPasteButton = useShowCopyPasteButton();
 
   const handlePageFooterConfirm = useCallback(async () => {
     const mnemonic: string = Object.values(form.getValues()).join(' ');
@@ -484,6 +488,7 @@ export function PhaseInputArea({
     selectInputIndex,
     closePopover,
     focusNextInput,
+    onPasteMnemonic,
   } = useSuggestion(form, Number(phraseLength));
 
   const handleReturnKeyPressed = useCallback(
@@ -508,8 +513,11 @@ export function PhaseInputArea({
     );
 
   const handleClear = useCallback(() => {
-    form.reset();
-  }, [form]);
+    // form.reset(); // not working if all words filled
+    Object.entries(defaultPhrasesMap).forEach(([key, value]) => {
+      form.setValue(key, value);
+    });
+  }, [defaultPhrasesMap, form]);
 
   return (
     <>
@@ -549,62 +557,40 @@ export function PhaseInputArea({
           </XStack>
         ) : null}
 
-        <Form form={form}>
-          <XStack px="$4" flexWrap="wrap">
-            {Array.from({ length: Number(phraseLength) }).map((_, index) => (
-              <Stack
-                key={index}
-                $md={{
-                  flexBasis: '50%',
-                }}
-                flexBasis="33.33%"
-                p="$1"
-              >
-                <Form.Field name={`phrase${index + 1}`}>
-                  <PhaseInput
-                    index={index}
-                    onInputBlur={onInputBlur}
-                    onInputChange={onInputChange}
-                    onInputFocus={onInputFocus}
-                    suggestionsRef={suggestionsRef}
-                    updateInputValue={updateInputValue}
-                    openStatusRef={openStatusRef}
-                    selectInputIndex={selectInputIndex}
-                    closePopover={closePopover}
-                    onReturnKeyPressed={handleReturnKeyPressed}
-                    getReturnKeyLabel={getReturnKeyLabel}
-                    testID={`phrase-input-index${index}`}
-                  />
-                </Form.Field>
-              </Stack>
-            ))}
-          </XStack>
-        </Form>
-
-        {isShowCopyPasteButton ? (
-          <XStack px="$5" py="$2">
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={async () => {
-                const mnemonic = await getClipboard();
-                try {
-                  const phrasesArr: string[] = (mnemonic || '').split(' ');
-                  form.reset(
-                    phrasesArr.reduce((prev, next, index) => {
-                      prev[`phrase${index + 1}`] = next;
-                      return prev;
-                    }, {} as Record<`phrase${number}`, string>),
-                  );
-                } catch (error) {
-                  console.error(error);
-                }
-              }}
-            >
-              Paste All(Only in Dev)
-            </Button>
-          </XStack>
-        ) : null}
+        <SecureView>
+          <Form form={form}>
+            <XStack px="$4" flexWrap="wrap">
+              {Array.from({ length: Number(phraseLength) }).map((_, index) => (
+                <Stack
+                  key={index}
+                  $md={{
+                    flexBasis: '50%',
+                  }}
+                  flexBasis="33.33%"
+                  p="$1"
+                >
+                  <Form.Field name={`phrase${index + 1}`}>
+                    <PhaseInput
+                      index={index}
+                      onInputBlur={onInputBlur}
+                      onInputChange={onInputChange}
+                      onInputFocus={onInputFocus}
+                      onPasteMnemonic={onPasteMnemonic}
+                      suggestionsRef={suggestionsRef}
+                      updateInputValue={updateInputValue}
+                      openStatusRef={openStatusRef}
+                      selectInputIndex={selectInputIndex}
+                      closePopover={closePopover}
+                      onReturnKeyPressed={handleReturnKeyPressed}
+                      getReturnKeyLabel={getReturnKeyLabel}
+                      testID={`phrase-input-index${index}`}
+                    />
+                  </Form.Field>
+                </Stack>
+              ))}
+            </XStack>
+          </Form>
+        </SecureView>
 
         <HeightTransition>
           {invalidWordsLength > 0 ? (

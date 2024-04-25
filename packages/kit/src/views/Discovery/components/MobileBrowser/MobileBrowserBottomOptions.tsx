@@ -64,7 +64,7 @@ function MobileBrowserBottomOptions({
         },
         displayDisconnectOption && {
           label: intl.formatMessage({ id: 'action__disconnect' }),
-          icon: 'CompassCircleOutline',
+          icon: 'BrokenLinkOutline',
           onPress: () => onDisconnect(),
           testID: 'action-list-item-disconnect-in-browser',
         },
