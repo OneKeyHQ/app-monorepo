@@ -31,17 +31,12 @@ import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 
 interface ISwapMainLoadProps {
-  hiddenSwapHeader?: boolean;
   children?: React.ReactNode;
   swapInitParams?: ISwapInitParams;
   pageType?: 'modal' | undefined;
 }
 
-const SwapMainLoad = ({
-  hiddenSwapHeader,
-  swapInitParams,
-  pageType,
-}: ISwapMainLoadProps) => {
+const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const { buildTx, approveTx, wrappedTx } = useSwapBuildTx();
   const { fetchLoading } = useSwapInit(swapInitParams);
   const navigation =
@@ -132,7 +127,9 @@ const SwapMainLoad = ({
           pt: '$5',
         }}
       >
-        {!hiddenSwapHeader ? <SwapHeaderContainer /> : null}
+        {pageType !== 'modal' ? (
+          <SwapHeaderContainer pageType={pageType} />
+        ) : null}
         <SwapQuoteInput
           onSelectToken={onSelectToken}
           selectLoading={fetchLoading}

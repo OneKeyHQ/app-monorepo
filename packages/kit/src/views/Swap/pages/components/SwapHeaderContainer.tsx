@@ -8,14 +8,10 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
 interface ISwapHeaderContainerProps {
-  hiddenRightAction?: boolean;
   pageType?: 'modal' | undefined;
 }
 
-const SwapHeaderContainer = ({
-  hiddenRightAction,
-  pageType,
-}: ISwapHeaderContainerProps) => {
+const SwapHeaderContainer = ({ pageType }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const headerRight = useCallback(
     () => (
@@ -42,7 +38,7 @@ const SwapHeaderContainer = ({
           </SizableText>
         </XStack>
       </XStack>
-      {!hiddenRightAction ? headerRight() : null}
+      {headerRight()}
     </XStack>
   );
 };

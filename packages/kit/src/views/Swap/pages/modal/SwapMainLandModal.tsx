@@ -23,7 +23,6 @@ const SwapMainLandModalPage = () => {
       <Page.Header title="Swap" />
       <SwapMainLandWithPageType
         pageType="modal"
-        hiddenSwapHeader
         swapInitParams={{ importFromToken, importNetworkId, importToToken }}
       />
     </Page>
