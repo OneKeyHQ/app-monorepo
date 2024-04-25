@@ -1,4 +1,3 @@
-import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Heading,
   Markdown,
@@ -7,18 +6,15 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type {
-  EAppUpdateRoutes,
-  IAppUpdatePagesParamList,
-} from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
-function WhatsNew({
-  route,
-}: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.WhatsNew>) {
-  const { version = '', changeLog } = route.params || {};
+function WhatsNew() {
+  const { version = '' } = platformEnv;
   const { gtMd } = useMedia();
+  const changeLog = useAppChangeLog(version);
   return (
     <Page>
       <Page.Header title="App Update" />
