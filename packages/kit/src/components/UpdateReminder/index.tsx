@@ -112,7 +112,7 @@ const UPDATE_ACTION_STYLE: Record<
     label: 'View',
   },
   [EAppUpdateStatus.ready]: {
-    label: 'Restart to Update',
+    label: platformEnv.isNativeAndroid ? 'Install Now' : 'Restart to Update',
     icon: 'RestartToUpdateCustom',
     variant: 'primary',
   },
