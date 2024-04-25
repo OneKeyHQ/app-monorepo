@@ -164,6 +164,16 @@ const TabDeveloper = () => {
               </Button>
             </PartContainer>
 
+            <PartContainer title="Debugger Signature Records">
+              <Button
+                onPress={() => {
+                  navigation.push(ETabDeveloperRoutes.SignatureRecord);
+                }}
+              >
+                Signature Records
+              </Button>
+            </PartContainer>
+
             <PartContainer title="Debug Tools">
               <Button
                 onPress={() => {

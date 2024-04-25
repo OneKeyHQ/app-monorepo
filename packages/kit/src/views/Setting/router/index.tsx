@@ -33,6 +33,10 @@ const SettingSpendUTXOModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SpendUTXO'),
 );
 
+const SettingSignatureRecordModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/SignatureRecord'),
+);
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -71,6 +75,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
     translationId: 'action__protection',
+  },
+  {
+    name: EModalSettingRoutes.SettingSignatureRecordModal,
+    component: SettingSignatureRecordModal,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

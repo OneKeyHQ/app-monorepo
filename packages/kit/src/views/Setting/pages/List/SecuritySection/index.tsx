@@ -166,7 +166,11 @@ const ConnectedSitesItem = () => {
 };
 
 const SignatureRecordItem = () => {
-  const onPress = useCallback(() => {}, []);
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingSignatureRecordModal);
+  }, [navigation]);
   return (
     <ListItem
       onPress={onPress}

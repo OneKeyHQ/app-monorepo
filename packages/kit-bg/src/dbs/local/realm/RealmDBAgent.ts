@@ -1,5 +1,8 @@
+import { isNumber } from 'lodash';
+
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
+import { storeNameSupportCreatedAt } from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 
 import { realmDBSchemasMap } from './schemas';
@@ -152,13 +155,21 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   async txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
-    const { name, ids } = params;
+    const { name, ids, limit, offset } = params;
     let objList: Array<{ record: any } | null | undefined> = [];
 
     if (ids) {
-      objList = ids.map((id) => this._getObjectRecordById(name, id));
+      objList = ids.map((id) => this._getObjectRecordById(name, id)) as any;
     } else {
-      objList = this.realm.objects<IRealmDBSchemaMap[T]>(name) as any;
+      const isSlice = isNumber(limit) && isNumber(offset);
+      const hasCreatedAtIndex = storeNameSupportCreatedAt.includes(name);
+      let items = this.realm.objects<IRealmDBSchemaMap[T]>(name);
+      if (isSlice && hasCreatedAtIndex) {
+        items = items
+          .sorted('createdAt', true)
+          .slice(offset, offset + limit) as any;
+      }
+      objList = items as any;
     }
 
     const recordPairs: ILocalDBRecordPair<T>[] = [];
@@ -179,10 +190,12 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   ): Promise<ILocalDBTxGetRecordByIdResult<T>> {
     const { id, name } = params;
     const obj = this._getObjectRecordById(name, id);
+    // @ts-ignore
     const record = obj?.record;
     if (!record) {
       throw new Error(`record not found: ${name} ${id}`);
     }
+    // eslint-disable-next-line
     return [record as any, obj];
   }
 

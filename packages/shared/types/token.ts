@@ -1,8 +1,8 @@
 export type IToken = {
+  decimals: number;
   name: string;
   symbol: string;
   address: string;
-  decimals: number;
   logoURI?: string;
   isNative?: boolean;
   riskLevel?: number;

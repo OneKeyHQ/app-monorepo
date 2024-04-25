@@ -79,8 +79,8 @@ function SendConfirmActionsContainer(props: IProps) {
               }
             : undefined,
           signOnly,
+          sourceInfo,
         });
-
       onSuccess?.(result);
       setIsSubmitting(false);
       Toast.success({
@@ -123,6 +123,7 @@ function SendConfirmActionsContainer(props: IProps) {
     sendSelectedFeeInfo,
     signOnly,
     unsignedTxs,
+    sourceInfo,
     vaultSettings?.signOnlyFullTxRequired,
   ]);
 
