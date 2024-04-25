@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { YStack } from '@onekeyhq/components';
+import { EPageType, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapAlertsAtom,
@@ -33,7 +33,7 @@ import SwapQuoteResult from './SwapQuoteResult';
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
   swapInitParams?: ISwapInitParams;
-  pageType?: 'modal' | undefined;
+  pageType?: EPageType.modal;
 }
 
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
@@ -53,7 +53,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         params: {
           type,
           storeName:
-            pageType === 'modal'
+            pageType === EPageType.modal
               ? EJotaiContextStoreNames.swapModal
               : EJotaiContextStoreNames.swap,
         },
@@ -67,7 +67,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       screen: EModalSwapRoutes.SwapProviderSelect,
       params: {
         storeName:
-          pageType === 'modal'
+          pageType === EPageType.modal
             ? EJotaiContextStoreNames.swapModal
             : EJotaiContextStoreNames.swap,
       },
@@ -80,7 +80,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       params: {
         address: toAddressInfo.address,
         storeName:
-          pageType === 'modal'
+          pageType === EPageType.modal
             ? EJotaiContextStoreNames.swapModal
             : EJotaiContextStoreNames.swap,
       },
@@ -127,7 +127,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           pt: '$5',
         }}
       >
-        {pageType !== 'modal' ? (
+        {pageType !== EPageType.modal ? (
           <SwapHeaderContainer pageType={pageType} />
         ) : null}
         <SwapQuoteInput
@@ -135,7 +135,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           selectLoading={fetchLoading}
           onToAnotherAddressModal={onToAnotherAddressModal}
         />
-        {alerts.length > 0 && !quoteLoading && !selectTokenDetailLoading ? (
+        {alerts.length > 0 &&
+        !quoteLoading &&
+        !selectTokenDetailLoading.from &&
+        !selectTokenDetailLoading.to ? (
           <SwapAlertContainer alerts={alerts} />
         ) : null}
         {quoteResult ? (
@@ -158,7 +161,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => (
   <SwapProviderMirror
     storeName={
-      props?.pageType === 'modal'
+      props?.pageType === EPageType.modal
         ? EJotaiContextStoreNames.swapModal
         : EJotaiContextStoreNames.swap
     }

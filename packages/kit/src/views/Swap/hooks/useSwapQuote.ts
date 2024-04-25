@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
-import { usePageType } from '@onekeyhq/components';
+import { EPageType, usePageType } from '@onekeyhq/components';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapApproveTransactionStatus,
@@ -104,14 +104,10 @@ export function useSwapQuote() {
   ]);
 
   const pageType = usePageType();
-  const pageTypeRef = useRef<string | undefined>();
-  if (pageTypeRef.current !== pageType) {
-    pageTypeRef.current = pageType;
-  }
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageTypeRef.current !== 'modal') {
+      if (pageType !== EPageType.modal) {
         if (isFocus && !isHiddenModel && !swapApprovingTxRef.current?.txId) {
           void recoverQuoteInterval(activeAccountAddressRef.current);
         } else {
@@ -123,7 +119,7 @@ export function useSwapQuote() {
 
   const isFocused = useIsFocused();
   useEffect(() => {
-    if (pageType === 'modal') {
+    if (pageType === EPageType.modal) {
       if (isFocused && !swapApprovingTxRef.current?.txId) {
         void recoverQuoteInterval(activeAccountAddressRef.current);
       } else {

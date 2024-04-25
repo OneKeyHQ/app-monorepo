@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
 
-import { usePageType } from '@onekeyhq/components';
+import { EPageType, usePageType } from '@onekeyhq/components';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -84,15 +84,10 @@ export function useSwapFromAccountNetworkSync() {
   );
 
   const pageType = usePageType();
-  const pageTypeRef = useRef<string | undefined>();
-  if (pageTypeRef.current !== pageType) {
-    pageTypeRef.current = pageType;
-  }
-
   useListenTabFocusState(
     ETabRoutes.Swap,
     async (isFocus: boolean, isHideByModal: boolean) => {
-      if (pageTypeRef.current !== 'modal') {
+      if (pageType !== EPageType.modal) {
         if (isHideByModal) return;
         if (isFocus) {
           await checkTokenForAccountNetworkDebounce();
@@ -104,7 +99,7 @@ export function useSwapFromAccountNetworkSync() {
   const isFocused = useIsFocused();
   useEffect(() => {
     void (async () => {
-      if (pageType === 'modal' && isFocused) {
+      if (pageType === EPageType.modal && isFocused) {
         await checkTokenForAccountNetworkDebounce();
       }
     })();

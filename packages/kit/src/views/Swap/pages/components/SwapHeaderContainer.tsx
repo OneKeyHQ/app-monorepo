@@ -2,13 +2,13 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack } from '@onekeyhq/components';
+import { EPageType, SizableText, XStack } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
 interface ISwapHeaderContainerProps {
-  pageType?: 'modal' | undefined;
+  pageType?: EPageType.modal;
 }
 
 const SwapHeaderContainer = ({ pageType }: ISwapHeaderContainerProps) => {
@@ -17,7 +17,7 @@ const SwapHeaderContainer = ({ pageType }: ISwapHeaderContainerProps) => {
     () => (
       <SwapHeaderRightActionContainer
         storeName={
-          pageType === 'modal'
+          pageType === EPageType.modal
             ? EJotaiContextStoreNames.swapModal
             : EJotaiContextStoreNames.swap
         }

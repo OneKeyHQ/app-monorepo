@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 
-import { Toast, usePageType } from '@onekeyhq/components';
+import { EPageType, Toast, usePageType } from '@onekeyhq/components';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapApproveTransaction } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveTransactionStatus } from '@onekeyhq/shared/types/swap/types';
@@ -60,14 +60,10 @@ export function useSwapApproving() {
   ]);
 
   const pageType = usePageType();
-  const pageTypeRef = useRef<string | undefined>();
-  if (pageTypeRef.current !== pageType) {
-    pageTypeRef.current = pageType;
-  }
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageTypeRef.current !== 'modal') {
+      if (pageType !== EPageType.modal) {
         if (
           isFocus &&
           !isHiddenModel &&
@@ -84,7 +80,7 @@ export function useSwapApproving() {
   );
   const isFocused = useIsFocused();
   useEffect(() => {
-    if (pageType === 'modal') {
+    if (pageType === EPageType.modal) {
       if (
         isFocused &&
         swapApprovingTxRef.current?.txId &&

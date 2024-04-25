@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { NumberSizeableText, YStack } from '@onekeyhq/components';
+import { EPageType, NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -25,7 +25,7 @@ interface ISwapQuoteResultProps {
   receivedAddress?: string;
   quoteResult: IFetchQuoteResult;
   onOpenProviderList?: () => void;
-  pageType?: 'modal' | undefined;
+  pageType?: EPageType.modal;
 }
 
 const SwapQuoteResult = ({
@@ -63,13 +63,13 @@ const SwapQuoteResult = ({
           }}
         />
       ) : null}
-      {!quoteResult.allowanceResult ? (
+      {quoteResult.toAmount && !quoteResult.allowanceResult ? (
         <SwapSlippageTriggerContainer
           isLoading={swapQuoteLoading}
           renderPopoverContent={() => (
             <SwapProviderMirror
               storeName={
-                pageType === 'modal'
+                pageType === EPageType.modal
                   ? EJotaiContextStoreNames.swapModal
                   : EJotaiContextStoreNames.swap
               }
