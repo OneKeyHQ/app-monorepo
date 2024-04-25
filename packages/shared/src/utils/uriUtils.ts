@@ -105,7 +105,14 @@ export function parseUrl(url: string) {
       urlParamList: Array.from(urlObject.searchParams.entries()).reduce<{
         [key: string]: any;
       }>((paramList, [paramKey, paramValue]) => {
-        paramList[paramKey] = paramValue;
+        if (paramKey in paramList) {
+          if (!Array.isArray(paramList[paramKey])) {
+            paramList[paramKey] = [paramList[paramKey]];
+          }
+          (paramList[paramKey] as Array<any>).push(paramValue);
+        } else {
+          paramList[paramKey] = paramValue;
+        }
         return paramList;
       }, {}),
     };
