@@ -3,6 +3,9 @@
 import { keccak256 } from '@ethersproject/keccak256';
 import BigNumber from 'bignumber.js';
 
+import type { IEncodedTxDynex, ISignTxParams } from './types';
+import type { DnxSignature } from '@onekeyfe/hd-core';
+
 const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 185;
 const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 29;
 const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 52;
@@ -213,4 +216,103 @@ export function decodeAddress(address: string) {
     spend,
     view,
   };
+}
+
+export function serializeTransaction({
+  signTxParams,
+  encodedTx,
+  payload,
+}: {
+  encodedTx: IEncodedTxDynex;
+  signTxParams: ISignTxParams;
+  payload: DnxSignature;
+}) {
+  let rawTx = '';
+
+  const { txKey, computedKeyImages, signatures, outputKeys } = payload;
+
+  const version = '01';
+  const unlockTime = '00';
+  const inputTypeTag = '02';
+  const outputTypeTag = '02';
+  const txPubkeyTag = '01';
+  const fromAddressTag = '04';
+  const toAddressTag = '05';
+  const amountTag = '06';
+  const txSecTag = '07';
+  const extraNonceTag = '02';
+  const extraNoncePaymentIdTag = '00';
+  const decodedFrom = decodeAddress(encodedTx.from);
+  const decodedTo = decodeAddress(encodedTx.to);
+  const totalInputAmountBN = signTxParams.inputs.reduce(
+    (acc, input) => acc.plus(input.amount),
+    new BigNumber(0),
+  );
+  const chargeAmount = totalInputAmountBN
+    .minus(signTxParams.amount)
+    .minus(signTxParams.fee);
+
+  rawTx += version;
+  rawTx += unlockTime;
+  rawTx += encodeVarInt(signTxParams.inputs.length);
+
+  for (let i = 0; i < signTxParams.inputs.length; i += 1) {
+    const input = signTxParams.inputs[i];
+    rawTx += inputTypeTag;
+    rawTx += encodeVarInt(input.amount);
+    rawTx += encodeVarInt(1);
+    rawTx += encodeVarInt(input.globalIndex);
+    rawTx += computedKeyImages[i];
+  }
+
+  rawTx += encodeVarInt(outputKeys.length);
+
+  for (let i = 0; i < outputKeys.length; i += 1) {
+    const outputKey = outputKeys[i];
+    rawTx += encodeVarInt(
+      i === outputKeys.length - 1 && chargeAmount.gt(0)
+        ? chargeAmount.toNumber()
+        : Number(signTxParams.amount),
+    );
+    rawTx += outputTypeTag;
+    rawTx += outputKey;
+  }
+
+  let extra = '';
+
+  if (signTxParams.paymentIdHex) {
+    extra += extraNonceTag;
+    extra += '21';
+    extra += extraNoncePaymentIdTag;
+    extra += signTxParams.paymentIdHex;
+  }
+
+  extra += txPubkeyTag;
+  extra += txKey.ephemeralTxPubKey;
+
+  extra += fromAddressTag;
+  extra += decodedFrom.spend;
+  extra += decodedFrom.view;
+
+  extra += toAddressTag;
+  extra += decodedTo.spend;
+  extra += decodedTo.view;
+
+  extra += amountTag;
+  extra += integerToLittleEndianHex({
+    number: Number(signTxParams.amount),
+    bytes: 8,
+  });
+
+  extra += txSecTag;
+  extra += txKey.ephemeralTxSecKey;
+
+  rawTx += encodeVarInt(extra.length / 2);
+  rawTx += extra;
+
+  for (const signature of signatures) {
+    rawTx += signature;
+  }
+
+  return rawTx;
 }

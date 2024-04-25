@@ -96,3 +96,12 @@ export type IEncodedTxDynex = {
   paymentId?: string;
   inputs: IUnspentOutput[];
 };
+
+export type ISignTxParams = {
+  path: string;
+  inputs: IUnspentOutput[];
+  toAddress: string;
+  amount: string;
+  fee: string;
+  paymentIdHex?: string;
+};

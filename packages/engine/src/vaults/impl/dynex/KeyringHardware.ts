@@ -16,12 +16,7 @@ import { AccountType } from '../../../types/account';
 import { KeyringHardwareBase } from '../../keyring/KeyringHardwareBase';
 import { stripHexPrefix } from '../../utils/hexUtils';
 
-import {
-  cnFastHash,
-  decodeAddress,
-  encodeVarInt,
-  integerToLittleEndianHex,
-} from './utils';
+import { cnFastHash, serializeTransaction } from './utils';
 
 import type { DBUTXOAccount } from '../../../types/account';
 import type {
@@ -176,94 +171,13 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
 
     if (response.success) {
-      const { txKey, computedKeyImages, signatures, outputKeys } =
-        response.payload;
       console.log('signTransaction response', response.payload);
 
-      let rawTx = '';
-
-      const version = '01';
-      const unlockTime = '00';
-      const inputTypeTag = '02';
-      const outputTypeTag = '02';
-      const txPubkeyTag = '01';
-      const fromAddressTag = '04';
-      const toAddressTag = '05';
-      const amountTag = '06';
-      const txSecTag = '07';
-      const extraNonceTag = '02';
-      const extraNoncePaymentIdTag = '00';
-      const decodedFrom = decodeAddress(encodedTx.from);
-      const decodedTo = decodeAddress(encodedTx.to);
-      const totalInputAmountBN = params.inputs.reduce(
-        (acc, input) => acc.plus(input.amount),
-        new BigNumber(0),
-      );
-      const chargeAmount = totalInputAmountBN
-        .minus(params.amount)
-        .minus(params.fee);
-
-      rawTx += version;
-      rawTx += unlockTime;
-      rawTx += encodeVarInt(params.inputs.length);
-
-      for (let i = 0; i < params.inputs.length; i += 1) {
-        const input = params.inputs[i];
-        rawTx += inputTypeTag;
-        rawTx += encodeVarInt(input.amount);
-        rawTx += encodeVarInt(1);
-        rawTx += encodeVarInt(input.globalIndex);
-        rawTx += computedKeyImages[i];
-      }
-
-      rawTx += encodeVarInt(outputKeys.length);
-
-      for (let i = 0; i < outputKeys.length; i += 1) {
-        const outputKey = outputKeys[i];
-        rawTx += encodeVarInt(
-          i === outputKeys.length - 1 && chargeAmount.gt(0)
-            ? chargeAmount.toNumber()
-            : Number(params.amount),
-        );
-        rawTx += outputTypeTag;
-        rawTx += outputKey;
-      }
-
-      let extra = '';
-
-      if (params.paymentIdHex) {
-        extra += extraNonceTag;
-        extra += '21';
-        extra += extraNoncePaymentIdTag;
-        extra += params.paymentIdHex;
-      }
-
-      extra += txPubkeyTag;
-      extra += txKey.ephemeralTxPubKey;
-
-      extra += fromAddressTag;
-      extra += decodedFrom.spend;
-      extra += decodedFrom.view;
-
-      extra += toAddressTag;
-      extra += decodedTo.spend;
-      extra += decodedTo.view;
-
-      extra += amountTag;
-      extra += integerToLittleEndianHex({
-        number: Number(params.amount),
-        bytes: 8,
+      const rawTx = serializeTransaction({
+        encodedTx,
+        signTxParams: params,
+        payload: response.payload,
       });
-
-      extra += txSecTag;
-      extra += txKey.ephemeralTxSecKey;
-
-      rawTx += encodeVarInt(extra.length / 2);
-      rawTx += extra;
-
-      for (const signature of signatures) {
-        rawTx += signature;
-      }
 
       return {
         txid: stripHexPrefix(cnFastHash(rawTx)),
