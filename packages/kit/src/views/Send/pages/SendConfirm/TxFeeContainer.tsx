@@ -342,6 +342,7 @@ function TxFeeContainer(props: IProps) {
               title={intl.formatMessage({ id: 'title__edit_fee' })}
               open={isEditFeeActive}
               onOpenChange={setIsEditFeeActive}
+              allowFlip={false}
               renderContent={
                 <FeeEditor
                   networkId={networkId}
