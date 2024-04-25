@@ -329,6 +329,13 @@ class ServiceDApp extends ServiceBase {
       walletConnectTopic,
     });
     appEventBus.emit(EAppEventBusNames.DAppConnectUpdate, undefined);
+    await this.backgroundApi.serviceSignature.addConnectedSite({
+      url: origin,
+      items: accountsInfo.map((i) => ({
+        networkId: i.networkId ?? '',
+        address: i.address,
+      })),
+    });
   }
 
   @backgroundMethod()
