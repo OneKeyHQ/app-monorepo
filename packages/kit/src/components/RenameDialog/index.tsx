@@ -5,7 +5,7 @@ export const showRenameDialog = (
   name: string,
   {
     onSubmit,
-    maxLength = 16,
+    maxLength = 24,
     ...dialogProps
   }: IDialogShowProps & {
     maxLength?: number;
