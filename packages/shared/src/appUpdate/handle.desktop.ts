@@ -1,13 +1,12 @@
 import platformEnv from '../platformEnv';
 
-import { getVersionAndChangeLog } from './utils';
+import { getVersion } from './utils';
 
 import type { IAppUpdateInfo, IHandleReleaseInfo } from './type';
 
 export const handleReleaseInfo: IHandleReleaseInfo = (releaseInfo) => {
-  const result: IAppUpdateInfo = getVersionAndChangeLog(
+  const result: IAppUpdateInfo = getVersion(
     releaseInfo.desktop,
-    releaseInfo.changelog,
   ) as unknown as IAppUpdateInfo;
   if (platformEnv.isDesktopLinux) {
     result.downloadUrl = releaseInfo.desktop.linux;

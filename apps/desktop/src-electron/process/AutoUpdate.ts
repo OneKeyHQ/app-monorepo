@@ -1,5 +1,8 @@
-import { app, ipcMain } from 'electron';
+import checkDiskSpace from 'check-disk-space';
+import { BrowserWindow, app, dialog, ipcMain } from 'electron';
+import isDev from 'electron-is-dev';
 import logger from 'electron-log';
+import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 
 import { ipcMessageKeys } from '../config';
@@ -37,7 +40,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
   });
 
   let isManualCheck = false;
-  let ILatestVersion: ILatestVersion = {} as ILatestVersion;
+  let latestVersion: ILatestVersion = {} as ILatestVersion;
   let updateCancellationToken: CancellationToken;
   const updateSettings = store.getUpdateSettings();
 
@@ -68,11 +71,8 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `- Manual check: ${b2t(isManualCheck)}`,
     ]);
 
-    ILatestVersion = { version, releaseDate, isManualCheck };
-    mainWindow.webContents.send(
-      ipcMessageKeys.UPDATE_AVAILABLE,
-      ILatestVersion,
-    );
+    latestVersion = { version, releaseDate, isManualCheck };
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_AVAILABLE, latestVersion);
 
     // Reset manual check flag
     isManualCheck = false;
@@ -87,10 +87,10 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `- Manual check: ${b2t(isManualCheck)}`,
     ]);
 
-    ILatestVersion = { version, releaseDate, isManualCheck };
+    latestVersion = { version, releaseDate, isManualCheck };
     mainWindow.webContents.send(
       ipcMessageKeys.UPDATE_NOT_AVAILABLE,
-      ILatestVersion,
+      latestVersion,
     );
 
     // Reset manual check flag
@@ -99,11 +99,33 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   autoUpdater.on('error', (err) => {
     logger.error('auto-updater', `An error happened: ${err.toString()}`);
-    if (isNetworkError(err)) {
+    const isNetwork = isNetworkError(err);
+    let message = isNetwork
+      ? 'Network exception, please check your internet connection.'
+      : err.message;
+    if (err.message.includes('sha512 checksum mismatch')) {
+      message = 'Installation package possibly compromised';
+    }
+
+    if (mainWindow.isDestroyed()) {
+      void dialog
+        .showMessageBox({
+          type: 'error',
+          buttons: ['Restart Now'],
+          defaultId: 0,
+          message,
+        })
+        .then((selection) => {
+          if (selection.response === 0) {
+            app.relaunch();
+            app.exit();
+          }
+        });
+    } else {
       mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-        err,
-        version: ILatestVersion.version,
-        isNetworkError: true,
+        err: { message },
+        version: latestVersion.version,
+        isNetworkError: isNetworkError(err),
       });
     }
   });
@@ -137,7 +159,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     },
   );
 
-  ipcMain.on(ipcMessageKeys.UPDATE_CHECK, (_, isManual?: boolean) => {
+  ipcMain.on(ipcMessageKeys.UPDATE_CHECK, async (_, isManual?: boolean) => {
     if (isManual) {
       isManualCheck = true;
     }
@@ -146,9 +168,27 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `Update checking request (manual: ${b2t(isManualCheck)})`,
     );
 
+    const { free } = await checkDiskSpace(rootPath);
+    logger.info('check-free-space', `${free} ${rootPath}`);
+    if (free < 1024 * 1024 * 300) {
+      mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+        err: {
+          message: 'Insufficient disk space, please clear and retry.',
+        },
+        isNetworkError: false,
+      });
+      return;
+    }
     const feedUrl = updateSettings.useTestFeedUrl ? TEST_FEEDURL : PROD_FEEDURL;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
+    if (isDev) {
+      Object.defineProperty(app, 'isPackaged', {
+        get() {
+          return true;
+        },
+      });
+    }
     autoUpdater.checkForUpdates().catch((error) => {
       if (isNetworkError(error)) {
         logger.info('auto-updater', `Check for update network error`);
@@ -181,18 +221,37 @@ const init = ({ mainWindow, store }: IDependencies) => {
     autoUpdater
       .downloadUpdate(updateCancellationToken)
       .then(() => logger.info('auto-updater', 'Update downloaded'))
-      .catch(() => logger.info('auto-updater', 'Update cancelled'));
+      .catch(() => {
+        logger.info('auto-updater', 'Update cancelled');
+        mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+          err: {},
+          isNetworkError: false,
+        });
+      });
   });
 
   ipcMain.on(ipcMessageKeys.UPDATE_INSTALL, () => {
     logger.info('auto-updater', 'Installation request');
-
-    // Removing listeners & closing window (https://github.com/electron-userland/electron-builder/issues/1604)
-    app.removeAllListeners('window-all-closed');
-    mainWindow.removeAllListeners('close');
-    mainWindow.close();
-
-    autoUpdater.quitAndInstall();
+    void dialog
+      .showMessageBox({
+        type: 'question',
+        buttons: ['Install and Restart', 'Later'],
+        defaultId: 0,
+        message:
+          'A new update has been downloaded. Would you like to install and restart the app now?',
+      })
+      .then((selection) => {
+        if (selection.response === 0) {
+          // User clicked 'Install and Restart'
+          app.removeAllListeners('window-all-closed');
+          mainWindow.removeAllListeners('close');
+          for (const window of BrowserWindow.getAllWindows()) {
+            window.close();
+            window.destroy();
+          }
+          autoUpdater.quitAndInstall(false);
+        }
+      });
   });
 
   ipcMain.on(ipcMessageKeys.UPDATE_SETTINGS, (_, settings: IUpdateSettings) => {

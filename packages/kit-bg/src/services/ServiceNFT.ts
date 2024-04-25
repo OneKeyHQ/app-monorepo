@@ -1,5 +1,7 @@
 import qs from 'querystring';
 
+import { isNil, omitBy } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -26,7 +28,7 @@ class ServiceNFT extends ServiceBase {
     const client = await this.getClient();
     const resp = await client.get<{
       data: IFetchAccountNFTsResp;
-    }>(`/wallet/v1/account/nft/list?${qs.stringify(params)}`);
+    }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(params, isNil))}`);
     return resp.data.data;
   }
 

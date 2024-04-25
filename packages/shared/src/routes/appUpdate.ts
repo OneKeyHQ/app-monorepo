@@ -5,13 +5,9 @@ export enum EAppUpdateRoutes {
 
 export type IAppUpdatePagesParamList = {
   [EAppUpdateRoutes.UpdatePreview]: {
-    version?: string;
     latestVersion?: string;
-    changeLog?: string;
     isForceUpdate?: boolean;
+    autoClose?: boolean;
   };
-  [EAppUpdateRoutes.WhatsNew]: {
-    version?: string;
-    changeLog?: string;
-  };
+  [EAppUpdateRoutes.WhatsNew]: undefined;
 };

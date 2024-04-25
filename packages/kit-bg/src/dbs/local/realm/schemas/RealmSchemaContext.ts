@@ -19,6 +19,12 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
 
   public backupUUID!: string;
 
+  public nextSignatureMessageId!: number;
+
+  public nextSignatureTransactionId!: number;
+
+  public nextConnectedSiteId!: number;
+
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Context,
     primaryKey: 'id',
@@ -29,6 +35,9 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       verifyString: 'string',
       networkOrderChanged: { type: 'bool', default: false },
       backupUUID: { type: 'string', default: '' },
+      nextSignatureMessageId: { type: 'int', default: 1 },
+      nextSignatureTransactionId: { type: 'int', default: 1 },
+      nextConnectedSiteId: { type: 'int', default: 1 },
     },
   };
 
@@ -40,6 +49,9 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
       verifyString: this.verifyString,
       networkOrderChanged: this.networkOrderChanged || false,
       backupUUID: this.backupUUID,
+      nextSignatureMessageId: this.nextSignatureMessageId,
+      nextSignatureTransactionId: this.nextSignatureTransactionId,
+      nextConnectedSiteId: this.nextConnectedSiteId,
     };
   }
 }
