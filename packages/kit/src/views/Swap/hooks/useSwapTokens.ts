@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -9,13 +8,9 @@ import type {
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapDirectionType,
-  ESwapTxHistoryStatus,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -23,8 +18,6 @@ import {
   useSwapProviderSortAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSelectedFromTokenBalanceAtom,
-  useSwapSelectedToTokenBalanceAtom,
   useSwapTokenFetchingAtom,
   useSwapTokenMapAtom,
   useSwapTxHistoryStatusChangeAtom,
@@ -313,109 +306,21 @@ export function useSwapSelectedTokenInfo({
 }) {
   const swapAddressInfo = useSwapAddressInfo(type);
   const [swapTxHistoryStatusChange] = useSwapTxHistoryStatusChangeAtom();
-  const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
-  const [toToken, setToToken] = useSwapSelectToTokenAtom();
-  const accountAddress = swapAddressInfo.address;
-  const accountNetworkId = swapAddressInfo.networkId;
-  const accountXpub = (swapAddressInfo.accountInfo?.account as IDBUtxoAccount)
-    ?.xpub;
-  const [, setSwapSelectedFromTokenBalance] =
-    useSwapSelectedFromTokenBalanceAtom();
+  const { loadSwapSelectTokenDetail } = useSwapActions().current;
+  const swapAddressInfoRef =
+    useRef<ReturnType<typeof useSwapAddressInfo>>(swapAddressInfo);
+  if (swapAddressInfoRef.current !== swapAddressInfo) {
+    swapAddressInfoRef.current = swapAddressInfo;
+  }
 
-  const [, setSwapSelectedToTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-
-  const { isLoading } = usePromiseResult(
-    async () => {
-      let balanceDisplay;
-      if (
-        swapTxHistoryStatusChange.length > 0 &&
-        swapTxHistoryStatusChange.every(
-          (item) => item.status !== ESwapTxHistoryStatus.SUCCESS,
-        )
-      ) {
-        return;
-      }
-      if (!(!token || !accountAddress || !accountNetworkId)) {
-        if (
-          token.accountAddress === accountAddress &&
-          accountNetworkId === token.networkId
-        ) {
-          const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
-          balanceDisplay = balanceParsedBN.isNaN()
-            ? '0.0'
-            : balanceParsedBN.toFixed();
-        } else {
-          const detailInfo =
-            await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-              networkId: token.networkId,
-              accountAddress,
-              xpub: accountXpub,
-              contractAddress: token.contractAddress,
-            });
-          if (detailInfo?.[0]) {
-            const balanceParsedBN = new BigNumber(
-              detailInfo[0].balanceParsed ?? 0,
-            );
-            if (detailInfo[0].price) {
-              if (type === ESwapDirectionType.FROM) {
-                if (
-                  !fromToken?.price ||
-                  !fromToken?.fiatValue ||
-                  !fromToken.balanceParsed
-                ) {
-                  setFromToken({
-                    ...token,
-                    price: detailInfo[0].price,
-                    fiatValue: detailInfo[0].fiatValue,
-                    balanceParsed: detailInfo[0].balanceParsed,
-                    accountAddress,
-                  });
-                }
-              } else if (
-                !toToken?.price ||
-                !toToken?.fiatValue ||
-                !toToken.balanceParsed
-              ) {
-                setToToken({
-                  ...token,
-                  price: detailInfo[0].price,
-                  fiatValue: detailInfo[0].fiatValue,
-                  balanceParsed: detailInfo[0].balanceParsed,
-                  accountAddress,
-                });
-              }
-              balanceDisplay = balanceParsedBN.isNaN()
-                ? '0.0'
-                : balanceParsedBN.toFixed();
-            }
-          }
-        }
-      }
-      if (type === ESwapDirectionType.FROM) {
-        setSwapSelectedFromTokenBalance(balanceDisplay ?? '0.0');
-      } else {
-        setSwapSelectedToTokenBalance(balanceDisplay ?? '0.0');
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      swapTxHistoryStatusChange,
-      token,
-      accountAddress,
-      accountNetworkId,
-      type,
-      accountXpub,
-      setFromToken,
-      setToToken,
-      setSwapSelectedFromTokenBalance,
-      setSwapSelectedToTokenBalance,
-    ],
-    {
-      watchLoading: true,
-      debounced: 500,
-    },
-  );
-  return {
-    isLoading,
-  };
+  useEffect(() => {
+    void loadSwapSelectTokenDetail(type, swapAddressInfoRef.current);
+  }, [
+    swapTxHistoryStatusChange,
+    type,
+    swapAddressInfo,
+    token?.networkId,
+    token?.contractAddress,
+    loadSwapSelectTokenDetail,
+  ]);
 }

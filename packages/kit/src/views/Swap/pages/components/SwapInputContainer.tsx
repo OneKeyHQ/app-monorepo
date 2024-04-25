@@ -7,6 +7,7 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
+  useSwapSelectTokenDetailFetchingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -45,10 +46,11 @@ const SwapInputContainer = ({
   onToAnotherAddressModal,
   balance,
 }: ISwapInputContainerProps) => {
-  const { isLoading } = useSwapSelectedTokenInfo({
+  useSwapSelectedTokenInfo({
     token,
     type: direction,
   });
+  const [tokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [alerts] = useSwapAlertsAtom();
   const [rateDifference] = useRateDifferenceAtom();
@@ -101,7 +103,7 @@ const SwapInputContainer = ({
         balanceProps={{
           value: balance,
           onPress: onBalanceMaxPress,
-          loading: token && isLoading,
+          loading: token && tokenDetailLoading[direction],
         }}
         valueProps={{
           value: amountPrice,

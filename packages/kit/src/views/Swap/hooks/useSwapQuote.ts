@@ -36,10 +36,13 @@ export function useSwapQuote() {
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
   const activeAccountAddressRef = useRef<string | undefined>();
+  const activeAccountNetworkIdRef = useRef<string | undefined>();
   if (activeAccountAddressRef.current !== swapAddressInfo?.address) {
     activeAccountAddressRef.current = swapAddressInfo?.address;
   }
-
+  if (activeAccountNetworkIdRef.current !== swapAddressInfo.networkId) {
+    activeAccountNetworkIdRef.current = swapAddressInfo.networkId;
+  }
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
   if (swapApprovingTxRef.current !== swapApprovingTransactionAtom) {
     swapApprovingTxRef.current = swapApprovingTransactionAtom;
@@ -83,6 +86,9 @@ export function useSwapQuote() {
   }, [cleanQuoteInterval, quoteAction, swapApprovingTransactionAtom]);
 
   useEffect(() => {
+    if (fromToken?.networkId !== activeAccountNetworkIdRef.current) {
+      return;
+    }
     alignmentDecimal();
     void quoteAction(activeAccountAddressRef.current);
     return () => {

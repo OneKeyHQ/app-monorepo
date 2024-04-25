@@ -6,6 +6,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapAlertsAtom,
   useSwapQuoteCurrentSelectAtom,
+  useSwapSelectTokenDetailFetchingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -49,6 +50,7 @@ const SwapMainLoad = ({
   const [alerts] = useSwapAlertsAtom();
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const quoteLoading = useSwapQuoteLoading();
+  const [selectTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
@@ -136,7 +138,7 @@ const SwapMainLoad = ({
           selectLoading={fetchLoading}
           onToAnotherAddressModal={onToAnotherAddressModal}
         />
-        {alerts.length > 0 && !quoteLoading ? (
+        {alerts.length > 0 && !quoteLoading && !selectTokenDetailLoading ? (
           <SwapAlertContainer alerts={alerts} />
         ) : null}
         {quoteResult ? (

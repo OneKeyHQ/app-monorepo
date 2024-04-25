@@ -38,7 +38,11 @@ interface ISectionData {
   data: ISwapTxHistory[];
 }
 
-const SwapHistoryListModal = () => {
+interface ISwapHistoryListModalProps {
+  storeName?: string;
+}
+
+const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   const [swapTxHistoryList] = useSwapTxHistoryAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -106,11 +110,12 @@ const SwapHistoryListModal = () => {
         onClickCell={() => {
           navigation.push(EModalSwapRoutes.SwapHistoryDetail, {
             txHistory: item,
+            storeName,
           });
         }}
       />
     ),
-    [navigation],
+    [navigation, storeName],
   );
   return (
     <Page>

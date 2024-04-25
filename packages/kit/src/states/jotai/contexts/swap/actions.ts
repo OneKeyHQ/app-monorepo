@@ -6,6 +6,7 @@ import { debounce } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
+import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -18,20 +19,21 @@ import {
   swapSlippageAutoValue,
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import {
-  EProtocolOfExchange,
-  ESwapAlertLevel,
-  ESwapApproveTransactionStatus,
-  ESwapFetchCancelCause,
-  ESwapRateDifferenceUnit,
-  ESwapSlippageSegmentKey,
-  ESwapTxHistoryStatus,
-} from '@onekeyhq/shared/types/swap/types';
 import type {
   IFetchTokensParams,
   ISwapAlertState,
   ISwapToken,
   ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapAlertLevel,
+  ESwapApproveTransactionStatus,
+  ESwapDirectionType,
+  ESwapFetchCancelCause,
+  ESwapRateDifferenceUnit,
+  ESwapSlippageSegmentKey,
+  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -50,7 +52,9 @@ import {
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSelectTokenDetailFetchingAtom,
   swapSelectedFromTokenBalanceAtom,
+  swapSelectedToTokenBalanceAtom,
   swapSilenceQuoteLoading,
   swapSlippagePercentageAtom,
   swapTokenFetchingAtom,
@@ -826,6 +830,107 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(rateDifferenceAtom(), rateDifferenceRes);
     },
   );
+
+  loadSwapSelectTokenDetail = contextAtomMethod(
+    async (
+      get,
+      set,
+      type: ESwapDirectionType,
+      swapAddressInfo: ReturnType<typeof useSwapAddressInfo>,
+    ) => {
+      const swapTxHistoryStatusChange = get(swapTxHistoryStatusChangeAtom());
+      const token =
+        type === ESwapDirectionType.FROM
+          ? get(swapSelectFromTokenAtom())
+          : get(swapSelectToTokenAtom());
+      const accountAddress = swapAddressInfo.address;
+      const accountNetworkId = swapAddressInfo.networkId;
+      const accountXpub = (
+        swapAddressInfo.accountInfo?.account as IDBUtxoAccount
+      )?.xpub;
+      if (accountNetworkId !== token?.networkId) return;
+      let balanceDisplay;
+      if (token && accountAddress && accountNetworkId) {
+        if (
+          token.accountAddress === accountAddress &&
+          accountNetworkId === token.networkId &&
+          token.balanceParsed &&
+          (!swapTxHistoryStatusChange.length ||
+            swapTxHistoryStatusChange.every(
+              (item) => item.status !== ESwapTxHistoryStatus.SUCCESS,
+            ))
+        ) {
+          const balanceParsedBN = new BigNumber(token.balanceParsed ?? 0);
+          balanceDisplay = balanceParsedBN.isNaN()
+            ? '0.0'
+            : balanceParsedBN.toFixed();
+        } else {
+          try {
+            set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
+              ...pre,
+              [type]: true,
+            }));
+            const detailInfo =
+              await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+                networkId: token.networkId,
+                accountAddress,
+                xpub: accountXpub,
+                contractAddress: token.contractAddress,
+              });
+            if (detailInfo?.[0]) {
+              const balanceParsedBN = new BigNumber(
+                detailInfo[0].balanceParsed ?? 0,
+              );
+              balanceDisplay = balanceParsedBN.isNaN()
+                ? '0.0'
+                : balanceParsedBN.toFixed();
+              if (
+                detailInfo[0].price &&
+                detailInfo[0].fiatValue &&
+                detailInfo[0].balanceParsed
+              ) {
+                if (type === ESwapDirectionType.FROM) {
+                  set(swapSelectFromTokenAtom(), (pre) => {
+                    if (pre) {
+                      return {
+                        ...pre,
+                        price: detailInfo[0].price,
+                        fiatValue: detailInfo[0].fiatValue,
+                        balanceParsed: detailInfo[0].balanceParsed,
+                        accountAddress,
+                      };
+                    }
+                  });
+                } else {
+                  set(swapSelectToTokenAtom(), (pre) => {
+                    if (pre) {
+                      return {
+                        ...pre,
+                        price: detailInfo[0].price,
+                        fiatValue: detailInfo[0].fiatValue,
+                        balanceParsed: detailInfo[0].balanceParsed,
+                        accountAddress,
+                      };
+                    }
+                  });
+                }
+              }
+            }
+          } finally {
+            set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
+              ...pre,
+              [type]: false,
+            }));
+          }
+        }
+      }
+      if (type === ESwapDirectionType.FROM) {
+        set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '0.0');
+      } else {
+        set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '0.0');
+      }
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -843,9 +948,13 @@ export const useSwapActions = () => {
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
   const quoteAction = debounce(actions.quoteAction.use(), 100);
   const approvingStateAction = actions.approvingStateAction.use();
-  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 300);
+  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 200);
   const tokenListFetchAction = actions.tokenListFetchAction.use();
   const historyStateAction = actions.historyStateAction.use();
+  const loadSwapSelectTokenDetail = debounce(
+    actions.loadSwapSelectTokenDetail.use(),
+    200,
+  );
   const {
     cleanQuoteInterval,
     cleanApprovingInterval,
@@ -870,5 +979,6 @@ export const useSwapActions = () => {
     historyStateAction,
     cleanHistoryStateIntervals,
     checkSwapWarning,
+    loadSwapSelectTokenDetail,
   });
 };

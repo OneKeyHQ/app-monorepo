@@ -5,6 +5,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type {
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
@@ -269,6 +270,14 @@ export default class ServiceSwap extends ServiceBase {
       '/swap/v1/build-tx',
       { params },
     );
+    if (data?.code !== 0) {
+      throw new OneKeyError({
+        autoToast: false,
+        message: data.message,
+        code: data.code,
+        data,
+      });
+    }
     return data?.data;
   }
 
