@@ -8,7 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Stack } from '../../primitives';
 
 import type { IButtonProps } from '../../primitives/Button';
-import type { View as IView } from 'react-native';
+import type { View as IView, LayoutChangeEvent } from 'react-native';
 
 const composeEventHandlers =
   (
@@ -22,7 +22,11 @@ const composeEventHandlers =
     }
   };
 
-type ITrigger = PropsWithChildren<{ onPress?: () => void; disabled?: boolean }>;
+type ITrigger = PropsWithChildren<{
+  onPress?: () => void;
+  disabled?: boolean;
+  onLayout?: (e: LayoutChangeEvent) => void;
+}>;
 const noop = () => undefined;
 
 const stopPropagationPress = (onPress: (...params: any[]) => void) =>
@@ -38,7 +42,7 @@ const stopPropagationPress = (onPress: (...params: any[]) => void) =>
     : onPress;
 
 function BasicTrigger(
-  { onPress: onPressInTrigger, disabled, children }: ITrigger,
+  { onPress: onPressInTrigger, disabled, children, onLayout }: ITrigger,
   ref: ForwardedRef<IView>,
 ) {
   if (children) {
@@ -54,7 +58,7 @@ function BasicTrigger(
       const handlePressWithStatus = disabled ? noop : debounceHandlePress;
 
       return (
-        <Stack ref={ref} onPress={handlePressWithStatus}>
+        <Stack ref={ref} onLayout={onLayout} onPress={handlePressWithStatus}>
           {cloneElement(child, {
             onPress: handlePressWithStatus,
             ...props,
