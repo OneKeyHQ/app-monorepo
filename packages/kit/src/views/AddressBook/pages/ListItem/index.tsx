@@ -48,7 +48,7 @@ function ListPage() {
       />
       <Page.Body>
         <AddressBookListContent
-          sections={result?.items ?? []}
+          items={result.items}
           showActions
           searchKey={searchText.trim()}
         />
