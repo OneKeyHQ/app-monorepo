@@ -551,6 +551,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];
+        set(swapAlertsAtom(), alertsRes);
+        return;
       }
 
       if (
