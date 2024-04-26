@@ -1,9 +1,11 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ChainSelectorPageView } from '../components/PageView';
@@ -20,19 +22,30 @@ export default function ChainSelectorPage({
     defaultNetworkId,
     networkIds,
     title = 'Networks',
+    enableDangerNetwork,
   } = route.params ?? {};
-  const { result } = usePromiseResult(() => {
+  const { result } = usePromiseResult(async () => {
+    let networks: IServerNetwork[] = [];
     if (networkIds && networkIds.length > 0) {
-      return backgroundApiProxy.serviceNetwork.getNetworksByIds({ networkIds });
+      const resp = await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+        networkIds,
+      });
+      networks = resp.networks;
+    } else {
+      const resp = await backgroundApiProxy.serviceNetwork.getAllNetworks();
+      networks = resp.networks;
     }
-    return backgroundApiProxy.serviceNetwork.getAllNetworks();
-  }, [networkIds]);
+    if (enableDangerNetwork) {
+      networks = [dangerAllNetworkRepresent, ...networks];
+    }
+    return networks;
+  }, [networkIds, enableDangerNetwork]);
 
   return (
     <ChainSelectorPageView
       title={title}
       networkId={defaultNetworkId}
-      networks={result?.networks ?? []}
+      networks={result ?? []}
       onPressItem={(network) => {
         onSelect?.(network);
         navigation.goBack();
