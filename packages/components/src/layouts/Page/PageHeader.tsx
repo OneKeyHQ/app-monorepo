@@ -5,9 +5,13 @@ import { useIntl } from 'react-intl';
 
 import { useThemeValue } from '../../hooks';
 
-import type { IStackNavigationOptions } from '../Navigation';
+import type {
+  IModalNavigationOptions,
+  IStackNavigationOptions,
+} from '../Navigation';
 
-export type IPageHeaderProps = IStackNavigationOptions;
+export type IPageHeaderProps = IStackNavigationOptions &
+  IModalNavigationOptions;
 
 const usePageHeaderReloadOptions = () => {
   const intl = useIntl();
