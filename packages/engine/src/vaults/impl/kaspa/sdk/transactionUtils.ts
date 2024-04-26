@@ -63,8 +63,11 @@ function determineToAddresses(
   );
 
   outputs?.forEach((output) => {
-    // 如果输出地址不在输入地址中，它就不是找零，应该被包括
-    if (!inputAddresses.has(output.script_public_key_address)) {
+    if (hasSenderIncludeMine) {
+      if (!inputAddresses.has(output.script_public_key_address)) {
+        toAddresses.add(output.script_public_key_address);
+      }
+    } else if (output.script_public_key_address === mineAddress) {
       toAddresses.add(output.script_public_key_address);
     }
   });
