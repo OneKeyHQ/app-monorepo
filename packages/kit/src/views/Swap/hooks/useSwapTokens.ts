@@ -34,12 +34,10 @@ export function useSwapInit(params?: ISwapInitParams) {
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [defaultTokenLoading, setDefaultTokenLoading] = useState<boolean>(true);
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
-
   const swapAddressInfoRef = useRef<ReturnType<typeof useSwapAddressInfo>>();
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
   }
-
   const swapNetworksRef = useRef<ISwapNetwork[]>([]);
   if (swapNetworksRef.current !== swapNetworks) {
     swapNetworksRef.current = swapNetworks;
@@ -62,10 +60,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     let networks: ISwapNetwork[] = [];
     const fetchNetworks =
       await backgroundApiProxy.serviceSwap.fetchSwapNetworks();
-    if (!fetchNetworks?.length && swapNetworksSortList?.data) {
-      networks = swapNetworksSortList.data;
-    }
-    if (swapNetworksSortList?.data && fetchNetworks?.length) {
+    networks = [...fetchNetworks];
+    if (swapNetworksSortList?.data?.length && fetchNetworks?.length) {
       const sortNetworks = swapNetworksSortList.data;
       networks = sortNetworks
         .filter((network) =>
