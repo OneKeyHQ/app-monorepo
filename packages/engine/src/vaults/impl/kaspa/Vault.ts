@@ -170,11 +170,11 @@ export default class Vault extends VaultBase {
       !hasMaxSend &&
       utxos
         .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
-        .lte(amountValue)
+        .lte(new BigNumber(amountValue).plus(DUST_AMOUNT))
     ) {
       const newSelectUtxo = selectUTXOs(
         confirmUtxos,
-        parseInt(amountValue) + mass,
+        new BigNumber(amountValue).plus(mass).plus(DUST_AMOUNT).toNumber(),
       );
       utxoIds = newSelectUtxo.utxoIds;
       utxos = newSelectUtxo.utxos;
