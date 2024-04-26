@@ -33,6 +33,7 @@ export function WalletRemoveButton({ wallet }: { wallet?: IDBWallet }) {
           config,
           title,
           description,
+          showCheckBox: wallet?.type !== 'hw',
           defaultChecked: false,
           wallet,
         });
