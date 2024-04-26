@@ -7,6 +7,9 @@ import type { IDeviceType, IVersionArray } from '@onekeyfe/hd-core';
 export const getDeviceTypeByDeviceId = (deviceId?: string): IDeviceType =>
   getDeviceTypeByDeviceIdUtil(deviceId);
 
+export const isHwClassic = (deviceType: string | undefined): boolean =>
+  deviceType === 'classic' || deviceType === 'classic1s';
+
 export const getDeviceFirmwareVersion = (
   features: IOneKeyDeviceFeatures | undefined,
 ): IVersionArray => {

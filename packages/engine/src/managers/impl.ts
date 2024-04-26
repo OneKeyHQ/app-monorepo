@@ -10,6 +10,7 @@ import {
   COINTYPE_COSMOS,
   COINTYPE_DOGE,
   COINTYPE_DOT,
+  COINTYPE_DYNEX,
   COINTYPE_ETC,
   COINTYPE_ETH,
   COINTYPE_FIL,
@@ -38,6 +39,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_DOT,
+  IMPL_DYNEX,
   IMPL_EVM,
   IMPL_FIL,
   IMPL_KASPA,
@@ -99,6 +101,7 @@ const implToCoinTypes: Partial<Record<string, string | string[]>> = {
   [IMPL_NOSTR]: COINTYPE_NOSTR,
   [IMPL_NERVOS]: COINTYPE_NERVOS,
   [IMPL_NEURAI]: COINTYPE_NEURAI,
+  [IMPL_DYNEX]: COINTYPE_DYNEX,
 };
 
 const coinTypeToImpl: Record<string, string> = Object.fromEntries(
@@ -140,6 +143,7 @@ const implToAccountType: Record<string, AccountType> = {
   [IMPL_NOSTR]: AccountType.VARIANT,
   [IMPL_NERVOS]: AccountType.SIMPLE,
   [IMPL_NEURAI]: AccountType.UTXO,
+  [IMPL_DYNEX]: AccountType.UTXO,
 };
 
 function isCoinTypeCompatibleWithImpl(coinType: string, impl: string): boolean {
@@ -176,6 +180,7 @@ const defaultCurveMap: Record<string, Curve> = {
   [IMPL_NOSTR]: Curve.SECP256K1,
   [IMPL_NERVOS]: Curve.SECP256K1,
   [IMPL_NEURAI]: Curve.SECP256K1,
+  [IMPL_DYNEX]: Curve.ED25519,
 };
 
 function getCurveByImpl(impl: string): string {
