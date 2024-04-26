@@ -8,7 +8,6 @@ import {
   Page,
   SizableText,
   Stack,
-  Toast,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -16,10 +15,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 export const UnsafeContent = () => {
   const intl = useIntl();
   const { copyText } = useClipboard();
-  const copy = useCallback(async () => {
-    const text = await backgroundApiProxy.serviceAddressBook.stringifyItems();
-    copyText(text);
-  }, [copyText]);
   const onConfirm = useCallback(() => {
     Dialog.show({
       title: 'Confirm',
@@ -30,9 +25,10 @@ export const UnsafeContent = () => {
       showConfirmButton: true,
       showCancelButton: true,
       onConfirm: async (inst) => {
-        await copy();
+        const text =
+          await backgroundApiProxy.serviceAddressBook.stringifyItems();
         await backgroundApiProxy.serviceAddressBook.resetItems();
-        Toast.success({ title: intl.formatMessage({ id: 'msg__success' }) });
+        copyText(text, 'msg__success');
         await inst.close();
       },
       onConfirmText: 'Reset',
@@ -41,12 +37,13 @@ export const UnsafeContent = () => {
         icon: 'Copy2Outline',
       },
       onCancel: async (close) => {
-        await copy();
-        Toast.success({ title: intl.formatMessage({ id: 'msg__success' }) });
+        const text =
+          await backgroundApiProxy.serviceAddressBook.stringifyItems();
+        copyText(text);
         await close();
       },
     });
-  }, [copy, intl]);
+  }, [copyText]);
   return (
     <Page>
       <Page.Header title={intl.formatMessage({ id: 'title__address_book' })} />

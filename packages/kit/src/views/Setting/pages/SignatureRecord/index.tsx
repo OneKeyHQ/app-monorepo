@@ -6,6 +6,7 @@ import {
   NetworkAvatar,
 } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 
 import { ConnectedSites } from './ConnectedSites';
 import { SignatureContext } from './Context';
@@ -38,8 +39,13 @@ const PageView = () => {
   const onPress = useCallback(() => {
     onShowChainSelector({
       defaultNetworkId: networkId,
+      enableDangerNetwork: true,
       onSelect(network) {
-        setNetworkId?.(network.id);
+        if (network.id === dangerAllNetworkRepresent.id) {
+          setNetworkId('');
+        } else {
+          setNetworkId?.(network.id);
+        }
       },
     });
   }, [onShowChainSelector, networkId, setNetworkId]);

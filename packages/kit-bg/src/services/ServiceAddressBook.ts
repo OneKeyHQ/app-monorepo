@@ -5,7 +5,7 @@ import {
 import { hash160 } from '@onekeyhq/core/src/secret/hash';
 import type {
   IAddressItem,
-  ISectionItem,
+  IAddressNetworkItem,
 } from '@onekeyhq/kit/src/views/AddressBook/type';
 import {
   backgroundClass,
@@ -20,16 +20,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
 
 import ServiceBase from './ServiceBase';
-
-function getSectionItemScore(item: ISectionItem): number {
-  if (item.title.toLowerCase() === 'bitcoin') {
-    return -10;
-  }
-  if (item.title.toLowerCase() === 'evm') {
-    return -9;
-  }
-  return item.data[0]?.createdAt ?? 0;
-}
 
 @backgroundClass()
 class ServiceAddressBook extends ServiceBase {
@@ -108,40 +98,41 @@ class ServiceAddressBook extends ServiceBase {
     throw new Error('address book failed to verify hash');
   }
 
-  getItemGroupName(item: IAddressItem, names: Record<string, string>) {
-    return item.networkId.startsWith('evm--') ? 'EVM' : names[item.networkId];
+  @backgroundMethod()
+  async getSafeRawItems(): Promise<IAddressItem[]> {
+    const isSafe = await this.verifyHash(true);
+    const items = await this.getItems();
+    return isSafe ? items : [];
   }
 
   @backgroundMethod()
-  async groupItems({ networkId }: { networkId?: string }) {
-    const { serviceNetwork } = this.backgroundApi;
-    let items = await this.getItems();
-    const names = await serviceNetwork.getNetworkNames();
+  async getSafeItems({
+    networkId,
+  }: {
+    networkId?: string;
+  }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
+    const isSafe = await this.verifyHash(true);
+    if (!isSafe) {
+      return { isSafe, items: [] };
+    }
+    let rawItems = await this.getItems();
     if (networkId) {
       const [impl] = networkId.split('--');
-      items = items.filter((item) => item.networkId.startsWith(`${impl}--`));
+      rawItems = rawItems.filter((item) =>
+        item.networkId.startsWith(`${impl}--`),
+      );
     }
-    const data = items.reduce((result, item) => {
-      const title = this.getItemGroupName(item, names);
-      if (!result[title]) {
-        result[title] = [];
-      }
-      result[title].push(item);
-      return result;
-    }, {} as Record<string, IAddressItem[]>);
-    return (
-      Object.entries(data)
-        .map((o) => ({ title: o[0], data: o[1] }))
-        // pin up btc, evm to top, other impl sort by create time
-        .sort((a, b) => getSectionItemScore(a) - getSectionItemScore(b))
-    );
-  }
-
-  @backgroundMethod()
-  async getSafeItems({ networkId }: { networkId?: string }) {
-    const groupItems = await this.groupItems({ networkId });
-    const isSafe = await this.verifyHash(true);
-    return { isSafe, items: isSafe ? groupItems : [] };
+    const promises = rawItems.map(async (item) => {
+      const network = await this.backgroundApi.serviceNetwork.getNetwork({
+        networkId: item.networkId,
+      });
+      return {
+        ...item,
+        network,
+      };
+    });
+    const items = await Promise.all(promises);
+    return { isSafe, items };
   }
 
   @backgroundMethod()
@@ -265,14 +256,15 @@ class ServiceAddressBook extends ServiceBase {
   @backgroundMethod()
   public async stringifyItems() {
     const { serviceNetwork } = this.backgroundApi;
-    const items = await this.getItems();
-    const names = await serviceNetwork.getNetworkNames();
+    const rawItems = await this.getItems();
     const result: string[] = [];
-    for (let i = 0; i < items.length; i += 1) {
-      const item = items[i];
-      const text = `${this.getItemGroupName(item, names)} ${item.name} ${
-        item.address
-      }`;
+    for (let i = 0; i < rawItems.length; i += 1) {
+      const item = rawItems[i];
+      const network = await serviceNetwork.getNetwork({
+        networkId: item.networkId,
+      });
+      const title = network.id.startsWith('evm--') ? 'EVM' : network.name;
+      const text = `${title} ${item.name} ${item.address}`;
       result.push(text);
     }
     return result.join('\n');

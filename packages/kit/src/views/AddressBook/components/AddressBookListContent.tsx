@@ -1,6 +1,7 @@
 import { type FC, useMemo } from 'react';
 import { useCallback, useState } from 'react';
 
+import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,12 +15,47 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 
-import type { IAddressItem, ISectionItem } from '../type';
+import type { IAddressItem, IAddressNetworkItem } from '../type';
+
+type IAddressNetworkExtendMatch = IAddressNetworkItem & {
+  addressMatch?: IFuseResultMatch;
+  nameMatch?: IFuseResultMatch;
+};
+
+export type ISectionItem = {
+  title: string;
+  data: IAddressNetworkExtendMatch[];
+};
+
+const getSectionTitle = (item: IAddressNetworkItem) =>
+  item.networkId.startsWith('evm--') ? 'EVM' : item.network.name;
+
+function getSectionIndex(item: ISectionItem): number {
+  if (item.title.toLowerCase() === 'bitcoin') {
+    return -10;
+  }
+  if (item.title.toLowerCase() === 'evm') {
+    return -9;
+  }
+  return item.data[0]?.createdAt ?? 0;
+}
+
+const buildSections = (items: IAddressNetworkExtendMatch[]) => {
+  const result = groupBy(items, getSectionTitle);
+  return (
+    Object.entries(result)
+      .map((o) => ({ title: o[0], data: o[1] }))
+      // pin up btc, evm to top, other impl sort by create time
+      .sort((a, b) => getSectionIndex(a) - getSectionIndex(b))
+  );
+};
 
 type IRenderAddressItemProps = {
-  item: IAddressItem;
+  item: IAddressNetworkExtendMatch;
   onPress?: (item: IAddressItem) => void;
   showActions?: boolean;
 };
@@ -53,7 +89,9 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
   return (
     <ListItem
       title={item.name}
+      titleMatch={item.nameMatch}
       subtitle={item.address}
+      subTitleMatch={item.addressMatch}
       renderAvatar={renderAvatar}
       onPress={() => onPress?.(item)}
       testID={`address-item-${item.address || ''}`}
@@ -140,7 +178,7 @@ const RenderNoSearchResult = () => {
 };
 
 type IAddressBookListContentProps = {
-  sections: ISectionItem[];
+  items: IAddressNetworkItem[];
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   showActions?: boolean;
   onPressItem?: (item: IAddressItem) => void;
@@ -149,7 +187,7 @@ type IAddressBookListContentProps = {
 };
 
 export const AddressBookListContent = ({
-  sections,
+  items,
   onContentSizeChange,
   showActions,
   onPressItem,
@@ -174,7 +212,7 @@ export const AddressBookListContent = ({
     }: {
       section: {
         title: string;
-        data: IAddressItem[];
+        data: IAddressNetworkExtendMatch[];
         index: number;
         isFold?: boolean;
       };
@@ -204,7 +242,7 @@ export const AddressBookListContent = ({
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: IAddressItem }) => (
+    ({ item }: { item: IAddressNetworkExtendMatch }) => (
       <RenderAddressBookItem
         item={item}
         showActions={showActions}
@@ -214,14 +252,17 @@ export const AddressBookListContent = ({
     [showActions, onPressItem],
   );
   const memoSections = useMemo(() => {
+    let sections: ISectionItem[] = [];
     if (searchKey) {
-      const result = sections.map((item) => {
-        const data = item.data.filter(
-          (o) => o.address.includes(searchKey) || o.name.includes(searchKey),
-        );
-        return { title: item.title, data };
-      });
-      return result.filter((o) => o.data.length > 0);
+      const fuse = buildFuse(items, { keys: ['address', 'name'] });
+      const itemSearched = fuse.search(searchKey).map((o) => ({
+        ...o.item,
+        addressMatch: o.matches?.find((i) => i.key === 'address'),
+        nameMatch: o.matches?.find((i) => i.key === 'name'),
+      }));
+      sections = buildSections(itemSearched);
+    } else {
+      sections = buildSections(items);
     }
     return sections.map((item) => {
       const isFold = foldItems.includes(item.title);
@@ -232,7 +273,7 @@ export const AddressBookListContent = ({
         isFold,
       };
     });
-  }, [foldItems, sections, searchKey]);
+  }, [foldItems, items, searchKey]);
 
   return (
     <SectionList
@@ -243,7 +284,7 @@ export const AddressBookListContent = ({
       renderItem={renderItem}
       SectionSeparatorComponent={null}
       ListEmptyComponent={
-        sections.length ? (
+        items.length ? (
           RenderNoSearchResult
         ) : (
           <RenderEmptyAddressBook hideAddItemButton={hideEmptyAddButton} />

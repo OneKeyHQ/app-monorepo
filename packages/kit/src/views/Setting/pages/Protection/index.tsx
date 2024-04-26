@@ -4,6 +4,7 @@ import { Page, SizableText, Switch, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const SettingProtectionModal = () => {
   const intl = useIntl();
@@ -16,11 +17,16 @@ const SettingProtectionModal = () => {
         >
           <Switch
             value={settings.protectCreateTransaction}
-            onChange={(value) =>
-              backgroundApiProxy.serviceSetting.setProtectCreateTransaction(
+            onChange={async (value) => {
+              if (!value) {
+                await backgroundApiProxy.servicePassword.promptPasswordVerify({
+                  reason: EReasonForNeedPassword.Security,
+                });
+              }
+              await backgroundApiProxy.serviceSetting.setProtectCreateTransaction(
                 value,
-              )
-            }
+              );
+            }}
           />
         </ListItem>
         <ListItem
@@ -28,11 +34,16 @@ const SettingProtectionModal = () => {
         >
           <Switch
             value={settings.protectCreateOrRemoveWallet}
-            onChange={(value) =>
-              backgroundApiProxy.serviceSetting.setProtectCreateOrRemoveWallet(
+            onChange={async (value) => {
+              if (!value) {
+                await backgroundApiProxy.servicePassword.promptPasswordVerify({
+                  reason: EReasonForNeedPassword.Security,
+                });
+              }
+              await backgroundApiProxy.serviceSetting.setProtectCreateOrRemoveWallet(
                 value,
-              )
-            }
+              );
+            }}
           />
         </ListItem>
         <YStack px="$5">

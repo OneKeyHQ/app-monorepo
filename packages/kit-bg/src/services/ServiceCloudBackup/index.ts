@@ -92,13 +92,7 @@ class ServiceCloudBackup extends ServiceBase {
       wallets: {},
     };
     const { version } = platformEnv;
-    const contacts = (
-      await serviceAddressBook.groupItems({
-        networkId: undefined,
-      })
-    )
-      .map((item) => item.data)
-      .flat();
+    const contacts = await serviceAddressBook.getSafeRawItems();
 
     contacts.forEach((contact) => {
       const contactUUID = getContactUUID(contact);

@@ -60,7 +60,7 @@ const PickItemPage = () => {
       <Page.Body px="$4">
         <AddressBookListContent
           onPressItem={onPressItem}
-          sections={result?.items ?? []}
+          items={result?.items ?? []}
           searchKey={searchKey.trim()}
           hideEmptyAddButton
         />
