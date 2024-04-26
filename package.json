@@ -152,7 +152,7 @@
     "eslint-plugin-use-effect-no-deps": "^1.1.2",
     "fake-indexeddb": "^5.0.0",
     "html-webpack-plugin": "^5.5.3",
-    "ip": "^1.1.8",
+    "ip": "^1.1.9",
     "jest": "^29.7.0",
     "jest-expo": "~50.0.1",
     "jest-html-reporter": "^3.10.2",
