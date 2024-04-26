@@ -81,6 +81,9 @@ function ModalNavigator({
 
   const handleBackdropClick = useCallback(() => {
     if (!descriptor.options.disableClose) {
+      if (descriptor.options.dismissOnOverlayPress === false) {
+        return;
+      }
       if (descriptor.options.shouldPopOnClickBackdrop) {
         navigation.goBack();
       } else {
