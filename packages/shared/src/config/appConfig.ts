@@ -3,7 +3,6 @@
 /**
  * Tokens will injected at build process. These are client token.
  */
-
 export const COVALENT_API_KEY = process.env.COVALENT_KEY!;
 
 export const JPUSH_KEY = process.env.JPUSH_KEY!;
@@ -46,3 +45,8 @@ export const EXT_RATE_URL = {
 
 export const APP_STORE_LINK = `itms-apps://apps.apple.com/app/id1609559473?action=write-review`;
 export const PLAY_STORE_LINK = `market://details?id=so.onekey.app.wallet`;
+
+export const ONEKEY_KEY_TAG_PURCHASE_URL =
+  'https://onekey.so/zh_CN/products/onekey-keytag/';
+
+export const BIP39_DOT_MAP_URL = 'https://github.com/OneKeyHQ/bip39-dotmap';
