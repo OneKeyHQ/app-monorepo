@@ -95,9 +95,6 @@ module.exports = {
     'verifyUpdateCodeSignature': false,
     'target': ['nsis'],
   },
-  // 'snap': {
-  //   'grade': 'stable',
-  // },
   'linux': {
     'extraResources': [
       {
