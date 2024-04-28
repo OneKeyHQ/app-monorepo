@@ -12,9 +12,9 @@ import {
   Page,
   Skeleton,
   Stack,
-  Toast,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -50,6 +50,8 @@ export function TokenDetails() {
         EModalAssetDetailRoutes.TokenDetails
       >
     >();
+
+  const { copyText } = useClipboard();
 
   const [settings] = useSettingsPersistAtom();
 
@@ -196,9 +198,9 @@ export function TokenDetails() {
           {
             items: [
               {
-                label: 'Copy Token Contrast',
+                label: 'Copy Token Contract',
                 icon: 'Copy1Outline',
-                onPress: () => Toast.success({ title: 'Copied' }),
+                onPress: () => copyText(tokenInfo.address),
               },
               {
                 label: 'View on Etherscan',
@@ -218,7 +220,7 @@ export function TokenDetails() {
         ]}
       />
     ),
-    [handleToggleBlockedToken, isBlocked],
+    [copyText, handleToggleBlockedToken, isBlocked, tokenInfo.address],
   );
 
   // const renderTokenAddress = useCallback(() => {
