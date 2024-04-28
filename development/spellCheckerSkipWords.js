@@ -680,4 +680,6 @@ module.exports = [
   'linux',
   'What’s',
   'won’t',
+  'copyable',
+  'apk',
 ];
