@@ -95,21 +95,21 @@ module.exports = {
     'verifyUpdateCodeSignature': false,
     'target': ['nsis'],
   },
-  // 'snap': {
-  //   'grade': 'stable',
-  // },
-  // 'linux': {
-  //   'extraResources': [
-  //     {
-  //       'from': 'build/static/bin/bridge/linux-${arch}',
-  //       'to': 'bin/bridge',
-  //     },
-  //   ],
-  //   'icon': 'build/static/images/icons/512x512.png',
-  //   'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
-  //   'executableName': 'onekey-wallet',
-  //   'category': 'Utility',
-  //   'target': ['AppImage', 'snap'],
-  // },
+  'snap': {
+    'grade': 'stable',
+  },
+  'linux': {
+    'extraResources': [
+      {
+        'from': 'build/static/bin/bridge/linux-${arch}',
+        'to': 'bin/bridge',
+      },
+    ],
+    'icon': 'build/static/images/icons/512x512.png',
+    'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
+    'executableName': 'onekey-wallet',
+    'category': 'Utility',
+    'target': ['AppImage', 'snap'],
+  },
   'afterSign': 'scripts/notarize.js',
 };
