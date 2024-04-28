@@ -26,6 +26,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
     initialized: false,
     isRefreshing: false,
   });
+  const [searchKey, setSearchKey] = useState('');
   const media = useMedia();
   const navigation = useAppNavigation();
   const {
@@ -76,6 +77,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         initialized: false,
         isRefreshing: true,
       });
+      setSearchKey('');
     }
   }, [account?.id, network?.id, wallet?.id]);
 
@@ -83,6 +85,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
     <TxHistoryListView
       showIcon
       data={history.result ?? []}
+      searchKey={searchKey}
+      setSearchKey={setSearchKey}
       onPressHistory={handleHistoryItemPress}
       showHeader
       isLoading={historyState.isRefreshing}

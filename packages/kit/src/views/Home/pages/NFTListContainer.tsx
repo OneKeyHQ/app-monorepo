@@ -19,6 +19,7 @@ function NFTListContainer(props: ITabPageProps) {
     initialized: false,
     isRefreshing: false,
   });
+  const [searchKey, setSearchKey] = useState('');
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
@@ -56,12 +57,15 @@ function NFTListContainer(props: ITabPageProps) {
         initialized: false,
         isRefreshing: true,
       });
+      setSearchKey('');
     }
   }, [account?.id, network?.id, wallet?.id]);
 
   return (
     <NFTListView
       data={nfts.result ?? []}
+      searchKey={searchKey}
+      setSearchKey={setSearchKey}
       isLoading={nftListState.isRefreshing}
       onContentSizeChange={onContentSizeChange}
       initialized={nftListState.initialized}

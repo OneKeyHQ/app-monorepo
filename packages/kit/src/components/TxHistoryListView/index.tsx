@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -25,6 +25,8 @@ import { TxHistoryListItem } from './TxHistoryListItem';
 
 type IProps = {
   data: IAccountHistoryTx[];
+  searchKey: string;
+  setSearchKey: (key: string) => void;
   isLoading?: boolean;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
@@ -41,6 +43,8 @@ function TxHistoryListView(props: IProps) {
   const intl = useIntl();
   const {
     data,
+    searchKey,
+    setSearchKey,
     isLoading,
     showHeader,
     ListHeaderComponent,
@@ -52,7 +56,6 @@ function TxHistoryListView(props: IProps) {
   } = props;
 
   const currentDate = useRef('');
-  const [searchKey, setSearchKey] = useState('');
 
   const filteredHistory = getFilteredHistoryBySearchKey({
     history: data,

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { ScrollView, XStack } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
@@ -18,6 +18,8 @@ import { NFTListItem } from './NFTListItem';
 
 type IProps = {
   data: IAccountNFT[];
+  searchKey: string;
+  setSearchKey: (key: string) => void;
   isLoading?: boolean;
   initialized?: boolean;
   onRefresh?: () => void;
@@ -25,8 +27,14 @@ type IProps = {
 };
 
 function NFTListView(props: IProps) {
-  const { data, isLoading, initialized, onContentSizeChange } = props;
-  const [searchKey, setSearchKey] = useState('');
+  const {
+    data,
+    searchKey,
+    setSearchKey,
+    isLoading,
+    initialized,
+    onContentSizeChange,
+  } = props;
 
   const filteredNfts = getFilteredNftsBySearchKey({ nfts: data, searchKey });
 
