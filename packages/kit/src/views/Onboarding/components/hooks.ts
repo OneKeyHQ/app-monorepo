@@ -160,23 +160,17 @@ export const useSuggestion = (
         const value = getFormValueByIndex(index);
         const result = isValidWord(value);
         if (!result) {
-          await updateInputValueWithLock('');
+          // await updateInputValueWithLock('');
           openStatusRef.current = false;
         }
       });
     },
-    [getFormValueByIndex, isValidWord, updateInputValueWithLock],
+    [getFormValueByIndex, isValidWord],
   );
 
-  const onInputFocus = useCallback(
-    (index: number) => {
-      if (openStatusRef.current && index !== selectInputIndex) {
-        checkIsValid(index - 1);
-      }
-      setSelectInputIndex(index);
-    },
-    [checkIsValid, selectInputIndex],
-  );
+  const onInputFocus = useCallback((index: number) => {
+    setSelectInputIndex(index);
+  }, []);
 
   const onInputBlur = useCallback(
     async (index: number) => {
@@ -184,12 +178,11 @@ export const useSuggestion = (
         return;
       }
       if (index === selectInputIndex) {
-        checkIsValid(index);
         setSelectInputIndex(-1);
       }
       openStatusRef.current = false;
     },
-    [checkIsValid, selectInputIndex],
+    [selectInputIndex],
   );
 
   const { copyText } = useClipboard();
