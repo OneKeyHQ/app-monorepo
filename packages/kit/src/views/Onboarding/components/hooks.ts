@@ -8,6 +8,8 @@ import type { useForm } from '@onekeyhq/components';
 import { Toast, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+const isValidWord = (word: string) => wordLists.includes(word);
+
 export const useSearchWords = () => {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const ref = useRef(new Map<string, string[]>());
@@ -17,11 +19,6 @@ export const useSearchWords = () => {
     suggestionsRef.current = suggestionWords;
     setSuggestions(suggestionWords);
   }, []);
-
-  const isValidWord = useCallback(
-    (word: string) => wordLists.includes(word),
-    [],
-  );
 
   const fetchSuggestions = useCallback(
     (value: string) => {
@@ -47,7 +44,6 @@ export const useSearchWords = () => {
     suggestionsRef,
     suggestions,
     updateSuggestions,
-    isValidWord,
   };
 };
 
@@ -55,19 +51,51 @@ export const useSuggestion = (
   form: ReturnType<typeof useForm>,
   phraseLength = 12,
 ) => {
-  const {
-    fetchSuggestions,
-    suggestions,
-    updateSuggestions,
-    isValidWord,
-    suggestionsRef,
-  } = useSearchWords();
+  const { fetchSuggestions, suggestions, updateSuggestions, suggestionsRef } =
+    useSearchWords();
+
+  const [isShowErrors, setIsShowErrors] = useState<Record<string, boolean>>({});
 
   const [selectInputIndex, setSelectInputIndex] = useState(-1);
 
   const openStatusRef = useRef(false);
 
   const updateByPressLock = useRef(false);
+
+  const checkIsValidWord = useCallback(
+    (index: number, text?: string, isBlur = false) => {
+      setTimeout(() => {
+        if (!text) {
+          setIsShowErrors((prev) => ({ ...prev, [index]: false }));
+          return;
+        }
+
+        if (
+          isBlur &&
+          (!openStatusRef.current ||
+            (suggestionsRef.current && suggestionsRef.current?.length === 0))
+        ) {
+          if (isValidWord(text)) {
+            setIsShowErrors((prev) => ({ ...prev, [index]: false }));
+          } else {
+            setIsShowErrors((prev) => ({ ...prev, [index]: true }));
+          }
+          return;
+        }
+
+        if (
+          selectInputIndex === index &&
+          suggestionsRef.current &&
+          suggestionsRef.current?.length > 0
+        ) {
+          setIsShowErrors((prev) => ({ ...prev, [index]: false }));
+          return;
+        }
+        setIsShowErrors((prev) => ({ ...prev, [index]: false }));
+      }, 0);
+    },
+    [selectInputIndex, suggestionsRef],
+  );
 
   const resetSuggestions = useCallback(() => {
     openStatusRef.current = false;
@@ -110,9 +138,10 @@ export const useSuggestion = (
       const text = value.toLowerCase().trim();
       const words = fetchSuggestions(text);
       openStatusRef.current = words.length > 0;
+      checkIsValidWord(selectInputIndex, text);
       return text;
     },
-    [fetchSuggestions, resetSuggestions],
+    [checkIsValidWord, fetchSuggestions, resetSuggestions, selectInputIndex],
   );
 
   const getFormValueByIndex = useCallback(
@@ -154,20 +183,6 @@ export const useSuggestion = (
     },
   });
 
-  const checkIsValid = useCallback(
-    (index: number) => {
-      setTimeout(async () => {
-        const value = getFormValueByIndex(index);
-        const result = isValidWord(value);
-        if (!result) {
-          // await updateInputValueWithLock('');
-          openStatusRef.current = false;
-        }
-      });
-    },
-    [getFormValueByIndex, isValidWord],
-  );
-
   const onInputFocus = useCallback((index: number) => {
     setSelectInputIndex(index);
   }, []);
@@ -181,8 +196,9 @@ export const useSuggestion = (
         setSelectInputIndex(-1);
       }
       openStatusRef.current = false;
+      checkIsValidWord(selectInputIndex, getFormValueByIndex(index), true);
     },
-    [selectInputIndex],
+    [checkIsValidWord, getFormValueByIndex, selectInputIndex],
   );
 
   const { copyText } = useClipboard();
@@ -209,8 +225,23 @@ export const useSuggestion = (
     [copyText, form, phraseLength, resetSuggestions],
   );
 
+  const closePopover = useCallback(() => {
+    resetSuggestions();
+    checkIsValidWord(
+      selectInputIndex,
+      getFormValueByIndex(selectInputIndex),
+      true,
+    );
+  }, [
+    checkIsValidWord,
+    getFormValueByIndex,
+    resetSuggestions,
+    selectInputIndex,
+  ]);
+
   return useMemo(
     () => ({
+      isShowErrors,
       suggestions,
       onInputFocus,
       onInputBlur,
@@ -221,19 +252,20 @@ export const useSuggestion = (
       onInputChange,
       selectInputIndex,
       focusNextInput,
-      closePopover: resetSuggestions,
+      closePopover,
     }),
     [
-      focusNextInput,
-      onInputBlur,
-      onInputChange,
-      onInputFocus,
-      onPasteMnemonic,
-      resetSuggestions,
-      selectInputIndex,
+      isShowErrors,
       suggestions,
+      onInputFocus,
+      onInputBlur,
+      onPasteMnemonic,
       suggestionsRef,
       updateInputValueWithLock,
+      onInputChange,
+      selectInputIndex,
+      focusNextInput,
+      closePopover,
     ],
   );
 };
