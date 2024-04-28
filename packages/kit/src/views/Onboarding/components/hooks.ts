@@ -107,12 +107,9 @@ export const useSuggestion = (
       if (!value) {
         resetSuggestions();
       }
-      const text = value.toLowerCase().trim().slice(0, 4);
+      const text = value.toLowerCase().trim();
       const words = fetchSuggestions(text);
       openStatusRef.current = words.length > 0;
-      if (words.length === 1 && text === words[0]) {
-        return text.slice(0, value.length - 1);
-      }
       return text;
     },
     [fetchSuggestions, resetSuggestions],
@@ -199,24 +196,20 @@ export const useSuggestion = (
 
   const onPasteMnemonic = useCallback(
     (value: string) => {
-      if (value.length > 4) {
-        const arrays = value.split(' ');
-        if (arrays.length === phraseLength) {
-          setTimeout(() => {
-            copyText(' ');
-            Toast.success({ title: 'Pasted and clipboard cleared' });
-            form.reset(
-              arrays.reduce((prev, next, index) => {
-                prev[`phrase${index + 1}`] = next;
-                return prev;
-              }, {} as Record<`phrase${number}`, string>),
-            );
-            resetSuggestions();
-          }, 10);
-          return true;
-        }
-        Toast.message({ title: 'Max 4 chars' });
-        return false;
+      const arrays = value.split(' ');
+      if (arrays.length === phraseLength) {
+        setTimeout(() => {
+          copyText(' ');
+          Toast.success({ title: 'Pasted and clipboard cleared' });
+          form.reset(
+            arrays.reduce((prev, next, index) => {
+              prev[`phrase${index + 1}`] = next;
+              return prev;
+            }, {} as Record<`phrase${number}`, string>),
+          );
+          resetSuggestions();
+        }, 10);
+        return true;
       }
       return false;
     },
