@@ -38,18 +38,6 @@ export function DesktopTabItem(
     showAvatar = false,
     ...rest
   } = props;
-  const renderFallbackImage = useCallback(
-    () => (
-      <Image.Fallback>
-        <Icon
-          size="$4.5"
-          name="GlobusOutline"
-          color={selected ? '$iconActive' : '$iconSubdued'}
-        />
-      </Image.Fallback>
-    ),
-    [selected],
-  );
   return (
     <YStack testID={rest.testID}>
       <XStack
