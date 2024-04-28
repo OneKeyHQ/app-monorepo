@@ -1,0 +1,146 @@
+name: release-desktop
+
+on:
+  workflow_run:
+    workflows:
+      - daily-build
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  release-desktop:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Install Snapcraft
+        uses: samuelmeuli/action-snapcraft@v2
+
+      - name: Dotenv Action
+        id: dotenv
+        uses: OneKeyHQ/actions/dotenv-action@main
+        with:
+          path: .env.version
+
+      - name: 'Setup ENV'
+        run: |
+          echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+
+          github_ref="${github_ref////-}"
+          github_ref="${github_ref/refs-heads-/}"
+          github_ref="${github_ref/refs-tags-/}"
+          echo '$github_ref='$github_ref
+          echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
+          # echo "::set-env name=GITHUB_TAG::$github_ref"
+
+          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
+          echo '$pkg_version='$pkg_version
+          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+
+        env:
+          github_ref: ${{ github.ref }}
+          workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+
+      - name: Setup keys secret
+        run: |
+          rm -rf packages/shared/src/analytics/firebase.web.json
+          echo ${{ secrets.GOOGLE_SERVICE_WEB }} | base64 -d > packages/shared/src/analytics/firebase.web.json
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn
+
+      - name: Inject Environment Variables
+        env:
+          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
+          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+
+      - name: Build and Sign Snap Linux
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: './sign.p12'
+        run: 'cd apps/desktop && yarn build:snap'
+
+      - name: Upload Artifacts Release
+        uses: actions/upload-artifact@v3
+        with:
+          name: release
+          path: |
+            ./apps/desktop/build-electron/*
+            !./apps/desktop/build-electron/win-unpacked
+            !./apps/desktop/build-electron/mac-arm64
+            !./apps/desktop/build-electron/mac
+            !./apps/desktop/build-electron/linux-unpacked
+            !./apps/desktop/build-electron/builder-debug.yml
+
+      - name: Upload Artifacts to Snap Linux
+        if: ${{ github.event.workflow_run }}
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        run: |
+          snapcraft push ./apps/desktop/build-electron/*.snap --release edge
+
+      - name: 'Notify to Slack'
+        if: ${{ github.event.workflow_run }}
+        uses: onekeyhq/actions/slack-notify-webhook@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-RN
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
