@@ -58,6 +58,7 @@ export const useSuggestion = (
 
   const [selectInputIndex, setSelectInputIndex] = useState(-1);
 
+  // only work on web
   const openStatusRef = useRef(false);
 
   const updateByPressLock = useRef(false);
@@ -202,6 +203,8 @@ export const useSuggestion = (
         checkIsValidWord(selectInputIndex, getFormValueByIndex(index), true);
         return;
       }
+
+      // check popover status
       if (openStatusRef.current && index === selectInputIndex) {
         return;
       }
