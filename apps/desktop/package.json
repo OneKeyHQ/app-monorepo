@@ -49,7 +49,7 @@
     "concurrently": "8.2.2",
     "cross-env": "^7.0.3",
     "electron": "27.0.0",
-    "electron-builder": "24.6.4",
+    "electron-builder": "24.13.3",
     "esbuild": "0.15.18",
     "folderslint": "^1.2.0",
     "glob": "^7.2.0",
