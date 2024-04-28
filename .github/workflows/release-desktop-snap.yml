@@ -1,4 +1,4 @@
-name: release-desktop
+name: release-desktop-snap
 
 on:
   workflow_run:
