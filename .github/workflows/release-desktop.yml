@@ -10,7 +10,7 @@ on:
 
 jobs:
   release-desktop:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     strategy:
       matrix:
         node-version: [20.x]
@@ -99,7 +99,12 @@ jobs:
           echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
 
-      - name: Build and Sign Snap Linux
+      - name: Setup Code Signing file
+        run: |
+          echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
+
+      - name: Publish and Sign Static Linux / Macos / Windows Installer
+        if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/onekey') }}
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -108,7 +113,39 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
-        run: 'cd apps/desktop && yarn build:snap'
+        run: 'cd apps/desktop && yarn publish:all'
+
+      - name: Build and Sign Static Linux / Macos / Windows Installer
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          APPLEID: ${{ secrets.APPLEID }}
+          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_LINK: './sign.p12'
+        run: 'cd apps/desktop && yarn build'
+
+      - name: Upload Artifacts Mac
+        uses: actions/upload-artifact@v3
+        with:
+          name: onekey-desktop-mac
+          path: |
+            ./apps/desktop/build-electron/*.dmg
+
+      - name: Upload Artifacts Windows
+        uses: actions/upload-artifact@v3
+        with:
+          name: onekey-desktop-windows
+          path: |
+            ./apps/desktop/build-electron/*.exe
+
+      - name: Upload Artifacts Linux
+        uses: actions/upload-artifact@v3
+        with:
+          name: onekey-desktop-linux
+          path: |
+            ./apps/desktop/build-electron/*.AppImage
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v3
