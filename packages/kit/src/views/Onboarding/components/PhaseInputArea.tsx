@@ -363,8 +363,8 @@ function BasicPhaseInput(
       label: `${index + 1}`,
       minWidth: '$10',
       justifyContent: 'center',
-      backgroundColor: isShowError ? '$bgCritical' : undefined,
     },
+    error: isShowError,
     onChangeText: handleChangeText,
     onFocus: handleInputFocus,
     onBlur: handleInputBlur,
@@ -372,12 +372,6 @@ function BasicPhaseInput(
     returnKeyType: keyLabel,
     // auto focus on the first input when entering the page.
     autoFocus: index === 0,
-    ...(isShowError
-      ? {
-          backgroundColor: '$bgCritical',
-          color: '$textCritical',
-        }
-      : undefined),
   };
   if (platformEnv.isNative) {
     return (

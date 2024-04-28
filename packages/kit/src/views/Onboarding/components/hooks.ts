@@ -70,6 +70,15 @@ export const useSuggestion = (
           return;
         }
 
+        if (platformEnv.isNative && isBlur) {
+          if (isValidWord(text)) {
+            setIsShowErrors((prev) => ({ ...prev, [index]: false }));
+          } else {
+            setIsShowErrors((prev) => ({ ...prev, [index]: true }));
+          }
+          return;
+        }
+
         if (
           isBlur &&
           (!openStatusRef.current ||
@@ -189,6 +198,10 @@ export const useSuggestion = (
 
   const onInputBlur = useCallback(
     async (index: number) => {
+      if (platformEnv.isNative) {
+        checkIsValidWord(selectInputIndex, getFormValueByIndex(index), true);
+        return;
+      }
       if (openStatusRef.current && index === selectInputIndex) {
         return;
       }
