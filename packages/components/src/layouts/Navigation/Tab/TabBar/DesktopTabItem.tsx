@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { ActionList, IconButton } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import {
