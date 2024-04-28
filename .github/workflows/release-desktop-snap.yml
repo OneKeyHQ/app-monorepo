@@ -139,7 +139,7 @@ jobs:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
-          artifact-name: OneKey-Desktop-RN
+          artifact-name: OneKey-Desktop-Linux-Snap-RN
           artifact-bundle-id: 'so.onekey.wallet.desktop'
           artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
