@@ -3,11 +3,15 @@ import { memo, useCallback } from 'react';
 import {
   Button,
   Dialog,
+  EPageType,
   Icon,
+  Page,
   Popover,
   SizableText,
   XStack,
   YStack,
+  useMedia,
+  usePageType,
 } from '@onekeyhq/components';
 import {
   useSwapActions,
@@ -58,6 +62,8 @@ const SwapActionsState = ({
     swapActionState.approveUnLimit,
     swapActionState.shoutResetApprove,
   ]);
+  const pageType = usePageType();
+  const { md } = useMedia();
 
   const onActionHandler = useCallback(() => {
     cleanQuoteInterval();
@@ -124,15 +130,29 @@ const SwapActionsState = ({
           </SizableText>
         </XStack>
       ) : null}
-      <Button
-        onPress={onActionHandler}
-        size="large"
-        variant="primary"
-        disabled={swapActionState.disabled || swapActionState.isLoading}
-        loading={swapActionState.isLoading}
-      >
-        {swapActionState.label}
-      </Button>
+
+      {pageType !== EPageType.modal && !md ? (
+        <Button
+          onPress={onActionHandler}
+          size="large"
+          variant="primary"
+          disabled={swapActionState.disabled || swapActionState.isLoading}
+          loading={swapActionState.isLoading}
+        >
+          {swapActionState.label}
+        </Button>
+      ) : (
+        <Page.Footer
+          onConfirmText={swapActionState.label}
+          confirmButtonProps={{
+            variant: 'primary',
+            size: 'large',
+            loading: swapActionState.isLoading,
+            disabled: swapActionState.disabled || swapActionState.isLoading,
+            onPress: onActionHandler,
+          }}
+        />
+      )}
     </YStack>
   );
 };
