@@ -5,6 +5,7 @@ import {
   Button,
   Dialog,
   Icon,
+  KEYBOARD_HIDE_EVENT_NAME,
   Page,
   SectionList,
   Stack,
@@ -33,15 +34,19 @@ type IOptionSection = {
 };
 
 // fix android keyboard event in next page.
-const closeKeyboard = platformEnv.isNativeAndroid
+const closeKeyboard = platformEnv.isNative
   ? () =>
       Promise.race([
         new Promise<void>((resolve) => {
-          Keyboard.addListener('keyboardDidHide', () => {
-            setTimeout(() => {
-              resolve();
-            }, 0);
-          });
+          const subscription = Keyboard.addListener(
+            KEYBOARD_HIDE_EVENT_NAME,
+            () => {
+              setTimeout(() => {
+                subscription.remove();
+                resolve();
+              }, 0);
+            },
+          );
           Keyboard.dismiss();
         }),
         new Promise<void>((resolve) => setTimeout(resolve, 5000)),
