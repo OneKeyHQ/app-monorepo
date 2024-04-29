@@ -6,7 +6,7 @@
     "start": "WEB_PORT=3008 webpack serve",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./web-build && rimraf .tamagui && rimraf ./node_modules/.cache",
-    "build": "cross-env NODE_ENV=production webpack build",
+    "build": "cross-env NODE_ENV=production webpack build && sh ./postbuild.sh",
     "_folderslint": "yarn folderslint"
   },
   "private": true,

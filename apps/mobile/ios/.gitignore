@@ -30,4 +30,4 @@ project.xcworkspace
 /Pods/
 
 # link-assets
-link-assets-manifest.json
+OneKeyWallet/web-embed
