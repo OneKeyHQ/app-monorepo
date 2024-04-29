@@ -12,7 +12,7 @@ const WebEmbedGallery = () => (
     boundaryConditions={[]}
     elements={[
       {
-        title: 'Not Found',
+        title: 'RPC Call',
         element: (
           <YStack space="$4">
             <WebViewWebEmbed src="http://localhost:3008/" />

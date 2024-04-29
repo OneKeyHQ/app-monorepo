@@ -23,9 +23,7 @@ const getOrCreateWebEmbedApiModule = memoizee(
 
     if (platformEnv.isDev) {
       if (name === 'test') {
-        return {
-          test1: (...params: any[]) => Promise.resolve(params),
-        };
+        return new (await import('../WebEmbedApiTest')).default();
       }
     }
     throw new Error(`Unknown WebEmbed API module: ${name as string}`);
