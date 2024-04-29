@@ -1,6 +1,7 @@
 /* eslint-disable no-param-reassign */
 /* eslint-disable no-bitwise */
 import { keccak256 } from '@ethersproject/keccak256';
+import { BigInteger } from 'biginteger';
 import BigNumber from 'bignumber.js';
 
 import type { IEncodedTxDynex, ISignTxParams } from './types';
@@ -11,16 +12,14 @@ const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 29;
 const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 52;
 
 export function encodeVarInt(number: number) {
-  const result = [];
-  do {
-    let byte = number & 0x7f;
-    number >>>= 7;
-    if (number !== 0) {
-      byte |= 0x80;
-    }
-    result.push(byte);
-  } while (number !== 0);
-  return result.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  let numberBI = new BigInteger(number);
+  let out = '';
+  while (numberBI.compare(0x80) >= 0) {
+    out += `0${((numberBI.lowVal() & 0x7f) | 0x80).toString(16)}`.slice(-2);
+    numberBI = numberBI.divide(new BigInteger(2).pow(7));
+  }
+  out += `0${numberBI.toJSValue().toString(16)}`.slice(-2);
+  return out;
 }
 
 export function integerToLittleEndianHex({
