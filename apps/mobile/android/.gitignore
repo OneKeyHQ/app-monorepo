@@ -13,3 +13,6 @@ local.properties
 
 # Bundle artifacts
 *.jsbundle
+
+# link-assets
+link-assets-manifest.json

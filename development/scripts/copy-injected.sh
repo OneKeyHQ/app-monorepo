@@ -20,9 +20,6 @@ mkdir -p ./apps/desktop/public/static/js-sdk/
 rsync ./node_modules/@onekeyfe/hd-web-sdk/build/ ./apps/desktop/public/static/js-sdk/ --checksum  --recursive --verbose
 
 # build and copy web-embed
-if [ "$EAS_BUILD" == "true" ];
-  then
-    yarn app:web-embed:build
-  elif [ ! -d "packages/web-embed/web-build" ]; then
-    yarn app:web-embed:build
-fi
+BASEDIR=$(dirname "$0")
+node "${BASEDIR}/web-embed.js"
+

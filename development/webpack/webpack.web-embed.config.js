@@ -1,5 +1,6 @@
 const { merge } = require('webpack-merge');
 
+const path = require('path');
 const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
 const productionConfig = require('./webpack.prod.config');
@@ -13,8 +14,15 @@ module.exports = ({
   switch (NODE_ENV) {
     case 'production':
       return merge(baseConfig({ platform, basePath }), productionConfig, {
+        optimization: {
+          splitChunks: false,
+        },
         output: {
           publicPath: '/',
+          path: path.join(basePath, 'web-build'),
+          assetModuleFilename: 'static/media/[name].[contenthash][ext]',
+          uniqueName: 'web',
+          filename: '[contenthash:10].js',
         },
       });
     case 'development':

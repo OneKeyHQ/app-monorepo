@@ -28,3 +28,6 @@ project.xcworkspace
 
 # CocoaPods
 /Pods/
+
+# link-assets
+link-assets-manifest.json
