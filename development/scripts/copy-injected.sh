@@ -22,7 +22,7 @@ rsync ./node_modules/@onekeyfe/hd-web-sdk/build/ ./apps/desktop/public/static/js
 # build and copy web-embed
 if [ "$EAS_BUILD" == "true" ];
   then
-    yarn workspace @onekeyhq/web-embed build
+    yarn app:web-embed:build
   elif [ ! -d "packages/web-embed/web-build" ]; then
-    yarn workspace @onekeyhq/web-embed build
+    yarn app:web-embed:build
 fi
