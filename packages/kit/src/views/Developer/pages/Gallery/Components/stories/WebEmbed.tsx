@@ -1,5 +1,5 @@
 import { Button, YStack } from '@onekeyhq/components';
-import { WebViewWebEmbed } from '@onekeyhq/kit/src/views/Discovery/cos/WebView/WebViewWebEmbedmponent';
+import { WebViewWebEmbed } from '@onekeyhq/kit/src/views/Discovery/components/WebView/WebViewWebEmbed';
 import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 
 import { Layout } from './utils/Layout';
