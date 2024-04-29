@@ -2,6 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { exit } = require('process');
 
 const BASEDIR = path.dirname(__filename);
 const webBuildPath = path.resolve(
@@ -14,12 +15,12 @@ if (process.env.EAS_BUILD) {
   require('child_process').execSync('yarn app:web-embed:build', {
     stdio: 'inherit',
   });
-  return;
+  exit(0);
 }
 
 // GitHub Actions
 if (process.env.process.env.GITHUB_SHA) {
-  return;
+  exit(0);
 }
 
 // Local development
@@ -27,7 +28,13 @@ if (!fs.existsSync(webBuildPath)) {
   require('child_process').execSync('yarn app:web-embed:build', {
     stdio: 'inherit',
   });
-  require('child_process').execSync(`node ${path.resolve(BASEDIR, '../../../apps/mobile/plugins/linkWebEmbed.js')}`, {
-    stdio: 'inherit',
-  });
+  require('child_process').execSync(
+    `node ${path.resolve(
+      BASEDIR,
+      '../../../apps/mobile/plugins/linkWebEmbed.js',
+    )}`,
+    {
+      stdio: 'inherit',
+    },
+  );
 }
