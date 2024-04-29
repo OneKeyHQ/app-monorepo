@@ -444,6 +444,9 @@ export default class VaultBtcFork extends VaultBase {
   }
 
   decodedTxToLegacy(decodedTx: IDecodedTx): Promise<IDecodedTxLegacy> {
+    if (!decodedTx.actions || decodedTx.actions.length === 0) {
+      return Promise.resolve({} as IDecodedTxLegacy);
+    }
     const { type, nativeTransfer, inscriptionInfo } = decodedTx.actions[0];
     if (type === IDecodedTxActionType.NATIVE_TRANSFER && nativeTransfer) {
       return Promise.resolve({

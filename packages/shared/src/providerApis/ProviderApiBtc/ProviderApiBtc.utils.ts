@@ -15,7 +15,11 @@ import { isBTCNetwork } from '../../engine/engineConsts';
 
 import { NETWORK_TYPES, NetworkTypeEnum } from './ProviderApiBtc.types';
 
-import type { InputToSign, Inscription } from './ProviderApiBtc.types';
+import type {
+  InputToSign,
+  Inscription,
+  SignPsbtParams,
+} from './ProviderApiBtc.types';
 
 export const OPENAPI_URL_MAINNET = 'https://wallet-api.unisat.io/v5';
 export const OPENAPI_URL_TESTNET = 'https://wallet-api-testnet.unisat.io/v5';
@@ -130,10 +134,12 @@ export function getInputsToSignFromPsbt({
   psbt,
   psbtNetwork,
   account,
+  isBtcWalletProvider,
 }: {
   account: Account;
   psbt: BitcoinJS.Psbt;
   psbtNetwork: BitcoinJS.networks.Network;
+  isBtcWalletProvider: SignPsbtParams['options']['isBtcWalletProvider'];
 }) {
   const inputsToSign: InputToSign[] = [];
   psbt.data.inputs.forEach((v, index) => {
@@ -164,6 +170,14 @@ export function getInputsToSignFromPsbt({
             Buffer.from(account.pubKey as string, 'hex'),
           );
         }
+      } else if (isBtcWalletProvider) {
+        // handle babylon
+        inputsToSign.push({
+          index,
+          publicKey: account.pubKey as string,
+          address: account.address,
+          sighashTypes: v.sighashType ? [v.sighashType] : undefined,
+        });
       }
     }
   });

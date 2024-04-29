@@ -437,7 +437,15 @@ class ProviderApiBtc extends ProviderApiBase {
   ) {
     const { psbtHexs, options } = params;
 
-    const { network } = getActiveWalletAccount();
+    const { network, wallet } = getActiveWalletAccount();
+    if (wallet?.type === 'hw') {
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message:
+          'Partially signed bitcoin transactions is not supported on hardware.',
+      });
+    }
+
     if (!network) return null;
 
     const psbtNetwork = toPsbtNetwork(network);
@@ -537,13 +545,14 @@ class ProviderApiBtc extends ProviderApiBase {
       psbt,
       psbtNetwork,
       account,
+      isBtcWalletProvider: options.isBtcWalletProvider,
     });
 
     const resp = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
       {
         encodedTx: {
-          inputs: decodedPsbt.inputInfos.map((v) => ({
+          inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
             ...v,
             path: '',
             value: v.value.toString(),
@@ -553,7 +562,7 @@ class ProviderApiBtc extends ProviderApiBase {
               ),
             ),
           })),
-          outputs: decodedPsbt.outputInfos.map((v) => ({
+          outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
             ...v,
             value: v.value.toString(),
             inscriptions: v.inscriptions.map((i) =>
@@ -589,6 +598,9 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
+    if (options.isBtcWalletProvider) {
+      return respPsbt.extractTransaction().toHex();
+    }
     return respPsbt.toHex();
   }
 
