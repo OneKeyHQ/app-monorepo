@@ -82,7 +82,7 @@ config.server.rewriteRequestUrl = (url) =>
 config.hooks = {
   onEnd: () =>
     new Promise((resolve) => {
-      const { linkWebEmbed } = require('./linkWebEmbed');
+      const { linkWebEmbed } = require('./plugins/linkWebEmbed');
       linkWebEmbed(projectRoot);
       resolve();
     }),
