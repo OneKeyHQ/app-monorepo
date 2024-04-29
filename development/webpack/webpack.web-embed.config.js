@@ -20,9 +20,10 @@ module.exports = ({
         output: {
           publicPath: '/',
           path: path.join(basePath, 'web-build'),
-          assetModuleFilename: 'static/media/[name].[contenthash][ext]',
+          assetModuleFilename:
+            'static/media/web-embed.[name].[contenthash][ext]',
           uniqueName: 'web',
-          filename: '[contenthash:10].js',
+          filename: 'web-embed.[contenthash:10].js',
         },
       });
     case 'development':
