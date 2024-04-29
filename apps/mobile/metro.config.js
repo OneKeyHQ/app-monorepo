@@ -79,6 +79,15 @@ const orignalRewriteRequestUrl = config.server.rewriteRequestUrl
 config.server.rewriteRequestUrl = (url) =>
   orignalRewriteRequestUrl(url).replace('&lazy=true', '&lazy=false');
 
+config.hooks = {
+  onEnd: () =>
+    new Promise((resolve) => {
+      const { linkAssets } = require('./linkAssets');
+      linkAssets(projectRoot);
+      resolve();
+    }),
+};
+
 const splitCodePlugin = require('./plugins');
 
 module.exports = splitCodePlugin(config, projectRoot);

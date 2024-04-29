@@ -3,7 +3,9 @@ const linkAssets = (projectRoot) => {
   console.log(
     `info Linking chunk bundle to native app. ${new Date().toISOString()}`,
   );
-  const assets = ['./dist/chunks'];
+  const assets = [
+    require('path').resolve(projectRoot, '../web-embed/web-build'),
+  ];
   linkAssets({
     rootPath: projectRoot,
     shouldUnlink: false,
