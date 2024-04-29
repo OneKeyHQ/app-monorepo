@@ -162,16 +162,12 @@ module.exports = (config, projectRoot) => {
           }
         });
     config.hooks = {
-      onEnd: async () => {
-        if (config.hooks.onEnd) {
-          await config.hooks.onEnd();
-        }
-        return new Promise((resolve) => {
+      onEnd: () =>
+        new Promise((resolve) => {
           const { linkAssets } = require('./linkAssets');
           linkAssets(projectRoot);
           resolve();
-        });
-      },
+        }),
     };
   }
   return config;
