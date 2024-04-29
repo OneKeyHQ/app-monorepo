@@ -1,6 +1,7 @@
 import { Button, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/views/Discovery/components/WebView/WebViewWebEmbed';
+import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 
 import { Layout } from './utils/Layout';
 
@@ -17,12 +18,12 @@ const WebEmbedGallery = () => (
             <WebViewWebEmbed src="/" onContentLoaded={() => {}} />
             <Button
               onPress={async () => {
-                // const result =
-                //   await backgroundApiProxy.serviceDapp.sendWebEmbedMessage({
-                // method: ProvideMethod,
-                // event: MoneroEvent.seedAndkeysFromMnemonic,
-                // params,
-                // });
+                const result = await webembedApiProxy.callRemoteApi({
+                  module: 'test',
+                  method: 'test1',
+                  params: ['a', 'b', 'c'],
+                });
+                alert(JSON.stringify(result));
               }}
             >
               Test RPC

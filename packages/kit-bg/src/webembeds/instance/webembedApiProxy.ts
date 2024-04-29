@@ -37,7 +37,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       method,
       params,
     };
-    return backgroundApiProxy.serviceDapp.callWebEmbedApiProxy(message);
+    return backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(message);
   }
 
   secret: WebEmbedApiSecret =
