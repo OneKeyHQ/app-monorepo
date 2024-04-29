@@ -1,4 +1,4 @@
-import { Keyboard } from 'react-native';
+import { InteractionManager, Keyboard } from 'react-native';
 
 import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
@@ -45,10 +45,10 @@ const closeKeyboard = platformEnv.isNative
           const subscription = Keyboard.addListener(
             KEYBOARD_HIDE_EVENT_NAME,
             () => {
-              setTimeout(() => {
+              void InteractionManager.runAfterInteractions(() => {
                 subscription.remove();
                 resolve();
-              }, 0);
+              });
             },
           );
           Keyboard.dismiss();
