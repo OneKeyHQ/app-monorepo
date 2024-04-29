@@ -8,7 +8,7 @@ export const getDeviceTypeByDeviceId = (deviceId?: string): IDeviceType =>
   getDeviceTypeByDeviceIdUtil(deviceId);
 
 export const isHwClassic = (deviceType: string | undefined): boolean =>
-  deviceType === 'classic' || deviceType === 'classic1s';
+  deviceType === 'classic';
 
 export const getDeviceFirmwareVersion = (
   features: IOneKeyDeviceFeatures | undefined,

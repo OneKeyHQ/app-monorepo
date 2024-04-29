@@ -7039,6 +7039,7 @@ __metadata:
     axios-retry: ^3.4.0
     bchaddrjs: ^0.5.2
     bech32: ^2.0.0
+    biginteger: ^1.0.3
     bignumber.js: ^9.0.1
     bip32: ^4.0.0
     bip39: ^3.1.0
@@ -13983,6 +13984,13 @@ __metadata:
     bindings: ^1.3.0
     node-gyp: latest
   checksum: d010c9f57758bcdaccb435d88b483ffcc95fe8bbc6e7fb3a44fb5221f29c894ffaf4a3c5a4a530e0e7d6608203c2cde9b79ee4f2386cd6d4462d1070bc8c9f4e
+  languageName: node
+  linkType: hard
+
+"biginteger@npm:^1.0.3":
+  version: 1.0.3
+  resolution: "biginteger@npm:1.0.3"
+  checksum: 325458d3801885eef4468ddb1d9b24fd4773d958fdd85bf75a7e71e856cea0009f7b319aec718ed5a64ce9e7f0aa4010b23b702e9576a840b8710e04e9550080
   languageName: node
   linkType: hard
 
