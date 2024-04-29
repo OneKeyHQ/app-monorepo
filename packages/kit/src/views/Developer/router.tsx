@@ -1,10 +1,10 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
-import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import { LazyLoadPage, LazyTabHomePage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
 
 import { galleryScreenList } from './pages/Gallery';
 
-const TabDeveloper = LazyLoadPage(() => import('./pages/TabDeveloper'));
+const TabDeveloper = LazyTabHomePage(() => import('./pages/TabDeveloper'));
 const DevHome = LazyLoadPage(() => import('./pages/DevHome'));
 const DevHomeStack1 = LazyLoadPage(() => import('./pages/DevHomeStack1'));
 const DevHomeStack2 = LazyLoadPage(() => import('./pages/DevHomeStack2'));
