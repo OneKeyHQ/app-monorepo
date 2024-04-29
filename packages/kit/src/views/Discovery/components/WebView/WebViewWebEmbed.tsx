@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import WebView from '.';
 
+import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
@@ -10,19 +11,26 @@ import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 // /onboarding/auto_typing
 export function WebViewWebEmbed({
   src,
-  routePath,
   customReceiveHandler,
-  onWebViewRef,
-  isSpinnerLoading,
-  onContentLoaded,
 }: {
   src?: string;
-  routePath?: string;
   customReceiveHandler?: IJsBridgeReceiveHandler;
-  onWebViewRef?: (ref: IWebViewWrapperRef | null) => void;
-  isSpinnerLoading?: boolean;
-  onContentLoaded?: () => void; // currently works in NativeWebView only
 }) {
+  const webviewRef = useRef<IWebViewWrapperRef | null>(null);
+  const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
+    webviewRef.current = $ref;
+  }, []);
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    const jsBridge = webviewRef?.current?.jsBridge;
+    if (!jsBridge) {
+      return;
+    }
+    jsBridge.globalOnMessageEnabled = true;
+    backgroundApiProxy.connectWebEmbedBridge(jsBridge);
+  }, [webviewRef]);
   const nativeWebviewSource = useMemo(() => {
     if (src) {
       return undefined;
@@ -44,14 +52,9 @@ export function WebViewWebEmbed({
   return (
     <WebView
       src={src || ''}
-      onContentLoaded={onContentLoaded}
-      isSpinnerLoading={isSpinnerLoading}
       onWebViewRef={onWebViewRef}
       customReceiveHandler={customReceiveHandler}
       nativeWebviewSource={nativeWebviewSource}
-      nativeInjectedJavaScriptBeforeContentLoaded={`
-        window.location.hash = "${routePath || ''}";
-      `}
     />
   );
 }
