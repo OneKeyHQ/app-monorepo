@@ -146,9 +146,8 @@ class ServiceHistory extends ServiceBase {
     networkId: string;
     accountId: string;
     data: ISendTxOnSuccessData;
-    feeInfo?: IFeeInfoUnit | undefined;
   }) {
-    const { networkId, accountId, feeInfo, data } = params;
+    const { networkId, accountId, data } = params;
 
     if (!data || !data.decodedTx) {
       return;
@@ -163,7 +162,6 @@ class ServiceHistory extends ServiceBase {
       isSigner: true,
       isLocalCreated: true,
     });
-    newHistoryTx.decodedTx.feeInfo = newHistoryTx.decodedTx.feeInfo ?? feeInfo;
     await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
   }
 }

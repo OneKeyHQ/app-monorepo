@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Badge } from '@onekeyhq/components';
