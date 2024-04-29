@@ -11,17 +11,6 @@ const PRIVATE_WHITE_LIST_ORIGIN = [
   'http://localhost:3008', // iOS simulator DEV localhost for web-embed
   'http://localhost:8081', // iOS simulator DEV localhost for web-embed
   'null', // Android DEV localhost for web-embed. url like file://
-  ...(platformEnv.isDev
-    ? [
-        // origin allowed in DEV
-        'http://192.168.31.215:3008',
-        'http://192.168.31.204:3008',
-        'http://192.168.31.96:3008',
-        'http://192.168.50.36:3008',
-        'http://192.168.124.2:3008',
-        'http://192.168.0.104:3008',
-      ]
-    : []),
 ].filter(Boolean);
 
 export function isPrivateAllowedOrigin(origin?: string) {
