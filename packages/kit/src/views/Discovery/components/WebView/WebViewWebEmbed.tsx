@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import WebView from '.';
 
+import { View } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -50,11 +51,13 @@ export function WebViewWebEmbed({
     return undefined;
   }, [src]);
   return (
-    <WebView
-      src={src || ''}
-      onWebViewRef={onWebViewRef}
-      customReceiveHandler={customReceiveHandler}
-      nativeWebviewSource={nativeWebviewSource}
-    />
+    <View h={0}>
+      <WebView
+        src={src || ''}
+        onWebViewRef={onWebViewRef}
+        customReceiveHandler={customReceiveHandler}
+        nativeWebviewSource={nativeWebviewSource}
+      />
+    </View>
   );
 }
