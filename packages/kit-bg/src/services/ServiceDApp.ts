@@ -763,7 +763,7 @@ class ServiceDApp extends ServiceBase {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate
       | undefined;
-    return privateProvider?.callChainWebEmbedMethod(data);
+    return privateProvider?.callWebEmbedApiProxy(data);
   }
 }
 
