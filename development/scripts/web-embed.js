@@ -28,13 +28,4 @@ if (!fs.existsSync(webBuildPath)) {
   require('child_process').execSync('yarn app:web-embed:build', {
     stdio: 'inherit',
   });
-  require('child_process').execSync(
-    `node ${path.resolve(
-      BASEDIR,
-      '../../../apps/mobile/plugins/linkWebEmbed.js',
-    )}`,
-    {
-      stdio: 'inherit',
-    },
-  );
 }
