@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -10,16 +10,20 @@ import {
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useNFTListActions,
+  withNFTListProvider,
+} from '../../../states/jotai/contexts/nftList';
 import { NFTListView } from '../components/NFTListView';
 
 function NFTListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
   const { isFocused } = useTabIsRefreshingFocused();
+  const { updateSearchKey } = useNFTListActions().current;
   const [nftListState, setNftListState] = useState({
     initialized: false,
     isRefreshing: false,
   });
-  const [searchKey, setSearchKey] = useState('');
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
@@ -57,15 +61,13 @@ function NFTListContainer(props: ITabPageProps) {
         initialized: false,
         isRefreshing: true,
       });
-      setSearchKey('');
+      updateSearchKey('');
     }
-  }, [account?.id, network?.id, wallet?.id]);
+  }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
   return (
     <NFTListView
       data={nfts.result ?? []}
-      searchKey={searchKey}
-      setSearchKey={setSearchKey}
       isLoading={nftListState.isRefreshing}
       onContentSizeChange={onContentSizeChange}
       initialized={nftListState.initialized}
@@ -73,4 +75,8 @@ function NFTListContainer(props: ITabPageProps) {
   );
 }
 
-export { NFTListContainer };
+const NFTListContainerWithProvider = memo(
+  withNFTListProvider(NFTListContainer),
+);
+
+export { NFTListContainerWithProvider };

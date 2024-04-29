@@ -16,6 +16,7 @@ import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/histor
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
@@ -25,8 +26,6 @@ import { TxHistoryListItem } from './TxHistoryListItem';
 
 type IProps = {
   data: IAccountHistoryTx[];
-  searchKey: string;
-  setSearchKey: (key: string) => void;
   isLoading?: boolean;
   onContentSizeChange?: ((w: number, h: number) => void) | undefined;
   tableLayout?: boolean;
@@ -43,8 +42,6 @@ function TxHistoryListView(props: IProps) {
   const intl = useIntl();
   const {
     data,
-    searchKey,
-    setSearchKey,
     isLoading,
     showHeader,
     ListHeaderComponent,
@@ -56,6 +53,7 @@ function TxHistoryListView(props: IProps) {
   } = props;
 
   const currentDate = useRef('');
+  const [searchKey] = useSearchKeyAtom();
 
   const filteredHistory = getFilteredHistoryBySearchKey({
     history: data,
@@ -192,10 +190,8 @@ function TxHistoryListView(props: IProps) {
         data?.length > 0 && {
           ListHeaderComponent: (
             <TxHistoryListHeader
-              searchKey={searchKey}
               filteredHistory={filteredHistory}
               history={data}
-              setSearchKey={setSearchKey}
             />
           ),
         })}

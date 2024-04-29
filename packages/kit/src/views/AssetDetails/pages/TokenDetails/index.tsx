@@ -23,6 +23,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -307,119 +308,121 @@ export function TokenDetails() {
         headerRight={headerRight}
       />
       <Page.Body>
-        <TxHistoryListView
-          initialized={initialized}
-          isLoading={isLoading}
-          data={tokenHistory ?? []}
-          onPressHistory={handleHistoryItemPress}
-          ListHeaderComponent={
-            <>
-              {isBlocked ? (
-                <Alert
-                  icon="EyeOffOutline"
-                  fullBleed
-                  type="warning"
-                  title="This token is currently hidden and won't appear in the list"
-                  action={{
-                    primary: 'Unhide',
-                    onPrimaryPress: handleToggleBlockedToken,
-                  }}
-                  mb="$5"
-                />
-              ) : null}
+        <ProviderJotaiContextHistoryList>
+          <TxHistoryListView
+            initialized={initialized}
+            isLoading={isLoading}
+            data={tokenHistory ?? []}
+            onPressHistory={handleHistoryItemPress}
+            ListHeaderComponent={
+              <>
+                {isBlocked ? (
+                  <Alert
+                    icon="EyeOffOutline"
+                    fullBleed
+                    type="warning"
+                    title="This token is currently hidden and won't appear in the list"
+                    action={{
+                      primary: 'Unhide',
+                      onPrimaryPress: handleToggleBlockedToken,
+                    }}
+                    mb="$5"
+                  />
+                ) : null}
 
-              {/* Overview */}
-              <Stack px="$5" pb="$5">
-                {/* Balance */}
-                <XStack alignItems="center" mb="$5">
-                  <Token
-                    tokenImageUri={
-                      tokenInfo.logoURI ?? tokenDetails?.info.logoURI
-                    }
-                    size="xl"
-                  />
-                  <Stack ml="$3">
-                    {isLoading ? (
-                      <YStack>
-                        <Stack py="$1.5">
-                          <Skeleton h="$6" w="$40" />
-                        </Stack>
-                        <Stack py="$1">
-                          <Skeleton h="$4" w="$28" />
-                        </Stack>
-                      </YStack>
-                    ) : (
-                      <>
-                        <NumberSizeableText
-                          size="$heading3xl"
-                          formatter="balance"
-                          formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
-                        >
-                          {tokenDetails?.balanceParsed ?? '0'}
-                        </NumberSizeableText>
-                        <NumberSizeableText
-                          formatter="value"
-                          formatterOptions={{
-                            currency: settings.currencyInfo.symbol,
-                          }}
-                          color="$textSubdued"
-                          size="$bodyLgMedium"
-                        >
-                          {tokenDetails?.fiatValue ?? '0'}
-                        </NumberSizeableText>
-                      </>
-                    )}
-                  </Stack>
-                </XStack>
-                {/* Actions */}
-                <RawActions>
-                  <RawActions.Send onPress={handleSendPress} />
-                  <RawActions.Receive onPress={handleReceivePress} />
-                  <RawActions.Swap onPress={handleOnSwap} />
-                  <ActionBuy
-                    networkId={networkId}
-                    accountId={accountId}
-                    tokenAddress={tokenInfo.address}
-                  />
-                  <ActionSell
-                    networkId={networkId}
-                    accountId={accountId}
-                    tokenAddress={tokenInfo.address}
-                  />
-                </RawActions>
-              </Stack>
-
-              {/* Banner – if this token can be staked */}
-              <ListItem
-                drillIn
-                onPress={() => console.log('clicked')}
-                py="$3"
-                px="$5"
-                mx="$0"
-                bg="$bgSuccessSubdued"
-                borderTopWidth={StyleSheet.hairlineWidth}
-                borderColor="$borderSubdued"
-                borderRadius="$0"
-              >
-                <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
-                  <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
+                {/* Overview */}
+                <Stack px="$5" pb="$5">
+                  {/* Balance */}
+                  <XStack alignItems="center" mb="$5">
+                    <Token
+                      tokenImageUri={
+                        tokenInfo.logoURI ?? tokenDetails?.info.logoURI
+                      }
+                      size="xl"
+                    />
+                    <Stack ml="$3">
+                      {isLoading ? (
+                        <YStack>
+                          <Stack py="$1.5">
+                            <Skeleton h="$6" w="$40" />
+                          </Stack>
+                          <Stack py="$1">
+                            <Skeleton h="$4" w="$28" />
+                          </Stack>
+                        </YStack>
+                      ) : (
+                        <>
+                          <NumberSizeableText
+                            size="$heading3xl"
+                            formatter="balance"
+                            formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+                          >
+                            {tokenDetails?.balanceParsed ?? '0'}
+                          </NumberSizeableText>
+                          <NumberSizeableText
+                            formatter="value"
+                            formatterOptions={{
+                              currency: settings.currencyInfo.symbol,
+                            }}
+                            color="$textSubdued"
+                            size="$bodyLgMedium"
+                          >
+                            {tokenDetails?.fiatValue ?? '0'}
+                          </NumberSizeableText>
+                        </>
+                      )}
+                    </Stack>
+                  </XStack>
+                  {/* Actions */}
+                  <RawActions>
+                    <RawActions.Send onPress={handleSendPress} />
+                    <RawActions.Receive onPress={handleReceivePress} />
+                    <RawActions.Swap onPress={handleOnSwap} />
+                    <ActionBuy
+                      networkId={networkId}
+                      accountId={accountId}
+                      tokenAddress={tokenInfo.address}
+                    />
+                    <ActionSell
+                      networkId={networkId}
+                      accountId={accountId}
+                      tokenAddress={tokenInfo.address}
+                    />
+                  </RawActions>
                 </Stack>
-                <ListItem.Text
-                  flex={1}
-                  primary="Stake and Earn"
-                  secondary="Up to 3.77% in Annual Rewards"
-                  secondaryTextProps={{
-                    size: '$bodyMdMedium',
-                    color: '$textSuccess',
-                  }}
-                />
-              </ListItem>
 
-              {/* History */}
-              <Divider />
-            </>
-          }
-        />
+                {/* Banner – if this token can be staked */}
+                <ListItem
+                  drillIn
+                  onPress={() => console.log('clicked')}
+                  py="$3"
+                  px="$5"
+                  mx="$0"
+                  bg="$bgSuccessSubdued"
+                  borderTopWidth={StyleSheet.hairlineWidth}
+                  borderColor="$borderSubdued"
+                  borderRadius="$0"
+                >
+                  <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
+                    <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
+                  </Stack>
+                  <ListItem.Text
+                    flex={1}
+                    primary="Stake and Earn"
+                    secondary="Up to 3.77% in Annual Rewards"
+                    secondaryTextProps={{
+                      size: '$bodyMdMedium',
+                      color: '$textSuccess',
+                    }}
+                  />
+                </ListItem>
+
+                {/* History */}
+                <Divider />
+              </>
+            }
+          />
+        </ProviderJotaiContextHistoryList>
       </Page.Body>
     </Page>
   );

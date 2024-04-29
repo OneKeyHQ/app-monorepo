@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -17,16 +17,21 @@ import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useHistoryListActions,
+  withHistoryListProvider,
+} from '../../../states/jotai/contexts/historyList';
 
 function TxHistoryListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
   const { isFocused } = useTabIsRefreshingFocused();
 
+  const { updateSearchKey } = useHistoryListActions().current;
+
   const [historyState, setHistoryState] = useState({
     initialized: false,
     isRefreshing: false,
   });
-  const [searchKey, setSearchKey] = useState('');
   const media = useMedia();
   const navigation = useAppNavigation();
   const {
@@ -77,16 +82,14 @@ function TxHistoryListContainer(props: ITabPageProps) {
         initialized: false,
         isRefreshing: true,
       });
-      setSearchKey('');
+      updateSearchKey('');
     }
-  }, [account?.id, network?.id, wallet?.id]);
+  }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
   return (
     <TxHistoryListView
       showIcon
       data={history.result ?? []}
-      searchKey={searchKey}
-      setSearchKey={setSearchKey}
       onPressHistory={handleHistoryItemPress}
       showHeader
       isLoading={historyState.isRefreshing}
@@ -99,4 +102,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
   );
 }
 
-export { TxHistoryListContainer };
+const TxHistoryListContainerWithProvider = memo(
+  withHistoryListProvider(TxHistoryListContainer),
+);
+
+export { TxHistoryListContainerWithProvider };
