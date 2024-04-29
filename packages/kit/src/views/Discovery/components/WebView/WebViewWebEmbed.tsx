@@ -23,10 +23,6 @@ export function WebViewWebEmbed({
   isSpinnerLoading?: boolean;
   onContentLoaded?: () => void; // currently works in NativeWebView only
 }) {
-  const { themeVariant, localeVariant } = {
-    themeVariant: 'light',
-    localeVariant: 'en',
-  };
   const nativeWebviewSource = useMemo(() => {
     if (src) {
       return undefined;
@@ -55,10 +51,6 @@ export function WebViewWebEmbed({
       nativeWebviewSource={nativeWebviewSource}
       nativeInjectedJavaScriptBeforeContentLoaded={`
         window.location.hash = "${routePath || ''}";
-        window.WEB_EMBED_ONEKEY_APP_SETTINGS = {
-          themeVariant: "${themeVariant}",
-          localeVariant: "${localeVariant}",
-        };
       `}
     />
   );
