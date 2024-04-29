@@ -2,6 +2,10 @@ import { debounce } from 'lodash';
 
 import { ListToolToolBar } from '@onekeyhq/kit/src/components/ListToolBar';
 import {
+  useNFTListActions,
+  useSearchKeyAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/nftList';
+import {
   ENABLE_SEARCH_NFT_LIST_MIN_LENGTH,
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
@@ -11,19 +15,19 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 type IProps = {
   nfts: IAccountNFT[];
   filteredNfts: IAccountNFT[];
-  searchKey: string;
-  setSearchKey: (key: string) => void;
 };
 
 function NFTListHeader(props: IProps) {
-  const { nfts, filteredNfts, searchKey, setSearchKey } = props;
+  const { nfts, filteredNfts } = props;
+  const [searchKey] = useSearchKeyAtom();
+  const { updateSearchKey } = useNFTListActions().current;
   return (
     <ListToolToolBar
       searchProps={
         nfts.length >= ENABLE_SEARCH_NFT_LIST_MIN_LENGTH
           ? {
               onChangeText: debounce(
-                (text) => setSearchKey(text),
+                (text) => updateSearchKey(text),
                 SEARCH_DEBOUNCE_INTERVAL,
               ),
               searchResultCount:

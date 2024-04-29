@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import { debounce } from 'lodash';
 
 import { Stack } from '@onekeyhq/components';
@@ -10,23 +8,20 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
+import {
+  useHistoryListActions,
+  useSearchKeyAtom,
+} from '../../states/jotai/contexts/historyList';
 import { ListToolToolBar } from '../ListToolBar';
 
 type IProps = {
   history: IAccountHistoryTx[];
   filteredHistory: IAccountHistoryTx[];
-  searchKey: string;
-  setSearchKey: (key: string) => void;
 };
 
-function TxHistoryListHeader({
-  history,
-  filteredHistory,
-  searchKey,
-  setSearchKey,
-}: IProps) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [val, setVal] = useState(true);
+function TxHistoryListHeader({ history, filteredHistory }: IProps) {
+  const [searchKey] = useSearchKeyAtom();
+  const { updateSearchKey } = useHistoryListActions().current;
 
   return (
     <Stack>
@@ -35,7 +30,7 @@ function TxHistoryListHeader({
           history.length >= ENABLE_SEARCH_HISTORY_MIN_LENGTH
             ? {
                 onChangeText: debounce(
-                  (text) => setSearchKey(text),
+                  (text) => updateSearchKey(text),
                   SEARCH_DEBOUNCE_INTERVAL,
                 ),
                 searchResultCount:

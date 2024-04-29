@@ -12,8 +12,8 @@ import {
 } from '@onekeyhq/components';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
+  useNativeTokenInfoAtom,
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
@@ -57,16 +57,10 @@ function SimulationItem(item: ITxSimulationItem) {
   );
 }
 
-function TxSimulationContainer({
-  networkId,
-  tableLayout,
-}: {
-  tableLayout?: boolean;
-  networkId: string;
-}) {
+function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
-  const { network } = useAccountData({ networkId });
+  const [nativeTokenInfo] = useNativeTokenInfoAtom();
 
   const swapInfo = unsignedTxs[0]?.swapInfo;
 
@@ -83,7 +77,7 @@ function TxSimulationContainer({
   const simulationDataOut = useMemo(() => {
     if (!swapInfo) return [];
 
-    if (swapInfo.sender.token.isNative) {
+    if (swapInfo.sender.token.isNative || !sendSelectedFeeInfo) {
       return [
         {
           label: `-${new BigNumber(swapInfo.sender.amount)
@@ -103,16 +97,11 @@ function TxSimulationContainer({
       },
       {
         label: `-${sendSelectedFeeInfo?.totalNativeForDisplay ?? '0'}`,
-        icon: network?.logoURI ?? '',
+        icon: nativeTokenInfo?.logoURI,
         symbol: sendSelectedFeeInfo?.feeInfo.common.nativeSymbol ?? '',
       },
     ];
-  }, [
-    network?.logoURI,
-    sendSelectedFeeInfo?.feeInfo.common.nativeSymbol,
-    sendSelectedFeeInfo?.totalNativeForDisplay,
-    swapInfo,
-  ]);
+  }, [nativeTokenInfo?.logoURI, sendSelectedFeeInfo, swapInfo]);
 
   const renderTxSimulation = useCallback(
     (simulation: ITxSimulationItem[]) => (

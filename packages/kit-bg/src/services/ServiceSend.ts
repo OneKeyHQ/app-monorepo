@@ -187,8 +187,11 @@ class ServiceSend extends ServiceBase {
     });
 
     if (feeInfo) {
-      decodedTx.totalFeeInNative = feeInfo.totalNative;
-      decodedTx.totalFeeFiatValue = feeInfo.totalFiat;
+      decodedTx.totalFeeInNative =
+        feeInfo.totalNativeForDisplay ?? feeInfo.totalNative;
+      decodedTx.totalFeeFiatValue =
+        feeInfo.totalFiatForDisplay ?? feeInfo.totalFiat;
+      decodedTx.feeInfo = feeInfo.feeInfo;
     }
 
     return decodedTx;
@@ -372,19 +375,14 @@ class ServiceSend extends ServiceBase {
         unsignedTx,
         feeInfo: sendSelectedFeeInfo,
       });
-      await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
-        networkId,
-        accountId,
-        data: {
-          signedTx,
-          decodedTx,
-        },
-      });
+
       const data = {
         signedTx,
         decodedTx,
       };
+
       result.push(data);
+
       if (!signOnly) {
         await this.backgroundApi.serviceSignature.addItemFromSendProcess(
           data,
@@ -397,11 +395,7 @@ class ServiceSend extends ServiceBase {
           accountId,
           data: {
             signedTx,
-            decodedTx: await this.buildDecodedTx({
-              networkId,
-              accountId,
-              unsignedTx,
-            }),
+            decodedTx,
           },
         });
       }

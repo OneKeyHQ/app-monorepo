@@ -80,6 +80,7 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
+        logoURI: string;
         balance: string;
         isLoading: boolean;
       },

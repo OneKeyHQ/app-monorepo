@@ -49,6 +49,7 @@ function TokenListContainer(props: ITabPageProps) {
     refreshSmallBalanceTokenListMap,
     refreshSmallBalanceTokensFiatValue,
     updateTokenListState,
+    updateSearchKey,
   } = useTokenListActions().current;
 
   usePromiseResult(
@@ -147,8 +148,15 @@ function TokenListContainer(props: ITabPageProps) {
         initialized: false,
         isRefreshing: true,
       });
+      updateSearchKey('');
     }
-  }, [account?.id, network?.id, updateTokenListState, wallet?.id]);
+  }, [
+    account?.id,
+    network?.id,
+    updateSearchKey,
+    updateTokenListState,
+    wallet?.id,
+  ]);
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
