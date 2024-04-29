@@ -12,7 +12,17 @@ const handler = async (payload: IJsBridgeMessagePayload) =>
     payload.data as IBackgroundApiWebembedCallMessage,
   );
 
-window.$onekey.$private.webembedReceiveHandler = handler;
-window.$onekey.$private.request({
-  method: 'webEmbedApiReady',
-});
+const init = (times = 0) => {
+  if (!window.$onekey && times < 100) {
+    setTimeout(() => {
+      init(times + 1)
+    }, 10);
+    return
+  }
+  window.$onekey.$private.webembedReceiveHandler = handler;
+  window.$onekey.$private.request({
+    method: 'webEmbedApiReady',
+  });
+}
+
+init()
