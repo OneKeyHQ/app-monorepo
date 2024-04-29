@@ -18,7 +18,7 @@ module.exports = ({
           splitChunks: false,
         },
         output: {
-          publicPath: '/',
+          publicPath: './',
           path: path.join(basePath, 'web-build'),
           assetModuleFilename:
             'static/media/web-embed.[name].[contenthash][ext]',
