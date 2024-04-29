@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const path = require('path');
 const fs = require('fs');
 
@@ -7,7 +9,21 @@ const webBuildPath = path.resolve(
   '../../../packages/web-embed/web-build',
 );
 
-if (process.env.EAS_BUILD || !fs.existsSync(webBuildPath)) {
+// EAS build
+if (process.env.EAS_BUILD) {
+  require('child_process').execSync('yarn app:web-embed:build', {
+    stdio: 'inherit',
+  });
+  return;
+}
+
+// GitHub Actions
+if (process.env.process.env.GITHUB_SHA) {
+  return;
+}
+
+// Local development
+if (!fs.existsSync(webBuildPath)) {
   require('child_process').execSync('yarn app:web-embed:build', {
     stdio: 'inherit',
   });
