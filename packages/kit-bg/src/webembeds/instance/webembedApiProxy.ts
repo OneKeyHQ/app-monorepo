@@ -27,7 +27,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
   }
 
   override async callRemoteApi(options: {
-    module: string;
+    module: IWebembedApiKeys;
     method: string;
     params: any[];
   }): Promise<any> {
