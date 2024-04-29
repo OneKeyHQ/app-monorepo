@@ -2,7 +2,6 @@ import type { PropsWithChildren } from 'react';
 
 import type { StackStyleProps } from '@tamagui/web/types/types';
 import type { Image, ImageProps, ImageSourcePropType } from 'react-native';
-import type { FastImageStaticProperties } from 'react-native-fast-image';
 
 export type IImageContext = {
   loading?: boolean;

@@ -3,7 +3,6 @@
 /**
  * Tokens will injected at build process. These are client token.
  */
-import { Platform } from 'react-native';
 
 export const COVALENT_API_KEY = process.env.COVALENT_KEY!;
 

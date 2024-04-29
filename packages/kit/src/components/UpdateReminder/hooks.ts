@@ -13,7 +13,6 @@ import {
   installPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';

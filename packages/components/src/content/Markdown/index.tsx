@@ -66,7 +66,7 @@ const basicRules: MarkdownProps['rules'] = {
       {children}
     </YStack>
   ),
-  list_item: (node, children, parent, styles, inheritedStyles = {}) => {
+  list_item: (node, children, parent) => {
     if (hasParents(parent, 'bullet_list')) {
       return (
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

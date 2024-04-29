@@ -42,7 +42,7 @@ export function showDeleteBackupDialog(filename: string) {
       icon: 'DeleteOutline',
       description: `This file will be permanently deleted from ${
         backupPlatform().cloudName
-      }. Make sure you have wrtten down the recovery phrases as you won’t be able to restore the wallets otherwise.`,
+      }. Make sure you have written down the recovery phrases as you won’t be able to restore the wallets otherwise.`,
       tone: 'destructive',
       renderContent: (
         <DeleteBackupDialogFooter filename={filename} callback={resolve} />
