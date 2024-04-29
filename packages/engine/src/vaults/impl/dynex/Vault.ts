@@ -6,6 +6,7 @@ import { getTimeDurationMs } from '@onekeyhq/kit/src/utils/helper';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import { InvalidAddress, NotImplemented } from '../../../errors';
 import {
   type IApproveInfo,
@@ -342,6 +343,44 @@ export default class Vault extends VaultBase {
         return response;
       }),
     );
+  }
+
+  override async getFrozenBalance(): Promise<number | Record<string, number>> {
+    // Because dynex does not provide an interface for getting available utxos,
+    // it can only be calculated when all pending transactions are completed.
+    try {
+      let frozenBalance = 0;
+      let hasLocalTxOutInPending = false;
+      const localHistory = (
+        await simpleDb.history.getAccountHistory({
+          accountId: this.accountId,
+          networkId: this.networkId,
+          isPending: true,
+          limit: 10,
+        })
+      ).items;
+
+      for (let i = 0, len = localHistory.length; i < len; i = +1) {
+        const item = localHistory[i];
+        const action = item.decodedTx.actions[0];
+        if (
+          action.type === IDecodedTxActionType.NATIVE_TRANSFER &&
+          (IDecodedTxDirection.OUT === action.direction ||
+            IDecodedTxDirection.SELF === action.direction)
+        ) {
+          hasLocalTxOutInPending = true;
+          break;
+        }
+      }
+      if (hasLocalTxOutInPending) {
+        frozenBalance = -1;
+      }
+
+      return frozenBalance ?? 0;
+    } catch (e) {
+      console.error(e);
+      return 0;
+    }
   }
 
   _validateAddressMemo = memoizee(

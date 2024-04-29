@@ -645,6 +645,94 @@ const cases = [
       fee: new BigNumber('0.00003154'),
     },
   },
+  {
+    testId: 'test-other-to-multi-self-and-other',
+    data: {
+      mass: '3154',
+      mineAddress:
+        'kaspa:qz3xsrquk2t7prvkam54mgh3ru6uxs0scgdq98lql0hf2xh08zp8shclpaz4e',
+      inputs: [
+        generateInput(
+          'kaspa:qpa0mtj40e5uqpq06sf44hluvru5smajraxt4c3nl4km86zt537929zjp27tu',
+          10000n,
+        ),
+        generateInput(
+          'kaspa:qpa0mtj40e5uqpq06sf44hluvru5smajraxt4c3nl4km86zt537929zjp27tu',
+          10000n,
+        ),
+      ],
+      outputs: [
+        generateOutput(
+          'kaspa:qz3xsrquk2t7prvkam54mgh3ru6uxs0scgdq98lql0hf2xh08zp8shclpaz4e',
+          5000n,
+        ),
+        generateOutput(
+          'kaspa:qpw28f6nq2zwt30ywf2yahtqqtp6l6uv37zd8fegltf9tfy8yaflk4fvlp8mp',
+          5000n,
+        ),
+        generateOutput(
+          'kaspa:qpw28f6nq2zwt30ywf2yahtqqtp6l6uv37zd8fegltf9tfy8yaflk4fvlp8mp',
+          6846n,
+        ),
+      ],
+    },
+    result: {
+      fromAddress:
+        'kaspa:qpa0mtj40e5uqpq06sf44hluvru5smajraxt4c3nl4km86zt537929zjp27tu',
+      toAddress: [
+        {
+          address:
+            'kaspa:qz3xsrquk2t7prvkam54mgh3ru6uxs0scgdq98lql0hf2xh08zp8shclpaz4e',
+          amount: 5000n,
+        },
+      ],
+      fee: new BigNumber('0.00003154'),
+    },
+  },
+  {
+    testId: 'test-other-to-multi-self-and-other-with-change',
+    data: {
+      mass: '3154',
+      mineAddress:
+        'kaspa:qz3xsrquk2t7prvkam54mgh3ru6uxs0scgdq98lql0hf2xh08zp8shclpaz4e',
+      inputs: [
+        generateInput(
+          'kaspa:qpa0mtj40e5uqpq06sf44hluvru5smajraxt4c3nl4km86zt537929zjp27tu',
+          10000n,
+        ),
+        generateInput(
+          'kaspa:qpa0mtj40e5uqpq06sf44hluvru5smajraxt4c3nl4km86zt537929zjp27tu',
+          10000n,
+        ),
+      ],
+      outputs: [
+        generateOutput(
+          'kaspa:qpa0mtj40e5uqpq06sf44hluvru5smajraxt4c3nl4km86zt537929zjp27tu',
+          6846n,
+        ),
+        generateOutput(
+          'kaspa:qz3xsrquk2t7prvkam54mgh3ru6uxs0scgdq98lql0hf2xh08zp8shclpaz4e',
+          5000n,
+        ),
+        generateOutput(
+          'kaspa:qpw28f6nq2zwt30ywf2yahtqqtp6l6uv37zd8fegltf9tfy8yaflk4fvlp8mp',
+          5000n,
+        ),
+      ],
+    },
+    result: {
+      fromAddress:
+        'kaspa:qpa0mtj40e5uqpq06sf44hluvru5smajraxt4c3nl4km86zt537929zjp27tu',
+      toAddress: [
+        {
+          address:
+            'kaspa:qz3xsrquk2t7prvkam54mgh3ru6uxs0scgdq98lql0hf2xh08zp8shclpaz4e',
+          amount: 5000n,
+        },
+      ],
+      fee: new BigNumber('0.00003154'),
+    },
+  },
 ];
 
 describe('test kaspa tx decode', () => {

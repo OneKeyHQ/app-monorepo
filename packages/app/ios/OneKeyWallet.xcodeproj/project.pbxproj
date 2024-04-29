@@ -49,6 +49,7 @@
 		A2F6BE9928882FB9005798D7 /* RCTScrollView+swizzled.m in Sources */ = {isa = PBXBuildFile; fileRef = A2F6BE9828882FB9005798D7 /* RCTScrollView+swizzled.m */; };
 		A3294A682844472100C18DD0 /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = A3294A672844472100C18DD0 /* AppDelegate.mm */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
+		EA09275C2BDB600F00E02666 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA09275B2BDB600F00E02666 /* PrivacyInfo.xcprivacy */; };
 		F44507EC289DDCE100F70EB6 /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = F44507EB289DDCE100F70EB6 /* web-embed */; };
 		F46D18DA290A577F0018E04D /* Minimizer.m in Sources */ = {isa = PBXBuildFile; fileRef = F46D18D8290A577F0018E04D /* Minimizer.m */; };
 		F483AEE0290A81C500423430 /* HTTPServerManager.m in Sources */ = {isa = PBXBuildFile; fileRef = F483AEDF290A81C500423430 /* HTTPServerManager.m */; };
@@ -170,6 +171,7 @@
 		A3294A672844472100C18DD0 /* AppDelegate.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = AppDelegate.mm; path = OneKeyWallet/AppDelegate.mm; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
 		AB5A55C2A16742BCB8148B6E /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "OneKeyWallet/noop-file.swift"; sourceTree = "<group>"; };
+		EA09275B2BDB600F00E02666 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F44507EB289DDCE100F70EB6 /* web-embed */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "web-embed"; path = "OneKeyWallet/web-embed"; sourceTree = "<group>"; };
 		F46D18D8290A577F0018E04D /* Minimizer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Minimizer.m; sourceTree = "<group>"; };
@@ -203,6 +205,7 @@
 		13B07FAE1A68108700A75B9A /* OneKeyWallet */ = {
 			isa = PBXGroup;
 			children = (
+				EA09275B2BDB600F00E02666 /* PrivacyInfo.xcprivacy */,
 				F44507EB289DDCE100F70EB6 /* web-embed */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				A3294A672844472100C18DD0 /* AppDelegate.mm */,
@@ -554,6 +557,7 @@
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				35F8423629752D6D0096FC7E /* InfoPlist.strings in Resources */,
 				F44507EC289DDCE100F70EB6 /* web-embed in Resources */,
+				EA09275C2BDB600F00E02666 /* PrivacyInfo.xcprivacy in Resources */,
 				A276046A288F6E57002A82DC /* PlusJakartaSans-Medium.ttf in Resources */,
 				A2760468288F6E57002A82DC /* PlusJakartaSans-Bold.ttf in Resources */,
 				A2760469288F6E57002A82DC /* PlusJakartaSans-SemiBold.ttf in Resources */,
