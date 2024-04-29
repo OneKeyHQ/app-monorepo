@@ -115,7 +115,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
-        run: 'cd apps/desktop && yarn build:snap'
+        run: 'cd packages/desktop && yarn build:snap'
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v3
