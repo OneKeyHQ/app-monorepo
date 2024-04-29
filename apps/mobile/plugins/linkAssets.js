@@ -6,7 +6,7 @@ const linkAssets = (projectRoot) => {
   const assets = ['./dist/chunks'];
   linkAssets({
     rootPath: projectRoot,
-    shouldUnlink: true,
+    shouldUnlink: false,
     platforms: {
       ios: {
         enabled: true,
