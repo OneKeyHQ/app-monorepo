@@ -82,8 +82,8 @@ config.server.rewriteRequestUrl = (url) =>
 config.hooks = {
   onEnd: () =>
     new Promise((resolve) => {
-      const { linkAssets } = require('./linkAssets');
-      linkAssets(projectRoot);
+      const { linkWebEmbed } = require('./linkWebEmbed');
+      linkWebEmbed(projectRoot);
       resolve();
     }),
 };
