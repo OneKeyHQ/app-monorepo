@@ -1,10 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { ScrollView, XStack } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSearchKeyAtom } from '@onekeyhq/kit/src/states/jotai/contexts/nftList';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
@@ -26,7 +27,8 @@ type IProps = {
 
 function NFTListView(props: IProps) {
   const { data, isLoading, initialized, onContentSizeChange } = props;
-  const [searchKey, setSearchKey] = useState('');
+
+  const [searchKey] = useSearchKeyAtom();
 
   const filteredNfts = getFilteredNftsBySearchKey({ nfts: data, searchKey });
 
@@ -81,12 +83,7 @@ function NFTListView(props: IProps) {
       disableScrollViewPanResponder
       onContentSizeChange={onContentSizeChange}
     >
-      <NFTListHeader
-        nfts={data}
-        filteredNfts={filteredNfts}
-        searchKey={searchKey}
-        setSearchKey={setSearchKey}
-      />
+      <NFTListHeader nfts={data} filteredNfts={filteredNfts} />
       {renderNFTListView()}
     </ScrollView>
   );

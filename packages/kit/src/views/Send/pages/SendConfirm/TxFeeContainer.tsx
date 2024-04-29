@@ -29,6 +29,7 @@ import {
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
@@ -96,7 +97,6 @@ function TxFeeContainer(props: IProps) {
             },
           ),
         });
-
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
         // these five levels are also provided as predictions on the custom fee page for users to choose
         if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
@@ -114,7 +114,10 @@ function TxFeeContainer(props: IProps) {
       } catch (e) {
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
-          errMessage: (e as Error)?.message ?? e,
+          errMessage:
+            (e as { data: { data: IOneKeyRpcError } }).data?.data?.message ??
+            (e as Error).message ??
+            e,
         });
       }
     },
