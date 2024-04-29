@@ -1,3 +1,5 @@
+import { Keyboard } from 'react-native';
+
 import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
   Button,
@@ -30,6 +32,22 @@ type IOptionSection = {
   data: IOptionItem[];
 };
 
+// fix android keyboard event in next page.
+const closeKeyboard = platformEnv.isNativeAndroid
+  ? () =>
+      Promise.race([
+        new Promise<void>((resolve) => {
+          Keyboard.addListener('keyboardDidHide', () => {
+            setTimeout(() => {
+              resolve();
+            }, 0);
+          });
+          Keyboard.dismiss();
+        }),
+        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+      ])
+  : () => Promise.resolve();
+
 export function ImportWalletOptions() {
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
@@ -40,11 +58,13 @@ export function ImportWalletOptions() {
 
   const handleImportRecoveryPhrasePress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    await closeKeyboard();
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
   };
 
   const handleImportPrivateKeyPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    await closeKeyboard();
     navigation.push(EOnboardingPages.ImportPrivateKey);
   };
 
