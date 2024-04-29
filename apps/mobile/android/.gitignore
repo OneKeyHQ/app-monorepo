@@ -16,3 +16,8 @@ local.properties
 
 # link-assets
 link-assets-manifest.json
+app/src/main/assets/custom/*.chunk.js
+app/src/main/assets/custom/*.chunk.js.LICENSE.txt
+app/src/main/assets/custom/asset-manifest.json
+app/src/main/assets/custom/index.html
+app/src/main/assets/custom/web-embed.*
