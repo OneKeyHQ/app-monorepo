@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 
+import { Toast } from '@onekeyhq/components';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   ISwapInitParams,
@@ -158,15 +159,15 @@ export function useSwapInit(params?: ISwapInitParams) {
               networkLogoURI: accountNetwork.logoURI,
             });
           }
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setDefaultTokenLoading(false);
+        } catch (e: any) {
+          const error = e as { message?: string };
+          Toast.error({
+            title: error?.message ?? 'Failed to fetch token details',
+          });
         }
-      } else {
-        setDefaultTokenLoading(false);
       }
     }
+    setDefaultTokenLoading(false);
   }, [
     params?.importFromToken,
     params?.importNetworkId,
