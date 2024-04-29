@@ -1,10 +1,6 @@
 import { isNil } from 'lodash';
 
-import platformEnv, {
-  isExtensionUiSidePanel,
-} from '@onekeyhq/shared/src/platformEnv';
-
-import { getAllowPathFromScreenNames } from './routeUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
