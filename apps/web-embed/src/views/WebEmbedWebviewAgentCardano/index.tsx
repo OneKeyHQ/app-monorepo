@@ -225,6 +225,7 @@ function WebEmbedWebviewAgentCardano() {
   return (
     <div>
       <button
+        type="button"
         onClick={() => {
           if (platformEnv.isDev) {
             clearInterval(testCallingInterval);
