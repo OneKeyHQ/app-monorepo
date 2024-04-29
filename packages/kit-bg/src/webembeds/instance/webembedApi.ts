@@ -20,11 +20,8 @@ const getOrCreateWebEmbedApiModule = memoizee(
     if (name === 'chainXmrLegacy') {
       return new (await import('../WebEmbedApiChainXmrLegacy')).default();
     }
-
-    if (platformEnv.isDev) {
-      if (name === 'test') {
-        return new (await import('../WebEmbedApiTest')).default();
-      }
+    if (name === 'test') {
+      return new (await import('../WebEmbedApiTest')).default();
     }
     throw new Error(`Unknown WebEmbed API module: ${name as string}`);
   },
