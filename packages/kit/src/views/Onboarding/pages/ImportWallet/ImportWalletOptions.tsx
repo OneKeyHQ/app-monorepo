@@ -38,6 +38,10 @@ const closeKeyboard = platformEnv.isNative
   ? () =>
       Promise.race([
         new Promise<void>((resolve) => {
+          if (!Keyboard.isVisible()) {
+            resolve();
+            return;
+          }
           const subscription = Keyboard.addListener(
             KEYBOARD_HIDE_EVENT_NAME,
             () => {
