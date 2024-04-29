@@ -165,6 +165,8 @@ export default class Vault extends VaultBase {
           .shiftedBy(network.decimals)
           .toFixed(),
         extraInfo: null,
+        utxoFrom: [],
+        utxoTo: [],
       },
       direction:
         encodedTx.to === address
