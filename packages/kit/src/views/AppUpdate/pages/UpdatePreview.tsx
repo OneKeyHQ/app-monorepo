@@ -1,5 +1,3 @@
-import { useCallback, useState } from 'react';
-
 import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
