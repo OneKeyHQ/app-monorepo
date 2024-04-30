@@ -1,9 +1,9 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import { ETabSwapRoutes } from '@onekeyhq/shared/src/routes';
 
-import { LazyTabHomePage } from '../../../components/LazyLoadPage';
+import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
-const Swap = LazyTabHomePage(() => import('../../../views/Swap'));
+const Swap = LazyLoadRootTabPage(() => import('../../../views/Swap'));
 
 export const swapRouters: ITabSubNavigatorConfig<any, any>[] = [
   {

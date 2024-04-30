@@ -1,9 +1,9 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import { EMultiTabBrowserRoutes } from '@onekeyhq/shared/src/routes';
 
-import { LazyTabHomePage } from '../../../components/LazyLoadPage';
+import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
-const MultiTabBrowser = LazyTabHomePage(
+const MultiTabBrowser = LazyLoadRootTabPage(
   () => import('../../../views/Discovery/pages/Browser/Browser'),
 );
 
