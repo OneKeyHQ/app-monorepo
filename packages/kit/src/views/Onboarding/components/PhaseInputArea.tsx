@@ -34,6 +34,7 @@ import {
   XStack,
   useForm,
   useIsKeyboardShown,
+  useKeyboardEvent,
   useMedia,
   usePage,
 } from '@onekeyhq/components';
@@ -199,6 +200,7 @@ function BasicPhaseInput(
     index,
     onChange,
     value,
+    isShowError = false,
     onInputChange,
     onInputFocus,
     onInputBlur,
@@ -214,6 +216,7 @@ function BasicPhaseInput(
   }: IPropsWithTestId<{
     value?: string;
     index: number;
+    isShowError: boolean;
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
@@ -259,7 +262,6 @@ function BasicPhaseInput(
           pageY: number,
         ) => {
           const contentOffset = getContentOffset();
-          console.log(x, y, pageX, pageY, contentOffset);
           if (pageY > visibleHeight) {
             setTimeout(() => {
               pageRef.scrollTo({
@@ -273,6 +275,7 @@ function BasicPhaseInput(
       );
     }
   }, [getContentOffset, index, onInputFocus, pageRef]);
+
   const handleInputBlur = useCallback(() => {
     onInputBlur(index);
   }, [index, onInputBlur]);
@@ -341,7 +344,8 @@ function BasicPhaseInput(
     onReturnKeyPressed(index);
   }, [index, onReturnKeyPressed]);
 
-  const isShowValue = selectInputIndex !== index && value?.length;
+  const isShowValue =
+    selectInputIndex !== index && value?.length && !isShowError;
   const displayValue = isShowValue ? '••••' : value;
   const suggestions = suggestionsRef.current ?? [];
 
@@ -360,6 +364,7 @@ function BasicPhaseInput(
       minWidth: '$10',
       justifyContent: 'center',
     },
+    error: isShowError,
     onChangeText: handleChangeText,
     onFocus: handleInputFocus,
     onBlur: handleInputBlur,
@@ -489,6 +494,7 @@ export function PhaseInputArea({
     closePopover,
     focusNextInput,
     onPasteMnemonic,
+    isShowErrors,
   } = useSuggestion(form, Number(phraseLength));
 
   const handleReturnKeyPressed = useCallback(
@@ -501,6 +507,10 @@ export function PhaseInputArea({
     },
     [focusNextInput, handlePageFooterConfirm, phraseLength],
   );
+
+  useKeyboardEvent({
+    keyboardWillHide: closePopover,
+  });
 
   const getReturnKeyLabel: (index: number) => ReturnKeyTypeOptions =
     useCallback(
@@ -572,6 +582,7 @@ export function PhaseInputArea({
                   <Form.Field name={`phrase${index + 1}`}>
                     <PhaseInput
                       index={index}
+                      isShowError={isShowErrors[index]}
                       onInputBlur={onInputBlur}
                       onInputChange={onInputChange}
                       onInputFocus={onInputFocus}
