@@ -12,11 +12,9 @@ import {
   SizableText,
   YStack,
   useMedia,
-  usePopoverContext,
   useSafeKeyboardAnimationStyle,
 } from '@onekeyhq/components';
 import { useSwapSlippagePercentageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   swapSlippageAutoValue,
   swapSlippageItems,
@@ -31,23 +29,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { validateAmountInput } from '../../utils/utils';
-
-const useInputDisplay = platformEnv.isNative
-  ? () => undefined
-  : () => {
-      const [display, setDisplay] = useState<'none' | undefined>(undefined);
-      const { isOpen } = usePopoverContext();
-      useEffect(() => {
-        if (isOpen) {
-          setDisplay(undefined);
-        } else {
-          setTimeout(() => {
-            setDisplay('none');
-          }, 50);
-        }
-      }, [isOpen]);
-      return display;
-    };
 
 const BaseSlippageInput = ({
   swapSlippage,
@@ -73,8 +54,6 @@ const BaseSlippageInput = ({
     }
   }, [swapSlippage.key]);
 
-  const display = useInputDisplay();
-
   return (
     <Input
       $gtMd={
@@ -83,10 +62,10 @@ const BaseSlippageInput = ({
         } as IInputProps['$gtMd']
       }
       value={inputValue}
-      display={display}
       autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
       addOns={[{ label: '%' }]}
       textAlign="right"
+      disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
       placeholder={swapSlippage.value.toString()}
       onChangeText={handleTextChange}
     />

@@ -43,7 +43,6 @@ export interface IPopoverProps extends TMPopoverProps {
 
 interface IPopoverContext {
   closePopover?: () => Promise<void>;
-  isOpen?: boolean;
 }
 
 const PopoverContext = createContext({} as IPopoverContext);
@@ -86,10 +85,9 @@ const usePopoverValue = (
 };
 
 export const usePopoverContext = () => {
-  const { closePopover, isOpen } = useContext(PopoverContext);
+  const { closePopover } = useContext(PopoverContext);
   return {
     closePopover,
-    isOpen,
   };
 };
 
@@ -200,10 +198,9 @@ function RawPopover({
     typeof renderContent === 'function' ? renderContent : null;
   const popoverContextValue = useMemo(
     () => ({
-      isOpen,
       closePopover: handleClosePopover,
     }),
-    [handleClosePopover, isOpen],
+    [handleClosePopover],
   );
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
@@ -239,7 +236,6 @@ function RawPopover({
         outlineColor="$neutral3"
         outlineStyle="solid"
         outlineWidth="$px"
-        // pointerEvents={!platformEnv.isNative && !isOpen ? 'none' : undefined}
         style={{
           transformOrigin,
         }}
