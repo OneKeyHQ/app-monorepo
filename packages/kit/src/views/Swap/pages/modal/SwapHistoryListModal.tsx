@@ -20,7 +20,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useStatusNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
@@ -45,7 +45,7 @@ interface ISwapHistoryListModalProps {
 }
 
 const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
-  const [swapPendingList] = useStatusNotificationAtom();
+  const [swapPendingList] = useInAppNotificationAtom();
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
       const histories =

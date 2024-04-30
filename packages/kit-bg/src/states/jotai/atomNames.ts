@@ -15,5 +15,5 @@ export enum EAtomNames {
   hardwareUiStateAtom = 'hardwareUiStateAtom',
   appUpdatePersistAtom = 'appUpdatePersistAtom',
   onboardingConnectWalletLoadingAtom = 'onboardingConnectWalletLoadingAtom',
-  statusNotificationAtom = 'statusNotificationAtom',
+  inAppNotificationAtom = 'inAppNotificationAtom',
 }

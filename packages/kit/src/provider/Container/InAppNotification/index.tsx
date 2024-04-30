@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 
-import { useStatusNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-const StatusNotificationTracker = () => {
-  const [{ swapHistoryPendingList }] = useStatusNotificationAtom();
+const InAppNotification = () => {
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
 
   useEffect(() => {
     void backgroundApiProxy.serviceSwap.syncSwapHistoryPendingList();
@@ -17,4 +17,4 @@ const StatusNotificationTracker = () => {
   return null;
 };
 
-export default StatusNotificationTracker;
+export default InAppNotification;

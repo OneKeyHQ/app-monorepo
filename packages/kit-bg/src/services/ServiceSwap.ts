@@ -25,7 +25,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { statusNotificationAtom } from '../states/jotai/atoms';
+import { inAppNotificationAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -365,7 +365,7 @@ export default class ServiceSwap extends ServiceBase {
     const pendingHistories = histories.filter(
       (history) => history.status === ESwapTxHistoryStatus.PENDING,
     );
-    await statusNotificationAtom.set((pre) => ({
+    await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapHistoryPendingList: [...pendingHistories],
     }));
@@ -374,7 +374,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
     await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(item);
-    await statusNotificationAtom.set((pre) => {
+    await inAppNotificationAtom.set((pre) => {
       if (
         !pre.swapHistoryPendingList.find(
           (i) => i.txInfo.txId === item.txInfo.txId,
@@ -391,7 +391,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async updateSwapHistoryItem(item: ISwapTxHistory) {
-    const { swapHistoryPendingList } = await statusNotificationAtom.get();
+    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const index = swapHistoryPendingList.findIndex(
       (i) => i.txInfo.txId === item.txInfo.txId,
     );
@@ -399,7 +399,7 @@ export default class ServiceSwap extends ServiceBase {
       const updated = Date.now();
       item.date = { ...item.date, updated };
       await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
-      await statusNotificationAtom.set((pre) => {
+      await inAppNotificationAtom.set((pre) => {
         const newPendingList = [...pre.swapHistoryPendingList];
         newPendingList[index] = item;
         return {
@@ -407,13 +407,26 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: [...newPendingList],
         };
       });
+      void this.backgroundApi.serviceApp.showToast({
+        method:
+          item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
+        title:
+          item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
+        message: `${item.baseInfo.fromToken.symbol} -> ${
+          item.baseInfo.toToken.symbol
+        } ${
+          item.status === ESwapTxHistoryStatus.SUCCESS
+            ? `swap success, received ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`
+            : 'swap failed'
+        }`,
+      });
     }
   }
 
   @backgroundMethod()
   async cleanSwapHistoryItems() {
     await this.backgroundApi.simpleDb.swapHistory.setRawData({ histories: [] });
-    await statusNotificationAtom.set((pre) => ({
+    await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapHistoryPendingList: [],
     }));
@@ -484,7 +497,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async swapHistoryStatusFetchLoop() {
-    const { swapHistoryPendingList } = await statusNotificationAtom.get();
+    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const statusPendingList = swapHistoryPendingList.filter(
       (item) => item.status === ESwapTxHistoryStatus.PENDING,
     );

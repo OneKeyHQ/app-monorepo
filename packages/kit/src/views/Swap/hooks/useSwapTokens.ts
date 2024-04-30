@@ -4,7 +4,7 @@ import { isNil } from 'lodash';
 
 import { Toast } from '@onekeyhq/components';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { useStatusNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ISwapInitParams,
   ISwapNetwork,
@@ -302,7 +302,7 @@ export function useSwapSelectedTokenInfo({
   token?: ISwapToken;
 }) {
   const swapAddressInfo = useSwapAddressInfo(type);
-  const [{ swapHistoryPendingList }] = useStatusNotificationAtom();
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
   const swapAddressInfoRef =
     useRef<ReturnType<typeof useSwapAddressInfo>>(swapAddressInfo);

@@ -9,7 +9,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   type EJotaiContextStoreNames,
-  useStatusNotificationAtom,
+  useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
@@ -25,7 +25,7 @@ const SwapHeaderRightActionContainer = ({
 }) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const [{ swapHistoryPendingList }] = useStatusNotificationAtom();
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const swapPendingStatusList = useMemo(
     () =>
       swapHistoryPendingList.filter(

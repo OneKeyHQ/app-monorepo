@@ -7,7 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { statusNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { inAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -709,7 +709,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       type: ESwapDirectionType,
       swapAddressInfo: ReturnType<typeof useSwapAddressInfo>,
     ) => {
-      const { swapHistoryPendingList } = await statusNotificationAtom.get();
+      const { swapHistoryPendingList } = await inAppNotificationAtom.get();
       const token =
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())

@@ -8,4 +8,4 @@ export * from './jotaiContextStoreMap';
 export * from './password';
 export * from './settings';
 export * from './onboarding';
-export * from './statusNotification';
+export * from './InAppNotification';
