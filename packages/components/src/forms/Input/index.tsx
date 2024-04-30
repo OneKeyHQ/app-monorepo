@@ -199,7 +199,6 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
       {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
-            {...leftAddOnProps}
             size={size}
             error={error}
             loading={leftAddOnProps.loading}

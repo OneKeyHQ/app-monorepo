@@ -1,11 +1,8 @@
-import { InteractionManager, Keyboard } from 'react-native';
-
 import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Icon,
-  KEYBOARD_HIDE_EVENT_NAME,
   Page,
   SectionList,
   Stack,
@@ -33,30 +30,6 @@ type IOptionSection = {
   data: IOptionItem[];
 };
 
-// fix android keyboard event in next page.
-const closeKeyboard = platformEnv.isNative
-  ? () =>
-      Promise.race([
-        new Promise<void>((resolve) => {
-          if (!Keyboard.isVisible()) {
-            resolve();
-            return;
-          }
-          const subscription = Keyboard.addListener(
-            KEYBOARD_HIDE_EVENT_NAME,
-            () => {
-              void InteractionManager.runAfterInteractions(() => {
-                subscription.remove();
-                resolve();
-              });
-            },
-          );
-          Keyboard.dismiss();
-        }),
-        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
-      ])
-  : () => Promise.resolve();
-
 export function ImportWalletOptions() {
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
@@ -67,13 +40,11 @@ export function ImportWalletOptions() {
 
   const handleImportRecoveryPhrasePress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    await closeKeyboard();
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
   };
 
   const handleImportPrivateKeyPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    await closeKeyboard();
     navigation.push(EOnboardingPages.ImportPrivateKey);
   };
 

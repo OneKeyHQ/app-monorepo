@@ -9,10 +9,10 @@ import type { KeyboardEventListener } from 'react-native';
 
 export { default as useIsKeyboardShown } from '@react-navigation/bottom-tabs/src/utils/useIsKeyboardShown';
 
-export const KEYBOARD_SHOW_EVENT_NAME = platformEnv.isNativeIOS
+const showEventName = platformEnv.isNativeIOS
   ? 'keyboardWillShow'
   : 'keyboardDidShow';
-export const KEYBOARD_HIDE_EVENT_NAME = platformEnv.isNativeIOS
+const hideEventName = platformEnv.isNativeIOS
   ? 'keyboardWillHide'
   : 'keyboardDidHide';
 
@@ -30,8 +30,8 @@ export function useKeyboardHeight() {
 
   useEffect(() => {
     const subscriptions = [
-      Keyboard.addListener(KEYBOARD_SHOW_EVENT_NAME, handleKeyboardWillShow),
-      Keyboard.addListener(KEYBOARD_HIDE_EVENT_NAME, handleKeyboardWillHide),
+      Keyboard.addListener(showEventName, handleKeyboardWillShow),
+      Keyboard.addListener(hideEventName, handleKeyboardWillHide),
     ];
 
     return () => {
@@ -55,12 +55,12 @@ export const useKeyboardEvent = (
 ) => {
   useEffect(() => {
     const showSubscription = Keyboard.addListener(
-      KEYBOARD_SHOW_EVENT_NAME,
+      showEventName,
       keyboardWillShow,
     );
 
     const hideSubscription = Keyboard.addListener(
-      KEYBOARD_HIDE_EVENT_NAME,
+      hideEventName,
       keyboardWillHide,
     );
     return () => {
