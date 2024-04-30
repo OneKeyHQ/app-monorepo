@@ -74,7 +74,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             return response;
           },
         });
-        
+
         const ret = [];
         const firstAddressRelPath = '0/0';
         const stakingAddressRelPath = '2/0';
