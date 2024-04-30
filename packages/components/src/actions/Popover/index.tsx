@@ -87,7 +87,7 @@ const usePopoverValue = (
 
 const useContentDisplay = platformEnv.isNative
   ? () => undefined
-  : (isOpen?: boolean, keepChildrenMounted?: undefined) => {
+  : (isOpen?: boolean, keepChildrenMounted?: boolean) => {
       const [display, setDisplay] = useState<'none' | undefined>(undefined);
       useEffect(() => {
         if (!keepChildrenMounted) {
