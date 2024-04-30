@@ -8,10 +8,6 @@ const InAppNotification = () => {
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
 
   useEffect(() => {
-    void backgroundApiProxy.serviceSwap.syncSwapHistoryPendingList();
-  }, []);
-
-  useEffect(() => {
     void backgroundApiProxy.serviceSwap.swapHistoryStatusFetchLoop();
   }, [swapHistoryPendingList]);
   return null;
