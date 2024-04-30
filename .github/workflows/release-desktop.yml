@@ -161,9 +161,11 @@ jobs:
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
+            !./apps/desktop/build-electron/win-arm64-unpacked
             !./apps/desktop/build-electron/mac-arm64
             !./apps/desktop/build-electron/mac
             !./apps/desktop/build-electron/linux-unpacked
+            !./apps/desktop/build-electron/linux-arm64-unpacked
             !./apps/desktop/build-electron/builder-debug.yml
 
       - name: 'Notify to Slack'
