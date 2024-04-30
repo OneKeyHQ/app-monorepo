@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Button } from '@onekeyhq/components';
+import { Button, XStack } from '@onekeyhq/components';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export function ViewUpdateHistory() {
@@ -8,13 +8,15 @@ export function ViewUpdateHistory() {
     openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
   }, []);
   return (
-    <Button
-      mt="$5"
-      iconAfter="ArrowTopRightOutline"
-      onPress={handlePress}
-      width="$54"
-    >
-      View Update History
-    </Button>
+    <XStack>
+      <Button
+        mt="$5"
+        iconAfter="ArrowTopRightOutline"
+        onPress={handlePress}
+        size="small"
+      >
+        Update History
+      </Button>
+    </XStack>
   );
 }
