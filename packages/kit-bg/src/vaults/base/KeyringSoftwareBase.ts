@@ -320,7 +320,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         const { password, indexes, deriveInfo, names, skipCheckAccountExist } =
           params;
         const addressEncoding = params?.deriveInfo?.addressEncoding;
-        checkIsDefined(addressEncoding);
+        // FIXME: addressEncoding is only required for BTC
+        // checkIsDefined(addressEncoding);
+
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { coinType, template, namePrefix } = deriveInfo;
         const credentials = await this.baseGetCredentialsInfo({ password });
