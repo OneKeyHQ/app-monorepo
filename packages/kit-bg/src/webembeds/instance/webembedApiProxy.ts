@@ -12,6 +12,7 @@ import type { IBackgroundApiWebembedCallMessage } from '../../apis/IBackgroundAp
 import type WebEmbedApiChainAdaLegacy from '../WebEmbedApiChainAdaLegacy';
 import type WebEmbedApiChainXmrLegacy from '../WebEmbedApiChainXmrLegacy';
 import type WebEmbedApiSecret from '../WebEmbedApiSecret';
+import type WebEmbedApiTest from '../WebEmbedApiTest';
 
 class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
   override checkEnvAvailable(): void {
@@ -26,7 +27,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     await wait(0);
   }
 
-  override async callRemoteApi(options: {
+  protected override async callRemoteApi(options: {
     module: IWebembedApiKeys;
     method: string;
     params: any[];
@@ -39,6 +40,14 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     };
     return backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(message);
   }
+
+  isSDKReady(): Promise<boolean> {
+    return Promise.resolve(
+      !!backgroundApiProxy.serviceDApp.isWebEmbedApiReady(),
+    );
+  }
+
+  test: WebEmbedApiTest = this._createProxyModule<IWebembedApiKeys>('test');
 
   secret: WebEmbedApiSecret =
     this._createProxyModule<IWebembedApiKeys>('secret');
