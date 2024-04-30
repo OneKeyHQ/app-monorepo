@@ -507,6 +507,33 @@ function buildLightningAccountId({
   return `${parts[0]}--${newPath}`;
 }
 
+function formatUtxoPath(path: string): string {
+  // Split the path into an array by '/'
+  const parts = path.split('/');
+  
+  // Check if the path starts with 'm'
+  if (parts[0] !== 'm') {
+    throw new Error('Invalid UTXO path: path should start with "m"');
+  }
+  
+  // Check if the path has at least three hardened levels
+  if (parts.length < 4) {
+    throw new Error('Invalid UTXO path: path should have at least three hardened levels');
+  }
+  
+  // Check if the first three levels are hardened
+  for (let i = 1; i <= 3; i+=1) {
+    if (!parts[i].endsWith("'")) {
+      throw new Error(`Invalid UTXO path: level ${i} should be hardened`);
+    }
+  }
+  
+  // Extract the first three levels and recombine them into a new path
+  const newPath = parts.slice(0, 4).join('/');
+  
+  return newPath;
+}
+
 export default {
   buildBaseAccountName,
   buildHDAccountName,
@@ -542,4 +569,5 @@ export default {
   buildLnToBtcPath,
   buildLightningAccountId,
   getWalletConnectMergedNetwork,
+  formatUtxoPath
 };
