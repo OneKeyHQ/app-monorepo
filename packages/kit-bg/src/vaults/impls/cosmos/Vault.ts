@@ -38,6 +38,7 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
@@ -46,6 +47,8 @@ import { TxProtoBuilder } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/proto
 import type { ProtoMsgsOrWithAminoMsgs } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/ITxMsgBuilder';
 import { hexToBytes } from 'viem';
 import { stripHexPrefix } from 'ethjs-util';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 
 export default class VaultCosmos extends VaultBase {
   override coreApi = coreChainApi.cosmos.hd;
@@ -120,11 +123,11 @@ export default class VaultCosmos extends VaultBase {
     );
   }
 
-  override async buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    const { transfersInfo } = params;
-    if (!transfersInfo || transfersInfo.length === 0) {
-      throw new Error('transfersInfo is required');
-    }
+  async _buildEncodedTxWithFee(params: {
+    transfersInfo: ITransferInfo[];
+    feeInfo?: IFeeInfoUnit;
+  }) {
+    const { transfersInfo, feeInfo } = params;
     const network = await this.getNetwork();
     const msgs: ProtoMsgsOrWithAminoMsgs = {
       protoMsgs: [],
@@ -168,32 +171,70 @@ export default class VaultCosmos extends VaultBase {
       throw new Error('Invalid account');
     }
     const pubkey = hexToBytes(`0x${stripHexPrefix(account.pub)}`);
+
+    let gasLimit = '0';
+    let feeAmount = '0';
+    let mainCoinDenom = network.symbol;
+    if (feeInfo) {
+      gasLimit = feeInfo.gas?.gasLimit ?? '0';
+      const gasLimitNum = new BigNumber(gasLimit);
+      const gasPriceNum = new BigNumber(feeInfo.gas?.gasPrice ?? '0');
+      feeAmount = gasLimitNum.multipliedBy(gasPriceNum).toFixed(feeInfo.common.feeDecimals).toString();
+      mainCoinDenom = feeInfo.common.feeSymbol;
+    }
+    
     return txBuilder.makeTxWrapper(msgs, {
       memo: '',
-      gasLimit: '0',
-      feeAmount: '0',
+      gasLimit,
+      feeAmount,
       pubkey,
-      mainCoinDenom: network.symbol,
+      mainCoinDenom,
       chainId: network.id,
       accountNumber: `${accountInfo.accountNumber ?? 0}`,
       nonce: `${accountInfo.nonce ?? 0}`,
     })
   }
 
+  override async buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
+    const { transfersInfo } = params;
+    if (!transfersInfo || transfersInfo.length === 0) {
+      throw new Error('transfersInfo is required');
+    }
+    return await this._buildEncodedTxWithFee({ transfersInfo });
+  }
+
   override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
     throw new Error('Method not implemented.');
   }
 
-  override buildUnsignedTx(
+  override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    const encodedTx = await this.buildEncodedTx(params);
+    if (encodedTx) {
+      return {
+        encodedTx,
+        transfersInfo: params.transfersInfo ?? [],
+      };
+    }
+    throw new OneKeyInternalError();
   }
 
-  override updateUnsignedTx(
+  override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    if (!params.unsignedTx || !params.feeInfo) {
+      throw new OneKeyInternalError('unsignedTx and feeInfo are required');
+    }
+    const {unsignedTx, feeInfo} = params;
+    unsignedTx.encodedTx = await this._buildEncodedTxWithFee({
+      transfersInfo: unsignedTx.transfersInfo!,
+      feeInfo,
+    })
+    return {
+      ...unsignedTx,
+      feeInfo,
+    }
   }
 
   override broadcastTransaction(
