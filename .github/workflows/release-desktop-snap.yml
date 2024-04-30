@@ -1,4 +1,4 @@
-name: release-desktop
+name: release-desktop-snap
 
 on:
   workflow_run:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   release-desktop:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         node-version: [16.x]
@@ -21,6 +21,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           lfs: true
+
+      - name: Install Snapcraft
+        uses: samuelmeuli/action-snapcraft@v2
 
       - name: Dotenv Action
         id: dotenv
@@ -103,8 +106,7 @@ jobs:
         run: |
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > packages/desktop/sign.p12
 
-      - name: Publish and Sign Static Linux / Macos / Windows Installer
-        if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/onekey') }}
+      - name: Build and Sign Snap Linux
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -113,39 +115,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
-        run: 'cd packages/desktop && yarn publish:all'
-
-      - name: Build and Sign Static Linux / Macos / Windows Installer
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-          APPLEID: ${{ secrets.APPLEID }}
-          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_LINK: './sign.p12'
-        run: 'cd packages/desktop && yarn build'
-
-      - name: Upload Artifacts Mac
-        uses: actions/upload-artifact@v3
-        with:
-          name: onekey-desktop-mac
-          path: |
-            ./packages/desktop/build-electron/*.dmg
-
-      - name: Upload Artifacts Windows
-        uses: actions/upload-artifact@v3
-        with:
-          name: onekey-desktop-windows
-          path: |
-            ./packages/desktop/build-electron/*.exe
-
-      - name: Upload Artifacts Linux
-        uses: actions/upload-artifact@v3
-        with:
-          name: onekey-desktop-linux
-          path: |
-            ./packages/desktop/build-electron/*.AppImage
+        run: 'cd packages/desktop && yarn build:snap'
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v3
@@ -159,12 +129,19 @@ jobs:
             !./packages/desktop/build-electron/linux-unpacked
             !./packages/desktop/build-electron/builder-debug.yml
 
+      - name: Upload Artifacts to Snap Linux
+        if: ${{ github.event.workflow_run }}
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        run: |
+          snapcraft push ./packages/desktop/build-electron/*.snap --release edge
+
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/notice-slack-app-update@main
         with:
           web-hook-url: ${{ secrets.SLACK_DEV_WEBHOOK }}
           artifact-type: Desktop
-          artifact-name: OneKey-Desktop-RN
+          artifact-name: OneKey-Desktop-Linux-Snap-RN
           artifact-bundle-id: 'so.onekey.wallet.desktop'
           artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'

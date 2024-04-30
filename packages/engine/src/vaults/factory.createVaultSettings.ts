@@ -10,6 +10,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_DOT,
+  IMPL_DYNEX,
   IMPL_EVM,
   IMPL_FIL,
   IMPL_KASPA,
@@ -133,6 +134,11 @@ export function createVaultSettings(options: {
   if (impl === IMPL_NEURAI) {
     return require('./impl/neurai/settings').default as IVaultSettings;
   }
+
+  if (impl === IMPL_DYNEX) {
+    return require('./impl/dynex/settings').default as IVaultSettings;
+  }
+
   throw new OneKeyInternalError(
     `VaultSettings not found for: networkId=${options.networkId ?? ''}, impl=${
       impl ?? ''

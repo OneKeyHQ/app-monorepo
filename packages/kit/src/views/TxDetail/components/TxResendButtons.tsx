@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil, isNumber } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Button, ToastManager } from '@onekeyhq/components';
+import { Button, Dialog, ToastManager } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IHistoryTx } from '@onekeyhq/engine/src/vaults/types';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -10,6 +10,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useNavigation } from '../../../hooks';
 import { ModalRoutes, RootRoutes } from '../../../routes/routesEnum';
+import { showDialog } from '../../../utils/overlayUtils';
 import { SendModalRoutes } from '../../Send/enums';
 
 import type { TransactionDetailRoutesParams } from '../../../routes';
@@ -32,6 +33,28 @@ tx.decodedTx.encodedTx.to='0x11111111';
 
 $$simpleDb.history.setRawData(history);
  */
+
+function SpeedUpOrCancelTxDialog({ onClose }: { onClose?: () => void }) {
+  const intl = useIntl();
+  return (
+    <Dialog
+      visible
+      contentProps={{
+        iconType: 'success',
+        iconName: 'ArrowUpOutline',
+        title: intl.formatMessage({ id: 'modal__unable_to_accelerate' }),
+        content: intl.formatMessage({ id: 'modal__unable_to_accelerate_desc' }),
+      }}
+      footerButtonProps={{
+        hideSecondaryAction: true,
+        onPrimaryActionPress: () => {
+          onClose?.();
+        },
+        primaryActionTranslationId: 'action__i_got_it',
+      }}
+    />
+  );
+}
 
 // TODO move to service and use updateEncodedTx()
 async function doSpeedUpOrCancelTx(props: {
@@ -111,6 +134,18 @@ async function doSpeedUpOrCancelTx(props: {
       );
       return;
     }
+  }
+
+  const isEarliestPendingTx =
+    await backgroundApiProxy.serviceTransaction.isEarliestPendingTx({
+      accountId,
+      networkId,
+      encodedTx: encodedTxEvm,
+    });
+
+  if (!isEarliestPendingTx) {
+    showDialog(<SpeedUpOrCancelTxDialog />);
+    return;
   }
 
   const params: SendConfirmParams = {

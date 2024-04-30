@@ -42,6 +42,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
@@ -184,13 +185,14 @@ export enum IDecodedTxEvmType {
 
 function decodeUnsignedTxFeeData(unsignedTx: UnsignedTx) {
   return {
-    feeLimit: unsignedTx.feeLimit?.toFixed(),
-    feePricePerUnit: unsignedTx.feePricePerUnit?.toFixed(),
-    maxPriorityFeePerGas:
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-      unsignedTx.payload?.maxPriorityFeePerGas?.toFixed(),
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    maxFeePerGas: unsignedTx.payload?.maxFeePerGas?.toFixed(),
+    feeLimit: new BigNumber(unsignedTx.feeLimit ?? 0).toFixed(),
+    feePricePerUnit: new BigNumber(unsignedTx.feePricePerUnit ?? 0).toFixed(),
+    maxPriorityFeePerGas: new BigNumber(
+      unsignedTx.payload?.maxPriorityFeePerGas ?? 0,
+    ).toFixed(),
+    maxFeePerGas: new BigNumber(
+      unsignedTx.payload?.maxFeePerGas ?? 0,
+    ).toFixed(),
   };
 }
 
@@ -804,6 +806,19 @@ export default class Vault extends VaultBase {
       value: isTransferToken ? '0x0' : toBigIntHex(totalAmountBN),
       nonce: String(nextNonce),
     };
+  }
+
+  override async isEarliestPendingTx({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxEvm;
+  }): Promise<boolean> {
+    const minPendingNonce = await simpleDb.history.getMinPendingNonce({
+      accountId: this.accountId,
+      networkId: this.networkId,
+    });
+
+    return new BigNumber(encodedTx.nonce ?? 0).isEqualTo(minPendingNonce ?? 0);
   }
 
   buildEncodedTxFromWrapperTokenDeposit({

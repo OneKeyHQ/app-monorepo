@@ -1,0 +1,15 @@
+diff --git a/node_modules/biginteger/biginteger.js b/node_modules/biginteger/biginteger.js
+index b881105..41967f5 100644
+--- a/node_modules/biginteger/biginteger.js
++++ b/node_modules/biginteger/biginteger.js
+@@ -1564,6 +1564,10 @@ BigInteger.prototype.toJSValue = function() {
+ 	return parseInt(this.toString(), 10);
+ };
+ 
++BigInteger.prototype.lowVal = function () {
++  return this._d[0] || 0;
++};
++
+ var MAX_EXP = BigInteger(0x7FFFFFFF);
+ // Constant: MAX_EXP
+ // The largest exponent allowed in <pow> and <exp10> (0x7FFFFFFF or 2147483647).

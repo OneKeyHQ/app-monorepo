@@ -56,6 +56,7 @@
     "axios-retry": "^3.4.0",
     "bchaddrjs": "^0.5.2",
     "bech32": "^2.0.0",
+    "biginteger": "^1.0.3",
     "bignumber.js": "^9.0.1",
     "bip32": "^4.0.0",
     "bip39": "^3.1.0",
