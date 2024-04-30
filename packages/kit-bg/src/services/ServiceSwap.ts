@@ -5,6 +5,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { swapHistoryStateFetchInterval } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
@@ -16,12 +17,15 @@ import type {
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapToken,
+  ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapFetchCancelCause,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
+
+import { statusNotificationAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -30,6 +34,9 @@ export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
 
   private _tokenListAbortController?: AbortController;
+
+  private historyStateIntervals: Record<string, ReturnType<typeof setTimeout>> =
+    {};
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -342,5 +349,151 @@ export default class ServiceSwap extends ServiceBase {
       { params },
     );
     return data?.data;
+  }
+
+  // --- swap history
+  @backgroundMethod()
+  async fetchSwapHistoryListFromSimple() {
+    const histories =
+      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+    return histories.sort((a, b) => b.date.created - a.date.created);
+  }
+
+  @backgroundMethod()
+  async syncSwapHistoryPendingList() {
+    const histories = await this.fetchSwapHistoryListFromSimple();
+    const pendingHistories = histories.filter(
+      (history) => history.status === ESwapTxHistoryStatus.PENDING,
+    );
+    await statusNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [...pendingHistories],
+    }));
+  }
+
+  @backgroundMethod()
+  async addSwapHistoryItem(item: ISwapTxHistory) {
+    await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(item);
+    await statusNotificationAtom.set((pre) => {
+      if (
+        !pre.swapHistoryPendingList.find(
+          (i) => i.txInfo.txId === item.txInfo.txId,
+        )
+      ) {
+        return {
+          ...pre,
+          swapHistoryPendingList: [...pre.swapHistoryPendingList, item],
+        };
+      }
+      return pre;
+    });
+  }
+
+  @backgroundMethod()
+  async updateSwapHistoryItem(item: ISwapTxHistory) {
+    const { swapHistoryPendingList } = await statusNotificationAtom.get();
+    const index = swapHistoryPendingList.findIndex(
+      (i) => i.txInfo.txId === item.txInfo.txId,
+    );
+    if (index !== -1) {
+      const updated = Date.now();
+      item.date = { ...item.date, updated };
+      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
+      await statusNotificationAtom.set((pre) => {
+        const newPendingList = [...pre.swapHistoryPendingList];
+        newPendingList[index] = item;
+        return {
+          ...pre,
+          swapHistoryPendingList: [...newPendingList],
+        };
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async cleanSwapHistoryItems() {
+    await this.backgroundApi.simpleDb.swapHistory.setRawData({ histories: [] });
+    await statusNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [],
+    }));
+  }
+
+  async cleanHistoryStateIntervals(historyId?: string) {
+    if (!historyId) {
+      Object.values(this.historyStateIntervals).forEach((interval) => {
+        clearInterval(interval);
+      });
+      this.historyStateIntervals = {};
+    } else if (this.historyStateIntervals[historyId]) {
+      clearInterval(this.historyStateIntervals[historyId]);
+      delete this.historyStateIntervals[historyId];
+    }
+  }
+
+  async swapHistoryStatusRunFetch(swapTxHistory: ISwapTxHistory) {
+    let enableInterval = true;
+    try {
+      const txStatusRes = await this.fetchTxState({
+        txId: swapTxHistory.txInfo.txId,
+        provider: swapTxHistory.swapInfo.provider.provider,
+        protocol: EProtocolOfExchange.SWAP,
+        networkId: swapTxHistory.baseInfo.fromToken.networkId,
+        ctx: swapTxHistory.ctx,
+        toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
+        receivedAddress: swapTxHistory.txInfo.receiver,
+      });
+      if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
+        enableInterval = false;
+        await this.updateSwapHistoryItem({
+          ...swapTxHistory,
+          status: txStatusRes.state,
+          txInfo: {
+            ...swapTxHistory.txInfo,
+            receiverTransactionId: txStatusRes.crossChainReceiveTxHash || '',
+            gasFeeInNative: txStatusRes.gasFee
+              ? txStatusRes.gasFee
+              : swapTxHistory.txInfo.gasFeeInNative,
+            gasFeeFiatValue: txStatusRes.gasFeeFiatValue
+              ? txStatusRes.gasFeeFiatValue
+              : swapTxHistory.txInfo.gasFeeFiatValue,
+          },
+          baseInfo: {
+            ...swapTxHistory.baseInfo,
+            toAmount: txStatusRes.dealReceiveAmount
+              ? txStatusRes.dealReceiveAmount
+              : swapTxHistory.baseInfo.toAmount,
+          },
+        });
+        await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+      }
+    } catch (e) {
+      const error = e as { message?: string };
+      console.error('Swap History Status Fetch Error', error?.message);
+    } finally {
+      if (enableInterval) {
+        this.historyStateIntervals[swapTxHistory.txInfo.txId] = setTimeout(
+          () => {
+            void this.swapHistoryStatusRunFetch(swapTxHistory);
+          },
+          swapHistoryStateFetchInterval,
+        );
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async swapHistoryStatusFetchLoop() {
+    const { swapHistoryPendingList } = await statusNotificationAtom.get();
+    const statusPendingList = swapHistoryPendingList.filter(
+      (item) => item.status === ESwapTxHistoryStatus.PENDING,
+    );
+    await this.cleanHistoryStateIntervals();
+    if (!statusPendingList.length) return;
+    await Promise.all(
+      statusPendingList.map(async (swapTxHistory) => {
+        await this.swapHistoryStatusRunFetch(swapTxHistory);
+      }),
+    );
   }
 }

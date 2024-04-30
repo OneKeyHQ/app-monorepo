@@ -7,12 +7,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { statusNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   swapApprovingStateFetchInterval,
-  swapHistoryStateFetchInterval,
   swapQuoteFetchInterval,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
@@ -23,10 +23,8 @@ import type {
   IFetchTokensParams,
   ISwapAlertState,
   ISwapToken,
-  ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
-  EProtocolOfExchange,
   ESwapAlertLevel,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
@@ -59,9 +57,6 @@ import {
   swapSlippagePercentageAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
-  swapTxHistoryAtom,
-  swapTxHistoryPendingAtom,
-  swapTxHistoryStatusChangeAtom,
 } from './atoms';
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
@@ -69,22 +64,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   private approvingInterval: ReturnType<typeof setTimeout> | undefined;
 
-  private historyStateIntervals: Record<string, ReturnType<typeof setTimeout>> =
-    {};
-
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
     const networks = get(swapNetworks());
     const sortNetworks = moveNetworkToFirst(networks, netWorkId);
     set(swapNetworks(), sortNetworks);
     await backgroundApiProxy.simpleDb.swapNetworksSort.setRawData({
       data: sortNetworks,
-    });
-  });
-
-  syncSwapHistorySimpleDb = contextAtomMethod(async (get) => {
-    const currentHistoryList = get(swapTxHistoryAtom());
-    await backgroundApiProxy.simpleDb.swapHistory.setRawData({
-      histories: currentHistoryList,
     });
   });
 
@@ -187,42 +172,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
     this.resetSwapSlippage.call(set);
-  });
-
-  addSwapHistoryItem = contextAtomMethod(
-    async (get, set, item: ISwapTxHistory) => {
-      const currentHistoryList = get(swapTxHistoryAtom());
-      const histories = [item, ...currentHistoryList];
-      set(swapTxHistoryAtom(), () => [...histories]);
-      await this.syncSwapHistorySimpleDb.call(set);
-    },
-  );
-
-  updateSwapHistoryItem = contextAtomMethod(
-    async (get, set, item: ISwapTxHistory) => {
-      const currentHistoryList = get(swapTxHistoryAtom());
-      const index = currentHistoryList.findIndex(
-        (i) => i.txInfo.txId === item.txInfo.txId,
-      );
-      if (index !== -1) {
-        const updated = Date.now();
-        item.date = { ...item.date, updated };
-        currentHistoryList[index] = item;
-        set(swapTxHistoryAtom(), () => [...currentHistoryList]);
-        set(swapTxHistoryStatusChangeAtom(), (items) => {
-          if (!items.find((i) => i.txInfo.txId === item.txInfo.txId)) {
-            return [...items, item];
-          }
-          return items;
-        });
-        await this.syncSwapHistorySimpleDb.call(set);
-      }
-    },
-  );
-
-  cleanSwapHistoryItems = contextAtomMethod(async (get, set) => {
-    set(swapTxHistoryAtom(), () => []);
-    await this.syncSwapHistorySimpleDb.call(set);
   });
 
   tokenListFetchAction = contextAtomMethod(
@@ -427,75 +376,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  historyStateRunSync = contextAtomMethod(
-    async (get, set, swapTxHistory: ISwapTxHistory) => {
-      let enableInterval = true;
-      try {
-        const txStatusRes = await backgroundApiProxy.serviceSwap.fetchTxState({
-          txId: swapTxHistory.txInfo.txId,
-          provider: swapTxHistory.swapInfo.provider.provider,
-          protocol: EProtocolOfExchange.SWAP,
-          networkId: swapTxHistory.baseInfo.fromToken.networkId,
-          ctx: swapTxHistory.ctx,
-          toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
-          receivedAddress: swapTxHistory.txInfo.receiver,
-        });
-        if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
-          enableInterval = false;
-          await this.updateSwapHistoryItem.call(set, {
-            ...swapTxHistory,
-            status: txStatusRes.state,
-            txInfo: {
-              ...swapTxHistory.txInfo,
-              receiverTransactionId: txStatusRes.crossChainReceiveTxHash || '',
-              gasFeeInNative: txStatusRes.gasFee
-                ? txStatusRes.gasFee
-                : swapTxHistory.txInfo.gasFeeInNative,
-              gasFeeFiatValue: txStatusRes.gasFeeFiatValue
-                ? txStatusRes.gasFeeFiatValue
-                : swapTxHistory.txInfo.gasFeeFiatValue,
-            },
-            baseInfo: {
-              ...swapTxHistory.baseInfo,
-              toAmount: txStatusRes.dealReceiveAmount
-                ? txStatusRes.dealReceiveAmount
-                : swapTxHistory.baseInfo.toAmount,
-            },
-          });
-          this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
-        }
-      } finally {
-        if (enableInterval) {
-          this.historyStateIntervals[swapTxHistory.txInfo.txId] = setTimeout(
-            () => {
-              void this.historyStateRunSyncTimeOut.call(set, swapTxHistory);
-            },
-            swapHistoryStateFetchInterval,
-          );
-        }
-      }
-    },
-  );
-
-  historyStateRunSyncTimeOut = contextAtomMethod(
-    async (get, set, swapHistory: ISwapTxHistory) => {
-      await this.historyStateRunSync.call(set, swapHistory);
-    },
-  );
-
-  historyStateAction = contextAtomMethod(async (get, set) => {
-    const swapPendingTxHistories = get(swapTxHistoryPendingAtom());
-    if (!swapPendingTxHistories.length) {
-      this.cleanHistoryStateIntervals();
-      return;
-    }
-    await Promise.all(
-      swapPendingTxHistories.map(async (swapTxHistory) => {
-        await this.historyStateRunSync.call(set, swapTxHistory);
-      }),
-    );
-  });
-
   cleanQuoteInterval = () => {
     if (this.quoteInterval) {
       clearTimeout(this.quoteInterval);
@@ -507,18 +387,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     if (this.approvingInterval) {
       clearTimeout(this.approvingInterval);
       this.approvingInterval = undefined;
-    }
-  };
-
-  cleanHistoryStateIntervals = (historyId?: string) => {
-    if (!historyId) {
-      Object.values(this.historyStateIntervals).forEach((interval) => {
-        clearInterval(interval);
-      });
-      this.historyStateIntervals = {};
-    } else if (this.historyStateIntervals[historyId]) {
-      clearInterval(this.historyStateIntervals[historyId]);
-      delete this.historyStateIntervals[historyId];
     }
   };
 
@@ -841,7 +709,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       type: ESwapDirectionType,
       swapAddressInfo: ReturnType<typeof useSwapAddressInfo>,
     ) => {
-      const swapTxHistoryStatusChange = get(swapTxHistoryStatusChangeAtom());
+      const { swapHistoryPendingList } = await statusNotificationAtom.get();
       const token =
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
@@ -858,8 +726,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
           token.balanceParsed &&
-          (!swapTxHistoryStatusChange.length ||
-            swapTxHistoryStatusChange.every(
+          (!swapHistoryPendingList.length ||
+            swapHistoryPendingList.every(
               (item) => item.status !== ESwapTxHistoryStatus.SUCCESS,
             ))
         ) {
@@ -944,43 +812,31 @@ export const useSwapActions = () => {
   const selectToToken = actions.selectToToken.use();
   const alternationToken = actions.alternationToken.use();
   const syncNetworksSort = actions.syncNetworksSort.use();
-  const updateSwapHistoryItem = actions.updateSwapHistoryItem.use();
-  const addSwapHistoryItem = actions.addSwapHistoryItem.use();
-  const cleanSwapHistoryItems = actions.cleanSwapHistoryItems.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
   const quoteAction = debounce(actions.quoteAction.use(), 100);
   const approvingStateAction = actions.approvingStateAction.use();
   const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 200);
   const tokenListFetchAction = actions.tokenListFetchAction.use();
-  const historyStateAction = actions.historyStateAction.use();
+
   const loadSwapSelectTokenDetail = debounce(
     actions.loadSwapSelectTokenDetail.use(),
     200,
   );
-  const {
-    cleanQuoteInterval,
-    cleanApprovingInterval,
-    cleanHistoryStateIntervals,
-  } = actions;
+  const { cleanQuoteInterval, cleanApprovingInterval } = actions;
 
   return useRef({
     selectFromToken,
     quoteAction,
     selectToToken,
     alternationToken,
-    cleanSwapHistoryItems,
     syncNetworksSort,
-    updateSwapHistoryItem,
-    addSwapHistoryItem,
     catchSwapTokensMap,
     cleanQuoteInterval,
     cleanApprovingInterval,
     approvingStateAction,
     tokenListFetchAction,
     recoverQuoteInterval,
-    historyStateAction,
-    cleanHistoryStateIntervals,
     checkSwapWarning,
     loadSwapSelectTokenDetail,
   });

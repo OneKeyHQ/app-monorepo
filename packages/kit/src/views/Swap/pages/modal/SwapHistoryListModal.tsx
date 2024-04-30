@@ -9,16 +9,18 @@ import {
   type IPageNavigationProp,
   Page,
   SectionList,
+  Skeleton,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
-import {
-  useSwapActions,
-  useSwapTxHistoryAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useStatusNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalSwapRoutes,
   type IModalSwapParamList,
@@ -43,18 +45,30 @@ interface ISwapHistoryListModalProps {
 }
 
 const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
-  const [swapTxHistoryList] = useSwapTxHistoryAtom();
+  const [swapPendingList] = useStatusNotificationAtom();
+  const { result: swapTxHistoryList, isLoading } = usePromiseResult(
+    async () => {
+      const histories =
+        await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
+      return histories;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [swapPendingList],
+    { watchLoading: true },
+  );
+
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const { formatDate } = useFormatDate();
-  const { cleanSwapHistoryItems } = useSwapActions().current;
   const sectionData = useMemo(() => {
-    const pendingData = swapTxHistoryList.filter(
-      (item) => item.status === ESwapTxHistoryStatus.PENDING,
-    );
-    const otherData = swapTxHistoryList.filter(
-      (item) => item.status !== ESwapTxHistoryStatus.PENDING,
-    );
+    const pendingData =
+      swapTxHistoryList?.filter(
+        (item) => item.status === ESwapTxHistoryStatus.PENDING,
+      ) ?? [];
+    const otherData =
+      swapTxHistoryList?.filter(
+        (item) => item.status !== ESwapTxHistoryStatus.PENDING,
+      ) ?? [];
     const groupByDay = otherData.reduce<Record<string, ISwapTxHistory[]>>(
       (acc, item) => {
         const date = new Date(item.date.created);
@@ -92,11 +106,11 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
     Dialog.confirm({
       title: 'Are you sure to delete all history?',
       onConfirm: () => {
-        void cleanSwapHistoryItems();
+        void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems();
       },
       onConfirmText: 'Delete',
     });
-  }, [cleanSwapHistoryItems, swapTxHistoryList?.length]);
+  }, [swapTxHistoryList?.length]);
 
   const deleteButton = useCallback(
     () => <HeaderIconButton onPress={onDeleteHistory} icon="DeleteOutline" />,
@@ -120,30 +134,47 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
   return (
     <Page>
       <Page.Header headerRight={deleteButton} />
-      <SectionList
-        renderItem={renderItem}
-        sections={sectionData}
-        renderSectionHeader={({ section: { title } }) => (
-          <XStack px="$5" py="$2" space="$3" alignItems="center">
-            {title === 'Pending' ? (
-              <Stack
-                w="$2"
-                h="$2"
-                backgroundColor="$textCaution"
-                borderRadius="$full"
-              />
-            ) : null}
-            <Heading
-              size="$headingSm"
-              color={title === 'Pending' ? '$textCaution' : '$textSubdued'}
-            >
-              {title}
-            </Heading>
-          </XStack>
-        )}
-        estimatedItemSize="$10"
-        ListEmptyComponent={<Empty icon="InboxOutline" title="No Results" />}
-      />
+      {isLoading ? (
+        Array.from({ length: 5 }).map((_, index) => (
+          <ListItem key={index}>
+            <Skeleton w="$10" h="$10" radius="round" />
+            <YStack>
+              <YStack py="$1">
+                <Skeleton h="$4" w="$32" />
+              </YStack>
+              <YStack py="$1">
+                <Skeleton h="$3" w="$24" />
+              </YStack>
+            </YStack>
+          </ListItem>
+        ))
+      ) : (
+        <SectionList
+          renderItem={renderItem}
+          sections={sectionData}
+          py="$1"
+          renderSectionHeader={({ section: { title } }) => (
+            <XStack px="$5" py="$2" space="$3" alignItems="center">
+              {title === 'Pending' ? (
+                <Stack
+                  w="$2"
+                  h="$2"
+                  backgroundColor="$textCaution"
+                  borderRadius="$full"
+                />
+              ) : null}
+              <Heading
+                size="$headingSm"
+                color={title === 'Pending' ? '$textCaution' : '$textSubdued'}
+              >
+                {title}
+              </Heading>
+            </XStack>
+          )}
+          estimatedItemSize="$10"
+          ListEmptyComponent={<Empty icon="InboxOutline" title="No Results" />}
+        />
+      )}
     </Page>
   );
 };
