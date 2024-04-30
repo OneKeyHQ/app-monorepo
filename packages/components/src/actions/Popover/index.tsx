@@ -3,6 +3,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -83,6 +84,25 @@ const usePopoverValue = (
     closePopover,
   };
 };
+
+const useContentDisplay = platformEnv.isNative
+  ? () => undefined
+  : (isOpen?: boolean, keepChildrenMounted?: boolean) => {
+      const [display, setDisplay] = useState<'none' | undefined>(undefined);
+      useEffect(() => {
+        if (!keepChildrenMounted) {
+          return;
+        }
+        if (isOpen) {
+          setDisplay(undefined);
+        } else {
+          setTimeout(() => {
+            setDisplay('none');
+          }, 250);
+        }
+      }, [isOpen, keepChildrenMounted]);
+      return display;
+    };
 
 export const usePopoverContext = () => {
   const { closePopover } = useContext(PopoverContext);
@@ -202,6 +222,7 @@ function RawPopover({
     }),
     [handleClosePopover],
   );
+  const display = useContentDisplay(isOpen, props.keepChildrenMounted);
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
       <PopoverContent isOpen={isOpen} closePopover={handleClosePopover}>
@@ -236,6 +257,7 @@ function RawPopover({
         outlineColor="$neutral3"
         outlineStyle="solid"
         outlineWidth="$px"
+        display={display}
         style={{
           transformOrigin,
         }}

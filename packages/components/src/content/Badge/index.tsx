@@ -96,7 +96,11 @@ const BadgeComponent = BadgeFrame.styleable((props, ref) => {
       {...props}
       role={!platformEnv.isNative && props.onPress ? 'button' : undefined}
     >
-      {!isString ? children : <BadgeText>{children}</BadgeText>}
+      {!isString ? (
+        children
+      ) : (
+        <BadgeText selectable={false}>{children}</BadgeText>
+      )}
     </BadgeFrame>
   );
 });
