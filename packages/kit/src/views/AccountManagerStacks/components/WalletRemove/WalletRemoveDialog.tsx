@@ -10,9 +10,11 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 export function WalletRemoveDialog({
   defaultValue,
   wallet,
+  showCheckBox,
 }: {
   defaultValue: boolean;
   wallet?: IDBWallet;
+  showCheckBox: boolean;
 }) {
   const [value, changeValue] = useState(defaultValue);
   const handleChange = useCallback((checked: ICheckedState) => {
@@ -21,16 +23,17 @@ export function WalletRemoveDialog({
   const actions = useAccountSelectorActions();
   return (
     <>
-      <Checkbox
-        value={value}
-        onChange={handleChange}
-        label="I've written down the recovery phrase"
-      />
-
+      {showCheckBox ? (
+        <Checkbox
+          value={value}
+          onChange={handleChange}
+          label="I've written down the recovery phrase"
+        />
+      ) : null}
       <Dialog.Footer
         onConfirmText="Remove"
         confirmButtonProps={{
-          disabled: !value,
+          disabled: showCheckBox && !value,
           variant: 'destructive',
         }}
         onConfirm={async () => {
@@ -49,12 +52,14 @@ export function showWalletRemoveDialog({
   defaultChecked,
   wallet,
   config,
+  showCheckBox,
 }: {
   defaultChecked: boolean;
   title: string;
   description: string;
   wallet?: IDBWallet;
   config: IAccountSelectorContextData | undefined;
+  showCheckBox: boolean;
 }) {
   return Dialog.show({
     icon: 'ErrorOutline',
@@ -63,7 +68,11 @@ export function showWalletRemoveDialog({
     description,
     renderContent: config ? (
       <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-        <WalletRemoveDialog wallet={wallet} defaultValue={defaultChecked} />
+        <WalletRemoveDialog
+          wallet={wallet}
+          defaultValue={defaultChecked}
+          showCheckBox={showCheckBox}
+        />
       </AccountSelectorProviderMirror>
     ) : null,
   });
