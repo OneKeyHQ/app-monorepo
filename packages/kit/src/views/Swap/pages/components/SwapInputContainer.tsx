@@ -7,6 +7,7 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
+  useSwapSelectTokenDetailFetchingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -30,6 +31,7 @@ interface ISwapInputContainerProps {
   inputLoading?: boolean;
   selectTokenLoading?: boolean;
   onBalanceMaxPress?: () => void;
+  onToAnotherAddressModal?: () => void;
 }
 
 const SwapInputContainer = ({
@@ -41,12 +43,14 @@ const SwapInputContainer = ({
   inputLoading,
   onSelectToken,
   onBalanceMaxPress,
+  onToAnotherAddressModal,
   balance,
 }: ISwapInputContainerProps) => {
-  const { isLoading } = useSwapSelectedTokenInfo({
+  useSwapSelectedTokenInfo({
     token,
     type: direction,
   });
+  const [tokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [alerts] = useSwapAlertsAtom();
   const [rateDifference] = useRateDifferenceAtom();
@@ -88,7 +92,10 @@ const SwapInputContainer = ({
 
   return (
     <YStack>
-      <SwapAccountAddressContainer type={direction} />
+      <SwapAccountAddressContainer
+        type={direction}
+        onToAnotherAddressModal={onToAnotherAddressModal}
+      />
       <AmountInput
         onChange={onAmountChange}
         value={amountValue}
@@ -96,7 +103,7 @@ const SwapInputContainer = ({
         balanceProps={{
           value: balance,
           onPress: onBalanceMaxPress,
-          loading: token && isLoading,
+          loading: token && tokenDetailLoading[direction],
         }}
         valueProps={{
           value: amountPrice,

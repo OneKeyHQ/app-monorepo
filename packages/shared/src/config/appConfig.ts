@@ -3,6 +3,7 @@
 /**
  * Tokens will injected at build process. These are client token.
  */
+
 export const COVALENT_API_KEY = process.env.COVALENT_KEY!;
 
 export const JPUSH_KEY = process.env.JPUSH_KEY!;
@@ -13,7 +14,7 @@ export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYCN =
   process.env.HARDWARE_SDK_CONNECT_SRC_ONEKEYCN || 'https://jssdk.onekeycn.com';
 
-export const HARDWARE_SDK_VERSION = '1.0.0-alpha.1';
+export const HARDWARE_SDK_VERSION = '1.0.0-alpha.5';
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
@@ -34,3 +35,14 @@ export const ONEKEY_APP_TEST_UPDATE_URL =
   'https://data.onekey.so/pre-config.json';
 export const ONEKY_API_URL = 'https://rest.onekeytest.com';
 export const ONEKY_TEST_API_URL = 'https://rest.onekeytest.com';
+
+export const EXT_RATE_URL = {
+  'chrome':
+    'https://chrome.google.com/webstore/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj',
+  'firefox': 'https://addons.mozilla.org/zh-CN/firefox/addon/onekey/reviews/',
+  'edge':
+    'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
+};
+
+export const APP_STORE_LINK = `itms-apps://apps.apple.com/app/id1609559473?action=write-review`;
+export const PLAY_STORE_LINK = `market://details?id=so.onekey.app.wallet`;

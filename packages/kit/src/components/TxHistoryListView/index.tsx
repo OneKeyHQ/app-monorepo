@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -16,6 +16,7 @@ import { getFilteredHistoryBySearchKey } from '@onekeyhq/shared/src/utils/histor
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
@@ -52,7 +53,7 @@ function TxHistoryListView(props: IProps) {
   } = props;
 
   const currentDate = useRef('');
-  const [searchKey, setSearchKey] = useState('');
+  const [searchKey] = useSearchKeyAtom();
 
   const filteredHistory = getFilteredHistoryBySearchKey({
     history: data,
@@ -189,10 +190,8 @@ function TxHistoryListView(props: IProps) {
         data?.length > 0 && {
           ListHeaderComponent: (
             <TxHistoryListHeader
-              searchKey={searchKey}
               filteredHistory={filteredHistory}
               history={data}
-              setSearchKey={setSearchKey}
             />
           ),
         })}

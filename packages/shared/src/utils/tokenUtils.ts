@@ -80,7 +80,7 @@ export function getFilteredTokenBySearchKey({
     (token) =>
       token.name?.toLowerCase().includes(searchKey) ||
       token.symbol?.toLowerCase().includes(searchKey) ||
-      token.address?.toLowerCase().includes(searchKey),
+      token.address?.toLowerCase() === searchKey,
   );
 
   return filteredTokens;

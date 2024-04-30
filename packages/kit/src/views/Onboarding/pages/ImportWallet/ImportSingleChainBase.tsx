@@ -14,6 +14,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ControlledNetworkSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTriggerStaticInput } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type {
@@ -57,9 +58,12 @@ export function ImportSingleChainBase({
   ) => Promise<void>;
 }) {
   const media = useMedia();
+  const {
+    activeAccount: { network },
+  } = useAccountSelectorTrigger({ num: 0 });
   const form = useForm<IFormValues>({
     values: {
-      networkId: getNetworkIdsMap().btc,
+      networkId: network?.id ?? getNetworkIdsMap().btc,
       input: '',
       deriveType: undefined,
     },

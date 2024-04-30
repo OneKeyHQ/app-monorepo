@@ -6,7 +6,6 @@ import { Animated, Easing } from 'react-native';
 import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -22,9 +21,9 @@ import HomeSelector from '../components/HomeSelector';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 
 import { HomeHeaderContainer } from './HomeHeaderContainer';
-import { NFTListContainer } from './NFTListContainer';
+import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
-import { TxHistoryListContainer } from './TxHistoryContainer';
+import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
@@ -89,7 +88,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
               title: intl.formatMessage({
                 id: 'asset__collectibles',
               }),
-              page: memo(NFTListContainer, () => true),
+              page: memo(NFTListContainerWithProvider, () => true),
             }
           : null,
         // {
@@ -100,7 +99,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
           title: intl.formatMessage({
             id: 'transaction__history',
           }),
-          page: memo(TxHistoryListContainer, () => true),
+          page: memo(TxHistoryListContainerWithProvider, () => true),
         },
       ].filter(Boolean),
     [intl, isNFTEnabled],
@@ -196,10 +195,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     );
   }, [ready, wallet, renderHomePageContent]);
 
-  return useMemo(
-    () => <Page skipLoading={platformEnv.isNativeIOS}>{renderHomePage()}</Page>,
-    [renderHomePage],
-  );
+  return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
 }
 
 function HomePageContainer() {
