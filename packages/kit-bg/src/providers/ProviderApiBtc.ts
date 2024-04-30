@@ -437,7 +437,15 @@ class ProviderApiBtc extends ProviderApiBase {
   ) {
     const { psbtHexs, options } = params;
 
-    const { network } = getActiveWalletAccount();
+    const { network, wallet } = getActiveWalletAccount();
+    if (wallet?.type === 'hw') {
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message:
+          'Partially signed bitcoin transactions is not supported on hardware.',
+      });
+    }
+
     if (!network) return null;
 
     const psbtNetwork = toPsbtNetwork(network);
@@ -537,13 +545,14 @@ class ProviderApiBtc extends ProviderApiBase {
       psbt,
       psbtNetwork,
       account,
+      isBtcWalletProvider: options.isBtcWalletProvider,
     });
 
     const resp = (await this.backgroundApi.serviceDapp.openSignAndSendModal(
       request,
       {
         encodedTx: {
-          inputs: decodedPsbt.inputInfos.map((v) => ({
+          inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
             ...v,
             path: '',
             value: v.value.toString(),
@@ -553,7 +562,7 @@ class ProviderApiBtc extends ProviderApiBase {
               ),
             ),
           })),
-          outputs: decodedPsbt.outputInfos.map((v) => ({
+          outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
             ...v,
             value: v.value.toString(),
             inscriptions: v.inscriptions.map((i) =>
@@ -589,7 +598,85 @@ class ProviderApiBtc extends ProviderApiBase {
       });
     }
 
+    if (options.isBtcWalletProvider) {
+      return respPsbt.extractTransaction().toHex();
+    }
     return respPsbt.toHex();
+  }
+
+  @providerApiMethod()
+  public async getNetworkFees() {
+    const { account, network } = getActiveWalletAccount();
+    if (!account || !network) return null;
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId: network.id,
+      accountId: account.id,
+    })) as VaultBtcFork;
+
+    const result = await vault.getFeeRate();
+    if (result.length !== 3) {
+      throw new Error('Invalid fee rate');
+    }
+    const [hourFee, halfHourFee, fastestFee] = result;
+    return {
+      fastestFee,
+      halfHourFee,
+      hourFee,
+      economyFee: hourFee,
+      minimumFee: hourFee,
+    };
+  }
+
+  @providerApiMethod()
+  public async getUtxos(
+    request: IJsBridgeMessagePayload,
+    params: {
+      address: string;
+      amount: number;
+    },
+  ) {
+    const { account, network } = getActiveWalletAccount();
+    if (!account || !network) return null;
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId: network.id,
+      accountId: account.id,
+    })) as VaultBtcFork;
+    const { utxos } = await vault.collectUTXOsInfo({
+      checkInscription: true,
+    });
+    const confirmedUtxos = utxos.filter(
+      (v) => v.address === params.address && Number(v?.confirmations ?? 0) > 0,
+    );
+    let sum = 0;
+    let index = 0;
+    for (const utxo of confirmedUtxos) {
+      sum += new BigNumber(utxo.value).toNumber();
+      index += 1;
+      if (sum > params.amount) {
+        break;
+      }
+    }
+    if (sum < params.amount) {
+      return [];
+    }
+    const sliced = confirmedUtxos.slice(0, index);
+    const result = [];
+    for (const utxo of sliced) {
+      const txDetails =
+        await this.backgroundApi.serviceTransaction.getTransactionDetail({
+          txId: utxo.txid,
+          networkId: network.id,
+        });
+      result.push({
+        txid: utxo.txid,
+        vout: utxo.vout,
+        value: new BigNumber(utxo.value).toNumber(),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        scriptPubKey: txDetails?.vout?.[utxo.vout].hex ?? '',
+      });
+    }
+
+    return result;
   }
 }
 
