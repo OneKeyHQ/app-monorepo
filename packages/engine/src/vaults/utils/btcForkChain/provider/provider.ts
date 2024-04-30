@@ -861,6 +861,7 @@ class Provider {
       psbt: psbtToSign,
       psbtNetwork,
       account,
+      isBtcWalletProvider: false,
     });
 
     await this.signPsbt({
