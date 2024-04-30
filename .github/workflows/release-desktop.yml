@@ -131,7 +131,7 @@ jobs:
         with:
           name: onekey-desktop-yml
           path: |
-            ./packages/desktop/build-electron/*.yml
+            ./apps/desktop/build-electron/*.yml
 
       - name: Upload Artifacts Mac
         uses: actions/upload-artifact@v3
