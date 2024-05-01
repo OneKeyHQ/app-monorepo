@@ -8,7 +8,10 @@ import {
   validBootstrapAddress,
   validShelleyAddress,
 } from '@onekeyhq/core/src/chains/ada/sdkAda';
-import type { IEncodedTxAda } from '@onekeyhq/core/src/chains/ada/types';
+import type {
+  IAdaUTXO,
+  IEncodedTxAda,
+} from '@onekeyhq/core/src/chains/ada/types';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -103,10 +106,14 @@ export default class Vault extends VaultBase {
     }
     const { to, amount, tokenInfo } = transferInfo;
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
-    const { xpub, path, addresses } = dbAccount;
+    const { path, addresses } = dbAccount;
     const network = await this.getNetwork();
     const { decimals, feeMeta } = network;
-    const utxos = await this._collectUTXOsInfoByApi();
+    const utxos = await this._collectUTXOsInfoByApi({
+      address: dbAccount.address,
+      path,
+      addresses,
+    });
     const amountBN = new BigNumber(amount);
 
     let output;
@@ -135,7 +142,7 @@ export default class Vault extends VaultBase {
       txPlan = await CardanoApi.composeTxPlan(
         transferInfo,
         dbAccount.xpub,
-        // TODO: change to IAdaUtxo
+        // @ts-expect-error
         utxos,
         dbAccount.address,
         [output as any],
@@ -177,19 +184,43 @@ export default class Vault extends VaultBase {
   }
 
   _collectUTXOsInfoByApi = memoizee(
-    async () => {
+    async (params: {
+      address: string;
+      path: string;
+      addresses: Record<string, string>;
+    }): Promise<IAdaUTXO[]> => {
+      const { addresses, path, address } = params;
+      const stakeAddress = addresses['2/0'];
       try {
         const { utxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
-            accountAddress: await this.getAccountAddress(),
-            xpub: await this.getAccountXpub(),
+            accountAddress: address,
+            xpub: stakeAddress,
             withUTXOList: true,
           });
         if (!utxoList || isEmpty(utxoList)) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
-        return utxoList;
+
+        const pathIndex = path.split('/')[3];
+
+        return utxoList.map((utxo) => {
+          let { path: utxoPath } = utxo;
+          if (utxoPath && utxoPath.length > 0) {
+            const pathArray = utxoPath.split('/');
+            pathArray.splice(3, 1, pathIndex);
+            utxoPath = pathArray.join('/');
+          }
+          return {
+            ...utxo,
+            tx_hash: utxo.txid,
+            tx_index: undefined,
+            path: utxoPath,
+            output_index: utxo.vout,
+            amount: utxo.amount ?? [],
+          };
+        });
       } catch (e) {
         throw new OneKeyInternalError('Failed to get UTXO list.');
       }

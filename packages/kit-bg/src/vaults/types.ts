@@ -1,3 +1,4 @@
+import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
 import type {
   EAddressEncodings,
   ICoreApiGetAddressItem,
@@ -281,6 +282,9 @@ export type IUtxoInfo = {
   confirmations: number;
   address: string;
   path: string;
+  amount?: IAdaAmount[];
+  datumHash?: string | null;
+  referenceScriptHash?: string | null;
 };
 
 export type INativeAmountInfo = {
