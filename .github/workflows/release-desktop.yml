@@ -125,6 +125,13 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           CSC_LINK: './sign.p12'
         run: 'cd apps/desktop && yarn build'
+       
+      - name: Upload Artifacts latest.yml
+        uses: actions/upload-artifact@v3
+        with:
+          name: onekey-desktop-yml
+          path: |
+            ./apps/desktop/build-electron/*.yml
 
       - name: Upload Artifacts Mac
         uses: actions/upload-artifact@v3
@@ -154,9 +161,11 @@ jobs:
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
+            !./apps/desktop/build-electron/win-arm64-unpacked
             !./apps/desktop/build-electron/mac-arm64
             !./apps/desktop/build-electron/mac
             !./apps/desktop/build-electron/linux-unpacked
+            !./apps/desktop/build-electron/linux-arm64-unpacked
             !./apps/desktop/build-electron/builder-debug.yml
 
       - name: 'Notify to Slack'
