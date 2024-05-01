@@ -102,6 +102,8 @@ export type IDecodedTx = {
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
   nativeAmount?: string;
   nativeAmountValue?: string;
+
+  swapProvider?: string;
 };
 
 export type IDecodedTxActionBase = {
