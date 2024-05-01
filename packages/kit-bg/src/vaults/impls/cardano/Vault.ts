@@ -1,9 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
+
 import {
   decodePrivateKeyByXprv,
   validBootstrapAddress,
   validShelleyAddress,
 } from '@onekeyhq/core/src/chains/ada/sdkAda';
+import type { IEncodedTxAda } from '@onekeyhq/core/src/chains/ada/types';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -13,8 +18,14 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { InvalidAddress } from '@onekeyhq/shared/src/errors';
+import {
+  InsufficientBalance,
+  InvalidAddress,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -32,9 +43,11 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import sdk from './sdkCardano';
+import { getChangeAddress } from './sdkCardano/cardanoUtils';
 import settings from './settings';
 
-import type { IDBWalletType } from '../../../dbs/local/types';
+import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
@@ -74,18 +87,131 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxAda> {
+    const { transfersInfo } = params;
+    if (!transfersInfo || isEmpty(transfersInfo)) {
+      throw new OneKeyInternalError('transfersInfo is required');
+    }
+    if (transfersInfo.length > 1) {
+      throw new OneKeyInternalError('Only one transfer is allowed');
+    }
+    const transferInfo = transfersInfo[0];
+    if (!transferInfo.to) {
+      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+    }
+    const { to, amount, tokenInfo } = transferInfo;
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const { xpub, path, addresses } = dbAccount;
+    const network = await this.getNetwork();
+    const { decimals, feeMeta } = network;
+    const utxos = await this._collectUTXOsInfoByApi();
+    const amountBN = new BigNumber(amount);
+
+    let output;
+    if (tokenInfo?.address) {
+      output = {
+        address: to,
+        amount: undefined,
+        assets: [
+          {
+            quantity: amountBN.shiftedBy(tokenInfo?.decimals).toFixed(),
+            unit: tokenInfo?.address,
+          },
+        ],
+      };
+    } else {
+      output = {
+        address: to,
+        amount: amountBN.shiftedBy(decimals).toFixed(),
+        assets: [],
+      };
+    }
+
+    const CardanoApi = await sdk.getCardanoApi();
+    let txPlan: Awaited<ReturnType<typeof CardanoApi.composeTxPlan>>;
+    try {
+      txPlan = await CardanoApi.composeTxPlan(
+        transferInfo,
+        dbAccount.xpub,
+        // TODO: change to IAdaUtxo
+        utxos,
+        dbAccount.address,
+        [output as any],
+      );
+    } catch (e: any) {
+      const utxoValueTooSmall = 'UTXO_VALUE_TOO_SMALL';
+      const insufficientBalance = 'UTXO_BALANCE_INSUFFICIENT';
+      if (
+        [utxoValueTooSmall, insufficientBalance].includes(e.code) ||
+        [utxoValueTooSmall, insufficientBalance].includes(e.message)
+      ) {
+        throw new InsufficientBalance();
+      }
+      throw e;
+    }
+
+    const changeAddress = getChangeAddress(dbAccount);
+
+    // @ts-expect-error
+    const { fee, inputs, outputs, totalSpent, tx } = txPlan;
+    const totalFeeInNative = new BigNumber(fee)
+      .shiftedBy(-1 * feeMeta.decimals)
+      .toFixed();
+
+    return {
+      inputs,
+      outputs,
+      fee,
+      totalSpent,
+      totalFeeInNative,
+      tx,
+      changeAddress,
+      signOnly: false,
+    };
   }
 
   override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
     throw new Error('Method not implemented.');
   }
 
-  override buildUnsignedTx(
+  _collectUTXOsInfoByApi = memoizee(
+    async () => {
+      try {
+        const { utxoList } =
+          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+            networkId: this.networkId,
+            accountAddress: await this.getAccountAddress(),
+            xpub: await this.getAccountXpub(),
+            withUTXOList: true,
+          });
+        if (!utxoList || isEmpty(utxoList)) {
+          throw new OneKeyInternalError('Failed to get UTXO list.');
+        }
+        return utxoList;
+      } catch (e) {
+        throw new OneKeyInternalError('Failed to get UTXO list.');
+      }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    const encodedTx = await this.buildEncodedTx(params);
+    if (encodedTx) {
+      return {
+        encodedTx,
+        transfersInfo: params.transfersInfo,
+      };
+    }
+    throw new OneKeyInternalError('Failed to build unsigned tx');
   }
 
   override updateUnsignedTx(
