@@ -115,7 +115,7 @@ function TxActionsContainer(props: IProps) {
         }
       />
     ));
-  }, [nativeTokenTransferAmountToUpdate, r.result, tableLayout]);
+  }, [nativeTokenTransferAmountToUpdate.amountToUpdate, r.result, tableLayout]);
 
   return <YStack space="$2">{renderActions()}</YStack>;
 }

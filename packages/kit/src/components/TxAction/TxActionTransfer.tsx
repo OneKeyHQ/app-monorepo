@@ -448,6 +448,14 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   : 'content__from',
             })}
             content={target}
+            description={
+              decodedTx.swapProvider && direction === EDecodedTxDirection.OUT
+                ? {
+                    icon: 'NoteSolid',
+                    content: decodedTx.swapProvider,
+                  }
+                : undefined
+            }
           />,
         );
       });
@@ -477,6 +485,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       return <Container.Box>{transferElements}</Container.Box>;
     },
     [
+      decodedTx.swapProvider,
       from,
       intl,
       nativeTokenTransferAmountToUpdate,
