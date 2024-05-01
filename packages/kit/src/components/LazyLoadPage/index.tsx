@@ -2,6 +2,7 @@ import { memo } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const LazyLoadPage = (
   factory: () => Promise<{ default: any }>,
@@ -17,3 +18,8 @@ export const LazyLoadPage = (
   }
   return memo(LazyLoadPageContainer);
 };
+
+// prevent useEffect triggers when tab loaded on Native
+export const LazyLoadRootTabPage = (factory: () => Promise<{ default: any }>) =>
+  // prevent hooks run
+  LazyLoadPage(factory, platformEnv.isNative ? 1 : undefined);
