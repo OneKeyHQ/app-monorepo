@@ -386,7 +386,8 @@ function buildTransfersBlock(
 
 function TxActionTransferDetailView(props: ITxActionProps) {
   const intl = useIntl();
-  const { decodedTx, nativeTokenTransferAmountToUpdate } = props;
+  const { decodedTx, nativeTokenTransferAmountToUpdate, isSendNativeToken } =
+    props;
   const { sends, receives, from } = getTxActionTransferInfo(props);
 
   const sendsBlock = buildTransfersBlock(groupBy(sends, 'to'));
@@ -421,6 +422,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                 <SizableText size="$headingLg" numberOfLines={1}>{`${
                   direction === EDecodedTxDirection.OUT ? '-' : '+'
                 }${
+                  isSendNativeToken &&
                   !isNil(nativeTokenTransferAmountToUpdate) &&
                   transfer.isNative &&
                   direction === EDecodedTxDirection.OUT
@@ -448,6 +450,14 @@ function TxActionTransferDetailView(props: ITxActionProps) {
                   : 'content__from',
             })}
             content={target}
+            description={
+              decodedTx.swapProvider && direction === EDecodedTxDirection.OUT
+                ? {
+                    icon: 'NoteSolid',
+                    content: decodedTx.swapProvider,
+                  }
+                : undefined
+            }
           />,
         );
       });
@@ -477,8 +487,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       return <Container.Box>{transferElements}</Container.Box>;
     },
     [
+      decodedTx.swapProvider,
       from,
       intl,
+      isSendNativeToken,
       nativeTokenTransferAmountToUpdate,
       network?.logoURI,
       network?.name,

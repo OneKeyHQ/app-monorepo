@@ -85,7 +85,7 @@ export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
   return [mergedAssetTransferAction, ...otherActions].filter(Boolean);
 }
 
-export function isSendNativeToken(action: IDecodedTxAction) {
+export function isSendNativeTokenAction(action: IDecodedTxAction) {
   return (
     action.type === EDecodedTxActionType.ASSET_TRANSFER &&
     action.assetTransfer?.sends.every((send) => send.isNative)

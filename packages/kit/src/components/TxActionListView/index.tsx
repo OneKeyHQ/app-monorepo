@@ -15,6 +15,7 @@ type IProps = {
   nativeTokenTransferAmountToUpdate?: string;
   showIcon?: boolean;
   componentProps?: ComponentProps<typeof ListItem>;
+  isSendNativeToken?: boolean;
 };
 
 function TxActionsListView(props: IProps) {
@@ -24,6 +25,7 @@ function TxActionsListView(props: IProps) {
     componentProps,
     tableLayout,
     nativeTokenTransferAmountToUpdate,
+    isSendNativeToken,
     showIcon,
   } = props;
   const actions = getDisplayedActions({ decodedTx });
@@ -45,6 +47,7 @@ function TxActionsListView(props: IProps) {
       componentProps={componentProps}
       showIcon={showIcon}
       nativeTokenTransferAmountToUpdate={nativeTokenTransferAmountToUpdate}
+      isSendNativeToken={isSendNativeToken}
     />
   );
 }

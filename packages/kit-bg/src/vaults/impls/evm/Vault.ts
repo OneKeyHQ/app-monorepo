@@ -216,7 +216,6 @@ export default class Vault extends VaultBase {
         icon: network.logoURI ?? '',
       },
     };
-
     let extraNativeTransferAction: IDecodedTxAction | undefined;
 
     if (swapInfo) {

@@ -37,7 +37,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
     const { inputs = [], outputs = [] } = unsignedTx;
-    const deviceParams = checkIsDefined(params.deviceParams);
+    const { dbDevice, deviceCommonParams } = checkIsDefined(
+      params.deviceParams,
+    );
     const vault = this.vault as VaultBtc;
     const coinName = await this.coreApi.getCoinName();
     const addresses = inputs.map((input) => input.address);
@@ -57,18 +59,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const prevTxs = await vault.collectTxs(prevTxids);
     const sdk = await this.getHardwareSDKInstance();
 
-    const { connectId, deviceId } = deviceParams.dbDevice;
-
-    const signParams = {
-      coin: coinName.toLowerCase(),
-      inputs: await Promise.all(
-        inputs.map(async (i) => this.buildHardwareInput(i, signers[i.address])),
-      ),
-      outputs: await Promise.all(
-        outputs.map(async (o) => this.buildHardwareOutput(o)),
-      ),
-      refTxs: Object.values(prevTxs).map((i) => this.buildPrevTx(i)),
-    };
+    const { connectId, deviceId } = dbDevice;
 
     const response = await sdk.btcSignTransaction(connectId, deviceId, {
       coin: coinName.toLowerCase(),
@@ -79,6 +70,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         outputs.map(async (o) => this.buildHardwareOutput(o)),
       ),
       refTxs: Object.values(prevTxs).map((i) => this.buildPrevTx(i)),
+      ...deviceCommonParams,
     });
 
     if (response.success) {

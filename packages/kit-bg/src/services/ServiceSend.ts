@@ -194,6 +194,11 @@ class ServiceSend extends ServiceBase {
       decodedTx.feeInfo = feeInfo.feeInfo;
     }
 
+    if (unsignedTx.swapInfo) {
+      decodedTx.swapProvider =
+        unsignedTx.swapInfo.swapBuildResData?.result?.info?.providerName;
+    }
+
     return decodedTx;
   }
 
