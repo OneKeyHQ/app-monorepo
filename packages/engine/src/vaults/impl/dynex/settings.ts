@@ -8,7 +8,7 @@ import type { IVaultSettings } from '../../types';
 const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: false,
   privateKeyExportEnabled: false,
-  tokenEnabled: true,
+  tokenEnabled: false,
   txCanBeReplaced: false,
 
   importedAccountEnabled: false,
@@ -24,6 +24,8 @@ const settings: IVaultSettings = Object.freeze({
   withPaymentId: true,
 
   enabledOnClassicOnly: true,
+
+  minTransferAmount: '0.000000001',
 
   accountNameInfo: {
     default: {
