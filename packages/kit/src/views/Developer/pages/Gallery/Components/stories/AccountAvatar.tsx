@@ -43,7 +43,7 @@ const externalAccount: IDBExternalAccount = {
     evmInjected: {
       global: 'ethereum',
       name: 'string',
-      icon: 'https://onekey-asset.com/assets/btc/btc.png',
+      icon: 'https://uni.onekey-asset.com/static/chain/btc.png',
     },
   },
 } as IDBExternalAccount;
@@ -93,9 +93,9 @@ const ToastGallery = () => (
             />
             <AccountAvatar
               size="small"
-              src="https://onekey-asset.com/assets/btc/btc.png"
+              src="https://uni.onekey-asset.com/static/chain/btc.png"
             />
-            <AccountAvatar src="https://onekey-asset.com/assets/btc/btc.png" />
+            <AccountAvatar src="https://uni.onekey-asset.com/static/chain/btc.png" />
           </YStack>
         ),
       },
@@ -116,7 +116,7 @@ const ToastGallery = () => (
                 </Button>
                 <Button
                   onPress={() => {
-                    setUri('https://onekey-asset.com/assets/btc/btc.png');
+                    setUri('https://uni.onekey-asset.com/static/chain/btc.png');
                   }}
                 >
                   Change to valid URI
