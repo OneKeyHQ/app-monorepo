@@ -19,7 +19,7 @@ const SwapMainLandModalPage = () => {
   const { importFromToken, importNetworkId, importToToken } =
     route.params ?? {};
   return (
-    <Page skipLoading={platformEnv.isNativeIOS}>
+    <Page skipLoading={platformEnv.isNativeIOS} scrollEnabled>
       <Page.Header title="Swap" />
       <SwapMainLandWithPageType
         pageType={EPageType.modal}

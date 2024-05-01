@@ -66,3 +66,15 @@ export type IOneKeyHardwareErrorData = {
 export type IOneKeyErrorMeta = {
   defaultMessage?: string;
 };
+
+export type IOneKeyRpcError = {
+  message: string;
+  endpoint: string;
+  error: {
+    code: number;
+    message: string;
+    data: string;
+  };
+  method: string;
+  params: [any];
+};

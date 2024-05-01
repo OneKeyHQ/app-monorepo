@@ -680,4 +680,13 @@ module.exports = [
   'keysend',
   'preimage',
   'semver',
+  'Signin',
+  'Icloud',
+  'itms',
+  'linux',
+  'What’s',
+  'won’t',
+  'copyable',
+  'apk',
+  'dbs',
 ];

@@ -48,6 +48,7 @@ function SendConfirmContainer() {
     updateNativeTokenInfo({
       isLoading: true,
       balance: '0',
+      logoURI: '',
     });
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       networkId,
@@ -62,6 +63,7 @@ function SendConfirmContainer() {
     updateNativeTokenInfo({
       isLoading: false,
       balance: r[0].balanceParsed,
+      logoURI: r[0].info.logoURI ?? '',
     });
   }, [
     accountId,
@@ -90,10 +92,7 @@ function SendConfirmContainer() {
                 justifyContent: 'space-between',
               }}
             >
-              <TxSimulationContainer
-                networkId={networkId}
-                tableLayout={tableLayout}
-              />
+              <TxSimulationContainer tableLayout={tableLayout} />
             </Container.Box>
             <YStack flex={1} justifyContent="space-between" mr="$-5">
               <TxActionsContainer
@@ -130,7 +129,7 @@ function SendConfirmContainer() {
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer accountId={accountId} networkId={networkId} />
           <TxFeeContainer accountId={accountId} networkId={networkId} />
-          <TxSimulationContainer networkId={networkId} />
+          <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer
           sourceInfo={sourceInfo}

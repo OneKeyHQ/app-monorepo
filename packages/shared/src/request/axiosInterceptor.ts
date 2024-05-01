@@ -45,13 +45,16 @@ axios.interceptors.request.use(async (config) => {
 
 axios.interceptors.response.use(async (response) => {
   const { config } = response;
-  try {
-    const isOneKeyDomain = await checkRequestIsOneKeyDomain(
-      config.baseURL ?? '',
-    );
-    if (!isOneKeyDomain) return response;
-  } catch (e) {
-    return response;
+
+  if (!(platformEnv.isDev && process.env.ONEKEY_PROXY)) {
+    try {
+      const isOneKeyDomain = await checkRequestIsOneKeyDomain(
+        config.baseURL ?? '',
+      );
+      if (!isOneKeyDomain) return response;
+    } catch (e) {
+      return response;
+    }
   }
 
   const data = response.data as IOneKeyAPIBaseResponse;
