@@ -121,6 +121,7 @@ const SwapAccountAddressContainer = ({
     }
     if (
       !swapAddressInfo.accountInfo?.wallet ||
+      !swapAddressInfo.accountInfo.indexedAccount ||
       (type === ESwapDirectionType.FROM &&
         !swapAddressInfo.address &&
         !accountUtils.isHdWallet({
@@ -165,6 +166,7 @@ const SwapAccountAddressContainer = ({
     fromToken,
     handleOnCreateAddress,
     onToAnotherAddressModal,
+    swapAddressInfo.accountInfo?.indexedAccount,
     swapAddressInfo.accountInfo?.wallet,
     swapAddressInfo.address,
     swapSupportReceiveAddress,

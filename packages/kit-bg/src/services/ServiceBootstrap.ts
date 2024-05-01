@@ -14,6 +14,7 @@ class ServiceBootstrap extends ServiceBase {
       this.backgroundApi.walletConnect.initializeOnStart(),
       this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
       this.backgroundApi.serviceContextMenu.init(),
+      this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
     ]);
   }
 }

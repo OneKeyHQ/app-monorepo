@@ -2,12 +2,12 @@ import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabDiscoveryRoutes } from '@onekeyhq/shared/src/routes';
 
-import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import { LazyLoadRootTabPage } from '../../../components/LazyLoadPage';
 
-const Browser = LazyLoadPage(
+const Browser = LazyLoadRootTabPage(
   () => import('../../../views/Discovery/pages/Browser/Browser'),
 );
-const DiscoveryDashboard = LazyLoadPage(
+const DiscoveryDashboard = LazyLoadRootTabPage(
   () => import('../../../views/Discovery/pages/Dashboard/DashboardContainer'),
 );
 
