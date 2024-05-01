@@ -9,6 +9,8 @@ import {
   validShelleyAddress,
 } from '@onekeyhq/core/src/chains/ada/sdkAda';
 import type {
+  IAdaAmount,
+  IAdaEncodeOutput,
   IAdaUTXO,
   IEncodedTxAda,
 } from '@onekeyhq/core/src/chains/ada/types';
@@ -37,7 +39,13 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+  type IDecodedTx,
+  type IDecodedTxAction,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -179,58 +187,96 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxAda;
+    const { inputs, outputs } = encodedTx;
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+
+    const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+      accountAddress: account.address,
+    });
+
+    if (!nativeToken) {
+      throw new OneKeyInternalError('Native token not found');
+    }
+
+    let actions: IDecodedTxAction[] = [];
+
+    const nativeAmountMap = this._getOutputAmount(outputs, network.decimals);
+    const utxoFrom = inputs.map((input) => {
+      const { balance, balanceValue } = this._getInputOrOutputBalance(
+        input.amount,
+        network.decimals,
+      );
+      return {
+        address: input.address,
+        balance,
+        balanceValue,
+        symbol: network.symbol,
+        isMine: true,
+      };
+    });
+    const utxoTo = outputs
+      .filter((output) => !output.isChange)
+      .map((output) => ({
+        address: output.address,
+        balance: new BigNumber(output.amount)
+          .shiftedBy(network.decimals)
+          .toFixed(),
+        balanceValue: output.amount,
+        symbol: network.symbol,
+        isMine: output.address === account.address,
+      }));
+
+    actions = [
+      {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: account.address,
+          to: utxoTo[0].address,
+          sends: utxoTo.map((utxo) => ({
+            from: account.address,
+            to: utxo.address,
+            isNative: true,
+            tokenIdOnNetwork: '',
+            name: nativeToken.name,
+            icon: nativeToken.logoURI ?? '',
+            amount: utxo.balance,
+            amountValue: utxo.balanceValue,
+            symbol: network.symbol,
+          })),
+          receives: [],
+          utxoFrom,
+          utxoTo,
+        },
+      },
+    ];
+
+    return {
+      txid: '',
+      owner: account.address,
+      signer: account.address,
+      nonce: 0,
+      actions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      payload: {
+        type: EOnChainHistoryTxType.Send,
+      },
+      encodedTx,
+      totalFeeInNative: encodedTx.totalFeeInNative,
+      nativeAmount: nativeAmountMap.amount,
+      nativeAmountValue: nativeAmountMap.amountValue,
+    };
   }
-
-  _collectUTXOsInfoByApi = memoizee(
-    async (params: {
-      address: string;
-      path: string;
-      addresses: Record<string, string>;
-    }): Promise<IAdaUTXO[]> => {
-      const { addresses, path, address } = params;
-      const stakeAddress = addresses['2/0'];
-      try {
-        const { utxoList } =
-          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-            networkId: this.networkId,
-            accountAddress: address,
-            xpub: stakeAddress,
-            withUTXOList: true,
-          });
-        if (!utxoList || isEmpty(utxoList)) {
-          throw new OneKeyInternalError('Failed to get UTXO list.');
-        }
-
-        const pathIndex = path.split('/')[3];
-
-        return utxoList.map((utxo) => {
-          let { path: utxoPath } = utxo;
-          if (utxoPath && utxoPath.length > 0) {
-            const pathArray = utxoPath.split('/');
-            pathArray.splice(3, 1, pathIndex);
-            utxoPath = pathArray.join('/');
-          }
-          return {
-            ...utxo,
-            tx_hash: utxo.txid,
-            tx_index: undefined,
-            path: utxoPath,
-            output_index: utxo.vout,
-            amount: utxo.amount ?? [],
-          };
-        });
-      } catch (e) {
-        throw new OneKeyInternalError('Failed to get UTXO list.');
-      }
-    },
-    {
-      promise: true,
-      max: 1,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
-    },
-  );
 
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
@@ -303,4 +349,96 @@ export default class Vault extends VaultBase {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
   }
+
+  _collectUTXOsInfoByApi = memoizee(
+    async (params: {
+      address: string;
+      path: string;
+      addresses: Record<string, string>;
+    }): Promise<IAdaUTXO[]> => {
+      const { addresses, path, address } = params;
+      const stakeAddress = addresses['2/0'];
+      try {
+        const { utxoList } =
+          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+            networkId: this.networkId,
+            accountAddress: address,
+            xpub: stakeAddress,
+            withUTXOList: true,
+          });
+        if (!utxoList || isEmpty(utxoList)) {
+          throw new OneKeyInternalError('Failed to get UTXO list.');
+        }
+
+        const pathIndex = path.split('/')[3];
+
+        return utxoList.map((utxo) => {
+          let { path: utxoPath } = utxo;
+          if (utxoPath && utxoPath.length > 0) {
+            const pathArray = utxoPath.split('/');
+            pathArray.splice(3, 1, pathIndex);
+            utxoPath = pathArray.join('/');
+          }
+          return {
+            ...utxo,
+            tx_hash: utxo.txid,
+            tx_index: undefined,
+            path: utxoPath,
+            output_index: utxo.vout,
+            amount: utxo.amount ?? [],
+          };
+        });
+      } catch (e) {
+        throw new OneKeyInternalError('Failed to get UTXO list.');
+      }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  private _getInputOrOutputBalance = (
+    amounts: IAdaAmount[],
+    decimals: number,
+    asset = 'lovelace',
+  ): { balance: string; balanceValue: string } => {
+    const item = amounts.filter((amount) => amount.unit === asset);
+    if (!item || item.length <= 0) {
+      return { balance: '0', balanceValue: '0' };
+    }
+    const amount = item[0]?.quantity ?? '0';
+    return {
+      balance: new BigNumber(amount).shiftedBy(-decimals).toFixed(),
+      balanceValue: amount,
+    };
+  };
+
+  private _getOutputAmount = (
+    outputs: IAdaEncodeOutput[],
+    decimals: number,
+    asset = 'lovelace',
+  ) => {
+    const realOutput = outputs.find((output) => !output.isChange);
+    if (!realOutput) {
+      return {
+        amount: new BigNumber(0).shiftedBy(-decimals).toFixed(),
+        amountValue: '0',
+      };
+    }
+    if (asset === 'lovelace') {
+      return {
+        amount: new BigNumber(realOutput.amount).shiftedBy(-decimals).toFixed(),
+        amountValue: realOutput.amount,
+      };
+    }
+    const assetAmount = realOutput.assets.find((token) => token.unit === asset);
+    return {
+      amount: new BigNumber(assetAmount?.quantity ?? 0)
+        .shiftedBy(-decimals)
+        .toFixed(),
+      amountValue: assetAmount?.quantity ?? '0',
+    };
+  };
 }
