@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 
 import {
   Icon,
-  Image,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -135,18 +134,6 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
               For reference only
             </SizableText>
           )
-        }
-        contentAdd={
-          <XStack alignItems="center" space="$1">
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              Power by
-            </SizableText>
-            <Image
-              w={58}
-              h={12}
-              src="https://assets-global.website-files.com/64ec731552ca9f8cc0180db8/64eca09007998d22c2590665_Vector.svg"
-            />
-          </XStack>
         }
       />
     </Container.Box>
