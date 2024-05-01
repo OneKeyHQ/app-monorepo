@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -13,7 +13,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { isSendNativeToken } from '@onekeyhq/shared/src/utils/txActionUtils';
+import { isSendNativeTokenAction } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 
 type IProps = {
@@ -33,6 +33,8 @@ function TxActionsContainer(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
+  const [isSendNativeToken, setIsSendNativeToken] = useState(false);
+
   const r = usePromiseResult(
     () =>
       Promise.all(
@@ -61,8 +63,9 @@ function TxActionsContainer(props: IProps) {
       !nativeTokenInfo.isLoading &&
       decodedTxs.length === 1 &&
       decodedTxs[0].actions.length === 1 &&
-      isSendNativeToken(decodedTxs[0].actions[0])
+      isSendNativeTokenAction(decodedTxs[0].actions[0])
     ) {
+      setIsSendNativeToken(true);
       const nativeTokenBalanceBN = new BigNumber(nativeTokenInfo.balance);
       const feeBN = new BigNumber(sendSelectedFeeInfo?.totalNative ?? 0);
       if (nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)) {
@@ -110,12 +113,18 @@ function TxActionsContainer(props: IProps) {
         componentType={ETxActionComponentType.DetailView}
         decodedTx={decodedTx}
         tableLayout={tableLayout}
+        isSendNativeToken={isSendNativeToken}
         nativeTokenTransferAmountToUpdate={
           nativeTokenTransferAmountToUpdate.amountToUpdate
         }
       />
     ));
-  }, [nativeTokenTransferAmountToUpdate.amountToUpdate, r.result, tableLayout]);
+  }, [
+    isSendNativeToken,
+    nativeTokenTransferAmountToUpdate.amountToUpdate,
+    r.result,
+    tableLayout,
+  ]);
 
   return <YStack space="$2">{renderActions()}</YStack>;
 }
