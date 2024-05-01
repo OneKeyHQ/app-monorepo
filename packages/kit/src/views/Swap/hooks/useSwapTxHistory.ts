@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -7,54 +7,14 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
-  useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapTxHistoryAtom,
-  useSwapTxHistoryPendingAtom,
 } from '../../../states/jotai/contexts/swap';
 
-export function useSwapTxHistoryListSyncFromSimpleDb() {
-  const [, setSwapHistory] = useSwapTxHistoryAtom();
-  const { isLoading } = usePromiseResult(
-    async () => {
-      const histories =
-        await backgroundApiProxy.simpleDb.swapHistory.getSwapHistoryList();
-      const sortHistories = histories.sort(
-        (a, b) => b.date.created - a.date.created,
-      );
-      setSwapHistory(sortHistories);
-    },
-    [setSwapHistory],
-    {
-      watchLoading: true,
-    },
-  );
-  return { syncLoading: isLoading };
-}
-
-export function useSwapTxHistoryStateSyncInterval() {
-  const [swapTxHistoryPending] = useSwapTxHistoryPendingAtom();
-  const { historyStateAction, cleanHistoryStateIntervals } =
-    useSwapActions().current;
-
-  useEffect(() => {
-    void historyStateAction();
-    return () => {
-      cleanHistoryStateIntervals();
-    };
-  }, [historyStateAction, cleanHistoryStateIntervals, swapTxHistoryPending]);
-  return {
-    swapTxHistoryPending,
-  };
-}
-
 export function useSwapTxHistoryActions() {
-  const { addSwapHistoryItem } = useSwapActions().current;
   const [swapNetworks] = useSwapNetworksAtom();
   const [, setFromToken] = useSwapSelectFromTokenAtom();
   const [, setToken] = useSwapSelectToTokenAtom();
@@ -108,10 +68,12 @@ export function useSwapTxHistoryActions() {
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };
-        await addSwapHistoryItem(swapHistoryItem);
+        await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
+          swapHistoryItem,
+        );
       }
     },
-    [addSwapHistoryItem, swapNetworks],
+    [swapNetworks],
   );
 
   const swapAgainUseHistoryItem = useCallback(

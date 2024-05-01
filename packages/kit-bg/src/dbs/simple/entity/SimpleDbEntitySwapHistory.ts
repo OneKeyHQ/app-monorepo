@@ -17,6 +17,9 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
     const data = await this.getRawData();
+    if (data?.histories?.find((i) => i.txInfo.txId === item.txInfo.txId)) {
+      return;
+    }
     const histories = [item, ...(data?.histories ?? [])];
     if (histories.length > historyCircularBufferMaxSize) {
       histories.pop();
