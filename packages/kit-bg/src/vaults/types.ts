@@ -282,6 +282,8 @@ export type IUtxoInfo = {
   confirmations: number;
   address: string;
   path: string;
+  // Use for Cardano UTXO info
+  txIndex?: number;
   amount?: IAdaAmount[];
   datumHash?: string | null;
   referenceScriptHash?: string | null;

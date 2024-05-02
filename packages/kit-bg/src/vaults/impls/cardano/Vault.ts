@@ -114,13 +114,14 @@ export default class Vault extends VaultBase {
     }
     const { to, amount, tokenInfo } = transferInfo;
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
-    const { path, addresses } = dbAccount;
+    const { path, addresses, xpub } = dbAccount;
     const network = await this.getNetwork();
     const { decimals, feeMeta } = network;
     const utxos = await this._collectUTXOsInfoByApi({
       address: dbAccount.address,
       path,
       addresses,
+      xpub,
     });
     const amountBN = new BigNumber(amount);
 
@@ -150,7 +151,6 @@ export default class Vault extends VaultBase {
       txPlan = await CardanoApi.composeTxPlan(
         transferInfo,
         dbAccount.xpub,
-        // @ts-expect-error
         utxos,
         dbAccount.address,
         [output as any],
@@ -312,6 +312,8 @@ export default class Vault extends VaultBase {
       return {
         encodedTx,
         transfersInfo: params.transfersInfo,
+        // feeRate = 1, 1 * txSize = final fee for ui
+        txSize: new BigNumber(encodedTx.totalFeeInNative).toNumber(),
       };
     }
     throw new OneKeyInternalError('Failed to build unsigned tx');
@@ -376,13 +378,20 @@ export default class Vault extends VaultBase {
     return result;
   }
 
+  override async getAccountXpub(): Promise<string | undefined> {
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const stakeAddress = dbAccount.addresses?.['2/0'];
+    return stakeAddress;
+  }
+
   _collectUTXOsInfoByApi = memoizee(
     async (params: {
       address: string;
       path: string;
       addresses: Record<string, string>;
+      xpub: string;
     }): Promise<IAdaUTXO[]> => {
-      const { addresses, path, address } = params;
+      const { addresses, path, address, xpub } = params;
       const stakeAddress = addresses['2/0'];
       try {
         const { utxoList } =
@@ -391,6 +400,7 @@ export default class Vault extends VaultBase {
             accountAddress: address,
             xpub: stakeAddress,
             withUTXOList: true,
+            cardanoPubKey: xpub,
           });
         if (!utxoList || isEmpty(utxoList)) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
@@ -408,9 +418,9 @@ export default class Vault extends VaultBase {
           return {
             ...utxo,
             tx_hash: utxo.txid,
-            tx_index: undefined,
+            tx_index: utxo.txIndex as number,
             path: utxoPath,
-            output_index: utxo.vout,
+            output_index: utxo.txIndex as number,
             amount: utxo.amount ?? [],
           };
         });

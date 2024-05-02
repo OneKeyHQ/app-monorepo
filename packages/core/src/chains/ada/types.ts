@@ -18,7 +18,7 @@ export type IAdaUTXO = {
   path: string;
   address: string;
   tx_hash: string;
-  tx_index: number | undefined;
+  tx_index: number;
   output_index: number;
   amount: IAdaAmount[];
 };
