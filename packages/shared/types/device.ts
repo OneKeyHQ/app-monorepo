@@ -35,6 +35,7 @@ export type IDeviceSharedCallParams = {
   dbDevice: IDBDevice;
   // type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS'; // for hardware?
   confirmOnDevice?: boolean;
+  confirmOnDeviceAnyway?: boolean; // confirm receipt on device anyway
   deviceCommonParams?: IDeviceCommonParams;
 };
 

@@ -48,16 +48,20 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     errorMessage: string;
   }): Promise<T[]> {
     const { deriveInfo, deviceParams } = params;
-    const { dbDevice, confirmOnDevice } = deviceParams;
+    const { dbDevice, confirmOnDevice, confirmOnDeviceAnyway } = deviceParams;
     const { connectId, deviceId } = dbDevice;
     const { template, coinName } = deriveInfo;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 
-    const showOnOnekeyFn = (arrIndex: number) =>
-      !confirmOnDevice
+    const showOnOnekeyFn = (arrIndex: number) => {
+      if (confirmOnDeviceAnyway) {
+        return true;
+      }
+      return !confirmOnDevice
         ? false
         : // confirm on last index account create
           arrIndex === usedIndexes[usedIndexes.length - 1];
+    };
 
     const result = await convertDeviceResponse(async () =>
       sdkGetDataFn({

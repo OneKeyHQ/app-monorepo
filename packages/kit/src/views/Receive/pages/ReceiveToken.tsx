@@ -83,6 +83,7 @@ function ReceiveToken() {
           indexedAccountId: account?.indexedAccountId,
           deriveType,
           confirmOnDevice: true,
+          confirmOnDeviceAnyway: true,
         });
 
       const isSameAddress =
