@@ -6,11 +6,14 @@ const CardanoAddressTypeBASE = 0;
 
 export const getChangeAddress = (
   dbAccount: IDBUtxoAccount,
-): IAdaChangeAddress => ({
-  address: dbAccount.address,
-  addressParameters: {
-    path: dbAccount.path,
-    addressType: CardanoAddressTypeBASE,
-    stakingPath: `${dbAccount.path.slice(0, -3)}2/0`,
-  },
-});
+): IAdaChangeAddress => {
+  const path = `${dbAccount.path}/0/0`;
+  return {
+    address: dbAccount.address,
+    addressParameters: {
+      path,
+      addressType: CardanoAddressTypeBASE,
+      stakingPath: `${path.slice(0, -3)}2/0`,
+    },
+  };
+};
