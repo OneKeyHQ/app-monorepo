@@ -477,4 +477,66 @@ export default class Vault extends VaultBase {
       amountValue: assetAmount?.quantity ?? '0',
     };
   };
+
+  private _getStakeAddress = memoizee(
+    async (address: string) => {
+      if (validShelleyAddress(address) && address.startsWith('stake')) {
+        return address;
+      }
+      const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+      return dbAccount.addresses?.['2/0'] ?? '';
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      promise: true,
+    },
+  );
+
+  // Dapp Function
+  async getUtxosForDapp(amount?: string) {
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const { address, xpub, path, addresses } = dbAccount;
+    const utxos = await this._collectUTXOsInfoByApi({
+      address,
+      addresses,
+      path,
+      xpub,
+    });
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetUtxos(dbAccount.address, utxos, amount);
+  }
+
+  async getAccountAddressForDapp() {
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetAddresses([dbAccount.address]);
+  }
+
+  async getStakeAddressForDapp() {
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const stakeAddress = await this._getStakeAddress(dbAccount.address);
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetAddresses([stakeAddress]);
+  }
+
+  // async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxADA> {
+  //   const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+  //   const changeAddress = getChangeAddress(dbAccount);
+  //   const client = await this.getClient();
+  //   const stakeAddress = await this._getStakeAddress(dbAccount.address);
+  //   const addresses = await client.getAssociatedAddresses(stakeAddress);
+  //   const { xpub, path, addresses: accountAddresses } = dbAccount;
+  //   const utxos = await client.getUTXOs(xpub, path, accountAddresses);
+  //   const CardanoApi = await sdk.getCardanoApi();
+  //   const encodeTx = await CardanoApi.dAppConvertCborTxToEncodeTx(
+  //     txHex,
+  //     utxos,
+  //     addresses,
+  //     changeAddress,
+  //   );
+  //   return {
+  //     ...encodeTx,
+  //     changeAddress,
+  //   };
+  // }
 }
