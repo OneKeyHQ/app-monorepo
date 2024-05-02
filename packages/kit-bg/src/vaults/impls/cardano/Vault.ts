@@ -234,23 +234,49 @@ export default class Vault extends VaultBase {
         isMine: output.address === account.address,
       }));
 
+    const sends = [];
+    for (const output of outputs.filter((o) => !o.isChange)) {
+      for (const asset of output.assets) {
+        const token = await this.backgroundApi.serviceToken.getToken({
+          networkId: this.networkId,
+          tokenIdOnNetwork: asset.unit,
+          accountAddress: account.address,
+        });
+        sends.push({
+          from: account.address,
+          to: output.address,
+          isNative: false,
+          tokenIdOnNetwork: asset.unit,
+          name: token.name,
+          icon: token.logoURI ?? '',
+          amount: new BigNumber(asset.quantity)
+            .shiftedBy(-network.decimals)
+            .toFixed(),
+          amountValue: asset.quantity,
+          symbol: token.symbol,
+        });
+      }
+      sends.push({
+        from: account.address,
+        to: output.address,
+        isNative: true,
+        tokenIdOnNetwork: '',
+        name: nativeToken.name,
+        icon: nativeToken.logoURI ?? '',
+        amount: new BigNumber(output.amount)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        amountValue: output.amount,
+        symbol: network.symbol,
+      });
+    }
     actions = [
       {
         type: EDecodedTxActionType.ASSET_TRANSFER,
         assetTransfer: {
           from: account.address,
           to: utxoTo[0].address,
-          sends: utxoTo.map((utxo) => ({
-            from: account.address,
-            to: utxo.address,
-            isNative: true,
-            tokenIdOnNetwork: '',
-            name: nativeToken.name,
-            icon: nativeToken.logoURI ?? '',
-            amount: utxo.balance,
-            amountValue: utxo.balanceValue,
-            symbol: network.symbol,
-          })),
+          sends,
           receives: [],
           utxoFrom,
           utxoTo,

@@ -105,6 +105,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       encodedTx.tx.body,
       account.address,
       Number(accountIndex),
+      // @ts-expect-error
       encodedTx.inputs as unknown as IAdaUTXO[],
       xprv,
       !!encodedTx.signOnly,
