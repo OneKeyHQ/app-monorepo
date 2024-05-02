@@ -87,7 +87,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new Error('Method not implemented.');
     const { unsignedTx, account } = payload;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxAda;
     const signer = await this.baseGetSingleSigner({

@@ -320,7 +320,7 @@ export default class Vault extends VaultBase {
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(params.unsignedTx);
   }
 
   override broadcastTransaction(
