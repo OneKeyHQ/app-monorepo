@@ -1608,7 +1608,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     tatom, // Cosmos Testnet
     lightning,
     tlightning,
-    cardano,
   ];
 
   return [
@@ -1625,6 +1624,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     arb,
     avax,
     polygon,
+    cardano,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });
