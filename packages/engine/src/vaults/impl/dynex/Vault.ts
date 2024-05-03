@@ -7,7 +7,11 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import simpleDb from '../../../dbs/simple/simpleDb';
-import { InvalidAddress, NotImplemented } from '../../../errors';
+import {
+  InsufficientBalance,
+  InvalidAddress,
+  NotImplemented,
+} from '../../../errors';
 import {
   type IApproveInfo,
   type IDecodedTx,
@@ -417,7 +421,7 @@ export default class Vault extends VaultBase {
     );
 
     if (totalUnspentOutputsAmount.lte(fee)) {
-      throw new Error('Insufficient balance');
+      throw new InsufficientBalance();
     }
 
     if (totalUnspentOutputsAmount.lt(new BigNumber(finalAmount).plus(fee))) {
