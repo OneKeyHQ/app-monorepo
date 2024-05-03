@@ -12,7 +12,7 @@ const network: DBNetwork = {
   feeSymbol: 'CFX',
   id: 'cfx--1',
   impl: 'cfx',
-  logoURI: 'https://onekey-asset.com/assets/cfx/cfx.png',
+  logoURI: 'https://uni.onekey-asset.com/static/chain/cfx.png',
   name: 'Conflux',
   position: 33,
   rpcURL: 'https://test.confluxrpc.com',
