@@ -201,7 +201,36 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const { derivationType, networkId } = await getCardanoConstant();
+    const dbAccount = (await this.vault.getAccount()) as IDBUtxoAccount;
+    const result = await Promise.all(
+      params.messages.map(
+        // @ts-expect-error
+        async ({ payload }: { payload: { addr: string; payload: string } }) => {
+          const response = await HardwareSDK.cardanoSignMessage(
+            connectId,
+            deviceId,
+            {
+              ...params,
+              path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+              networkId,
+              derivationType,
+              message: payload.payload,
+            },
+          );
+          if (!response.success) {
+            throw convertDeviceError(response.payload);
+          }
+          return response.payload;
+        },
+      ),
+    );
+    return result.map((ret) => JSON.stringify(ret));
   }
 }

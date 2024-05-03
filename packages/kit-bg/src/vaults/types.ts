@@ -350,6 +350,7 @@ export interface IBatchSignTransactionParamsBase {
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
+  deviceParams: IDeviceSharedCallParams | undefined;
 }
 
 export interface IBuildHistoryTxParams {
