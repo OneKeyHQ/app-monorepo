@@ -561,7 +561,7 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.serviceHardware.withHardwareProcessing(
         async () => {
           const [_signedMessage] = await vault.keyring.signMessage({
-            messages: [validUnsignedMessage],
+            messages: [validUnsignedMessage as IUnsignedMessage],
             password,
             deviceParams,
           });
