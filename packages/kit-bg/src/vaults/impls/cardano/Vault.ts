@@ -9,6 +9,7 @@ import {
   validShelleyAddress,
 } from '@onekeyhq/core/src/chains/ada/sdkAda';
 import type {
+  IAdaAccount,
   IAdaAmount,
   IAdaEncodeOutput,
   IAdaUTXO,
@@ -68,6 +69,7 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
   IVaultSettings,
@@ -307,6 +309,16 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
+    if (params.encodedTx) {
+      const _existEncodedTx = params.encodedTx as IEncodedTxAda;
+      return {
+        encodedTx: params.encodedTx,
+        transfersInfo: params.transfersInfo ?? [
+          _existEncodedTx.transferInfo as ITransferInfo,
+        ],
+        txSize: new BigNumber(_existEncodedTx.totalFeeInNative).toNumber(),
+      };
+    }
     const encodedTx = await this.buildEncodedTx(params);
     if (encodedTx) {
       return {
@@ -479,8 +491,12 @@ export default class Vault extends VaultBase {
   };
 
   private _getStakeAddress = memoizee(
-    async (address: string) => {
-      if (validShelleyAddress(address) && address.startsWith('stake')) {
+    async (address?: string) => {
+      if (
+        address &&
+        validShelleyAddress(address) &&
+        address.startsWith('stake')
+      ) {
         return address;
       }
       const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
@@ -493,6 +509,39 @@ export default class Vault extends VaultBase {
   );
 
   // Dapp Function
+  async getBalanceForDapp() {
+    const stakeAddress = await this._getStakeAddress();
+    const [rawBalance, assetsBalance] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
+        IAdaAccount | IAdaAmount[]
+      >({
+        networkId: this.networkId,
+        body: [
+          {
+            method: 'bf',
+            params: {
+              method: 'accounts',
+              params: [stakeAddress],
+            },
+          },
+          {
+            method: 'bf',
+            params: {
+              method: 'accountsAddressesAssets',
+              params: [stakeAddress],
+            },
+          },
+        ],
+      });
+    const balance = {
+      unit: 'lovelace',
+      quantity: (rawBalance as IAdaAccount).controlled_amount,
+    };
+    const result = [balance, ...(assetsBalance as IAdaAmount[])];
+    const CardanoApi = await sdk.getCardanoApi();
+    return CardanoApi.dAppGetBalance(result);
+  }
+
   async getUtxosForDapp(amount?: string) {
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
     const { address, xpub, path, addresses } = dbAccount;
@@ -519,24 +568,43 @@ export default class Vault extends VaultBase {
     return CardanoApi.dAppGetAddresses([stakeAddress]);
   }
 
-  // async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxADA> {
-  //   const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
-  //   const changeAddress = getChangeAddress(dbAccount);
-  //   const client = await this.getClient();
-  //   const stakeAddress = await this._getStakeAddress(dbAccount.address);
-  //   const addresses = await client.getAssociatedAddresses(stakeAddress);
-  //   const { xpub, path, addresses: accountAddresses } = dbAccount;
-  //   const utxos = await client.getUTXOs(xpub, path, accountAddresses);
-  //   const CardanoApi = await sdk.getCardanoApi();
-  //   const encodeTx = await CardanoApi.dAppConvertCborTxToEncodeTx(
-  //     txHex,
-  //     utxos,
-  //     addresses,
-  //     changeAddress,
-  //   );
-  //   return {
-  //     ...encodeTx,
-  //     changeAddress,
-  //   };
-  // }
+  async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxAda> {
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const changeAddress = getChangeAddress(dbAccount);
+    const stakeAddress = await this._getStakeAddress(dbAccount.address);
+    const [associatedAddresses] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
+        { address: string }[]
+      >({
+        networkId: this.networkId,
+        body: [
+          {
+            method: 'bf',
+            params: {
+              method: 'accountsAddresses',
+              params: [stakeAddress],
+            },
+          },
+        ],
+      });
+    const { address, xpub, path, addresses: accountAddresses } = dbAccount;
+    const utxos = await this._collectUTXOsInfoByApi({
+      address,
+      addresses: accountAddresses,
+      path,
+      xpub,
+    });
+    const CardanoApi = await sdk.getCardanoApi();
+    const addresses = associatedAddresses.map((i) => i.address);
+    const encodeTx = await CardanoApi.dAppConvertCborTxToEncodeTx(
+      txHex,
+      utxos,
+      addresses,
+      changeAddress,
+    );
+    return {
+      ...encodeTx,
+      changeAddress,
+    };
+  }
 }

@@ -131,6 +131,15 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  public async getBalance(request: IJsBridgeMessagePayload) {
+    const vault = await this.getCardanoVault(request);
+    if (!vault) {
+      throw new Error('Not connected to any account.');
+    }
+    return vault.getBalanceForDapp();
+  }
+
+  @providerApiMethod()
   async getUsedAddresses(request: IJsBridgeMessagePayload) {
     const vault = await this.getCardanoVault(request);
     if (!vault) {
@@ -168,6 +177,26 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  async signTx(request: IJsBridgeMessagePayload, params: { tx: string }) {
+    const vault = await this.getCardanoVault(request);
+    if (!vault) {
+      throw new Error('Not connected to any account.');
+    }
+    const { accountInfo: { networkId, accountId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    const encodedTx = await vault.buildTxCborToEncodeTx(params.tx);
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+    return result;
+  }
+
+  @providerApiMethod()
   async signData(
     request: IJsBridgeMessagePayload,
     params: {
@@ -197,7 +226,23 @@ class ProviderApiCardano extends ProviderApiBase {
     );
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return JSON.parse(signature as string);
+    return JSON.parse(signature as any);
+  }
+
+  @providerApiMethod()
+  async submitTx(request: IJsBridgeMessagePayload, params: string) {
+    const { accountInfo: { networkId, address } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    return this.backgroundApi.serviceSend.broadcastTransaction({
+      networkId: networkId ?? '',
+      signedTx: {
+        txid: '',
+        rawTx: params,
+        encodedTx: null,
+      },
+      accountAddress: address ?? '',
+    });
   }
 }
 
