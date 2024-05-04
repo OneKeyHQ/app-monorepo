@@ -16,6 +16,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NOSTR,
+  IMPL_RIPPLE,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -87,6 +88,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_LIGHTNING_TESTNET]: () => import('./impls/lightning/Vault') as any,
     [IMPL_NOSTR]: () => import('./impls/nostr/Vault') as any,
     [IMPL_ADA]: () => import('./impls/cardano/Vault') as any,
+    [IMPL_RIPPLE]: () => import('./impls/ripple/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
