@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
+
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -21,7 +24,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -35,7 +37,6 @@ import type {
   IGetPrivateKeyFromImportedResult,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 
 export default class Vault extends VaultBase {
@@ -47,10 +48,24 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
-  override buildAccountAddressDetail(
+  override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    throw new Error('Method not implemented.');
+    const { account, networkId, externalAccountAddress } = params;
+
+    const address = account.address || externalAccountAddress || '';
+
+    const { normalizedAddress, displayAddress, isValid } =
+      await this.validateAddress(address);
+    return {
+      networkId,
+      normalizedAddress,
+      displayAddress,
+      address: displayAddress,
+      baseAddress: normalizedAddress,
+      isValid,
+      allowEmptyAddress: false,
+    };
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
@@ -80,11 +95,34 @@ export default class Vault extends VaultBase {
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new Error('Method not implemented.');
+    try {
+      const publicKey = new PublicKey(address);
+      if (
+        PublicKey.isOnCurve(address) ||
+        PublicKey.isOnCurve(publicKey.encode()) ||
+        bs58.decode(address).length === 32
+      ) {
+        return Promise.resolve({
+          isValid: true,
+          normalizedAddress: address,
+          displayAddress: address,
+        });
+      }
+    } catch {
+      // pass
+    }
+
+    return Promise.resolve({
+      isValid: false,
+      normalizedAddress: '',
+      displayAddress: '',
+    });
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+  override validateXpub(): Promise<IXpubValidation> {
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override getPrivateKeyFromImported(
@@ -93,8 +131,10 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+  override validateXprvt(): Promise<IXprvtValidation> {
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override validatePrivateKey(
