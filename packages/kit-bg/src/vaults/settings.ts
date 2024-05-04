@@ -1,4 +1,5 @@
 import {
+  IMPL_ADA,
   IMPL_BCH,
   IMPL_BTC,
   IMPL_COSMOS,
@@ -60,6 +61,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),
     [IMPL_NOSTR]: () => import('./impls/nostr/settings'),
+    [IMPL_ADA]: () => import('./impls/cardano/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

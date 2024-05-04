@@ -557,15 +557,23 @@ class ServiceSend extends ServiceBase {
       throw new Error('Invalid unsigned message');
     }
 
-    const { password } =
+    const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
       });
-    const [signedMessage] = await vault.keyring.signMessage({
-      messages: [validUnsignedMessage],
-      password,
-    });
+    const signedMessage =
+      await this.backgroundApi.serviceHardware.withHardwareProcessing(
+        async () => {
+          const [_signedMessage] = await vault.keyring.signMessage({
+            messages: [validUnsignedMessage as IUnsignedMessage],
+            password,
+            deviceParams,
+          });
+          return _signedMessage;
+        },
+        { deviceParams },
+      );
 
     return signedMessage;
   }

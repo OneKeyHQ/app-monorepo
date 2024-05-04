@@ -248,7 +248,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const networkInfo = await this.getCoreApiNetworkInfo();
 
     const privateKeyRaw = privateKey;
-    const { address, addresses, publicKey, xpub, relPath, xpubSegwit } =
+    const { address, addresses, publicKey, xpub, relPath, xpubSegwit, path } =
       await this.coreApi.getAddressFromPrivate({
         networkInfo,
         privateKeyRaw,
@@ -269,7 +269,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         id: accountId,
         name: name || '',
         type: accountType,
-        path: '',
+        path: path || '',
         relPath,
         coinType,
         impl: settings.impl,
@@ -320,7 +320,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         const { password, indexes, deriveInfo, names, skipCheckAccountExist } =
           params;
         const addressEncoding = params?.deriveInfo?.addressEncoding;
-        checkIsDefined(addressEncoding);
+        // FIXME: addressEncoding is only required for BTC
+        // checkIsDefined(addressEncoding);
+
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { coinType, template, namePrefix } = deriveInfo;
         const credentials = await this.baseGetCredentialsInfo({ password });

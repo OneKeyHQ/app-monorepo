@@ -3,7 +3,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 // import ProviderAlgo from './ProviderAlgo';
 // import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBtc from './ProviderApiBtc';
-// import ProviderApiCardano from './ProviderApiCardano';
+import ProviderApiCardano from './ProviderApiCardano';
 // import ProviderApiConflux from './ProviderApiConflux';
 // import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
@@ -58,9 +58,9 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.sui]: new ProviderApiSui({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.cardano]: new ProviderApiCardano({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.cardano]: new ProviderApiCardano({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
     //   backgroundApi,
     // }),

@@ -6,6 +6,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
+  IMPL_ADA,
   IMPL_BCH,
   IMPL_BTC,
   IMPL_COSMOS,
@@ -85,6 +86,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_LIGHTNING]: () => import('./impls/lightning/Vault') as any,
     [IMPL_LIGHTNING_TESTNET]: () => import('./impls/lightning/Vault') as any,
     [IMPL_NOSTR]: () => import('./impls/nostr/Vault') as any,
+    [IMPL_ADA]: () => import('./impls/cardano/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
