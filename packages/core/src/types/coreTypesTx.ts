@@ -11,10 +11,10 @@ import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
+import type { IEncodedTxRipple } from '../chains/ripple/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
 import type { IEncodedTxXmr } from '../chains/xmr/types';
-import type { IEncodedTxXrp } from '../chains/ripple/types';
 import type BigNumber from 'bignumber.js';
 
 export type IEncodedTx =
@@ -27,7 +27,7 @@ export type IEncodedTx =
   | IEncodedTxFil
   | IEncodedTxKaspa
   | IEncodedTxSui
-  | IEncodedTxXrp
+  | IEncodedTxRipple
   | IEncodedTxXmr
   | IEncodedTxTron
   | IEncodedTxNexa;
