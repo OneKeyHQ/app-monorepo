@@ -683,4 +683,5 @@ module.exports = [
   'copyable',
   'apk',
   'dbs',
+  'npub',
 ];
