@@ -130,6 +130,7 @@ export type IVaultSettings = {
     [networkId: string]: IVaultSettingsNetworkInfo;
   };
   validationRequired?: boolean;
+  allowZeroFee?: boolean;
 };
 
 export type IVaultFactoryOptions = {

@@ -6,11 +6,7 @@ import TronWeb from 'tronweb';
 
 import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -19,6 +15,7 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { calculateNativeAmountInActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -60,7 +57,6 @@ import type {
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 
 const FAKE_OWNER_ADDRESS = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
@@ -80,7 +76,7 @@ export default class Vault extends VaultBase {
 
   _getTronWeb = memoizee(
     () => {
-      const tronWeb = new TronWeb({});
+      const tronWeb = new TronWeb({ fullHost: 'https://api.trongrid.io' });
       tronWeb.setAddress(FAKE_OWNER_ADDRESS);
       return tronWeb;
     },
@@ -220,6 +216,10 @@ export default class Vault extends VaultBase {
       }
     }
 
+    const { nativeAmount, nativeAmountValue } = calculateNativeAmountInActions([
+      action,
+    ]);
+
     const owner = await this.getAccountAddress();
     return {
       txid: encodedTx.txID,
@@ -227,6 +227,8 @@ export default class Vault extends VaultBase {
       signer: owner,
       nonce: 0,
       actions: [action],
+      nativeAmount,
+      nativeAmountValue,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -258,7 +260,6 @@ export default class Vault extends VaultBase {
 
     const from = TronWeb.address.fromHex(fromAddressHex) ?? accountAddress;
     const to = TronWeb.address.fromHex(toAddressHex);
-
     const transfer: IDecodedTxTransferInfo = {
       from,
       to,

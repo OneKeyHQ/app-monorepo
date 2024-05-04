@@ -1610,7 +1610,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'tron--0x2b6653dc',
     'impl': 'tron',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/trx/trx.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/trx.png',
     'name': 'Tron',
     'shortcode': 'trx',
     'shortname': 'TRX',

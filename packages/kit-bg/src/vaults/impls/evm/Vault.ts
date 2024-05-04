@@ -15,7 +15,10 @@ import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  calculateNativeAmountInActions,
+  mergeAssetTransferActions,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -364,19 +367,8 @@ export default class Vault extends VaultBase {
       [action, extraNativeTransferAction].filter(Boolean),
     );
 
-    let nativeAmount = '0';
-    let nativeAmountValue = '0';
-
-    finalActions.forEach((item) => {
-      if (item.type === EDecodedTxActionType.ASSET_TRANSFER) {
-        nativeAmount = new BigNumber(nativeAmount)
-          .plus(item.assetTransfer?.nativeAmount ?? 0)
-          .toFixed();
-        nativeAmountValue = new BigNumber(nativeAmountValue)
-          .plus(item.assetTransfer?.nativeAmountValue ?? 0)
-          .toFixed();
-      }
-    });
+    const { nativeAmount, nativeAmountValue } =
+      calculateNativeAmountInActions(finalActions);
 
     const decodedTx: IDecodedTx = {
       txid: '',
