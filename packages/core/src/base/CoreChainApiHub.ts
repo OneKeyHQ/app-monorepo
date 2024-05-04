@@ -1,4 +1,4 @@
-// import CoreChainAda from '../chains/ada';
+import CoreChainAda from '../chains/ada';
 // import CoreChainAlgo from '../chains/algo';
 // import CoreChainApt from '../chains/apt';
 import CoreChainBch from '../chains/bch';
@@ -22,7 +22,7 @@ import CoreChainLtc from '../chains/ltc';
 // import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
-  // ada = new CoreChainAda();
+  cardano = new CoreChainAda();
 
   evm = new CoreChainEvm();
 
