@@ -4,8 +4,9 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import { getNip19EncodedPubkey } from './sdkNostr';
+import { getNip19EncodedPubkey, signEvent } from './sdkNostr';
 
+import type { IEncodedTxNostr } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -36,18 +37,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new Error('Method not implemented.');
     const { unsignedTx } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    // eslint-disable-next-line prefer-destructuring
-    const encodedTx = unsignedTx.encodedTx;
-    const txBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(txBytes);
+    const prvKey = (await signer.getPrvkey()).toString('hex');
+    const { event } = unsignedTx.encodedTx as IEncodedTxNostr;
+    const signature = signEvent(event, prvKey);
+    event.sig = signature;
     const txid = '';
-    const rawTx = '';
+    const rawTx = JSON.stringify(event);
     return {
       encodedTx: unsignedTx.encodedTx,
       txid,
