@@ -252,6 +252,7 @@ export type ITransferInfo = {
   useCustomAddressesBalance?: boolean;
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
+  destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
 };
 
 export type IApproveInfo = {

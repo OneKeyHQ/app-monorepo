@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
+
 import { XRPL } from '@onekeyhq/core/src/chains/ripple/sdkRipple';
+import type { IEncodedTxRipple } from '@onekeyhq/core/src/chains/ripple/types';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -9,7 +13,10 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { InvalidAddress } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidAddress,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
   IAddressValidation,
@@ -19,7 +26,12 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+  type IDecodedTx,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -70,24 +82,141 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxRipple> {
+    const { transfersInfo } = params;
+    if (!transfersInfo || isEmpty(transfersInfo)) {
+      throw new OneKeyInternalError('transfersInfo is required');
+    }
+    if (transfersInfo.length > 1) {
+      throw new OneKeyInternalError('Only one transfer is allowed');
+    }
+    const transferInfo = transfersInfo[0];
+    if (!transferInfo.to) {
+      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+    }
+    const { to, amount, tokenInfo } = transferInfo;
+    const dbAccount = await this.getAccount();
+    let destination = to;
+    let destinationTag: number | undefined = transferInfo.destinationTag
+      ? Number(transferInfo.destinationTag)
+      : undefined;
+    // Slice destination tag from swap address
+    if (!XRPL.isValidAddress(to) && to.indexOf('#') > -1) {
+      const [address, tag] = to.split('#');
+      destination = address;
+      destinationTag = tag ? Number(tag) : undefined;
+
+      if (!XRPL.isValidAddress(address)) {
+        throw new InvalidAddress();
+      }
+    }
+
+    // FIXME: autofill logic
+    // const client = await this.getClient();
+    // const currentLedgerIndex = await client.getLedgerIndex();
+    // const prepared = await client.autofill({
+    //   TransactionType: 'Payment',
+    //   Account: dbAccount.address,
+    //   Amount: XRPL.xrpToDrops(amount),
+    //   Destination: destination,
+    //   DestinationTag: destinationTag,
+    //   LastLedgerSequence: currentLedgerIndex + 50,
+    // });
+    // return {
+    //   ...prepared,
+    // };
+
+    return {
+      'TransactionType': 'Payment',
+      'Account': 'rKmyYKs9gyKV93PYFa6tdPUW5tNg1NsK2B',
+      'Amount': '110000',
+      'Destination': 'r4kJAnV216Bx6WBmS5qGZxaSmuTeF4uxAK',
+      'LastLedgerSequence': 87747153,
+      'Flags': 0,
+      'Sequence': 71730694,
+      'Fee': '12',
+    };
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxRipple;
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+
+    const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+      accountAddress: account.address,
+    });
+
+    if (!nativeToken) {
+      throw new OneKeyInternalError('Native token not found');
+    }
+
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: encodedTx.Account,
+      signer: encodedTx.Account,
+      nonce: 0,
+      actions: [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            from: encodedTx.Account,
+            to: encodedTx.Destination,
+            sends: [
+              {
+                from: encodedTx.Account,
+                to: encodedTx.Destination,
+                isNative: true,
+                tokenIdOnNetwork: '',
+                name: nativeToken.name,
+                icon: nativeToken.logoURI ?? '',
+                amount: new BigNumber(encodedTx.Amount)
+                  .shiftedBy(-network.decimals)
+                  .toFixed(),
+                symbol: network.symbol,
+              },
+            ],
+            receives: [],
+          },
+        },
+      ],
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      payload: {
+        type: EOnChainHistoryTxType.Send,
+      },
+      encodedTx,
+    };
+
+    return decodedTx;
   }
 
-  override buildUnsignedTx(
+  override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
+    const encodedTx = await this.buildEncodedTx(params);
+    if (encodedTx) {
+      return {
+        encodedTx,
+        transfersInfo: params.transfersInfo,
+      };
+    }
     throw new Error('Method not implemented.');
   }
 
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(params.unsignedTx);
   }
 
   override broadcastTransaction(
