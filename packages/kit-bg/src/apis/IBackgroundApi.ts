@@ -35,6 +35,7 @@ import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
+import type ServiceNostr from '../services/ServiceNostr';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePromise from '../services/ServicePromise';
@@ -138,4 +139,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceLogger: ServiceLogger;
   serviceFiatCrypto: ServiceFiatCrypto;
   serviceSignature: ServiceSignature;
+  serviceNostr: ServiceNostr;
 }
