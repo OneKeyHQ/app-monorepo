@@ -6,7 +6,7 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
-  IPrepareAccountsParams,
+  IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
@@ -15,7 +15,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.evm.hd;
 
   override prepareAccounts(
-    params: IPrepareAccountsParams,
+    params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
     throw new Error('Method not implemented.');
   }

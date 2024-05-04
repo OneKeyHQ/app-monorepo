@@ -1,12 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ICoreApiGetAddressItem,
+  ISignedMessagePro,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
-  IPrepareAccountsParams,
+  IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
@@ -15,9 +19,43 @@ export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.evm.hd;
 
   override prepareAccounts(
-    params: IPrepareAccountsParams,
+    params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    throw new Error('Method not implemented.');
+    return this.basePrepareHdNormalAccounts(params, {
+      buildAddressesInfo: async ({ usedIndexes }) => {
+        const addressesInfo = await this.baseGetDeviceAccountAddresses({
+          params,
+          usedIndexes,
+          sdkGetAddressFn: async ({
+            connectId,
+            deviceId,
+            pathPrefix,
+            showOnOnekeyFn,
+          }) => {
+            const sdk = await this.getHardwareSDKInstance();
+            const response = await sdk.xrpGetAddress(connectId, deviceId, {
+              ...params.deviceParams.deviceCommonParams,
+              bundle: usedIndexes.map((index, arrIndex) => ({
+                path: `${pathPrefix}/${index}'/0/0`,
+                showOnOneKey: showOnOnekeyFn(arrIndex),
+              })),
+            });
+            return response;
+          },
+        });
+        const ret: ICoreApiGetAddressItem[] = [];
+        for (const addressInfo of addressesInfo) {
+          const { address, path, publicKey } = addressInfo;
+          const item: ICoreApiGetAddressItem = {
+            address,
+            path,
+            publicKey: publicKey || '',
+          };
+          ret.push(item);
+        }
+        return ret;
+      },
+    });
   }
 
   override signTransaction(

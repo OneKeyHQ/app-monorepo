@@ -1,9 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { XRPL } from '@onekeyhq/core/src/chains/ripple/sdkRipple';
+import {
+  decodeSensitiveText,
+  encodeSensitiveText,
+} from '@onekeyhq/core/src/secret';
 import type {
   IEncodedTx,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { InvalidAddress } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -50,7 +57,17 @@ export default class Vault extends VaultBase {
   override buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    throw new Error('Method not implemented.');
+    const { account, networkId } = params;
+    const { address } = account;
+    return Promise.resolve({
+      networkId,
+      normalizedAddress: address,
+      displayAddress: address,
+      address,
+      baseAddress: address,
+      isValid: true,
+      allowEmptyAddress: false,
+    });
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
@@ -80,7 +97,14 @@ export default class Vault extends VaultBase {
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new Error('Method not implemented.');
+    if (XRPL.isValidClassicAddress(address)) {
+      return Promise.resolve({
+        isValid: true,
+        normalizedAddress: address,
+        displayAddress: address,
+      });
+    }
+    return Promise.reject(new InvalidAddress());
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
@@ -90,7 +114,10 @@ export default class Vault extends VaultBase {
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    const input = decodeSensitiveText({ encodedText: params.input });
+    let privateKey = bufferUtils.bytesToHex(input);
+    privateKey = encodeSensitiveText({ text: privateKey });
+    return Promise.resolve({ privateKey });
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
@@ -100,12 +127,14 @@ export default class Vault extends VaultBase {
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    const isValid = /^(00)?[0-9a-zA-Z]{64}$/.test(privateKey);
+    return Promise.resolve({ isValid });
   }
 
-  override validateGeneralInput(
+  override async validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new Error('Method not implemented.');
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
   }
 }

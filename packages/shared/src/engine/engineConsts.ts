@@ -51,7 +51,7 @@ const COINTYPE_BCH = '145';
 export const COINNAME_BCH = 'BCH';
 
 const IMPL_RIPPLE = 'xrp';
-const CONTYPE_RIPPLE = '144';
+const COINTYPE_RIPPLE = '144';
 
 const IMPL_COSMOS = 'cosmos';
 const COINTYPE_COSMOS = '118';
@@ -207,7 +207,7 @@ export {
   COINTYPE_TBTC,
   COINTYPE_TRON,
   COINTYPE_XMR,
-  CONTYPE_RIPPLE,
+  COINTYPE_RIPPLE,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
