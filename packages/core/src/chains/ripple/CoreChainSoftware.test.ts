@@ -1,6 +1,7 @@
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import CoreChainHd from './CoreChainHd';
 
@@ -65,8 +66,8 @@ const {
   ],
 });
 
-// yarn jest packages/core/src/chains/xrp/CoreChainSoftware.test.ts
-describe('XRP Core tests', () => {
+// yarn jest packages/core/src/chains/ripple/CoreChainSoftware.test.ts
+describe('Ripple Core tests', () => {
   it('mnemonic verify', () => {
     coreTestsUtils.expectMnemonicValid({
       hdCredential,

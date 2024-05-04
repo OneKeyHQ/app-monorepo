@@ -13,7 +13,7 @@ import type {
 } from '../../types';
 
 export class KeyringHd extends KeyringHdBase {
-  override coreApi = coreChainApi.evm.hd;
+  override coreApi = coreChainApi.ripple.hd;
 
   override async getPrivateKeys(
     params: IGetPrivateKeysParams,

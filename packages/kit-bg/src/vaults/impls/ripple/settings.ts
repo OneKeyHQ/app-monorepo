@@ -1,6 +1,6 @@
 import {
-  COINTYPE_XRP,
-  IMPL_XRP,
+  CONTYPE_RIPPLE,
+  IMPL_RIPPLE,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -12,14 +12,14 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
     namePrefix: 'Ripple',
     labelKey: 'form__bip44_standard',
-    template: `m/44'/${COINTYPE_XRP}'/${INDEX_PLACEHOLDER}'/0/0`,
-    coinType: COINTYPE_XRP,
+    template: `m/44'/${CONTYPE_RIPPLE}'/${INDEX_PLACEHOLDER}'/0/0`,
+    coinType: CONTYPE_RIPPLE,
   },
 };
 
 const settings: IVaultSettings = {
-  impl: IMPL_XRP,
-  coinTypeDefault: COINTYPE_XRP,
+  impl: IMPL_RIPPLE,
+  coinTypeDefault: CONTYPE_RIPPLE,
   accountType: EDBAccountType.SIMPLE,
 
   importedAccountEnabled: true,

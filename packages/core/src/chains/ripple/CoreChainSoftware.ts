@@ -6,7 +6,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import type { Transaction } from 'xrpl';
+import type { IEncodedTxRipple } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -19,7 +19,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import type { IEncodedTxXrp } from './types';
+import type { Transaction } from 'xrpl';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -98,7 +98,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const encodedTx = unsignedTx.encodedTx;
     // const txBytes = bufferUtils.toBuffer('');
     const signResult = signature(
-      encodedTx as IEncodedTxXrp,
+      encodedTx as IEncodedTxRipple,
       pub,
       `00${prvKey}`,
     );
@@ -119,7 +119,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
@@ -132,7 +131,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
     const { publicKey } = query;
     const pub = publicKey.toUpperCase();
     const address = deriveAddress(pub);
@@ -146,7 +144,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    // throw new Error('Method not implemented.');
     return this.baseGetAddressesFromHd(query, {
       curve,
     });
