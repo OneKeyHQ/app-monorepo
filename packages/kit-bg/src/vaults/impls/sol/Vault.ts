@@ -2,6 +2,11 @@
 import { PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import {
+  decodeSensitiveText,
+  encodeSensitiveText,
+} from '@onekeyhq/core/src/secret';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -40,6 +45,8 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.sol.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,
@@ -125,10 +132,20 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    const input = decodeSensitiveText({ encodedText: params.input });
+    let privateKey;
+    const decodedPrivateKey = bs58.decode(input);
+    if (decodedPrivateKey.length === 64) {
+      privateKey = decodedPrivateKey.slice(0, 32).toString('hex');
+    }
+
+    privateKey = encodeSensitiveText({ text: privateKey ?? '' });
+    return {
+      privateKey,
+    };
   }
 
   override validateXprvt(): Promise<IXprvtValidation> {
@@ -137,15 +154,29 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override validatePrivateKey(
+  override async validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    try {
+      const secret = bs58.decode(privateKey);
+      if (secret.length === 64) {
+        const priv = secret.slice(0, 32).toString('hex');
+        const validation = await this.baseValidatePrivateKey(priv);
+        return validation;
+      }
+    } catch {
+      // pass
+    }
+
+    return {
+      isValid: false,
+    };
   }
 
-  override validateGeneralInput(
+  override async validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new Error('Method not implemented.');
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
   }
 }
