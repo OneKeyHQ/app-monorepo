@@ -1564,6 +1564,33 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const nostr = {
+    id: 'nostr--0',
+    impl: 'nostr',
+    chainId: '0',
+    code: 'nostr',
+    defaultEnabled: true,
+    isTestnet: false,
+    priceConfigs: [],
+    explorers: [],
+    rpcURLs: [],
+    feeMeta: {
+      symbol: 'nostr',
+      decimals: 0,
+      code: 'nostr',
+    },
+    balance2FeeDecimals: 0,
+    decimals: 0,
+    'status': ENetworkStatus.LISTED,
+    name: 'Nostr',
+    symbol: 'Nostr',
+    shortname: 'Nostr',
+    shortcode: 'nostr',
+    extensions: {},
+    clientApi: {},
+    logoURI: 'https://common.onekey-asset.com/chain/all.png',
+  } as unknown as IServerNetwork;
+
   const chainsOnlyEnabledInDev = [
     osmosis,
     cosmoshub,
@@ -1586,6 +1613,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     arb,
     avax,
     polygon,
+    nostr,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

@@ -20,6 +20,7 @@ import CoreChainLtc from '../chains/ltc';
 // import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
 // import CoreChainXrp from '../chains/xrp';
+import CoreChainNostr from '../chains/nostr';
 
 export class CoreChainApiHub {
   // ada = new CoreChainAda();
@@ -65,4 +66,6 @@ export class CoreChainApiHub {
   // xmr = new CoreChainXmr();
 
   // nexa = new CoreChainNexa();
+
+  nostr = new CoreChainNostr();
 }

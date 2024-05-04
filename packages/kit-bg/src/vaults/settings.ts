@@ -7,6 +7,7 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
+  IMPL_NOSTR,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -58,6 +59,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),
+    [IMPL_NOSTR]: () => import('./impls/nostr/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {
