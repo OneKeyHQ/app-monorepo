@@ -7,15 +7,7 @@ import * as secp256k1 from '@noble/secp256k1';
 import { AES_CBC } from 'asmcrypto.js';
 import { bech32 } from 'bech32';
 
-// import { batchGetPrivateKeys } from '@onekeyhq/engine/src/secret';
-// import { decrypt } from '@onekeyhq/engine/src/secret/encryptors/aes256';
-import { COINTYPE_NOSTR } from '@onekeyhq/shared/src/engine/engineConsts';
-
 import type { INostrEvent } from '../types';
-
-export const getNostrPath = (index: number) =>
-  `m/44'/${COINTYPE_NOSTR}'/${index}'/0`; // NIP-06
-export const NOSTR_ADDRESS_INDEX = '0';
 
 export function validateEvent(event: INostrEvent): boolean {
   if (!(event instanceof Object)) return false;
@@ -63,6 +55,50 @@ export function signEvent(event: INostrEvent, key: string) {
 export function getNip19EncodedPubkey(pubkey: string) {
   const words = bech32.toWords(Buffer.from(pubkey, 'hex'));
   return bech32.encode('npub', words, 1000);
+}
+
+export function encrypt(
+  privateKey: string,
+  pubkey: string,
+  plaintext: string,
+): string {
+  const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
+  const normalizedKey = key.slice(1, 33);
+  const iv = crypto.randomBytes(16);
+
+  const encrypted = AES_CBC.encrypt(
+    Buffer.from(plaintext),
+    normalizedKey,
+    true,
+    iv,
+  );
+
+  return `${Buffer.from(encrypted).toString('base64')}?iv=${Buffer.from(
+    iv.buffer,
+  ).toString('base64')}`;
+}
+
+export function decrypt(
+  privateKey: string,
+  pubkey: string,
+  ciphertext: string,
+) {
+  const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
+  const [cip, iv] = ciphertext.split('?iv=');
+  const normalizedKey = key.slice(1, 33);
+  const decrypted = AES_CBC.decrypt(
+    Buffer.from(cip, 'base64'),
+    normalizedKey,
+    true,
+    Buffer.from(iv, 'base64'),
+  );
+  return Buffer.from(decrypted).toString('utf-8');
+}
+
+export function signSchnorr(privateKey: string, sigHash: string): string {
+  const signature = schnorr.sign(Buffer.from(hexToBytes(sigHash)), privateKey);
+  const signedHex = bytesToHex(signature);
+  return signedHex;
 }
 
 // class Nostr {

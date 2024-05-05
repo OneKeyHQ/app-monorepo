@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import { getNip19EncodedPubkey, signEvent } from './sdkNostr';
+import { decrypt, encrypt, getNip19EncodedPubkey, signEvent } from './sdkNostr';
 
 import type { IEncodedTxNostr } from './types';
 import type {
@@ -13,10 +14,12 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiNetworkInfo,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
+  ICoreCredentialsInfo,
   ICurveName,
   ISignedTxPro,
 } from '../../types';
@@ -98,5 +101,41 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return this.baseGetAddressesFromHd(query, {
       curve,
     });
+  }
+
+  async encrypt(params: {
+    networkInfo: ICoreApiNetworkInfo;
+    data: {
+      pubkey: string;
+      plaintext: string;
+    };
+    account: INetworkAccount;
+    password: string;
+    credentials: ICoreCredentialsInfo;
+  }): Promise<string> {
+    const signer = await this.baseGetSingleSigner({
+      payload: params,
+      curve,
+    });
+    const prvKey = (await signer.getPrvkey()).toString('hex');
+    return encrypt(prvKey, params.data.pubkey, params.data.plaintext);
+  }
+
+  async decrypt(params: {
+    networkInfo: ICoreApiNetworkInfo;
+    data: {
+      pubkey: string;
+      ciphertext: string;
+    };
+    account: INetworkAccount;
+    password: string;
+    credentials: ICoreCredentialsInfo;
+  }): Promise<string> {
+    const signer = await this.baseGetSingleSigner({
+      payload: params,
+      curve,
+    });
+    const prvKey = (await signer.getPrvkey()).toString('hex');
+    return decrypt(prvKey, params.data.pubkey, params.data.ciphertext);
   }
 }

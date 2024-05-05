@@ -12,6 +12,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -117,5 +118,23 @@ export default class Vault extends VaultBase {
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
     throw new Error('Method not implemented.');
+  }
+
+  encrypt(params: {
+    pubkey: string;
+    plaintext: string;
+    password: string;
+    deviceParams: IDeviceSharedCallParams | undefined;
+  }) {
+    return (this.keyring as KeyringHd).encrypt(params);
+  }
+
+  decrypt(params: {
+    pubkey: string;
+    ciphertext: string;
+    password: string;
+    deviceParams: IDeviceSharedCallParams | undefined;
+  }) {
+    return (this.keyring as KeyringHd).decrypt(params);
   }
 }

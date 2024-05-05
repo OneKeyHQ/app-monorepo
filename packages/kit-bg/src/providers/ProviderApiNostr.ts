@@ -126,6 +126,68 @@ class ProviderApiNostr extends ProviderApiBase {
     console.log('====> signEvent: ===>: ', result);
     return (result?.data ?? {}) as INostrEvent;
   }
+
+  @providerApiMethod()
+  public async encrypt(request: IJsBridgeMessagePayload): Promise<string> {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+
+    const params = (request.data as IJsonRpcRequest)?.params as {
+      pubkey: string;
+      plaintext: string;
+    };
+    if (!params.pubkey || !params.plaintext) {
+      throw web3Errors.rpc.invalidInput();
+    }
+
+    try {
+      const encrypted = await this.backgroundApi.serviceNostr.encrypt({
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
+        pubkey: params.pubkey,
+        plaintext: params.plaintext,
+      });
+      await this.backgroundApi.serviceNostr.saveEncryptedData({
+        pubkey: params.pubkey,
+        plaintext: params.plaintext,
+        encryptedData: encrypted.data,
+      });
+      return encrypted.data;
+    } catch (e) {
+      console.error('====> encrypt error: ', e);
+      throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
+    return this.decryptRequest(request);
+  }
+
+  private async decryptRequest(
+    request: IJsBridgeMessagePayload,
+  ): Promise<string> {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    const params = (request.data as IJsonRpcRequest)?.params as {
+      pubkey: string;
+      ciphertext: string;
+    };
+    if (!params.pubkey || !params.ciphertext) {
+      throw web3Errors.rpc.invalidInput();
+    }
+
+    const decrypted = await this.backgroundApi.serviceNostr.decrypt({
+      networkId: networkId ?? '',
+      accountId: accountId ?? '',
+      pubkey: params.pubkey,
+      ciphertext: params.ciphertext,
+    });
+
+    return decrypted.data;
+  }
 }
 
 export default ProviderApiNostr;

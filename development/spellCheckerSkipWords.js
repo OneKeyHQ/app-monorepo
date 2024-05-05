@@ -684,4 +684,8 @@ module.exports = [
   'apk',
   'dbs',
   'npub',
+  'plaintext',
+  'ciphertext',
+  'decrypted',
+  'cip',
 ];
