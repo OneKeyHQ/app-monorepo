@@ -1626,7 +1626,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     shortcode: 'nostr',
     extensions: {},
     clientApi: {},
-    logoURI: 'https://common.onekey-asset.com/chain/all.png',
+    logoURI: 'https://uni.onekey-asset.com/static/chain/nostr.png',
   } as unknown as IServerNetwork;
 
   const ripple = {
