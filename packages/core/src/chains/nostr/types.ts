@@ -35,7 +35,7 @@ export type INostrEvent = {
 
 export const i18nSupportEventKinds = Object.values(EEventKind);
 
-export enum ESignType {
+export enum ENostrSignType {
   signEvent = 'signEvent',
   signSchnorr = 'signSchnorr',
   encrypt = 'encrypt',

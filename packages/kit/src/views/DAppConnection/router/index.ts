@@ -25,6 +25,10 @@ const DefaultWalletSettingsModal = LazyLoadPage(
   () => import('../pages/DefaultWalletSettingsModal'),
 );
 
+const NostrSignEventModal = LazyLoadPage(
+  () => import('../pages/NostrSignEventModal'),
+);
+
 export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   EDAppConnectionModal,
   IDAppConnectionModalParamList
@@ -52,5 +56,9 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.DefaultWalletSettingsModal,
     component: DefaultWalletSettingsModal,
+  },
+  {
+    name: EDAppConnectionModal.NostrSignEventModal,
+    component: NostrSignEventModal,
   },
 ];

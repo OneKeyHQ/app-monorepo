@@ -10,6 +10,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -48,11 +49,13 @@ class ServiceNostr extends ServiceBase {
 
   @backgroundMethod()
   public async signEvent({
+    walletId,
     networkId,
     accountId,
     event,
     options,
   }: {
+    walletId: string;
     networkId: string;
     accountId: string;
     event: INostrEvent;
@@ -85,10 +88,9 @@ class ServiceNostr extends ServiceBase {
       }
 
       const { password, deviceParams } =
-        await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-          accountId,
-          reason: EReasonForNeedPassword.CreateTransaction,
-        });
+        await this.backgroundApi.servicePassword.getCachedPasswordOrDeviceParams(
+          { walletId },
+        );
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const signedEvent =
         await this.backgroundApi.serviceHardware.withHardwareProcessing(
@@ -97,7 +99,7 @@ class ServiceNostr extends ServiceBase {
               unsignedTx: {
                 encodedTx: { event },
               },
-              password,
+              password: password ?? '',
               deviceParams,
               signOnly: true,
             });

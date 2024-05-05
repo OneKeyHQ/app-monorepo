@@ -152,6 +152,31 @@ export default class ServicePassword extends ServiceBase {
     return this.cachedPassword;
   }
 
+  @backgroundMethod()
+  async getCachedPasswordOrDeviceParams({ walletId }: { walletId: string }) {
+    const isHardware = accountUtils.isHwWallet({ walletId });
+    let password: string | undefined = '';
+    let deviceParams: IDeviceSharedCallParams | undefined;
+
+    if (isHardware) {
+      deviceParams =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId,
+        });
+    }
+    if (
+      accountUtils.isHdWallet({ walletId }) ||
+      accountUtils.isImportedWallet({ walletId })
+    ) {
+      password = await this.getCachedPassword();
+    }
+    return {
+      password,
+      isHardware,
+      deviceParams,
+    };
+  }
+
   // biologyAuth&WebAuth ------------------------------
   async saveBiologyAuthPassword(password: string): Promise<void> {
     ensureSensitiveTextEncoded(password);

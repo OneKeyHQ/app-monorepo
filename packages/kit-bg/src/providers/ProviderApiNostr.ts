@@ -9,6 +9,11 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EDAppConnectionModal,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -113,18 +118,53 @@ class ProviderApiNostr extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { accountInfo: { accountId, networkId, walletId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
 
-    const result = await this.backgroundApi.serviceNostr.signEvent({
-      networkId: networkId ?? '',
-      accountId: accountId ?? '',
-      event: params.event,
-    });
+    const cachedPassword =
+      await this.backgroundApi.servicePassword.getCachedPassword();
+    if (
+      cachedPassword &&
+      accountUtils.isHwWallet({ walletId: walletId ?? '' })
+    ) {
+      const shouldAutoSign =
+        await this.backgroundApi.serviceNostr.getAutoSignStatus(
+          accountId ?? '',
+          new URL(request.origin ?? '').origin,
+        );
+      if (shouldAutoSign) {
+        const result = await this.backgroundApi.serviceNostr.signEvent({
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
+          walletId: walletId ?? '',
+          event: params.event,
+        });
+        return (result?.data ?? {}) as INostrEvent;
+      }
+    }
 
-    console.log('====> signEvent: ===>: ', result);
-    return (result?.data ?? {}) as INostrEvent;
+    try {
+      const signedEvent = await this.backgroundApi.serviceDApp.openModal({
+        request,
+        screens: [
+          EModalRoutes.DAppConnectionModal,
+          EDAppConnectionModal.NostrSignEventModal,
+        ],
+        params: {
+          event: params.event,
+          walletId: walletId ?? '',
+          accountId: accountId ?? '',
+          networkId: networkId ?? '',
+        },
+        fullScreen: true,
+      });
+      console.log('====> signEvent: ===>: ', signedEvent);
+      return signedEvent as INostrEvent;
+    } catch (e) {
+      console.error('====> signEvent error: ', e);
+      throw e;
+    }
   }
 
   @providerApiMethod()
