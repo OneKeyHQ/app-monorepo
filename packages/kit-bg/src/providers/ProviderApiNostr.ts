@@ -126,7 +126,7 @@ class ProviderApiNostr extends ProviderApiBase {
       await this.backgroundApi.servicePassword.getCachedPassword();
     if (
       cachedPassword &&
-      accountUtils.isHwWallet({ walletId: walletId ?? '' })
+      !accountUtils.isHwWallet({ walletId: walletId ?? '' })
     ) {
       const shouldAutoSign =
         await this.backgroundApi.serviceNostr.getAutoSignStatus(
@@ -169,7 +169,7 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async encrypt(request: IJsBridgeMessagePayload): Promise<string> {
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { accountInfo: { accountId, networkId, walletId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
 
@@ -181,8 +181,11 @@ class ProviderApiNostr extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    try {
+    const cachedPassword =
+      await this.backgroundApi.servicePassword.getCachedPassword();
+    if (cachedPassword) {
       const encrypted = await this.backgroundApi.serviceNostr.encrypt({
+        walletId: walletId ?? '',
         networkId: networkId ?? '',
         accountId: accountId ?? '',
         pubkey: params.pubkey,
@@ -194,8 +197,33 @@ class ProviderApiNostr extends ProviderApiBase {
         encryptedData: encrypted.data,
       });
       return encrypted.data;
+    }
+
+    try {
+      const encrypted = await this.backgroundApi.serviceDApp.openModal({
+        request,
+        screens: [
+          EModalRoutes.DAppConnectionModal,
+          EDAppConnectionModal.NostrSignEventModal,
+        ],
+        params: {
+          pubkey: params.pubkey,
+          plaintext: params.plaintext,
+          walletId: walletId ?? '',
+          accountId: accountId ?? '',
+          networkId: networkId ?? '',
+        },
+        fullScreen: true,
+      });
+      await this.backgroundApi.serviceNostr.saveEncryptedData({
+        pubkey: params.pubkey,
+        plaintext: params.plaintext,
+        encryptedData: encrypted as string,
+      });
+      console.log('====> encrypted: ===>: ', encrypted);
+      return encrypted as string;
     } catch (e) {
-      console.error('====> encrypt error: ', e);
+      console.error('====> signEvent error: ', e);
       throw e;
     }
   }
@@ -208,7 +236,7 @@ class ProviderApiNostr extends ProviderApiBase {
   private async decryptRequest(
     request: IJsBridgeMessagePayload,
   ): Promise<string> {
-    const { accountInfo: { accountId, networkId } = {} } = (
+    const { accountInfo: { accountId, networkId, walletId } = {} } = (
       await this._getAccountsInfo(request)
     )[0];
     const params = (request.data as IJsonRpcRequest)?.params as {
@@ -219,14 +247,41 @@ class ProviderApiNostr extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
 
-    const decrypted = await this.backgroundApi.serviceNostr.decrypt({
-      networkId: networkId ?? '',
-      accountId: accountId ?? '',
-      pubkey: params.pubkey,
-      ciphertext: params.ciphertext,
-    });
+    const cachedPassword =
+      await this.backgroundApi.servicePassword.getCachedPassword();
+    if (cachedPassword) {
+      const decrypted = await this.backgroundApi.serviceNostr.decrypt({
+        walletId: walletId ?? '',
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
+        pubkey: params.pubkey,
+        ciphertext: params.ciphertext,
+      });
+      return decrypted.data;
+    }
 
-    return decrypted.data;
+    try {
+      const decrypted = await this.backgroundApi.serviceDApp.openModal({
+        request,
+        screens: [
+          EModalRoutes.DAppConnectionModal,
+          EDAppConnectionModal.NostrSignEventModal,
+        ],
+        params: {
+          pubkey: params.pubkey,
+          ciphertext: params.ciphertext,
+          walletId: walletId ?? '',
+          accountId: accountId ?? '',
+          networkId: networkId ?? '',
+        },
+        fullScreen: true,
+      });
+      console.log('====> decrypted: ===>: ', decrypted);
+      return decrypted as string;
+    } catch (e) {
+      console.error('====> decrypted error: ', e);
+      throw e;
+    }
   }
 }
 

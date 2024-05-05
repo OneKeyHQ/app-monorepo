@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import {
+  EEventKind,
   ENostrSignType,
   i18nSupportEventKinds,
 } from '@onekeyhq/core/src/chains/nostr/types';
@@ -152,6 +153,22 @@ function NostrSignEventModal() {
             accountId,
             networkId,
           });
+        } else if (signType === ENostrSignType.encrypt) {
+          result = await serviceNostr.encrypt({
+            pubkey: pubkey ?? '',
+            plaintext: plaintext ?? '',
+            walletId,
+            accountId,
+            networkId,
+          });
+        } else if (signType === ENostrSignType.decrypt) {
+          result = await serviceNostr.decrypt({
+            pubkey: pubkey ?? '',
+            ciphertext: ciphertext ?? '',
+            walletId,
+            accountId,
+            networkId,
+          });
         }
         console.log('====> result: ', result);
         setTimeout(() => {
@@ -166,7 +183,17 @@ function NostrSignEventModal() {
         setIsLoading(false);
       }
     },
-    [event, signType, walletId, accountId, networkId, dappApprove],
+    [
+      event,
+      signType,
+      walletId,
+      accountId,
+      networkId,
+      dappApprove,
+      pubkey,
+      plaintext,
+      ciphertext,
+    ],
   );
 
   const renderEventDetails = useCallback(() => {
@@ -188,6 +215,43 @@ function NostrSignEventModal() {
     );
   }, [event, displayDetails]);
 
+  const [savedPlaintext, setSavedPlaintext] = useState<string | null>(null);
+  const isDMEvent = useMemo(
+    () =>
+      signType === ENostrSignType.signEvent &&
+      Number(event?.kind) === EEventKind.DM,
+    [signType, event],
+  );
+  useEffect(() => {
+    if (isDMEvent && event?.content) {
+      void backgroundApiProxy.serviceNostr
+        .getEncryptedData(event?.content)
+        .then((data) => {
+          if (!data) {
+            return;
+          }
+          if (data.plaintext) {
+            setSavedPlaintext(data.plaintext);
+          }
+        });
+    }
+  }, [event, isDMEvent]);
+  const renderEncryptSignEventPlaintext = useCallback(() => {
+    if (isDMEvent && savedPlaintext && savedPlaintext.length > 0) {
+      return (
+        <YStack space="$2">
+          <SizableText>
+            {intl.formatMessage({ id: 'form__nostr_plaintext' })}:
+          </SizableText>
+          <TextArea disabled editable={false} numberOfLines={2}>
+            {savedPlaintext}
+          </TextArea>
+        </YStack>
+      );
+    }
+    return null;
+  }, [intl, savedPlaintext, isDMEvent]);
+
   return (
     <Page scrollEnabled>
       <Page.Header headerShown={false} />
@@ -205,13 +269,16 @@ function NostrSignEventModal() {
             <TextArea disabled editable={false} numberOfLines={2}>
               {content}
             </TextArea>
+            {renderEncryptSignEventPlaintext()}
             {renderEventDetails()}
           </YStack>
-          <Checkbox
-            label="记住我的选择，不再提示"
-            value={autoSign}
-            onChange={(checked) => setAutoSign(!!checked)}
-          />
+          {signType === ENostrSignType.signEvent ? (
+            <Checkbox
+              label="记住我的选择，不再提示"
+              value={autoSign}
+              onChange={(checked) => setAutoSign(!!checked)}
+            />
+          ) : null}
           {/* Content End  */}
         </DAppRequestLayout>
       </Page.Body>
@@ -224,6 +291,7 @@ function NostrSignEventModal() {
           onConfirm={onSubmit}
           onCancel={() => dappApprove.reject()}
           confirmButtonProps={{
+            loading: isLoading,
             disabled: !canContinueOperate,
           }}
           showContinueOperateCheckbox={riskLevel !== 'security'}

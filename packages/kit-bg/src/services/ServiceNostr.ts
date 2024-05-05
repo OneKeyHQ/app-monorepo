@@ -10,9 +10,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -103,7 +101,7 @@ class ServiceNostr extends ServiceBase {
               deviceParams,
               signOnly: true,
             });
-            console.log('signTx@vault.signTransaction', signedTx);
+            console.log('nostr@vault.signEvent', signedTx);
             return signedTx;
           },
           { deviceParams },
@@ -119,11 +117,13 @@ class ServiceNostr extends ServiceBase {
 
   @backgroundMethod()
   async encrypt({
+    walletId,
     networkId,
     accountId,
     pubkey,
     plaintext,
   }: {
+    walletId: string;
     networkId: string;
     accountId: string;
     pubkey: string;
@@ -132,17 +132,11 @@ class ServiceNostr extends ServiceBase {
     if (!pubkey || !plaintext) {
       throw new Error('Invalid encrypt params');
     }
-    // const { password, deviceParams } =
-    //   await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-    //     accountId,
-    //     reason: EReasonForNeedPassword.CreateTransaction,
-    //   });
-    const password =
-      await this.backgroundApi.servicePassword.getCachedPassword();
-    if (!password) {
-      throw new Error('No password');
-    }
-    const deviceParams = {} as any;
+
+    const { password, deviceParams } =
+      await this.backgroundApi.servicePassword.getCachedPasswordOrDeviceParams({
+        walletId,
+      });
     const vault = (await vaultFactory.getVault({
       networkId,
       accountId,
@@ -153,10 +147,10 @@ class ServiceNostr extends ServiceBase {
           const signedTx = await vault.encrypt({
             pubkey,
             plaintext,
-            password,
+            password: password ?? '',
             deviceParams,
           });
-          console.log('signTx@vault.signTransaction', signedTx);
+          console.log('nostr@vault.encrypt', signedTx);
           return signedTx;
         },
         { deviceParams },
@@ -168,11 +162,13 @@ class ServiceNostr extends ServiceBase {
 
   @backgroundMethod()
   async decrypt({
+    walletId,
     networkId,
     accountId,
     pubkey,
     ciphertext,
   }: {
+    walletId: string;
     networkId: string;
     accountId: string;
     pubkey: string;
@@ -181,21 +177,10 @@ class ServiceNostr extends ServiceBase {
     if (!pubkey || !ciphertext) {
       throw new Error('Invalid encrypt params');
     }
-    let password = await this.backgroundApi.servicePassword.getCachedPassword();
-    if (!password) {
-      password = (
-        await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-          accountId,
-          reason: EReasonForNeedPassword.CreateTransaction,
-        })
-      ).password;
-    }
-    const deviceParams = {} as any;
-    // const { password, deviceParams } =
-    //   await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-    //     accountId,
-    //     reason: EReasonForNeedPassword.CreateTransaction,
-    //   });
+    const { password, deviceParams } =
+      await this.backgroundApi.servicePassword.getCachedPasswordOrDeviceParams({
+        walletId,
+      });
     const vault = (await vaultFactory.getVault({
       networkId,
       accountId,
@@ -206,10 +191,10 @@ class ServiceNostr extends ServiceBase {
           const signedTx = await vault.decrypt({
             pubkey,
             ciphertext,
-            password,
+            password: password ?? '',
             deviceParams,
           });
-          console.log('signTx@vault.signTransaction', signedTx);
+          console.log('nostr@vault.decrypt', signedTx);
           return signedTx;
         },
         { deviceParams },
