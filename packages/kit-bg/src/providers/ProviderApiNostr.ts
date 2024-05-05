@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import PQueue from 'p-queue';
 
 import type {
   INostrEvent,
@@ -26,6 +27,8 @@ import type {
 @backgroundClass()
 class ProviderApiNostr extends ProviderApiBase {
   public providerName = IInjectedProviderNames.nostr;
+
+  private decryptQueue = new PQueue({ concurrency: 1 });
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
@@ -159,7 +162,6 @@ class ProviderApiNostr extends ProviderApiBase {
         },
         fullScreen: true,
       });
-      console.log('====> signEvent: ===>: ', signedEvent);
       return signedEvent as INostrEvent;
     } catch (e) {
       console.error('====> signEvent error: ', e);
@@ -220,7 +222,6 @@ class ProviderApiNostr extends ProviderApiBase {
         plaintext: params.plaintext,
         encryptedData: encrypted as string,
       });
-      console.log('====> encrypted: ===>: ', encrypted);
       return encrypted as string;
     } catch (e) {
       console.error('====> signEvent error: ', e);
@@ -230,7 +231,8 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
-    return this.decryptRequest(request);
+    // @ts-expect-error
+    return this.decryptQueue.add(() => this.decryptRequest(request));
   }
 
   private async decryptRequest(
@@ -276,7 +278,6 @@ class ProviderApiNostr extends ProviderApiBase {
         },
         fullScreen: true,
       });
-      console.log('====> decrypted: ===>: ', decrypted);
       return decrypted as string;
     } catch (e) {
       console.error('====> decrypted error: ', e);

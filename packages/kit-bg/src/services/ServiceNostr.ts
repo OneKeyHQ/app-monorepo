@@ -101,7 +101,6 @@ class ServiceNostr extends ServiceBase {
               deviceParams,
               signOnly: true,
             });
-            console.log('nostr@vault.signEvent', signedTx);
             return signedTx;
           },
           { deviceParams },
@@ -150,7 +149,6 @@ class ServiceNostr extends ServiceBase {
             password: password ?? '',
             deviceParams,
           });
-          console.log('nostr@vault.encrypt', signedTx);
           return signedTx;
         },
         { deviceParams },
@@ -194,7 +192,6 @@ class ServiceNostr extends ServiceBase {
             password: password ?? '',
             deviceParams,
           });
-          console.log('nostr@vault.decrypt', signedTx);
           return signedTx;
         },
         { deviceParams },
