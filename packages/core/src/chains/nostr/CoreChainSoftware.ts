@@ -5,7 +5,13 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import { decrypt, encrypt, getNip19EncodedPubkey, signEvent } from './sdkNostr';
+import {
+  decrypt,
+  encrypt,
+  getNip19EncodedPubkey,
+  signEvent,
+  signSchnorr,
+} from './sdkNostr';
 
 import type { IEncodedTxNostr } from './types';
 import type {
@@ -59,15 +65,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    // eslint-disable-next-line prefer-destructuring
     const unsignedMsg = payload.unsignedMsg;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    const msgBytes = bufferUtils.toBuffer('');
-    const [signature] = await signer.sign(msgBytes);
-    return '';
+    const prvKey = (await signer.getPrvkey()).toString('hex');
+    return signSchnorr(prvKey, unsignedMsg.message);
   }
 
   override async getAddressFromPrivate(

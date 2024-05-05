@@ -11,6 +11,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -218,6 +219,51 @@ class ServiceNostr extends ServiceBase {
       return null;
     }
     return Promise.resolve(data);
+  }
+
+  @backgroundMethod()
+  async signSchnorr({
+    walletId,
+    networkId,
+    accountId,
+    sigHash,
+  }: {
+    walletId: string;
+    networkId: string;
+    accountId: string;
+    sigHash: string;
+  }) {
+    if (!sigHash) {
+      throw new Error('Invalid signSchnorr params');
+    }
+    const { password, deviceParams } =
+      await this.backgroundApi.servicePassword.getCachedPasswordOrDeviceParams({
+        walletId,
+      });
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as IVaultNostr;
+    const signedMessage =
+      await this.backgroundApi.serviceHardware.withHardwareProcessing(
+        async () => {
+          const signedTx = await vault.keyring.signMessage({
+            messages: [
+              {
+                type: EMessageTypesCommon.SIGN_MESSAGE,
+                message: sigHash,
+              },
+            ],
+            password: password ?? '',
+            deviceParams,
+          });
+          return signedTx;
+        },
+        { deviceParams },
+      );
+    return {
+      data: signedMessage[0],
+    };
   }
 }
 

@@ -284,6 +284,34 @@ class ProviderApiNostr extends ProviderApiBase {
       throw e;
     }
   }
+
+  @providerApiMethod()
+  public async signSchnorr(request: IJsBridgeMessagePayload): Promise<string> {
+    const { accountInfo: { accountId, networkId, walletId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    const params = (request.data as IJsonRpcRequest)?.params as string;
+    try {
+      const signedHash = await this.backgroundApi.serviceDApp.openModal({
+        request,
+        screens: [
+          EModalRoutes.DAppConnectionModal,
+          EDAppConnectionModal.NostrSignEventModal,
+        ],
+        params: {
+          sigHash: params,
+          walletId: walletId ?? '',
+          accountId: accountId ?? '',
+          networkId: networkId ?? '',
+        },
+        fullScreen: true,
+      });
+      return signedHash as string;
+    } catch (e) {
+      console.error('====> sign schnorr error: ', e);
+      throw e;
+    }
+  }
 }
 
 export default ProviderApiNostr;

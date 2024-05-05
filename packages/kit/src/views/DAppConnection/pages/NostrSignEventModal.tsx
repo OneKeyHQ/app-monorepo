@@ -169,6 +169,13 @@ function NostrSignEventModal() {
             accountId,
             networkId,
           });
+        } else if (signType === ENostrSignType.signSchnorr) {
+          result = await serviceNostr.signSchnorr({
+            sigHash: sigHash ?? '',
+            walletId,
+            accountId,
+            networkId,
+          });
         }
         console.log('====> result: ', result);
         setTimeout(() => {
