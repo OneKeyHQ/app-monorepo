@@ -99,6 +99,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
 
 function TxActionTokenApproveDetailView(props: ITxActionProps) {
   const intl = useIntl();
+  const { decodedTx } = props;
   const {
     approveIcon,
     approveSpender,
@@ -135,6 +136,12 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
       }}
       target={{
         content: approveSpender,
+        description: decodedTx.swapProvider
+          ? {
+              icon: 'NoteSolid',
+              content: decodedTx.swapProvider,
+            }
+          : undefined,
       }}
       source={{ content: approveOwner }}
     />

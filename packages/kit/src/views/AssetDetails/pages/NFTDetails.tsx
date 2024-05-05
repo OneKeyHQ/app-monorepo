@@ -3,13 +3,17 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
+import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList, Button, Page, Spinner, Stack } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -21,47 +25,81 @@ import type { RouteProp } from '@react-navigation/core';
 export function NFTDetails() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const device = 'Touch';
 
   const route =
     useRoute<
       RouteProp<IModalAssetDetailsParamList, EModalAssetDetailRoutes.NFTDetails>
     >();
-  const { networkId, accountId, accountAddress, collectionAddress, itemId } =
-    route.params;
+  const {
+    networkId,
+    accountId,
+    walletId,
+    accountAddress,
+    collectionAddress,
+    itemId,
+  } = route.params;
 
   const { ImageContent, DetailContent } = getNFTDetailsComponents();
 
-  const result = usePromiseResult(
+  const { result, isLoading } = usePromiseResult(
     async () => {
-      const r = await backgroundApiProxy.serviceNFT.fetchNFTDetails({
-        networkId,
-        accountAddress,
-        nfts: [{ collectionAddress, itemId }],
-      });
+      const isHardware = accountUtils.isHwWallet({ walletId });
 
-      return r[0];
+      const requests: [Promise<IAccountNFT[]>, Promise<IDBDevice | undefined>] =
+        [
+          backgroundApiProxy.serviceNFT.fetchNFTDetails({
+            networkId,
+            accountAddress,
+            nfts: [{ collectionAddress, itemId }],
+          }),
+          isHardware
+            ? backgroundApiProxy.serviceAccount.getWalletDevice({ walletId })
+            : Promise.resolve(undefined),
+        ];
+
+      const [details, device] = await Promise.all(requests);
+
+      return {
+        nft: details[0],
+        device,
+      };
     },
-    [accountAddress, collectionAddress, itemId, networkId],
+    [accountAddress, collectionAddress, itemId, networkId, walletId],
     {
       watchLoading: true,
     },
   );
 
-  const nft = result.result;
+  const { nft, device } = result ?? {};
 
-  const headerRight = useCallback(
-    () => (
+  const headerRight = useCallback(() => {
+    const actions: IActionListItemProps[] = [];
+
+    if (
+      device &&
+      (device.deviceType === 'touch' || device.deviceType === 'pro')
+    ) {
+      // TODO collect to device
+      actions.push({
+        label: `Collect to ${device.deviceType}`,
+        icon: 'InboxOutline',
+      });
+    }
+
+    if (actions.length === 0) {
+      return null;
+    }
+
+    return (
       <ActionList
         title="Actions"
         renderTrigger={
           <HeaderIconButton title="Actions" icon="DotHorOutline" />
         }
-        items={[{ label: `Collect to ${device}`, icon: 'InboxOutline' }]}
+        items={actions}
       />
-    ),
-    [],
-  );
+    );
+  }, [device]);
 
   const handleSendPress = useCallback(() => {
     if (!nft) return;
@@ -80,7 +118,7 @@ export function NFTDetails() {
     return (
       <Page>
         <Page.Body>
-          {result.isLoading ? (
+          {isLoading ? (
             <Stack pt={240} justifyContent="center" alignItems="center">
               <Spinner size="large" />
             </Stack>

@@ -11,6 +11,7 @@ export type ITxActionProps = {
   decodedTx: IDecodedTx;
   tableLayout?: boolean;
   componentProps?: ComponentProps<typeof ListItem>;
+  isSendNativeToken?: boolean;
   nativeTokenTransferAmountToUpdate?: string;
   showIcon?: boolean;
 };
@@ -60,9 +61,17 @@ export type ITxActionCommonDetailViewProps = {
   target?: {
     title?: string;
     content: string;
+    description?: {
+      content?: React.ReactNode;
+      icon?: IKeyOfIcons;
+    };
   };
   source?: {
     title?: string;
     content: string;
+    description?: {
+      content?: React.ReactNode;
+      icon?: IKeyOfIcons;
+    };
   };
 };
