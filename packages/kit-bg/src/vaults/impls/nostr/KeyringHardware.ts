@@ -10,6 +10,7 @@ import type {
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -104,7 +105,92 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    const sdk = await this.getHardwareSDKInstance();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const dbAccount = await this.vault.getAccount();
+    const { messages } = params;
+
+    const result = await Promise.all(
+      messages.map(async ({ message }) => {
+        const response = await sdk.nostrSignSchnorr(connectId, deviceId, {
+          ...params.deviceParams?.deviceCommonParams,
+          path: dbAccount.path,
+          hash: message,
+        });
+        if (!response.success) {
+          throw convertDeviceError(response.payload);
+        }
+        return response.payload.signature;
+      }),
+    );
+    return result;
+  }
+
+  async encrypt(params: {
+    pubkey: string;
+    plaintext: string;
+    password: string;
+    deviceParams: IDeviceSharedCallParams | undefined;
+  }): Promise<string> {
+    const { pubkey, plaintext } = params;
+    const sdk = await this.getHardwareSDKInstance();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const dbAccount = await this.vault.getAccount();
+
+    let response;
+    try {
+      response = await sdk.nostrEncryptMessage(connectId, deviceId, {
+        ...params.deviceParams?.deviceCommonParams,
+        path: dbAccount.path,
+        pubkey,
+        plaintext,
+        showOnOneKey: false,
+      });
+    } catch (error: any) {
+      throw new OneKeyHardwareError(error);
+    }
+
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+
+    return response.payload.encryptedMessage;
+  }
+
+  async decrypt(params: {
+    pubkey: string;
+    ciphertext: string;
+    password: string;
+    deviceParams: IDeviceSharedCallParams | undefined;
+  }): Promise<string> {
+    const { pubkey, ciphertext } = params;
+    const sdk = await this.getHardwareSDKInstance();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const dbAccount = await this.vault.getAccount();
+
+    let response;
+    try {
+      response = await sdk.nostrDecryptMessage(connectId, deviceId, {
+        ...params.deviceParams?.deviceCommonParams,
+        path: dbAccount.path,
+        pubkey,
+        ciphertext,
+        showOnOneKey: false,
+      });
+    } catch (error: any) {
+      throw new OneKeyHardwareError(error);
+    }
+
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+
+    return response.payload.decryptedMessage;
   }
 }

@@ -185,7 +185,8 @@ class ProviderApiNostr extends ProviderApiBase {
 
     const cachedPassword =
       await this.backgroundApi.servicePassword.getCachedPassword();
-    if (cachedPassword) {
+    const isHwWallet = accountUtils.isHwWallet({ walletId: walletId ?? '' });
+    if (cachedPassword || isHwWallet) {
       const encrypted = await this.backgroundApi.serviceNostr.encrypt({
         walletId: walletId ?? '',
         networkId: networkId ?? '',
@@ -231,8 +232,11 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
-    // @ts-expect-error
-    return this.decryptQueue.add(() => this.decryptRequest(request));
+    const result = await this.decryptQueue.add(() =>
+      this.decryptRequest(request),
+    );
+    console.log('====>>>>>DECRYPT: ', result);
+    return result as string;
   }
 
   private async decryptRequest(
@@ -251,7 +255,8 @@ class ProviderApiNostr extends ProviderApiBase {
 
     const cachedPassword =
       await this.backgroundApi.servicePassword.getCachedPassword();
-    if (cachedPassword) {
+    const isHwWallet = accountUtils.isHwWallet({ walletId: walletId ?? '' });
+    if (cachedPassword || isHwWallet) {
       const decrypted = await this.backgroundApi.serviceNostr.decrypt({
         walletId: walletId ?? '',
         networkId: networkId ?? '',

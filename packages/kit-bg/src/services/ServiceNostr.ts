@@ -184,21 +184,14 @@ class ServiceNostr extends ServiceBase {
       networkId,
       accountId,
     })) as IVaultNostr;
-    const encrypted =
-      await this.backgroundApi.serviceHardware.withHardwareProcessing(
-        async () => {
-          const signedTx = await vault.decrypt({
-            pubkey,
-            ciphertext,
-            password: password ?? '',
-            deviceParams,
-          });
-          return signedTx;
-        },
-        { deviceParams },
-      );
+    const decrypted = await vault.decrypt({
+      pubkey,
+      ciphertext,
+      password: password ?? '',
+      deviceParams,
+    });
     return {
-      data: encrypted,
+      data: decrypted,
     };
   }
 
