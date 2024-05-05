@@ -200,6 +200,7 @@ function NostrSignEventModal() {
       pubkey,
       plaintext,
       ciphertext,
+      sigHash,
     ],
   );
 
