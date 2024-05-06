@@ -13,7 +13,7 @@ const network: DBNetwork = {
   feeSymbol: 'TNEX',
   id: 'nexa--testnet',
   impl: 'nexa',
-  logoURI: 'https://onekey-asset.com/assets/nexa/nexa.png',
+  logoURI: 'https://uni.onekey-asset.com/static/chain/nexa.png',
   name: 'Nexa Testnet',
   position: 33,
   rpcURL: 'wss://testnet-explorer.nexa.org:30004/nexa_ws',
