@@ -43,7 +43,10 @@ export const useAppUpdateInfo = (isFullModal = false) => {
   }, [isFullModal, navigation.pushFullModal, navigation.pushModal]);
 
   const toUpdatePreviewPage = useCallback(
-    (isFull = false) => {
+    (isFull = false, params?: {
+      latestVersion?: string;
+      isForceUpdate?: boolean;
+    }) => {
       const pushModal = isFull
         ? navigation.pushFullModal
         : navigation.pushModal;
@@ -53,6 +56,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
           latestVersion: appUpdateInfo.latestVersion,
           isForceUpdate: appUpdateInfo.isForceUpdate,
           autoClose: isFull,
+          ...params,
         },
       });
     },
@@ -83,7 +87,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
         response.latestVersion,
         response.status,
       )) {
-        toUpdatePreviewPage(true);
+        toUpdatePreviewPage(true, response);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
