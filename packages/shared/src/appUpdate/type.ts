@@ -11,10 +11,9 @@ export interface IBasicAppUpdateInfo {
   sha256?: string;
 }
 
-export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo  {
+export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
   version?: string;
 }
-
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   // the latest version of remote server

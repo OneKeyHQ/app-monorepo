@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-import type { IBasicAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import type { IResponseAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
   isFirstLaunchAfterUpdated,
@@ -10,13 +8,12 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
-
-const AxiosInstance = axios.create();
 
 let extensionSyncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
@@ -26,16 +23,22 @@ class ServiceAppUpdate extends ServiceBase {
     super({ backgroundApi });
   }
 
-  cachedUpdateInfo: IBasicAppUpdateInfo | undefined;
+  cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
 
   @backgroundMethod()
   async fetchConfig() {
-    const response = await (
-      await this.getClient()
-    ).get<IBasicAppUpdateInfo>('/utility/v1/app/update');
-    // const response = await AxiosInstance.get<IBasicAppUpdateInfo>('/utility/v1/app/update');
-    this.cachedUpdateInfo = response.data;
-    return response.data;
+    const client = await this.getClient();
+    const response = await client.get<{
+      code: number;
+      data: IResponseAppUpdateInfo;
+    }>('/utility/v1/app/update', {
+      headers: await getRequestHeaders(),
+    });
+    const { code, data } = response.data;
+    if (code === 0) {
+      this.cachedUpdateInfo = data;
+    }
+    return this.cachedUpdateInfo;
   }
 
   @backgroundMethod()
@@ -141,7 +144,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async fetchChangeLog(version: string) {
     const response = await this.getAppLatestInfo({ cached: true });
-    return response.changeLog;
+    return response?.changeLog;
   }
 
   @backgroundMethod()
@@ -156,10 +159,10 @@ class ServiceAppUpdate extends ServiceBase {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       ...releaseInfo,
+      latestVersion: releaseInfo?.version || prev.latestVersion,
       updateAt: Date.now(),
       status:
-        releaseInfo.latestVersion &&
-        releaseInfo.latestVersion !== prev.latestVersion
+        releaseInfo?.version && releaseInfo.version !== prev.latestVersion
           ? EAppUpdateStatus.notify
           : prev.status,
     }));

@@ -5,12 +5,16 @@ import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 
+import {
+  ONEKEY_API_URL,
+  ONEKEY_TEST_API_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
+
 import { ipcMessageKeys } from '../config';
 import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { IDependencies } from '.';
 import type { IUpdateSettings } from '../libs/store';
-import { ONEKEY_API_URL, ONEKEY_TEST_API_URL } from '@onekeyhq/shared/src/config/appConfig';
 
 interface ILatestVersion {
   version: string;
@@ -177,7 +181,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
       });
       return;
     }
-    const feedUrl = `${updateSettings.useTestFeedUrl ? ONEKEY_TEST_API_URL : ONEKEY_API_URL}/utility/v1/app/electorn-feed-url`;
+    const feedUrl = `${
+      updateSettings.useTestFeedUrl ? ONEKEY_TEST_API_URL : ONEKEY_API_URL
+    }/utility/v1/app/electorn-feed-url`;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
