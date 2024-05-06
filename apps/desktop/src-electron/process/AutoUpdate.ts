@@ -10,15 +10,13 @@ import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { IDependencies } from '.';
 import type { IUpdateSettings } from '../libs/store';
+import { ONEKEY_API_URL, ONEKEY_TEST_API_URL } from '@onekeyhq/shared/src/config/appConfig';
 
 interface ILatestVersion {
   version: string;
   releaseDate: string;
   isManualCheck: boolean;
 }
-
-const PROD_FEEDURL = 'https://web.onekey-asset.com/app-monorepo/assets/';
-const TEST_FEEDURL = 'https://web.onekey-asset.com/app-monorepo/pre-release/';
 
 function isNetworkError(errorObject: Error) {
   return (
@@ -179,7 +177,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
       });
       return;
     }
-    const feedUrl = updateSettings.useTestFeedUrl ? TEST_FEEDURL : PROD_FEEDURL;
+    const feedUrl = `${updateSettings.useTestFeedUrl ? ONEKEY_TEST_API_URL : ONEKEY_API_URL}/utility/v1/app/electorn-feed-url`;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
