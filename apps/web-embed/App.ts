@@ -13,10 +13,10 @@ const handler = async (payload: IJsBridgeMessagePayload) =>
   );
 
 const init = (times = 0) => {
-  if (!window.$onekey && times < 100) {
+  if (!window.$onekey && times < 5000) {
     setTimeout(() => {
       init(times + 1);
-    }, 10);
+    }, 15);
     return;
   }
   window.$onekey.$private.webembedReceiveHandler = handler;
