@@ -1,5 +1,4 @@
 import { sha256 } from '@noble/hashes/sha256';
-import { random } from 'lodash';
 
 import type { IEncodedTxLightning } from '@onekeyhq/core/src/chains/lightning/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -140,7 +139,7 @@ export class KeyringHd extends KeyringHdBase {
       msgPayload: {
         ...signTemplate,
         paymentHash,
-        invoice,
+        paymentRequest: invoice,
         expired,
         created: Number(created),
         nonce: signTemplate.nonce,

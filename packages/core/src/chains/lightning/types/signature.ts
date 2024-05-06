@@ -19,7 +19,7 @@ type IAuthMsgType = {
 type IPaymentBolt11MsgType = {
   scenario: typeof LightningScenario;
   type: 'transfer';
-  invoice: string;
+  paymentRequest: string;
   paymentHash: string;
   expired: string;
   created: number;
