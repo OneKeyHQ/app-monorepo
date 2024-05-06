@@ -145,7 +145,7 @@ const OnekeyHardwareDeviceName: FC<DeviceNameProps> = ({
           control={control}
           rules={{
             maxLength: {
-              value: 16,
+              value: 32,
               message: intl.formatMessage({
                 id: 'msg__exceeding_the_maximum_word_limit',
               }),
