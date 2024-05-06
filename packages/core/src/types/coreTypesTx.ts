@@ -10,6 +10,7 @@ import type { IEncodedTxCosmos } from '../chains/cosmos/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
+import type { IEncodedTxLightning } from '../chains/lightning/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
@@ -30,15 +31,15 @@ export type IEncodedTx =
   | IEncodedTxXrp
   | IEncodedTxXmr
   | IEncodedTxTron
-  | IEncodedTxNexa;
+  | IEncodedTxNexa
+  | IEncodedTxLightning;
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
 //   | IEncodedTxBtc
+//   | IEncodedTxDot
 //   | IEncodedTxSTC
 //   | IEncodedTxAptos
 //   | IEncodedTxCfx
-//   | IEncodedTxDot
-//   | IEncodedTxLightning;
 
 export type INativeTx = object;
 //   | INativeTxEvm

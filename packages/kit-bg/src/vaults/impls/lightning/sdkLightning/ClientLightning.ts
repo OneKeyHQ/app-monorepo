@@ -1,4 +1,5 @@
-import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
+import type { IInvoiceDecodedResponse } from '@onekeyhq/core/src/chains/lightning/types/invoice';
+import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types/signature';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -11,7 +12,6 @@ import type {
 } from '@onekeyhq/shared/types/lightning';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
-import type { IInvoiceDecodedResponse } from '../types/invoice';
 import type { AxiosInstance } from 'axios';
 
 function isAuthError(error: unknown): boolean {
@@ -270,7 +270,7 @@ class ClientLightning {
       .get<IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>>(
         `${this.prefix}/invoices/decode/${invoice}`,
       )
-      .then((i) => i.data);
+      .then((i) => i.data.data);
   }
 }
 

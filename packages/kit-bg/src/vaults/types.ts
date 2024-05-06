@@ -1,4 +1,5 @@
 import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
+import type { ILNURLPaymentInfo } from '@onekeyhq/core/src/chains/lightning/types/lnurl';
 import type {
   EAddressEncodings,
   ICoreApiGetAddressItem,
@@ -252,6 +253,10 @@ export type ITransferInfo = {
   useCustomAddressesBalance?: boolean;
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
+
+  // Lightning network
+  lnurlPaymentInfo?: ILNURLPaymentInfo;
+  lightningAddress?: string;
 };
 
 export type IApproveInfo = {

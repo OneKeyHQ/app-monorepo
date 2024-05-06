@@ -19,7 +19,7 @@ import {
 
 import { generateNativeSegwitAccounts } from './sdkLightning/account';
 
-import type { IUnionMsgType } from './types';
+import type { IUnionMsgType } from './types/signature';
 import type { ISigner } from '../../base/ChainSigner';
 import type {
   EAddressEncodings,
