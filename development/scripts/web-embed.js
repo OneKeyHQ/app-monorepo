@@ -20,7 +20,7 @@ if (process.env.EAS_BUILD) {
 }
 
 // GitHub Actions
-if (process.env.process.env.GITHUB_SHA) {
+if (process.env.GITHUB_SHA) {
   console.log('No need to compile web-embed');
   exit(0);
 }
