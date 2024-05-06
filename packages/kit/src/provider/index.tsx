@@ -1,5 +1,6 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { WebViewWebEmbed } from '@onekeyhq/kit/src/views/Discovery/components/WebView/WebViewWebEmbed';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -7,6 +8,7 @@ import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 
 import { Container } from './Container';
+import InAppNotification from './Container/InAppNotification';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 
@@ -33,7 +35,9 @@ export function KitProvider() {
           </GestureHandlerRootView>
         </SplashProvider>
         <PasswordVerifyPromptMount />
+        <WebViewWebEmbed />
         <LastActivityTracker />
+        <InAppNotification />
       </ThemeProvider>
     </GlobalJotaiReady>
   );

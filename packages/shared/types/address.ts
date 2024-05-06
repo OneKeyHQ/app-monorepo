@@ -19,6 +19,7 @@ export type IFetchAccountDetailsParams = {
   networkId: string;
   accountAddress: string;
   xpub?: string;
+  cardanoPubKey?: string;
   withUTXOList?: boolean;
   withNetWorth?: boolean;
   withBalance?: boolean;

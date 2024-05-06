@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 import memoizee from 'memoizee';
-import { Dimensions, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Badge,

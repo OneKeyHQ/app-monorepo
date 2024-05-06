@@ -187,8 +187,16 @@ class ServiceSend extends ServiceBase {
     });
 
     if (feeInfo) {
-      decodedTx.totalFeeInNative = feeInfo.totalNative;
-      decodedTx.totalFeeFiatValue = feeInfo.totalFiat;
+      decodedTx.totalFeeInNative =
+        feeInfo.totalNativeForDisplay ?? feeInfo.totalNative;
+      decodedTx.totalFeeFiatValue =
+        feeInfo.totalFiatForDisplay ?? feeInfo.totalFiat;
+      decodedTx.feeInfo = feeInfo.feeInfo;
+    }
+
+    if (unsignedTx.swapInfo) {
+      decodedTx.swapProvider =
+        unsignedTx.swapInfo.swapBuildResData?.result?.info?.providerName;
     }
 
     return decodedTx;
@@ -372,19 +380,14 @@ class ServiceSend extends ServiceBase {
         unsignedTx,
         feeInfo: sendSelectedFeeInfo,
       });
-      await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
-        networkId,
-        accountId,
-        data: {
-          signedTx,
-          decodedTx,
-        },
-      });
+
       const data = {
         signedTx,
         decodedTx,
       };
+
       result.push(data);
+
       if (!signOnly) {
         await this.backgroundApi.serviceSignature.addItemFromSendProcess(
           data,
@@ -397,11 +400,7 @@ class ServiceSend extends ServiceBase {
           accountId,
           data: {
             signedTx,
-            decodedTx: await this.buildDecodedTx({
-              networkId,
-              accountId,
-              unsignedTx,
-            }),
+            decodedTx,
           },
         });
       }
@@ -558,15 +557,23 @@ class ServiceSend extends ServiceBase {
       throw new Error('Invalid unsigned message');
     }
 
-    const { password } =
+    const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
       });
-    const [signedMessage] = await vault.keyring.signMessage({
-      messages: [validUnsignedMessage],
-      password,
-    });
+    const signedMessage =
+      await this.backgroundApi.serviceHardware.withHardwareProcessing(
+        async () => {
+          const [_signedMessage] = await vault.keyring.signMessage({
+            messages: [validUnsignedMessage as IUnsignedMessage],
+            password,
+            deviceParams,
+          });
+          return _signedMessage;
+        },
+        { deviceParams },
+      );
 
     return signedMessage;
   }

@@ -4,7 +4,6 @@ import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.cons
 import {
   ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
   ESwapDirectionType,
@@ -16,7 +15,6 @@ import type {
   ISwapSlippageSegmentItem,
   ISwapToken,
   ISwapTokenCatch,
-  ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -261,20 +259,3 @@ export const {
   atom: swapReceiverAddressBookValueAtom,
   use: useSwapReceiverAddressBookValueAtom,
 } = contextAtom<string>('');
-
-// swap tx history
-export const { atom: swapTxHistoryAtom, use: useSwapTxHistoryAtom } =
-  contextAtom<ISwapTxHistory[]>([]);
-
-export const {
-  atom: swapTxHistoryStatusChangeAtom,
-  use: useSwapTxHistoryStatusChangeAtom,
-} = contextAtom<ISwapTxHistory[]>([]);
-
-export const {
-  atom: swapTxHistoryPendingAtom,
-  use: useSwapTxHistoryPendingAtom,
-} = contextAtomComputed<ISwapTxHistory[]>((get) => {
-  const list = get(swapTxHistoryAtom());
-  return list.filter((item) => item.status === ESwapTxHistoryStatus.PENDING);
-});
