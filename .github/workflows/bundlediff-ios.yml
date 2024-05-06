@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Setup Node.js v16
         uses: actions/setup-node@v3
