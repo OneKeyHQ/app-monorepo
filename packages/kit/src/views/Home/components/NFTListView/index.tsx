@@ -34,24 +34,25 @@ function NFTListView(props: IProps) {
 
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
 
   const handleOnPressNFT = useCallback(
     (nft: IAccountNFT) => {
-      if (!account || !network) return;
+      if (!account || !network || !wallet) return;
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.NFTDetails,
         params: {
           networkId: network.id,
           accountId: account.id,
+          walletId: wallet.id,
           accountAddress: account.address,
           collectionAddress: nft.collectionAddress,
           itemId: nft.itemId,
         },
       });
     },
-    [account, navigation, network],
+    [account, navigation, network, wallet],
   );
 
   const renderNFTListView = useCallback(() => {
