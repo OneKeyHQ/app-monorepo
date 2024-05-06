@@ -35,6 +35,7 @@ import type {
   IConnectionStorageType,
   IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
+import { IProxyResponse } from '@onekeyhq/shared/types/proxy';
 
 import ServiceBase from './ServiceBase';
 
@@ -45,7 +46,6 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import { IProxyResponse } from '@onekeyhq/shared/types/proxy';
 
 function buildModalRouteParams({
   screens = [],
