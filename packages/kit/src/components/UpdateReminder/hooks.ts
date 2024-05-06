@@ -6,7 +6,6 @@ import {
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import {
   downloadPackage,
   installPackage,
@@ -15,11 +14,9 @@ import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 export const useAppChangeLog = (version?: string) => {
-  const localVariant = useLocaleVariant();
   const response = usePromiseResult(
     () =>
       version
@@ -27,7 +24,7 @@ export const useAppChangeLog = (version?: string) => {
         : Promise.resolve(null),
     [version],
   );
-  return useMemo(() => response.result, [localVariant, response.result]);
+  return useMemo(() => response.result, [response.result]);
 };
 
 export const useAppUpdateInfo = (isFullModal = false) => {
