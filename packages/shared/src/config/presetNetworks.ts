@@ -1642,7 +1642,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   };
 
   const chainsOnlyEnabledInDev = [
-    tron,
     osmosis,
     cosmoshub,
     tatom, // Cosmos Testnet

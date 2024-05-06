@@ -24,7 +24,7 @@ const settings: IVaultSettings = {
 
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
-  externalAccountEnabled: true,
+  externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
   isUtxo: false,
@@ -33,6 +33,7 @@ const settings: IVaultSettings = {
   nonceRequired: false,
   feeUTXORequired: false,
   editFeeEnabled: false,
+  checkFeeDetailEnabled: true,
   replaceTxEnabled: false,
   allowZeroFee: true,
 
