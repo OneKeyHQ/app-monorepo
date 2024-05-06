@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IChangeLog } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
   isFirstLaunchAfterUpdated,
@@ -19,11 +18,6 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-const getLocalVariantChangeLog = (
-  changeLog: IChangeLog,
-  localVariant: ILocaleSymbol,
-) => changeLog?.[localVariant] || changeLog?.['en-US'];
-
 export const useAppChangeLog = (version?: string) => {
   const localVariant = useLocaleVariant();
   const response = usePromiseResult(
@@ -34,10 +28,7 @@ export const useAppChangeLog = (version?: string) => {
     [version],
   );
   return useMemo(
-    () =>
-      response.result
-        ? getLocalVariantChangeLog(response.result, localVariant)
-        : '',
+    () => response.result,
     [localVariant, response.result],
   );
 };

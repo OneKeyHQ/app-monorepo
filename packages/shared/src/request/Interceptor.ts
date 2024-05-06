@@ -24,6 +24,53 @@ export async function checkRequestIsOneKeyDomain(url: string) {
   return isOneKeyDomain;
 }
 
+let channel = ''
+
+const getChannel = () => {
+  if (channel) {
+    return channel
+  }
+  if (platformEnv.isNativeIOS) {
+    return 'app-store';
+  }
+  if (platformEnv.isNativeAndroid) {
+    if (platformEnv.isNativeAndroidHuawei) {
+      return 'store-huawei';
+    }
+    if (platformEnv.isNativeAndroidGooglePlay) {
+      return 'store-google';
+    }
+    return 'out-store';
+  }
+
+  if (platformEnv.isDesktop) {
+    if (platformEnv.isDesktopLinux) {
+      return 'linux-out-store';
+    } else if (platformEnv.isDesktopLinuxSnap) {
+      return 'linux-snap-store';
+    } else if (platformEnv.isDesktopMac) {
+      return 'mac-out-store-x64';
+    } else if (platformEnv.isDesktopMacArm64) {
+      return 'mac-out-store-arm';
+    } else if (platformEnv.isMas) {
+      return 'mac-app-store';
+    } else if (platformEnv.isDesktopWin) {
+      return 'win-out-store';
+    } else if (platformEnv.isDesktopWinMsStore) {
+      return 'win-store';
+    }
+  }
+
+  if (platformEnv.isExtension) {
+    if (platformEnv.isExtChrome) {
+      return 'chrome'
+    } else if (platformEnv.isExtFirefox) {
+      return 'firefox'
+    } 
+    return 'edge'
+  }
+}
+
 export async function getRequestHeaders() {
   const settings = await settingsPersistAtom.get();
 
@@ -52,5 +99,6 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-Version')]: platformEnv.version,
     [normalizeHeaderKey('X-Onekey-Request-Build-Number')]:
       platformEnv.buildNumber,
+    [normalizeHeaderKey('X-Onekey-Request-Channel')]: getChannel(),
   };
 }
