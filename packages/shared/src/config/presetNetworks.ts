@@ -1563,6 +1563,44 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
+  const cardano = {
+    'balance2FeeDecimals': 6,
+    'chainId': '0',
+    'code': 'ada',
+    'decimals': 6,
+    'id': 'ada--0',
+    'impl': 'ada',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/ada.png',
+    'name': 'Cardano',
+    'shortcode': 'ada',
+    'shortname': 'Cardano',
+    'symbol': 'ADA',
+    'feeMeta': {
+      'code': 'ada',
+      'decimals': 6,
+      'symbol': 'ada',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'cardano',
+        'platform': 'cardano',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://cardanoscan.io/address/{address}',
+        'block': 'https://cardanoscan.io/block/{block}',
+        'name': 'https://cardanoscan.io/',
+        'transaction': 'https://cardanoscan.io/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
 
   const chainsOnlyEnabledInDev = [
     osmosis,
@@ -1586,6 +1624,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     arb,
     avax,
     polygon,
+    cardano,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

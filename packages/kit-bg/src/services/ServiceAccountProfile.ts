@@ -16,6 +16,11 @@ import type {
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IProxyRequest,
+  IProxyRequestItem,
+  IProxyResponse,
+} from '@onekeyhq/shared/types/proxy';
 
 import ServiceBase from './ServiceBase';
 
@@ -215,6 +220,27 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
     return result;
+  }
+
+  @backgroundMethod()
+  async sendProxyRequest<T>({
+    networkId,
+    body,
+  }: {
+    networkId: string;
+    body: IProxyRequestItem[];
+  }): Promise<T[]> {
+    const client = await this.getClient();
+    const request: IProxyRequest = { networkId, body };
+    const resp = await client.post<IProxyResponse<T>>(
+      '/wallet/v1/proxy/wallet',
+      request,
+    );
+    const data = resp.data.data.data;
+    if (data.some((item) => !item.success)) {
+      throw new Error('Failed to send proxy request');
+    }
+    return data.map((item) => item.data);
   }
 }
 

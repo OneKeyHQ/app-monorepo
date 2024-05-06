@@ -54,10 +54,15 @@ function SendConfirmContainer() {
       networkId,
       accountId,
     });
+    const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
+      accountId,
+      networkId,
+    });
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
       accountAddress: account.address,
       contractList: [''],
+      xpub,
     });
 
     updateNativeTokenInfo({

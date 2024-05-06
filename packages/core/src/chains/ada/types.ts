@@ -62,7 +62,11 @@ export type IEncodedTxAda = {
   fee: string;
   totalSpent: string;
   totalFeeInNative: string;
-  // transferInfo: ITransferInfo; // TODO
+  transferInfo?: {
+    from: string;
+    to: string;
+    amount: string;
+  }; 
   tx: IAdaTxInfo;
   changeAddress: IAdaChangeAddress;
   signOnly?: boolean;
@@ -134,18 +138,18 @@ export type IEncodedTxAda = {
 //   fingerprint: string;
 //   quantity: string;
 // };
-// export type IAdaAccount = {
-//   'stake_address': string;
-//   'active': boolean;
-//   'active_epoch': number;
-//   'controlled_amount': string;
-//   'rewards_sum': string;
-//   'withdrawals_sum': string;
-//   'reserves_sum': string;
-//   'treasury_sum': string;
-//   'withdrawable_amount': string;
-//   'pool_id': string;
-// };
+export type IAdaAccount = {
+  'stake_address': string;
+  'active': boolean;
+  'active_epoch': number;
+  'controlled_amount': string;
+  'rewards_sum': string;
+  'withdrawals_sum': string;
+  'reserves_sum': string;
+  'treasury_sum': string;
+  'withdrawable_amount': string;
+  'pool_id': string;
+};
 // export type IAdaOutputs = {
 //   address: string;
 //   amount: string;

@@ -1,3 +1,4 @@
+import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
 import type {
   EAddressEncodings,
   ICoreApiGetAddressItem,
@@ -281,6 +282,11 @@ export type IUtxoInfo = {
   confirmations: number;
   address: string;
   path: string;
+  // Use for Cardano UTXO info
+  txIndex?: number;
+  amount?: IAdaAmount[];
+  datumHash?: string | null;
+  referenceScriptHash?: string | null;
 };
 
 export type INativeAmountInfo = {
@@ -344,6 +350,7 @@ export interface IBatchSignTransactionParamsBase {
 export interface ISignMessageParams {
   messages: IUnsignedMessage[];
   password: string;
+  deviceParams: IDeviceSharedCallParams | undefined;
 }
 
 export interface IBuildHistoryTxParams {
