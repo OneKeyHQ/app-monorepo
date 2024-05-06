@@ -1571,13 +1571,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'ada--0',
     'impl': 'ada',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/ada/ada.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/ada.png',
     'name': 'Cardano',
-    'rpcURLs': [
-      {
-        'url': 'https://node.onekey.so/ada',
-      },
-    ],
     'shortcode': 'ada',
     'shortname': 'Cardano',
     'symbol': 'ADA',

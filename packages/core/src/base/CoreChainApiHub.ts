@@ -22,7 +22,7 @@ import CoreChainLtc from '../chains/ltc';
 import CoreChainRipple from '../chains/ripple';
 
 export class CoreChainApiHub {
-  cardano = new CoreChainAda();
+  ada = new CoreChainAda();
 
   evm = new CoreChainEvm();
 

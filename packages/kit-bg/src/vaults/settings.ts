@@ -8,8 +8,8 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
-  IMPL_TBTC,
   IMPL_RIPPLE,
+  IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -60,7 +60,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),
-    [IMPL_ADA]: () => import('./impls/cardano/settings'),
+    [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_RIPPLE]: () => import('./impls/ripple/settings'),
   };
   const loader = settingsLoader[impl];
