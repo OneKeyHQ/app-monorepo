@@ -9,6 +9,8 @@ const { createResolveExtensions } = require('./utils');
 const { exit } = require('process');
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 
+// CI is 'true' in Github Actions
+// CI is 1 in EAS build
 const isCI = !!process.env.CI
 
 class BuildDoneNotifyPlugin {
