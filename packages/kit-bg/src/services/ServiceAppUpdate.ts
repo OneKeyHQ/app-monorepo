@@ -166,7 +166,6 @@ class ServiceAppUpdate extends ServiceBase {
           ? EAppUpdateStatus.notify
           : prev.status,
     }));
-    return releaseInfo
     return appUpdatePersistAtom.get();
   }
 }
