@@ -95,7 +95,7 @@ export const getTabRouter = (params?: IGetTabRouterParams) => {
           children: meRouters,
         }
       : undefined,
-    true
+      platformEnv.isDev
       ? {
           name: ETabRoutes.Developer,
           tabBarIcon: (focused?: boolean) =>
