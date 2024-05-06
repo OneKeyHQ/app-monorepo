@@ -55,8 +55,8 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import sdk from './sdkCardano';
-import { getChangeAddress } from './sdkCardano/cardanoUtils';
+import sdk from './sdkAda';
+import { getChangeAddress } from './sdkAda/adaUtils';
 import settings from './settings';
 
 import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';

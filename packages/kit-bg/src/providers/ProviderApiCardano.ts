@@ -2,7 +2,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { EAdaNetworkId } from '@onekeyhq/core/src/chains/ada/types';
-import type ICardanoVault from '@onekeyhq/kit-bg/src/vaults/impls/cardano/Vault';
+import type IAdaVault from '@onekeyhq/kit-bg/src/vaults/impls/ada/Vault';
 import {
   backgroundClass,
   providerApiMethod,
@@ -72,7 +72,7 @@ class ProviderApiCardano extends ProviderApiBase {
     return accountsInfo;
   };
 
-  private async getCardanoVault(request: IJsBridgeMessagePayload) {
+  private async getAdaVault(request: IJsBridgeMessagePayload) {
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
@@ -84,7 +84,7 @@ class ProviderApiCardano extends ProviderApiBase {
     const vault = (await vaultFactory.getVault({
       networkId: networkId ?? '',
       accountId: accountId ?? '',
-    })) as ICardanoVault;
+    })) as IAdaVault;
     return vault;
   }
 
@@ -123,7 +123,7 @@ class ProviderApiCardano extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { amount?: string },
   ) {
-    const vault = await this.getCardanoVault(request);
+    const vault = await this.getAdaVault(request);
     if (!vault) {
       throw new Error('Not connected to any account.');
     }
@@ -132,7 +132,7 @@ class ProviderApiCardano extends ProviderApiBase {
 
   @providerApiMethod()
   public async getBalance(request: IJsBridgeMessagePayload) {
-    const vault = await this.getCardanoVault(request);
+    const vault = await this.getAdaVault(request);
     if (!vault) {
       throw new Error('Not connected to any account.');
     }
@@ -141,7 +141,7 @@ class ProviderApiCardano extends ProviderApiBase {
 
   @providerApiMethod()
   async getUsedAddresses(request: IJsBridgeMessagePayload) {
-    const vault = await this.getCardanoVault(request);
+    const vault = await this.getAdaVault(request);
     if (!vault) {
       throw new Error('Not connected to any account.');
     }
@@ -150,7 +150,7 @@ class ProviderApiCardano extends ProviderApiBase {
 
   @providerApiMethod()
   async getUnusedAddresses(request: IJsBridgeMessagePayload) {
-    const vault = await this.getCardanoVault(request);
+    const vault = await this.getAdaVault(request);
     if (!vault) {
       throw new Error('Not connected to any account.');
     }
@@ -159,7 +159,7 @@ class ProviderApiCardano extends ProviderApiBase {
 
   @providerApiMethod()
   async getChangeAddress(request: IJsBridgeMessagePayload) {
-    const vault = await this.getCardanoVault(request);
+    const vault = await this.getAdaVault(request);
     if (!vault) {
       throw new Error('Not connected to any account.');
     }
@@ -169,7 +169,7 @@ class ProviderApiCardano extends ProviderApiBase {
 
   @providerApiMethod()
   async getRewardAddresses(request: IJsBridgeMessagePayload) {
-    const vault = await this.getCardanoVault(request);
+    const vault = await this.getAdaVault(request);
     if (!vault) {
       throw new Error('Not connected to any account.');
     }
@@ -178,7 +178,7 @@ class ProviderApiCardano extends ProviderApiBase {
 
   @providerApiMethod()
   async signTx(request: IJsBridgeMessagePayload, params: { tx: string }) {
-    const vault = await this.getCardanoVault(request);
+    const vault = await this.getAdaVault(request);
     if (!vault) {
       throw new Error('Not connected to any account.');
     }

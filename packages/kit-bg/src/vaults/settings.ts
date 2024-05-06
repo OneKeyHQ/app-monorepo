@@ -59,7 +59,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),
-    [IMPL_ADA]: () => import('./impls/cardano/settings'),
+    [IMPL_ADA]: () => import('./impls/ada/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

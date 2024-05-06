@@ -13,7 +13,7 @@ import type {
 } from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
-  override coreApi = coreChainApi.cardano.imported;
+  override coreApi = coreChainApi.ada.imported;
 
   override async getPrivateKeys(
     params: IGetPrivateKeysParams,

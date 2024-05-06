@@ -84,7 +84,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
     [IMPL_LIGHTNING]: () => import('./impls/lightning/Vault') as any,
     [IMPL_LIGHTNING_TESTNET]: () => import('./impls/lightning/Vault') as any,
-    [IMPL_ADA]: () => import('./impls/cardano/Vault') as any,
+    [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

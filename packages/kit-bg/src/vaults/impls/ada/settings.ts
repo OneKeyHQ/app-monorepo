@@ -1,8 +1,6 @@
 import {
   COINTYPE_ADA,
-  COINTYPE_ETH,
   IMPL_ADA,
-  IMPL_EVM,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 

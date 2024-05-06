@@ -15,8 +15,8 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import sdk from './sdkCardano';
-import { getChangeAddress } from './sdkCardano/cardanoUtils';
+import sdk from './sdkAda';
+import { getChangeAddress } from './sdkAda/adaUtils';
 
 import type VaultCardano from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
@@ -40,7 +40,7 @@ const getCardanoConstant = async () => {
 };
 
 export class KeyringHardware extends KeyringHardwareBase {
-  override coreApi = coreChainApi.evm.hd;
+  override coreApi = coreChainApi.ada.hd;
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,

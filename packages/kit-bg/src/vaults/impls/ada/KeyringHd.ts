@@ -13,7 +13,7 @@ import type {
 } from '../../types';
 
 export class KeyringHd extends KeyringHdBase {
-  override coreApi = coreChainApi.cardano.hd;
+  override coreApi = coreChainApi.ada.hd;
 
   override async getPrivateKeys(
     params: IGetPrivateKeysParams,
