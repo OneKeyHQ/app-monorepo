@@ -24,6 +24,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -34,6 +35,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import ClientLightning from './sdkLightning/ClientLightning';
+import { findLnurl, isLightningAddress } from './sdkLightning/lnurl';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -65,7 +67,9 @@ export default class Vault extends VaultBase {
   private getClientCache = memoizee(
     async () => {
       const network = await this.getNetwork();
-      const _client = await this.backgroundApi.serviceLightning.getClient();
+      const _client = await this.backgroundApi.serviceLightning.getClient(
+        EEndpointName.LN,
+      );
       return new ClientLightning(
         this.backgroundApi,
         _client,
@@ -126,6 +130,40 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
+    // maybe it's a lnurl
+    try {
+      const lnurl = findLnurl(address);
+      if (!lnurl) {
+        if (isLightningAddress(address)) {
+          return {
+            isValid: true,
+            normalizedAddress: address,
+            displayAddress: address,
+          };
+        }
+        throw new Error('not a lnurl');
+      }
+      return {
+        isValid: true,
+        normalizedAddress: lnurl,
+        displayAddress: lnurl,
+      };
+    } catch (e) {
+      // ignore parsed lnurl error
+    }
+
+    try {
+      await this._decodedInvoiceCache(address);
+      return {
+        isValid: true,
+        normalizedAddress: address,
+        displayAddress: address,
+      };
+    } catch (e) {
+      // throw new InvalidLightningPaymentRequest();
+      // ignore invoice error
+    }
+
     const { isTestnet } = await this.getNetwork();
     return validateBtcAddress({
       network: getBtcForkNetwork(isTestnet ? IMPL_TBTC : IMPL_BTC),
@@ -219,4 +257,14 @@ export default class Vault extends VaultBase {
     });
     return res;
   }
+
+  _decodedInvoiceCache = memoizee(
+    async (invoice: string) => {
+      const client = await this.getClient();
+      return client.decodedInvoice(invoice);
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
 }

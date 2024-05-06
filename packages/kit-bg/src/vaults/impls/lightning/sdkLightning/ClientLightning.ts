@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/shared/types/lightning';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
+import type { IInvoiceDecodedResponse } from '../types/invoice';
 import type { AxiosInstance } from 'axios';
 
 function isAuthError(error: unknown): boolean {
@@ -262,6 +263,14 @@ class ClientLightning {
         });
       },
     );
+  }
+
+  async decodedInvoice(invoice: string) {
+    return this.request
+      .get<IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>>(
+        `${this.prefix}/invoices/decode/${invoice}`,
+      )
+      .then((i) => i.data);
   }
 }
 

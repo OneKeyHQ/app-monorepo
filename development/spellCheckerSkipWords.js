@@ -683,4 +683,6 @@ module.exports = [
   'copyable',
   'apk',
   'dbs',
+  'lnurl',
+  'millisatoshis',
 ];
