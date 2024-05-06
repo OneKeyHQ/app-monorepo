@@ -4,7 +4,7 @@ export interface IProxyRequestParam {
 }
 
 export interface IProxyRequestItem {
-  method: string;
+  route: string;
   params: IProxyRequestParam;
 }
 
