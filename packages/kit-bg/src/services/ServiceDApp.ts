@@ -750,7 +750,7 @@ class ServiceDApp extends ServiceBase {
           result: unknown;
         };
       };
-    }>('/wallet/v1/network/proxy', {
+    }>('/wallet/v1/proxy/network', {
       networkId,
       body: [request.id ? request : { ...request, id: 0 }],
     });
