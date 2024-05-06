@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { sha256 } from '@noble/hashes/sha256';
 import BigNumber from 'bignumber.js';
+import { format } from 'date-fns';
 import { isEmpty } from 'lodash';
 
 import {
@@ -34,7 +35,12 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+  type IDecodedTx,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -168,8 +174,72 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxLightning;
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+
+    const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+      accountAddress: account.address,
+    });
+
+    if (!nativeToken) {
+      throw new OneKeyInternalError('Native token not found');
+    }
+
+    let formattedTo = '';
+    if (encodedTx.lightningAddress) {
+      formattedTo = encodedTx.lightningAddress;
+    } else if (encodedTx.decodedInvoice?.paymentRequest) {
+      formattedTo = accountUtils.shortenAddress({
+        address: encodedTx.decodedInvoice.paymentRequest,
+        leadingLength: 44,
+        trailingLength: 33,
+      });
+    }
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: account.name,
+      signer: '',
+      nonce: 0,
+      actions: [
+        {
+          type: EDecodedTxActionType.ASSET_TRANSFER,
+          assetTransfer: {
+            from: account.name,
+            to: formattedTo,
+            sends: [
+              {
+                from: account.name,
+                to: formattedTo,
+                isNative: true,
+                tokenIdOnNetwork: '',
+                name: nativeToken.name,
+                icon: nativeToken.logoURI ?? '',
+                amount: new BigNumber(encodedTx.amount).toFixed(),
+                symbol: network.symbol,
+              },
+            ],
+            receives: [],
+          },
+        },
+      ],
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      payload: {
+        type: EOnChainHistoryTxType.Send,
+      },
+      encodedTx,
+    };
+
+    return decodedTx;
   }
 
   override async buildUnsignedTx(
@@ -188,7 +258,8 @@ export default class Vault extends VaultBase {
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    // TODO: update fee ?
+    return Promise.resolve(params.unsignedTx);
   }
 
   override broadcastTransaction(

@@ -71,7 +71,7 @@ class ClientLightning {
     }
   };
 
-  private async getAuthorization({
+  async getAuthorization({
     accountId,
     networkId,
     address,

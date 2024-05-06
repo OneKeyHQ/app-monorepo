@@ -91,10 +91,15 @@ function SendDataInputContainer() {
           } & ITokenFiat)[]
         | undefined;
 
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
       if (isNFT && nft) {
         nftResp = await serviceNFT.fetchNFTDetails({
           networkId,
-          accountAddress: account.address,
+          accountAddress,
           nfts: [
             {
               collectionAddress: nft.collectionAddress,
@@ -105,7 +110,7 @@ function SendDataInputContainer() {
       } else if (!isNFT && tokenInfo) {
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
-          accountAddress: account.address,
+          accountAddress,
           xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
             accountId,
             networkId,

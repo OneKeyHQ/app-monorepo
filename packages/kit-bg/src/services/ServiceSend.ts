@@ -297,10 +297,11 @@ class ServiceSend extends ServiceBase {
   ) {
     const { networkId, accountId, unsignedTx, signOnly } = params;
 
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
 
     const signedTx = await this.signTransaction({
       networkId,
@@ -319,7 +320,7 @@ class ServiceSend extends ServiceBase {
       const txid = await this.broadcastTransaction({
         networkId,
         signedTx,
-        accountAddress: account.address,
+        accountAddress,
       });
       return { ...signedTx, txid };
     }

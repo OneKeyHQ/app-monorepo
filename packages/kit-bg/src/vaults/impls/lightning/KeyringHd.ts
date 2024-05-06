@@ -1,5 +1,7 @@
 import { sha256 } from '@noble/hashes/sha256';
+import { random } from 'lodash';
 
+import type { IEncodedTxLightning } from '@onekeyhq/core/src/chains/lightning/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -10,6 +12,7 @@ import type { ISignApiMessageParams } from '@onekeyhq/shared/types/lightning';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
+import type ILightningVault from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetPrivateKeysParams,
@@ -120,7 +123,69 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    return this.baseSignTransaction(params);
+    const { password, unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxLightning;
+    const dbAccount = await this.vault.getAccount();
+    const { invoice, expired, created, paymentHash, amount } = encodedTx;
+    const client = await (this.vault as ILightningVault).getClient();
+    const signTemplate = await client.fetchSignTemplate(
+      dbAccount.addressDetail.normalizedAddress,
+      'transfer',
+    );
+    if (signTemplate.type !== 'transfer') {
+      throw new Error('Wrong transfer signature type');
+    }
+    const network = await this.getNetwork();
+    const signature = await this.signApiMessage({
+      msgPayload: {
+        ...signTemplate,
+        paymentHash,
+        invoice,
+        expired,
+        created: Number(created),
+        nonce: signTemplate.nonce,
+        randomSeed: signTemplate.randomSeed,
+      },
+      password,
+      address: dbAccount.addressDetail.normalizedAddress,
+      path: accountUtils.buildLnToBtcPath({
+        path: dbAccount.path,
+        isTestnet: network.isTestnet,
+      }),
+    });
+
+    if (
+      !signature ||
+      typeof signTemplate.nonce !== 'number' ||
+      typeof signTemplate.randomSeed !== 'number'
+    ) {
+      throw new OneKeyInternalError('Invalid signature');
+    }
+    const sign = await client.getAuthorization({
+      accountId: dbAccount.id,
+      networkId: network.id,
+    });
+
+    const rawTx = {
+      amount,
+      created: Number(created),
+      expired,
+      nonce: signTemplate.nonce,
+      paymentHash,
+      paymentRequest: invoice,
+      randomSeed: signTemplate.randomSeed,
+      sign,
+      signature,
+      testnet: network.isTestnet,
+    };
+
+    return {
+      txid: paymentHash,
+      rawTx: JSON.stringify(rawTx),
+      nonce: signTemplate.nonce,
+      randomSeed: signTemplate.randomSeed,
+      encodedTx,
+    };
   }
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {
