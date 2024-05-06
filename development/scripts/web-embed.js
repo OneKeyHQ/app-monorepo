@@ -5,10 +5,7 @@ const fs = require('fs');
 const { exit } = require('process');
 
 const BASEDIR = path.dirname(__filename);
-const webBuildPath = path.resolve(
-  BASEDIR,
-  '../../../apps/web-embed/web-build',
-);
+const webBuildPath = path.resolve(BASEDIR, '../../apps/web-embed/web-build');
 
 // EAS build
 if (process.env.EAS_BUILD) {
