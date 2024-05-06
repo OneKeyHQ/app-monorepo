@@ -19,3 +19,7 @@ cp ./packages/shared/src/web/index.html.ejs ./packages/shared/src/web/index.html
 mkdir -p ./apps/desktop/public/static/js-sdk/
 rsync ./node_modules/@onekeyfe/hd-web-sdk/build/ ./apps/desktop/public/static/js-sdk/ --checksum  --recursive --verbose
 
+# build and copy web-embed
+BASEDIR=$(dirname "$0")
+node "${BASEDIR}/web-embed.js"
+

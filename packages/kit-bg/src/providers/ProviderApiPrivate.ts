@@ -12,10 +12,15 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isWebEmbedApiAllowedOrigin } from '@onekeyhq/shared/src/utils/originUtils';
+import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type BackgroundApiBase from '../apis/BackgroundApiBase';
+import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IOneKeyWalletInfo {
@@ -234,6 +239,55 @@ class ProviderApiPrivate extends ProviderApiBase {
       id: payload?.data?.promiseId,
       data: { ...(payload?.data?.data ?? {}) },
     });
+  }
+
+  isWebEmbedApiReady = false;
+
+  @providerApiMethod()
+  async webEmbedApiReady(): Promise<void> {
+    this.isWebEmbedApiReady = true;
+    return Promise.resolve();
+  }
+
+  @providerApiMethod()
+  async webEmbedApiNotReady(): Promise<void> {
+    this.isWebEmbedApiReady = false;
+    return Promise.resolve();
+  }
+
+  async callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
+    if (!platformEnv.isNative) {
+      throw new Error('call webembed api only support native env');
+    }
+    const bg = this.backgroundApi as unknown as BackgroundApiBase;
+
+    await waitForDataLoaded({
+      data: () => this.isWebEmbedApiReady && Boolean(bg?.webEmbedBridge),
+      logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${
+        data?.module || ''
+      } - ${data?.method || ''}`,
+      wait: 1000,
+      timeout: timerUtils.getTimeDurationMs({ minute: 3 }),
+    });
+
+    if (!bg?.webEmbedBridge?.request) {
+      throw new Error('webembed webview bridge not ready.');
+    }
+
+    const webviewOrigin = `${bg?.webEmbedBridge?.remoteInfo?.origin || ''}`;
+    if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
+      throw new Error(
+        `callWebEmbedApiProxy not allowed origin: ${
+          webviewOrigin || 'undefined'
+        }`,
+      );
+    }
+
+    const result = await bg?.webEmbedBridge?.request?.({
+      scope: '$private',
+      data,
+    });
+    return result;
   }
 }
 
