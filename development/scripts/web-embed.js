@@ -12,6 +12,7 @@ const webBuildPath = path.resolve(
 
 // EAS build
 if (process.env.EAS_BUILD) {
+  console.log('build web-embed on EAS_BUILD');
   require('child_process').execSync('yarn app:web-embed:build', {
     stdio: 'inherit',
   });
@@ -20,11 +21,13 @@ if (process.env.EAS_BUILD) {
 
 // GitHub Actions
 if (process.env.process.env.GITHUB_SHA) {
+  console.log('No need to compile web-embed');
   exit(0);
 }
 
 // Local development
 if (!fs.existsSync(webBuildPath)) {
+  console.log('build web-embed on local development');
   require('child_process').execSync('yarn app:web-embed:build', {
     stdio: 'inherit',
   });
