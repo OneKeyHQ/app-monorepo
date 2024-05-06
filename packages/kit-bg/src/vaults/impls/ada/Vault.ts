@@ -518,14 +518,14 @@ export default class Vault extends VaultBase {
         networkId: this.networkId,
         body: [
           {
-            method: 'bf',
+            route: 'bf',
             params: {
               method: 'accounts',
               params: [stakeAddress],
             },
           },
           {
-            method: 'bf',
+            route: 'bf',
             params: {
               method: 'accountsAddressesAssets',
               params: [stakeAddress],
@@ -579,7 +579,7 @@ export default class Vault extends VaultBase {
         networkId: this.networkId,
         body: [
           {
-            method: 'bf',
+            route: 'bf',
             params: {
               method: 'accountsAddresses',
               params: [stakeAddress],
