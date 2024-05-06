@@ -8,6 +8,7 @@ import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 
 import { Container } from './Container';
+import InAppNotification from './Container/InAppNotification';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 
@@ -36,6 +37,7 @@ export function KitProvider() {
         <PasswordVerifyPromptMount />
         <WebViewWebEmbed />
         <LastActivityTracker />
+        <InAppNotification />
       </ThemeProvider>
     </GlobalJotaiReady>
   );
