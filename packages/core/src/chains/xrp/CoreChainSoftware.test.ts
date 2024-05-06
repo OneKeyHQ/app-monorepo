@@ -66,8 +66,8 @@ const {
   ],
 });
 
-// yarn jest packages/core/src/chains/ripple/CoreChainSoftware.test.ts
-describe('Ripple Core tests', () => {
+// yarn jest packages/core/src/chains/xrp/CoreChainSoftware.test.ts
+describe('XRP Core tests', () => {
   it('mnemonic verify', () => {
     coreTestsUtils.expectMnemonicValid({
       hdCredential,

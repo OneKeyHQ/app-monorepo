@@ -19,7 +19,7 @@ import CoreChainLtc from '../chains/ltc';
 // import CoreChainSui from '../chains/sui';
 // import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
-import CoreChainRipple from '../chains/ripple';
+import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
   ada = new CoreChainAda();
@@ -44,7 +44,7 @@ export class CoreChainApiHub {
 
   // cfx = new CoreChainCfx();
 
-  ripple = new CoreChainRipple();
+  xrp = new CoreChainXrp();
 
   // tron = new CoreChainTron();
 

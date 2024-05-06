@@ -1,4 +1,4 @@
-export interface IEncodedTxRipple {
+export interface IEncodedTxXrp {
   TransactionType: 'Payment';
   Account: string;
   Fee?: string;

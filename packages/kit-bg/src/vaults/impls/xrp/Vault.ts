@@ -2,8 +2,8 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
-import { XRPL } from '@onekeyhq/core/src/chains/ripple/sdkRipple';
-import type { IEncodedTxRipple } from '@onekeyhq/core/src/chains/ripple/types';
+import { XRPL } from '@onekeyhq/core/src/chains/xrp/sdkXrp';
+import type { IEncodedTxXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -84,7 +84,7 @@ export default class Vault extends VaultBase {
 
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
-  ): Promise<IEncodedTxRipple> {
+  ): Promise<IEncodedTxXrp> {
     const { transfersInfo } = params;
     if (!transfersInfo || isEmpty(transfersInfo)) {
       throw new OneKeyInternalError('transfersInfo is required');
@@ -144,7 +144,7 @@ export default class Vault extends VaultBase {
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
-    const encodedTx = unsignedTx.encodedTx as IEncodedTxRipple;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxXrp;
     const network = await this.getNetwork();
     const account = await this.getAccount();
 

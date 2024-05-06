@@ -6,7 +6,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import type { IEncodedTxRipple } from './types';
+import type { IEncodedTxXrp } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -98,7 +98,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const encodedTx = unsignedTx.encodedTx;
     // const txBytes = bufferUtils.toBuffer('');
     const signResult = signature(
-      encodedTx as IEncodedTxRipple,
+      encodedTx as IEncodedTxXrp,
       pub,
       `00${prvKey}`,
     );

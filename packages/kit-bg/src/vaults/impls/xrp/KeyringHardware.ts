@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { hashes } from 'xrpl';
 
-import type { IEncodedTxRipple } from '@onekeyhq/core/src/chains/ripple/types';
+import type { IEncodedTxXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -22,7 +22,7 @@ import type {
 } from '../../types';
 
 export class KeyringHardware extends KeyringHardwareBase {
-  override coreApi = coreChainApi.evm.hd;
+  override coreApi = coreChainApi.xrp.hd;
 
   override prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -68,7 +68,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const sdk = await this.getHardwareSDKInstance();
-    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxRipple;
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxXrp;
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();

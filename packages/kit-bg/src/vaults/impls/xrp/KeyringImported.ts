@@ -13,7 +13,7 @@ import type {
 } from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
-  override coreApi = coreChainApi.ripple.imported;
+  override coreApi = coreChainApi.xrp.imported;
 
   override async getPrivateKeys(
     params: IGetPrivateKeysParams,
