@@ -23,7 +23,7 @@ const ImageGallery = () => (
               height="$10"
               width="$10"
               source={{
-                uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
               }}
             />
           </YStack>
@@ -36,7 +36,7 @@ const ImageGallery = () => (
             <Image
               height="$10"
               width="$10"
-              src="https://onekey-asset.com/assets/btc/btc.png"
+              src="https://uni.onekey-asset.com/static/chain/btc.png"
             />
           </YStack>
         ),
@@ -70,7 +70,7 @@ const ImageGallery = () => (
             <Image height="$10" width="$10">
               <Image.Source
                 source={{
-                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
                 }}
               />
               <Image.Fallback>
@@ -81,7 +81,7 @@ const ImageGallery = () => (
               <Image.Source
                 delayMs={2500}
                 source={{
-                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
                 }}
               />
               <Image.Fallback>
@@ -93,7 +93,7 @@ const ImageGallery = () => (
               <Image.Source
                 delayMs={2500}
                 source={{
-                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
                 }}
               />
               <Image.Fallback>
@@ -105,7 +105,7 @@ const ImageGallery = () => (
               <Image.Source
                 delayMs={2500}
                 source={{
-                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
                 }}
               />
               <Image.Skeleton />
@@ -113,7 +113,7 @@ const ImageGallery = () => (
             <Image height="$10" width="$10">
               <Image.Source
                 source={{
-                  uri: 'https://onekey-asset.com/assets/btc/btc.png',
+                  uri: 'https://uni.onekey-asset.com/static/chain/btc.png',
                 }}
               />
               <Image.Fallback delayMs={2500}>
@@ -130,7 +130,7 @@ const ImageGallery = () => (
             <Image height="$10" width="$10">
               <Image.Source
                 delayMs={2500}
-                src="https://onekey-asset.com/assets/btc/btc.png"
+                src="https://uni.onekey-asset.com/static/chain/btc.png"
               />
               <Image.Skeleton />
             </Image>

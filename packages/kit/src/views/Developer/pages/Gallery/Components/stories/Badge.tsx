@@ -357,7 +357,7 @@ const ButtonsGallery = () => (
                       tokens: [
                         {
                           tokenImageUri:
-                            'https://onekey-asset.com/assets/btc/btc.png',
+                            'https://uni.onekey-asset.com/static/chain/btc.png',
                         },
                       ],
                       label: 'Label',
@@ -366,7 +366,7 @@ const ButtonsGallery = () => (
                       tokens: [
                         {
                           tokenImageUri:
-                            'https://onekey-asset.com/assets/btc/btc.png',
+                            'https://uni.onekey-asset.com/static/chain/btc.png',
                         },
                       ],
                       label: 'Label',
@@ -375,7 +375,7 @@ const ButtonsGallery = () => (
                       tokens: [
                         {
                           tokenImageUri:
-                            'https://onekey-asset.com/assets/btc/btc.png',
+                            'https://uni.onekey-asset.com/static/chain/btc.png',
                         },
                       ],
                       label: 'Label',
@@ -386,7 +386,7 @@ const ButtonsGallery = () => (
                       tokens: [
                         {
                           tokenImageUri:
-                            'https://onekey-asset.com/assets/btc/btc.png',
+                            'https://uni.onekey-asset.com/static/chain/btc.png',
                         },
                       ],
                       label: 'Label',
@@ -395,15 +395,15 @@ const ButtonsGallery = () => (
                       tokens: [
                         {
                           tokenImageUri:
-                            'https://onekey-asset.com/assets/btc/btc.png',
+                            'https://uni.onekey-asset.com/static/chain/btc.png',
                         },
                         {
                           tokenImageUri:
-                            'https://onekey-asset.com/assets/btc/btc.png',
+                            'https://uni.onekey-asset.com/static/chain/btc.png',
                         },
                         {
                           tokenImageUri:
-                            'https://onekey-asset.com/assets/btc/btc.png',
+                            'https://uni.onekey-asset.com/static/chain/btc.png',
                         },
                       ],
                       label: 'Label',
@@ -412,7 +412,7 @@ const ButtonsGallery = () => (
                       tokens: [
                         {
                           tokenImageUri:
-                            'https://onekey-asset.com/assets/btc/btc.png',
+                            'https://uni.onekey-asset.com/static/chain/btc.png',
                         },
                       ],
                       label: 'Label',
