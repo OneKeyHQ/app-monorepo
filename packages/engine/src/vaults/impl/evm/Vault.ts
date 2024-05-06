@@ -140,9 +140,10 @@ import type {
 import type { IRpcTxEvm } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
-const OPTIMISM_NETWORKS: string[] = [
+const EVM_L2_NETWORKS_REQUIRE_L1_FEE: string[] = [
   OnekeyNetwork.optimism,
   OnekeyNetwork.toptimism,
+  OnekeyNetwork.base,
 ];
 
 const ERC721 = ERC721MetadataArtifact.abi;
@@ -1271,7 +1272,7 @@ export default class Vault extends VaultBase {
 
     // For L2 networks with L1 fee.
     let baseFeeValue = '0';
-    if (OPTIMISM_NETWORKS.includes(this.networkId)) {
+    if (EVM_L2_NETWORKS_REQUIRE_L1_FEE.includes(this.networkId)) {
       // Optimism & Optimism Kovan
       // call gasL1Fee(bytes) of GasPriceOracle at 0x420000000000000000000000000000000000000F
       const txData = ethers.utils.serializeTransaction({
