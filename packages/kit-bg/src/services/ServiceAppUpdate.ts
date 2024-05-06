@@ -167,6 +167,7 @@ class ServiceAppUpdate extends ServiceBase {
           : prev.status,
     }));
     return releaseInfo
+    return appUpdatePersistAtom.get();
   }
 }
 
