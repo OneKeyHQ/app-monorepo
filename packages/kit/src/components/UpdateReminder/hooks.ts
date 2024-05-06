@@ -42,24 +42,6 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     });
   }, [isFullModal, navigation.pushFullModal, navigation.pushModal]);
 
-  // run only once
-  useEffect(() => {
-    if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
-      onViewReleaseInfo();
-    }
-    if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
-      void downloadPackage(appUpdateInfo)
-        .then(() => {
-          void backgroundApiProxy.serviceAppUpdate.readyToInstall();
-        })
-        .catch((e: { message: string }) => {
-          void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
-        });
-    }
-    void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const toUpdatePreviewPage = useCallback(
     (isFull = false) => {
       const pushModal = isFull
@@ -81,6 +63,32 @@ export const useAppUpdateInfo = (isFullModal = false) => {
       navigation.pushModal,
     ],
   );
+
+  // run only once
+  useEffect(() => {
+    if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
+      onViewReleaseInfo();
+    }
+    if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
+      void downloadPackage(appUpdateInfo)
+        .then(() => {
+          void backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        })
+        .catch((e: { message: string }) => {
+          void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
+        });
+    }
+    backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo().then(response => {
+      if (response?.isForceUpdate && isNeedUpdate(
+        response.latestVersion,
+        response.status,
+      )) {
+        toUpdatePreviewPage(true);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
