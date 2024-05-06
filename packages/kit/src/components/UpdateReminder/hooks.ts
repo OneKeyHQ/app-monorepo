@@ -27,10 +27,7 @@ export const useAppChangeLog = (version?: string) => {
         : Promise.resolve(null),
     [version],
   );
-  return useMemo(
-    () => response.result,
-    [localVariant, response.result],
-  );
+  return useMemo(() => response.result, [localVariant, response.result]);
 };
 
 export const useAppUpdateInfo = (isFullModal = false) => {

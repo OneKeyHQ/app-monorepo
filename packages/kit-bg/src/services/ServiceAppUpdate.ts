@@ -1,8 +1,8 @@
 import axios from 'axios';
 
+import type { IBasicAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
-  IBasicAppUpdateInfo,
   isFirstLaunchAfterUpdated,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -12,9 +12,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import {
-  appUpdatePersistAtom,
-} from '../states/jotai/atoms';
+import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -30,10 +28,11 @@ class ServiceAppUpdate extends ServiceBase {
 
   cachedUpdateInfo: IBasicAppUpdateInfo | undefined;
 
-
   @backgroundMethod()
   async fetchConfig() {
-    const response = await (await this.getClient()).get<IBasicAppUpdateInfo>('/utility/v1/app/update');
+    const response = await (
+      await this.getClient()
+    ).get<IBasicAppUpdateInfo>('/utility/v1/app/update');
     // const response = await AxiosInstance.get<IBasicAppUpdateInfo>('/utility/v1/app/update');
     this.cachedUpdateInfo = response.data;
     return response.data;
@@ -142,7 +141,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async fetchChangeLog(version: string) {
     const response = await this.getAppLatestInfo({ cached: true });
-    return  response.changeLog;
+    return response.changeLog;
   }
 
   @backgroundMethod()

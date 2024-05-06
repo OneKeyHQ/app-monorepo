@@ -22,9 +22,11 @@ export type IAppChannel =
   | 'huaweiStore'
   | 'macosARM'
   | 'macosX86'
+  | 'macosStore'
   | 'win'
   | 'winStore'
-  | 'linux';
+  | 'linux'
+  | 'linuxSnap';
 
 export type IPlatformEnv = {
   isNewRouteMode: boolean;
@@ -192,8 +194,10 @@ const getAppChannel = (): IAppChannel | undefined => {
 
   if (isDesktopWinMsStore) return 'winStore';
   if (isDesktopWin) return 'win';
+  if (isMas) return 'macosStore';
   if (isDesktopMacArm64) return 'macosARM';
   if (isDesktopMac) return 'macosX86';
+  if (isDesktopLinuxSnap) return 'linuxSnap';
   if (isDesktopLinux) return 'linux';
 };
 
