@@ -37,7 +37,7 @@ abstract class RemoteApiProxyBase {
 
   abstract waitRemoteApiReady(): Promise<void>;
 
-  abstract callRemoteApi(options: {
+  protected abstract callRemoteApi(options: {
     module: string;
     method: string;
     params: any[];

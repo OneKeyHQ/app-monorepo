@@ -381,6 +381,13 @@ const MarkdownGallery = LazyLoadPage(
     ),
 );
 
+const WebEmbedGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -543,5 +550,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentMarkdown,
     component: MarkdownGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentWebEmbed,
+    component: WebEmbedGallery,
   },
 ];

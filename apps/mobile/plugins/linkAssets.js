@@ -24,6 +24,6 @@ const linkAssets = (projectRoot) => {
 };
 
 exports.linkAssets = linkAssets;
-if (process && process.argv &&process.argv[1] === __filename) {
+if (process && process.argv && process.argv[1] === __filename) {
   linkAssets(require('path').resolve(__dirname, '..'));
 }

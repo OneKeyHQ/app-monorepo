@@ -38,7 +38,9 @@ import type {
 
 import ServiceBase from './ServiceBase';
 
+import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -754,6 +756,22 @@ class ServiceDApp extends ServiceBase {
     });
 
     return parseRPCResponse(results.data.data.data);
+  }
+
+  @backgroundMethod()
+  isWebEmbedApiReady() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.isWebEmbedApiReady;
+  }
+
+  @backgroundMethod()
+  callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.callWebEmbedApiProxy(data);
   }
 }
 
