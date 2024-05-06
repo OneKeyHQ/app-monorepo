@@ -1,6 +1,4 @@
 export interface IBasicAppUpdateInfo {
-  // the latest version of remote server
-  latestVersion?: string;
   // app store url
   storeUrl?: string;
   // app download url
@@ -13,7 +11,14 @@ export interface IBasicAppUpdateInfo {
   sha256?: string;
 }
 
+export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo  {
+  version?: string;
+}
+
+
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
+  // the latest version of remote server
+  latestVersion?: string;
   // the last time the app update info was fetched
   updateAt: number;
   // App from app Store
