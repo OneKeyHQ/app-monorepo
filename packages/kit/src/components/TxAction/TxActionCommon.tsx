@@ -291,6 +291,7 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
         <Container.Item
           title={target.title ?? intl.formatMessage({ id: 'content__to' })}
           content={target.content}
+          description={target.description}
         />
       ) : null}
 
