@@ -870,8 +870,15 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError();
   }
 
-  _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxSol) {
-    return Promise.resolve({ encodedTx });
+  async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxSol) {
+    const accountAddress = await this.getAccountAddress();
+
+    return {
+      payload: {
+        feePayer: new PublicKey(accountAddress),
+      },
+      encodedTx,
+    };
   }
 
   override async updateUnsignedTx(
