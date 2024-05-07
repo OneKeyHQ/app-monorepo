@@ -41,6 +41,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -262,16 +263,14 @@ class ServiceAccount extends ServiceBase {
     indexes,
     indexedAccountId,
     deriveType,
-    confirmOnDevice = false,
-    confirmOnDeviceAnyway = false,
+    confirmOnDevice,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
     indexes?: Array<number>;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
-    confirmOnDevice?: boolean;
-    confirmOnDeviceAnyway?: boolean;
+    confirmOnDevice?: EConfirmOnDeviceType;
   }) {
     if (!walletId) {
       throw new Error('walletId is required');
@@ -325,7 +324,6 @@ class ServiceAccount extends ServiceBase {
         deviceParams: {
           ...checkIsDefined(deviceParams),
           confirmOnDevice,
-          confirmOnDeviceAnyway,
         },
 
         indexes: usedIndexes,
@@ -1041,7 +1039,7 @@ class ServiceAccount extends ServiceBase {
     const wallet = await this.getWallet({ walletId });
     const dbDevice = await this.getWalletDevice({ walletId });
     return {
-      confirmOnDevice: true,
+      confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
@@ -1333,8 +1331,7 @@ class ServiceAccount extends ServiceBase {
     indexes?: Array<number>;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
-    confirmOnDevice?: boolean;
-    confirmOnDeviceAnyway?: boolean;
+    confirmOnDevice?: EConfirmOnDeviceType;
   }) {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);

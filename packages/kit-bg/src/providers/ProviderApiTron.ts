@@ -142,12 +142,17 @@ class ProviderApiTron extends ProviderApiBase {
   }
 
   async tron_nodes(request: IJsBridgeMessagePayload) {
+    let url = '';
+
     const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks(
       request,
     );
-    const url = networks[0].isTestnet
-      ? TRON_SCAN_REQUESTED_URL.shasta
-      : TRON_SCAN_REQUESTED_URL.main;
+
+    if (networks[0]) {
+      url = networks[0].isTestnet
+        ? TRON_SCAN_REQUESTED_URL.shasta
+        : TRON_SCAN_REQUESTED_URL.main;
+    }
 
     return Promise.resolve({
       fullHost: url,
@@ -191,11 +196,6 @@ class ProviderApiTron extends ProviderApiBase {
     console.log('tron_signTransaction DONE', result, request, transaction);
 
     return JSON.parse(result as string) as SignedTransaction;
-  }
-
-  @providerApiMethod()
-  async wallet_requestPermissions(request: IJsBridgeMessagePayload) {
-    return this.tron_requestAccounts(request);
   }
 
   @providerApiMethod()

@@ -4,9 +4,10 @@ import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
-import type {
-  IDeviceResponse,
-  IGetDeviceAccountDataParams,
+import {
+  EConfirmOnDeviceType,
+  type IDeviceResponse,
+  type IGetDeviceAccountDataParams,
 } from '@onekeyhq/shared/types/device';
 
 import { EVaultKeyringTypes } from '../types';
@@ -48,19 +49,21 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     errorMessage: string;
   }): Promise<T[]> {
     const { deriveInfo, deviceParams } = params;
-    const { dbDevice, confirmOnDevice, confirmOnDeviceAnyway } = deviceParams;
+    const { dbDevice, confirmOnDevice } = deviceParams;
     const { connectId, deviceId } = dbDevice;
     const { template, coinName } = deriveInfo;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 
     const showOnOnekeyFn = (arrIndex: number) => {
-      if (confirmOnDeviceAnyway) {
+      if (confirmOnDevice === EConfirmOnDeviceType.EveryItem) {
         return true;
       }
-      return !confirmOnDevice
-        ? false
-        : // confirm on last index account create
-          arrIndex === usedIndexes[usedIndexes.length - 1];
+
+      if (confirmOnDevice === EConfirmOnDeviceType.LastItem) {
+        return arrIndex === usedIndexes[usedIndexes.length - 1];
+      }
+
+      return false;
     };
 
     const result = await convertDeviceResponse(async () =>

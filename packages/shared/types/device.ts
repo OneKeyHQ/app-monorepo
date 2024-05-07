@@ -31,11 +31,15 @@ export type IGetDeviceAccountDataParams = {
   showOnOnekeyFn: (index: number) => boolean | undefined;
 };
 
+export enum EConfirmOnDeviceType {
+  EveryItem = 'EveryItem',
+  LastItem = 'LastItem',
+}
+
 export type IDeviceSharedCallParams = {
   dbDevice: IDBDevice;
   // type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS'; // for hardware?
-  confirmOnDevice?: boolean;
-  confirmOnDeviceAnyway?: boolean; // confirm receipt on device anyway
+  confirmOnDevice?: EConfirmOnDeviceType;
   deviceCommonParams?: IDeviceCommonParams;
 };
 
