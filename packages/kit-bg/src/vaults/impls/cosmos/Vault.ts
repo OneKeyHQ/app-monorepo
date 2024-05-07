@@ -245,8 +245,13 @@ export default class VaultCosmos extends VaultBase {
       if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
         const { amount, fromAddress, toAddress } =
           'unpacked' in msg ? msg.unpacked : msg.value;
-        const amountNumber = amount[0].amount;
-        const amountDenom = amount[0].denom;
+        const token = await this.backgroundApi.serviceToken.getToken({
+          networkId: network.id,
+          tokenIdOnNetwork: amount[0].denom,
+          accountAddress: account.address,
+        });
+        const amountNumber = new BigNumber(amount[0].amount).shiftedBy(-token.decimals).toFixed();
+        const amountDenom = token.symbol;
 
         const transferAction: IDecodedTxActionAssetTransfer = {
           from: fromAddress,
@@ -256,9 +261,9 @@ export default class VaultCosmos extends VaultBase {
               from: fromAddress,
               to: toAddress,
               amount: amountNumber,
-              icon: network.logoURI ?? '',
+              icon: token.logoURI ?? '',
               symbol: amountDenom,
-              name: network.name,
+              name: token.name,
               tokenIdOnNetwork: '',
             }
           ],
