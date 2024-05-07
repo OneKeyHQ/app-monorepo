@@ -134,6 +134,7 @@ export type IVaultSettings = {
   validationRequired?: boolean;
   hideAmountInputOnFirstEntry?: boolean;
   allowZeroFee?: boolean;
+  sendTransactionBySelf?: boolean;
 };
 
 export type IVaultFactoryOptions = {

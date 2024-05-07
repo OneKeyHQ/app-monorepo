@@ -1,4 +1,7 @@
-import type { IInvoiceDecodedResponse } from '@onekeyhq/core/src/chains/lightning/types/invoice';
+import type {
+  IInvoiceDecodedResponse,
+  IInvoiceType,
+} from '@onekeyhq/core/src/chains/lightning/types/invoice';
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types/signature';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -272,6 +275,38 @@ class ClientLightning {
       )
       .then((i) => i.data.data);
   }
+
+  specialInvoice = memoizee(
+    async ({
+      accountId,
+      networkId,
+      paymentHash,
+    }: {
+      accountId: string;
+      networkId: string;
+      paymentHash: string;
+    }) =>
+      this.request
+        .get<IOneKeyAPIBaseResponse<IInvoiceType>>(
+          `${this.prefix}/invoices/${paymentHash}`,
+          {
+            params: {
+              testnet: this.testnet,
+            },
+            headers: {
+              Authorization: await this.getAuthorization({
+                accountId,
+                networkId,
+              }),
+            },
+          },
+        )
+        .then((i) => i.data.data),
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 1 }),
+    },
+  );
 }
 
 export default ClientLightning;

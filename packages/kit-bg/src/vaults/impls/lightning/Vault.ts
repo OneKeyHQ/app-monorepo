@@ -257,10 +257,56 @@ export default class Vault extends VaultBase {
     return Promise.resolve(params.unsignedTx);
   }
 
-  override broadcastTransaction(
+  override async broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    const { signedTx, networkId, accountAddress } = params;
+    try {
+      console.log('broadcastTransaction START:', {
+        rawTx: signedTx.rawTx,
+      });
+      await this.backgroundApi.serviceSend.broadcastTransaction({
+        networkId,
+        accountAddress,
+        signedTx,
+      });
+      await this.pollBolt11Status({ paymentHash: signedTx.txid });
+    } catch (err) {
+      console.log('broadcastTransaction ERROR:', err);
+      throw err;
+    }
+
+    console.log('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+
+    return {
+      ...signedTx,
+    };
+  }
+
+  private async pollBolt11Status({ paymentHash }: { paymentHash: string }) {
+    // eslint-disable-next-line no-async-promise-executor
+    return new Promise(async (resolve, reject) => {
+      const intervalId = setInterval(async () => {
+        try {
+          const client = await this.getClient();
+          const invoice = await client.specialInvoice({
+            paymentHash,
+            networkId: this.networkId,
+            accountId: this.accountId,
+          });
+          if (invoice.is_paid) {
+            clearInterval(intervalId);
+            resolve(invoice);
+          }
+        } catch (e) {
+          clearInterval(intervalId);
+          reject(e);
+        }
+      }, 1500);
+    });
   }
 
   override async buildEstimateFeeParams({
