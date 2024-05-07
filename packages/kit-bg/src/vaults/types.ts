@@ -131,6 +131,7 @@ export type IVaultSettings = {
     [networkId: string]: IVaultSettingsNetworkInfo;
   };
   validationRequired?: boolean;
+  hideAmountInputOnFirstEntry?: boolean;
 };
 
 export type IVaultFactoryOptions = {

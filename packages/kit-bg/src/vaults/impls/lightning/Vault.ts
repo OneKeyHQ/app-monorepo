@@ -353,6 +353,25 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
+  override async validateAmountInputShown({
+    toAddress,
+  }: {
+    toAddress: string;
+  }): Promise<{ isValid: boolean }> {
+    if (!toAddress) {
+      return { isValid: false };
+    }
+    try {
+      const invoice = await this._decodedInvoiceCache(toAddress);
+      const isZeroAmountInvoice = this._isZeroAmountInvoice(invoice);
+      return {
+        isValid: isZeroAmountInvoice,
+      };
+    } catch {
+      return { isValid: false };
+    }
+  }
+
   async exchangeToken(account?: INetworkAccount) {
     const { isTestnet } = await this.getNetwork();
     const usedAccount = account || (await this.getAccount());

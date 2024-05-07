@@ -42,6 +42,7 @@ const settings: IVaultSettings = {
     },
   },
   validationRequired: true,
+  hideAmountInputOnFirstEntry: true,
 };
 
 export default Object.freeze(settings);

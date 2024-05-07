@@ -207,6 +207,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   abstract getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult>;
+
+  async validateAmountInputShown({ toAddress }: { toAddress: string }) {
+    return Promise.resolve({
+      isValid: true,
+    });
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant

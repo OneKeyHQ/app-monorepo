@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { vaultFactory } from '../vaults/factory';
@@ -27,7 +28,9 @@ class ServiceLightning extends ServiceBase {
 
   private getClientCache = memoizee(
     async (isTestnet: boolean) => {
-      const _client = await this.backgroundApi.serviceLightning.getClient();
+      const _client = await this.backgroundApi.serviceLightning.getClient(
+        EEndpointName.LN,
+      );
       return new ClientLightning(this.backgroundApi, _client, isTestnet);
     },
     {
@@ -124,6 +127,24 @@ class ServiceLightning extends ServiceBase {
       accountId,
       networkId,
     });
+  }
+
+  @backgroundMethod()
+  async isZeroAmountInvoice({
+    paymentRequest,
+    networkId,
+    accountId,
+  }: {
+    paymentRequest: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as LightningVault;
+    const invoice = await vault._decodedInvoiceCache(paymentRequest);
+    return vault._isZeroAmountInvoice(invoice);
   }
 }
 
