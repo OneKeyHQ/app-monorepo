@@ -6,24 +6,31 @@ const webpackManifestPlugin = require('webpack-manifest-plugin');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const notifier = require('node-notifier');
 const { createResolveExtensions } = require('./utils');
+const { exit } = require('process');
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
+
+const IS_EAS_BUILD = !!process.env.EAS_BUILD
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
     compiler.hooks.done.tap('BuildDoneNotifyPlugin', (compilation) => {
-      const msg = `OneKey Build at ${new Date().toLocaleTimeString()}, completed in ${
-        (compilation.endTime - compilation.startTime) / 1000
-      }s`;
-      setTimeout(() => {
-        console.log('\u001b[33m'); // yellow color
-        console.log('===================================');
-        console.log(msg);
-        console.log('===================================');
-        console.log('\u001b[0m'); // reset color
-      }, 300);
-      try {
-        notifier.notify(msg);
-      } catch {}
+      if (IS_EAS_BUILD) {
+        exit(0)
+      } else {
+        const msg = `OneKey Build at ${new Date().toLocaleTimeString()}, completed in ${
+          (compilation.endTime - compilation.startTime) / 1000
+        }s`;
+        setTimeout(() => {
+          console.log('\u001b[33m'); // yellow color
+          console.log('===================================');
+          console.log(msg);
+          console.log('===================================');
+          console.log('\u001b[0m'); // reset color
+        }, 300);
+        try {
+          notifier.notify(msg);
+        } catch {}
+      }
     });
   }
 }

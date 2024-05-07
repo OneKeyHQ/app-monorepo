@@ -13,7 +13,7 @@
         }
       },
       "ios": {
-        "image": "macos-ventura-13.6-xcode-15.2",
+        "image": "macos-sonoma-14.4-xcode-15.3",
         "resourceClass": "large",
         "env": { 
           "PLATFORM": "ios"
