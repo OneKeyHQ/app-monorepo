@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { chunk } from 'lodash';
+import { chunk, range } from 'lodash';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -97,7 +97,7 @@ type IDotMapProps = {
 };
 
 const DotMapBaseHeader = () => {
-  const items = useMemo(() => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], []);
+  const items = useMemo<number[]>(() => range(1, 13), []);
   return (
     <XStack alignItems="flex-end" pb="$2">
       <XStack width="$6" justifyContent="flex-end">
@@ -157,15 +157,12 @@ export const DotMap = ({ mnemonic }: IDotMapProps) => {
   } = useMemo(() => {
     const resp = mnemonicToDotMapValues(mnemonic);
     const first12 = resp.slice(0, 12);
-    const last12 = resp.slice(12);
-    if (last12.length > 0 && last12.length < 12) {
-      let i = 0;
-      while (i < 12) {
-        if (!last12[i]) {
-          last12[i] = { index: i + 13, values: [] };
-        }
-        i += 1;
-      }
+    let last12 = resp.slice(12);
+    if (last12.length > 0) {
+      last12 = Array.from(
+        { length: 12 },
+        (v, i) => last12[i] || { index: i + 13, values: [] },
+      );
     }
     return { first12, last12, resp };
   }, [mnemonic]);
