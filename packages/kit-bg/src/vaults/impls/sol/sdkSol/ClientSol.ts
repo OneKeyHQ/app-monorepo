@@ -10,6 +10,7 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
+import { map, max } from 'lodash';
 
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
@@ -45,6 +46,8 @@ export enum ERpcMethods {
   GET_MINIMUM_BALANCE_FOR_RENT_EXEMPTION = 'getMinimumBalanceForRentExemption',
   GET_LATEST_BLOCK_HASH = 'getLatestBlockhash',
 }
+
+export const MIN_PRIORITY_FEE = 1000000;
 
 class ClientSol {
   private networkId: string;
@@ -180,6 +183,31 @@ class ClientSol {
       });
 
     return response.value;
+  }
+
+  async getRecentPrioritizationFees(accountAddresses: string[]) {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
+        { slot: number; prioritizationFee: number }[]
+      >({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: ERpcMethods.GET_RECENT_PRIORITIZATION_FEES,
+              params: [accountAddresses],
+            },
+          },
+        ],
+      });
+
+    return response;
+  }
+
+  async getRecentMaxPrioritizationFees(accountAddress: string[]) {
+    const resp = await this.getRecentPrioritizationFees(accountAddress);
+    return max([...map(resp, 'prioritizationFee'), MIN_PRIORITY_FEE]) || 0;
   }
 }
 

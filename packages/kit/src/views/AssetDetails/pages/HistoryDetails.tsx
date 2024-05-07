@@ -402,7 +402,7 @@ function HistoryDetails() {
 
       return {
         from: decodedTx.signer,
-        to: decodedTx.to,
+        to: decodedTx.to ?? decodedTx.actions[0].assetTransfer?.to,
       };
     }
 

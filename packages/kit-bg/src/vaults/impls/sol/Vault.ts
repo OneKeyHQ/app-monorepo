@@ -29,20 +29,17 @@ import {
   getAssociatedTokenAddressSync,
 } from '@solana/spl-token';
 import {
-  AddressLookupTableAccount,
-  ComputeBudgetInstruction,
   ComputeBudgetProgram,
   PublicKey,
   SYSVAR_INSTRUCTIONS_PUBKEY,
   SystemInstruction,
   SystemProgram,
   Transaction,
-  TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { add, isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import type {
   IEncodedTxSol,
@@ -57,6 +54,7 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { calculateNativeAmountInActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -67,8 +65,12 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import {
   EDecodedTxActionType,
-  type IDecodedTx,
-  type IDecodedTxAction,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -87,6 +89,7 @@ import {
   tokenRecordAddress,
 } from './utils';
 
+import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -97,6 +100,7 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  INativeAmountInfo,
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
@@ -183,6 +187,7 @@ export default class Vault extends VaultBase {
   }): Promise<IEncodedTxSol> {
     const { transfersInfo } = params;
     const transferInfo = transfersInfo[0];
+    const accountAddress = await this.getAccountAddress();
 
     const { from, to: firstReceiver } = transferInfo;
 
@@ -200,6 +205,16 @@ export default class Vault extends VaultBase {
     nativeTx.lastValidBlockHeight = lastValidBlockHeight;
 
     nativeTx.feePayer = source;
+
+    const prioritizationFee = await client.getRecentMaxPrioritizationFees([
+      accountAddress,
+    ]);
+
+    const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+      microLamports: prioritizationFee,
+    });
+
+    nativeTx.add(addPriorityFee);
 
     for (let i = 0; i < transfersInfo.length; i += 1) {
       const { amount, to, tokenInfo, nftInfo } = transfersInfo[i];
@@ -609,8 +624,8 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
-    const nativeTx = parseToNativeTx(encodedTx);
-    let actions: IDecodedTxAction[] = await this._decodeNativeTxActions(
+    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+    const actions: IDecodedTxAction[] = await this._decodeNativeTxActions(
       nativeTx,
     );
 
@@ -623,17 +638,57 @@ export default class Vault extends VaultBase {
     if (signature?.every((value) => value === 0)) {
       signature = null;
     }
+
+    const { nativeAmount, nativeAmountValue } =
+      calculateNativeAmountInActions(actions);
+
+    const owner = await this.getAccountAddress();
+    const decodedTx: IDecodedTx = {
+      txid: signature ? bs58.encode(signature) : '',
+      owner,
+      signer: (nativeTx as Transaction).feePayer?.toString() || owner,
+      nonce: 0,
+      actions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+
+      nativeAmount,
+      nativeAmountValue,
+
+      extraInfo: null,
+      encodedTx,
+    };
+
+    return decodedTx;
   }
 
-  async _decodeNativeTxActions(nativeTx: INativeTxSol) {
-    const ret: Array<IDecodedTxAction> = [];
+  _getAssociatedAccountInfo = memoizee(
+    async (ataAddress): Promise<IAssociatedTokenInfo> => {
+      const client = await this.getClient();
+      const ataInfo = (await client.getAccountInfo(ataAddress)) ?? {};
+      const { mint, owner } = (ataInfo as IParsedAccountInfo).data.parsed.info;
+      return { mint, owner };
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
-    const createdAta: Record<string, AssociatedTokenInfo> = {};
+  async _decodeNativeTxActions(nativeTx: INativeTxSol) {
+    const actions: Array<IDecodedTxAction> = [];
+
+    const createdAta: Record<string, IAssociatedTokenInfo> = {};
 
     // @ts-ignore
     if (!nativeTx.instructions) {
       return [{ type: EDecodedTxActionType.UNKNOWN }];
     }
+
+    const accountAddress = await this.getAccountAddress();
 
     for (const instruction of (nativeTx as Transaction).instructions) {
       // TODO: only support system transfer & token transfer now
@@ -651,20 +706,29 @@ export default class Vault extends VaultBase {
             const { fromPubkey, toPubkey, lamports } =
               SystemInstruction.decodeTransfer(instruction);
             const nativeAmount = new BigNumber(lamports.toString());
-            const transfer = {
-              
-            }
-            ret.push({
-              type: EDecodedTxActionType.NATIVE_TRANSFER,
-              nativeTransfer: {
-                tokenInfo: nativeToken,
-                from: fromPubkey.toString(),
-                to: toPubkey.toString(),
-                amount: nativeAmount.shiftedBy(-nativeToken.decimals).toFixed(),
-                amountValue: nativeAmount.toFixed(),
-                extraInfo: null,
-              },
-            });
+            const from = fromPubkey.toString();
+            const to = toPubkey.toString();
+            const transfer: IDecodedTxTransferInfo = {
+              from,
+              to,
+              tokenIdOnNetwork: nativeToken.address,
+              icon: nativeToken.logoURI ?? '',
+              name: nativeToken.name,
+              symbol: nativeToken.symbol,
+              amount: new BigNumber(nativeAmount)
+                .shiftedBy(-nativeToken.decimals)
+                .toFixed(),
+              isNFT: false,
+              isNative: true,
+            };
+
+            actions.push(
+              await this.buildTxTransferAssetAction({
+                from,
+                to,
+                transfers: [transfer],
+              }),
+            );
           }
         } catch {
           // pass
@@ -692,7 +756,7 @@ export default class Vault extends VaultBase {
           const {
             data: { instruction: instructionType },
           } = decodeInstruction(instruction);
-          let nativeAmount;
+          let tokenAmount;
           let fromAddress;
           let tokenAddress;
           let ataAddress;
@@ -703,7 +767,7 @@ export default class Vault extends VaultBase {
               keys: { owner, mint, destination },
             } = decodeTransferCheckedInstruction(instruction);
 
-            nativeAmount = new BigNumber(amount.toString());
+            tokenAmount = new BigNumber(amount.toString());
             fromAddress = owner.pubkey.toString();
             tokenAddress = mint.pubkey.toString();
             ataAddress = destination.pubkey.toString();
@@ -713,34 +777,42 @@ export default class Vault extends VaultBase {
               keys: { owner, destination },
             } = decodeTransferInstruction(instruction);
 
-            nativeAmount = new BigNumber(amount.toString());
+            tokenAmount = new BigNumber(amount.toString());
             fromAddress = owner.pubkey.toString();
             ataAddress = destination.pubkey.toString();
           }
 
-          if (nativeAmount && fromAddress && ataAddress) {
+          if (tokenAmount && fromAddress && ataAddress) {
             const ataAccountInfo =
               createdAta[ataAddress] ||
-              (await this.getAssociatedAccountInfo(ataAddress));
+              (await this._getAssociatedAccountInfo(ataAddress));
             const { mint, owner: toAddress } = ataAccountInfo;
 
             tokenAddress = tokenAddress || mint;
-            const tokenInfo = await this.engine.ensureTokenInDB(
-              this.networkId,
-              tokenAddress,
-            );
+            const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+              networkId: this.networkId,
+              tokenIdOnNetwork: tokenAddress,
+              accountAddress,
+            });
             if (tokenInfo) {
-              ret.push({
-                type: IDecodedTxActionType.TOKEN_TRANSFER,
-                tokenTransfer: {
-                  tokenInfo,
+              const transfer: IDecodedTxTransferInfo = {
+                from: fromAddress,
+                to: toAddress ?? ataAddress,
+                tokenIdOnNetwork: tokenAddress,
+                icon: tokenInfo.logoURI ?? '',
+                name: tokenInfo.name,
+                symbol: tokenInfo.symbol,
+                amount: tokenAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
+                isNFT: false,
+              };
+
+              actions.push(
+                await this.buildTxTransferAssetAction({
                   from: fromAddress,
-                  to: toAddress ?? ataAddress,
-                  amount: nativeAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
-                  amountValue: nativeAmount.toFixed(),
-                  extraInfo: null,
-                },
-              });
+                  to: tokenAddress,
+                  transfers: [transfer],
+                }),
+              );
             }
           }
         } catch {
@@ -748,11 +820,11 @@ export default class Vault extends VaultBase {
         }
       }
     }
-    if (ret.length === 0) {
-      ret.push({ type: EDecodedTxActionType.UNKNOWN });
+    if (actions.length === 0) {
+      actions.push({ type: EDecodedTxActionType.UNKNOWN });
     }
 
-    return ret;
+    return actions;
   }
 
   override async buildUnsignedTx(
@@ -760,15 +832,78 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxEvm);
+      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxSol);
     }
     throw new OneKeyInternalError();
   }
 
-  override updateUnsignedTx(
+  _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxSol) {
+    return Promise.resolve({ encodedTx });
+  }
+
+  override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    const { unsignedTx, nativeAmountInfo } = params;
+    let encodedTxNew = unsignedTx.encodedTx as IEncodedTxSol;
+
+    if (nativeAmountInfo) {
+      encodedTxNew = await this._updateNativeTokenAmount({
+        encodedTx: encodedTxNew,
+        nativeAmountInfo,
+      });
+    }
+
+    unsignedTx.encodedTx = encodedTxNew;
+    return unsignedTx;
+  }
+
+  async _updateNativeTokenAmount(params: {
+    encodedTx: IEncodedTxSol;
+    nativeAmountInfo: INativeAmountInfo;
+  }) {
+    const { encodedTx, nativeAmountInfo } = params;
+    const network = await this.getNetwork();
+    const nativeTx = (await parseToNativeTx(encodedTx)) as Transaction;
+
+    // max native token transfer update
+    if (
+      !isNil(nativeAmountInfo.maxSendAmount) &&
+      nativeTx instanceof Transaction &&
+      nativeTx.instructions.length === 2
+    ) {
+      for (let i = 0; i < nativeTx.instructions.length; i += 1) {
+        const instruction = nativeTx.instructions[i];
+        if (
+          instruction.programId.toString() ===
+          SystemProgram.programId.toString()
+        ) {
+          const instructionType =
+            SystemInstruction.decodeInstructionType(instruction);
+          if (instructionType === 'Transfer') {
+            const { fromPubkey, toPubkey } =
+              SystemInstruction.decodeTransfer(instruction);
+
+            nativeTx.instructions[i] = SystemProgram.transfer({
+              fromPubkey,
+              toPubkey,
+              lamports: BigInt(
+                new BigNumber(nativeAmountInfo.maxSendAmount)
+                  .shiftedBy(network.decimals)
+                  .toFixed(),
+              ),
+            });
+            return bs58.encode(
+              nativeTx.serialize({
+                requireAllSignatures: false,
+              }),
+            );
+          }
+        }
+      }
+    }
+
+    return Promise.resolve(encodedTx);
   }
 
   override broadcastTransaction(

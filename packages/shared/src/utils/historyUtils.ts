@@ -44,7 +44,6 @@ export function getOnChainHistoryTxAssetInfo({
   let decimals = 0;
   nft = nfts[tokenAddress];
   token = tokens[tokenAddress || 'native'];
-
   if (nft) {
     name = nft.metadata?.name ?? '';
     symbol = nft.metadata?.name ?? '';
