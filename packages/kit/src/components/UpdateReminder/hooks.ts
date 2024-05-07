@@ -43,10 +43,13 @@ export const useAppUpdateInfo = (isFullModal = false) => {
   }, [isFullModal, navigation.pushFullModal, navigation.pushModal]);
 
   const toUpdatePreviewPage = useCallback(
-    (isFull = false, params?: {
-      latestVersion?: string;
-      isForceUpdate?: boolean;
-    }) => {
+    (
+      isFull = false,
+      params?: {
+        latestVersion?: string;
+        isForceUpdate?: boolean;
+      },
+    ) => {
       const pushModal = isFull
         ? navigation.pushFullModal
         : navigation.pushModal;
@@ -82,17 +85,18 @@ export const useAppUpdateInfo = (isFullModal = false) => {
           void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
         });
     }
-    void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo().then(response => {
-      if (response?.isForceUpdate && isNeedUpdate(
-        response.latestVersion,
-        response.status,
-      )) {
-        toUpdatePreviewPage(true, response);
-      }
-    });
+    void backgroundApiProxy.serviceAppUpdate
+      .fetchAppUpdateInfo()
+      .then((response) => {
+        if (
+          response?.isForceUpdate &&
+          isNeedUpdate(response.latestVersion, response.status)
+        ) {
+          toUpdatePreviewPage(true, response);
+        }
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
