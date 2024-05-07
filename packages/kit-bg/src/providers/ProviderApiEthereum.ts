@@ -94,7 +94,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
     console.log(`${this.providerName} RpcCall=====>>>> : BgApi:`, request);
 
-    const result = await this.backgroundApi.serviceDApp.proxyRPCCall({
+    const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
       networkId: networkId ?? '',
       request: rpcRequest,
     });

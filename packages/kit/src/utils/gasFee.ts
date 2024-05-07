@@ -174,7 +174,8 @@ export function getFeeLabel({
     return 'content__custom';
   }
 
-  return PRESET_FEE_LABEL[presetIndex ?? 1] as ILocaleIds;
+  return (PRESET_FEE_LABEL[presetIndex ?? 1] ??
+    PRESET_FEE_LABEL[0]) as ILocaleIds;
 }
 export function getFeeIcon({
   feeType,

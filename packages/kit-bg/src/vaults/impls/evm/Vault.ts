@@ -16,7 +16,7 @@ import numberUtils, {
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
-  buildTxActionDirection,
+  calculateNativeAmountInActions,
   mergeAssetTransferActions,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
@@ -34,12 +34,10 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
   IDecodedTxAction,
-  IDecodedTxActionAssetTransfer,
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxActionType,
-  EDecodedTxDirection,
   EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
 
@@ -369,19 +367,8 @@ export default class Vault extends VaultBase {
       [action, extraNativeTransferAction].filter(Boolean),
     );
 
-    let nativeAmount = '0';
-    let nativeAmountValue = '0';
-
-    finalActions.forEach((item) => {
-      if (item.type === EDecodedTxActionType.ASSET_TRANSFER) {
-        nativeAmount = new BigNumber(nativeAmount)
-          .plus(item.assetTransfer?.nativeAmount ?? 0)
-          .toFixed();
-        nativeAmountValue = new BigNumber(nativeAmountValue)
-          .plus(item.assetTransfer?.nativeAmountValue ?? 0)
-          .toFixed();
-      }
-    });
+    const { nativeAmount, nativeAmountValue } =
+      calculateNativeAmountInActions(finalActions);
 
     const decodedTx: IDecodedTx = {
       txid: '',
@@ -751,7 +738,7 @@ export default class Vault extends VaultBase {
       isNFT: false,
     };
 
-    const action = await this._buildTxTransferAssetAction({
+    const action = await this.buildTxTransferAssetAction({
       from: encodedTx.from,
       to: encodedTx.to,
       transfers: [transfer],
@@ -794,7 +781,7 @@ export default class Vault extends VaultBase {
   }) {
     const { encodedTx, swapInfo } = params;
     const swapSendToken = swapInfo.sender.token;
-    const action = await this._buildTxTransferAssetAction({
+    const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
       to: encodedTx.to,
       transfers: [
@@ -841,66 +828,13 @@ export default class Vault extends VaultBase {
       isNative: true,
     };
 
-    const action = await this._buildTxTransferAssetAction({
+    const action = await this.buildTxTransferAssetAction({
       from: encodedTx.from ?? accountAddress,
       to: encodedTx.to,
       transfers: [transfer],
     });
 
     return action;
-  }
-
-  async _buildTxTransferAssetAction(params: {
-    from: string;
-    to: string;
-    transfers: IDecodedTxTransferInfo[];
-  }): Promise<IDecodedTxAction> {
-    const { from, to, transfers } = params;
-    const [accountAddress, network] = await Promise.all([
-      this.getAccountAddress(),
-      this.getNetwork(),
-    ]);
-
-    let sendNativeTokenAmountBN = new BigNumber(0);
-
-    const assetTransfer: IDecodedTxActionAssetTransfer = {
-      from,
-      to,
-      sends: [],
-      receives: [],
-    };
-
-    transfers.forEach((transfer) => {
-      if (
-        buildTxActionDirection({
-          from: transfer.from,
-          to: transfer.to,
-          accountAddress,
-        }) === EDecodedTxDirection.OUT
-      ) {
-        assetTransfer.sends.push(transfer);
-        if (transfer.isNative) {
-          sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(
-            new BigNumber(transfer.amount),
-          );
-        }
-      } else {
-        assetTransfer.receives.push(transfer);
-      }
-    });
-
-    assetTransfer.nativeAmount = sendNativeTokenAmountBN.toFixed();
-    assetTransfer.nativeAmountValue = chainValueUtils.convertAmountToChainValue(
-      {
-        value: sendNativeTokenAmountBN,
-        network,
-      },
-    );
-
-    return {
-      type: EDecodedTxActionType.ASSET_TRANSFER,
-      assetTransfer,
-    };
   }
 
   async _buildTxTransferNFTAction(params: {
@@ -945,7 +879,7 @@ export default class Vault extends VaultBase {
       isNFT: true,
     };
 
-    return this._buildTxTransferAssetAction({
+    return this.buildTxTransferAssetAction({
       from: encodedTx.from ?? accountAddress,
       to: encodedTx.to,
       transfers: [transfer],

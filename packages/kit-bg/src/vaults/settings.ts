@@ -9,6 +9,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_TBTC,
+  IMPL_TRON,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -56,6 +57,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_BCH]: () => import('./impls/bch/settings'),
     [IMPL_LTC]: () => import('./impls/ltc/settings'),
     [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
+    [IMPL_TRON]: () => import('./impls/tron/settings'),
     [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),

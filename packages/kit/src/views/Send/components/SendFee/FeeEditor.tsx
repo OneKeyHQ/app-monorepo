@@ -19,6 +19,8 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   calculateTotalFeeNative,
   getFeePriceNumber,
@@ -30,6 +32,15 @@ import type {
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
+
+type IFeeInfoItem = {
+  label: string;
+  nativeValue?: string;
+  nativeSymbol?: string;
+  fiatValue?: string;
+  customValue?: string;
+  customSymbol?: string;
+};
 
 type IProps = {
   networkId: string;
@@ -56,8 +67,79 @@ type IProps = {
 const DEFAULT_GAS_LIMIT_MIN = 21000;
 const DEFAULT_GAS_LIMIT_MAX = 15000000;
 
+const getPresetIndex = (
+  sendSelectedFee: IProps['sendSelectedFee'],
+  feeSelectorItems: IProps['feeSelectorItems'],
+) => {
+  if (sendSelectedFee.feeType === EFeeType.Custom)
+    return feeSelectorItems.length - 1;
+
+  const feeSelectorItem = feeSelectorItems[sendSelectedFee.presetIndex];
+
+  if (feeSelectorItem) {
+    return sendSelectedFee.presetIndex;
+  }
+
+  return 0;
+};
+
+function FeeInfoItem({ feeInfo }: { feeInfo: IFeeInfoItem }) {
+  const [settings] = useSettingsPersistAtom();
+  const {
+    label,
+    fiatValue,
+    nativeValue,
+    nativeSymbol,
+    customValue,
+    customSymbol,
+  } = feeInfo;
+
+  return (
+    <XStack justifyContent="space-between" alignItems="center">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {label}
+      </SizableText>
+      <XStack alignItems="center" space="$1">
+        {!isNil(fiatValue) ? (
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+            }}
+            size="$bodyMd"
+            color="$textSubdued"
+          >
+            {fiatValue}
+          </NumberSizeableText>
+        ) : null}
+        {!isNil(nativeValue) ? (
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: nativeSymbol,
+            }}
+            size="$bodyMdMedium"
+          >
+            {nativeValue}
+          </NumberSizeableText>
+        ) : null}
+        {!isNil(customValue) ? (
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: customSymbol }}
+            size="$bodyMdMedium"
+          >
+            {customValue}
+          </NumberSizeableText>
+        ) : null}
+      </XStack>
+    </XStack>
+  );
+}
+
 function FeeEditor(props: IProps) {
   const {
+    networkId,
     feeSelectorItems,
     setIsEditFeeActive,
     sendSelectedFee,
@@ -69,11 +151,8 @@ function FeeEditor(props: IProps) {
   const intl = useIntl();
   const isVerticalLayout = useMedia().md;
 
-  const [settings] = useSettingsPersistAtom();
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
-    sendSelectedFee.feeType === EFeeType.Custom
-      ? feeSelectorItems.length - 1
-      : sendSelectedFee.presetIndex,
+    getPresetIndex(sendSelectedFee, feeSelectorItems),
   );
   const [customTouched, setCustomTouched] = useState(false);
   const [currentFeeType, setCurrentFeeType] = useState<EFeeType>(
@@ -82,6 +161,11 @@ function FeeEditor(props: IProps) {
   const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
 
   const { feeSymbol, nativeSymbol, nativeTokenPrice } = customFee.common;
+
+  const vaultSettings = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+    [networkId],
+  ).result;
 
   const form = useForm({
     defaultValues: {
@@ -215,6 +299,8 @@ function FeeEditor(props: IProps) {
   ]);
 
   const renderFeeTypeSelector = useCallback(() => {
+    if (!vaultSettings?.editFeeEnabled) return null;
+
     let feeTitle = '';
 
     if (customFee.feeUTXO) {
@@ -274,143 +360,151 @@ function FeeEditor(props: IProps) {
     customTouched,
     feeSelectorItems,
     feeSymbol,
+    vaultSettings?.editFeeEnabled,
   ]);
 
   const renderFeeEditorForm = useCallback(() => {
+    if (!vaultSettings?.editFeeEnabled) return null;
     if (currentFeeType !== EFeeType.Custom) return null;
 
     if (customFee.gasEIP1559) {
       const originalLimit = customFee.gasEIP1559.gasLimit;
       return (
-        <YStack space="$5">
-          <Form.Field
-            label="Max Base Fee"
-            name="maxBaseFee"
-            description={`Current: ${customFee.gasEIP1559.baseFeePerGas} ${feeSymbol}`}
-            rules={{
-              required: true,
-              min: 0,
-              validate: handleValidateMaxBaseFee,
-            }}
-          >
-            <Input
-              flex={1}
-              addOns={[
-                {
-                  label: feeSymbol,
-                },
-              ]}
-            />
-          </Form.Field>
-          <Form.Field
-            label={`${intl.formatMessage({
-              id: 'form__priority_fee',
-            })}`}
-            name="priorityFee"
-            rules={{
-              required: true,
-              validate: handleValidatePriorityFee,
-              min: 0,
-            }}
-          >
-            <Input
-              flex={1}
-              addOns={[
-                {
-                  label: feeSymbol,
-                },
-              ]}
-            />
-          </Form.Field>
-          <Form.Field
-            label={intl.formatMessage({
-              id: 'content__gas_limit',
-            })}
-            name="gasLimit"
-            description={gasLimitDescription}
-            rules={{
-              required: true,
-              validate: handleValidateGasLimit,
-            }}
-          >
-            <Input
-              flex={1}
-              addOns={[
-                {
-                  iconName: 'UndoOutline',
-                  onPress: () => {
-                    form.setValue('gasLimit', originalLimit);
-                    void form.trigger('gasLimit');
+        <Form form={form}>
+          <YStack space="$5">
+            <Form.Field
+              label="Max Base Fee"
+              name="maxBaseFee"
+              description={`Current: ${customFee.gasEIP1559.baseFeePerGas} ${feeSymbol}`}
+              rules={{
+                required: true,
+                min: 0,
+                validate: handleValidateMaxBaseFee,
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: feeSymbol,
                   },
-                },
-              ]}
-            />
-          </Form.Field>
-        </YStack>
+                ]}
+              />
+            </Form.Field>
+            <Form.Field
+              label={`${intl.formatMessage({
+                id: 'form__priority_fee',
+              })}`}
+              name="priorityFee"
+              rules={{
+                required: true,
+                validate: handleValidatePriorityFee,
+                min: 0,
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: feeSymbol,
+                  },
+                ]}
+              />
+            </Form.Field>
+            <Form.Field
+              label={intl.formatMessage({
+                id: 'content__gas_limit',
+              })}
+              name="gasLimit"
+              description={gasLimitDescription}
+              rules={{
+                required: true,
+                validate: handleValidateGasLimit,
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    iconName: 'UndoOutline',
+                    onPress: () => {
+                      form.setValue('gasLimit', originalLimit);
+                      void form.trigger('gasLimit');
+                    },
+                  },
+                ]}
+              />
+            </Form.Field>
+          </YStack>
+        </Form>
       );
     }
 
     if (customFee.gas) {
       const originalLimit = customFee.gas.gasLimit;
       return (
-        <YStack space="$5">
-          <Form.Field
-            label={`${intl.formatMessage({
-              id: 'content__gas_price',
-            })}(${feeSymbol})`}
-            name="gasPrice"
-            rules={{
-              required: true,
-              min: 0,
-              validate: handleValidateGasPrice,
-            }}
-          >
-            <Input flex={1} />
-          </Form.Field>
-          <Form.Field
-            label={intl.formatMessage({
-              id: 'content__gas_limit',
-            })}
-            name="gasLimit"
-            description={gasLimitDescription}
-            rules={{
-              required: true,
-              validate: handleValidateGasLimit,
-            }}
-          >
-            <Input
-              flex={1}
-              addOns={[
-                {
-                  iconName: 'UndoOutline',
-                  onPress: () => {
-                    form.setValue('gasLimit', originalLimit);
-                    void form.trigger('gasLimit');
+        <Form form={form}>
+          <YStack space="$5">
+            <Form.Field
+              label={`${intl.formatMessage({
+                id: 'content__gas_price',
+              })}(${feeSymbol})`}
+              name="gasPrice"
+              rules={{
+                required: true,
+                min: 0,
+                validate: handleValidateGasPrice,
+              }}
+            >
+              <Input flex={1} />
+            </Form.Field>
+            <Form.Field
+              label={intl.formatMessage({
+                id: 'content__gas_limit',
+              })}
+              name="gasLimit"
+              description={gasLimitDescription}
+              rules={{
+                required: true,
+                validate: handleValidateGasLimit,
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    iconName: 'UndoOutline',
+                    onPress: () => {
+                      form.setValue('gasLimit', originalLimit);
+                      void form.trigger('gasLimit');
+                    },
                   },
-                },
-              ]}
-            />
-          </Form.Field>
-        </YStack>
+                ]}
+              />
+            </Form.Field>
+          </YStack>
+        </Form>
       );
     }
 
     if (customFee.feeUTXO) {
       return (
-        <YStack space="$5">
-          <Form.Field
-            label={intl.formatMessage({
-              id: 'form__fee_rate',
-            })}
-            name="feeRate"
-            rules={{
-              required: true,
-              validate: handleValidateFeeRate,
-            }}
-          >
-            <Input flex={1} />
-          </Form.Field>
-        </YStack>
+        <Form form={form}>
+          <YStack space="$5">
+            <Form.Field
+              label={intl.formatMessage({
+                id: 'form__fee_rate',
+              })}
+              name="feeRate"
+              rules={{
+                required: true,
+                validate: handleValidateFeeRate,
+              }}
+            >
+              <Input flex={1} />
+            </Form.Field>
+          </YStack>
+        </Form>
       );
     }
   }, [
@@ -427,16 +521,11 @@ function FeeEditor(props: IProps) {
     handleValidateMaxBaseFee,
     handleValidatePriorityFee,
     intl,
+    vaultSettings?.editFeeEnabled,
   ]);
 
   const renderFeeOverview = useCallback(() => {
-    let feeInfoItems: {
-      label: string;
-      nativeValue?: string;
-      fiatValue?: string;
-      customValue?: string;
-      customSymbol?: string;
-    }[] = [];
+    let feeInfoItems: IFeeInfoItem[] = [];
 
     const fee =
       currentFeeType === EFeeType.Custom
@@ -473,6 +562,7 @@ function FeeEditor(props: IProps) {
         {
           label: 'Expected Fee',
           nativeValue: expectedFeeInNative,
+          nativeSymbol,
           fiatValue: new BigNumber(expectedFeeInNative)
             .times(nativeTokenPrice || 0)
             .toFixed(),
@@ -480,6 +570,7 @@ function FeeEditor(props: IProps) {
         {
           label: 'Max Fee',
           nativeValue: maxFeeInNative,
+          nativeSymbol,
           fiatValue: new BigNumber(maxFeeInNative)
             .times(nativeTokenPrice || 0)
             .toFixed(),
@@ -505,6 +596,7 @@ function FeeEditor(props: IProps) {
         {
           label: 'Max Fee',
           nativeValue: maxFeeInNative,
+          nativeSymbol,
           fiatValue: new BigNumber(maxFeeInNative)
             .times(nativeTokenPrice || 0)
             .toFixed(),
@@ -532,7 +624,23 @@ function FeeEditor(props: IProps) {
         {
           label: 'Fee',
           nativeValue: feeInNative,
+          nativeSymbol,
           fiatValue: new BigNumber(feeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
+    } else if (fee.feeTron) {
+      const maxFeeInNative = calculateTotalFeeNative({
+        amount: '0',
+        feeInfo: fee,
+      });
+      feeInfoItems = [
+        {
+          label: 'TRX Consumed',
+          nativeValue: maxFeeInNative,
+          nativeSymbol,
+          fiatValue: new BigNumber(maxFeeInNative)
             .times(nativeTokenPrice || 0)
             .toFixed(),
         },
@@ -543,52 +651,14 @@ function FeeEditor(props: IProps) {
       <Stack space="$4" p="$5" pt="0">
         <YStack>
           {feeInfoItems.map((feeInfo, index) => (
-            <XStack
-              key={index}
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {feeInfo.label}
-              </SizableText>
-              <XStack alignItems="center" space="$1">
-                {!isNil(feeInfo.fiatValue) ? (
-                  <NumberSizeableText
-                    formatter="value"
-                    formatterOptions={{
-                      currency: settings.currencyInfo.symbol,
-                    }}
-                    size="$bodyMd"
-                    color="$textSubdued"
-                  >
-                    {feeInfo.fiatValue}
-                  </NumberSizeableText>
-                ) : null}
-                {!isNil(feeInfo.nativeValue) ? (
-                  <NumberSizeableText
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: nativeSymbol }}
-                    size="$bodyMdMedium"
-                  >
-                    {feeInfo.nativeValue}
-                  </NumberSizeableText>
-                ) : null}
-                {!isNil(feeInfo.customValue) ? (
-                  <NumberSizeableText
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: feeInfo.customSymbol }}
-                    size="$bodyMdMedium"
-                  >
-                    {feeInfo.customValue}
-                  </NumberSizeableText>
-                ) : null}
-              </XStack>
-            </XStack>
+            <FeeInfoItem feeInfo={feeInfo} key={index} />
           ))}
         </YStack>
-        <Button variant="primary" size="medium" onPress={handleApplyFeeInfo}>
-          {intl.formatMessage({ id: 'action__save' })}
-        </Button>
+        {vaultSettings?.editFeeEnabled ? (
+          <Button variant="primary" size="medium" onPress={handleApplyFeeInfo}>
+            {intl.formatMessage({ id: 'action__save' })}
+          </Button>
+        ) : null}
       </Stack>
     );
   }, [
@@ -600,8 +670,8 @@ function FeeEditor(props: IProps) {
     intl,
     nativeSymbol,
     nativeTokenPrice,
-    settings.currencyInfo.symbol,
     unsignedTxs,
+    vaultSettings?.editFeeEnabled,
     watchAllFields.feeRate,
     watchAllFields.gasLimit,
     watchAllFields.gasPrice,
@@ -609,11 +679,53 @@ function FeeEditor(props: IProps) {
     watchAllFields.priorityFee,
   ]);
 
+  const renderFeeDetails = useCallback(() => {
+    if (!vaultSettings?.checkFeeDetailEnabled) return null;
+    const feeInfoItems: IFeeInfoItem[] = [];
+
+    const fee =
+      currentFeeType === EFeeType.Custom
+        ? customFee
+        : feeSelectorItems[currentFeeIndex].feeInfo;
+    if (fee.feeTron) {
+      if (fee.feeTron.requiredBandwidth) {
+        feeInfoItems.push({
+          label: 'Bandwidth Consumed',
+          customValue: String(fee.feeTron.requiredBandwidth),
+          customSymbol: 'Bandwidth',
+        });
+      }
+
+      if (fee.feeTron.requiredEnergy) {
+        feeInfoItems.push({
+          label: 'Energy Consumed',
+          customValue: String(fee.feeTron.requiredEnergy),
+          customSymbol: 'Energy',
+        });
+      }
+    }
+
+    return (
+      <YStack space="$4">
+        {feeInfoItems.map((feeInfo, index) => (
+          <FeeInfoItem feeInfo={feeInfo} key={index} />
+        ))}
+      </YStack>
+    );
+  }, [
+    currentFeeIndex,
+    currentFeeType,
+    customFee,
+    feeSelectorItems,
+    vaultSettings?.checkFeeDetailEnabled,
+  ]);
+
   return (
     <YStack space="$4">
       <YStack space="$4" px="$5" paddingTop={isVerticalLayout ? 0 : '$4'}>
         {renderFeeTypeSelector()}
-        <Form form={form}>{renderFeeEditorForm()}</Form>
+        {renderFeeDetails()}
+        {renderFeeEditorForm()}
       </YStack>
       <Divider />
       {renderFeeOverview()}

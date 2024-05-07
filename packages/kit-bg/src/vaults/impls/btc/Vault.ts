@@ -713,17 +713,17 @@ export default class VaultBtc extends VaultBase {
   _collectUTXOsInfoByApi = memoizee(
     async () => {
       try {
-        const { utxoList } =
+        const { utxos } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
             accountAddress: await this.getAccountAddress(),
             xpub: await this.getAccountXpub(),
             withUTXOList: true,
           });
-        if (!utxoList || isEmpty(utxoList)) {
+        if (!utxos || isEmpty(utxos)) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
-        return utxoList;
+        return utxos;
       } catch (e) {
         throw new OneKeyInternalError('Failed to get UTXO list.');
       }

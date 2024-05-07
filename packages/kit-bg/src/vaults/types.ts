@@ -117,6 +117,7 @@ export type IVaultSettings = {
   nonceRequired: boolean;
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
+  checkFeeDetailEnabled?: boolean;
   replaceTxEnabled: boolean;
 
   minTransferAmount?: string;
@@ -130,6 +131,7 @@ export type IVaultSettings = {
     [networkId: string]: IVaultSettingsNetworkInfo;
   };
   validationRequired?: boolean;
+  allowZeroFee?: boolean;
 };
 
 export type IVaultFactoryOptions = {
