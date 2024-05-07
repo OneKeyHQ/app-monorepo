@@ -6,6 +6,7 @@ import { Animated, Easing } from 'react-native';
 import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import DAppConnectExtensionFloatingTrigger from '@onekeyhq/kit/src/views/DAppConnection/components/DAppConnectExtensionFloatingTrigger';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -15,6 +16,7 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { UrlAccountAutoReplaceHistory } from '../../Landing';
 import { OnboardingOnMount } from '../../Onboarding/components';
 import HomeSelector from '../components/HomeSelector';
@@ -165,16 +167,26 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
     renderTabs,
   ]);
 
+  const header = useMemo(
+    () => (
+      <>
+        <TabPageHeader
+          showHeaderRight
+          sceneName={EAccountSelectorSceneName.home}
+        />
+        <HomeFirmwareUpdateReminder />
+      </>
+    ),
+    [],
+  );
+
   const renderHomePage = useCallback(() => {
     if (!ready) return null;
     if (wallet) {
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
       return (
         <>
-          <TabPageHeader
-            showHeaderRight
-            sceneName={EAccountSelectorSceneName.home}
-          />
+          {header}
           <Page.Body>{renderHomePageContent()}</Page.Body>
         </>
       );
@@ -182,10 +194,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
 
     return (
       <>
-        <TabPageHeader
-          showHeaderRight
-          sceneName={EAccountSelectorSceneName.home}
-        />
+        {header}
         <Page.Body>
           <Stack h="100%" justifyContent="center">
             <EmptyWallet />
@@ -193,7 +202,7 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
         </Page.Body>
       </>
     );
-  }, [ready, wallet, renderHomePageContent]);
+  }, [header, ready, renderHomePageContent, wallet]);
 
   return useMemo(() => <Page>{renderHomePage()}</Page>, [renderHomePage]);
 }
@@ -201,6 +210,8 @@ function HomePage({ onPressHide }: { onPressHide: () => void }) {
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
   console.log('HomePageContainer render');
+
+  useDebugComponentRemountLog({ name: 'HomePageContainer' });
 
   if (isHide) {
     return null;

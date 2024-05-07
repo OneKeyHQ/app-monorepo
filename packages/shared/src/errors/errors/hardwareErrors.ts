@@ -12,20 +12,26 @@ import { OneKeyError } from './baseErrors';
 import type {
   IOneKeyError,
   IOneKeyErrorI18nInfo,
+  IOneKeyHardwareErrorPayload,
   IOneKeyJsError,
 } from '../types/errorTypes';
 
+export type IOneKeyErrorHardwareProps = Omit<IOneKeyError, 'payload'> & {
+  payload: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
+};
 export class OneKeyHardwareError<
   I18nInfoT = IOneKeyErrorI18nInfo | any,
   DataT = IOneKeyJsError | any,
 > extends OneKeyError<I18nInfoT, DataT> {
   override className = EOneKeyErrorClassNames.OneKeyHardwareError;
 
+  $isHardwareError = true;
+
   reconnect: boolean | undefined; // TODO move to $$config
 }
 
 export class InvalidPIN extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'HardwareInvalidPIN',
@@ -41,7 +47,7 @@ export class InvalidPIN extends OneKeyHardwareError {
 }
 
 export class InvalidPassphrase extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidPassphrase',
@@ -54,7 +60,7 @@ export class InvalidPassphrase extends OneKeyHardwareError {
 }
 
 export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotOpenedPassphrase',
@@ -68,7 +74,7 @@ export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
 }
 
 export class DeviceOpenedPassphrase extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceOpenedPassphrase',
@@ -81,7 +87,7 @@ export class DeviceOpenedPassphrase extends OneKeyHardwareError {
 }
 
 export class UserCancel extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UserCancel',
@@ -95,7 +101,7 @@ export class UserCancel extends OneKeyHardwareError {
 }
 
 export class UserCancelFromOutside extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UserCancelFromOutside',
@@ -109,7 +115,7 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
 }
 
 export class UnknownMethod extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UnknownMethod',
@@ -122,7 +128,7 @@ export class UnknownMethod extends OneKeyHardwareError {
 }
 
 export class ConnectTimeout extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'ConnectTimeout',
@@ -133,7 +139,7 @@ export class ConnectTimeout extends OneKeyHardwareError {
 }
 
 export class NeedOneKeyBridge extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedOneKeyBridge',
@@ -145,8 +151,32 @@ export class NeedOneKeyBridge extends OneKeyHardwareError {
   override code = ECustomOneKeyHardwareError.NeedOneKeyBridge;
 }
 
+export class NeedOneKeyBridgeUpgrade extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NeedOneKeyBridgeUpgrade',
+      }),
+    );
+  }
+
+  override code = ECustomOneKeyHardwareError.NeedOneKeyBridgeUpgrade;
+}
+
+export class NeedFirmwareUpgradeFromWeb extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'NeedFirmwareUpgradeFromWeb',
+      }),
+    );
+  }
+
+  override code = ECustomOneKeyHardwareError.NeedFirmwareUpgradeFromWeb;
+}
+
 export class BridgeNetworkError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BridgeNetworkError',
@@ -159,7 +189,7 @@ export class BridgeNetworkError extends OneKeyHardwareError {
 }
 
 export class BridgeTimeoutError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BridgeTimeoutError',
@@ -172,7 +202,7 @@ export class BridgeTimeoutError extends OneKeyHardwareError {
 }
 
 export class BridgeTimeoutErrorForDesktop extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BridgeTimeoutErrorForDesktop',
@@ -185,7 +215,7 @@ export class BridgeTimeoutErrorForDesktop extends OneKeyHardwareError {
 }
 
 export class ConnectTimeoutError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'ConnectTimeoutError',
@@ -198,8 +228,20 @@ export class ConnectTimeoutError extends OneKeyHardwareError {
   override code = HardwareErrorCode.PollingTimeout;
 }
 
+export class DeviceMethodCallTimeout extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceMethodCallTimeout',
+      }),
+    );
+  }
+
+  override code = ECustomOneKeyHardwareError.DeviceMethodCallTimeout;
+}
+
 export class ConnectPollingStopError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'ConnectPollingStopError',
@@ -214,7 +256,7 @@ export class ConnectPollingStopError extends OneKeyHardwareError {
 
 // 设备没有配对成功
 export class DeviceNotBonded extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotBonded',
@@ -228,7 +270,7 @@ export class DeviceNotBonded extends OneKeyHardwareError {
 
 // 设备配对失败
 export class DeviceBondError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceBondError',
@@ -242,7 +284,7 @@ export class DeviceBondError extends OneKeyHardwareError {
 
 // 设备没有打开蓝牙
 export class NeedBluetoothTurnedOn extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedBluetoothTurnedOn',
@@ -256,7 +298,7 @@ export class NeedBluetoothTurnedOn extends OneKeyHardwareError {
 
 // 没有使用蓝牙的权限
 export class NeedBluetoothPermissions extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedBluetoothPermissions',
@@ -269,7 +311,7 @@ export class NeedBluetoothPermissions extends OneKeyHardwareError {
 }
 
 export class BleLocationServiceError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BleLocationServiceError',
@@ -282,7 +324,7 @@ export class BleLocationServiceError extends OneKeyHardwareError {
 }
 
 export class BleWriteCharacteristicError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BleWriteCharacteristicError',
@@ -295,7 +337,7 @@ export class BleWriteCharacteristicError extends OneKeyHardwareError {
 }
 
 export class BleScanError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BleScanError',
@@ -308,7 +350,7 @@ export class BleScanError extends OneKeyHardwareError {
 }
 
 export class BleAlreadyConnectedError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BleAlreadyConnectedError',
@@ -321,7 +363,7 @@ export class BleAlreadyConnectedError extends OneKeyHardwareError {
 }
 
 export class OpenBlindSign extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OpenBlindSign',
@@ -334,7 +376,7 @@ export class OpenBlindSign extends OneKeyHardwareError {
 }
 
 export class FirmwareVersionTooLow extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareVersionTooLow',
@@ -351,7 +393,7 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
 }
 
 export class NotInBootLoaderMode extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NotInBootLoaderMode',
@@ -362,8 +404,20 @@ export class NotInBootLoaderMode extends OneKeyHardwareError {
   override code = HardwareErrorCode.DeviceUnexpectedBootloaderMode;
 }
 
+export class DeviceDetectInBootloaderMode extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'DeviceDetectInBootloaderMode',
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.DeviceDetectInBootloaderMode;
+}
+
 export class FirmwareDownloadFailed extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareDownloadFailed',
@@ -378,11 +432,13 @@ export class FirmwareDownloadFailed extends OneKeyHardwareError {
 }
 
 export class FirmwareUpdateManuallyEnterBoot extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
+      // You need to manually enter boot.
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareUpdateManuallyEnterBoot',
         defaultKey: 'msg__hardware_manually_enter_boot',
+        defaultAutoToast: true,
       }),
     );
   }
@@ -393,7 +449,7 @@ export class FirmwareUpdateManuallyEnterBoot extends OneKeyHardwareError {
 }
 
 export class FirmwareUpdateAutoEnterBootFailure extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareUpdateAutoEnterBootFailure',
@@ -408,7 +464,7 @@ export class FirmwareUpdateAutoEnterBootFailure extends OneKeyHardwareError {
 }
 
 export class FirmwareUpdateLimitOneDevice extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareUpdateLimitOneDevice',
@@ -423,8 +479,20 @@ export class FirmwareUpdateLimitOneDevice extends OneKeyHardwareError {
   override reconnect = true;
 }
 
+export class UseDesktopToUpdateFirmware extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'UseDesktopToUpdateFirmware',
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.UseDesktopToUpdateFirmware;
+}
+
 export class NewFirmwareUnRelease extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NewFirmwareUnRelease',
@@ -440,7 +508,7 @@ export class NewFirmwareUnRelease extends OneKeyHardwareError {
 }
 
 export class NewFirmwareForceUpdate extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NewFirmwareForceUpdate',
@@ -453,7 +521,7 @@ export class NewFirmwareForceUpdate extends OneKeyHardwareError {
 }
 
 export class DeviceNotSame extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotSame',
@@ -467,13 +535,13 @@ export class DeviceNotSame extends OneKeyHardwareError {
 }
 
 export class DeviceNotFound extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     // props?.message
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotFound',
         defaultKey: 'msg__hardware_device_not_find_error',
-        defaultAutoToast: true,
+        defaultAutoToast: false, // do not auto toast for DeviceNotFound, it's very common for silence call getFeatures
       }),
     );
   }
@@ -485,11 +553,13 @@ export class DeviceNotFound extends OneKeyHardwareError {
 }
 
 export class InitIframeLoadFail extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
+      // Hardware SDK initialization failed. Please check your network or switch the proxy then try again.
       normalizeErrorProps(props, {
         defaultMessage: 'InitIframeLoadFail',
         defaultKey: 'msg__hardware_init_iframe_load_error',
+        defaultAutoToast: true,
       }),
     );
   }
@@ -498,7 +568,7 @@ export class InitIframeLoadFail extends OneKeyHardwareError {
 }
 
 export class InitIframeTimeout extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InitIframeTimeout',
@@ -511,7 +581,7 @@ export class InitIframeTimeout extends OneKeyHardwareError {
 }
 
 export class NetworkError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NetworkError',
@@ -526,7 +596,7 @@ export class NetworkError extends OneKeyHardwareError {
 }
 
 export class NotSupportPassphraseError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NotSupportPassphraseError',
@@ -544,7 +614,7 @@ export class NotSupportPassphraseError extends OneKeyHardwareError {
 }
 
 export class FileAlreadyExistError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FileAlreadyExistError',
@@ -557,7 +627,7 @@ export class FileAlreadyExistError extends OneKeyHardwareError {
 }
 
 export class IncompleteFileError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'IncompleteFileError',
@@ -570,7 +640,7 @@ export class IncompleteFileError extends OneKeyHardwareError {
 }
 
 export class NotInSigningModeError extends OneKeyHardwareError {
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NotInSigningModeError',
@@ -587,7 +657,7 @@ export class UnknownHardwareError extends OneKeyHardwareError {
   override className: EOneKeyErrorClassNames =
     EOneKeyErrorClassNames.UnknownHardwareError;
 
-  constructor(props?: IOneKeyError) {
+  constructor(props?: IOneKeyErrorHardwareProps) {
     const message = [
       props?.payload?.error,
       props?.payload?.message, // use device raw error message as UnknownHardwareError message

@@ -13,6 +13,7 @@ import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { ModalDiscoveryStack } from '../../views/Discovery/router';
 import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { KeyTagModalRouter } from '../../views/KeyTag/router';
+import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
@@ -48,6 +49,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.OnboardingModal,
     children: OnboardingRouter,
+  },
+  {
+    name: EModalRoutes.FirmwareUpdateModal,
+    children: ModalFirmwareUpdateStack,
   },
   {
     name: EModalRoutes.AssetSelectorModal,

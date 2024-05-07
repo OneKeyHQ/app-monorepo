@@ -4,12 +4,16 @@ export enum ECustomOneKeyHardwareError {
   NeedOneKeyBridge = 3030,
   // TODO: remove this error code
   NeedFirmwareUpgrade = 4030,
+  NeedOneKeyBridgeUpgrade = 4031,
+  NeedFirmwareUpgradeFromWeb = 4032,
+  DeviceMethodCallTimeout = 4080,
 }
 
 export enum EOneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
   OneKeyHardwareError = 'OneKeyHardwareError',
   UnknownHardwareError = 'UnknownHardwareError',
+  OneKeyServerApiError = 'OneKeyServerApiError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
@@ -42,10 +46,18 @@ export interface IOneKeyError<
   key?: ILocaleIds; // i18n key
   info?: InfoT; // i18n params
   constructorName?: string;
+  /*
+  error.autoToast workflow:
+    UI -> BackgroundApiProxyBase.constructor -> globalErrorHandler.addListener -> error.autoToast===true -> appEventBus.emit(EAppEventBusNames.ShowToast) -> ErrorToastContainer -> appEventBus.on('ShowToast') -> Toast.show
+
+  example: 
+    ErrorToastGallery.tsx
+  */
   autoToast?: boolean; // TODO move to $$config: { autoToast, reconnect }
   // ---- hardwareError props
   payload?: IOneKeyHardwareErrorPayload; // raw payload from hardware sdk error response
   reconnect?: boolean;
+  $isHardwareError?: boolean;
 }
 
 export type IOneKeyHardwareErrorPayload = {

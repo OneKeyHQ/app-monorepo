@@ -24,10 +24,15 @@ import {
   INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '../engine/engineConsts';
+import { CoreSDKLoader } from '../hardware/instance';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import deviceUtils from './deviceUtils';
 import networkUtils from './networkUtils';
 
+import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -536,6 +541,23 @@ function formatUtxoPath(path: string): string {
   return newPath;
 }
 
+async function buildDeviceName({
+  device,
+  features,
+}: {
+  device?: SearchDevice;
+  features: IOneKeyDeviceFeatures;
+}) {
+  const { getDeviceUUID } = await CoreSDKLoader();
+  // const deviceType =
+  //   device?.deviceType ||
+  //   (await deviceUtils.getDeviceTypeFromFeatures({ features }));
+  const deviceUUID = device?.uuid || getDeviceUUID(features);
+  return (
+    features.label ?? features.ble_name ?? `OneKey ${deviceUUID.slice(-4)}`
+  );
+}
+
 export default {
   buildBaseAccountName,
   buildHDAccountName,
@@ -570,6 +592,7 @@ export default {
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,
+  buildDeviceName,
   getWalletConnectMergedNetwork,
   formatUtxoPath,
 };

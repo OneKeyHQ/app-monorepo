@@ -1,5 +1,6 @@
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import { HeaderRight } from './HeaderRight';
 import { HeaderLeft } from './HedaerLeft';
@@ -10,6 +11,9 @@ export function TabPageHeader({
   sceneName,
   showHeaderRight,
 }: ITabPageHeaderProp) {
+  useDebugComponentRemountLog({
+    name: `native TabPageHeader:${sceneName}:${String(showHeaderRight)}`,
+  });
   const { top } = useSafeAreaInsets();
   return (
     <>

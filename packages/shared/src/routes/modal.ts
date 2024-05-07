@@ -10,6 +10,7 @@ import type { IDAppConnectionModalParamList } from './dAppConnection';
 import type { IDiscoveryModalParamList } from './discovery';
 import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { IModalKeyTagParamList } from './keyTag';
+import type { IModalFirmwareUpdateParamList } from './firmwareUpdate';
 import type { ILiteCardParamList } from './liteCard';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalReceiveParamList } from './receive';
@@ -28,6 +29,7 @@ export enum EModalRoutes {
   SwapModal = 'SwapModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
+  FirmwareUpdateModal = 'FirmwareUpdateModal',
   AssetSelectorModal = 'AssetSelectorModal',
   ChainSelectorModal = 'ChainSelectorModal',
   SendModal = 'SendModal',
@@ -52,6 +54,7 @@ export type IModalParamList = {
   [EModalRoutes.SwapModal]: IModalSwapParamList;
   [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
+  [EModalRoutes.FirmwareUpdateModal]: IModalFirmwareUpdateParamList;
   [EModalRoutes.AssetSelectorModal]: IAssetSelectorParamList;
   [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
   [EModalRoutes.SendModal]: IModalSendParamList;

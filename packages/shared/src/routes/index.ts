@@ -11,6 +11,7 @@ export * from './gallery';
 export * from './modal';
 export * from './onboarding';
 export * from './receive';
+export * from './firmwareUpdate';
 export * from './root';
 export * from './scanQrCode';
 export * from './liteCard';

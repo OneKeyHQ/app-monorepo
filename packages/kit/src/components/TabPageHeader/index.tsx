@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { Page } from '@onekeyhq/components';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import { useAccountSelectorContextData } from '../../states/jotai/contexts/accountSelector';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
@@ -14,6 +15,10 @@ export function TabPageHeader({
   sceneName,
   showHeaderRight,
 }: ITabPageHeaderProp) {
+  useDebugComponentRemountLog({
+    name: `web TabPageHeader:${sceneName}:${String(showHeaderRight)}`,
+  });
+
   const renderHeaderLeft = useCallback(
     () => <HeaderLeft sceneName={sceneName} />,
     [sceneName],
@@ -25,7 +30,6 @@ export function TabPageHeader({
     () =>
       showHeaderRight && config ? (
         <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-          {' '}
           <HeaderRight />
         </AccountSelectorProviderMirror>
       ) : null,
@@ -33,9 +37,11 @@ export function TabPageHeader({
   );
 
   return (
-    <Page.Header
-      headerLeft={renderHeaderLeft}
-      headerRight={renderHeaderRight}
-    />
+    <>
+      <Page.Header
+        headerLeft={renderHeaderLeft}
+        headerRight={renderHeaderRight}
+      />
+    </>
   );
 }

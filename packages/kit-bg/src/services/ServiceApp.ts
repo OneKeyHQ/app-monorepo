@@ -18,7 +18,7 @@ import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import localDb from '../dbs/local/localDbInstance';
+import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 
