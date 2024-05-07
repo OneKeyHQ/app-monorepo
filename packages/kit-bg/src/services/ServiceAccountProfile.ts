@@ -8,6 +8,8 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IAddressInteractionStatus,
@@ -62,12 +64,7 @@ class ServiceAccountProfile extends ServiceBase {
   ): Promise<IAddressValidateStatus> {
     const { networkId, address } = params;
     try {
-      const client = await this.getClient();
-      const resp = await client.get<{
-        data: IAddressValidation;
-      }>('/wallet/v1/account/validate-address', {
-        params: { networkId, accountAddress: address },
-      });
+      const resp = await this.fetchValidateAddressResult(params);
       return resp.data.data.isValid ? 'valid' : 'invalid';
     } catch (serverError) {
       try {
@@ -89,6 +86,22 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
   }
+
+  fetchValidateAddressResult = memoizee(
+    async (params: IAddressNetworkIdParams) => {
+      const { networkId, address } = params;
+      const client = await this.getClient();
+      const resp = await client.get<{
+        data: IAddressValidation;
+      }>('/wallet/v1/account/validate-address', {
+        params: { networkId, accountAddress: address },
+      });
+      return resp;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
 
   private async getAddressInteractionStatus({
     networkId,

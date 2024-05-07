@@ -5,11 +5,14 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { vaultFactory } from '../vaults/factory';
 import ClientLightning from '../vaults/impls/lightning/sdkLightning/ClientLightning';
+import {
+  findLnurl,
+  isLightningAddress,
+} from '../vaults/impls/lightning/sdkLightning/lnurl';
 
 import ServiceBase from './ServiceBase';
 
@@ -28,9 +31,7 @@ class ServiceLightning extends ServiceBase {
 
   private getClientCache = memoizee(
     async (isTestnet: boolean) => {
-      const _client = await this.backgroundApi.serviceLightning.getClient(
-        EEndpointName.LN,
-      );
+      const _client = await this.backgroundApi.serviceLightning.getClient();
       return new ClientLightning(this.backgroundApi, _client, isTestnet);
     },
     {
@@ -145,6 +146,38 @@ class ServiceLightning extends ServiceBase {
     })) as LightningVault;
     const invoice = await vault._decodedInvoiceCache(paymentRequest);
     return vault._isZeroAmountInvoice(invoice);
+  }
+
+  @backgroundMethod()
+  async findAndValidateLnurl({
+    toVal,
+    networkId,
+  }: {
+    toVal: string;
+    networkId: string;
+  }) {
+    let lnurl = findLnurl(toVal);
+    if (!lnurl && isLightningAddress(toVal)) {
+      lnurl = toVal;
+    }
+
+    if (!lnurl) {
+      return null;
+    }
+
+    const { data } =
+      await this.backgroundApi.serviceAccountProfile.fetchValidateAddressResult(
+        {
+          networkId,
+          address: toVal,
+        },
+      );
+
+    if (!data.data.lnurlDetails) {
+      throw new Error('Invalid lnurl');
+    }
+
+    return data.data.lnurlDetails;
   }
 }
 
