@@ -31,3 +31,18 @@ export type IUnionMsgType =
   | IRegisterMsgType
   | IAuthMsgType
   | IPaymentBolt11MsgType;
+
+// export type ILightningHDSignatureParams = {
+//   msgPayload: UnionMsgType;
+//   engine: Engine;
+//   path: string;
+//   password: string;
+//   entropy: Buffer;
+//   isTestnet: boolean;
+// };
+
+// export type ILightningHWSIgnatureParams = {
+//   msgPayload: UnionMsgType;
+//   path: string;
+//   isTestnet: boolean;
+// };

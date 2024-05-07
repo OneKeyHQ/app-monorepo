@@ -1,5 +1,4 @@
 import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
-import type { ILNURLPaymentInfo } from '@onekeyhq/core/src/chains/lightning/types/lnurl';
 import type {
   EAddressEncodings,
   ICoreApiGetAddressItem,
@@ -23,6 +22,7 @@ import type {
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
+import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';

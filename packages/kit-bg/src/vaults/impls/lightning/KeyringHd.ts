@@ -1,13 +1,15 @@
 import { sha256 } from '@noble/hashes/sha256';
 
-import type { IEncodedTxLightning } from '@onekeyhq/core/src/chains/lightning/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import type { ISignApiMessageParams } from '@onekeyhq/shared/types/lightning';
+import type {
+  IEncodedTxLightning,
+  ISignApiMessageParams,
+} from '@onekeyhq/shared/types/lightning';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
