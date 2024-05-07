@@ -33,6 +33,12 @@ export type IFeeUTXO = {
   feeValue?: string;
 };
 
+export type IFeeTron = {
+  requiredBandwidth: number;
+  requiredEnergy: number;
+  originalFee: number;
+};
+
 export type IEstimateGasParams = {
   networkId: string;
   encodedTx?: IEncodedTx;
@@ -50,6 +56,7 @@ export type IFeeInfoUnit = {
   gas?: IGasLegacy;
   gasEIP1559?: IGasEIP1559;
   feeUTXO?: IFeeUTXO;
+  feeTron?: IFeeTron;
 };
 
 export type ISendSelectedFeeInfo = {
@@ -71,6 +78,7 @@ export type IEstimateGasResp = {
   gas?: IGasLegacy[];
   gasEIP1559?: IGasEIP1559[];
   feeUTXO?: IFeeUTXO[];
+  feeTron?: IFeeTron[];
   nativeTokenPrice?: {
     price: number;
     price24h: number;

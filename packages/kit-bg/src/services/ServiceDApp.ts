@@ -35,6 +35,7 @@ import type {
   IConnectionStorageType,
   IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
+import { IProxyResponse } from '@onekeyhq/shared/types/proxy';
 
 import ServiceBase from './ServiceBase';
 
@@ -734,7 +735,7 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async proxyRPCCall({
+  async proxyRPCCall<T>({
     networkId,
     request,
   }: {
@@ -745,17 +746,24 @@ class ServiceDApp extends ServiceBase {
     const results = await client.post<{
       data: {
         data: {
+          id: number | string;
           jsonrpc: string;
-          id: number;
-          result: unknown;
-        };
+          result: T;
+        }[];
       };
     }>('/wallet/v1/proxy/network', {
       networkId,
-      body: [request.id ? request : { ...request, id: 0 }],
+      body: [
+        {
+          route: 'rpc',
+          params: request.id ? request : { ...request, id: 0 },
+        },
+      ],
     });
 
-    return parseRPCResponse(results.data.data.data);
+    const data = results.data.data.data;
+
+    return data.map((item) => parseRPCResponse(item));
   }
 
   @backgroundMethod()

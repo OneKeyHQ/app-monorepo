@@ -13,7 +13,7 @@ import ProviderApiPrivate from './ProviderApiPrivate';
 // import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 // import ProviderApiSui from './ProviderApiSui';
-// import ProviderApiTron from './ProviderApiTron';
+import ProviderApiTron from './ProviderApiTron';
 import ProviderApiWebln from './ProviderApiWebln';
 
 import type ProviderApiBase from './ProviderApiBase';
@@ -49,9 +49,9 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.conflux]: new ProviderApiConflux({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.tron]: new ProviderApiTron({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.tron]: new ProviderApiTron({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.algo]: new ProviderAlgo({
     //   backgroundApi,
     // }),

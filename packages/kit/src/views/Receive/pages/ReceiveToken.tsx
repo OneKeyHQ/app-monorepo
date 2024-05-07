@@ -27,6 +27,7 @@ import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -82,7 +83,7 @@ function ReceiveToken() {
           networkId,
           indexedAccountId: account?.indexedAccountId,
           deriveType,
-          confirmOnDevice: true,
+          confirmOnDevice: EConfirmOnDeviceType.EveryItem,
         });
 
       const isSameAddress =
