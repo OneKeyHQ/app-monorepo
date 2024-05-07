@@ -82,7 +82,7 @@ export const useAppUpdateInfo = (isFullModal = false) => {
           void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
         });
     }
-    backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo().then(response => {
+    void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo().then(response => {
       if (response?.isForceUpdate && isNeedUpdate(
         response.latestVersion,
         response.status,
