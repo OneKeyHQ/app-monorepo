@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { sha256 } from '@noble/hashes/sha256';
 import BigNumber from 'bignumber.js';
-import { format } from 'date-fns';
 import { isEmpty } from 'lodash';
 
 import {
@@ -17,7 +16,6 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
-  InvalidAddress,
   InvalidLightningPaymentRequest,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
@@ -34,7 +32,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
+import type { IFetchAccountHistoryParams } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
@@ -82,9 +80,7 @@ export default class Vault extends VaultBase {
   private getClientCache = memoizee(
     async () => {
       const network = await this.getNetwork();
-      const _client = await this.backgroundApi.serviceLightning.getClient(
-        EEndpointName.LN,
-      );
+      const _client = await this.backgroundApi.serviceLightning.getClient();
       return new ClientLightning(
         this.backgroundApi,
         _client,
@@ -132,7 +128,6 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
     }
-    const { address: balanceAddress } = await this.getAccount();
     const client = await this.getClient();
     const invoice = await this._decodedInvoiceCache(transferInfo.to);
     const lnConfig = await client.getConfig();
@@ -431,6 +426,36 @@ export default class Vault extends VaultBase {
       credential: res.accessToken,
     });
     return res;
+  }
+
+  override async buildFetchHistoryListParams(
+    params: IFetchAccountHistoryParams,
+  ) {
+    const lightningSignature = await this._getAuthorization({
+      accountId: params.accountId,
+      networkId: params.networkId,
+      address: params.accountAddress,
+    });
+    return {
+      lightningSignature,
+    };
+  }
+
+  async _getAuthorization({
+    accountId,
+    networkId,
+    address,
+  }: {
+    accountId: string;
+    networkId: string;
+    address: string;
+  }) {
+    const client = await this.getClient();
+    return client.getAuthorization({
+      accountId,
+      networkId,
+      address,
+    });
   }
 
   _decodedInvoiceCache = memoizee(

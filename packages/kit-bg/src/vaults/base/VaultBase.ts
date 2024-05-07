@@ -34,6 +34,7 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
+  IFetchAccountHistoryParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
@@ -264,6 +265,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     encodedTx: IEncodedTx | undefined;
   }) {
     return Promise.resolve(encodedTx);
+  }
+
+  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+    return Promise.resolve({});
   }
 
   async buildHistoryTx({
