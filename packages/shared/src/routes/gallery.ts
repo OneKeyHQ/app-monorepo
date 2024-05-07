@@ -61,4 +61,5 @@ export enum EGalleryRoutes {
   ComponentLogger = 'component-Logger',
   ComponentChainSelector = 'component-ChainSelector',
   ComponentMarkdown = 'component-Markdown',
+  ComponentWebEmbed = 'component-WebEmbed',
 }

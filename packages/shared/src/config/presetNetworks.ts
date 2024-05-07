@@ -1602,6 +1602,45 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const tron = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0x2b6653dc',
+    'code': 'trx',
+    'decimals': 6,
+    'id': 'tron--0x2b6653dc',
+    'impl': 'tron',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/trx.png',
+    'name': 'Tron',
+    'shortcode': 'trx',
+    'shortname': 'TRX',
+    'symbol': 'TRX',
+    'feeMeta': {
+      'code': 'trx',
+      'decimals': 6,
+      'symbol': 'TRX',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'tron',
+        'platform': 'tron',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://tronscan.org/#/address/{address}',
+        'block': 'https://tronscan.org/#/block/{block}',
+        'name': 'https://tronscan.org/',
+        'transaction': 'https://tronscan.org/#/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     osmosis,
     cosmoshub,
@@ -1625,6 +1664,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     avax,
     polygon,
     cardano,
+    tron,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

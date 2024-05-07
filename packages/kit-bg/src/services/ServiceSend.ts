@@ -424,6 +424,7 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
         accountAddress,
+        withNonce: true,
       });
     if (isNil(onChainNextNonce)) {
       throw new Error('Get on-chain nonce failed.');

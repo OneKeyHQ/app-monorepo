@@ -5028,7 +5028,7 @@ __metadata:
     "@types/memoizee": "npm:^0.4.10"
     "@types/punycode": "npm:^2"
     "@types/react": "npm:^18.2.29"
-    "@types/react-dom": "npm:~18.0.10"
+    "@types/react-dom": "npm:~18.3.0"
     "@typescript-eslint/eslint-plugin": "npm:^5.46.1"
     "@typescript-eslint/parser": "npm:^5.46.1"
     "@ungap/structured-clone": "npm:^1.2.0"
@@ -5409,6 +5409,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
+    cross-env: "npm:^7.0.3"
     folderslint: "npm:^1.2.0"
     rimraf: "npm:^3"
   languageName: unknown
@@ -9440,12 +9441,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-dom@npm:~18.0.10":
-  version: 18.0.11
-  resolution: "@types/react-dom@npm:18.0.11"
+"@types/react-dom@npm:~18.3.0":
+  version: 18.3.0
+  resolution: "@types/react-dom@npm:18.3.0"
   dependencies:
     "@types/react": "npm:*"
-  checksum: 10/e6dd39b2ef65f6e6257f1792c62e997273a06c3e72e05f082185d0b8dfd8972340f9d5452408183b4bf03bd68cbb2fb9da89e063f1ba98c287a38953491febec
+  checksum: 10/6ff53f5a7b7fba952a68e114d3b542ebdc1e87a794234785ebab0bcd9bde7fb4885f21ebaf93d26dc0a1b5b93287f42cad68b78ae04dddf6b20da7aceff0beaf
   languageName: node
   linkType: hard
 

@@ -118,6 +118,7 @@ export type IVaultSettings = {
   nonceRequired: boolean;
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
+  checkFeeDetailEnabled?: boolean;
   replaceTxEnabled: boolean;
 
   minTransferAmount?: string;
@@ -132,6 +133,7 @@ export type IVaultSettings = {
   };
   validationRequired?: boolean;
   hideAmountInputOnFirstEntry?: boolean;
+  allowZeroFee?: boolean;
 };
 
 export type IVaultFactoryOptions = {
