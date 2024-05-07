@@ -4,9 +4,10 @@ import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
-import type {
-  IDeviceResponse,
-  IGetDeviceAccountDataParams,
+import {
+  EConfirmOnDeviceType,
+  type IDeviceResponse,
+  type IGetDeviceAccountDataParams,
 } from '@onekeyhq/shared/types/device';
 
 import { EVaultKeyringTypes } from '../types';
@@ -53,11 +54,17 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     const { template, coinName } = deriveInfo;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 
-    const showOnOnekeyFn = (arrIndex: number) =>
-      !confirmOnDevice
-        ? false
-        : // confirm on last index account create
-          arrIndex === usedIndexes[usedIndexes.length - 1];
+    const showOnOnekeyFn = (arrIndex: number) => {
+      if (confirmOnDevice === EConfirmOnDeviceType.EveryItem) {
+        return true;
+      }
+
+      if (confirmOnDevice === EConfirmOnDeviceType.LastItem) {
+        return arrIndex === usedIndexes[usedIndexes.length - 1];
+      }
+
+      return false;
+    };
 
     const result = await convertDeviceResponse(async () =>
       sdkGetDataFn({

@@ -41,6 +41,7 @@ function HomeOverviewContainer() {
             networkId: network.id,
           }),
           withNetWorth: true,
+          withNonce: false,
         });
       setOverviewState({
         initialized: true,
