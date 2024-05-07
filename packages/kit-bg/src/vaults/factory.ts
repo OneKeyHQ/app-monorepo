@@ -6,6 +6,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
+  IMPL_ADA,
   IMPL_BCH,
   IMPL_BTC,
   IMPL_COSMOS,
@@ -15,6 +16,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_TBTC,
+  IMPL_TRON,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -81,8 +83,10 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_BCH]: () => import('./impls/bch/Vault') as any,
     [IMPL_LTC]: () => import('./impls/ltc/Vault') as any,
     [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
+    [IMPL_TRON]: () => import('./impls/tron/Vault') as any,
     [IMPL_LIGHTNING]: () => import('./impls/lightning/Vault') as any,
     [IMPL_LIGHTNING_TESTNET]: () => import('./impls/lightning/Vault') as any,
+    [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

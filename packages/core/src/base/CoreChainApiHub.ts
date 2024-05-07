@@ -1,4 +1,4 @@
-// import CoreChainAda from '../chains/ada';
+import CoreChainAda from '../chains/ada';
 // import CoreChainAlgo from '../chains/algo';
 // import CoreChainApt from '../chains/apt';
 import CoreChainBch from '../chains/bch';
@@ -17,12 +17,12 @@ import CoreChainLtc from '../chains/ltc';
 // import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
 // import CoreChainSui from '../chains/sui';
-// import CoreChainTron from '../chains/tron';
+import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
 // import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
-  // ada = new CoreChainAda();
+  ada = new CoreChainAda();
 
   evm = new CoreChainEvm();
 
@@ -46,7 +46,7 @@ export class CoreChainApiHub {
 
   // xrp = new CoreChainXrp();
 
-  // tron = new CoreChainTron();
+  tron = new CoreChainTron();
 
   // sol = new CoreChainSol();
 

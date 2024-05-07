@@ -3,7 +3,7 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 // import ProviderAlgo from './ProviderAlgo';
 // import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBtc from './ProviderApiBtc';
-// import ProviderApiCardano from './ProviderApiCardano';
+import ProviderApiCardano from './ProviderApiCardano';
 // import ProviderApiConflux from './ProviderApiConflux';
 // import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
@@ -13,7 +13,7 @@ import ProviderApiPrivate from './ProviderApiPrivate';
 // import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 // import ProviderApiSui from './ProviderApiSui';
-// import ProviderApiTron from './ProviderApiTron';
+import ProviderApiTron from './ProviderApiTron';
 import ProviderApiWebln from './ProviderApiWebln';
 
 import type ProviderApiBase from './ProviderApiBase';
@@ -49,18 +49,18 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.conflux]: new ProviderApiConflux({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.tron]: new ProviderApiTron({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.tron]: new ProviderApiTron({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.algo]: new ProviderAlgo({
     //   backgroundApi,
     // }),
     // [IInjectedProviderNames.sui]: new ProviderApiSui({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.cardano]: new ProviderApiCardano({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.cardano]: new ProviderApiCardano({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
     //   backgroundApi,
     // }),

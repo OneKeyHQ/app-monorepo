@@ -22,10 +22,24 @@ export type IDevicePassphraseParams = {
 export type IDeviceCommonParams = IDevicePassphraseParams;
 export type IDeviceCommonParamsFull = CommonParams;
 
+export type IGetDeviceAccountDataParams = {
+  connectId: string;
+  deviceId: string;
+  pathPrefix: string;
+  pathSuffix: string;
+  coinName: string | undefined;
+  showOnOnekeyFn: (index: number) => boolean | undefined;
+};
+
+export enum EConfirmOnDeviceType {
+  EveryItem = 'EveryItem',
+  LastItem = 'LastItem',
+}
+
 export type IDeviceSharedCallParams = {
   dbDevice: IDBDevice;
   // type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS'; // for hardware?
-  confirmOnDevice?: boolean;
+  confirmOnDevice?: EConfirmOnDeviceType;
   deviceCommonParams?: IDeviceCommonParams;
 };
 

@@ -19,10 +19,12 @@ export type IFetchAccountDetailsParams = {
   networkId: string;
   accountAddress: string;
   xpub?: string;
+  cardanoPubKey?: string;
   withUTXOList?: boolean;
   withNetWorth?: boolean;
   withBalance?: boolean;
   withValidate?: boolean;
+  withNonce?: boolean;
 };
 
 export type IFetchAccountDetailsResp = {
@@ -34,7 +36,7 @@ export type IFetchAccountDetailsResp = {
   nonce?: number;
   isContract?: boolean;
   netWorth?: string;
-  utxoList?: IUtxoInfo[];
+  utxos?: IUtxoInfo[];
   validateInfo?: {
     isValid: boolean;
     addressType: string;
