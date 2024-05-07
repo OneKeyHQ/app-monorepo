@@ -7,8 +7,6 @@ import {
   getBtcForkNetwork,
   validateBtcAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
-import type { IEncodedTxLightning } from '@onekeyhq/core/src/chains/lightning/types';
-import type { IInvoiceDecodedResponse } from '@onekeyhq/core/src/chains/lightning/types/invoice';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -16,7 +14,11 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  ChannelInsufficientLiquidityError,
   InvalidLightningPaymentRequest,
+  InvoiceAlreadyPaid,
+  InvoiceExpiredError,
+  NoRouteFoundError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -34,6 +36,11 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import type { IFetchAccountHistoryParams } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  type IEncodedTxLightning,
+  type IInvoiceDecodedResponse,
+} from '@onekeyhq/shared/types/lightning';
+import { ELnPaymentStatusEnum } from '@onekeyhq/shared/types/lightning/payments';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -270,7 +277,7 @@ export default class Vault extends VaultBase {
         accountAddress,
         signedTx,
       });
-      await this.pollBolt11Status({ paymentHash: signedTx.txid });
+      await this.pollBolt11Status({ nonce: signedTx.nonce });
     } catch (err) {
       console.log('broadcastTransaction ERROR:', err);
       throw err;
@@ -286,20 +293,42 @@ export default class Vault extends VaultBase {
     };
   }
 
-  private async pollBolt11Status({ paymentHash }: { paymentHash: string }) {
+  private async pollBolt11Status({ nonce }: { nonce?: number }) {
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve, reject) => {
+      if (typeof nonce !== 'number') {
+        reject(new Error('Invalid nonce'));
+        return;
+      }
       const intervalId = setInterval(async () => {
         try {
           const client = await this.getClient();
-          const invoice = await client.specialInvoice({
-            paymentHash,
+          const response = await client.checkBolt11({
+            nonce: Number(nonce),
             networkId: this.networkId,
             accountId: this.accountId,
           });
-          if (invoice.is_paid) {
+          if (response.status === ELnPaymentStatusEnum.NOT_FOUND_ORDER) {
+            return;
+          }
+          if (response.status === ELnPaymentStatusEnum.SUCCESS) {
             clearInterval(intervalId);
-            resolve(invoice);
+            resolve(response.status);
+          }
+          if (response.status === ELnPaymentStatusEnum.FAILED) {
+            clearInterval(intervalId);
+            const errorMessage = response?.data?.message;
+            if (errorMessage?.toLowerCase() === 'invoice is already paid') {
+              reject(new InvoiceAlreadyPaid());
+            } else if (errorMessage === 'no_route') {
+              reject(new NoRouteFoundError());
+            } else if (errorMessage === 'insufficient_balance') {
+              reject(new ChannelInsufficientLiquidityError());
+            } else if (errorMessage === 'invoice expired') {
+              reject(new InvoiceExpiredError());
+            } else {
+              reject(new Error(response.data?.message));
+            }
           }
         } catch (e) {
           clearInterval(intervalId);

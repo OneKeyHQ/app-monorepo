@@ -1,8 +1,4 @@
-import type {
-  IInvoiceDecodedResponse,
-  IInvoiceType,
-} from '@onekeyhq/core/src/chains/lightning/types/invoice';
-import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types/signature';
+import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -12,7 +8,10 @@ import type {
   ICreateInvoiceResponse,
   ICreateUserResponse,
   IInvoiceConfig,
+  IInvoiceDecodedResponse,
+  IInvoiceType,
 } from '@onekeyhq/shared/types/lightning';
+import type { ICheckPaymentResponse } from '@onekeyhq/shared/types/lightning/payments';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import type { AxiosInstance } from 'axios';
@@ -307,6 +306,31 @@ class ClientLightning {
       maxAge: timerUtils.getTimeDurationMs({ seconds: 1 }),
     },
   );
+
+  async checkBolt11({
+    accountId,
+    networkId,
+    nonce,
+  }: {
+    accountId: string;
+    networkId: string;
+    nonce: number;
+  }) {
+    return this.request
+      .get<IOneKeyAPIBaseResponse<ICheckPaymentResponse>>(
+        `${this.prefix}/payments/check-bolt11`,
+        {
+          params: { nonce, testnet: this.testnet },
+          headers: {
+            Authorization: await this.getAuthorization({
+              accountId,
+              networkId,
+            }),
+          },
+        },
+      )
+      .then((i) => i.data.data);
+  }
 }
 
 export default ClientLightning;
