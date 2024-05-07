@@ -6,7 +6,7 @@ export type IToken = {
   logoURI?: string;
   isNative?: boolean;
   riskLevel?: number;
-  tokenSendAddress?: string;
+  sendAddress?: string;
 };
 
 export type ITokenFiat = {

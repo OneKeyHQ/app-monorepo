@@ -1,3 +1,16 @@
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import {
+  AddressLookupTableAccount,
+  ComputeBudgetInstruction,
+  ComputeBudgetProgram,
+  SYSVAR_INSTRUCTIONS_PUBKEY,
+  SystemInstruction,
+  SystemProgram,
+  Transaction,
+  TransactionMessage,
+  VersionedTransaction,
+} from '@solana/web3.js';
+
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -11,7 +24,13 @@ import type {
 } from '@onekeyhq/shared/types/lightning';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
+import type { AccountInfo, PublicKey } from '@solana/web3.js';
 import type { AxiosInstance } from 'axios';
+
+export enum EParamsEncodings {
+  BASE64 = 'base64',
+  JSON_PARSED = 'jsonParsed',
+}
 
 export enum ERpcMethods {
   SEND_TRANSACTION = 'sendTransaction',
@@ -28,38 +47,60 @@ export enum ERpcMethods {
 }
 
 class ClientSol {
+  private networkId: string;
+
   private backgroundApi: IBackgroundApi;
 
-  constructor(backgroundApi: any) {
+  constructor({
+    networkId,
+    backgroundApi,
+  }: {
+    networkId: string;
+    backgroundApi: any;
+  }) {
+    this.networkId = networkId;
     this.backgroundApi = backgroundApi;
   }
 
   async getMinimumBalanceForRentExemption(dataLength: number): Promise<number> {
-    const response = await this.backgroundApi.serviceDApp.proxyRPCCall<number>({
-      networkId: 'sol',
-      request: {
-        method: ERpcMethods.GET_MINIMUM_BALANCE_FOR_RENT_EXEMPTION,
-        params: [dataLength],
-      },
-    });
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<number>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: ERpcMethods.GET_MINIMUM_BALANCE_FOR_RENT_EXEMPTION,
+              params: [dataLength],
+            },
+          },
+        ],
+      });
 
     return response;
   }
 
   async getLatestBlockHash() {
-    const response = await this.backgroundApi.serviceDApp.proxyRPCCall<{
-      value: { blockhash: string; lastValidBlockHeight: number };
-    }>({
-      networkId: 'sol',
-      request: {
-        method: ERpcMethods.GET_LATEST_BLOCK_HASH,
-        params: [
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        value: { blockhash: string; lastValidBlockHeight: number };
+      }>({
+        networkId: this.networkId,
+        body: [
           {
-            commitment: 'confirmed',
+            route: 'rpc',
+            params: {
+              method: ERpcMethods.GET_LATEST_BLOCK_HASH,
+              params: [
+                {
+                  commitment: 'confirmed',
+                },
+              ],
+            },
           },
         ],
-      },
-    });
+      });
+
     return {
       recentBlockhash: response.value.blockhash,
       lastValidBlockHeight: response.value.lastValidBlockHeight,
@@ -89,16 +130,55 @@ class ClientSol {
       }[]
     | null
   > {
-    const response: {
-      [key: string]: any;
-    } = await this.rpc.call(RPC_METHODS.GET_TOKEN_ACCOUNTS_BY_OWNER, [
-      address,
-      {
-        programId: programId.toString(),
-      },
-      { encoding: PARAMS_ENCODINGS.JSON_PARSED },
-    ]);
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        [key: string]: any;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: ERpcMethods.GET_TOKEN_ACCOUNTS_BY_OWNER,
+              params: [
+                address,
+                {
+                  programId: programId.toString(),
+                },
+                { encoding: EParamsEncodings.JSON_PARSED },
+              ],
+            },
+          },
+        ],
+      });
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return response.value;
+  }
+
+  async getAccountInfo({
+    address,
+    encoding = EParamsEncodings.JSON_PARSED,
+  }: {
+    address: string;
+    encoding?: EParamsEncodings;
+  }): Promise<AccountInfo<[string, string]> | null> {
+    const [response] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+        value: AccountInfo<[string, string]>;
+      }>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: ERpcMethods.GET_ACCOUNT_INFO,
+              params: [address, { encoding }],
+            },
+          },
+        ],
+      });
+
     return response.value;
   }
 }

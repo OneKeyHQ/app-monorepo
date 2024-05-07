@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   CMT_PROGRAM,
   MintState,
@@ -9,6 +10,7 @@ import {
   createTransferInstruction as ocpCreateTransferInstruction,
 } from '@magiceden-oss/open_creator_protocol';
 import {
+  Metadata,
   TokenRecord,
   TokenStandard,
   TokenState,
@@ -38,20 +40,20 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js';
+import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNil } from 'lodash';
+import { add, isEmpty, isNil } from 'lodash';
 
-import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
+import type {
+  IEncodedTxSol,
+  INativeTxSol,
+} from '@onekeyhq/core/src/chains/sol/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -63,7 +65,11 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  type IDecodedTx,
+  type IDecodedTxAction,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -73,6 +79,13 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import ClientSol from './sdkSol/ClientSol';
+import {
+  TOKEN_AUTH_RULES_ID,
+  masterEditionAddress,
+  metadataAddress,
+  parseToNativeTx,
+  tokenRecordAddress,
+} from './utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -88,9 +101,11 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import type { Metadata } from '@metaplex-foundation/mpl-token-metadata';
-
-import BigNumber from 'bignumber.js';
+import type {
+  TransferInstructionAccounts,
+  TransferInstructionArgs,
+} from '@metaplex-foundation/mpl-token-metadata';
+import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
@@ -103,9 +118,16 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
-  _getClientCache = memoizee(async () => new ClientSol(this.backgroundApi), {
-    maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
-  });
+  _getClientCache = memoizee(
+    async () =>
+      new ClientSol({
+        networkId: this.networkId,
+        backgroundApi: this.backgroundApi,
+      }),
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   async getClient() {
     return this._getClientCache();
@@ -167,7 +189,7 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
     }
-
+    const client = await this.getClient();
     const source = new PublicKey(from);
     const nativeTx = new Transaction();
 
@@ -204,7 +226,7 @@ export default class Vault extends VaultBase {
       } else {
         // ata - associated token account
         const tokenAddress = tokenInfo?.address ?? nftInfo?.nftAddress ?? '';
-        const tokenSendAddress = tokenInfo?.tokenSendAddress;
+        const tokenSendAddress = tokenInfo?.sendAddress;
         const mint = new PublicKey(tokenAddress);
         const isNFT = !!nftInfo;
         let destinationAta = destination;
@@ -226,11 +248,11 @@ export default class Vault extends VaultBase {
           });
         }
 
-        const destinationAtaInfo = await client.getAccountInfo(
-          destinationAta.toString(),
-        );
+        const destinationAtaInfo = await client.getAccountInfo({
+          address: destinationAta.toString(),
+        });
 
-        if (isNFT) {
+        if (nftInfo) {
           const { isProgrammableNFT, metadata } =
             await this._checkIsProgrammableNFT(mint);
           if (isProgrammableNFT) {
@@ -241,7 +263,6 @@ export default class Vault extends VaultBase {
                 sourceAta,
                 destination,
                 destinationAta,
-                destinationAtaInfo,
                 amount,
                 metadata: metadata as Metadata,
               })),
@@ -269,22 +290,22 @@ export default class Vault extends VaultBase {
                   destination,
                   destinationAta,
                   destinationAtaInfo,
-                  token,
+                  tokenDecimals: 0,
                   amount,
                 }),
               );
             }
           }
-        } else {
+        } else if (tokenInfo) {
           nativeTx.add(
-            ...this.buildTransferTokenInstructions({
+            ...this._buildTransferTokenInstructions({
               mint,
               source,
               sourceAta,
               destination,
               destinationAta,
               destinationAtaInfo,
-              token,
+              tokenDecimals: tokenInfo.decimals,
               amount,
             }),
           );
@@ -303,7 +324,7 @@ export default class Vault extends VaultBase {
     for (let i = 0; i < 5; i += 1) {
       try {
         const resp = await client.getLatestBlockHash();
-        if (!isNil(resp.blockhash) && !isNil(resp.lastValidBlockHeight)) {
+        if (!isNil(resp.recentBlockhash) && !isNil(resp.lastValidBlockHeight)) {
           return resp;
         }
       } catch (e: any) {
@@ -355,8 +376,383 @@ export default class Vault extends VaultBase {
     return Promise.resolve(getAssociatedTokenAddressSync(mint, owner));
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new Error('Method not implemented.');
+  async _checkIsProgrammableNFT(mint: PublicKey) {
+    try {
+      const client = await this.getClient();
+      const metaAddress = metadataAddress(mint);
+      const mintAccountInfo = await client.getAccountInfo({
+        address: metaAddress.toString(),
+      });
+
+      if (mintAccountInfo) {
+        const metadata = Metadata.fromAccountInfo({
+          ...mintAccountInfo,
+          data: Buffer.from(mintAccountInfo.data[0], 'base64'),
+        })[0];
+
+        return {
+          metadata,
+          isProgrammableNFT:
+            metadata.tokenStandard === TokenStandard.ProgrammableNonFungible ||
+            metadata.tokenStandard ===
+              TokenStandard.ProgrammableNonFungibleEdition,
+        };
+      }
+      return {
+        isProgrammableNFT: false,
+      };
+    } catch (error) {
+      return {
+        isProgrammableNFT: false,
+      };
+    }
+  }
+
+  async _buildProgrammableNFTInstructions({
+    mint,
+    source,
+    sourceAta,
+    destination,
+    destinationAta,
+    amount,
+    metadata,
+  }: {
+    mint: PublicKey;
+    source: PublicKey;
+    sourceAta: PublicKey;
+    destination: PublicKey;
+    destinationAta: PublicKey;
+    amount: string;
+    metadata: Metadata;
+  }) {
+    const client = await this.getClient();
+    const instructions: TransactionInstruction[] = [];
+    const ownerTokenRecord = tokenRecordAddress(mint, sourceAta);
+    const ownerTokenRecordInfo = await client.getAccountInfo({
+      address: ownerTokenRecord.toString(),
+    });
+
+    if (ownerTokenRecordInfo) {
+      // need to check whether the token is lock or listed
+      const tokenRecord = TokenRecord.fromAccountInfo({
+        ...ownerTokenRecordInfo,
+        data: Buffer.from(ownerTokenRecordInfo.data[0], 'base64'),
+      })[0];
+
+      if (tokenRecord.state === TokenState.Locked) {
+        throw new Error('token account is locked');
+      } else if (tokenRecord.state === TokenState.Listed) {
+        throw new Error('token is listed');
+      }
+
+      let authorizationRules: PublicKey | undefined;
+
+      if (metadata.programmableConfig) {
+        authorizationRules = metadata.programmableConfig.ruleSet ?? undefined;
+      }
+
+      const transferAccounts: TransferInstructionAccounts = {
+        authority: source,
+        tokenOwner: source,
+        token: sourceAta,
+        metadata: metadataAddress(mint),
+        mint,
+        edition: masterEditionAddress(mint),
+        destinationOwner: destination,
+        destination: destinationAta,
+        payer: source,
+        splTokenProgram: TOKEN_PROGRAM_ID,
+        splAtaProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        sysvarInstructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+        authorizationRules,
+        authorizationRulesProgram: TOKEN_AUTH_RULES_ID,
+        ownerTokenRecord,
+        destinationTokenRecord: tokenRecordAddress(mint, destinationAta),
+      };
+
+      const transferArgs: TransferInstructionArgs = {
+        transferArgs: {
+          __kind: 'V1',
+          amount: Number(amount),
+          authorizationData: null,
+        },
+      };
+
+      instructions.push(
+        createTokenMetadataTransferInstruction(transferAccounts, transferArgs),
+      );
+    }
+
+    return instructions;
+  }
+
+  async _checkIsOpenCreatorProtocol(mint: PublicKey) {
+    const client = await this.getClient();
+    const mintStatePk = findMintStatePk(mint);
+    const mintAccountInfo = await client.getAccountInfo({
+      address: mintStatePk.toString(),
+    });
+
+    return mintAccountInfo !== null
+      ? MintState.fromAccountInfo({
+          ...mintAccountInfo,
+          data: Buffer.from(mintAccountInfo.data[0], 'base64'),
+        })[0]
+      : null;
+  }
+
+  _buildOpenCreatorProtocolInstructions({
+    mint,
+    source,
+    sourceAta,
+    destination,
+    destinationAta,
+    destinationAtaInfo,
+    mintState,
+  }: {
+    mint: PublicKey;
+    source: PublicKey;
+    sourceAta: PublicKey;
+    destination: PublicKey;
+    destinationAta: PublicKey;
+    destinationAtaInfo: AccountInfo<[string, string]> | null;
+    mintState: MintState;
+  }) {
+    const inscriptions: TransactionInstruction[] = [];
+
+    inscriptions.push(computeBudgetIx);
+
+    if (!destinationAtaInfo) {
+      inscriptions.push(
+        ocpCreateInitAccountInstruction({
+          policy: mintState.policy,
+          freezeAuthority: findFreezeAuthorityPk(mintState.policy),
+          mint,
+          metadata: metadataAddress(mint),
+          mintState: findMintStatePk(mint),
+          from: destination,
+          fromAccount: destinationAta,
+          cmtProgram: CMT_PROGRAM,
+          instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+          payer: source,
+          associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+        }),
+      );
+    }
+
+    inscriptions.push(
+      ocpCreateTransferInstruction({
+        policy: mintState.policy,
+        freezeAuthority: findFreezeAuthorityPk(mintState.policy),
+        mint,
+        metadata: metadataAddress(mint),
+        mintState: findMintStatePk(mint),
+        from: source,
+        fromAccount: sourceAta,
+        cmtProgram: CMT_PROGRAM,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+        to: destination,
+        toAccount: destinationAta,
+      }),
+    );
+
+    return inscriptions;
+  }
+
+  _buildTransferTokenInstructions({
+    mint,
+    source,
+    sourceAta,
+    destination,
+    destinationAta,
+    destinationAtaInfo,
+    tokenDecimals,
+    amount,
+  }: {
+    mint: PublicKey;
+    source: PublicKey;
+    sourceAta: PublicKey;
+    destination: PublicKey;
+    destinationAta: PublicKey;
+    destinationAtaInfo: AccountInfo<[string, string]> | null;
+    tokenDecimals: number;
+    amount: string;
+  }): TransactionInstruction[] {
+    const instructions: TransactionInstruction[] = [];
+    if (destinationAtaInfo === null) {
+      instructions.push(
+        createAssociatedTokenAccountInstruction(
+          source,
+          destinationAta,
+          destination,
+          mint,
+        ),
+      );
+    }
+
+    instructions.push(
+      createTransferCheckedInstruction(
+        sourceAta,
+        mint,
+        destinationAta,
+        source,
+        BigInt(new BigNumber(amount).shiftedBy(tokenDecimals).toFixed()),
+        tokenDecimals,
+      ),
+    );
+
+    return instructions;
+  }
+
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
+    const nativeTx = parseToNativeTx(encodedTx);
+    let actions: IDecodedTxAction[] = await this._decodeNativeTxActions(
+      nativeTx,
+    );
+
+    const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
+
+    let signature = isVersionedTransaction
+      ? nativeTx.signatures[0]
+      : nativeTx.signature;
+
+    if (signature?.every((value) => value === 0)) {
+      signature = null;
+    }
+  }
+
+  async _decodeNativeTxActions(nativeTx: INativeTxSol) {
+    const ret: Array<IDecodedTxAction> = [];
+
+    const createdAta: Record<string, AssociatedTokenInfo> = {};
+
+    // @ts-ignore
+    if (!nativeTx.instructions) {
+      return [{ type: EDecodedTxActionType.UNKNOWN }];
+    }
+
+    for (const instruction of (nativeTx as Transaction).instructions) {
+      // TODO: only support system transfer & token transfer now
+      if (
+        instruction.programId.toString() === SystemProgram.programId.toString()
+      ) {
+        try {
+          const instructionType =
+            SystemInstruction.decodeInstructionType(instruction);
+          if (instructionType === 'Transfer') {
+            const nativeToken =
+              await this.backgroundApi.serviceToken.getNativeToken({
+                networkId: this.networkId,
+              });
+            const { fromPubkey, toPubkey, lamports } =
+              SystemInstruction.decodeTransfer(instruction);
+            const nativeAmount = new BigNumber(lamports.toString());
+            const transfer = {
+              
+            }
+            ret.push({
+              type: EDecodedTxActionType.NATIVE_TRANSFER,
+              nativeTransfer: {
+                tokenInfo: nativeToken,
+                from: fromPubkey.toString(),
+                to: toPubkey.toString(),
+                amount: nativeAmount.shiftedBy(-nativeToken.decimals).toFixed(),
+                amountValue: nativeAmount.toFixed(),
+                extraInfo: null,
+              },
+            });
+          }
+        } catch {
+          // pass
+        }
+      } else if (
+        instruction.programId.toString() ===
+          ASSOCIATED_TOKEN_PROGRAM_ID.toString() &&
+        instruction.data.length === 0 &&
+        instruction.keys[4].pubkey.toString() ===
+          SystemProgram.programId.toString() &&
+        instruction.keys[5].pubkey.toString() === TOKEN_PROGRAM_ID.toString()
+      ) {
+        // Associated token account is newly created.
+        const [, associatedToken, owner, mint] = instruction.keys;
+        if (associatedToken && owner && mint) {
+          createdAta[associatedToken.pubkey.toString()] = {
+            owner: owner.pubkey.toString(),
+            mint: mint.pubkey.toString(),
+          };
+        }
+      } else if (
+        instruction.programId.toString() === TOKEN_PROGRAM_ID.toString()
+      ) {
+        try {
+          const {
+            data: { instruction: instructionType },
+          } = decodeInstruction(instruction);
+          let nativeAmount;
+          let fromAddress;
+          let tokenAddress;
+          let ataAddress;
+
+          if (instructionType === TokenInstruction.TransferChecked) {
+            const {
+              data: { amount },
+              keys: { owner, mint, destination },
+            } = decodeTransferCheckedInstruction(instruction);
+
+            nativeAmount = new BigNumber(amount.toString());
+            fromAddress = owner.pubkey.toString();
+            tokenAddress = mint.pubkey.toString();
+            ataAddress = destination.pubkey.toString();
+          } else if (instructionType === TokenInstruction.Transfer) {
+            const {
+              data: { amount },
+              keys: { owner, destination },
+            } = decodeTransferInstruction(instruction);
+
+            nativeAmount = new BigNumber(amount.toString());
+            fromAddress = owner.pubkey.toString();
+            ataAddress = destination.pubkey.toString();
+          }
+
+          if (nativeAmount && fromAddress && ataAddress) {
+            const ataAccountInfo =
+              createdAta[ataAddress] ||
+              (await this.getAssociatedAccountInfo(ataAddress));
+            const { mint, owner: toAddress } = ataAccountInfo;
+
+            tokenAddress = tokenAddress || mint;
+            const tokenInfo = await this.engine.ensureTokenInDB(
+              this.networkId,
+              tokenAddress,
+            );
+            if (tokenInfo) {
+              ret.push({
+                type: IDecodedTxActionType.TOKEN_TRANSFER,
+                tokenTransfer: {
+                  tokenInfo,
+                  from: fromAddress,
+                  to: toAddress ?? ataAddress,
+                  amount: nativeAmount.shiftedBy(-tokenInfo.decimals).toFixed(),
+                  amountValue: nativeAmount.toFixed(),
+                  extraInfo: null,
+                },
+              });
+            }
+          }
+        } catch {
+          // pass
+        }
+      }
+    }
+    if (ret.length === 0) {
+      ret.push({ type: EDecodedTxActionType.UNKNOWN });
+    }
+
+    return ret;
   }
 
   override async buildUnsignedTx(
