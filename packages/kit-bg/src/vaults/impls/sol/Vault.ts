@@ -63,6 +63,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -625,9 +626,18 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
     const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
-    const actions: IDecodedTxAction[] = await this._decodeNativeTxActions(
-      nativeTx,
-    );
+
+    let actions: IDecodedTxAction[] = [];
+
+    if (unsignedTx.swapInfo) {
+      actions = [
+        await this._buildTxActionFromSwap({
+          swapInfo: unsignedTx.swapInfo,
+        }),
+      ];
+    } else {
+      actions = await this._decodeNativeTxActions(nativeTx);
+    }
 
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
 
@@ -825,6 +835,29 @@ export default class Vault extends VaultBase {
     }
 
     return actions;
+  }
+
+  async _buildTxActionFromSwap(params: { swapInfo: ISwapTxInfo }) {
+    const { swapInfo } = params;
+    const swapSendToken = swapInfo.sender.token;
+    const action = await this.buildTxTransferAssetAction({
+      from: swapInfo.accountAddress,
+      to: '',
+      transfers: [
+        {
+          from: swapInfo.accountAddress,
+          to: swapInfo.receivingAddress,
+          tokenIdOnNetwork: swapSendToken.contractAddress,
+          icon: swapSendToken.logoURI ?? '',
+          name: swapSendToken.name ?? '',
+          symbol: swapSendToken.symbol,
+          amount: swapInfo.sender.amount,
+          isNFT: false,
+          isNative: swapSendToken.isNative,
+        },
+      ],
+    });
+    return action;
   }
 
   override async buildUnsignedTx(
