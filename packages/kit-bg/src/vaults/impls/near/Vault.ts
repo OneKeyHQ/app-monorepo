@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+import { isEmpty, isNil } from 'lodash';
+
+import type { IEncodedTxNear } from '@onekeyhq/core/src/chains/near/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveText,
@@ -9,6 +13,10 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -17,7 +25,16 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import type { IToken } from '@onekeyhq/shared/types/token';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -26,9 +43,24 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import ClientNear from './sdkNear/ClientNear';
 import settings from './settings';
-import { baseDecode, verifyNearAddress } from './utils';
+import {
+  BN,
+  FT_MINIMUM_STORAGE_BALANCE_LARGE,
+  FT_STORAGE_DEPOSIT_GAS,
+  FT_TRANSFER_DEPOSIT,
+  FT_TRANSFER_GAS,
+  baseDecode,
+  baseEncode,
+  deserializeTransaction,
+  nearApiJs,
+  parseJsonFromRawResponse,
+  serializeTransaction,
+  verifyNearAddress,
+} from './utils';
 
+import type { INearAccessKey, INearAccountStorageBalance } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -39,11 +71,10 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.near.hd;
@@ -55,6 +86,21 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringExternal,
   };
+
+  async getClient() {
+    return this.getClientCache();
+  }
+
+  private getClientCache = memoizee(
+    async () =>
+      new ClientNear({
+        backgroundApi: this.backgroundApi,
+        networkId: this.networkId,
+      }),
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
@@ -76,24 +122,362 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+  override buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxNear> {
+    const { transfersInfo } = params;
+
+    if (transfersInfo && !isEmpty(transfersInfo)) {
+      if (transfersInfo.length === 1) {
+        return this._buildEncodedTxFromTransfer({
+          transferInfo: transfersInfo[0],
+        });
+      }
+      throw new OneKeyInternalError('Batch transfers not supported');
+    }
+
+    throw new OneKeyInternalError();
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new Error('Method not implemented.');
+  async _buildEncodedTxFromTransfer(params: { transferInfo: ITransferInfo }) {
+    const { transferInfo } = params;
+    const { tokenInfo } = transferInfo;
+
+    if (!transferInfo.to) {
+      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+    }
+
+    if (!tokenInfo) {
+      throw new Error(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
+      );
+    }
+
+    const actions = [];
+
+    if (tokenInfo.isNative) {
+      actions.push(
+        await this._buildNativeTokenTransferAction({
+          amount: transferInfo.amount,
+        }),
+      );
+    } else {
+      const hasStorageBalance = await this._isStorageBalanceAvailable({
+        address: transferInfo.to,
+        tokenAddress: tokenInfo.address,
+      });
+      if (!hasStorageBalance) {
+        // action: storage_deposit
+        actions.push(
+          await this._buildStorageDepositAction({
+            amount: new BN(FT_MINIMUM_STORAGE_BALANCE_LARGE ?? '0'),
+            address: transferInfo.to,
+          }),
+        );
+      }
+      // action: token transfer
+      actions.push(
+        await this._buildTokenTransferAction({
+          transferInfo,
+        }),
+      );
+    }
+
+    const pubKey = await this._getPublicKey({ prefix: false });
+    const publicKey = nearApiJs.utils.key_pair.PublicKey.from(pubKey);
+    // TODO Mock value here, update nonce and blockHash in buildUnsignedTxFromEncodedTx later
+    const nonce = 0; // 65899896000001
+    const blockHash = '91737S76o1EfWfjxUQ4k3dyD3qmxDQ7hqgKUKxgxsSUW';
+    const tx = nearApiJs.transactions.createTransaction(
+      // 'c3be856133196da252d0f1083614cdc87a85c8aa8abeaf87daff1520355eec51',
+      transferInfo.from,
+      publicKey,
+      tokenInfo.address || transferInfo.to,
+      nonce,
+      actions,
+      baseDecode(blockHash),
+    );
+    const txStr = serializeTransaction(tx);
+    return Promise.resolve(txStr);
   }
 
-  override buildUnsignedTx(
+  _isStorageBalanceAvailable = memoizee(
+    async ({
+      address,
+      tokenAddress,
+    }: {
+      tokenAddress: string;
+      address: string;
+    }) => {
+      const storageBalance = await this._fetchAccountStorageBalance({
+        address,
+        tokenAddress,
+      });
+      return storageBalance?.total !== undefined;
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 1,
+      maxAge: 1000 * 30,
+    },
+  );
+
+  async _fetchAccountStorageBalance({
+    address,
+    tokenAddress,
+  }: {
+    address: string;
+    tokenAddress: string;
+  }): Promise<INearAccountStorageBalance | null> {
+    const cli = await this.getClient();
+    const result = (await cli.callContract(tokenAddress, 'storage_balance_of', {
+      account_id: address,
+    })) as INearAccountStorageBalance;
+
+    return result;
+  }
+
+  async _getPublicKey({
+    encoding = 'base58',
+    prefix = true,
+  }: {
+    encoding?: 'hex' | 'base58' | 'buffer';
+    prefix?: boolean;
+  } = {}): Promise<string> {
+    const account = await this.getAccount();
+
+    // Before commit a7430c1038763d8d7f51e7ddfe1284e3e0bcc87c, pubkey was stored
+    // in hexstring, afterwards it is stored using encoded format.
+
+    const pub = account.pub?.startsWith('ed25519:')
+      ? baseDecode(account.pub.split(':')[1]).toString('hex')
+      : account.pub;
+
+    const pubKeyBuffer = Buffer.from(pub ?? '', 'hex');
+
+    if (encoding === 'buffer') {
+      // return pubKeyBuffer;
+    }
+    if (encoding === 'base58') {
+      const prefixStr = prefix ? 'ed25519:' : '';
+      return prefixStr + baseEncode(pubKeyBuffer);
+    }
+    if (encoding === 'hex') {
+      return pubKeyBuffer.toString('hex');
+    }
+    // if (encoding === 'object') {
+    // return nearApiJs.utils.key_pair.PublicKey.from(pubKeyBuffer);
+    // }
+    return '';
+  }
+
+  async _buildNativeTokenTransferAction({ amount }: { amount: string }) {
+    const network = await this.getNetwork();
+    const amountBN = new BigNumber(amount || 0);
+    const amountBNInAction = new BN(
+      amountBN.shiftedBy(network.decimals).toFixed(),
+    );
+    return nearApiJs.transactions.transfer(amountBNInAction);
+  }
+
+  async _buildTokenTransferAction({
+    transferInfo,
+  }: {
+    transferInfo: ITransferInfo;
+  }) {
+    const token = transferInfo.tokenInfo as IToken;
+    const amountBN = new BigNumber(transferInfo.amount || 0);
+    const amountStr = amountBN.shiftedBy(token.decimals).toFixed();
+    return nearApiJs.transactions.functionCall(
+      'ft_transfer',
+      {
+        amount: amountStr,
+        receiver_id: transferInfo.to,
+      },
+      new BN(FT_TRANSFER_GAS),
+      new BN(FT_TRANSFER_DEPOSIT),
+    );
+  }
+
+  async _buildStorageDepositAction({
+    amount,
+    address,
+  }: {
+    amount: BN;
+    address: string;
+  }) {
+    return nearApiJs.transactions.functionCall(
+      'storage_deposit',
+      {
+        account_id: address,
+        registration_only: true,
+      },
+      new BN(FT_STORAGE_DEPOSIT_GAS ?? '0'),
+      amount,
+    );
+  }
+
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxNear;
+
+    const nativeTx = deserializeTransaction(encodedTx);
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: await this.getAccountAddress(),
+      signer: nativeTx.signerId,
+      nonce: parseFloat(nativeTx.nonce.toString()),
+      actions: await this._nativeTxActionToEncodedTxAction(nativeTx),
+
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+
+      extraInfo: null,
+    };
+
+    return decodedTx;
+  }
+
+  async _nativeTxActionToEncodedTxAction(
+    nativeTx: nearApiJs.transactions.Transaction,
+  ) {
+    const accountAddress = await this.getAccountAddress();
+    const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
+      networkId: this.networkId,
+      accountAddress,
+    });
+
+    const actions = await Promise.all(
+      nativeTx.actions.map(async (nativeAction) => {
+        let action: IDecodedTxAction = {
+          type: EDecodedTxActionType.UNKNOWN,
+        };
+        if (nativeAction.enum === 'transfer' && nativeAction.transfer) {
+          const amountValue = nativeAction.transfer.deposit.toString();
+          const amount = new BigNumber(amountValue)
+            .shiftedBy(nativeToken.decimals * -1)
+            .toFixed();
+
+          const transfer: IDecodedTxTransferInfo = {
+            from: nativeTx.signerId,
+            to: nativeTx.receiverId,
+            tokenIdOnNetwork: nativeToken.address,
+            icon: nativeToken.logoURI ?? '',
+            name: nativeToken.name,
+            symbol: nativeToken.symbol,
+            amount,
+            isNFT: false,
+            isNative: true,
+          };
+
+          action = await this.buildTxTransferAssetAction({
+            from: transfer.from,
+            to: transfer.to,
+            transfers: [transfer],
+          });
+        }
+        if (nativeAction.enum === 'functionCall') {
+          if (nativeAction?.functionCall?.methodName === 'ft_transfer') {
+            const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+              networkId: this.networkId,
+              tokenIdOnNetwork: nativeTx.receiverId,
+              accountAddress,
+            });
+            if (tokenInfo) {
+              const transferData = parseJsonFromRawResponse(
+                nativeAction.functionCall?.args,
+              ) as {
+                receiver_id: string;
+                sender_id: string;
+                amount: string;
+              };
+              const amountValue = transferData.amount;
+              const amount = new BigNumber(amountValue)
+                .shiftedBy(tokenInfo.decimals * -1)
+                .toFixed();
+
+              const transfer: IDecodedTxTransferInfo = {
+                from: transferData.sender_id || nativeTx.signerId,
+                to: transferData.receiver_id,
+                tokenIdOnNetwork: tokenInfo.address,
+                icon: tokenInfo.logoURI ?? '',
+                name: tokenInfo.name,
+                symbol: tokenInfo.symbol,
+                amount,
+                isNFT: false,
+                isNative: false,
+              };
+
+              action = await this.buildTxTransferAssetAction({
+                from: nativeTx.signerId,
+                to: nativeTx.receiverId,
+                transfers: [transfer],
+              });
+            }
+          }
+        }
+        return action;
+      }),
+    );
+    return actions;
+  }
+
+  override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
+    if (encodedTx) {
+      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxNear);
+    }
+    throw new OneKeyInternalError();
   }
 
-  override updateUnsignedTx(
+  async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxNear) {
+    const nativeTx = deserializeTransaction(encodedTx);
+    const cli = await this.getClient();
+
+    // nonce is not correct if accounts contains multiple AccessKeys
+    // const { nonce } = await cli.getAddress(nativeTx.signerId);
+    const accessKey = await this._fetchAccountAccessKey();
+    const { blockHash } = await cli.getBestBlock();
+
+    nativeTx.nonce = new BN(accessKey?.nonce ?? 0);
+    nativeTx.blockHash = baseDecode(blockHash);
+
+    return Promise.resolve({ encodedTx: serializeTransaction(nativeTx) });
+  }
+
+  async _fetchAccountAccessKey(): Promise<INearAccessKey | undefined> {
+    const accountAddress = await this.getAccountAddress();
+    const cli = await this.getClient();
+    const result = (await cli.getAccessKeys(accountAddress)) || [];
+    const publicKey = await this._getPublicKey();
+    const info = result.find((item) => item.pubkey === publicKey);
+    return info;
+  }
+
+  override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    const { unsignedTx, nativeAmountInfo } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxNear;
+    let encodedTxNew = encodedTx;
+    const nativeTx = deserializeTransaction(encodedTx);
+
+    if (!isNil(nativeAmountInfo?.maxSendAmount)) {
+      const action = await this._buildNativeTokenTransferAction({
+        amount: nativeAmountInfo.maxSendAmount,
+      });
+      nativeTx.actions = [action];
+      encodedTxNew = serializeTransaction(nativeTx);
+    }
+
+    unsignedTx.encodedTx = encodedTxNew;
+    return unsignedTx;
   }
 
   override broadcastTransaction(
@@ -141,7 +525,17 @@ export default class Vault extends VaultBase {
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    return this.baseValidatePrivateKey(privateKey);
+    let isValid = false;
+    const [prefix, encoded] = privateKey.split(':');
+    try {
+      isValid =
+        prefix === 'ed25519' && Buffer.from(baseDecode(encoded)).length === 64;
+    } catch {
+      // pass
+    }
+    return Promise.resolve({
+      isValid,
+    });
   }
 
   override async validateGeneralInput(

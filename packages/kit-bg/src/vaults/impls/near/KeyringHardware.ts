@@ -14,6 +14,7 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import { baseEncode } from './utils';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.near.hd;
@@ -60,7 +61,9 @@ export class KeyringHardware extends KeyringHardwareBase {
           const addressInfo: ICoreApiGetAddressItem = {
             address: normalizedAddress || address || '',
             path,
-            publicKey: '',
+            publicKey: `ed25519:${baseEncode(
+              Buffer.from(address ?? '', 'hex'),
+            )}`,
           };
           ret.push(addressInfo);
         }
