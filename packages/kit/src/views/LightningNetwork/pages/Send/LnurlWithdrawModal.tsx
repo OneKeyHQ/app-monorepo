@@ -14,7 +14,10 @@ import type {
   IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
+import {
+  DAppAccountListStandAloneItem,
+  DAppAccountListStandAloneItemForHomeScene,
+} from '../../../DAppConnection/components/DAppAccountList';
 import {
   DAppRequestFooter,
   DAppRequestLayout,
@@ -134,7 +137,11 @@ function LnurlWithdrawModal() {
           origin={origin}
           urlSecurityInfo={urlSecurityInfo}
         >
-          {/* <DAppAccountListStandAloneItem readonly /> */}
+          {isSendFlow ? (
+            <DAppAccountListStandAloneItemForHomeScene />
+          ) : (
+            <DAppAccountListStandAloneItem readonly />
+          )}
           <LNMakeInvoiceForm
             accountId={accountId}
             networkId={networkId}

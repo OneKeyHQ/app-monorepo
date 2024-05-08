@@ -18,7 +18,10 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 
-import { DAppAccountListStandAloneItem } from '../../../DAppConnection/components/DAppAccountList';
+import {
+  DAppAccountListStandAloneItem,
+  DAppAccountListStandAloneItemForHomeScene,
+} from '../../../DAppConnection/components/DAppAccountList';
 import {
   DAppRequestFooter,
   DAppRequestLayout,
@@ -36,7 +39,8 @@ function LnurlPayRequestModal() {
       RouteProp<IModalSendParamList, EModalSendRoutes.LnurlPayRequest>
     >();
 
-  const { accountId, networkId, lnurlDetails, transfersInfo } = route.params;
+  const { accountId, networkId, lnurlDetails, transfersInfo, isSendFlow } =
+    route.params;
   const origin = new URL(lnurlDetails.url).origin;
 
   const { $sourceInfo } = useDappQuery();
@@ -169,7 +173,11 @@ function LnurlPayRequestModal() {
           origin={origin}
           urlSecurityInfo={urlSecurityInfo}
         >
-          {/* <DAppAccountListStandAloneItem readonly /> */}
+          {isSendFlow ? (
+            <DAppAccountListStandAloneItemForHomeScene />
+          ) : (
+            <DAppAccountListStandAloneItem readonly />
+          )}
           <LNSendPaymentForm
             accountId={accountId}
             networkId={networkId}
