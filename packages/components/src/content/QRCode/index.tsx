@@ -50,9 +50,7 @@ export function QRCode({
   value,
 }: IQRCodeProps) {
   const logoBackgroundColor = useThemeValue(logoBGColor);
-  const href = platformEnv.isRuntimeBrowser
-    ? (logo as ImageURISource)?.uri
-    : logo;
+  const href = (logo as ImageURISource)?.uri ?? logo;
   const primaryColor = useThemeValue('text');
   const secondaryColor = useThemeValue('bgApp');
   const dots = useMemo(() => {
