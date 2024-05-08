@@ -1,8 +1,8 @@
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { HeaderLeft } from './HeaderLeft';
 import { HeaderRight } from './HeaderRight';
-import { HeaderLeft } from './HedaerLeft';
 
 import type { ITabPageHeaderProp } from './type';
 
@@ -23,7 +23,7 @@ export function TabPageHeader({
         <View>
           <HeaderLeft sceneName={sceneName} />
         </View>
-        {showHeaderRight ? <HeaderRight /> : null}
+        {showHeaderRight ? <HeaderRight sceneName={sceneName} /> : null}
       </XStack>
     </>
   );

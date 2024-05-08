@@ -1,5 +1,7 @@
 import punycode from 'punycode';
 
+import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+
 import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
@@ -82,7 +84,7 @@ export function checkOneKeyCardGoogleOauthUrl({
   ].includes(origin);
 }
 
-export function parseUrl(url: string) {
+export function parseUrl(url: string): IUrlValue | null {
   try {
     let formatUrl = url;
     if (url.includes('&')) {
@@ -97,6 +99,9 @@ export function parseUrl(url: string) {
     const urlObject = new URL(formatUrl);
     return {
       url,
+      hostname: urlObject.hostname,
+      origin: urlObject.origin,
+      pathname: urlObject.pathname,
       urlSchema: urlObject.protocol.replace(/(:)$/, ''),
       urlPathList: `${urlObject.hostname}${urlObject.pathname}`
         .replace(/^\/\//, '')

@@ -66,6 +66,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: ModalReceiveStack,
   },
   {
+    name: EModalRoutes.UrlAccountModal,
+    children: ModalReceiveStack,
+  },
+  {
     name: EModalRoutes.DAppConnectionModal,
     children: DAppConnectionRouter,
   },

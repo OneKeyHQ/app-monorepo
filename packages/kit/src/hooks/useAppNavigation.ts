@@ -182,4 +182,6 @@ function useAppNavigation<
   );
 }
 
+export type IAppNavigation = ReturnType<typeof useAppNavigation>;
+
 export default useAppNavigation;

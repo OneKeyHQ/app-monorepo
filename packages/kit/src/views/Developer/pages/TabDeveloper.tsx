@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
@@ -121,6 +121,38 @@ function ConnectWalletConnectDapp() {
   );
 }
 
+function TestRefreshCmp() {
+  const {
+    activeAccount: { accountName },
+  } = useActiveAccount({ num: 0 });
+  console.log('TestRefresh refresh', accountName);
+  return <Button>TestRefresh: {accountName}</Button>;
+}
+const TestRefresh = memo(TestRefreshCmp);
+
+function SendTestButton() {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  return (
+    <Stack>
+      <Button
+        onPress={async () => {
+          const r = await backgroundApiProxy.serviceSend.demoSend({
+            networkId: activeAccount.network?.id || '',
+            accountId: activeAccount.account?.id || '',
+          });
+          console.log('demoSend done:', r);
+        }}
+      >
+        测试发送流程(使用首页的账户选择器)
+      </Button>
+      <SizableText>
+        {activeAccount.network?.id}, {activeAccount.account?.id}
+      </SizableText>
+    </Stack>
+  );
+}
+
 const TabDeveloper = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
@@ -232,6 +264,8 @@ const TabDeveloper = () => {
             <StartTimePanelContainer />
             <ConnectWalletConnectDapp />
             <ExternalAccountSign />
+            <SendTestButton />
+            <TestRefresh />
             {/* <WalletConnectModalNative2 /> */}
           </ScrollView>
         </Page.Body>
