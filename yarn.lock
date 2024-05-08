@@ -5086,6 +5086,7 @@ __metadata:
     memoizee: "npm:^0.4.15"
     metro: "npm:0.80.5"
     mipd: "npm:^0.0.7"
+    mobile-detect: "npm:^1.4.5"
     natsort: "npm:^2.0.3"
     node-notifier: "npm:^10.0.1"
     patch-package: "npm:^7.0.0"
@@ -23076,6 +23077,13 @@ __metadata:
     pkg-types: "npm:^1.0.3"
     ufo: "npm:^1.3.0"
   checksum: 10/ea5dc1a6cb2795cd15c6cdc84bbf431e0649917e673ef4de5d5ace6f74f74f02d22cd3c3faf7f868c3857115d33cccaaf5a070123b9a6c997af06ebeb8ab3bb5
+  languageName: node
+  linkType: hard
+
+"mobile-detect@npm:^1.4.5":
+  version: 1.4.5
+  resolution: "mobile-detect@npm:1.4.5"
+  checksum: 10/e0d53791b8b73d8b0cde7b960e5200b05c98cf036dd84efad47d4fd2fd2a8a89e87baeacdd7449f0e14cd7b69ced62bab8a86521024c6c309f8ec4ef3a312f64
   languageName: node
   linkType: hard
 

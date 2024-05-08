@@ -96,7 +96,9 @@ export function replaceUrlAccountLandingRoute({
   networkId,
   networkCode,
 }: IUrlAccountRouteBuildParams) {
-  if (!platformEnv.isWeb) return;
+  if (!platformEnv.isWeb) {
+    return;
+  }
   if (address && (networkId || networkCode)) {
     const url = buildUrlAccountLandingRoute({
       address,

@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import {
   Button,
   Dialog,
@@ -11,11 +13,15 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import openUrlUtils, {
+  openUrlExternal,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -58,6 +64,37 @@ function OpenInAppButton() {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
 
+  const { result: deepLinkUrl } = usePromiseResult(async () => {
+    if (platformEnv.isWeb || platformEnv.isExtension) {
+      if (network && account) {
+        const url = uriUtils.buildDeepLinkUrl({
+          path: EOneKeyDeepLinkPath.url_account,
+          query: {
+            networkCode: network.code,
+            address: account.address,
+          },
+        });
+        if (await openUrlUtils.linkingCanOpenURL(url)) {
+          return url;
+        }
+      }
+    }
+    return '';
+  }, [account, network]);
+
+  const openByAppButtonLabel = useMemo<string | undefined>(() => {
+    if (!platformEnv.isWebMobile) {
+      return 'Open by OneKey Desktop';
+    }
+    if (platformEnv.isWebMobileAndroid) {
+      return 'Open by OneKey Android';
+    }
+
+    if (platformEnv.isWebMobileIOS) {
+      return 'Open by OneKey iOS';
+    }
+  }, []);
+
   if (!account?.address || !network?.id) {
     return null;
   }
@@ -79,20 +116,20 @@ function OpenInAppButton() {
                 justifyContent="center"
                 overflow="hidden"
               >
-                <Button
-                  onPress={() => {
-                    const url = uriUtils.buildDeepLinkUrl({
-                      path: EOneKeyDeepLinkPath.url_account,
-                      query: {
-                        networkCode: network.code,
-                        address: account.address,
-                      },
-                    });
-                    console.log(url);
-                  }}
-                >
-                  Open by OneKey Desktop
-                </Button>
+                {deepLinkUrl && openByAppButtonLabel ? (
+                  <Button
+                    onPress={() => {
+                      console.log(
+                        'URL Account openByApp deepLinkUrl',
+                        deepLinkUrl,
+                      );
+                      void openUrlUtils.linkingOpenURL(deepLinkUrl);
+                    }}
+                  >
+                    {openByAppButtonLabel}
+                  </Button>
+                ) : null}
+
                 <Icon name="OnekeyBrand" width={60} height={60} color="$text" />
                 <QRCode
                   value={text}

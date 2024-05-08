@@ -64,7 +64,7 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     );
-    const searchInput = <UniversalSearchInput />;
+    const searchInput = <UniversalSearchInput key="searchInput" />;
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
