@@ -106,7 +106,15 @@ function useSendConfirm(params: IParams) {
               // Handle LNURL login
               break;
             case 'payRequest':
-              // Handle LNURL pay request
+              navigation.push(EModalSendRoutes.LnurlPayRequest, {
+                networkId,
+                accountId,
+                transfersInfo,
+                lnurlDetails,
+                onSuccess,
+                onFail,
+                onCancel,
+              });
               break;
             case 'withdrawRequest':
               // Handle LNURL withdraw request
