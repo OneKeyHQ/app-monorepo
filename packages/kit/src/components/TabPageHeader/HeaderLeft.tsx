@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { NavBackButton, Page } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -14,17 +15,20 @@ export function HeaderLeft({
   sceneName: EAccountSelectorSceneName;
 }) {
   const items = useMemo(() => {
-    const accountSelectorTrigger = (
-      <AccountSelectorTriggerHome num={0} key="accountSelectorTrigger" />
-    );
-    if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+    if (
+      platformEnv.isNative &&
+      sceneName === EAccountSelectorSceneName.homeUrlAccount
+    ) {
       return (
         <Page.Close>
           <NavBackButton />
         </Page.Close>
       );
     }
-    return [accountSelectorTrigger];
+    const accountSelectorTrigger = (
+      <AccountSelectorTriggerHome num={0} key="accountSelectorTrigger" />
+    );
+    return accountSelectorTrigger;
   }, [sceneName]);
   return (
     <AccountSelectorProviderMirror
