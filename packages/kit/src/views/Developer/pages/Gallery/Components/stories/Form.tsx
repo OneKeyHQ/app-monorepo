@@ -83,7 +83,11 @@ const Form1 = () => {
       <Form.Field label="Switch" name="switch">
         <Switch />
       </Form.Field>
-      <Form.Field label="Radio" name="radio">
+      <Form.Field
+        label="Radio"
+        name="radio"
+        labelAddon="between 1 and 10000 sats"
+      >
         <Radio
           options={[
             { label: 'Second value', value: '2' },

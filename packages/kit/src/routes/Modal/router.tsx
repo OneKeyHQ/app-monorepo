@@ -12,10 +12,12 @@ import { CloudBackupPages } from '../../views/CloudBackup/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { ModalDiscoveryStack } from '../../views/Discovery/router';
 import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
+import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
+import { ModalWebViewStack } from '../../views/WebView/router';
 import { ModalSendStack } from '../../views/Send/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
@@ -80,6 +82,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     children: CloudBackupPages,
   },
   {
+    name: EModalRoutes.WebViewModal,
+    children: ModalWebViewStack,
+  },
+  {
     name: EModalRoutes.AddressBookModal,
     children: ModalAddressBookRouter,
   },
@@ -90,6 +96,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.FiatCryptoModal,
     children: ModalFiatCryptoRouter,
+  },
+  {
+    name: EModalRoutes.KeyTagModal,
+    children: KeyTagModalRouter,
   },
 ];
 

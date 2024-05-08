@@ -23,6 +23,7 @@ import {
   EDAppConnectionModal,
   ELiteCardRoutes,
   EModalAddressBookRoutes,
+  EModalKeyTagRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
@@ -149,12 +150,12 @@ export const DefaultSection = () => {
           }}
         />
       ) : null}
-      <ListItem
+      {/* <ListItem
         icon="RepeatOutline"
         title="Migration"
         drillIn
         onPress={() => {}}
-      />
+      /> */}
       {platformEnv.isNative ? (
         <ListItem
           icon="OnekeyLiteOutline"
@@ -171,7 +172,11 @@ export const DefaultSection = () => {
         icon="OnekeyKeytagOutline"
         title="OneKey KeyTag"
         drillIn
-        onPress={() => {}}
+        onPress={() => {
+          navigation.pushModal(EModalRoutes.KeyTagModal, {
+            screen: EModalKeyTagRoutes.UserOptions,
+          });
+        }}
       />
     </YStack>
   );
