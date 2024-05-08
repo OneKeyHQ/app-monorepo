@@ -7,7 +7,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
 import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
@@ -142,7 +141,6 @@ export const DefaultSection = () => {
           title={`${backupPlatform().cloudName} Backup`}
           drillIn
           onPress={async () => {
-            await checkBackupEntryStatus();
             navigation.pushModal(EModalRoutes.CloudBackupModal, {
               screen: ECloudBackupRoutes.CloudBackupHome,
             });
