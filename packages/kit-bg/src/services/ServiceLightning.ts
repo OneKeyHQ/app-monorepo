@@ -1,10 +1,17 @@
+import axios from 'axios';
+
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type {
+  ILNURLError,
+  ILNURLPaymentInfo,
+} from '@onekeyhq/shared/types/lightning';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { vaultFactory } from '../vaults/factory';
@@ -12,6 +19,7 @@ import ClientLightning from '../vaults/impls/lightning/sdkLightning/ClientLightn
 import {
   findLnurl,
   isLightningAddress,
+  verifyInvoice,
 } from '../vaults/impls/lightning/sdkLightning/lnurl';
 
 import ServiceBase from './ServiceBase';
@@ -131,7 +139,7 @@ class ServiceLightning extends ServiceBase {
   }
 
   @backgroundMethod()
-  async isZeroAmountInvoice({
+  async decodedInvoice({
     paymentRequest,
     networkId,
     accountId,
@@ -144,7 +152,28 @@ class ServiceLightning extends ServiceBase {
       networkId,
       accountId,
     })) as LightningVault;
-    const invoice = await vault._decodedInvoiceCache(paymentRequest);
+    return vault._decodedInvoiceCache(paymentRequest);
+  }
+
+  @backgroundMethod()
+  async isZeroAmountInvoice({
+    paymentRequest,
+    networkId,
+    accountId,
+  }: {
+    paymentRequest: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const invoice = await this.decodedInvoice({
+      paymentRequest,
+      networkId,
+      accountId,
+    });
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as LightningVault;
     return vault._isZeroAmountInvoice(invoice);
   }
 
@@ -178,6 +207,69 @@ class ServiceLightning extends ServiceBase {
     }
 
     return data.data.lnurlDetails;
+  }
+
+  @backgroundMethod()
+  async fetchLnurlPayRequestResult({
+    callback,
+    params,
+  }: {
+    callback: string;
+    params: {
+      amount: number;
+      comment?: string;
+    };
+  }) {
+    try {
+      const axiosInstance = axios.create({
+        withCredentials: true,
+      });
+      const response = await axiosInstance.get<ILNURLPaymentInfo | ILNURLError>(
+        callback,
+        {
+          params,
+          validateStatus: () => true,
+        },
+      );
+      if (response.status >= 500) {
+        throw new OneKeyError('Recipient server error');
+      }
+
+      if (!Object.prototype.hasOwnProperty.call(response.data, 'pr')) {
+        throw new OneKeyError((response.data as ILNURLError).reason);
+      }
+      return response.data as ILNURLPaymentInfo;
+    } catch (e: any) {
+      console.error(e);
+      throw e;
+    }
+  }
+
+  @backgroundMethod()
+  async verifyInvoice({
+    paymentInfo,
+    metadata,
+    amount,
+    networkId,
+    accountId,
+  }: {
+    paymentInfo: ILNURLPaymentInfo;
+    metadata: string;
+    amount: number;
+    networkId: string;
+    accountId: string;
+  }) {
+    const decodedInvoice = await this.decodedInvoice({
+      paymentRequest: paymentInfo.pr,
+      networkId,
+      accountId,
+    });
+    return verifyInvoice({
+      decodedInvoice,
+      paymentInfo,
+      metadata,
+      amount,
+    });
   }
 }
 

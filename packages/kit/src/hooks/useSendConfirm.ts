@@ -152,6 +152,7 @@ function useSendConfirm(params: IParams) {
 
   return {
     navigationToSendConfirm,
+    normalizeSendConfirm,
   };
 }
 

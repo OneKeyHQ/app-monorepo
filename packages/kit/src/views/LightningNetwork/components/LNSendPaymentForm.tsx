@@ -164,8 +164,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
                 name={name}
                 key={content}
               >
-                {/* <TextArea editable={false} disabled /> */}
-                <Input readonly />
+                <TextArea editable={false} disabled numberOfLines={2} />
               </Form.Field>
             );
           }
