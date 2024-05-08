@@ -76,91 +76,88 @@ function LnurlPayRequestModal() {
     return 0;
   }, [lnurlDetails]);
 
-  const onConfirm = useCallback(
-    async (close: () => void) => {
-      if (!lnurlDetails) return;
-      if (isLoading) return;
-      setIsLoading(true);
+  const onConfirm = useCallback(async () => {
+    if (!lnurlDetails) return;
+    if (isLoading) return;
+    setIsLoading(true);
 
-      const { serviceLightning } = backgroundApiProxy;
-      const formValue = useFormReturn.getValues();
+    const { serviceLightning } = backgroundApiProxy;
+    const formValue = useFormReturn.getValues();
 
-      let response: ILNURLPaymentInfo;
-      const amount = new BigNumber(formValue.amount).times(1000).toNumber(); // convert to millisatoshis
-      try {
-        const params: {
-          amount: number;
-          comment?: string;
-        } = {
-          amount,
-          comment: formValue.comment ? formValue.comment : undefined,
-        };
-        response = await serviceLightning.fetchLnurlPayRequestResult({
-          callback: lnurlDetails.callback,
-          params,
+    let response: ILNURLPaymentInfo;
+    const amount = new BigNumber(formValue.amount).times(1000).toNumber(); // convert to millisatoshis
+    try {
+      const params: {
+        amount: number;
+        comment?: string;
+      } = {
+        amount,
+        comment: formValue.comment ? formValue.comment : undefined,
+      };
+      response = await serviceLightning.fetchLnurlPayRequestResult({
+        callback: lnurlDetails.callback,
+        params,
+      });
+    } catch (e: any) {
+      console.log('fetchLnurlPayRequestResult error: ', e);
+      setIsLoading(false);
+      dappApprove.reject();
+      return;
+    }
+
+    try {
+      const paymentRequest = response.pr;
+      const isValidInvoice = await serviceLightning.verifyInvoice({
+        paymentInfo: response,
+        metadata: lnurlDetails.metadata,
+        amount,
+        networkId,
+        accountId,
+      });
+      if (!isValidInvoice) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: 'msg__invalid_lightning_payment_request',
+          }),
         });
-      } catch (e: any) {
-        console.log('fetchLnurlPayRequestResult error: ', e);
-        setIsLoading(false);
-        dappApprove.reject();
-        return;
       }
-
-      try {
-        const paymentRequest = response.pr;
-        const isValidInvoice = await serviceLightning.verifyInvoice({
-          paymentInfo: response,
-          metadata: lnurlDetails.metadata,
-          amount,
-          networkId,
-          accountId,
-        });
-        if (!isValidInvoice) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: 'msg__invalid_lightning_payment_request',
-            }),
-          });
-        }
-        const transferInfo = transfersInfo[0];
-        const newTransfersInfo: ITransferInfo[] = [
-          {
-            ...transferInfo,
-            to: paymentRequest,
-            lnurlPaymentInfo: response,
-            lightningAddress: isLightningAddress(transferInfo.to)
-              ? transferInfo.to
-              : undefined,
-          },
-        ];
-        await sendConfirm.normalizeSendConfirm({
-          transfersInfo: newTransfersInfo,
-          sameModal: true,
-        });
-      } catch (e: any) {
-        console.log('lnurl withdraw error: ', e);
-        dappApprove.reject();
-        throw new OneKeyError({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          info: e.message ?? e,
-          autoToast: true,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [
-      useFormReturn,
-      isLoading,
-      lnurlDetails,
-      networkId,
-      accountId,
-      transfersInfo,
-      dappApprove,
-      intl,
-      sendConfirm,
-    ],
-  );
+      const transferInfo = transfersInfo[0];
+      const newTransfersInfo: ITransferInfo[] = [
+        {
+          ...transferInfo,
+          to: paymentRequest,
+          lnurlPaymentInfo: response,
+          lightningAddress: isLightningAddress(transferInfo.to)
+            ? transferInfo.to
+            : undefined,
+        },
+      ];
+      await sendConfirm.normalizeSendConfirm({
+        transfersInfo: newTransfersInfo,
+        sameModal: true,
+      });
+    } catch (e: any) {
+      console.log('lnurl withdraw error: ', e);
+      dappApprove.reject();
+      throw new OneKeyError({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        info: e.message ?? e,
+        autoToast: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [
+    useFormReturn,
+    isLoading,
+    lnurlDetails,
+    networkId,
+    accountId,
+    transfersInfo,
+    dappApprove,
+    intl,
+    sendConfirm,
+  ]);
 
   return (
     <Page scrollEnabled>
