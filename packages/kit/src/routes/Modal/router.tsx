@@ -17,6 +17,7 @@ import { LiteCardPages } from '../../views/LiteCard/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
+import { ModalWebViewStack } from '../../views/WebView/router';
 import { ModalSendStack } from '../../views/Send/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
@@ -79,6 +80,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.CloudBackupModal,
     children: CloudBackupPages,
+  },
+  {
+    name: EModalRoutes.WebViewModal,
+    children: ModalWebViewStack,
   },
   {
     name: EModalRoutes.AddressBookModal,

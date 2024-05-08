@@ -149,7 +149,7 @@ export default function BackupDeviceList<T>({
       estimatedItemSize="$16"
       ListFooterComponent={
         !hasData && ListEmptyComponent ? null : (
-          <SizableText size="$bodySm" px="$5" pt="$3">
+          <SizableText size="$bodySm" color="$textSubdued" px="$5" pt="$3">
             OneKey won't back up your hardware wallets, you should write down
             your phrase and keep it safe.
           </SizableText>
