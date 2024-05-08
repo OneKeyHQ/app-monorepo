@@ -17,11 +17,15 @@ const mnemonicWordToValueData = (word: string) => {
 
 export const mnemonicToDotMapValues = (mnemonics: string) => {
   const usedMnemonic = mnemonics.trim().replace(/\s+/g, ' ');
-  const validMnemonic = bip39.validateMnemonic(usedMnemonic);
+  let validMnemonic = bip39.validateMnemonic(usedMnemonic);
   if (!validMnemonic) {
     throw new Error('Invalid mnemonic');
   }
   const words = usedMnemonic.split(' ');
+  validMnemonic = bip39.validateMnemonic(words.join(' '));
+  if (!validMnemonic) {
+    throw new Error('Invalid mnemonic');
+  }
   const keyTagMnemonics: IDotMapValues[] = [];
   words.forEach((word, index) => {
     const keyTagMnemonic: IDotMapValues = {
