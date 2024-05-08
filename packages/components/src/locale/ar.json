@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "تبادل أي رموز",
   "content__existing": "موجود",
   "content__exit_value": "قيمة الخروج",
+  "content__export_tracking_key": "تصدير مفتاح التتبع",
+  "content__export_tracking_key_desc": "يتم استخدام مفتاح التتبع لإنشاء دليل على الأصول.",
   "content__ext_metamask_tutorials_1": "انقر على الصورة الرمزية في الشريط العلوي",
   "content__external_account": "الحسابات الخارجية",
   "content__face_id": "معرف الوجه",

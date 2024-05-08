@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "যেকোনো টোকেন বিনিময় করুন",
   "content__existing": "বিদ্যমান",
   "content__exit_value": "প্রস্থান মান",
+  "content__export_tracking_key": "এক্সপোর্ট ট্র্যাকিং কী",
+  "content__export_tracking_key_desc": "ট্র্যাকিং কী ব্যবহার করা হয় সম্পদের প্রমাণ তৈরি করার জন্য।",
   "content__ext_metamask_tutorials_1": "উপরের বারে Avatar-এ ক্লিক করুন",
   "content__external_account": "বাহ্যিক অ্যাকাউন্ট",
   "content__face_id": "ফেস আইডি",

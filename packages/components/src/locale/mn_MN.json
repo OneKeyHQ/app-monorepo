@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Аливаа жетон солилцох",
   "content__existing": "Одоо байгаа",
   "content__exit_value": "Утга гарах",
+  "content__export_tracking_key": "Экспортын хяналтын түлхүүр",
+  "content__export_tracking_key_desc": "Хяналтын түлхүүрийг хөрөнгийн нотлох баримт бүрдүүлэхэд ашигладаг.",
   "content__ext_metamask_tutorials_1": "Дээд талбар дахь Аватар дээр дарна уу",
   "content__external_account": "Гадаад дансууд",
   "content__face_id": "Нүүрний ID",

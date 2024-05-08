@@ -126,7 +126,8 @@ const ManagerAccountModal: FC = () => {
         case ManageAccountKeys.ExportPrivateKey:
         case ManageAccountKeys.ExportPrivateSpendKey:
         case ManageAccountKeys.ExportPrivateViewKey:
-        case ManageAccountKeys.ExportSecretMnemonic: {
+        case ManageAccountKeys.ExportSecretMnemonic:
+        case ManageAccountKeys.ExportTrackingKey: {
           if (item.credentialInfo) {
             navigation.navigate(RootRoutes.Modal, {
               screen: ModalRoutes.ManagerAccount,

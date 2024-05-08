@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "모든 토큰 교환",
   "content__existing": "기존의",
   "content__exit_value": "종료 값",
+  "content__export_tracking_key": "추적 키 내보내기",
+  "content__export_tracking_key_desc": "추적 키는 자산 증명을 생성하는 데 사용됩니다.",
   "content__ext_metamask_tutorials_1": "상단 표시줄에서 아바타를 클릭합니다.",
   "content__external_account": "외부 계정",
   "content__face_id": "페이스 아이디",

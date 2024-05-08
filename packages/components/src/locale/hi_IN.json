@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "किसी भी टोकन का आदान-प्रदान करें",
   "content__existing": "मौजूदा",
   "content__exit_value": "बाहर निकलें मूल्य",
+  "content__export_tracking_key": "ट्रैकिंग कुंजी निर्यात करें",
+  "content__export_tracking_key_desc": "ट्रैकिंग कुंजी का उपयोग परिसंपत्तियों का प्रमाण तैयार करने के लिए किया जाता है।",
   "content__ext_metamask_tutorials_1": "टॉप बार में अवतार पर क्लिक करें",
   "content__external_account": "बाहरी खाते",
   "content__face_id": "फेस आईडी",

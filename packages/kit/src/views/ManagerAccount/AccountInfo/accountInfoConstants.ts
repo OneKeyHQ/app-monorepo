@@ -10,6 +10,7 @@ export enum ManageAccountKeys {
   ExportSecretMnemonic = 'ExportSecretMnemonic',
   ExportPrivateViewKey = 'ExportPrivateViewKey',
   ExportPrivateSpendKey = 'ExportPrivateSpendKey',
+  ExportTrackingKey = 'ExportTrackingKey',
   HardwareCanNotExportPrivateKey = 'HardwareCanNotExportPrivateKey',
   RemoveAccount = 'RemoveAccount',
 }
@@ -18,6 +19,7 @@ export const SpecialExportCredentialKeys = [
   ManageAccountKeys.ExportPrivateViewKey,
   ManageAccountKeys.ExportPrivateSpendKey,
   ManageAccountKeys.ExportSecretMnemonic,
+  ManageAccountKeys.ExportTrackingKey,
 ];
 
 export const getManageAccountOptions: (
@@ -46,6 +48,18 @@ export const getManageAccountOptions: (
     credentialInfo: {
       type: AccountCredentialType.PrivateKey,
       key: 'action__export_private_key',
+    },
+  },
+
+  [ManageAccountKeys.ExportTrackingKey]: {
+    label: intl.formatMessage({ id: 'content__export_tracking_key' }),
+    description: intl.formatMessage({
+      id: 'content__export_tracking_key_desc',
+    }),
+    key: ManageAccountKeys.ExportTrackingKey,
+    credentialInfo: {
+      type: AccountCredentialType.TrackingKey,
+      key: 'content__export_tracking_key',
     },
   },
   [ManageAccountKeys.ExportPrivateViewKey]: {

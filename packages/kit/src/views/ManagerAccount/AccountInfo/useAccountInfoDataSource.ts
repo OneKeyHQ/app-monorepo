@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { IMPL_DYNEX } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useAccount, useNetwork } from '../../../hooks';
 
@@ -50,7 +51,9 @@ export function useAccountInfoDataSource({
       }
       if (
         privateKeyExportEnabled &&
-        (wallet.type === 'hd' || wallet.type === 'imported')
+        (wallet.type === 'hd' ||
+          wallet.type === 'imported' ||
+          (wallet.type === 'hw' && network.impl === IMPL_DYNEX))
       ) {
         if (exportCredentialInfo) {
           SpecialExportCredentialKeys.forEach((key) => {
@@ -67,7 +70,7 @@ export function useAccountInfoDataSource({
           keys.push(ManageAccountKeys.ExportPrivateKey);
         }
       }
-      if (wallet.type === 'hw') {
+      if (wallet.type === 'hw' && network.impl !== IMPL_DYNEX) {
         keys.push(ManageAccountKeys.HardwareCanNotExportPrivateKey);
       }
       keys.push(ManageAccountKeys.RemoveAccount);

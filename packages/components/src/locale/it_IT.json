@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Scambia qualsiasi token",
   "content__existing": "Esistente",
   "content__exit_value": "Valore di uscita",
+  "content__export_tracking_key": "Chiave di tracciamento dell'esportazione",
+  "content__export_tracking_key_desc": "La chiave di tracciamento viene utilizzata per generare prove delle risorse.",
   "content__ext_metamask_tutorials_1": "Fare clic sull'Avatar nella barra in alto",
   "content__external_account": "Conti esterni",
   "content__face_id": "ID viso",

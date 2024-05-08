@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Обмен любых токенов",
   "content__existing": "Существующий",
   "content__exit_value": "Выходное значение",
+  "content__export_tracking_key": "Экспортировать ключ отслеживания",
+  "content__export_tracking_key_desc": "Ключ отслеживания используется для создания подтверждения активов.",
   "content__ext_metamask_tutorials_1": "Нажмите на аватарку в верхней панели",
   "content__external_account": "Внешние аккаунты",
   "content__face_id": "Идентификатор лица",
