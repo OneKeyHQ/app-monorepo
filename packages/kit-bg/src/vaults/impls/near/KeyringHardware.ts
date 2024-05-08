@@ -1,12 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import type { IEncodedTxNear } from '@onekeyhq/core/src/chains/near/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
+
+import {
+  baseEncode,
+  deserializeSignedTransaction,
+  deserializeTransaction,
+  nearApiJs,
+  serializeTransaction,
+} from './utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -14,7 +25,6 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import { baseEncode } from './utils';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.near.hd;
@@ -72,10 +82,43 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  override signTransaction(
+  override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    const { unsignedTx, deviceParams } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxNear;
+    const sdk = await this.getHardwareSDKInstance();
+    const path = await this.vault.getAccountPath();
+    const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
+    const { connectId, deviceId } = dbDevice;
+
+    const result = await convertDeviceResponse(async () =>
+      sdk.nearSignTransaction(connectId, deviceId, {
+        path,
+        rawTx: Buffer.from(encodedTx, 'base64').toString('hex'),
+        ...deviceCommonParams,
+      }),
+    );
+
+    const { signature } = result;
+
+    const nativeTx = deserializeTransaction(encodedTx);
+
+    return {
+      txid: serializeTransaction(nativeTx, {
+        encoding: 'sha256_bs58',
+      }),
+      encodedTx,
+      rawTx: serializeTransaction(
+        new nearApiJs.transactions.SignedTransaction({
+          transaction: nativeTx,
+          signature: new nearApiJs.transactions.Signature({
+            keyType: nativeTx.publicKey.keyType,
+            data: Buffer.from(signature, 'hex'),
+          }),
+        }),
+      ),
+    };
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
