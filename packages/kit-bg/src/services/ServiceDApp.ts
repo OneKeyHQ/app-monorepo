@@ -35,17 +35,16 @@ import type {
   IConnectionStorageType,
   IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
-import { IProxyResponse } from '@onekeyhq/shared/types/proxy';
 
 import ServiceBase from './ServiceBase';
 
-import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
-import type ProviderApiBase from '../providers/ProviderApiBase';
-import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
+import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 
 function buildModalRouteParams({
   screens = [],
@@ -174,6 +173,7 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
+      // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
       void extUtils.openStandaloneWindow({
         routes: routeNames,
         params: routeParams,

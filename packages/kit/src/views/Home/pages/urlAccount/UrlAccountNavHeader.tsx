@@ -1,5 +1,3 @@
-import { StackActions } from '@react-navigation/native';
-
 import {
   Button,
   Dialog,
@@ -15,9 +13,10 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
-import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
+import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
@@ -80,6 +79,20 @@ function OpenInAppButton() {
                 justifyContent="center"
                 overflow="hidden"
               >
+                <Button
+                  onPress={() => {
+                    const url = uriUtils.buildDeepLinkUrl({
+                      path: EOneKeyDeepLinkPath.url_account,
+                      query: {
+                        networkCode: network.code,
+                        address: account.address,
+                      },
+                    });
+                    console.log(url);
+                  }}
+                >
+                  Open by OneKey Desktop
+                </Button>
                 <Icon name="OnekeyBrand" width={60} height={60} color="$text" />
                 <QRCode
                   value={text}

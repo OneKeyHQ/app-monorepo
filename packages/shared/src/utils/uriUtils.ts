@@ -2,12 +2,17 @@ import punycode from 'punycode';
 
 import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 
+import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
 import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
 
 import type { IServerNetwork } from '../../types';
+import type {
+  EOneKeyDeepLinkPath,
+  IEOneKeyDeepLinkParams,
+} from '../consts/deeplinkConsts';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
@@ -192,6 +197,57 @@ export const containsPunycode = (url: string) => {
   return hostname !== unicodeHostname;
 };
 
+function buildUrl({
+  protocol = '',
+  hostname = '',
+  path = '',
+  query = {},
+}: {
+  protocol?: string;
+  hostname?: string;
+  path?: string;
+  query?: Record<string, string>;
+}) {
+  // eslint-disable-next-line no-param-reassign
+  protocol = protocol.replace(/:+$/, '');
+  // eslint-disable-next-line no-param-reassign
+  protocol = protocol.replace(/^\/+/, '');
+  // eslint-disable-next-line no-param-reassign
+  protocol = protocol.replace(/\/+$/, '');
+
+  // eslint-disable-next-line no-param-reassign
+  hostname = hostname.replace(/^\/+/, '');
+  // eslint-disable-next-line no-param-reassign
+  hostname = hostname.replace(/\/+$/, '');
+
+  // eslint-disable-next-line no-param-reassign
+  path = path.replace(/^\/+/, '');
+  // eslint-disable-next-line no-param-reassign
+  path = path.replace(/\/+$/, '');
+
+  const url = new URL(
+    `${protocol}://${[hostname, path].filter(Boolean).join('/')}`,
+  );
+  if (query) {
+    url.search = new URLSearchParams(query).toString();
+  }
+  return url.toString();
+}
+
+function buildDeepLinkUrl<T extends EOneKeyDeepLinkPath>({
+  path,
+  query,
+}: {
+  path: T;
+  query?: IEOneKeyDeepLinkParams[T];
+}) {
+  return buildUrl({
+    protocol: ONEKEY_APP_DEEP_LINK_NAME,
+    path,
+    query,
+  });
+}
+
 export default {
   getOriginFromUrl,
   getHostNameFromUrl,
@@ -200,4 +256,6 @@ export default {
   EDAppOpenActionEnum,
   validateUrl,
   containsPunycode,
+  buildUrl,
+  buildDeepLinkUrl,
 };

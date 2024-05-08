@@ -3,7 +3,12 @@ import { StackActions } from '@react-navigation/native';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabHomeRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -129,5 +134,29 @@ export const urlAccountNavigation = {
     navigation.dispatch(
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, params),
     );
+  },
+  async pushUrlAccountPageFromDeeplink(
+    navigation: IAppNavigation,
+    params: {
+      address: string | undefined;
+      networkId: string | undefined;
+    },
+  ) {
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Home,
+      params: {
+        screen: ETabHomeRoutes.TabHome,
+      },
+    });
+
+    await timerUtils.wait(100);
+
+    navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Home,
+      params: {
+        screen: ETabHomeRoutes.TabHomeUrlAccountPage,
+        params,
+      },
+    });
   },
 };

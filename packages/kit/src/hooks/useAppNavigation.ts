@@ -16,6 +16,21 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
+export type IAppNavigation = ReturnType<typeof useAppNavigation>;
+
+/*
+navigate by full route path:
+
+ navigation.navigate(ERootRoutes.Main, {
+      screen: ETabRoutes.Home,
+      params: {
+        screen: ETabHomeRoutes.TabHomeUrlAccountPage,
+        params,
+      },
+    });
+    
+*/
+
 function useAppNavigation<
   P extends
     | IPageNavigationProp<any>
@@ -181,7 +196,5 @@ function useAppNavigation<
     ],
   );
 }
-
-export type IAppNavigation = ReturnType<typeof useAppNavigation>;
 
 export default useAppNavigation;

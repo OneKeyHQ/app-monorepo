@@ -11,6 +11,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { WalletConnectModalContainer } from '../../components/WalletConnect/WalletConnectModalContainer';
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 
 import { AppStateLockContainer } from './AppStateLockContainer';
@@ -74,12 +75,19 @@ const renderWalletConnectModalContainer = platformEnv.isNativeIOS ? (
   <WalletConnectModalContainer />
 );
 
+function GlobalRootAppNavigationUpdate() {
+  const navigation = useAppNavigation();
+  global.$rootAppNavigation = navigation;
+  return null;
+}
+
 export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
         <KeyboardContainer />
         <NavigationContainer>
+          <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />
           <HardwareUiStateContainer />
           <CloudBackupContainer />
