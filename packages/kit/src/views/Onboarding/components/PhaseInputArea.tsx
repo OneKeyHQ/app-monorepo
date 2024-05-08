@@ -48,7 +48,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSuggestion } from './hooks';
 
-import type { ITutorialsListItemProps } from './Tutorials';
 import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
 
 const KeyDownView = View as unknown as ComponentType<

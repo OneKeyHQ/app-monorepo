@@ -30,11 +30,10 @@ type IProcessDeepLinkParams = {
 };
 
 async function processDeepLinkUrlAccount({
-  url,
   parsedUrl,
 }: IProcessDeepLinkParams) {
   try {
-    const { hostname, path, queryParams, scheme } = parsedUrl;
+    const { hostname, queryParams, scheme } = parsedUrl;
     if (
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME

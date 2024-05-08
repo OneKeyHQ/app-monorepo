@@ -38,13 +38,13 @@ import type {
 
 import ServiceBase from './ServiceBase';
 
+import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
+import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
-import type ProviderApiBase from '../providers/ProviderApiBase';
-import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 
 function buildModalRouteParams({
   screens = [],
