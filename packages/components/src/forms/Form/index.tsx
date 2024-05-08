@@ -4,14 +4,14 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import { Children, cloneElement, isValidElement } from 'react';
+import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
 import { HeightTransition } from '../../content';
-import { Label, SizableText, XStack, YStack } from '../../primitives';
+import { Label, SizableText, View, XStack, YStack } from '../../primitives';
 import { Input } from '../Input';
 import { TextArea } from '../TextArea';
 
@@ -85,6 +85,7 @@ type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
     label?: string;
     description?: string | ReactNode;
     optional?: boolean;
+    labelAddon?: string | ReactElement;
   }>;
 
 function Field({
@@ -95,11 +96,22 @@ function Field({
   rules,
   children,
   testID = '',
+  labelAddon,
 }: IFieldProps) {
   const {
     control,
     formState: { errors },
   } = useFormContext();
+  const renderLabelAddon = useCallback(() => {
+    if (labelAddon) {
+      return typeof labelAddon === 'string' ? (
+        <SizableText size="$bodyMdMedium">{labelAddon}</SizableText>
+      ) : (
+        labelAddon
+      );
+    }
+    return null;
+  }, [labelAddon]);
   const error = errors[name] as unknown as Error;
   return (
     <Controller
@@ -109,13 +121,16 @@ function Field({
       render={({ field }) => (
         <Fieldset p="$0" m="$0" borderWidth={0}>
           {label ? (
-            <XStack mb="$1.5">
-              <Label htmlFor={name}>{label}</Label>
-              {optional ? (
-                <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
-                  (Optional)
-                </SizableText>
-              ) : null}
+            <XStack mb="$1.5" justifyContent="space-between">
+              <View>
+                <Label htmlFor={name}>{label}</Label>
+                {optional ? (
+                  <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
+                    (Optional)
+                  </SizableText>
+                ) : null}
+              </View>
+              {renderLabelAddon()}
             </XStack>
           ) : null}
           {Children.map(children as ReactChildren, (child) =>
