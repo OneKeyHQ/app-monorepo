@@ -16,6 +16,13 @@ const LnurlPayRequestModal = LazyLoadPage(
     ),
 );
 
+const LnurlWithdrawModal = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlWithdrawModal'
+    ),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
@@ -35,5 +42,9 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.LnurlPayRequest,
     component: LnurlPayRequestModal,
+  },
+  {
+    name: EModalSendRoutes.LnurlWithdraw,
+    component: LnurlWithdrawModal,
   },
 ];

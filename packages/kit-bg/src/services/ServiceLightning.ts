@@ -25,6 +25,7 @@ import {
 import ServiceBase from './ServiceBase';
 
 import type LightningVault from '../vaults/impls/lightning/Vault';
+import type { AxiosError } from 'axios';
 
 @backgroundClass()
 class ServiceLightning extends ServiceBase {
@@ -270,6 +271,44 @@ class ServiceLightning extends ServiceBase {
       metadata,
       amount,
     });
+  }
+
+  @backgroundMethod()
+  async fetchLnurlWithdrawRequestResult({
+    callback,
+    pr,
+    k1,
+  }: {
+    callback: string;
+    pr: string;
+    k1: string;
+  }) {
+    try {
+      const response = await axios.get<{
+        status: string;
+        reason: string;
+      }>(callback, {
+        params: {
+          k1,
+          pr,
+        },
+      });
+      if (response.status >= 500) {
+        throw new Error('Recipient server error');
+      }
+
+      if (response.data.status.toUpperCase() === 'OK') {
+        return response.data;
+      }
+      throw new OneKeyError(response.data.reason);
+    } catch (e) {
+      console.error(e);
+      const error = e as AxiosError<ILNURLError>;
+      if (error.response?.data?.reason) {
+        throw new Error(error.response?.data.reason);
+      }
+      throw e;
+    }
   }
 }
 

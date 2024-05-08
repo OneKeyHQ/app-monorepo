@@ -4,7 +4,10 @@ import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import type { ILNURLPayServiceResponse } from '../../types/lightning';
+import type {
+  ILNURLPayServiceResponse,
+  ILNURLWithdrawServiceResponse,
+} from '../../types/lightning';
 import type { ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalSendRoutes {
@@ -52,8 +55,15 @@ export type IModalSendParamList = {
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
+    isSendFlow?: boolean;
   };
-  [EModalSendRoutes.LnurlWithdraw]: undefined;
+  [EModalSendRoutes.LnurlWithdraw]: {
+    networkId: string;
+    accountId: string;
+    lnurlDetails: ILNURLWithdrawServiceResponse;
+    sourceInfo?: IDappSourceInfo;
+    isSendFlow?: boolean;
+  };
   [EModalSendRoutes.LnurlAuth]: undefined;
   [EModalSendRoutes.WeblnSendPayment]: undefined;
 };

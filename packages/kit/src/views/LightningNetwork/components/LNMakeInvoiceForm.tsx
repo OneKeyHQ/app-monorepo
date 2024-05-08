@@ -11,47 +11,40 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import type { UseFormReturn } from 'react-hook-form';
 import type { MessageDescriptor } from 'react-intl';
 
-export type ISendPaymentFormValues = {
+export type IMakeInvoiceFormValues = {
   amount: string;
   description: string;
   requestFrom: string;
-  comment: string;
 };
 
-export type ISendPaymentFormProps = {
+export type IMakeInvoiceFormProps = {
   accountId: string;
   networkId: string;
-  useFormReturn: UseFormReturn<ISendPaymentFormValues, any>;
+  useFormReturn: UseFormReturn<IMakeInvoiceFormValues, any>;
   amount?: number;
   minimumAmount?: number;
   maximumAmount?: number;
+  origin: string;
   descriptionLabelId?: MessageDescriptor['id'];
   memo?: string;
-  commentAllowedLength?: number;
-  metadata?: string;
-  // nativeToken?: Token;
   isWebln?: boolean;
   amountReadOnly?: boolean;
 };
 
-function LNSendPaymentForm(props: ISendPaymentFormProps) {
+function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
   const {
     networkId,
     useFormReturn,
     amount,
     minimumAmount,
     maximumAmount,
-    // descriptionLabelId,
-    // memo,
-    commentAllowedLength,
-    metadata: originMetadata,
-    // nativeToken,
+    descriptionLabelId,
+    memo,
+    isWebln,
     amountReadOnly,
   } = props;
-
   const intl = useIntl();
-  // const { watch } = useFormReturn;
-  // const amountValue = watch('amount');
+  const content = useMemo(() => 'Hello World', []);
 
   const { result: invoiceConfig } = usePromiseResult(
     () =>
@@ -63,13 +56,14 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
 
   const minAmount = new BigNumber(minimumAmount ?? 0).toNumber();
   const maxAmount = new BigNumber(maximumAmount ?? 0).toNumber();
+
   const amountRules = useMemo(() => {
     let max;
     if (
       maxAmount &&
       maxAmount > 0 &&
       maxAmount > minAmount &&
-      maxAmount < Number(invoiceConfig?.maxSendAmount)
+      maxAmount < Number(invoiceConfig?.maxReceiveAmount)
     ) {
       max = maxAmount;
     }
@@ -115,21 +109,21 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
         }
 
         if (
-          invoiceConfig?.maxSendAmount &&
-          valueBN.isGreaterThan(invoiceConfig?.maxSendAmount)
+          invoiceConfig?.maxReceiveAmount &&
+          valueBN.isGreaterThan(invoiceConfig?.maxReceiveAmount)
         ) {
           return intl.formatMessage(
             {
-              id: 'msg__the_sending_amount_cannot_exceed_int_sats',
+              id: 'msg_receipt_amount_should_be_less_than_int_sats',
             },
             {
-              0: invoiceConfig?.maxSendAmount,
+              0: invoiceConfig?.maxReceiveAmount,
             },
           );
         }
       },
     };
-  }, [minAmount, maxAmount, intl, invoiceConfig?.maxSendAmount]);
+  }, [minAmount, maxAmount, invoiceConfig, intl]);
 
   const amountLabelAddon = useMemo(() => {
     if (Number(amount) > 0 || (minAmount > 0 && minAmount === maxAmount)) {
@@ -142,61 +136,15 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
           min: minAmount,
           max:
             maxAmount < minAmount
-              ? invoiceConfig?.maxSendAmount
-              : Math.min(maxAmount, Number(invoiceConfig?.maxSendAmount)),
+              ? invoiceConfig?.maxReceiveAmount
+              : Math.min(maxAmount, Number(invoiceConfig?.maxReceiveAmount)),
         },
       );
     }
-  }, [amount, minAmount, maxAmount, intl, invoiceConfig]);
-
-  // TODO: price
-  // const token = usePromiseResult(async () => {
-  //   const accountAddress =
-  //     await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-  //       accountId,
-  //       networkId,
-  //     });
-  //   const _token = await backgroundApiProxy.serviceToken.fetchTokensDetails({
-  //     contractList: [],
-  //     networkId,
-  //     accountAddress,
-  //   });
-  //   console.log('====>token: ', _token);
-  // }, [accountId, networkId]);
-
-  const renderMetadataText = useMemo(() => {
-    if (!originMetadata || !originMetadata.length) return null;
-    try {
-      const metadata = JSON.parse(originMetadata);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      return metadata
-        .map(([type, content]: [string, string], index: number) => {
-          if (type === 'text/plain' || type === 'text/long-desc') {
-            const name = `metadataDescription-${index}`;
-            // @ts-expect-error
-            useFormReturn.setValue(name, content);
-            return (
-              <Form.Field
-                label={intl.formatMessage({ id: 'form__payment_description' })}
-                name={name}
-                key={content}
-              >
-                <TextArea editable={false} disabled numberOfLines={2} />
-              </Form.Field>
-            );
-          }
-          return undefined;
-        })
-        .filter(Boolean);
-    } catch (e) {
-      console.error(e);
-    }
-    return [];
-  }, [intl, originMetadata, useFormReturn]);
+  }, [amount, minAmount, maxAmount, invoiceConfig, intl]);
 
   return (
     <Form form={useFormReturn}>
-      {renderMetadataText}
       <Form.Field
         label={intl.formatMessage({
           id: 'content__amount',
@@ -218,26 +166,26 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
           ]}
         />
       </Form.Field>
-      {Number(commentAllowedLength) > 0 ? (
-        <Form.Field
-          label={intl.formatMessage({ id: 'form__description__optional' })}
-          name="comment"
-          rules={{
-            maxLength: {
-              value: Number(commentAllowedLength),
-              message: intl.formatMessage(
-                { id: 'msg_description_can_be_up_to_int_characters' },
-                { 0: commentAllowedLength },
-              ),
-            },
-          }}
-          defaultValue=""
-        >
-          <TextArea />
-        </Form.Field>
-      ) : null}
+      <Form.Field
+        label={intl.formatMessage({
+          id: descriptionLabelId ?? 'form__description',
+        })}
+        name="description"
+        rules={{
+          maxLength: {
+            value: 40,
+            message: intl.formatMessage(
+              { id: 'msg_description_can_be_up_to_int_characters' },
+              { 0: '40' },
+            ),
+          },
+        }}
+        defaultValue=""
+      >
+        <TextArea editable={!memo} />
+      </Form.Field>
     </Form>
   );
 }
 
-export default LNSendPaymentForm;
+export default LNMakeInvoiceForm;

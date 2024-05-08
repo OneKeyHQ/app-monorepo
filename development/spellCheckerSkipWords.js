@@ -685,4 +685,5 @@ module.exports = [
   'dbs',
   'Lnurl',
   'millisatoshis',
+  'withdrawable',
 ];

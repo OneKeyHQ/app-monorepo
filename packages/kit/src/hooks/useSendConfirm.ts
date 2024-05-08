@@ -114,10 +114,20 @@ function useSendConfirm(params: IParams) {
                 onSuccess,
                 onFail,
                 onCancel,
+                isSendFlow: true,
               });
               break;
             case 'withdrawRequest':
               // Handle LNURL withdraw request
+              navigation.push(EModalSendRoutes.LnurlWithdraw, {
+                networkId,
+                accountId,
+                lnurlDetails,
+                onSuccess,
+                onFail,
+                onCancel,
+                isSendFlow: true,
+              });
               break;
             default:
               throw new Error('Unsupported LNURL tag');
