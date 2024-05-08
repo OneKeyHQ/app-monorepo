@@ -131,15 +131,7 @@ function OpenInAppButton() {
                     {openByAppButtonLabel}
                   </Button>
                 ) : null}
-
-                <Icon name="OnekeyBrand" width={60} height={60} color="$text" />
-                <QRCode
-                  value={text}
-                  // logo={{
-                  //   uri: network.logoURI,
-                  // }}
-                  size={240}
-                />
+                <QRCode value={text} logoSvg="OnekeyBrand" size={240} />
               </Stack>
               <XStack mt="$6">
                 <SizableText flex={1}>Don’t have the app yet?</SizableText>

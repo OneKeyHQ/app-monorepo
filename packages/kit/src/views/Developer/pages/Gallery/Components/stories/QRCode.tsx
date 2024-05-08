@@ -56,6 +56,24 @@ const QRCodeGallery = () => (
           </YStack>
         ),
       },
+      {
+        title: 'this logo is came from svg.',
+        element: (
+          <YStack justifyContent="center" flex={1} space="$4">
+            <QRCode
+              value="https://onekey.so/"
+              logoSvg="OnekeyBrand"
+              size={200}
+            />
+            <QRCode
+              value="https://onekey.so/"
+              logoSvg="OnekeyBrand"
+              logoSvgColor="$bgStrongActive"
+              size={200}
+            />
+          </YStack>
+        ),
+      },
     ]}
   />
 );

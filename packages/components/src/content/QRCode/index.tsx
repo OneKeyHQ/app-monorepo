@@ -4,17 +4,19 @@ import { useMemo } from 'react';
 import QRCodeUtil from 'qrcode';
 import Svg, { Circle, ClipPath, Defs, G, Image, Rect } from 'react-native-svg';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { useThemeValue } from '../../hooks';
+import { Icon } from '../../primitives';
 
 import type { IThemeColorKeys } from '../../hooks';
+import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';
 
 export type IQRCodeProps = {
   size: number;
   ecl?: 'L' | 'M' | 'Q' | 'H';
   logo?: ImageProps['source'];
+  logoSvg?: IIconProps['name'];
+  logoSvgColor?: IIconProps['color'];
   logoBackgroundColor?: IThemeColorKeys;
   logoMargin?: number;
   logoSize?: number;
@@ -43,7 +45,9 @@ const generateMatrix = (
 export function QRCode({
   ecl = 'M',
   logo,
+  logoSvg,
   logoBackgroundColor: logoBGColor = 'bgApp',
+  logoSvgColor = '$text',
   logoMargin = 5,
   logoSize = 62,
   size,
@@ -133,7 +137,7 @@ export function QRCode({
       </Defs>
       <Rect fill={secondaryColor} height={size} width={size} />
       {dots}
-      {logo ? (
+      {logo || logoSvg ? (
         <G x={logoPosition} y={logoPosition}>
           <Rect
             clipPath="url(#clip-wrapper)"
@@ -142,13 +146,23 @@ export function QRCode({
             width={logoWrapperSize}
           />
           <G x={logoMargin} y={logoMargin}>
-            <Image
-              clipPath="url(#clip-logo)"
-              height={logoSize}
-              href={href}
-              preserveAspectRatio="xMidYMid slice"
-              width={logoSize}
-            />
+            {logo ? (
+              <Image
+                clipPath="url(#clip-logo)"
+                height={logoSize}
+                href={href}
+                preserveAspectRatio="xMidYMid slice"
+                width={logoSize}
+              />
+            ) : null}
+            {logoSvg ? (
+              <Icon
+                name="OnekeyBrand"
+                width={logoSize}
+                height={logoSize}
+                color={logoSvgColor}
+              />
+            ) : null}
           </G>
         </G>
       ) : null}
