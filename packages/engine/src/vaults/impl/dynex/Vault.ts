@@ -11,7 +11,9 @@ import {
   InsufficientBalance,
   InvalidAddress,
   NotImplemented,
+  OneKeyInternalError,
 } from '../../../errors';
+import { AccountCredentialType } from '../../../types/account';
 import {
   type IApproveInfo,
   type IDecodedTx,
@@ -34,7 +36,6 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
-import type { AccountCredentialType } from '../../../types/account';
 import type {
   PartialTokenInfo,
   TransactionStatus,
@@ -129,11 +130,22 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override getExportedCredential(
+  override async getExportedCredential(
     password: string,
     credentialType: AccountCredentialType,
   ): Promise<string> {
-    throw new Error('Method not implemented.');
+    if (
+      this.accountId.startsWith('hw-') &&
+      credentialType === AccountCredentialType.PrivateViewKey
+    ) {
+      const path = await this.getAccountPath();
+
+      return (this.keyring as KeyringHardware).getPrivateViewKey({ path });
+    }
+
+    throw new OneKeyInternalError(
+      'Only private view key of HW accounts can be exported',
+    );
   }
 
   override fetchTokenInfos(
