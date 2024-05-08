@@ -25,6 +25,7 @@ export enum EOnboardingPages {
 
   // finalize wallet setup
   FinalizeWalletSetup = 'FinalizeWalletSetup',
+  ImportKeyTag = 'ImportKeyTag',
 }
 
 export type IOnboardingParamList = {
@@ -55,6 +56,7 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ImportPrivateKey]: undefined;
   [EOnboardingPages.ImportAddress]: undefined;
   [EOnboardingPages.ImportCloudBackup]: undefined;
+  [EOnboardingPages.ImportKeyTag]: undefined;
 
   // connect 3rd-party wallet
   [EOnboardingPages.ConnectWallet]: IWalletConnectConnectToWalletParams & {

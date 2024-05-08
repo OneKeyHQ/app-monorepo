@@ -388,6 +388,13 @@ const WebEmbedGallery = LazyLoadPage(
     ),
 );
 
+const DotMapGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DotMap'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -554,5 +561,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentWebEmbed,
     component: WebEmbedGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentDotMap,
+    component: DotMapGallery,
   },
 ];

@@ -71,6 +71,11 @@ export function ImportWalletOptions() {
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
   };
 
+  const handleImportKeyTag = async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    navigation.push(EOnboardingPages.ImportKeyTag);
+  };
+
   const handleImportPrivateKeyPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     await closeKeyboard();
@@ -147,7 +152,30 @@ export function ImportWalletOptions() {
           icon: 'OnekeyKeytagOutline',
           title: 'OneKey KeyTag',
           description: 'Import recovery phrase from your OneKey KeyTag',
-          onPress: () => console.log('pressed'),
+          onPress: () => {
+            const dialog = Dialog.show({
+              tone: 'warning',
+              icon: 'ErrorOutline',
+              title: 'Security Alert',
+              description:
+                "For the safety of your assets, please do not import the recovery phrase of your hardware wallet. Use 'Connect Hardware Wallet' to maintain the highest level of security.",
+              renderContent: (
+                <Stack>
+                  <Button
+                    variant="secondary"
+                    onPress={async () => {
+                      await dialog.close();
+                      await handleImportKeyTag();
+                    }}
+                    testID="acknowledged"
+                  >
+                    Acknowledged
+                  </Button>
+                </Stack>
+              ),
+              showFooter: false,
+            });
+          },
         },
       ],
     },
