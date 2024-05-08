@@ -19,6 +19,7 @@ import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
 import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
+import type { IUniversalSearchParamList } from './universalSearch';
 import type { IModalWebViewParamList } from './webView';
 
 export enum EModalRoutes {
@@ -43,6 +44,7 @@ export enum EModalRoutes {
   AppUpdateModal = 'AppUpdateModal',
   FiatCryptoModal = 'FiatCryptoModal',
   KeyTagModal = 'KeyTagModal',
+  UniversalSearchModal = 'UniversalSearchModal',
 }
 
 export type IModalParamList = {
@@ -68,4 +70,5 @@ export type IModalParamList = {
   [EModalRoutes.AppUpdateModal]: IAppUpdatePagesParamList;
   [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
+  [EModalRoutes.UniversalSearchModal]: IUniversalSearchParamList;
 };
