@@ -54,6 +54,7 @@ import {
   baseDecode,
   baseEncode,
   deserializeTransaction,
+  getPublicKey,
   nearApiJs,
   parseJsonFromRawResponse,
   serializeTransaction,
@@ -182,8 +183,8 @@ export default class Vault extends VaultBase {
         }),
       );
     }
-
-    const pubKey = await this._getPublicKey({ prefix: false });
+    const account = await this.getAccount();
+    const pubKey = getPublicKey({ accountPub: account.pub, prefix: false });
     const publicKey = nearApiJs.utils.key_pair.PublicKey.from(pubKey);
     // TODO Mock value here, update nonce and blockHash in buildUnsignedTxFromEncodedTx later
     const nonce = 0; // 65899896000001
@@ -236,40 +237,6 @@ export default class Vault extends VaultBase {
     })) as INearAccountStorageBalance;
 
     return result;
-  }
-
-  async _getPublicKey({
-    encoding = 'base58',
-    prefix = true,
-  }: {
-    encoding?: 'hex' | 'base58' | 'buffer';
-    prefix?: boolean;
-  } = {}): Promise<string> {
-    const account = await this.getAccount();
-
-    // Before commit a7430c1038763d8d7f51e7ddfe1284e3e0bcc87c, pubkey was stored
-    // in hexstring, afterwards it is stored using encoded format.
-
-    const pub = account.pub?.startsWith('ed25519:')
-      ? baseDecode(account.pub.split(':')[1]).toString('hex')
-      : account.pub;
-
-    const pubKeyBuffer = Buffer.from(pub ?? '', 'hex');
-
-    if (encoding === 'buffer') {
-      // return pubKeyBuffer;
-    }
-    if (encoding === 'base58') {
-      const prefixStr = prefix ? 'ed25519:' : '';
-      return prefixStr + baseEncode(pubKeyBuffer);
-    }
-    if (encoding === 'hex') {
-      return pubKeyBuffer.toString('hex');
-    }
-    // if (encoding === 'object') {
-    // return nearApiJs.utils.key_pair.PublicKey.from(pubKeyBuffer);
-    // }
-    return '';
   }
 
   async _buildNativeTokenTransferAction({ amount }: { amount: string }) {
@@ -452,10 +419,11 @@ export default class Vault extends VaultBase {
   }
 
   async _fetchAccountAccessKey(): Promise<INearAccessKey | undefined> {
+    const account = await this.getAccount();
     const accountAddress = await this.getAccountAddress();
     const cli = await this.getClient();
     const result = (await cli.getAccessKeys(accountAddress)) || [];
-    const publicKey = await this._getPublicKey();
+    const publicKey = getPublicKey({ accountPub: account.pub });
     const info = result.find((item) => item.pubkey === publicKey);
     return info;
   }

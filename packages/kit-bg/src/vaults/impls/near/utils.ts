@@ -137,3 +137,37 @@ export function serializeTransaction(
 export function parseJsonFromRawResponse(response: Uint8Array): any {
   return JSON.parse(Buffer.from(response).toString());
 }
+
+export function getPublicKey({
+  accountPub,
+  encoding = 'base58',
+  prefix = true,
+}: {
+  accountPub?: string;
+  encoding?: 'hex' | 'base58' | 'buffer';
+  prefix?: boolean;
+} = {}): string {
+  // Before commit a7430c1038763d8d7f51e7ddfe1284e3e0bcc87c, pubkey was stored
+  // in hexstring, afterwards it is stored using encoded format.
+
+  const pub = accountPub?.startsWith('ed25519:')
+    ? baseDecode(accountPub.split(':')[1]).toString('hex')
+    : accountPub;
+
+  const pubKeyBuffer = Buffer.from(pub ?? '', 'hex');
+
+  if (encoding === 'buffer') {
+    // return pubKeyBuffer;
+  }
+  if (encoding === 'base58') {
+    const prefixStr = prefix ? 'ed25519:' : '';
+    return prefixStr + baseEncode(pubKeyBuffer);
+  }
+  if (encoding === 'hex') {
+    return pubKeyBuffer.toString('hex');
+  }
+  // if (encoding === 'object') {
+  // return nearApiJs.utils.key_pair.PublicKey.from(pubKeyBuffer);
+  // }
+  return '';
+}

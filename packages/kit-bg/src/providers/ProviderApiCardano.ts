@@ -61,7 +61,7 @@ class ProviderApiCardano extends ProviderApiBase {
     return { account: accountsInfo?.[0]?.account.address };
   }
 
-  _getAccountsInfo = async (request: IJsBridgeMessagePayload) => {
+  getAccountsInfo = async (request: IJsBridgeMessagePayload) => {
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
@@ -183,7 +183,7 @@ class ProviderApiCardano extends ProviderApiBase {
       throw new Error('Not connected to any account.');
     }
     const { accountInfo: { networkId, accountId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
     const encodedTx = await vault.buildTxCborToEncodeTx(params.tx);
     const result =
@@ -208,7 +208,7 @@ class ProviderApiCardano extends ProviderApiBase {
       throw web3Errors.rpc.invalidInput();
     }
     const { accountInfo: { accountId, networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
 
     const signature = await this.backgroundApi.serviceDApp.openSignMessageModal(
@@ -232,7 +232,7 @@ class ProviderApiCardano extends ProviderApiBase {
   @providerApiMethod()
   async submitTx(request: IJsBridgeMessagePayload, params: string) {
     const { accountInfo: { networkId, address } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
     return this.backgroundApi.serviceSend.broadcastTransaction({
       networkId: networkId ?? '',
