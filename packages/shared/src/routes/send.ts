@@ -5,6 +5,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import type {
+  ILNURLAuthServiceResponse,
   ILNURLPayServiceResponse,
   ILNURLWithdrawServiceResponse,
 } from '../../types/lightning';
@@ -64,6 +65,11 @@ export type IModalSendParamList = {
     sourceInfo?: IDappSourceInfo;
     isSendFlow?: boolean;
   };
-  [EModalSendRoutes.LnurlAuth]: undefined;
+  [EModalSendRoutes.LnurlAuth]: {
+    networkId: string;
+    accountId: string;
+    lnurlDetails: ILNURLAuthServiceResponse;
+    isSendFlow: boolean;
+  };
   [EModalSendRoutes.WeblnSendPayment]: undefined;
 };

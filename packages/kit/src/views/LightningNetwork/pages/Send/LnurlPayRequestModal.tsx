@@ -199,8 +199,11 @@ function LnurlPayRequestModal() {
             setContinueOperate(!!checked);
           }}
           onConfirm={onConfirm}
-          // onCancel={() => dappApprove.reject()}
-          onCancel={() => {}}
+          onCancel={() => {
+            if (!isSendFlow) {
+              dappApprove.reject();
+            }
+          }}
           confirmButtonProps={{
             loading: isLoading,
             disabled: !canContinueOperate,

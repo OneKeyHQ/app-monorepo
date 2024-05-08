@@ -23,6 +23,13 @@ const LnurlWithdrawModal = LazyLoadPage(
     ),
 );
 
+const LnurlAuthModal = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlAuthModal'
+    ),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
@@ -46,5 +53,9 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.LnurlWithdraw,
     component: LnurlWithdrawModal,
+  },
+  {
+    name: EModalSendRoutes.LnurlAuth,
+    component: LnurlAuthModal,
   },
 ];

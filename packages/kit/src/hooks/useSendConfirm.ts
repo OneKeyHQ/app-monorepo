@@ -103,7 +103,12 @@ function useSendConfirm(params: IParams) {
         if (lnurlDetails) {
           switch (lnurlDetails.tag) {
             case 'login':
-              // Handle LNURL login
+              navigation.push(EModalSendRoutes.LnurlAuth, {
+                networkId,
+                accountId,
+                lnurlDetails,
+                isSendFlow: true,
+              });
               break;
             case 'payRequest':
               navigation.push(EModalSendRoutes.LnurlPayRequest, {
@@ -118,7 +123,6 @@ function useSendConfirm(params: IParams) {
               });
               break;
             case 'withdrawRequest':
-              // Handle LNURL withdraw request
               navigation.push(EModalSendRoutes.LnurlWithdraw, {
                 networkId,
                 accountId,
