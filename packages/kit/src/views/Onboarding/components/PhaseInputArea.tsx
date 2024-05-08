@@ -1,4 +1,9 @@
-import type { ComponentType, PropsWithChildren, RefObject } from 'react';
+import type {
+  ComponentType,
+  PropsWithChildren,
+  ReactElement,
+  RefObject,
+} from 'react';
 import {
   forwardRef,
   useCallback,
@@ -42,7 +47,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSuggestion } from './hooks';
-import { Tutorials } from './Tutorials';
 
 import type { ITutorialsListItemProps } from './Tutorials';
 import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
@@ -436,7 +440,7 @@ const PhaseInput = forwardRef(BasicPhaseInput);
 
 export function PhaseInputArea({
   onConfirm,
-  tutorials,
+  FooterComponent,
   showPhraseLengthSelector = true,
   showClearAllButton = true,
   defaultPhrases = [],
@@ -444,7 +448,7 @@ export function PhaseInputArea({
   onConfirm: (mnemonic: string) => void;
   showPhraseLengthSelector?: boolean;
   showClearAllButton?: boolean;
-  tutorials: ITutorialsListItemProps[];
+  FooterComponent?: ReactElement;
   defaultPhrases?: string[];
 }) {
   const [phraseLength, setPhraseLength] = useState(
@@ -621,7 +625,7 @@ export function PhaseInputArea({
             </XStack>
           ) : null}
         </HeightTransition>
-        <Tutorials px="$5" list={tutorials} />
+        {FooterComponent}
       </Page.Body>
       <PageFooter
         suggestions={suggestions}

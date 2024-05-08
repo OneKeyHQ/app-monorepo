@@ -28,3 +28,4 @@ export * from './tabSwap';
 export * from './webView';
 export * from './testModal';
 export * from './fiatCrypto';
+export * from './keyTag';
