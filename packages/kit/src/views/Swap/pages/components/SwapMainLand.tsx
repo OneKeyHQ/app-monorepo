@@ -114,7 +114,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       flex={1}
       marginHorizontal="auto"
       width="100%"
-      maxWidth={480}
+      maxWidth={pageType === EPageType.modal ? '100%' : 480}
     >
       <YStack
         pt="$2.5"
