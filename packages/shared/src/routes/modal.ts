@@ -9,6 +9,7 @@ import type { ICloudBackupParamList } from './cloudBackup';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
 import type { IDiscoveryModalParamList } from './discovery';
 import type { IModalFiatCryptoParamList } from './fiatCrypto';
+import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalReceiveParamList } from './receive';
@@ -37,6 +38,7 @@ export enum EModalRoutes {
   DAppConnectionModal = 'DAppConnectionModal',
   AppUpdateModal = 'AppUpdateModal',
   FiatCryptoModal = 'FiatCryptoModal',
+  KeyTagModal = 'KeyTagModal',
 }
 
 export type IModalParamList = {
@@ -59,4 +61,5 @@ export type IModalParamList = {
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
   [EModalRoutes.AppUpdateModal]: IAppUpdatePagesParamList;
   [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
+  [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
 };
