@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 
+import { NavBackButton, Page } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
@@ -18,7 +18,11 @@ export function HeaderLeft({
       <AccountSelectorTriggerHome num={0} key="accountSelectorTrigger" />
     );
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return [<UrlAccountNavHeader.Address key="urlAccountNavHeaderAddress" />];
+      return (
+        <Page.Close>
+          <NavBackButton />
+        </Page.Close>
+      );
     }
     return [accountSelectorTrigger];
   }, [sceneName]);

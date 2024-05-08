@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -38,6 +39,7 @@ export function HeaderRight({
     });
   }, []);
 
+  const media = useMedia();
   const items = useMemo(() => {
     const settingsButton = (
       <HeaderIconButton
@@ -64,7 +66,9 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     );
-    const searchInput = <UniversalSearchInput key="searchInput" />;
+    const searchInput = media.gtMd ? (
+      <UniversalSearchInput key="searchInput" />
+    ) : null;
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
@@ -80,7 +84,13 @@ export function HeaderRight({
     }
 
     return [scanButton, settingsButton, searchInput];
-  }, [onScanButtonPressed, openExtensionExpandTab, openSettingPage, sceneName]);
+  }, [
+    media.gtMd,
+    onScanButtonPressed,
+    openExtensionExpandTab,
+    openSettingPage,
+    sceneName,
+  ]);
   return (
     <HeaderButtonGroup testID="Wallet-Page-Header-Right">
       {items}

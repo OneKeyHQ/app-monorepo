@@ -7,6 +7,7 @@ import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 import { HeaderLeft } from './HeaderLeft';
 import { HeaderRight } from './HeaderRight';
+import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
@@ -31,8 +32,14 @@ export function TabPageHeader({
     [config, sceneName, showHeaderRight],
   );
 
+  const renderHeaderTitle = useCallback(
+    () => <HeaderTitle sceneName={sceneName} />,
+    [sceneName],
+  );
+
   return (
     <Page.Header
+      headerTitle={renderHeaderTitle}
       headerLeft={renderHeaderLeft}
       headerRight={renderHeaderRight}
     />
