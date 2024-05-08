@@ -18,6 +18,7 @@ import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
 import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
+import type { IModalWebViewParamList } from './webView';
 
 export enum EModalRoutes {
   MainModal = 'MainModal',
@@ -34,6 +35,7 @@ export enum EModalRoutes {
   ScanQrCodeModal = 'ScanQrCodeModal',
   LiteCardModal = 'LiteCardModal',
   CloudBackupModal = 'CloudBackupModal',
+  WebViewModal = 'WebViewModal',
   AddressBookModal = 'AddressBookModal',
   DAppConnectionModal = 'DAppConnectionModal',
   AppUpdateModal = 'AppUpdateModal',
@@ -57,6 +59,7 @@ export type IModalParamList = {
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
   [EModalRoutes.CloudBackupModal]: ICloudBackupParamList;
+  [EModalRoutes.WebViewModal]: IModalWebViewParamList;
   [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
   [EModalRoutes.DAppConnectionModal]: IDAppConnectionModalParamList;
   [EModalRoutes.AppUpdateModal]: IAppUpdatePagesParamList;

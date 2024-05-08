@@ -150,12 +150,12 @@ export const DefaultSection = () => {
           }}
         />
       ) : null}
-      <ListItem
+      {/* <ListItem
         icon="RepeatOutline"
         title="Migration"
         drillIn
         onPress={() => {}}
-      />
+      /> */}
       {platformEnv.isNative ? (
         <ListItem
           icon="OnekeyLiteOutline"

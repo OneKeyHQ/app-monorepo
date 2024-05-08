@@ -18,7 +18,6 @@ import {
   Spinner,
   Stack,
   XStack,
-  YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -83,12 +82,17 @@ export function InfoItem({
   label,
   renderContent,
   compact = false,
+  showCopy = false,
+  showOpenWithUrl = undefined,
   ...rest
 }: {
   label: string;
   renderContent: ReactNode;
   compact?: boolean;
+  showCopy?: boolean;
+  showOpenWithUrl?: string;
 } & IStackProps) {
+  const { copyText } = useClipboard();
   return (
     <Stack
       flex={1}
@@ -104,9 +108,31 @@ export function InfoItem({
     >
       <SizableText size="$bodyMdMedium">{label}</SizableText>
       {typeof renderContent === 'string' ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {renderContent}
-        </SizableText>
+        <Stack
+          alignItems="flex-start"
+          gap="$1.5"
+          onPress={() => copyText(renderContent)}
+        >
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {renderContent}
+          </SizableText>
+          <XStack space="$2">
+            {showCopy ? (
+              <IconButton
+                icon="Copy2Outline"
+                size="small"
+                pointerEvents="none"
+              />
+            ) : null}
+            {showOpenWithUrl ? (
+              <IconButton
+                icon="OpenOutline"
+                size="small"
+                onPress={() => openUrl(showOpenWithUrl)}
+              />
+            ) : null}
+          </XStack>
+        </Stack>
       ) : (
         renderContent
       )}
@@ -187,8 +213,6 @@ function HistoryDetails() {
         EModalAssetDetailRoutes.HistoryDetails
       >
     >();
-
-  const { copyText } = useClipboard();
 
   const { networkId, accountAddress, historyTx } = route.params;
 
@@ -319,36 +343,6 @@ function HistoryDetails() {
       </XStack>
     );
   }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
-
-  const renderTxId = useCallback(
-    (txid: string) => (
-      <YStack space="$2">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {txid}
-        </SizableText>
-        <XStack space="$2">
-          <IconButton
-            icon="Copy2Outline"
-            size="small"
-            onPress={() => copyText(txid)}
-          />
-          <IconButton
-            icon="OpenOutline"
-            size="small"
-            onPress={() =>
-              openUrl(
-                buildTransactionDetailsUrl({
-                  network,
-                  txid,
-                }),
-              )
-            }
-          />
-        </XStack>
-      </YStack>
-    ),
-    [copyText, network],
-  );
 
   const transfersToRender = useMemo(() => {
     let transfers: {
@@ -498,11 +492,16 @@ function HistoryDetails() {
           {/* Secondary */}
           <Divider mx="$5" />
           <InfoItemGroup>
-            <InfoItem label="From" renderContent={txAddresses.from} />
-            <InfoItem label="To" renderContent={txAddresses.to} />
+            <InfoItem label="From" renderContent={txAddresses.from} showCopy />
+            <InfoItem label="To" renderContent={txAddresses.to} showCopy />
             <InfoItem
               label="Transaction ID"
-              renderContent={renderTxId(txInfo.txid)}
+              renderContent={txInfo.txid}
+              showCopy
+              showOpenWithUrl={buildTransactionDetailsUrl({
+                network,
+                txid: txInfo.txid,
+              })}
             />
             <InfoItem
               label="Network Fee"
@@ -569,7 +568,6 @@ function HistoryDetails() {
   }, [
     renderAssetsChange,
     renderFeeInfo,
-    renderTxId,
     renderTxStatus,
     resp.isLoading,
     transfersToRender,
@@ -580,6 +578,7 @@ function HistoryDetails() {
     txInfo.nonce,
     txInfo.swapInfo,
     txInfo.txid,
+    network,
     vaultSettings?.nonceRequired,
   ]);
 

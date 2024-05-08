@@ -249,6 +249,7 @@ function DialogFrame({
           bg="$bg"
           paddingBottom={keyboardHeight}
           borderCurve="continuous"
+          disableHideBottomOverflow
         >
           {!disableDrag ? <SheetGrabber /> : null}
           {renderDialogContent}
