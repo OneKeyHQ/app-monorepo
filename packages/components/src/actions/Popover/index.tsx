@@ -348,7 +348,7 @@ function RawPopover({
                 marginBottom={bottom || '$5'}
                 borderCurve="continuous"
               >
-                <TMPopover.Adapt.Contents />
+                {content}
               </TMPopover.Sheet.ScrollView>
             </TMPopover.Sheet.Frame>
           </TMPopover.Sheet>
