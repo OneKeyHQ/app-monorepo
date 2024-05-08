@@ -52,36 +52,38 @@ const settings: IVaultSettings = {
     'cosmos--cosmoshub-4': {
       'addressPrefix': 'cosmos',
       'curve': 'secp256k1',
-      // 'gasPriceStep': {
-      //   'min': '0',
-      // },
-      // 'mainCoinDenom': 'uatom',
     },
     'cosmos--theta-testnet-001': {
       'addressPrefix': 'cosmos',
       'curve': 'secp256k1',
-      // 'gasPriceStep': {
-      //   'min': '0',
-      // },
-      // 'mainCoinDenom': 'uatom',
     },
     'cosmos--osmosis-1': {
       'addressPrefix': 'osmo',
       'curve': 'secp256k1',
-
-      // 'gasPriceStep': {
-      //   'high': '0.04',
-      //   'low': '0.0025',
-      //   'min': '0.0025',
-      //   'normal': '0.025',
-      // },
-      // 'mainCoinDenom': 'uosmo',
-
-      // minGasPrice: '0',
-      // allowZeroFee: true,
-      // isIntegerGasPrice?: boolean;
-      // minGasPrice?: string;
-      // allowZeroFee?: boolean;
+    },
+    'cosmos--akashnet-2': {
+      'addressPrefix': 'akash',
+      'curve': 'secp256k1',
+    },
+    'cosmos--crypto-org-chain-mainnet-1': {
+      'addressPrefix': 'cro',
+      'curve': 'secp256k1',
+    },
+    'cosmos--fetchhub-4': {
+      'addressPrefix': 'fetch',
+      'curve': 'secp256k1',
+    },
+    'cosmos--juno-1': {
+      'addressPrefix': 'juno',
+      'curve': 'secp256k1',
+    },
+    'cosmos--secret-4': {
+      'addressPrefix': 'secret',
+      'curve': 'secp256k1',
+    },
+    'cosmos--celestia': {
+      'addressPrefix': 'celestia',
+      'curve': 'secp256k1',
     },
   },
 };

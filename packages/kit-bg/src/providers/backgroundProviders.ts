@@ -21,6 +21,7 @@ import type {
   IBackgroundApi,
   IBackgroundApiBridge,
 } from '../apis/IBackgroundApi';
+import ProviderApiCosmos from './ProviderApiCosmos';
 
 function createBackgroundProviders({
   backgroundApi,
@@ -61,9 +62,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.cardano]: new ProviderApiCardano({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.polkadot]: new ProviderApiPolkadot({
     //   backgroundApi,
     // }),
