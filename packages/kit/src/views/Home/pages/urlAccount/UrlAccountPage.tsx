@@ -44,7 +44,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
       let networkId = routeParams?.networkId;
       let networkCode = routeParams?.networkId;
       let routeAddress = routeParams?.address;
- 
+
       const fixNetworkParams = (network: IServerNetwork | undefined) => {
         if (network) {
           networkId = network.id;
@@ -89,8 +89,6 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         hasError = true;
       }
       const prevAccount = getPrevUrlAccount();
-
-   
 
       if (
         networkId &&

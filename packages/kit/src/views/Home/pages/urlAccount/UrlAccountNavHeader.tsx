@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import * as ExpoSharing from 'expo-sharing';
+
 import {
   Button,
   Dialog,
@@ -186,12 +188,17 @@ function ShareButton() {
   }
   return (
     <IconButton
-      onPress={() => {
+      onPress={async () => {
         const text = buildUrlAccountFullUrl({
           account,
           network,
         });
-        copyText(text);
+        if (await ExpoSharing.isAvailableAsync()) {
+          // https://docs.expo.dev/versions/latest/sdk/sharing/
+          await ExpoSharing.shareAsync(text);
+        } else {
+          copyText(text);
+        }
       }}
       size="small"
       icon="ShareArrowSolid"

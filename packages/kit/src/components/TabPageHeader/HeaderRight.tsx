@@ -68,9 +68,11 @@ export function HeaderRight({
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
-        <UrlAccountNavHeader.OpenInApp key="urlAccountOpenInApp" />,
+        platformEnv.isNative ? null : (
+          <UrlAccountNavHeader.OpenInApp key="urlAccountOpenInApp" />
+        ),
         <UrlAccountNavHeader.Share key="urlAccountShare" />,
-      ];
+      ].filter(Boolean);
     }
 
     if (platformEnv.isExtensionUiPopup) {
