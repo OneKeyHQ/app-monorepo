@@ -1,11 +1,12 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
 import { IconButton, Page, YStack } from '@onekeyhq/components';
-import { decodeSensitiveText } from '@onekeyhq/core/src/secret';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DotMap } from '@onekeyhq/kit/src/components/DotMap';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IModalKeyTagParamList } from '@onekeyhq/shared/src/routes';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -18,8 +19,9 @@ const BackupDotMap = () => {
     >();
 
   const { encodedText, title } = route.params;
-  const data = useMemo(
-    () => decodeSensitiveText({ encodedText }),
+  const { result } = usePromiseResult(
+    () =>
+      backgroundApiProxy.servicePassword.decodeSensitiveText({ encodedText }),
     [encodedText],
   );
   const appNavigation = useAppNavigation();
@@ -40,7 +42,7 @@ const BackupDotMap = () => {
       <Page.Header title={title} headerRight={headerRight} />
       <Page.Body>
         <YStack alignItems="center">
-          <DotMap mnemonic={data} />
+          {result ? <DotMap mnemonic={result} /> : null}
         </YStack>
       </Page.Body>
       <Page.Footer
