@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Trao đổi bất kỳ mã thông báo nào",
   "content__existing": "Hiện có",
   "content__exit_value": "Giá trị thoát",
+  "content__export_tracking_key": "Xuất khóa theo dõi",
+  "content__export_tracking_key_desc": "Khóa theo dõi được sử dụng để tạo bằng chứng về tài sản.",
   "content__ext_metamask_tutorials_1": "Nhấp vào Hình đại diện ở thanh trên cùng",
   "content__external_account": "Tài khoản bên ngoài",
   "content__face_id": "Face ID",

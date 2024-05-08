@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Exchange any tokens",
   "content__existing": "Existing",
   "content__exit_value": "Exit Value",
+  "content__export_tracking_key": "Export Tracking Key",
+  "content__export_tracking_key_desc": "Tracking Key is used for generating proof of assets.",
   "content__ext_metamask_tutorials_1": "Click on the Avatar in the Top bar",
   "content__external_account": "External Accounts",
   "content__face_id": "Face ID",

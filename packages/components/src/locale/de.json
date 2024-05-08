@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Tauschen Sie alle Token aus",
   "content__existing": "Vorhandenen",
   "content__exit_value": "Ausgangswert",
+  "content__export_tracking_key": "Tracking-Schlüssel exportieren",
+  "content__export_tracking_key_desc": "Der Tracking-Schlüssel wird zum Generieren von Vermögensnachweisen verwendet.",
   "content__ext_metamask_tutorials_1": "Klicken Sie auf den Avatar in der oberen Leiste",
   "content__external_account": "Externe Konten",
   "content__face_id": "Gesichts-ID",

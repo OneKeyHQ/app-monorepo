@@ -136,15 +136,15 @@ export default class Vault extends VaultBase {
   ): Promise<string> {
     if (
       this.accountId.startsWith('hw-') &&
-      credentialType === AccountCredentialType.PrivateViewKey
+      credentialType === AccountCredentialType.TrackingKey
     ) {
       const path = await this.getAccountPath();
 
-      return (this.keyring as KeyringHardware).getPrivateViewKey({ path });
+      return (this.keyring as KeyringHardware).getTrackingKey({ path });
     }
 
     throw new OneKeyInternalError(
-      'Only private view key of HW accounts can be exported',
+      'Only tracking key of HW accounts can be exported',
     );
   }
 

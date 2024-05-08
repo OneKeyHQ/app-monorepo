@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Intercambia cualquier token",
   "content__existing": "Existente",
   "content__exit_value": "Valor de salida",
+  "content__export_tracking_key": "Clave de seguimiento de exportaciones",
+  "content__export_tracking_key_desc": "La clave de seguimiento se utiliza para generar pruebas de activos.",
   "content__ext_metamask_tutorials_1": "Haz clic en el Avatar en la barra superior",
   "content__external_account": "Cuentas externas",
   "content__face_id": "Face ID",

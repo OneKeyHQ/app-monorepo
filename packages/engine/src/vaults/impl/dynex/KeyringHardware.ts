@@ -199,7 +199,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     throw new Error('Method not implemented.');
   }
 
-  async getPrivateViewKey(params: { path: string }): Promise<string> {
+  async getTrackingKey(params: { path: string }): Promise<string> {
     const HardwareSDK = await this.getHardwareSDKInstance();
     const { connectId, deviceId } = await this.getHardwareInfo();
     const passphraseState = await this.getWalletPassphraseState();

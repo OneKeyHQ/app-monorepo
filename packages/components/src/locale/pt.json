@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Troque qualquer token",
   "content__existing": "Existir",
   "content__exit_value": "Valor de saída",
+  "content__export_tracking_key": "Chave de rastreamento de exportação",
+  "content__export_tracking_key_desc": "A chave de rastreamento é usada para gerar prova de ativos.",
   "content__ext_metamask_tutorials_1": "Clique no Avatar na barra superior",
   "content__external_account": "Contas externas",
   "content__face_id": "ID de rosto",

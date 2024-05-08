@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "兌換任何代幣",
   "content__existing": "現存的",
   "content__exit_value": "離場價",
+  "content__export_tracking_key": "導出跟踪密鑰",
+  "content__export_tracking_key_desc": "追蹤密鑰用於產生資產證明。",
   "content__ext_metamask_tutorials_1": "點擊頂部欄中的「頭像」",
   "content__external_account": "外部賬戶",
   "content__face_id": "人臉識別",

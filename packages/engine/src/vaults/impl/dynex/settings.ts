@@ -43,8 +43,8 @@ const settings: IVaultSettings = Object.freeze({
 
   exportCredentialInfo: [
     {
-      type: AccountCredentialType.PrivateViewKey,
-      key: 'action__export_view_key' as LocaleIds,
+      type: AccountCredentialType.TrackingKey,
+      key: 'content__export_tracking_key' as LocaleIds,
     },
   ],
 });

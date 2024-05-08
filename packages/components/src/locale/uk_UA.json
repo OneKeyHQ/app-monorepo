@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Обміняйте будь-які токени",
   "content__existing": "Існуючий",
   "content__exit_value": "Значення виходу",
+  "content__export_tracking_key": "Ключ відстеження експорту",
+  "content__export_tracking_key_desc": "Ключ відстеження використовується для створення підтвердження активів.",
   "content__ext_metamask_tutorials_1": "Натисніть на аватар у верхній панелі",
   "content__external_account": "Зовнішні облікові записи",
   "content__face_id": "Face ID",
