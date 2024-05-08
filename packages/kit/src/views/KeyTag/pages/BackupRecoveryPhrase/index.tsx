@@ -2,21 +2,21 @@ import { useCallback, useMemo } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
-
-import { PhaseInputArea } from '../../components/PhaseInputArea';
+import { PhaseInputArea } from '@onekeyhq/kit/src/views/Onboarding/components/PhaseInputArea';
 import {
   Tutorials,
   defaultTutorialsListItem,
-} from '../../components/Tutorials';
+} from '@onekeyhq/kit/src/views/Onboarding/components/Tutorials';
+import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 
 export function ImportRecoveryPhrase() {
   const navigation = useAppNavigation();
 
   const handleConfirmPress = useCallback(
     (mnemonic: string) => {
-      navigation.push(EOnboardingPages.FinalizeWalletSetup, {
-        mnemonic,
+      navigation.push(EModalKeyTagRoutes.BackupDotMap, {
+        encodedText: mnemonic,
+        title: '',
       });
     },
     [navigation],
