@@ -177,8 +177,9 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async backupNow(isManualBackup = true) {
-    const { isEnabled, isInProgress } = await cloudBackupPersistAtom.get();
-    if (!isEnabled || isInProgress) {
+    const cloudBackupValueList = await cloudBackupPersistAtom.get();
+    const { isEnabled } = cloudBackupValueList;
+    if (!isEnabled) {
       return;
     }
 
@@ -192,7 +193,11 @@ class ServiceCloudBackup extends ServiceBase {
       return;
     }
 
-    await cloudBackupPersistAtom.set({ isEnabled, isInProgress: true });
+    await cloudBackupPersistAtom.set({
+      ...cloudBackupValueList,
+      isEnabled,
+      isInProgress: true,
+    });
     const cloudData = {
       backupTime: Date.now(),
       deviceInfo: this.deviceInfo,
@@ -245,16 +250,22 @@ class ServiceCloudBackup extends ServiceBase {
       console.error(e);
       throw e;
     } finally {
-      await cloudBackupPersistAtom.set({ isEnabled, isInProgress: false });
+      await cloudBackupPersistAtom.set({
+        ...cloudBackupValueList,
+        isEnabled,
+        isInProgress: false,
+      });
     }
   }
 
   @backgroundMethod()
   async checkCloudBackupStatus() {
     await CloudFs.sync();
-    const { isEnabled } = await cloudBackupPersistAtom.get();
+    const cloudBackupValueList = await cloudBackupPersistAtom.get();
+    const { isEnabled } = cloudBackupValueList;
     if (isEnabled && !(await this.getCloudAvailable())) {
       await cloudBackupPersistAtom.set({
+        ...cloudBackupValueList,
         isEnabled: false,
         isInProgress: false,
       });

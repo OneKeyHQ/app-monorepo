@@ -14,6 +14,7 @@ import {
   SegmentControl,
   Stack,
   Toast,
+  XStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IIconProps } from '@onekeyhq/components/src/primitives';
@@ -60,6 +61,11 @@ export default function Detail() {
             title: wallet.name,
             detail: `${wallet.accountUUIDs.length} Accounts`,
             walletAvatar: wallet.avatar,
+            infoList: [
+              'Recovery phrase',
+              'Wallet avatar',
+              'Names of wallets and accounts',
+            ],
           })),
         },
         Object.values(publicData.importedAccounts).length +
@@ -73,28 +79,37 @@ export default function Detail() {
                 Object.keys(publicData.importedAccounts).length
               } Accounts`,
               icon: 'PasswordOutline',
+              infoList: ['Private key', 'Account name'],
             },
             Object.values(publicData.watchingAccounts).length > 0 && {
               title: 'Watchlist',
-              detail: `${Object.keys(publicData.watchingAccounts).length}`,
+              detail: `${
+                Object.keys(publicData.watchingAccounts).length
+              } Accounts`,
               icon: 'EyeOutline',
+              infoList: ['Address', 'Account name'],
             },
           ].filter((item) => item),
         },
-        Object.keys(publicData.contacts).length +
-          (publicData?.discoverBookmarks?.length ?? 0) >
-          0 && {
+        Object.keys(publicData.contacts).length > 0 && {
           title: 'Address Book & Labels',
           data: [
             Object.keys(publicData.contacts).length > 0 && {
               title: 'Address Book',
               detail: `${Object.keys(publicData.contacts).length} Items`,
               icon: 'BookOpenOutline',
+              infoList: ['Address', 'Name', 'Network type'],
             },
+          ].filter((item) => item),
+        },
+        (publicData?.discoverBookmarks?.length ?? 0) > 0 && {
+          title: 'Explore',
+          data: [
             (publicData?.discoverBookmarks?.length ?? 0) > 0 && {
-              title: 'Discovery bookmarks',
+              title: 'Bookmark',
               detail: `${publicData?.discoverBookmarks?.length ?? 0} Items`,
               icon: 'BookmarkOutline',
+              infoList: ['URL', 'Name'],
             },
           ].filter((item) => item),
         },
@@ -264,6 +279,7 @@ export default function Detail() {
                 detail: string;
                 icon?: IIconProps['name'];
                 walletAvatar?: IPublicBackupData['HDWallets'][string]['avatar'];
+                infoList: string[];
               };
             }) => (
               <ListItem
@@ -283,7 +299,29 @@ export default function Detail() {
                   )
                 }
               >
-                <ListItem.Text secondary={item.detail} align="right" />
+                <XStack
+                  space="$1"
+                  onPress={() => {
+                    ActionList.show({
+                      title: 'Encrypted Backup Contents',
+                      sections: [
+                        {
+                          items: item.infoList.map((infoString) => ({
+                            label: `  •\t${infoString}`,
+                          })),
+                        },
+                      ],
+                    });
+                  }}
+                >
+                  <ListItem.Text secondary={item.detail} align="right" />
+                  <Icon
+                    name="InfoCircleOutline"
+                    color="$iconSubdued"
+                    size="small"
+                    bg="transparent"
+                  />
+                </XStack>
               </ListItem>
             )}
             estimatedItemSize="$16"

@@ -19,16 +19,20 @@ export function backupPlatform() {
 }
 
 export async function isAvailable(): Promise<boolean> {
-  const hasPlayServices = await GoogleSignin.hasPlayServices({
-    showPlayServicesUpdateDialog: false,
-  });
-  return Promise.resolve(hasPlayServices);
+  try {
+    const hasPlayServices = await GoogleSignin.hasPlayServices({
+      showPlayServicesUpdateDialog: false,
+    });
+    return hasPlayServices;
+  } catch (e) {
+    return false;
+  }
 }
 
 async function checkInternet() {
   const result = await axios
     .head('https://www.googleapis.com/auth/drive.file', {
-      timeout: 1000,
+      timeout: 600,
     })
     .then(() => true)
     .catch(() => false);

@@ -16,7 +16,9 @@ export function CloudBackupContainer() {
         Dialog.show({
           icon: 'InfoCircleOutline',
           title: `${backupPlatform().cloudName} Auto-backup Paused`,
-          description: `Please verify your Apple account login and ensure ${
+          description: `Please verify your ${
+            backupPlatform().cloudName
+          } account login and ensure ${
             backupPlatform().cloudName
           } is enabled and authorized for OneKey.`,
           onConfirmText: 'Go Settings',

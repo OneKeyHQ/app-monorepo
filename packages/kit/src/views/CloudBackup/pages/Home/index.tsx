@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import { Button, Page, SizableText, Stack, Switch } from '@onekeyhq/components';
+import { Button, Divider, Page, Stack, Switch } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -17,46 +17,90 @@ export default function Home() {
 
   const navigation = useAppNavigation();
 
+  const backupNowOnPress = useCallback(async () => {
+    await maybeShowBackupToggleDialog(true);
+    setSubmitError('');
+    try {
+      await backgroundApiProxy.serviceCloudBackup.backupNow();
+    } catch (e) {
+      setSubmitError('Sync failed, please retry.');
+    }
+  }, []);
+
+  const renderBackupStatus = useCallback(() => {
+    if (isInProgress) {
+      return (
+        <Button disabled bg="transparent" p="0" loading>
+          Syncing...
+        </Button>
+      );
+    }
+    if (submitError) {
+      return (
+        <Button
+          disabled
+          bg="transparent"
+          p="0"
+          icon="XCircleSolid"
+          iconColor="$iconCritical"
+        >
+          Sync error
+        </Button>
+      );
+    }
+    return (
+      <Button
+        disabled
+        bg="transparent"
+        p="0"
+        icon="CheckRadioSolid"
+        iconColor="$iconSuccess"
+      >
+        Synced
+      </Button>
+    );
+  }, [isInProgress, submitError]);
+
   return (
     <Page>
       <Page.Body>
         <BackupDeviceList
           ListHeaderComponent={
-            <ListItem title={`Backup to ${backupPlatform().cloudName}`}>
-              <Stack
-                pointerEvents="box-only"
-                onPress={async () => {
-                  await maybeShowBackupToggleDialog(!isEnabled);
-                  if (isEnabled && platformEnv.isNativeAndroid) {
-                    navigation.pop();
-                  }
-                }}
-              >
-                <Switch value={isEnabled} />
-              </Stack>
-            </ListItem>
+            <>
+              <ListItem title={`Enable ${backupPlatform().cloudName} backup`}>
+                <Stack
+                  pointerEvents="box-only"
+                  onPress={async () => {
+                    await maybeShowBackupToggleDialog(!isEnabled);
+                    if (!isEnabled) {
+                      await backupNowOnPress();
+                    } else if (platformEnv.isNativeAndroid) {
+                      navigation.pop();
+                    }
+                  }}
+                >
+                  <Switch value={isEnabled} />
+                </Stack>
+              </ListItem>
+              {isEnabled ? (
+                <ListItem
+                  pt="$3"
+                  title={`${backupPlatform().cloudName} Status`}
+                >
+                  {renderBackupStatus()}
+                </ListItem>
+              ) : null}
+              <Divider pt="$6" />
+            </>
           }
         />
         <Stack m="$5">
-          {submitError?.length > 0 ? (
-            <SizableText size="$bodyMd" color="$textCritical">
-              {submitError}
-            </SizableText>
-          ) : null}
           <Button
             mt="$4"
             borderRadius="$3"
             py="$3"
-            loading={isInProgress}
-            onPress={async () => {
-              await maybeShowBackupToggleDialog(true);
-              setSubmitError('');
-              try {
-                await backgroundApiProxy.serviceCloudBackup.backupNow();
-              } catch (e) {
-                setSubmitError('Sync failed, please retry.');
-              }
-            }}
+            disabled={isInProgress}
+            onPress={backupNowOnPress}
           >
             Backup Now
           </Button>
