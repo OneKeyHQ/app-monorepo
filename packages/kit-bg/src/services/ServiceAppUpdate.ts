@@ -31,7 +31,7 @@ class ServiceAppUpdate extends ServiceBase {
     const response = await client.get<{
       code: number;
       data: IResponseAppUpdateInfo;
-    }>('/utility/v1/app/update', {
+    }>('/utility/v1/app-update', {
       headers: await getRequestHeaders(),
     });
     const { code, data } = response.data;

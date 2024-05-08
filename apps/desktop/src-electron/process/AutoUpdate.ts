@@ -183,7 +183,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     }
     const feedUrl = `${
       updateSettings.useTestFeedUrl ? ONEKEY_TEST_API_URL : ONEKEY_API_URL
-    }/utility/v1/app/electorn-feed-url`;
+    }/utility/v1/app-update/electorn-feed-url`;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
