@@ -44,7 +44,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
       let networkId = routeParams?.networkId;
       let networkCode = routeParams?.networkId;
       let routeAddress = routeParams?.address;
-
+ 
       const fixNetworkParams = (network: IServerNetwork | undefined) => {
         if (network) {
           networkId = network.id;
@@ -89,6 +89,9 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         hasError = true;
       }
       const prevAccount = getPrevUrlAccount();
+
+   
+
       if (
         networkId &&
         routeAddress &&
@@ -110,6 +113,7 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
             othersWalletAccountId: r.accounts[0].id,
           });
         } catch (error) {
+          console.error('UrlAccountAutoCreate error: ', error);
           Toast.error({
             title: `Unsupported address or network: ${routeAddress}`,
           });
@@ -148,6 +152,9 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
       <Page>
         <Stack p="$6">
           <SizableText my="$6">Sorry, something went wrong!</SizableText>
+          {process.env.NODE_ENV !== 'production' ? (
+            <SizableText my="$6">{JSON.stringify(routeParams)}</SizableText>
+          ) : null}
           <Button
             onPress={() => {
               urlAccountNavigation.replaceHomePage(navigation);

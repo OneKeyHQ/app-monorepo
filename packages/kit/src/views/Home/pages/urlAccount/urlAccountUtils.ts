@@ -152,7 +152,7 @@ export const urlAccountNavigation = {
     });
 
     await timerUtils.wait(100);
-
+    console.log('pushUrlAccountPageFromDeeplink >>>>>', params);
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Home,
       params: {

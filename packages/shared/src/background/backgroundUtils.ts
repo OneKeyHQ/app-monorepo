@@ -101,6 +101,10 @@ export function warningIfNotRunInBackground({
       // web-embed error.stack data is not reliable, missing background keywords
       return;
     }
+    if (platformEnv.isWebMobileIOS) {
+      // iOS safari get wrong error.stack
+      return;
+    }
     try {
       throw new NotAutoPrintError();
     } catch (error) {
