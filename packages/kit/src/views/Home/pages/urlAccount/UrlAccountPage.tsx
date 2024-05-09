@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 
-import { Button, Page, SizableText, Stack, Toast } from '@onekeyhq/components';
+import {
+  Button,
+  Page,
+  SizableText,
+  Spinner,
+  Stack,
+  Toast,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -171,9 +178,9 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   }
 
   return (
-    <Page>
-      <SizableText my="$6">loading.....</SizableText>
-    </Page>
+    <Stack flex={1} alignContent="center" justifyContent="center">
+      <Spinner size="small" />
+    </Stack>
   );
 }
 
