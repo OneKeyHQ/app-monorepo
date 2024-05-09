@@ -38,7 +38,7 @@ class ClientNear {
 
   async getAccessKeys(address: string): Promise<INearAccessKey[]> {
     const [info] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      await this.backgroundApi.serviceAccountProfile.sendRpcProxyRequest<{
         keys: any[];
       }>({
         networkId: this.networkId,
@@ -82,7 +82,7 @@ class ClientNear {
 
   async getBestBlock(): Promise<{ blockNumber: number; blockHash: string }> {
     const [resp] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      await this.backgroundApi.serviceAccountProfile.sendRpcProxyRequest<{
         sync_info: {
           latest_block_height: string;
           latest_block_hash: string;
@@ -113,7 +113,7 @@ class ClientNear {
   ): Promise<any> {
     const serializedArgs = stringify(args).toString('base64');
     const [result] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      await this.backgroundApi.serviceAccountProfile.sendRpcProxyRequest<{
         result: any[];
       }>({
         networkId: this.networkId,
