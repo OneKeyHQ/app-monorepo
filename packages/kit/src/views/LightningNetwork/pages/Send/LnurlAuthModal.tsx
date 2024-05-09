@@ -115,13 +115,60 @@ function LnurlAuthModal() {
     return <DAppRequestedPermissionContent requestPermissions={permissions} />;
   }, [lnurlDetails, intl]);
 
-  const onConfirm = useCallback(async (close: () => void) => {
-    if (!lnurlDetails) return;
-    if (isLoading) return;
-    setIsLoading(true);
+  const onConfirm = useCallback(
+    async (close: () => void) => {
+      if (!lnurlDetails) return;
+      if (isLoading) return;
+      setIsLoading(true);
 
-    const { serviceLightning } = backgroundApiProxy;
-  }, []);
+      const { serviceLightning } = backgroundApiProxy;
+      try {
+        await serviceLightning.lnurlAuth({
+          accountId,
+          networkId,
+          lnurlDetail: lnurlDetails,
+        });
+        Toast.success({
+          title: textMap?.successText ?? '',
+        });
+        setTimeout(() => {
+          if (isSendFlow) {
+            close?.();
+          } else {
+            void dappApprove.resolve();
+          }
+        }, 300);
+      } catch (e) {
+        const message = (e as Error)?.message;
+        if (!isSendFlow) {
+          // show error message for 1.5s
+          setTimeout(() => {
+            void dappApprove.resolve({
+              result: {
+                status: 'ERROR',
+                reason: message,
+              },
+            });
+          }, 1500);
+        }
+        throw new OneKeyError({
+          info: message,
+          autoToast: true,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      lnurlDetails,
+      isLoading,
+      accountId,
+      networkId,
+      textMap,
+      isSendFlow,
+      dappApprove,
+    ],
+  );
 
   return (
     <Page scrollEnabled>

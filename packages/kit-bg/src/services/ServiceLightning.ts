@@ -9,6 +9,7 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  ILNURLDetails,
   ILNURLError,
   ILNURLPaymentInfo,
 } from '@onekeyhq/shared/types/lightning';
@@ -306,6 +307,57 @@ class ServiceLightning extends ServiceBase {
       const error = e as AxiosError<ILNURLError>;
       if (error.response?.data?.reason) {
         throw new Error(error.response?.data.reason);
+      }
+      throw e;
+    }
+  }
+
+  @backgroundMethod()
+  async lnurlAuth({
+    accountId,
+    networkId,
+    lnurlDetail,
+  }: {
+    accountId: string;
+    networkId: string;
+    lnurlDetail: ILNURLDetails;
+  }) {
+    if (lnurlDetail.tag !== 'login') {
+      throw new Error('lnurl-auth: invalid tag');
+    }
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as LightningVault;
+
+    const { password, deviceParams } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.LightningNetworkAuth,
+      });
+
+    const loginURL =
+      await this.backgroundApi.serviceHardware.withHardwareProcessing(
+        async () => vault.getLnurlAuthUrl({ lnurlDetail, password }),
+        { deviceParams },
+      );
+    try {
+      const response = await axios.get<{
+        reason?: string;
+        status: string;
+      }>(loginURL.toString());
+      // if the service returned with a HTTP 200 we still check if the response data is OK
+      if (response?.data.status?.toUpperCase() !== 'OK') {
+        throw new Error(response?.data?.reason || 'Auth: Something went wrong');
+      }
+
+      return response.data;
+    } catch (e) {
+      if (axios.isAxiosError(e)) {
+        console.error('LNURL-AUTH FAIL:', e);
+        const error =
+          (e.response?.data as { reason?: string })?.reason || e.message; // lnurl error or exception message
+        throw new Error(error);
       }
       throw e;
     }

@@ -8,6 +8,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
   IEncodedTxLightning,
+  ILNURLAuthServiceResponse,
   ISignApiMessageParams,
 } from '@onekeyhq/shared/types/lightning';
 
@@ -211,5 +212,26 @@ export class KeyringHd extends KeyringHdBase {
       hdCredential: checkIsDefined(credentials.hd),
       isTestnet,
     });
+  }
+
+  async lnurlAuth({
+    lnurlDetail,
+    password,
+  }: {
+    lnurlDetail: ILNURLAuthServiceResponse;
+    password: string;
+  }) {
+    if (lnurlDetail.tag !== 'login') {
+      throw new Error('lnurl-auth: invalid tag');
+    }
+    const credentials = await this.baseGetCredentialsInfo({ password });
+    const params = {
+      lnurlDetail,
+      password,
+      credentials,
+    };
+    const result = await this.coreApi.lnurlAuth(params);
+
+    return result;
   }
 }

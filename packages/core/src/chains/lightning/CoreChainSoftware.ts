@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { mnemonicToSeedSync } from 'bip39';
 import bitcoinMessage from 'bitcoinjs-message';
 import stringify from 'fast-json-stable-stringify';
 
@@ -9,17 +10,23 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { ILNURLAuthServiceResponse } from '@onekeyhq/shared/types/lightning';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+import { mnemonicFromEntropy } from '../../secret';
 import {
   getAddressFromXpub,
+  getBitcoinBip32,
   getBitcoinECPair,
   getBtcForkNetwork,
 } from '../btc/sdkBtc';
 
 import { generateNativeSegwitAccounts } from './sdkLightning/account';
+import { getPathSuffix } from './sdkLightning/lnurl';
+import HashKeySigner from './sdkLightning/signer';
 
-import type { IUnionMsgType } from './types/signature';
+import type { IUnionMsgType } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type {
   EAddressEncodings,
@@ -28,10 +35,12 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiNetworkInfo,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
+  ICoreCredentialsInfo,
   ICurveName,
   ISignedTxPro,
 } from '../../types';
@@ -240,5 +249,59 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     );
 
     return result.toString('hex');
+  }
+
+  async lnurlAuth(params: {
+    lnurlDetail: ILNURLAuthServiceResponse;
+    password: string;
+    credentials: ICoreCredentialsInfo;
+  }): Promise<string> {
+    const { password, credentials, lnurlDetail } = params;
+    const mnemonic = mnemonicFromEntropy(
+      checkIsDefined(credentials.hd),
+      password,
+    );
+    const root = getBitcoinBip32().fromSeed(mnemonicToSeedSync(mnemonic));
+
+    // See https://github.com/lnurl/luds/blob/luds/05.md
+    const hashingKey = root.derivePath(`m/138'/0`);
+    const hashingPrivateKey = hashingKey.privateKey;
+    if (!hashingPrivateKey) {
+      throw new Error('lnurl-auth: invalid hashing key');
+    }
+    const url = new URL(lnurlDetail.url);
+
+    const pathSuffix = getPathSuffix(
+      url.host,
+      bufferUtils.bytesToHex(hashingPrivateKey),
+    );
+
+    let linkingKey = root.derivePath(`m/138'`);
+    for (const index of pathSuffix) {
+      linkingKey = linkingKey.derive(index);
+    }
+
+    if (!linkingKey.privateKey) {
+      throw new Error('lnurl-auth: invalid linking private key');
+    }
+
+    const linkingKeyPriv = bufferUtils.bytesToHex(linkingKey.privateKey);
+
+    if (!linkingKeyPriv) {
+      throw new Error('Invalid linkingKey');
+    }
+
+    const signer = new HashKeySigner(linkingKeyPriv);
+
+    const k1 = bufferUtils.hexToBytes(lnurlDetail.k1);
+    const signedMessage = signer.sign(k1);
+    const signedMessageDERHex = signedMessage.toDER('hex');
+
+    const loginURL = url;
+    loginURL.searchParams.set('sig', signedMessageDERHex);
+    loginURL.searchParams.set('key', signer.pkHex);
+    loginURL.searchParams.set('t', Date.now().toString());
+
+    return loginURL.toString();
   }
 }

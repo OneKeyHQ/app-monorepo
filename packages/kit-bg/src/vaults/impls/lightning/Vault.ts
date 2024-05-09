@@ -37,6 +37,7 @@ import type {
 import type { IFetchAccountHistoryParams } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
+  ILNURLAuthServiceResponse,
   type IEncodedTxLightning,
   type IInvoiceDecodedResponse,
 } from '@onekeyhq/shared/types/lightning';
@@ -514,6 +515,19 @@ export default class Vault extends VaultBase {
     return {
       lightningSignature,
     };
+  }
+
+  async getLnurlAuthUrl({
+    lnurlDetail,
+    password,
+  }: {
+    lnurlDetail: ILNURLAuthServiceResponse;
+    password: string;
+  }) {
+    return (this.keyring as KeyringHd).lnurlAuth({
+      lnurlDetail,
+      password,
+    });
   }
 
   async _getAuthorization({

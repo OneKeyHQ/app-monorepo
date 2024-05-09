@@ -1,20 +1,18 @@
-import { hmac } from '@noble/hashes/hmac';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 import axios from 'axios';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-
-import { bech32Decode } from './bech32';
-
-import type { IInvoiceDecodedResponse } from '../types/invoice';
 import type {
+  IInvoiceDecodedResponse,
   ILNURLAuthServiceResponse,
   ILNURLDetails,
   ILNURLError,
   ILNURLPaymentInfo,
-} from '../types/lnurl';
+} from '@onekeyhq/shared/types/lightning';
+
+import { bech32Decode } from './bech32';
 
 const parseLightingAddress = (emailAddress: string) => {
   if (
@@ -26,6 +24,7 @@ const parseLightingAddress = (emailAddress: string) => {
     // remove invisible characters %EF%B8%8F
     name = name.replace(/[^ -~]+/g, '');
     host = host.replace(/[^ -~]+/g, '');
+    // eslint-disable-next-line spellcheck/spell-checker
     return `https://${host}/.well-known/lnurlp/${name}`;
   }
   return null;
@@ -154,21 +153,3 @@ export const verifyInvoice = ({
       return true;
   }
 };
-
-export function getPathSuffix(domain: string, privateKeyHex: string) {
-  const derivationMaterial = bytesToHex(
-    hmac(
-      sha256,
-      Buffer.from(domain, 'utf-8'),
-      Buffer.from(privateKeyHex, 'hex'),
-    ),
-  );
-
-  const buf = Buffer.from(derivationMaterial, 'hex');
-
-  const pathSuffix = [];
-  for (let i = 0; i < 4; i += 1) {
-    pathSuffix.push(buf.readUInt32BE(i * 4));
-  }
-  return pathSuffix;
-}
