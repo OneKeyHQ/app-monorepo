@@ -33,11 +33,24 @@ function LnurlAuthModal() {
   const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.LnurlAuth>>();
+  const {
+    networkId: routeNetworkId,
+    accountId: routeAccountId,
+    lnurlDetails: routeLnurlDetails,
+    isSendFlow,
+  } = route.params;
+  const {
+    $sourceInfo,
+    networkId: dAppNetworkId,
+    accountId: dAppAccountId,
+    lnurlDetails: dAppLnurlDetails,
+  } = useDappQuery<IModalSendParamList[EModalSendRoutes.LnurlAuth]>();
 
-  const { accountId, networkId, lnurlDetails, isSendFlow } = route.params;
+  const networkId = isSendFlow ? routeNetworkId : dAppNetworkId;
+  const accountId = isSendFlow ? routeAccountId : dAppAccountId;
+  const lnurlDetails = isSendFlow ? routeLnurlDetails : dAppLnurlDetails;
   const origin = new URL(lnurlDetails.url).origin;
 
-  const { $sourceInfo } = useDappQuery();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -54,6 +67,7 @@ function LnurlAuthModal() {
   } = useRiskDetection({ origin });
 
   const { result: textMap } = usePromiseResult(async () => {
+    console.log('====>>>>: re-render textMap');
     if (lnurlDetails.action === 'reigster') {
       return {
         allowText: intl.formatMessage({
@@ -104,7 +118,7 @@ function LnurlAuthModal() {
         id: 'msg__lnurl_login_successful',
       }),
     };
-  }, [lnurlDetails, intl]);
+  }, [lnurlDetails?.action, intl]);
 
   const renderRequestPermissions = useCallback(() => {
     let permissions = [
@@ -126,68 +140,74 @@ function LnurlAuthModal() {
       ];
     }
     return <DAppRequestedPermissionContent requestPermissions={permissions} />;
-  }, [lnurlDetails, intl]);
+  }, [lnurlDetails?.action, intl]);
 
-  const onConfirm = useCallback(async () => {
-    if (!lnurlDetails) return;
-    if (isLoading) return;
-    setIsLoading(true);
+  const onConfirm = useCallback(
+    async (close?: () => void) => {
+      if (!lnurlDetails) return;
+      if (isLoading) return;
+      setIsLoading(true);
 
-    const { serviceLightning } = backgroundApiProxy;
-    try {
-      await serviceLightning.lnurlAuth({
-        accountId,
-        networkId,
-        lnurlDetail: lnurlDetails,
-      });
-      Toast.success({
-        title: textMap?.successText ?? '',
-      });
-      setTimeout(() => {
-        if (isSendFlow) {
-          navigation.popStack();
-        } else {
-          void dappApprove.resolve();
-        }
-      }, 300);
-    } catch (e) {
-      const message = (e as Error)?.message;
-      if (!isSendFlow) {
-        // show error message for 1.5s
+      const { serviceLightning } = backgroundApiProxy;
+      try {
+        await serviceLightning.lnurlAuth({
+          accountId,
+          networkId,
+          lnurlDetail: lnurlDetails,
+        });
+        Toast.success({
+          title: textMap?.successText ?? '',
+        });
         setTimeout(() => {
-          void dappApprove.resolve({
-            result: {
-              status: 'ERROR',
-              reason: message,
-            },
-          });
-        }, 1500);
+          if (isSendFlow) {
+            navigation.popStack();
+          } else {
+            void dappApprove.resolve({
+              close,
+            });
+          }
+        }, 300);
+      } catch (e) {
+        const message = (e as Error)?.message;
+        if (!isSendFlow) {
+          // show error message for 1.5s
+          setTimeout(() => {
+            void dappApprove.resolve({
+              close,
+              result: {
+                status: 'ERROR',
+                reason: message,
+              },
+            });
+          }, 1500);
+        }
+        throw new OneKeyError({
+          info: message,
+          autoToast: true,
+        });
+      } finally {
+        setIsLoading(false);
       }
-      throw new OneKeyError({
-        info: message,
-        autoToast: true,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    lnurlDetails,
-    isLoading,
-    accountId,
-    networkId,
-    textMap,
-    isSendFlow,
-    dappApprove,
-    navigation,
-  ]);
+    },
+    [
+      lnurlDetails,
+      isLoading,
+      accountId,
+      networkId,
+      textMap,
+      isSendFlow,
+      dappApprove,
+      navigation,
+    ],
+  );
 
   return (
     <Page scrollEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
         <DAppRequestLayout
-          title={intl.formatMessage({ id: 'title__lnurl_withdraw' })}
-          subtitleShown={false}
+          title={textMap?.title ?? ''}
+          subtitle={textMap?.allowText ?? ''}
           origin={origin}
           urlSecurityInfo={urlSecurityInfo}
         >

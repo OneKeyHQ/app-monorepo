@@ -11,6 +11,7 @@ import {
   EModalRoutes,
   EModalSendRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { ILNURLDetails } from '@onekeyhq/shared/types/lightning';
 import type {
   IRequestInvoiceArgs,
   IRequestInvoiceResponse,
@@ -18,6 +19,12 @@ import type {
   IVerifyMessageArgs,
 } from '@onekeyhq/shared/types/lightning/webln';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
+
+import {
+  findLnurl,
+  getLnurlDetails,
+  isLNURLRequestError,
+} from '../vaults/impls/lightning/sdkLightning/lnurl';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -221,6 +228,82 @@ class ProviderApiWebln extends ProviderApiBase {
     } catch (e) {
       console.error(`webln.verifyMessage error: `, e);
       throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async lnurl(request: IJsBridgeMessagePayload) {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+
+    const originLnurl = (request.data as IJsonRpcRequest)?.params as string;
+    if (typeof originLnurl !== 'string') {
+      throw web3Errors.rpc.invalidInput();
+    }
+    const lnurlEncoded = findLnurl(originLnurl);
+    if (!lnurlEncoded) {
+      return { error: 'Invalid LNURL' };
+    }
+    let lnurlDetails: ILNURLDetails | null;
+    try {
+      lnurlDetails =
+        await this.backgroundApi.serviceLightning.findAndValidateLnurl({
+          networkId: networkId ?? '',
+          toVal: originLnurl,
+        });
+      if (!lnurlDetails) {
+        return { error: 'Invalid LNURL' };
+      }
+      console.log('webln.lnurl: ', lnurlDetails);
+    } catch (e) {
+      console.error(`webln.lnurl error: `, e);
+      return { error: 'Failed to parse LNURL' };
+    }
+
+    switch (lnurlDetails.tag) {
+      case 'login': {
+        return this.backgroundApi.serviceDApp.openModal({
+          request,
+          screens: [EModalRoutes.SendModal, EModalSendRoutes.LnurlAuth],
+          params: {
+            networkId,
+            accountId,
+            lnurlDetails,
+          },
+        });
+      }
+      case 'payRequest': {
+        return this.backgroundApi.serviceDApp.openModal({
+          request,
+          screens: [EModalRoutes.SendModal, EModalSendRoutes.LnurlPayRequest],
+          params: {
+            networkId,
+            accountId,
+            lnurlDetails,
+            transfersInfo: [
+              {
+                accountId,
+                networkId,
+                to: lnurlEncoded,
+              },
+            ],
+          },
+        });
+      }
+      case 'withdrawRequest': {
+        return this.backgroundApi.serviceDApp.openModal({
+          request,
+          screens: [EModalRoutes.SendModal, EModalSendRoutes.LnurlWithdraw],
+          params: {
+            networkId,
+            accountId,
+            lnurlDetails,
+          },
+        });
+      }
+      default:
+        return { error: 'not implemented' };
     }
   }
 
