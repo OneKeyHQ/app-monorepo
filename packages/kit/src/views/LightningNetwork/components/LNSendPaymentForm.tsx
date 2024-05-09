@@ -26,12 +26,12 @@ export type ISendPaymentFormProps = {
   minimumAmount?: number;
   maximumAmount?: number;
   descriptionLabelId?: MessageDescriptor['id'];
-  memo?: string;
   commentAllowedLength?: number;
   metadata?: string;
   // nativeToken?: Token;
   isWebln?: boolean;
   amountReadOnly?: boolean;
+  commentReadOnly?: boolean;
 };
 
 function LNSendPaymentForm(props: ISendPaymentFormProps) {
@@ -41,12 +41,12 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
     amount,
     minimumAmount,
     maximumAmount,
-    // descriptionLabelId,
-    // memo,
+    descriptionLabelId,
     commentAllowedLength,
     metadata: originMetadata,
     // nativeToken,
     amountReadOnly,
+    commentReadOnly,
   } = props;
 
   const intl = useIntl();
@@ -220,7 +220,9 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
       </Form.Field>
       {Number(commentAllowedLength) > 0 ? (
         <Form.Field
-          label={intl.formatMessage({ id: 'form__description__optional' })}
+          label={intl.formatMessage({
+            id: descriptionLabelId ?? 'form__description__optional',
+          })}
           name="comment"
           rules={{
             maxLength: {
@@ -233,7 +235,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
           }}
           defaultValue=""
         >
-          <TextArea />
+          <TextArea editable={!commentReadOnly} disabled={commentReadOnly} />
         </Form.Field>
       ) : null}
     </Form>

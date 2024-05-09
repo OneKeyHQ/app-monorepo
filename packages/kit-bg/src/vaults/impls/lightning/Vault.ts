@@ -36,10 +36,10 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import type { IFetchAccountHistoryParams } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
-import {
+import type {
+  IEncodedTxLightning,
+  IInvoiceDecodedResponse,
   ILNURLAuthServiceResponse,
-  type IEncodedTxLightning,
-  type IInvoiceDecodedResponse,
 } from '@onekeyhq/shared/types/lightning';
 import { ELnPaymentStatusEnum } from '@onekeyhq/shared/types/lightning/payments';
 import {
@@ -441,6 +441,16 @@ export default class Vault extends VaultBase {
     } catch {
       return { isValid: false };
     }
+  }
+
+  async fetchSpecialInvoice({ paymentHash }: { paymentHash: string }) {
+    const client = await this.getClient();
+    const invoice = await client.specialInvoice({
+      accountId: this.accountId,
+      networkId: this.networkId,
+      paymentHash,
+    });
+    return invoice;
   }
 
   async exchangeToken(account?: INetworkAccount) {

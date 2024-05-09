@@ -8,6 +8,7 @@ import {
 import {
   EDAppConnectionModal,
   EModalRoutes,
+  EModalSendRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type {
   IRequestInvoiceArgs,
@@ -124,6 +125,37 @@ class ProviderApiWebln extends ProviderApiBase {
       return { paymentRequest, paymentHash, rHash: paymentHash };
     } catch (e) {
       console.log(`webln.makeInvoice error: `, e);
+      throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async sendPayment(request: IJsBridgeMessagePayload) {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    try {
+      const paymentRequest = (request.data as IJsonRpcRequest)
+        ?.params as string;
+      const txid = (await this.backgroundApi.serviceDApp.openModal({
+        request,
+        screens: [EModalRoutes.SendModal, EModalSendRoutes.WeblnSendPayment],
+        params: {
+          paymentRequest,
+          networkId,
+          accountId,
+        },
+      })) as string;
+      const invoice =
+        await this.backgroundApi.serviceLightning.fetchSpecialInvoice({
+          paymentHash: txid,
+          networkId: networkId ?? '',
+          accountId: accountId ?? '',
+        });
+      console.log('webln.sendPayment: ', txid, invoice);
+      return { preimage: invoice.payment_preimage };
+    } catch (e) {
+      console.error(`webln.sendPayment error: `, e);
       throw e;
     }
   }

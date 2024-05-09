@@ -30,6 +30,13 @@ const LnurlAuthModal = LazyLoadPage(
     ),
 );
 
+const WeblnSendPaymentModal = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/LightningNetwork/pages/Webln/WeblnSendPaymentModal'
+    ),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
@@ -57,5 +64,9 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.LnurlAuth,
     component: LnurlAuthModal,
+  },
+  {
+    name: EModalSendRoutes.WeblnSendPayment,
+    component: WeblnSendPaymentModal,
   },
 ];

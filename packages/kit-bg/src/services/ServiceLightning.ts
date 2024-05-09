@@ -99,6 +99,23 @@ class ServiceLightning extends ServiceBase {
   }
 
   @backgroundMethod()
+  async fetchSpecialInvoice({
+    paymentHash,
+    networkId,
+    accountId,
+  }: {
+    paymentHash: string;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    return (vault as LightningVault).fetchSpecialInvoice({ paymentHash });
+  }
+
+  @backgroundMethod()
   async exchangeToken({
     accountId,
     networkId,
