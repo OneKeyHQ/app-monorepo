@@ -51,7 +51,12 @@ import type {
 } from '../../../types/provider';
 import type { Token } from '../../../types/token';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
-import type { IDecodedTxLegacy, IHistoryTx, ISignedTxPro } from '../../types';
+import type {
+  IDecodedTxLegacy,
+  IHistoryTx,
+  ISignCredentialOptions,
+  ISignedTxPro,
+} from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
 import type { IEncodedTxNexa, IListUTXO, INexaTransaction } from './types';
 
@@ -243,26 +248,12 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxNexa> {
     const client = await this.getSDKClient();
     const fromNexaAddress = transferInfo.from;
-    const rawUTXOS = (await client.getNexaUTXOs(fromNexaAddress)).filter(
+    const uxtos = (await client.getNexaUTXOs(fromNexaAddress)).filter(
       (value) => !value.has_token,
     );
-    const confirmedUTXOs = this.getConfirmedUTXOs(
-      rawUTXOS,
-      transferInfo.amount,
-    );
-
-    if (confirmedUTXOs.length > client.MAX_TX_NUM_VIN) {
-      const maximumAmount = rawUTXOS
-        .slice(0, client.MAX_TX_NUM_VIN)
-        .reduce((acc, cur) => acc.plus(cur.value), new BigNumber(0));
-      throw new OneKeyInternalError(
-        `Too many vins, The maximum amount for this transfer is ${maximumAmount.toString()} satoshi.`,
-      );
-    }
-
     const network = await this.getNetwork();
     return {
-      inputs: confirmedUTXOs.map((utxo) => ({
+      inputs: uxtos.map((utxo) => ({
         txId: utxo.outpoint_hash,
         outputIndex: utxo.tx_pos,
         satoshis: new BigNumber(utxo.value).toFixed(),
@@ -297,15 +288,46 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
-  override buildUnsignedTxFromEncodedTx(
+  override async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxNexa,
   ): Promise<IUnsignedTxPro> {
-    return Promise.resolve({
+    const client = await this.getSDKClient();
+    const network = await this.getNetwork();
+    const confirmedUTXOs = this.getConfirmedUTXOs(
+      encodedTx.inputs.map((input) => ({
+        ...input,
+        value: input.satoshis,
+      })),
+      new BigNumber(encodedTx.transferInfo?.amount || 0)
+        .shiftedBy(network.decimals)
+        .plus(encodedTx?.gas || 0)
+        .toFixed(),
+    );
+
+    if (confirmedUTXOs.length > client.MAX_TX_NUM_VIN) {
+      const maximumAmount = confirmedUTXOs
+        .slice(0, client.MAX_TX_NUM_VIN)
+        .reduce((acc, cur) => acc.plus(cur.value), new BigNumber(0));
+      throw new OneKeyInternalError(
+        `Too many vins, The maximum amount for this transfer is ${maximumAmount
+          .shiftedBy(network.decimals)
+          .toFixed()} satoshi.`,
+      );
+    }
+    return {
       inputs: [],
       outputs: [],
-      payload: { encodedTx },
+      payload: {
+        encodedTx: {
+          ...encodedTx,
+          inputs: confirmedUTXOs.map((utxo) => ({
+            ...utxo,
+            satoshis: utxo.value,
+          })),
+        },
+      },
       encodedTx,
-    });
+    };
   }
 
   override async getTransactionStatuses(
