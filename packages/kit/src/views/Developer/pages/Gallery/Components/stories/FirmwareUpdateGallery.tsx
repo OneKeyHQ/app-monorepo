@@ -1,17 +1,14 @@
-import { useMemo } from 'react';
-
 import { Button, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import {
   useFirmwareUpdateRetryAtom,
   useFirmwareUpdatesDetectStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../../../../../background/instance/backgroundApiProxy';
 import { Layout } from './utils/Layout';
 
 function ForceOpenHomeDeviceUpdateFirmwareModal() {
@@ -20,12 +17,11 @@ function ForceOpenHomeDeviceUpdateFirmwareModal() {
   const actions = useFirmwareUpdateActions();
   return (
     <Button
-      size="small"
       onPress={async () => {
         actions.openChangeLogModal({ connectId });
       }}
     >
-      New firmware!
+      NormalModeUpdate
     </Button>
   );
 }
@@ -39,9 +35,11 @@ function ResetDetectTimeCheck() {
         if (!connectId) {
           return;
         }
-        backgroundApiProxy.serviceFirmwareUpdate.resetShouldDetectTimeCheck({
-          connectId,
-        });
+        void backgroundApiProxy.serviceFirmwareUpdate.resetShouldDetectTimeCheck(
+          {
+            connectId,
+          },
+        );
       }}
     >
       ResetDetectTimeCheck
@@ -49,52 +47,53 @@ function ResetDetectTimeCheck() {
   );
 }
 
-function Demo() {
+function BootloaderModeUpdateButton() {
   const [retryInfo] = useFirmwareUpdateRetryAtom();
-  const [, setDetectStatus] = useFirmwareUpdatesDetectStatusAtom();
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const navigation = useAppNavigation();
   const actions = useFirmwareUpdateActions();
-
-  const bootModeButton = useMemo(
-    () => (
-      <Button
-        onPress={() => {
-          actions.showBootloaderMode({ connectId: undefined });
-          console.log({
-            retryInfo,
-          });
-        }}
-      >
-        boot-mode
-      </Button>
-    ),
-    [actions, retryInfo],
-  );
-
-  const clearUpdateCache = useMemo(
-    () => (
-      <Button
-        onPress={() => {
-          setDetectStatus(undefined);
-        }}
-      >
-        clearUpdateCache
-      </Button>
-    ),
-    [setDetectStatus],
-  );
-
   return (
-    <Stack space="$2">
-      <>
-        {bootModeButton}
-        {clearUpdateCache}
-        <ForceOpenHomeDeviceUpdateFirmwareModal />
-        <ResetDetectTimeCheck />
-      </>
-    </Stack>
+    <Button
+      onPress={() => {
+        actions.showBootloaderMode({ connectId: undefined });
+        console.log({
+          retryInfo,
+        });
+      }}
+    >
+      BootloaderModeUpdate
+    </Button>
+  );
+}
+
+function ClearUpdateInfoDetectCacheButton() {
+  const [, setDetectStatus] = useFirmwareUpdatesDetectStatusAtom();
+  return (
+    <Button
+      onPress={() => {
+        setDetectStatus(undefined);
+      }}
+    >
+      ClearUpdateInfoDetectCache
+    </Button>
+  );
+}
+
+export function FirmwareUpdateGalleryDemo() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+      }}
+      enabledNum={[0]}
+    >
+      <Stack space="$2">
+        <>
+          <ForceOpenHomeDeviceUpdateFirmwareModal />
+          <BootloaderModeUpdateButton />
+          <ClearUpdateInfoDetectCacheButton />
+          <ResetDetectTimeCheck />
+        </>
+      </Stack>
+    </AccountSelectorProviderMirror>
   );
 }
 
@@ -107,16 +106,9 @@ const FirmwareUpdateGallery = () => (
       {
         title: '--',
         element: (
-          <AccountSelectorProviderMirror
-            config={{
-              sceneName: EAccountSelectorSceneName.home,
-            }}
-            enabledNum={[0]}
-          >
-            <Stack space="$1">
-              <Demo />
-            </Stack>
-          </AccountSelectorProviderMirror>
+          <Stack space="$1">
+            <FirmwareUpdateGalleryDemo />
+          </Stack>
         ),
       },
     ]}

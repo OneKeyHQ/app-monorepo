@@ -8,9 +8,15 @@ import type {
 
 import { firmwareUpdatesDetectStatusAtom } from '../../states/jotai/atoms';
 
-import { MOCK_ALL_IS_UP_TO_DATE } from './firmwareUpdateConsts';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 export class FirmwareUpdateDetectMap {
+  constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
+    this.backgroundApi = backgroundApi;
+  }
+
+  backgroundApi: IBackgroundApi;
+
   detectMapCache: IFirmwareUpdatesDetectMap = {};
 
   detectTimeSpan = timerUtils.getTimeDurationMs({ minute: 5 });
@@ -78,7 +84,11 @@ export class FirmwareUpdateDetectMap {
     updateInfo: IFirmwareUpdateInfo;
   }) {
     console.log('updateFirmwareUpdateInfo', { connectId, updateInfo });
-    if (!MOCK_ALL_IS_UP_TO_DATE) {
+    const mockAllIsUpToDate =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'allIsUpToDate',
+      );
+    if (!mockAllIsUpToDate) {
       this.detectMapCache[connectId] = {
         ...this.detectMapCache[connectId],
         updateInfo: {
@@ -99,7 +109,11 @@ export class FirmwareUpdateDetectMap {
     connectId: string;
     updateInfo: IBleFirmwareUpdateInfo;
   }) {
-    if (!MOCK_ALL_IS_UP_TO_DATE) {
+    const mockAllIsUpToDate =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'allIsUpToDate',
+      );
+    if (!mockAllIsUpToDate) {
       this.detectMapCache[connectId] = {
         ...this.detectMapCache[connectId],
         updateInfo: {

@@ -32,7 +32,6 @@ import {
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
-import { MOCK_PRE_RELEASE_CONFIG } from '../ServiceFirmwareUpdate/firmwareUpdateConsts';
 
 import { DeviceSettingsManager } from './DeviceSettingsManager';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
@@ -112,12 +111,15 @@ class ServiceHardware extends ServiceBase {
     this.checkSdkVersionValid();
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
-    const isPreRelease = MOCK_PRE_RELEASE_CONFIG;
+    const isPreRelease =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'usePreReleaseConfig',
+      );
     try {
       const instance = await getHardwareSDKInstance({
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
         // https://data.onekey.so/config.json?nocache=0.8336416330053136
-        isPreRelease,
+        isPreRelease: isPreRelease === true,
         hardwareConnectSrc,
       });
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed

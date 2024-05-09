@@ -62,11 +62,6 @@ import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
 import {
   FIRMWARE_UPDATE_MIN_BATTERY_LEVEL,
   FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
-  MOCK_ALL_IS_UP_TO_DATE,
-  MOCK_ALWAYS_UPDATE_BRIDGE,
-  MOCK_FORCE_UPDATE_RES_EVEN_SAME_VERSION,
-  MOCK_LOW_BATTERY_LEVEL,
-  MOCK_SHOULD_UPDATE_FULL_RES,
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 
@@ -198,7 +193,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
     );
   }
 
-  detectMap = new FirmwareUpdateDetectMap();
+  detectMap = new FirmwareUpdateDetectMap({
+    backgroundApi: this.backgroundApi,
+  });
 
   @backgroundMethod()
   async resetShouldDetectTimeCheck({ connectId }: { connectId: string }) {
@@ -312,7 +309,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
         willUpdateFirmwareVersion: firmware.toVersion,
       });
 
-      if (bridge && MOCK_ALWAYS_UPDATE_BRIDGE) {
+      const mockShouldUpdateBridge =
+        await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+          'shouldUpdateBridge',
+        );
+      if (bridge && mockShouldUpdateBridge === true) {
         // TODO mock bridge?.shouldUpdate
         bridge.shouldUpdate = true;
       }
@@ -336,7 +337,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     let hasUpgrade =
       firmware?.hasUpgrade || ble?.hasUpgrade || bootloader?.hasUpgrade;
-    if (MOCK_ALL_IS_UP_TO_DATE) {
+
+    const mockAllIsUpToDate =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'allIsUpToDate',
+      );
+    if (mockAllIsUpToDate) {
       hasUpgrade = false;
     }
 
@@ -869,7 +875,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       // const version = settings.deviceUpdates?.[connectId][firmwareType]?.version;
 
       const forceUpdateResEvenIfSameVersion =
-        MOCK_FORCE_UPDATE_RES_EVEN_SAME_VERSION;
+        await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+          'forceUpdateResEvenSameVersion',
+        );
       const versionArr = version.split('.').map((v) => parseInt(v, 10)); // TODO move to utils
       await firmwareUpdateStepInfoAtom.set({
         step: EFirmwareUpdateSteps.installing,
@@ -886,7 +894,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             updateType: firmwareType as any,
             // update res is always enabled when firmware version changed
             // forcedUpdateRes for TEST only, means always update res even if firmware version is same (re-flash the same firmware)
-            forcedUpdateRes: forceUpdateResEvenIfSameVersion,
+            forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
             version: versionArr,
             platform: platformEnv.symbol ?? 'web',
           },
@@ -1348,8 +1356,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async validateShouldUpdateFullResource(
     params: IUpdateFirmwareWorkflowParams,
   ) {
+    const mockShouldUpdateFullRes =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'shouldUpdateFullRes',
+      );
     if (
-      MOCK_SHOULD_UPDATE_FULL_RES ||
+      mockShouldUpdateFullRes === true ||
       this.checkTouchNeedUpdateResource(params).needUpdate
     ) {
       throw new UseDesktopToUpdateFirmware();
@@ -1364,6 +1376,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async validateMinVersionAllowed(params: IUpdateFirmwareWorkflowParams) {
     const minVersionMap = FIRMWARE_UPDATE_MIN_VERSION_ALLOWED;
+
+    const mockShouldUpdateFromWeb =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'shouldUpdateFromWeb',
+      );
+
+    if (mockShouldUpdateFromWeb === true) {
+      throw new NeedFirmwareUpgradeFromWeb();
+    }
+
+    // bootloader mode device may return wrong firmware current version. so we skip this check
     if (params.releaseResult?.isBootloaderMode) {
       return;
     }
@@ -1411,7 +1434,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // @ts-ignore
     let batteryLevel = deviceFeatures?.battery_level as number | undefined;
 
-    if (MOCK_LOW_BATTERY_LEVEL) {
+    const mockLowBattery =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'lowBatteryLevel',
+      );
+    if (mockLowBattery === true) {
       batteryLevel = 1;
     }
 

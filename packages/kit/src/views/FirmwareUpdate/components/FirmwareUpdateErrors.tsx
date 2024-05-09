@@ -81,7 +81,8 @@ function HowToUpdateFullResource() {
   return (
     <Stack>
       <SizableText>
-        Your device is too old, your should update by this guide
+        Your device is too old, your should update by this guide:
+        https://help.onekey.so/hc/articles/8884680775951
       </SizableText>
       <Button
         onPress={() =>

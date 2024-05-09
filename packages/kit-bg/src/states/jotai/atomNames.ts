@@ -18,6 +18,7 @@ export enum EAtomNames {
   firmwareUpdateStepInfoAtom = 'firmwareUpdateStepInfoAtom',
   firmwareUpdateRetryAtom = 'firmwareUpdateRetryAtom',
   firmwareUpdateWorkflowRunningAtom = 'firmwareUpdateWorkflowRunningAtom',
+  firmwareUpdateDevSettingsPersistAtom = 'firmwareUpdateDevSettingsPersistAtom',
   appUpdatePersistAtom = 'appUpdatePersistAtom',
   onboardingConnectWalletLoadingAtom = 'onboardingConnectWalletLoadingAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
