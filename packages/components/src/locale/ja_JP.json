@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "任意のトークンを交換する",
   "content__existing": "既に存在",
   "content__exit_value": "終了値",
+  "content__export_tracking_key": "エクスポートトラッキングキー",
+  "content__export_tracking_key_desc": "トラッキングキーは、資産の証明を生成するために使用されます。",
   "content__ext_metamask_tutorials_1": "トップバーのアバターをクリック",
   "content__external_account": "外部アカウント",
   "content__face_id": "顔認証",

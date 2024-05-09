@@ -1092,8 +1092,7 @@ const serverPresetNetworks = [
     'id': 'cosmos--bbn-test-3',
     'impl': 'cosmos',
     'isTestnet': true,
-    'logoURI':
-      'https://uni.onekey-asset.com/static/chain/babylontestnet.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/babylontestnet.png',
     'name': 'Babylon Testnet',
     'rpcURLs': [
       {
@@ -4132,8 +4131,7 @@ const serverPresetNetworks = [
     'id': 'evm--51178',
     'impl': 'evm',
     'isTestnet': true,
-    'logoURI':
-      'https://uni.onekey-asset.com/static/chain/topsideprealpha.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/topsideprealpha.png',
     'name': 'Opside Testnet Pre-Alpha Network',
     'rpcURLs': [
       {

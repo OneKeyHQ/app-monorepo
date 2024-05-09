@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Tukarkan token apa pun",
   "content__existing": "Ada",
   "content__exit_value": "Nilai Keluar",
+  "content__export_tracking_key": "Ekspor Kunci Pelacakan",
+  "content__export_tracking_key_desc": "Kunci Pelacakan digunakan untuk menghasilkan bukti aset.",
   "content__ext_metamask_tutorials_1": "Klik pada Avatar di bilah Atas",
   "content__external_account": "Akun Eksternal",
   "content__face_id": "ID wajah",

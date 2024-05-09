@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Palitan ng anumang mga token",
   "content__existing": "Umiiral",
   "content__exit_value": "Exit Value",
+  "content__export_tracking_key": "I-export ang Tracking Key",
+  "content__export_tracking_key_desc": "Ginagamit ang Tracking Key para sa pagbuo ng patunay ng mga asset.",
   "content__ext_metamask_tutorials_1": "Mag-click sa Avatar sa Top bar",
   "content__external_account": "Mga Panlabas na Account",
   "content__face_id": "Face ID",

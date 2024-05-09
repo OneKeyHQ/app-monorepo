@@ -1,13 +1,16 @@
+import type { LocaleIds } from '@onekeyhq/components/src/locale';
 import {
   COINTYPE_DYNEX,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
+import { AccountCredentialType } from '../../../types/account';
+
 import type { IVaultSettings } from '../../types';
 
 const settings: IVaultSettings = Object.freeze({
   feeInfoEditable: false,
-  privateKeyExportEnabled: false,
+  privateKeyExportEnabled: true,
   tokenEnabled: false,
   txCanBeReplaced: false,
 
@@ -37,6 +40,13 @@ const settings: IVaultSettings = Object.freeze({
       subDesc: `m/44'/${COINTYPE_DYNEX}'/0'/0'/x'`,
     },
   },
+
+  exportCredentialInfo: [
+    {
+      type: AccountCredentialType.TrackingKey,
+      key: 'content__export_tracking_key' as LocaleIds,
+    },
+  ],
 });
 
 export default settings;

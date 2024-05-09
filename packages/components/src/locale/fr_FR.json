@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "Échangez des jetons",
   "content__existing": "Existant",
   "content__exit_value": "Valeur de sortie",
+  "content__export_tracking_key": "Clé de suivi des exportations",
+  "content__export_tracking_key_desc": "La clé de suivi est utilisée pour générer une preuve d’actifs.",
   "content__ext_metamask_tutorials_1": "Cliquez sur l'avatar dans la barre supérieure",
   "content__external_account": "Comptes externes",
   "content__face_id": "Identification faciale",

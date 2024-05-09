@@ -631,6 +631,8 @@
   "content__exchange_any_tokens": "兑换任何代币",
   "content__existing": "已存在",
   "content__exit_value": "离场价",
+  "content__export_tracking_key": "导出跟踪密钥",
+  "content__export_tracking_key_desc": "跟踪密钥用于生成资产证明。",
   "content__ext_metamask_tutorials_1": "点击顶部栏中的「头像」",
   "content__external_account": "外部账户",
   "content__face_id": "面容识别",
