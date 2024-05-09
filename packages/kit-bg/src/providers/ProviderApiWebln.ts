@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 
 import {
   backgroundClass,
@@ -220,6 +221,29 @@ class ProviderApiWebln extends ProviderApiBase {
     } catch (e) {
       console.error(`webln.verifyMessage error: `, e);
       throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async getBalance(request: IJsBridgeMessagePayload) {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+      });
+    if (accountAddress) {
+      const accountInfo =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+          networkId: networkId ?? '',
+          accountAddress,
+        });
+      return {
+        balance: new BigNumber(accountInfo.balance ?? 0).toNumber(),
+        currency: 'sats',
+      };
     }
   }
 }
