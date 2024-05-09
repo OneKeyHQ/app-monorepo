@@ -16,7 +16,6 @@ enum AccountCredentialType {
   PrivateKey = 'PrivateKey',
   PrivateViewKey = 'PrivateViewKey',
   PrivateSpendKey = 'PrivateSpendKey',
-  TrackingKey = 'TrackingKey',
   Mnemonic = 'Mnemonic',
 }
 
