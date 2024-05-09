@@ -4,11 +4,11 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, ESwitchSize, Switch, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
-import useAppNavigation from '../../../../../hooks/useAppNavigation';
 import { Section } from '../Section';
 
 import { SectionFieldItem } from './SectionFieldItem';

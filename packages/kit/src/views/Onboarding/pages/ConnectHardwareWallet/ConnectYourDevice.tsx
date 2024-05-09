@@ -44,7 +44,6 @@ import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 type IConnectYourDeviceItem = {
   title: string;
