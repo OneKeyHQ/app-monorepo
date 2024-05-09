@@ -198,19 +198,4 @@ export class KeyringHardware extends KeyringHardwareBase {
   override signMessage(): Promise<string[]> {
     throw new Error('Method not implemented.');
   }
-
-  async getTrackingKey(params: { path: string }): Promise<string> {
-    const HardwareSDK = await this.getHardwareSDKInstance();
-    const { connectId, deviceId } = await this.getHardwareInfo();
-    const passphraseState = await this.getWalletPassphraseState();
-    const resp = await HardwareSDK.dnxGetTrackingKey(connectId, deviceId, {
-      path: params.path,
-      ...passphraseState,
-    });
-
-    if (resp.success && !!resp.payload?.trackingKey) {
-      return resp.payload?.trackingKey;
-    }
-    throw convertDeviceError(resp.payload);
-  }
 }

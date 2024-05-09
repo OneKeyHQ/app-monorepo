@@ -13,7 +13,6 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '../../../errors';
-import { AccountCredentialType } from '../../../types/account';
 import {
   type IApproveInfo,
   type IDecodedTx,
@@ -130,22 +129,8 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async getExportedCredential(
-    password: string,
-    credentialType: AccountCredentialType,
-  ): Promise<string> {
-    if (
-      this.accountId.startsWith('hw-') &&
-      credentialType === AccountCredentialType.TrackingKey
-    ) {
-      const path = await this.getAccountPath();
-
-      return (this.keyring as KeyringHardware).getTrackingKey({ path });
-    }
-
-    throw new OneKeyInternalError(
-      'Only tracking key of HW accounts can be exported',
-    );
+  override async getExportedCredential(): Promise<string> {
+    throw new Error('Method not implemented.');
   }
 
   override fetchTokenInfos(

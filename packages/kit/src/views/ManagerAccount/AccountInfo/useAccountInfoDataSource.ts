@@ -51,9 +51,7 @@ export function useAccountInfoDataSource({
       }
       if (
         privateKeyExportEnabled &&
-        (wallet.type === 'hd' ||
-          wallet.type === 'imported' ||
-          (wallet.type === 'hw' && network.impl === IMPL_DYNEX))
+        (wallet.type === 'hd' || wallet.type === 'imported')
       ) {
         if (exportCredentialInfo) {
           SpecialExportCredentialKeys.forEach((key) => {
@@ -70,7 +68,7 @@ export function useAccountInfoDataSource({
           keys.push(ManageAccountKeys.ExportPrivateKey);
         }
       }
-      if (wallet.type === 'hw' && network.impl !== IMPL_DYNEX) {
+      if (wallet.type === 'hw') {
         keys.push(ManageAccountKeys.HardwareCanNotExportPrivateKey);
       }
       keys.push(ManageAccountKeys.RemoveAccount);
