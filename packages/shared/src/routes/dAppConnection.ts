@@ -1,5 +1,9 @@
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
+import type {
+  IRequestInvoiceArgs,
+  IVerifyMessageArgs,
+} from '../../types/lightning/webln';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 export enum EDAppConnectionModal {
@@ -9,6 +13,10 @@ export enum EDAppConnectionModal {
   'SignMessageModal' = 'SignMessageModal',
   'CurrentConnectionModal' = 'CurrentConnectionModal',
   'DefaultWalletSettingsModal' = 'DefaultWalletSettingsModal',
+
+  // WebLN
+  MakeInvoice = 'MakeInvoice',
+  VerifyMessage = 'VerifyMessage',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -27,4 +35,10 @@ export type IDAppConnectionModalParamList = {
     faviconUrl: string;
   };
   [EDAppConnectionModal.DefaultWalletSettingsModal]: undefined;
+  // WebLN
+  [EDAppConnectionModal.MakeInvoice]: IRequestInvoiceArgs & {
+    accountId: string;
+    networkId: string;
+  };
+  [EDAppConnectionModal.VerifyMessage]: IVerifyMessageArgs;
 };
