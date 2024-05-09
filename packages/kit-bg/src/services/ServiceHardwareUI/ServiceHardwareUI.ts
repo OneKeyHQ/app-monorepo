@@ -163,12 +163,6 @@ class ServiceHardwareUI extends ServiceBase {
     //   deviceParams.dbDevice.connectId = '11111';
     // }
 
-    await this.backgroundApi.serviceHardware.getFeaturesMutex.waitForUnlock();
-    const isMutexLocked =
-      this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
-    if (isMutexLocked) {
-      throw new Error('Hardware is busy, please try again later.');
-    }
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
     if (connectId && !hideCheckingDeviceLoading) {
@@ -176,6 +170,21 @@ class ServiceHardwareUI extends ServiceBase {
         connectId,
       });
     }
+
+    // test delay
+    // await timerUtils.wait(6000);
+
+    let isMutexLocked =
+      this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
+    if (isMutexLocked) {
+      await this.backgroundApi.serviceHardware.getFeaturesMutex.waitForUnlock();
+      isMutexLocked =
+        this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
+      if (isMutexLocked) {
+        throw new Error('Hardware is busy, please try again later.');
+      }
+    }
+
     if (connectId && !skipDeviceCancelAtFirst) {
       try {
         await this.backgroundApi.serviceHardware.cancel(connectId);

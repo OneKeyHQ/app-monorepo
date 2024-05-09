@@ -44,10 +44,43 @@ import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+type IConnectYourDeviceItem = {
+  title: string;
+  src: ImageSourcePropType;
+  onPress: () => void | Promise<void>;
+  opacity?: number;
+};
 
 const headerRight = (onPress: () => void) => (
   <HeaderIconButton icon="QuestionmarkOutline" onPress={onPress} />
 );
+
+function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
+  const [isLoading, setIsLoading] = useState(false);
+  return (
+    <ListItem
+      opacity={item.opacity ?? 0.5}
+      avatarProps={{
+        source: item.src,
+      }}
+      title={item.title}
+      drillIn
+      isLoading={isLoading}
+      // TODO add loading for onPress
+      onPress={async () => {
+        try {
+          setIsLoading(true);
+          await item.onPress();
+        } finally {
+          setIsLoading(false);
+        }
+      }}
+      focusable={false}
+    />
+  );
+}
 
 export function ConnectYourDevicePage() {
   const navigation = useAppNavigation();
@@ -188,7 +221,8 @@ export function ConnectYourDevicePage() {
         await Promise.all([
           await actions.current.createHWWalletWithHidden({
             device,
-            hideCheckingDeviceLoading: true, // device checking loading is not need for onboarding
+            // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
+            hideCheckingDeviceLoading: true,
             skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
             features,
             isFirmwareVerified,
@@ -215,7 +249,10 @@ export function ConnectYourDevicePage() {
         Toast.error({
           title: 'Device is in bootloader mode',
         });
-        fwUpdateActions.showBootloaderMode();
+        fwUpdateActions.showBootloaderMode({
+          connectId: device.connectId ?? undefined,
+        });
+        console.log('Device is in bootloader mode', device);
         throw new Error('Device is in bootloader mode');
       };
       if (
@@ -262,14 +299,7 @@ export function ConnectYourDevicePage() {
     [createHwWallet, fwUpdateActions, showFirmwareVerifyDialog],
   );
 
-  const devicesData = useMemo<
-    {
-      title: string;
-      src: ImageSourcePropType;
-      onPress: () => void;
-      opacity?: number;
-    }[]
-  >(
+  const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
       /*
       navigation.replace(RootRoutes.Onboarding, {
@@ -354,17 +384,7 @@ export function ConnectYourDevicePage() {
               : 'Connect your device via USB'}
           </SizableText>
           {devicesData.map((item, index) => (
-            <ListItem
-              opacity={item.opacity ?? 0.5}
-              avatarProps={{
-                source: item.src,
-              }}
-              key={index}
-              title={item.title}
-              drillIn
-              onPress={item.onPress}
-              focusable={false}
-            />
+            <DeviceListItem item={item} key={index} />
           ))}
         </ScrollView>
 

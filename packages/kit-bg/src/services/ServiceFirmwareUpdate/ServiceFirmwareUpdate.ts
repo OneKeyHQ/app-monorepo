@@ -23,8 +23,8 @@ import {
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
-  EAppEventBusNames,
   appEventBus,
+  EAppEventBusNames,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -67,11 +67,6 @@ import {
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 
 import type {
-  IPromiseContainerCallbackCreate,
-  IPromiseContainerReject,
-  IPromiseContainerResolve,
-} from '../ServicePromise';
-import type {
   CoreApi,
   Success as CoreSuccess,
   DeviceUploadResourceParams,
@@ -79,6 +74,11 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import type {
+  IPromiseContainerCallbackCreate,
+  IPromiseContainerReject,
+  IPromiseContainerResolve,
+} from '../ServicePromise';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -196,6 +196,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   detectMap = new FirmwareUpdateDetectMap();
 
+  @backgroundMethod()
+  async resetShouldDetectTimeCheck({ connectId }: { connectId: string }) {
+    this.detectMap.resetLastDetectAt({ connectId });
+  }
+
   // TODO sdk not ready yet(slow network test)
   // TODO check firmware update from hidden wallet
   // TODO check firmware update from onboarding
@@ -251,7 +256,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     if (platformEnv.isNative && !originalConnectId) {
       throw new Error(
-        'native checkAllFirmwareRelease ERROR: connectId is required',
+        'checkAllFirmwareRelease ERROR: native ble-sdk connectId is required',
       );
     }
 
@@ -637,6 +642,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
         updateInfo,
       });
     }
+    serviceHardwareUtils.hardwareLog(
+      '_checkFirmwareUpdate updateInfo',
+      updateInfo,
+    );
     return updateInfo;
   }
 

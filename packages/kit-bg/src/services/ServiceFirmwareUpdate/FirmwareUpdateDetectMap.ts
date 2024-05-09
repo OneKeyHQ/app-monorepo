@@ -35,6 +35,13 @@ export class FirmwareUpdateDetectMap {
     };
   }
 
+  resetLastDetectAt({ connectId }: { connectId: string }) {
+    this.detectMapCache[connectId] = {
+      ...this.detectMapCache[connectId],
+      lastDetectAt: 0,
+    };
+  }
+
   async updateDetectStatusAtom({ connectId }: { connectId: string }) {
     await firmwareUpdatesDetectStatusAtom.set(
       (value: IFirmwareUpdatesDetectStatus | undefined) => {

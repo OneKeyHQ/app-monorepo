@@ -14,7 +14,7 @@ export function BootloaderModeUpdateReminder() {
 
   useEffect(() => {
     const fn = () => {
-      actions.showBootloaderMode();
+      actions.showBootloaderMode({ connectId: undefined });
     };
     appEventBus.on(EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode, fn);
 

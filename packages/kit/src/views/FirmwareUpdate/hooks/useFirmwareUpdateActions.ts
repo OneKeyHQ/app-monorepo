@@ -47,18 +47,21 @@ export function useFirmwareUpdateActions() {
     [],
   );
 
-  const showBootloaderMode = useCallback(() => {
-    Dialog.show({
-      title: 'Device in bootloader mode',
-      description:
-        'Your hardware wallet is in bootloader mode, which is used for software updates. Would you like to update now? If you prefer not to update, please manually restart the device to return to normal mode.',
-      dismissOnOverlayPress: false,
-      onConfirm: async () => {
-        openChangeLogModal({ connectId: undefined });
-      },
-      onConfirmText: 'Update',
-    });
-  }, [openChangeLogModal]);
+  const showBootloaderMode = useCallback(
+    ({ connectId }: { connectId: string | undefined }) => {
+      Dialog.show({
+        title: 'Device in bootloader mode',
+        description:
+          'Your hardware wallet is in bootloader mode, which is used for software updates. Would you like to update now? If you prefer not to update, please manually restart the device to return to normal mode.',
+        dismissOnOverlayPress: false,
+        onConfirm: async () => {
+          openChangeLogModal({ connectId });
+        },
+        onConfirmText: 'Update',
+      });
+    },
+    [openChangeLogModal],
+  );
 
   const showForceUpdate = useCallback(
     ({ connectId }: { connectId: string | undefined }) => {
