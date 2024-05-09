@@ -35,7 +35,6 @@ import type {
   IConnectionStorageType,
   IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
-import { IProxyResponse } from '@onekeyhq/shared/types/proxy';
 
 import ServiceBase from './ServiceBase';
 
@@ -76,19 +75,19 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const storageType: IConnectionStorageType = isWalletConnectRequest
     ? 'walletConnect'
     : 'injectedProvider';
-  let networkImpl: string | undefined = '';
+  let networkImpls: string[] | undefined = [];
   if (options.networkImpl) {
-    networkImpl = options.networkImpl;
+    networkImpls = [options.networkImpl];
   } else if (scope) {
-    networkImpl = getNetworkImplsFromDappScope(scope)?.[0];
+    networkImpls = getNetworkImplsFromDappScope(scope);
   }
 
-  if (!networkImpl) {
+  if (!networkImpls) {
     throw new Error('networkImpl not found');
   }
   return {
     storageType,
-    networkImpl,
+    networkImpls,
   };
 }
 
@@ -271,10 +270,10 @@ class ServiceDApp extends ServiceBase {
   // connection allowance
   @backgroundMethod()
   async getAccountSelectorNum(params: IGetDAppAccountInfoParams) {
-    const { storageType, networkImpl } = getQueryDAppAccountParams(params);
+    const { storageType, networkImpls } = getQueryDAppAccountParams(params);
     return this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
       params.origin,
-      networkImpl,
+      networkImpls,
       storageType,
     );
   }
@@ -432,22 +431,29 @@ class ServiceDApp extends ServiceBase {
     isWalletConnectRequest,
     options,
   }: IGetDAppAccountInfoParams) {
-    const { storageType, networkImpl } = getQueryDAppAccountParams({
+    const { storageType, networkImpls } = getQueryDAppAccountParams({
       origin,
       scope,
       isWalletConnectRequest,
       options,
     });
-    const accountsInfo =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOriginAndScope(
-        origin,
-        storageType,
-        networkImpl,
-      );
-    if (!accountsInfo) {
+    const allAccountsInfo = [];
+    for (const networkImpl of networkImpls) {
+      const accountsInfo =
+        await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOriginAndScope(
+          origin,
+          storageType,
+          networkImpl,
+        );
+      if (accountsInfo) {
+        allAccountsInfo.push(...accountsInfo);
+      }
+    }
+    if (!allAccountsInfo.length) {
       return null;
     }
-    return accountsInfo;
+
+    return allAccountsInfo;
   }
 
   @backgroundMethod()
@@ -640,11 +646,11 @@ class ServiceDApp extends ServiceBase {
       return;
     }
 
-    const { storageType, networkImpl } = getQueryDAppAccountParams(params);
+    const { storageType, networkImpls } = getQueryDAppAccountParams(params);
     const accountSelectorNum =
       await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
         params.origin,
-        networkImpl,
+        networkImpls,
         storageType,
       );
     console.log('====> accountSelectorNum: ', accountSelectorNum);
@@ -663,10 +669,12 @@ class ServiceDApp extends ServiceBase {
         );
       console.log('===>newSelectedAccount: ', newSelectedAccount);
     }
-
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: newNetworkId,
+    });
     await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
       params.origin,
-      networkImpl,
+      network.impl,
       newNetworkId,
       storageType,
     );
