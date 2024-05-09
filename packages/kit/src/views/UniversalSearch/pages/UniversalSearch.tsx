@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 
+import { useDebouncedCallback } from 'use-debounce';
+
 import {
   Page,
   SearchBar,
@@ -24,41 +26,38 @@ interface IUniversalSection {
   data: IUniversalSearchResultItem[];
 }
 
+enum ESearchStatus {
+  init = 'init',
+  loading = 'loading',
+  done = 'done',
+}
+
 export function UniversalSearch() {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [sections, setSections] = useState<IUniversalSection[]>([]);
-  const handleTextChange = useCallback(
-    async (val: string) => {
-      const input = val?.trim?.() || '';
-      const result = await backgroundApiProxy.serviceApp.universalSearch({
-        input,
-        networkId: activeAccount?.network?.id,
-        searchTypes: [EUniversalSearchType.Address],
-      });
-      setSections([
-        {
-          title: 'Wallet',
-          data: result?.[EUniversalSearchType.Address]?.items || [],
-        },
-      ]);
-      // const firstAddressItemPayload =
-      //   result?.[EUniversalSearchType.Address]?.items?.[0]?.payload;
-      // console.log(input, result);
-      // if (firstAddressItemPayload) {
-      //   const { network, addressInfo } = firstAddressItemPayload;
-      //   urlAccountNavigation.pushUrlAccountPage(navigation, {
-      //     address: addressInfo.displayAddress,
-      //     networkId: network.id,
-      //   });
-      // } else {
-      //   Toast.error({
-      //     title: 'No result found',
-      //   });
-      // }
-    },
-    [activeAccount?.network?.id],
+  const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
+    ESearchStatus.init,
   );
+  const handleTextChange = useDebouncedCallback(async (val: string) => {
+    const input = val?.trim?.() || '';
+    const result = await backgroundApiProxy.serviceApp.universalSearch({
+      input,
+      networkId: activeAccount?.network?.id,
+      searchTypes: [EUniversalSearchType.Address],
+    });
+    setSections([
+      {
+        title: 'Wallet',
+        data: result?.[EUniversalSearchType.Address]?.items || [],
+      },
+    ]);
+    setSearchStatus(ESearchStatus.done);
+  });
+
+  const handleChangeText = useCallback(() => {
+    setSearchStatus(ESearchStatus.loading);
+  }, []);
 
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => (
@@ -73,32 +72,44 @@ export function UniversalSearch() {
       <Page.Header title="Search" />
       <Page.Body>
         <View p="$5">
-          <SearchBar onSearchTextChange={handleTextChange} />
+          <SearchBar
+            onSearchTextChange={handleTextChange}
+            onChangeText={handleChangeText}
+          />
         </View>
-        <SectionList
-          sections={sections}
-          renderSectionHeader={renderSectionHeader}
-          renderItem={({ item }: { item: IUniversalSearchResultItem }) => (
-            <ListItem
-              onPress={() => {
-                navigation.pop();
-                setTimeout(() => {
-                  const { network, addressInfo } = item.payload;
-                  urlAccountNavigation.pushUrlAccountPage(navigation, {
-                    address: addressInfo.displayAddress,
-                    networkId: network.id,
-                  });
-                }, 80);
-              }}
-              renderAvatar={
-                <NetworkAvatar networkId={item.payload.network.id} size="$8" />
-              }
-              title={item.payload.network.shortname}
-              subtitle={item.payload.addressInfo.displayAddress}
-            />
-          )}
-          estimatedItemSize="$16"
-        />
+        {
+          // TODO:
+          // not found component
+        }
+        {searchStatus === ESearchStatus.done && sections.length ? (
+          <SectionList
+            sections={sections}
+            renderSectionHeader={renderSectionHeader}
+            renderItem={({ item }: { item: IUniversalSearchResultItem }) => (
+              <ListItem
+                onPress={() => {
+                  navigation.pop();
+                  setTimeout(() => {
+                    const { network, addressInfo } = item.payload;
+                    urlAccountNavigation.pushUrlAccountPage(navigation, {
+                      address: addressInfo.displayAddress,
+                      networkId: network.id,
+                    });
+                  }, 80);
+                }}
+                renderAvatar={
+                  <NetworkAvatar
+                    networkId={item.payload.network.id}
+                    size="$8"
+                  />
+                }
+                title={item.payload.network.shortname}
+                subtitle={item.payload.addressInfo.displayAddress}
+              />
+            )}
+            estimatedItemSize="$16"
+          />
+        ) : null}
       </Page.Body>
     </Page>
   );
