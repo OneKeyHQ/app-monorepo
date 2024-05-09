@@ -310,21 +310,16 @@ export default class Vault extends VaultBase {
         .reduce((acc, cur) => acc.plus(cur.value), new BigNumber(0));
       throw new OneKeyInternalError(
         `Too many vins, The maximum amount for this transfer is ${maximumAmount
-          .shiftedBy(network.decimals)
-          .toFixed()} satoshi.`,
+          .shiftedBy(-network.decimals)
+          .toFixed()} ${network.symbol}.`,
       );
     }
+    encodedTx.inputs = confirmedUTXOs;
     return {
       inputs: [],
       outputs: [],
       payload: {
-        encodedTx: {
-          ...encodedTx,
-          inputs: confirmedUTXOs.map((utxo) => ({
-            ...utxo,
-            satoshis: utxo.value,
-          })),
-        },
+        encodedTx,
       },
       encodedTx,
     };
@@ -349,7 +344,7 @@ export default class Vault extends VaultBase {
     const localEstimateFee = estimateFee(encodedTx);
     const feeInfo = specifiedFeeRate
       ? estimateFee(encodedTx, Number(specifiedFeeRate))
-      : Math.min(remoteEstimateFee, localEstimateFee);
+      : Math.max(remoteEstimateFee, localEstimateFee);
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,

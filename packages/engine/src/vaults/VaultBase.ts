@@ -793,10 +793,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const confirmedUTXOs = utxos.sort((a, b) =>
       new BigNumber(b.value).gt(a.value) ? 1 : -1,
     );
-    const sum = new BigNumber(0);
+    let sum = new BigNumber(0);
     let i = 0;
     for (i = 0; i < confirmedUTXOs.length; i += 1) {
-      sum.plus(confirmedUTXOs[i].value);
+      sum = sum.plus(confirmedUTXOs[i].value);
       if (sum.gt(amount)) {
         break;
       }
