@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import {
   MessageType,
+  StdFee,
   TransactionWrapper,
+  TxAminoBuilder,
   TxMsgBuilder,
   UnpackedMessage,
   defaultAminoMsgOpts,
@@ -9,6 +11,7 @@ import {
   getMsgs,
   getSequence,
   pubkeyToAddressDetail,
+  setFee,
   validateCosmosAddress,
 } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -56,7 +59,7 @@ import { hexToBytes } from 'viem';
 import { stripHexPrefix } from 'ethjs-util';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import { IEncodedTxCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
+import { ICosmosStdFee, IEncodedTxCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
 
 export default class VaultCosmos extends VaultBase {
   override coreApi = coreChainApi.cosmos.hd;
@@ -173,7 +176,7 @@ export default class VaultCosmos extends VaultBase {
     if (!accountInfo) {
       throw new Error('Invalid account');
     }
-    const txBuilder = new TxProtoBuilder();
+    const txBuilder = new TxAminoBuilder();
     const account = await this.getAccount();
     if (!account.pub) {
       throw new Error('Invalid account');
@@ -183,13 +186,6 @@ export default class VaultCosmos extends VaultBase {
     let gasLimit = '0';
     let feeAmount = '0';
     let mainCoinDenom = network.symbol;
-    if (feeInfo) {
-      gasLimit = feeInfo.gas?.gasLimit ?? '0';
-      const gasLimitNum = new BigNumber(gasLimit);
-      const gasPriceNum = new BigNumber(feeInfo.gas?.gasPrice ?? '0');
-      feeAmount = gasLimitNum.multipliedBy(gasPriceNum).toFixed(feeInfo.common.feeDecimals).toString();
-      mainCoinDenom = feeInfo.common.feeSymbol;
-    }
     
     const tx = txBuilder.makeTxWrapper(msgs, {
       memo: '',
@@ -197,15 +193,18 @@ export default class VaultCosmos extends VaultBase {
       feeAmount,
       pubkey,
       mainCoinDenom,
-      chainId: network.id,
+      chainId: await this.getNetworkChainId(),
       accountNumber: `${accountInfo.accountNumber ?? 0}`,
       nonce: `${accountInfo.nonce ?? 0}`,
     });
-    return {
-      mode: tx.mode,
-      msg: tx.msg,
-      signDoc: tx.signDoc,
-    };
+
+    if (feeInfo) {
+      return await this._attachFeeInfoToEncodedTx({
+        encodedTx: tx,
+        feeInfo,
+      });
+    }
+    return tx.toObject();
   }
 
   override async buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
@@ -326,7 +325,7 @@ export default class VaultCosmos extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = await this.buildEncodedTx(params);
+    const encodedTx = params.encodedTx ?? await this.buildEncodedTx(params);
     if (encodedTx) {
       return {
         encodedTx,
@@ -336,6 +335,40 @@ export default class VaultCosmos extends VaultBase {
     throw new OneKeyInternalError();
   }
 
+  private async _attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxCosmos;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTxCosmos> {
+    const { gas, common } = params.feeInfo;
+    const { gasPrice: price, gasLimit: limit } = gas!;
+
+    if (!price || typeof price !== 'string') {
+      throw new OneKeyInternalError('Invalid gas price.');
+    }
+    if (typeof limit !== 'string') {
+      throw new OneKeyInternalError('Invalid fee limit');
+    }
+    const gasLimitNum = new BigNumber(limit);
+    const gasPriceNum = new BigNumber(price);
+    const amount = gasLimitNum.multipliedBy(gasPriceNum).toFixed(common.feeDecimals);
+    let newAmount = [{
+      denom: common.feeSymbol,
+      amount,
+    }];
+
+    const txWrapper = new TransactionWrapper(params.encodedTx.signDoc, params.encodedTx.msg);
+    const fee = getFee(txWrapper);
+    const newFee: ICosmosStdFee = {
+      amount: newAmount,
+      gas_limit: limit,
+      payer: fee?.payer ?? '',
+      granter: fee?.granter ?? '',
+      feePayer: fee?.feePayer ?? '',
+    };
+
+    return setFee(txWrapper, newFee).toObject();
+  }
+
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
@@ -343,10 +376,18 @@ export default class VaultCosmos extends VaultBase {
       throw new OneKeyInternalError('unsignedTx and feeInfo are required');
     }
     const {unsignedTx, feeInfo} = params;
-    unsignedTx.encodedTx = await this._buildEncodedTxWithFee({
-      transfersInfo: unsignedTx.transfersInfo!,
-      feeInfo,
-    })
+    if (!unsignedTx.encodedTx) {
+      unsignedTx.encodedTx = await this._buildEncodedTxWithFee({
+        transfersInfo: unsignedTx.transfersInfo!,
+        feeInfo,
+      })
+    } else {
+      unsignedTx.encodedTx = await this._attachFeeInfoToEncodedTx({
+        encodedTx: unsignedTx.encodedTx as IEncodedTxCosmos,
+        feeInfo,
+      })
+    }
+
     return {
       ...unsignedTx,
       feeInfo,

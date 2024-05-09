@@ -12,7 +12,7 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import { bytesToHex, hexToBytes } from 'viem';
-import { TransactionWrapper, generateSignBytes, getADR36SignDoc, pubkeyToBaseAddress, serializeSignedTx } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import { TransactionWrapper, generateSignBytes, getADR36SignDoc, pubkeyToAddress, pubkeyToBaseAddress, serializeSignedTx } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import { HardwareError } from '@onekeyfe/hd-shared';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -31,13 +31,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxCosmos;
     const txWrapper = new TransactionWrapper(encodedTx.signDoc, encodedTx.msg);
     const unSignedRawTx = bytesToHex(generateSignBytes(txWrapper));
-    const result = await convertDeviceResponse(async () =>
-      sdk.cosmosSignTransaction(dbDevice.connectId, dbDevice.deviceId, {
+    const result = await convertDeviceResponse(async () => {
+      const res = await sdk.cosmosSignTransaction(dbDevice.connectId, dbDevice.deviceId, {
         path: account.path,
         rawTx: unSignedRawTx,
         ...deviceCommonParams,
-      }),
-    );
+      });
+      return res;
+    });
     const rawTx = serializeSignedTx({
       txWrapper,
       signature: {
@@ -59,22 +60,22 @@ export class KeyringHardware extends KeyringHardwareBase {
     const results = await Promise.all(messages.map(async (commonMessage) => {
       const { data, signer } = JSON.parse(commonMessage.message);
 
-        const [messageData] = Buffer.from(data).toString('base64');
-        const unSignDoc = getADR36SignDoc(signer, messageData);
-        const encodedTx = TransactionWrapper.fromAminoSignDoc(
-          unSignDoc,
-          undefined,
-        );
+      const messageData = Buffer.from(data).toString('base64');
+      const unSignDoc = getADR36SignDoc(signer, messageData);
+      const encodedTx = TransactionWrapper.fromAminoSignDoc(
+        unSignDoc,
+        undefined,
+      );
 
-        const { rawTx } = await this.signTransaction({
-          ...params,
-          unsignedTx: {
-            encodedTx,
-          },
-          signOnly: false,
-        });
+      const { rawTx } = await this.signTransaction({
+        ...params,
+        unsignedTx: {
+          encodedTx,
+        },
+        signOnly: true,
+      });
 
-        return rawTx;
+      return rawTx;
     }));
     return results;
   }
@@ -122,6 +123,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           },
         });
 
+        const networkInfo = await this.getNetworkInfo();
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
@@ -129,9 +131,12 @@ export class KeyringHardware extends KeyringHardwareBase {
           const pubkey = hexToBytes(`0x${publicKey}`);
           const address = pubkeyToBaseAddress(curve, pubkey);
           const addressInfo: ICoreApiGetAddressItem = {
-            address,
+            address: '',
             path,
             publicKey,
+            addresses: {
+              [this.networkId]: pubkeyToAddress(curve, networkInfo.addressPrefix, pubkey),
+            },
           };
           ret.push(addressInfo);
         }

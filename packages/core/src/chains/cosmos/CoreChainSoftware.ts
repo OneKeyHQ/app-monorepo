@@ -7,6 +7,7 @@ import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import {
   TransactionWrapper,
+  getADR36SignDoc,
   pubkeyToAddressDetail,
   serializeSignedTx,
   serializeTxForSignature,
@@ -21,6 +22,7 @@ import type {
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
+  ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
@@ -75,8 +77,24 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     };
   }
 
-  override async signMessage(): Promise<string> {
-    throw new Error('Method not implemented.');
+  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+    const { data, signer } = JSON.parse(payload.unsignedMsg.message);
+
+    const [messageData] = Buffer.from(data).toString('base64');
+    const unSignDoc = getADR36SignDoc(signer, messageData);
+    const encodedTx = TransactionWrapper.fromAminoSignDoc(
+      unSignDoc,
+      undefined,
+    );
+
+    const { rawTx } = await this.signTransaction({
+      ...payload,
+      unsignedTx: {
+        encodedTx,
+      },
+    });
+
+    return rawTx;
   }
 
   override async getAddressFromPrivate(

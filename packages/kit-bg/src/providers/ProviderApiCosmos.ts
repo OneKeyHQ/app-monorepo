@@ -16,41 +16,58 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
-import { StdSignDoc, TransactionWrapper, deserializeTx, getAminoSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import { StdSignDoc, TransactionWrapper, baseAddressToAddress, deserializeTx, getAminoSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
+import { queue } from './HandleQueue';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { vaultFactory } from '../vaults/factory';
 
 @backgroundClass()
 class ProviderApiCosmos extends ProviderApiBase {
   public providerName = IInjectedProviderNames.cosmos;
 
   private async _getAccounts(request: IJsBridgeMessagePayload) {
-    const accounts =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    return accounts ?? [];
+    let accounts = await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(request);
+    if (!accounts) {
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      await timerUtils.wait(100);
+      accounts = await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(request);
+    }
+    if (!accounts) {
+      throw web3Errors.provider.unauthorized();
+    }
+    return accounts;
   }
 
   private async _getAccount (
     request: IJsBridgeMessagePayload,
     networkId: string,
   ) {
-    let accounts = await this._getAccounts(request);
+    const accounts = await this._getAccounts(request);
 
-    if (!accounts.some(item => item.accountInfo?.networkId === networkId)) {
-      await this.backgroundApi.serviceDApp.openConnectionModal(request);
-      accounts = await this._getAccounts(request);
+    let account = accounts.find(item => item.accountInfo?.networkId === networkId);
+    if (!account) {
+      const vault = await vaultFactory.getVault({
+        networkId,
+        accountId: accounts[0].account.id,
+      });
+      const vaultAccount = await vault.getAccount();
+      account = {
+        account: vaultAccount,
+        accountInfo: {
+          ...accounts[0].accountInfo,
+          address: vaultAccount.address,
+          networkId,
+        },
+      };
     }
-
-    const account = accounts.find(item => item.accountInfo?.networkId === networkId);
     
     return account;
   };
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const data = async ({ origin }: { origin: string }) => {
+    const data = async () => {
       const result = {
         method: 'wallet_events_accountChanged',
       };
@@ -62,7 +79,6 @@ class ProviderApiCosmos extends ProviderApiBase {
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = () => {
       const result = {
-        // TODO do not emit events to EVM Dapps, injected provider check scope
         method: 'wallet_events_networkChange',
       };
       return result;
@@ -74,9 +90,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     throw web3Errors.rpc.methodNotSupported();
   }
 
-  @providerApiMethod()
-  public async enable(request: IJsBridgeMessagePayload, params: string[]) {
-    console.log('enable', params);
+  private async _enable(request: IJsBridgeMessagePayload, params: string[]) {
     const chainId = typeof params === 'string' ? params : params[0];
 
     const networkId = this.convertCosmosChainId(chainId);
@@ -90,11 +104,21 @@ class ProviderApiCosmos extends ProviderApiBase {
     }
     if (!network) return false;
 
-    const account = await this._getAccount(request, networkId);
-    if (!account) return false;
-
-    console.log('enable: true', chainId);
     return true;
+  }
+
+  @providerApiMethod()
+  public enable(request: IJsBridgeMessagePayload, params: string[]) {
+    return new Promise((resolve, reject) => {
+      queue.enqueue(async () => {
+        try {
+          const result = await this._enable(request, params);
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
   }
 
   @providerApiMethod()
@@ -116,13 +140,13 @@ class ProviderApiCosmos extends ProviderApiBase {
 
   @providerApiMethod()
   public async getKey(request: IJsBridgeMessagePayload, params: string) {
-    console.log('getKey', params);
     const networkId = this.convertCosmosChainId(params);
     if (!networkId) throw new Error('Invalid chainId');
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({ networkId });
+    if (!network) throw new Error('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
     if (!account) {
-      console.log('getKey: no account', params);
       throw new Error('No account found');
     }
 
@@ -153,28 +177,30 @@ class ProviderApiCosmos extends ProviderApiBase {
       signOptions?: any;
     },
   ): Promise<any> {
-    const encodedTx = TransactionWrapper.fromAminoSignDoc(params.signDoc, undefined);
+    const txWrapper = TransactionWrapper.fromAminoSignDoc(params.signDoc, undefined);
 
     const networkId = this.convertCosmosChainId(params.signDoc.chain_id);
     if (!networkId) throw new Error('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
 
-    const result = (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal(
-      {
-        request,
-        encodedTx,
-        networkId,
-        accountId: account?.account.id ?? '',
-      },
-    )) as ISignedTxPro;
+    const result = (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      request,
+      encodedTx: txWrapper.toObject(),
+      networkId,
+      accountId: account?.account.id ?? '',
+      signOnly: true,
+    })) as string;
 
     const txInfo = deserializeTx(
-      hexToBytes(Buffer.from(result.rawTx, 'base64').toString('hex')),
+      hexToBytes(Buffer.from(result, 'base64').toString('hex')),
     );
 
-    const tx = result.encodedTx as TransactionWrapper;
-    const signDoc = getAminoSignDoc(tx);
+    const signDoc = getAminoSignDoc(txWrapper);
+    if (txInfo.authInfo.fee) {
+      signDoc.fee.amount = txInfo.authInfo.fee.amount;
+      signDoc.fee.gas = txInfo.authInfo.fee.gasLimit.toString();
+    }
 
     const [signerInfo] = txInfo.authInfo.signerInfos;
     const [signature] = txInfo.signatures;
@@ -223,20 +249,22 @@ class ProviderApiCosmos extends ProviderApiBase {
     const account = await this._getAccount(request, networkId);
 
     const encodeTx = params.signDoc;
+    const txWrapper = TransactionWrapper.fromDirectSignDocHex(
+      {
+        bodyBytes: encodeTx.bodyBytes ?? '',
+        authInfoBytes: encodeTx.authInfoBytes ?? '',
+        chainId: encodeTx.chainId ?? '',
+        accountNumber: encodeTx.accountNumber ?? '',
+      },
+      undefined,
+    );
     const result = (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal(
       {
         request,
-        encodedTx: TransactionWrapper.fromDirectSignDocHex(
-          {
-            bodyBytes: encodeTx.bodyBytes ?? '',
-            authInfoBytes: encodeTx.authInfoBytes ?? '',
-            chainId: encodeTx.chainId ?? '',
-            accountNumber: encodeTx.accountNumber ?? '',
-          },
-          undefined,
-        ),
+        encodedTx: txWrapper.toObject(),
         networkId,
         accountId: account?.account.id ?? '',
+        signOnly: true,
       },
     )) as ISignedTxPro;
 
