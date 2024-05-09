@@ -7,7 +7,10 @@ import {
   SearchBar,
   SectionList,
   SizableText,
+  Skeleton,
   View,
+  XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
@@ -32,6 +35,16 @@ enum ESearchStatus {
   done = 'done',
 }
 
+const SkeletonItem = () => (
+  <XStack p="$2.5" alignItems="center" space="$4">
+    <Skeleton w="$10" h="$10" radius="round" />
+    <YStack space="$3">
+      <Skeleton h="$3" w="$32" />
+      <Skeleton h="$3" w="$24" />
+    </YStack>
+  </XStack>
+);
+
 export function UniversalSearch() {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -46,14 +59,17 @@ export function UniversalSearch() {
       networkId: activeAccount?.network?.id,
       searchTypes: [EUniversalSearchType.Address],
     });
-    setSections([
-      {
-        title: 'Wallet',
-        data: result?.[EUniversalSearchType.Address]?.items || [],
-      },
-    ]);
+    const items = result?.[EUniversalSearchType.Address]?.items;
+    if (items?.length) {
+      setSections([
+        {
+          title: 'Wallet',
+          data: items,
+        },
+      ]);
+    }
     setSearchStatus(ESearchStatus.done);
-  });
+  }, 80);
 
   const handleChangeText = useCallback(() => {
     setSearchStatus(ESearchStatus.loading);
@@ -67,21 +83,24 @@ export function UniversalSearch() {
     ),
     [],
   );
-  return (
-    <Page>
-      <Page.Header title="Search" />
-      <Page.Body>
-        <View p="$5">
-          <SearchBar
-            onSearchTextChange={handleTextChange}
-            onChangeText={handleChangeText}
-          />
-        </View>
-        {
-          // TODO:
-          // not found component
-        }
-        {searchStatus === ESearchStatus.done && sections.length ? (
+
+  const renderResult = useCallback(() => {
+    console.log('searchStatus--', searchStatus);
+    switch (searchStatus) {
+      case ESearchStatus.init:
+        return null;
+
+      case ESearchStatus.loading:
+        return (
+          <View px="$5">
+            <SkeletonItem />
+            <SkeletonItem />
+            <SkeletonItem />
+          </View>
+        );
+
+      case ESearchStatus.done:
+        return (
           <SectionList
             sections={sections}
             renderSectionHeader={renderSectionHeader}
@@ -109,7 +128,23 @@ export function UniversalSearch() {
             )}
             estimatedItemSize="$16"
           />
-        ) : null}
+        );
+      default:
+        break;
+    }
+  }, [navigation, renderSectionHeader, searchStatus, sections]);
+
+  return (
+    <Page>
+      <Page.Header title="Search" />
+      <Page.Body>
+        <View p="$5">
+          <SearchBar
+            onSearchTextChange={handleTextChange}
+            onChangeText={handleChangeText}
+          />
+        </View>
+        {renderResult()}
       </Page.Body>
     </Page>
   );
