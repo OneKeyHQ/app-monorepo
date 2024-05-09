@@ -256,17 +256,6 @@ export class KeyringHd extends KeyringHdBase {
     return result;
   }
 
-  // override async verifyMessage(
-  //   params: IVerifyMessageParams,
-  // ): Promise<IVerifiedMessagePro> {
-  //   const account = await this.vault.getAccount();
-  //   return this.coreApi.verifyMessage({
-  //     message: params.messages,
-  //     signature: params.signature,
-  //     address: account.addressDetail.normalizedAddress,
-  //   });
-  // }
-
   async signApiMessage(params: ISignApiMessageParams) {
     const { password, msgPayload, address, path } = params;
     if (!password) {
