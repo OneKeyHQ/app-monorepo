@@ -1,5 +1,5 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { isArray } from 'lodash';
+import { isArray, isNil } from 'lodash';
 import semver from 'semver';
 
 import {
@@ -10,6 +10,7 @@ import {
 import { makeTimeoutPromise } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   BridgeTimeoutError,
+  FirmwareUpdateBatteryTooLow,
   InitIframeLoadFail,
   InitIframeTimeout,
   NeedFirmwareUpgradeFromWeb,
@@ -23,8 +24,8 @@ import {
 } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
-  appEventBus,
   EAppEventBusNames,
+  appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -59,13 +60,21 @@ import ServiceBase from '../ServiceBase';
 import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
 
 import {
+  FIRMWARE_UPDATE_MIN_BATTERY_LEVEL,
+  FIRMWARE_UPDATE_MIN_VERSION_ALLOWED,
   MOCK_ALL_IS_UP_TO_DATE,
   MOCK_ALWAYS_UPDATE_BRIDGE,
   MOCK_FORCE_UPDATE_RES_EVEN_SAME_VERSION,
+  MOCK_LOW_BATTERY_LEVEL,
   MOCK_SHOULD_UPDATE_FULL_RES,
 } from './firmwareUpdateConsts';
 import { FirmwareUpdateDetectMap } from './FirmwareUpdateDetectMap';
 
+import type {
+  IPromiseContainerCallbackCreate,
+  IPromiseContainerReject,
+  IPromiseContainerResolve,
+} from '../ServicePromise';
 import type {
   CoreApi,
   Success as CoreSuccess,
@@ -74,11 +83,6 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import type {
-  IPromiseContainerCallbackCreate,
-  IPromiseContainerReject,
-  IPromiseContainerResolve,
-} from '../ServicePromise';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -1066,7 +1070,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         await this.validateShouldUpdateFullResource(params);
         // go to https://firmware.onekey.so/
         await this.validateMinVersionAllowed(params);
-        await this.validateDeviceBattery();
+        await this.validateDeviceBattery(params);
         await this.validateShouldUpdateBridge(params);
 
         // ** clear all retry tasks
@@ -1359,23 +1363,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async validateMinVersionAllowed(params: IUpdateFirmwareWorkflowParams) {
-    const minVersionMap: Partial<
-      Record<
-        IDeviceType,
-        {
-          ble?: string;
-          firmware?: string;
-          bootloader?: string;
-        }
-      >
-    > = {
-      'touch': {
-        firmware: '4.1.0', // only 4.1.0 support bootloader update
-      },
-      'classic': {
-        firmware: '0.0.1',
-      },
-    };
+    const minVersionMap = FIRMWARE_UPDATE_MIN_VERSION_ALLOWED;
     if (params.releaseResult?.isBootloaderMode) {
       return;
     }
@@ -1416,10 +1404,22 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
   }
 
-  async validateDeviceBattery() {
-    const battery = 1;
-    if (battery < 0.15) {
-      throw new Error('Battery is too low');
+  async validateDeviceBattery(params: IUpdateFirmwareWorkflowParams) {
+    const { features: deviceFeatures } = params.releaseResult;
+
+    // battery_level?: number;
+    // @ts-ignore
+    let batteryLevel = deviceFeatures?.battery_level as number | undefined;
+
+    if (MOCK_LOW_BATTERY_LEVEL) {
+      batteryLevel = 1;
+    }
+
+    if (isNil(batteryLevel) || Number.isNaN(batteryLevel)) return;
+
+    // <= 25%
+    if (Number(batteryLevel ?? 0) <= FIRMWARE_UPDATE_MIN_BATTERY_LEVEL) {
+      throw new FirmwareUpdateBatteryTooLow();
     }
   }
 }

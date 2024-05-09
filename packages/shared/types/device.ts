@@ -4,7 +4,7 @@ import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import type {
   BleReleaseInfoEvent,
   CommonParams,
-  Features,
+  Features as FeaturesCore,
   IDeviceBLEFirmwareStatus,
   IDeviceType,
   ReleaseInfoEvent,
@@ -12,10 +12,12 @@ import type {
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
+import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
 
 export type IOneKeyDeviceType = IDeviceType;
 
-export type IOneKeyDeviceFeatures = Features;
+export type IOneKeyDeviceFeatures = FeaturesTransport;
+export type IOneKeyDeviceFeaturesCore = FeaturesCore;
 
 export type IFirmwareChangeLog = {
   [key in ILocaleSymbol]?: string;
