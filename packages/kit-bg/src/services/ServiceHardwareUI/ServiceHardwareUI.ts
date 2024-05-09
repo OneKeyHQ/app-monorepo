@@ -163,6 +163,7 @@ class ServiceHardwareUI extends ServiceBase {
     //   deviceParams.dbDevice.connectId = '11111';
     // }
 
+    await this.backgroundApi.serviceHardware.getFeaturesMutex.waitForUnlock();
     const isMutexLocked =
       this.backgroundApi.serviceHardware.getFeaturesMutex.isLocked();
     if (isMutexLocked) {

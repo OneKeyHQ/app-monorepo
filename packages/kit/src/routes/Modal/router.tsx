@@ -12,16 +12,16 @@ import { CloudBackupPages } from '../../views/CloudBackup/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
 import { ModalDiscoveryStack } from '../../views/Discovery/router';
 import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
-import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
+import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
-import { ModalWebViewStack } from '../../views/WebView/router';
 import { ModalSendStack } from '../../views/Send/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
+import { ModalWebViewStack } from '../../views/WebView/router';
 
 import { ModalMainStack } from './Main';
 

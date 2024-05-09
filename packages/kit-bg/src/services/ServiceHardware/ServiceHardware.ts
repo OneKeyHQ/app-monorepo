@@ -335,7 +335,7 @@ class ServiceHardware extends ServiceBase {
       // force hardware drop process
       if (forceDeviceResetToHome) {
         console.log('sdk call cancel device getFeatures: ', connectId);
-        await this.getFeatures({ connectId }); // TODO move to sdk.cancel()
+        await this.getFeaturesWithoutCache({ connectId }); // TODO move to sdk.cancel()
       }
     } catch (e) {
       //
