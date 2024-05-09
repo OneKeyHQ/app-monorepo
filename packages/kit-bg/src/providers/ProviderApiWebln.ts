@@ -14,6 +14,7 @@ import type {
   IRequestInvoiceArgs,
   IRequestInvoiceResponse,
   ISignMessageResponse,
+  IVerifyMessageArgs,
 } from '@onekeyhq/shared/types/lightning/webln';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
@@ -184,9 +185,40 @@ class ProviderApiWebln extends ProviderApiBase {
           networkId: networkId ?? '',
         });
       console.log('webln.signMessage: ', message, signature);
-      return JSON.parse(signature as string) as ISignMessageResponse;
+      return {
+        message,
+        signature,
+      } as ISignMessageResponse;
     } catch (e) {
       console.error(`webln.signMessage error: `, e);
+      throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async verifyMessage(request: IJsBridgeMessagePayload) {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    try {
+      const { message, signature } = (request.data as IJsonRpcRequest)
+        ?.params as IVerifyMessageArgs;
+      if (typeof message !== 'string' || typeof signature !== 'string') {
+        throw web3Errors.rpc.invalidInput();
+      }
+      const result = await this.backgroundApi.serviceLightning.verifyMessage({
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+        message,
+        signature,
+      });
+      console.log('webln.verifyMessage: ', message, signature);
+      if (!result.isValid) {
+        throw new Error('Invalid signature');
+      }
+      return result.isValid;
+    } catch (e) {
+      console.error(`webln.verifyMessage error: `, e);
       throw e;
     }
   }

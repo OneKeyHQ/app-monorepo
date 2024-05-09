@@ -7,6 +7,7 @@ import {
   getBtcForkNetwork,
   validateBtcAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -537,6 +538,21 @@ export default class Vault extends VaultBase {
     return (this.keyring as KeyringHd).lnurlAuth({
       lnurlDetail,
       password,
+    });
+  }
+
+  async verifyMessage({
+    message,
+    signature,
+  }: {
+    message: string;
+    signature: string;
+  }) {
+    const account = await this.getAccount();
+    return coreChainApi.lightning.hd.verifyMessage({
+      message,
+      signature,
+      address: account.addressDetail.normalizedAddress,
     });
   }
 

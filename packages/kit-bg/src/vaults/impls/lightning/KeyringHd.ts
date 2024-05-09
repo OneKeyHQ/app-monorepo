@@ -1,10 +1,7 @@
 import { sha256 } from '@noble/hashes/sha256';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  ISignedTxPro,
-  IVerifiedMessagePro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -27,7 +24,6 @@ import type {
   IPrepareHdAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
-  IVerifyMessageParams,
 } from '../../types';
 
 export class KeyringHd extends KeyringHdBase {
@@ -260,16 +256,16 @@ export class KeyringHd extends KeyringHdBase {
     return result;
   }
 
-  override async verifyMessage(
-    params: IVerifyMessageParams,
-  ): Promise<IVerifiedMessagePro> {
-    const account = await this.vault.getAccount();
-    return this.coreApi.verifyMessage({
-      message: params.messages,
-      signature: params.signature,
-      address: account.addressDetail.normalizedAddress,
-    });
-  }
+  // override async verifyMessage(
+  //   params: IVerifyMessageParams,
+  // ): Promise<IVerifiedMessagePro> {
+  //   const account = await this.vault.getAccount();
+  //   return this.coreApi.verifyMessage({
+  //     message: params.messages,
+  //     signature: params.signature,
+  //     address: account.addressDetail.normalizedAddress,
+  //   });
+  // }
 
   async signApiMessage(params: ISignApiMessageParams) {
     const { password, msgPayload, address, path } = params;

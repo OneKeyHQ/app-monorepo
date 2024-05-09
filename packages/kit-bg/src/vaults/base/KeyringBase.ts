@@ -28,7 +28,6 @@ import type {
   IPrepareHdAccountsParamsBase,
   ISignMessageParams,
   ISignTransactionParams,
-  IVerifyMessageParams,
 } from '../types';
 
 export abstract class KeyringBase extends VaultContext {
@@ -248,10 +247,6 @@ export abstract class KeyringBase extends VaultContext {
   ): Promise<ISignedTxPro>;
 
   abstract signMessage(params: ISignMessageParams): Promise<ISignedMessagePro>;
-
-  abstract verifyMessage(
-    params: IVerifyMessageParams,
-  ): Promise<IVerifiedMessagePro>;
 
   abstract prepareAccounts(
     params: IPrepareAccountsParams,

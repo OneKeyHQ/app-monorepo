@@ -379,6 +379,28 @@ class ServiceLightning extends ServiceBase {
       throw e;
     }
   }
+
+  @backgroundMethod()
+  async verifyMessage({
+    accountId,
+    networkId,
+    message,
+    signature,
+  }: {
+    accountId: string;
+    networkId: string;
+    message: string;
+    signature: string;
+  }) {
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as LightningVault;
+    return vault.verifyMessage({
+      message,
+      signature,
+    });
+  }
 }
 
 export default ServiceLightning;
