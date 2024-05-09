@@ -43,6 +43,7 @@ import type {
   ICoreCredentialsInfo,
   ICurveName,
   ISignedTxPro,
+  IVerifiedMessagePro,
 } from '../../types';
 import type { IBtcForkNetwork } from '../btc/types';
 
@@ -303,5 +304,27 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     loginURL.searchParams.set('t', Date.now().toString());
 
     return loginURL.toString();
+  }
+
+  verifyMessage({
+    message,
+    address,
+    signature,
+  }: {
+    message: string;
+    address: string;
+    signature: string;
+  }): Promise<IVerifiedMessagePro> {
+    const isValid = bitcoinMessage.verify(
+      message,
+      address,
+      Buffer.from(signature, 'hex'),
+    );
+    return Promise.resolve({
+      isValid,
+      message,
+      address,
+      signature,
+    });
   }
 }

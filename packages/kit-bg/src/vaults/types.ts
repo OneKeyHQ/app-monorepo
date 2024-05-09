@@ -362,6 +362,11 @@ export interface ISignMessageParams {
   deviceParams: IDeviceSharedCallParams | undefined;
 }
 
+export interface IVerifyMessageParams {
+  messages: string;
+  signature: string;
+}
+
 export interface IBuildHistoryTxParams {
   accountId: string;
   networkId: string;

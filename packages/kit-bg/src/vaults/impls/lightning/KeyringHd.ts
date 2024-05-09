@@ -1,7 +1,12 @@
 import { sha256 } from '@noble/hashes/sha256';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ISignedTxPro,
+  IVerifiedMessagePro,
+} from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -22,6 +27,7 @@ import type {
   IPrepareHdAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
+  IVerifyMessageParams,
 } from '../../types';
 
 export class KeyringHd extends KeyringHdBase {
@@ -191,8 +197,78 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {
-    // throw new Error('Method not implemented.');
-    return this.baseSignMessage(params);
+    const { password, messages } = params;
+    const account = await this.vault.getAccount();
+
+    const credentials = await this.baseGetCredentialsInfo(params);
+    const network = await this.getNetwork();
+
+    const btcPath = accountUtils.buildLnToBtcPath({
+      path: account.path,
+      isTestnet: network.isTestnet,
+    });
+    const btcImpl = network.isTestnet ? IMPL_TBTC : IMPL_BTC;
+    const btcNetworkId = network.isTestnet
+      ? getNetworkIdsMap().tbtc
+      : getNetworkIdsMap().btc;
+    const networkInfo = {
+      isTestnet: network.isTestnet,
+      networkChainCode: btcImpl,
+      chainId: '0',
+      networkId: btcNetworkId,
+      networkImpl: btcImpl,
+      addressPrefix: '',
+      curve: 'secp256k1',
+    };
+    const accountAddress = account.addressDetail.normalizedAddress;
+    const result = await Promise.all(
+      messages.map((msg) =>
+        coreChainApi.btc.hd.signMessage({
+          networkInfo: {
+            isTestnet: networkInfo.isTestnet,
+            networkChainCode: IMPL_BTC,
+            chainId: '',
+            networkId: getNetworkIdsMap().btc,
+            networkImpl: IMPL_BTC,
+            addressPrefix: '',
+            curve: 'secp256k1',
+          },
+          unsignedMsg: {
+            ...msg,
+            // @ts-expect-error
+            sigOptions: { segwitType: 'p2wpkh' },
+          },
+          account: {
+            ...account,
+            address: accountAddress,
+            path: btcPath,
+            relPaths: ['0/0'],
+          },
+          password,
+          credentials,
+          btcExtraInfo: {
+            pathToAddresses: {
+              [`${btcPath}/0/0`]: {
+                address: accountAddress,
+                relPath: '0/0',
+              },
+            },
+          },
+        }),
+      ),
+    );
+    return result;
+  }
+
+  override async verifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<IVerifiedMessagePro> {
+    const account = await this.vault.getAccount();
+    return this.coreApi.verifyMessage({
+      message: params.messages,
+      signature: params.signature,
+      address: account.addressDetail.normalizedAddress,
+    });
   }
 
   async signApiMessage(params: ISignApiMessageParams) {

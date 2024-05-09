@@ -7,6 +7,7 @@ import type {
   ICoreImportedCredentialEncryptHex,
   ISignedMessagePro,
   ISignedTxPro,
+  IVerifiedMessagePro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -33,6 +34,7 @@ import type {
   IPrepareImportedAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
+  IVerifyMessageParams,
 } from '../types';
 
 export abstract class KeyringSoftwareBase extends KeyringBase {
@@ -347,8 +349,26 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     });
   }
 
+  async baseVerifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<IVerifiedMessagePro> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
+    checkIsDefined(params.messages);
+    // TODO: implement
+    // return this.coreApi.verifyMessage(params);
+    throw new Error('Not implemented');
+  }
+
   // TODO import type { Signer } from '../../proxy';
   abstract getPrivateKeys(
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult>;
+
+  override verifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<IVerifiedMessagePro> {
+    return this.baseVerifyMessage(params);
+  }
 }

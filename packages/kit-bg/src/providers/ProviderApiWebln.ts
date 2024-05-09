@@ -13,7 +13,9 @@ import {
 import type {
   IRequestInvoiceArgs,
   IRequestInvoiceResponse,
+  ISignMessageResponse,
 } from '@onekeyhq/shared/types/lightning/webln';
+import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -156,6 +158,35 @@ class ProviderApiWebln extends ProviderApiBase {
       return { preimage: invoice.payment_preimage };
     } catch (e) {
       console.error(`webln.sendPayment error: `, e);
+      throw e;
+    }
+  }
+
+  @providerApiMethod()
+  public async signMessage(request: IJsBridgeMessagePayload) {
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this._getAccountsInfo(request)
+    )[0];
+    try {
+      const message = (request.data as IJsonRpcRequest)?.params as string;
+      if (typeof message !== 'string') {
+        throw web3Errors.rpc.invalidInput();
+      }
+
+      const signature =
+        await this.backgroundApi.serviceDApp.openSignMessageModal({
+          request,
+          unsignedMessage: {
+            type: EMessageTypesCommon.SIMPLE_SIGN,
+            message,
+          },
+          accountId: accountId ?? '',
+          networkId: networkId ?? '',
+        });
+      console.log('webln.signMessage: ', message, signature);
+      return JSON.parse(signature as string) as ISignMessageResponse;
+    } catch (e) {
+      console.error(`webln.signMessage error: `, e);
       throw e;
     }
   }

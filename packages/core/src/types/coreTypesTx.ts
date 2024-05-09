@@ -119,3 +119,9 @@ export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
 };
 export type ISignedMessagePro = string[];
+export type IVerifiedMessagePro = {
+  isValid: boolean;
+  message: string;
+  signature: string;
+  address: string;
+};
