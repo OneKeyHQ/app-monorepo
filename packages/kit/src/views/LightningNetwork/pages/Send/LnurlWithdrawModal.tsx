@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -33,10 +33,22 @@ function LnurlWithdrawModal() {
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.LnurlWithdraw>>();
 
-  const { accountId, networkId, lnurlDetails, isSendFlow } = route.params;
-  const origin = new URL(lnurlDetails.url).origin;
+  const routeParams = route.params;
+  const { isSendFlow } = routeParams;
+  const dAppQuery =
+    useDappQuery<IModalSendParamList[EModalSendRoutes.LnurlWithdraw]>();
+  const { $sourceInfo } = dAppQuery;
+  const { accountId, networkId, lnurlDetails } = isSendFlow
+    ? routeParams
+    : dAppQuery;
 
-  const { $sourceInfo } = useDappQuery();
+  const origin = useMemo(() => {
+    if (lnurlDetails?.url) {
+      return new URL(lnurlDetails.url).origin;
+    }
+    return undefined;
+  }, [lnurlDetails?.url]);
+
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -50,7 +62,7 @@ function LnurlWithdrawModal() {
     canContinueOperate,
     riskLevel,
     urlSecurityInfo,
-  } = useRiskDetection({ origin });
+  } = useRiskDetection({ origin: origin ?? '' });
 
   const amountMin = Math.floor(
     Number(lnurlDetails?.minWithdrawable ?? 0) / 1000,
@@ -134,7 +146,7 @@ function LnurlWithdrawModal() {
         <DAppRequestLayout
           title={intl.formatMessage({ id: 'title__lnurl_withdraw' })}
           subtitleShown={false}
-          origin={origin}
+          origin={origin ?? ''}
           urlSecurityInfo={urlSecurityInfo}
         >
           {isSendFlow ? (
@@ -152,7 +164,6 @@ function LnurlWithdrawModal() {
             maximumAmount={amountMax}
             descriptionLabelId="form__withdraw_description"
             memo={lnurlDetails.defaultDescription}
-            origin={origin}
           />
         </DAppRequestLayout>
       </Page.Body>

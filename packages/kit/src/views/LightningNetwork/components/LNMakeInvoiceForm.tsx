@@ -24,7 +24,6 @@ export type IMakeInvoiceFormProps = {
   amount?: number;
   minimumAmount?: number;
   maximumAmount?: number;
-  origin: string;
   descriptionLabelId?: MessageDescriptor['id'];
   memo?: string;
   isWebln?: boolean;
@@ -40,11 +39,9 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
     maximumAmount,
     descriptionLabelId,
     memo,
-    isWebln,
     amountReadOnly,
   } = props;
   const intl = useIntl();
-  const content = useMemo(() => 'Hello World', []);
 
   const { result: invoiceConfig } = usePromiseResult(
     () =>

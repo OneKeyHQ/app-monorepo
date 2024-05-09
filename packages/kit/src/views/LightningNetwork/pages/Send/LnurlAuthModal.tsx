@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -33,23 +33,21 @@ function LnurlAuthModal() {
   const navigation = useAppNavigation();
   const route =
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.LnurlAuth>>();
-  const {
-    networkId: routeNetworkId,
-    accountId: routeAccountId,
-    lnurlDetails: routeLnurlDetails,
-    isSendFlow,
-  } = route.params;
-  const {
-    $sourceInfo,
-    networkId: dAppNetworkId,
-    accountId: dAppAccountId,
-    lnurlDetails: dAppLnurlDetails,
-  } = useDappQuery<IModalSendParamList[EModalSendRoutes.LnurlAuth]>();
+  const routeParams = route.params;
+  const { isSendFlow } = routeParams;
+  const dAppQuery =
+    useDappQuery<IModalSendParamList[EModalSendRoutes.LnurlAuth]>();
+  const { $sourceInfo } = dAppQuery;
+  const { accountId, networkId, lnurlDetails } = isSendFlow
+    ? routeParams
+    : dAppQuery;
 
-  const networkId = isSendFlow ? routeNetworkId : dAppNetworkId;
-  const accountId = isSendFlow ? routeAccountId : dAppAccountId;
-  const lnurlDetails = isSendFlow ? routeLnurlDetails : dAppLnurlDetails;
-  const origin = new URL(lnurlDetails.url).origin;
+  const origin = useMemo(() => {
+    if (lnurlDetails?.url) {
+      return new URL(lnurlDetails.url).origin;
+    }
+    return undefined;
+  }, [lnurlDetails?.url]);
 
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
@@ -64,10 +62,9 @@ function LnurlAuthModal() {
     canContinueOperate,
     riskLevel,
     urlSecurityInfo,
-  } = useRiskDetection({ origin });
+  } = useRiskDetection({ origin: origin ?? '' });
 
   const { result: textMap } = usePromiseResult(async () => {
-    console.log('====>>>>: re-render textMap');
     if (lnurlDetails.action === 'reigster') {
       return {
         allowText: intl.formatMessage({
@@ -208,7 +205,7 @@ function LnurlAuthModal() {
         <DAppRequestLayout
           title={textMap?.title ?? ''}
           subtitle={textMap?.allowText ?? ''}
-          origin={origin}
+          origin={origin ?? ''}
           urlSecurityInfo={urlSecurityInfo}
         >
           {isSendFlow ? (

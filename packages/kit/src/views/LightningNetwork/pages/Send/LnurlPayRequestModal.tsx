@@ -38,16 +38,24 @@ function LnurlPayRequestModal() {
     useRoute<
       RouteProp<IModalSendParamList, EModalSendRoutes.LnurlPayRequest>
     >();
+  const routeParams = route.params;
+  const dAppQuery =
+    useDappQuery<IModalSendParamList[EModalSendRoutes.LnurlPayRequest]>();
+  const { $sourceInfo } = dAppQuery;
+  const { accountId, networkId, lnurlDetails, transfersInfo } =
+    routeParams.isSendFlow ? routeParams : dAppQuery;
 
-  const { accountId, networkId, lnurlDetails, transfersInfo, isSendFlow } =
-    route.params;
-  const origin = new URL(lnurlDetails.url).origin;
-
-  const { $sourceInfo } = useDappQuery();
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const origin = useMemo(() => {
+    if (lnurlDetails?.url) {
+      return new URL(lnurlDetails.url).origin;
+    }
+    return undefined;
+  }, [lnurlDetails?.url]);
 
   const [isLoading, setIsLoading] = useState(false);
   const sendConfirm = useSendConfirm({ accountId, networkId });
@@ -58,7 +66,7 @@ function LnurlPayRequestModal() {
     canContinueOperate,
     riskLevel,
     urlSecurityInfo,
-  } = useRiskDetection({ origin });
+  } = useRiskDetection({ origin: origin ?? '' });
 
   const amountMin = Math.floor(Number(lnurlDetails?.minSendable ?? 0) / 1000);
   const amountMax = Math.floor(Number(lnurlDetails?.maxSendable ?? 0) / 1000);
@@ -170,10 +178,10 @@ function LnurlPayRequestModal() {
         <DAppRequestLayout
           title={intl.formatMessage({ id: 'title__lnurl_pay' })}
           subtitleShown={false}
-          origin={origin}
+          origin={origin ?? ''}
           urlSecurityInfo={urlSecurityInfo}
         >
-          {isSendFlow ? (
+          {routeParams.isSendFlow ? (
             <DAppAccountListStandAloneItemForHomeScene />
           ) : (
             <DAppAccountListStandAloneItem readonly />
@@ -200,7 +208,7 @@ function LnurlPayRequestModal() {
           }}
           onConfirm={onConfirm}
           onCancel={() => {
-            if (!isSendFlow) {
+            if (!routeParams.isSendFlow) {
               dappApprove.reject();
             }
           }}
