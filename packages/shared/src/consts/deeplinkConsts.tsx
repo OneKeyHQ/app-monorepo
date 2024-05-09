@@ -3,6 +3,16 @@ export const ONEKEY_APP_DEEP_LINK = `${ONEKEY_APP_DEEP_LINK_NAME}://`; // onekey
 export const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
 export const WALLET_CONNECT_DEEP_LINK = `${WALLET_CONNECT_DEEP_LINK_NAME}://`;
 
+export enum EOneKeyDeepLinkPath {
+  url_account = 'url_account',
+}
+export type IEOneKeyDeepLinkParams = {
+  [EOneKeyDeepLinkPath.url_account]: {
+    networkCode: string;
+    address: string;
+  };
+};
+
 // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
 export const ONEKEY_UNIVERSAL_LINK_HOST = 'app.onekey.so';
 export const WalletConnectUniversalLinkPath = 'wc/connect/wc';

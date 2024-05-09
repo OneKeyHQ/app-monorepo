@@ -21,6 +21,7 @@ declare global {
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
 
+  var $rootAppNavigation: IAppNavigation | undefined;
   var $appIsReduxReady: boolean;
   var $onekey: IWindowOneKeyHub;
   var $backgroundApiProxy: IBackgroundApi;

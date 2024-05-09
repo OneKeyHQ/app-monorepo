@@ -78,6 +78,7 @@ export enum EOnekeyDomain {
 
 export enum EAccountSelectorSceneName {
   home = 'home',
+  homeUrlAccount = 'homeUrlAccount',
   swap = 'swap',
   discover = 'discover',
   settings = 'settings',

@@ -13,7 +13,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  AccountSelectorActiveAccountLegacy,
   AccountSelectorProviderMirror,
   AccountSelectorTriggerLegacy,
 } from '../../../components/AccountSelector';
@@ -23,7 +22,6 @@ function HomeAccountSelectorInfoDemo() {
   return (
     <YStack mx="$2" my="$4">
       <AccountSelectorTriggerLegacy num={0} />
-      <AccountSelectorActiveAccountLegacy num={0} />
       <Button
         onPress={() => {
           // void backgroundApiProxy.serviceHardware.showEnterPinOnDeviceDialog();
@@ -42,7 +40,7 @@ function HomeAccountSelectorInfoDemo() {
   );
 }
 
-export default function HomePageHeaderView() {
+export default function DemoHomePageHeaderView() {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
   const [headerHighMode, setHeaderHighMode] = useState(true);
@@ -88,7 +86,7 @@ export default function HomePageHeaderView() {
         >
           <HomeAccountSelectorInfoDemo />
         </AccountSelectorProviderMirror>
-        <SizableText>Header View Simple</SizableText>
+        <SizableText>DEMO Header View Simple</SizableText>
         <SizableText>{`Header Height ${headerHighMode.toString()}`}</SizableText>
         {headerHighMode ? <SizableText py="$10">Very high</SizableText> : null}
         <Button onPress={headerHeightCall}>切换高度</Button>

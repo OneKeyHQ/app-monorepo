@@ -102,6 +102,10 @@ function isHwAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isHwWallet({ walletId });
 }
+const URL_ACCOUNT_ID = `${WALLET_TYPE_WATCHING}--global-url-account`;
+function isUrlAccountFn({ accountId }: { accountId: string | undefined }) {
+  return accountId === URL_ACCOUNT_ID;
+}
 
 function buildWatchingAccountId({
   coinType,
@@ -117,7 +121,7 @@ function buildWatchingAccountId({
   isUrlAccount?: boolean;
 }) {
   if (isUrlAccount) {
-    return `${WALLET_TYPE_WATCHING}--global-url-account`;
+    return URL_ACCOUNT_ID;
   }
   const pubOrAddress = xpub || address;
   if (!pubOrAddress) {
@@ -567,6 +571,7 @@ export default {
   isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
   isOthersWallet,
+  isUrlAccountFn,
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,

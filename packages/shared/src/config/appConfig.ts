@@ -34,6 +34,9 @@ export const ONEKEY_APP_TEST_UPDATE_URL =
   'https://data.onekey.so/pre-config.json';
 export const ONEKY_API_URL = 'https://rest.onekeytest.com';
 export const ONEKY_TEST_API_URL = 'https://rest.onekeytest.com';
+// https://1key.so
+export const WEB_APP_URL = 'https://wallet.onekeytest.com';
+export const WEB_APP_URL_DEV = 'https://wallet.onekeytest.com';
 
 export const EXT_RATE_URL = {
   'chrome':

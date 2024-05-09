@@ -76,7 +76,10 @@ const buildLinking = (routes: typeof rootRouter): LinkingOptions<any> => {
   const allowList = buildAllowList(screenHierarchyConfig);
   return {
     enabled: true,
-    prefixes: [routerPrefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
+
+    // ****** Dangerously, DO NOT add any prefix here, it will expose all route url to deeplink ******
+    // prefixes: [routerPrefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
+    prefixes: [],
 
     getStateFromPath,
     /**

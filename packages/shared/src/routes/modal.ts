@@ -11,6 +11,7 @@ import type { IDiscoveryModalParamList } from './discovery';
 import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
+import type { IModalUrlAccountParamList } from './modalUrlAccount';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalReceiveParamList } from './receive';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
@@ -18,6 +19,7 @@ import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
 import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
+import type { IUniversalSearchParamList } from './universalSearch';
 import type { IModalWebViewParamList } from './webView';
 
 export enum EModalRoutes {
@@ -32,6 +34,7 @@ export enum EModalRoutes {
   ChainSelectorModal = 'ChainSelectorModal',
   SendModal = 'SendModal',
   ReceiveModal = 'ReceiveModal',
+  UrlAccountModal = 'UrlAccountModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
   LiteCardModal = 'LiteCardModal',
   CloudBackupModal = 'CloudBackupModal',
@@ -41,6 +44,7 @@ export enum EModalRoutes {
   AppUpdateModal = 'AppUpdateModal',
   FiatCryptoModal = 'FiatCryptoModal',
   KeyTagModal = 'KeyTagModal',
+  UniversalSearchModal = 'UniversalSearchModal',
 }
 
 export type IModalParamList = {
@@ -56,6 +60,7 @@ export type IModalParamList = {
   [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
   [EModalRoutes.SendModal]: IModalSendParamList;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
+  [EModalRoutes.UrlAccountModal]: IModalUrlAccountParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
   [EModalRoutes.CloudBackupModal]: ICloudBackupParamList;
@@ -65,4 +70,5 @@ export type IModalParamList = {
   [EModalRoutes.AppUpdateModal]: IAppUpdatePagesParamList;
   [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
+  [EModalRoutes.UniversalSearchModal]: IUniversalSearchParamList;
 };

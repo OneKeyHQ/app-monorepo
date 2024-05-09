@@ -1,10 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Button, Input, Page, Stack, XStack } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -18,6 +18,7 @@ import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 import type { RouteProp } from '@react-navigation/core';
 
 export default function ScanQrCodeModal() {
+  const [inputText, setInputText] = useState<string>('');
   const intl = useIntl();
   const route =
     useRoute<
@@ -50,6 +51,27 @@ export default function ScanQrCodeModal() {
     [pickImage],
   );
 
+  const debugInput = useMemo(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      // check callback handler of useParseQRCode
+      return (
+        <XStack>
+          <Stack flex={1}>
+            <Input
+              value={inputText}
+              onChangeText={setInputText}
+              flex={1}
+              placeholder="demo qrcode scan text"
+            />
+          </Stack>
+
+          <Button onPress={() => callback(inputText)}>Test</Button>
+        </XStack>
+      );
+    }
+    return null;
+  }, [callback, inputText]);
+
   return (
     <Page>
       <Page.Header
@@ -62,6 +84,7 @@ export default function ScanQrCodeModal() {
       />
       <Page.Body>
         <ScanQrCode handleBarCodeScanned={callback} />
+        {debugInput}
       </Page.Body>
     </Page>
   );

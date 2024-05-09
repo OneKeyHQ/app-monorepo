@@ -1,6 +1,7 @@
 import { parseQRCode as parse } from './utils/parseQRCode';
 import { EQRCodeHandlerType } from './utils/parseQRCode/type';
 
+// yarn jest packages/kit-bg/src/services/ServiceScanQRCode/index.test.ts
 describe('useParseQRCode', () => {
   it('should parse as migrate', async () => {
     expect(await parse('onekey-wallet://migrate/192.168.1.2')).toEqual(
@@ -363,6 +364,9 @@ describe('useParseQRCode', () => {
       expect.objectContaining({
         type: EQRCodeHandlerType.URL,
         data: {
+          'hostname': 'www.google.com',
+          'origin': 'https://www.google.com',
+          'pathname': '/search',
           url: 'https://www.google.com/search?q=onekey',
           urlSchema: 'https',
           urlPathList: ['www.google.com', 'search'],
@@ -376,6 +380,9 @@ describe('useParseQRCode', () => {
       expect.objectContaining({
         type: EQRCodeHandlerType.DEEPLINK,
         data: {
+          'hostname': 'search',
+          'origin': 'null',
+          'pathname': '/list',
           url: 'onekey-wallet://search/list?q=onekey',
           urlSchema: 'onekey-wallet',
           urlPathList: ['search', 'list'],

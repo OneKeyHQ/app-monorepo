@@ -1,14 +1,8 @@
-import { memo, useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Dialog,
-  Page,
-  SizableText,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -21,11 +15,8 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 const AddressBookHashButton = () => {
   const onPress = useCallback(async () => {
@@ -48,15 +39,6 @@ const AddressBookHashButton = () => {
   );
 };
 
-function TestRefreshCmp() {
-  const {
-    activeAccount: { accountName },
-  } = useActiveAccount({ num: 0 });
-  console.log('TestRefresh refresh', accountName);
-  return <Button>TestRefresh: {accountName}</Button>;
-}
-const TestRefresh = memo(TestRefreshCmp);
-
 const TabMe = () => {
   const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
@@ -65,7 +47,6 @@ const TabMe = () => {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const onExpand = useCallback(() => {
     extUtils.openUrlInTab(EXT_HTML_FILES.uiExpandTab).catch(console.error);
   }, []);
@@ -112,17 +93,7 @@ const TabMe = () => {
           >
             重置密码设置
           </Button>
-          <Button
-            onPress={async () => {
-              const r = await backgroundApiProxy.serviceSend.demoSend({
-                networkId: activeAccount.network?.id || '',
-                accountId: activeAccount.account?.id || '',
-              });
-              console.log('demoSend done:', r);
-            }}
-          >
-            测试发送流程(使用首页的账户选择器)
-          </Button>
+
           <Button
             onPress={() => {
               navigation.pushModal(EModalRoutes.DAppConnectionModal, {
@@ -132,10 +103,6 @@ const TabMe = () => {
           >
             DApp 连接管理
           </Button>
-          <SizableText>
-            {activeAccount.network?.id}, {activeAccount.account?.id}
-          </SizableText>
-          <TestRefresh />
         </YStack>
       </Page.Body>
     </Page>
@@ -143,16 +110,7 @@ const TabMe = () => {
 };
 
 function TabMeContainer() {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-      }}
-      enabledNum={[0]}
-    >
-      <TabMe />
-    </AccountSelectorProviderMirror>
-  );
+  return <TabMe />;
 }
 
 export default TabMeContainer;
