@@ -1,5 +1,6 @@
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 import type { ICurveName } from './coreTypesBase';
@@ -10,7 +11,6 @@ import type { IEncodedTxCosmos } from '../chains/cosmos/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
-import type { IEncodedTxLightning } from '../chains/lightning/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
