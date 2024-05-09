@@ -1,6 +1,12 @@
 import { useCallback, useState } from 'react';
 
-import { ListView, Page, SearchBar, Toast, View } from '@onekeyhq/components';
+import {
+  Page,
+  SearchBar,
+  SectionList,
+  SizableText,
+  View,
+} from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
@@ -13,12 +19,15 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 
+interface IUniversalSection {
+  title: string;
+  data: IUniversalSearchResultItem[];
+}
+
 export function UniversalSearch() {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [list, setList] = useState<IUniversalSearchResultItem[] | undefined>(
-    [],
-  );
+  const [sections, setSections] = useState<IUniversalSection[]>([]);
   const handleTextChange = useCallback(
     async (val: string) => {
       const input = val?.trim?.() || '';
@@ -27,7 +36,12 @@ export function UniversalSearch() {
         networkId: activeAccount?.network?.id,
         searchTypes: [EUniversalSearchType.Address],
       });
-      setList(result?.[EUniversalSearchType.Address]?.items);
+      setSections([
+        {
+          title: 'Wallet',
+          data: result?.[EUniversalSearchType.Address]?.items || [],
+        },
+      ]);
       // const firstAddressItemPayload =
       //   result?.[EUniversalSearchType.Address]?.items?.[0]?.payload;
       // console.log(input, result);
@@ -45,6 +59,15 @@ export function UniversalSearch() {
     },
     [activeAccount?.network?.id],
   );
+
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: IUniversalSection }) => (
+      <SizableText px="$5" pb={0} size="$headingSm">
+        {section.title}
+      </SizableText>
+    ),
+    [],
+  );
   return (
     <Page>
       <Page.Header title="Search" />
@@ -52,8 +75,9 @@ export function UniversalSearch() {
         <View p="$5">
           <SearchBar onSearchTextChange={handleTextChange} />
         </View>
-        <ListView
-          data={list}
+        <SectionList
+          sections={sections}
+          renderSectionHeader={renderSectionHeader}
           renderItem={({ item }: { item: IUniversalSearchResultItem }) => (
             <ListItem
               onPress={() => {
