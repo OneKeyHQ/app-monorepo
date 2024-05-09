@@ -349,7 +349,7 @@ export default class Vault extends VaultBase {
     const localEstimateFee = estimateFee(encodedTx);
     const feeInfo = specifiedFeeRate
       ? estimateFee(encodedTx, Number(specifiedFeeRate))
-      : Math.max(remoteEstimateFee, localEstimateFee);
+      : Math.min(remoteEstimateFee, localEstimateFee);
     return {
       nativeSymbol: network.symbol,
       nativeDecimals: network.decimals,
