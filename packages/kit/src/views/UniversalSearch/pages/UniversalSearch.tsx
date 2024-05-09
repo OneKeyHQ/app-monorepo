@@ -85,7 +85,6 @@ export function UniversalSearch() {
   );
 
   const renderResult = useCallback(() => {
-    console.log('searchStatus--', searchStatus);
     switch (searchStatus) {
       case ESearchStatus.init:
         return null;
