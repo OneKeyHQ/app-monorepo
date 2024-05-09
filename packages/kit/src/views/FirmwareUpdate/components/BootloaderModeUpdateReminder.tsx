@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -13,8 +14,10 @@ export function BootloaderModeUpdateReminder() {
   const actions = useFirmwareUpdateActions();
 
   useEffect(() => {
-    const fn = () => {
-      actions.showBootloaderMode({ connectId: undefined });
+    const fn = (
+      event: IAppEventBusPayload[EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode],
+    ) => {
+      actions.showBootloaderMode({ connectId: event.connectId });
     };
     appEventBus.on(EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode, fn);
 

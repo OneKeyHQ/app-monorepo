@@ -1,6 +1,7 @@
 /* eslint-disable max-classes-per-file */
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
@@ -399,6 +400,12 @@ export class NotInBootLoaderMode extends OneKeyHardwareError {
         defaultMessage: 'NotInBootLoaderMode',
       }),
     );
+
+    if (props?.payload?.connectId) {
+      appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode, {
+        connectId: props?.payload?.connectId,
+      });
+    }
   }
 
   override code = HardwareErrorCode.DeviceUnexpectedBootloaderMode;

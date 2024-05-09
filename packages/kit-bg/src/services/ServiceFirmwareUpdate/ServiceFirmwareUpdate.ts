@@ -215,14 +215,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       return;
     }
     const showBootloaderUpdateModal = () => {
-      // native can use connectId detect at bootloader mode
-      if (platformEnv.isNative) {
-        return;
-      }
-      appEventBus.emit(
-        EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
-        undefined,
-      );
+      appEventBus.emit(EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode, {
+        connectId,
+      });
     };
     if (!this.detectMap.shouldDetect({ connectId })) {
       return;

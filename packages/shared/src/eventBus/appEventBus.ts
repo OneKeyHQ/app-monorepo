@@ -84,7 +84,9 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
-  [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: undefined;
+  [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
+    connectId: string | undefined;
+  };
   [EAppEventBusNames.ShowFirmwareUpdateForce]: {
     connectId: string | undefined;
   };

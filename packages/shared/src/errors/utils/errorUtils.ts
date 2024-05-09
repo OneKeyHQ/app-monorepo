@@ -109,12 +109,14 @@ export function normalizeErrorProps(
     alwaysAppendDefaultMessage?: boolean;
   },
 ): IOneKeyError {
+  // props.message
   let msg: string | undefined = isString(props) ? props : props?.message;
+
+  // i18n message
   const key =
     (isString(props) ? undefined : props?.key) ||
     config?.defaultKey ||
     undefined;
-
   if (!msg && key && appLocale.intl.formatMessage && !platformEnv.isJest) {
     msg = appLocale.intl.formatMessage(
       { id: key },
@@ -125,11 +127,17 @@ export function normalizeErrorProps(
     }
   }
 
+  // device error message
   if (!msg && isObject(props) && props.payload) {
     msg = getDeviceErrorPayloadMessage(props.payload);
   }
 
-  msg = msg || config?.defaultMessage || '';
+  // fallback to default message
+  if (!msg && config?.defaultMessage) {
+    msg = config?.defaultMessage;
+  }
+
+  msg = msg || '';
 
   if (config?.alwaysAppendDefaultMessage) {
     if (config?.defaultMessage) {
