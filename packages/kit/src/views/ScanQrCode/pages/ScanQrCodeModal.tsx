@@ -79,6 +79,9 @@ export default function ScanQrCodeModal() {
           id: 'title__scan_qr_code',
         })}
         headerTransparent
+        headerTitleStyle={{
+          color: '#ffffff',
+        }}
         headerTintColor="white"
         headerRight={headerRightCall}
       />
