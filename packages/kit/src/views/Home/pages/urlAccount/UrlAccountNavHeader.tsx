@@ -133,7 +133,7 @@ function OpenInAppButton() {
                 ) : null}
                 <QRCode value={text} logoSvg="OnekeyBrand" size={240} />
               </Stack>
-              <XStack mt="$6">
+              <XStack py="$5" mt="$5" px="$5" backgroundColor="$bgSubdued">
                 <SizableText flex={1}>Don’t have the app yet?</SizableText>
                 <Button
                   size="small"
