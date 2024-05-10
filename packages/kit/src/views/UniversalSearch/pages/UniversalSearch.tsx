@@ -9,10 +9,12 @@ import {
   SectionList,
   SizableText,
   Skeleton,
+  Stack,
   View,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
@@ -37,11 +39,15 @@ enum ESearchStatus {
 }
 
 const SkeletonItem = () => (
-  <XStack p="$2.5" alignItems="center" space="$4">
+  <XStack px="$5" py="$2" alignItems="center">
     <Skeleton w="$10" h="$10" radius="round" />
-    <YStack space="$3">
-      <Skeleton h="$3" w="$32" />
-      <Skeleton h="$3" w="$24" />
+    <YStack ml="$3">
+      <Stack py="$1.5">
+        <Skeleton h="$3" w="$32" />
+      </Stack>
+      <Stack py="$1.5">
+        <Skeleton h="$3" w="$24" />
+      </Stack>
     </YStack>
   </XStack>
 );
@@ -78,14 +84,14 @@ export function UniversalSearch() {
     setSearchStatus(ESearchStatus.loading);
   }, []);
 
-  const renderSectionHeader = useCallback(
-    ({ section }: { section: IUniversalSection }) => (
-      <SizableText px="$5" pb={0} size="$headingSm">
-        {section.title}
-      </SizableText>
-    ),
-    [],
-  );
+  // const renderSectionHeader = useCallback(
+  //   ({ section }: { section: IUniversalSection }) => (
+  //     <SizableText px="$5" pb={0} size="$headingSm">
+  //       {section.title}
+  //     </SizableText>
+  //   ),
+  //   [],
+  // );
 
   const renderResult = useCallback(() => {
     switch (searchStatus) {
@@ -94,7 +100,7 @@ export function UniversalSearch() {
 
       case ESearchStatus.loading:
         return (
-          <View px="$5">
+          <View>
             <SkeletonItem />
             <SkeletonItem />
             <SkeletonItem />
@@ -105,7 +111,7 @@ export function UniversalSearch() {
         return (
           <SectionList
             sections={sections}
-            renderSectionHeader={renderSectionHeader}
+            // renderSectionHeader={renderSectionHeader}
             ListEmptyComponent={
               <Empty icon="SearchOutline" title="No Results" />
             }
@@ -124,11 +130,13 @@ export function UniversalSearch() {
                 renderAvatar={
                   <NetworkAvatar
                     networkId={item.payload.network.id}
-                    size="$8"
+                    size="$10"
                   />
                 }
                 title={item.payload.network.shortname}
-                subtitle={item.payload.addressInfo.displayAddress}
+                subtitle={accountUtils.shortenAddress({
+                  address: item.payload.addressInfo.displayAddress,
+                })}
               />
             )}
             estimatedItemSize="$16"
@@ -137,7 +145,7 @@ export function UniversalSearch() {
       default:
         break;
     }
-  }, [navigation, renderSectionHeader, searchStatus, sections]);
+  }, [navigation, searchStatus, sections]);
 
   return (
     <Page>
