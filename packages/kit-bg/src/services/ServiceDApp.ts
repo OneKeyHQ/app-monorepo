@@ -35,7 +35,6 @@ import type {
   IConnectionStorageType,
   IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
-import { IProxyResponse } from '@onekeyhq/shared/types/proxy';
 
 import ServiceBase from './ServiceBase';
 
@@ -174,6 +173,7 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
+      // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
       void extUtils.openStandaloneWindow({
         routes: routeNames,
         params: routeParams,

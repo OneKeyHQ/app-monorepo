@@ -1,1 +1,1 @@
-export * from './UrlAccountLanding';
+export default {};
