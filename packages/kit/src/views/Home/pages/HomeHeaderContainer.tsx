@@ -13,7 +13,6 @@ function HomeHeaderContainer() {
       <Stack testID="Wallet-Tab-Header" p="$5">
         <HomeSelector mb="$2.5" />
         <Stack
-          space="$5"
           $gtLg={{
             flexDirection: 'row',
             justifyContent: 'space-between',
