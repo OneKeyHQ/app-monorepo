@@ -5,7 +5,6 @@ import * as ExpoSharing from 'expo-sharing';
 import {
   Button,
   Dialog,
-  Icon,
   IconButton,
   QRCode,
   SizableText,
@@ -120,6 +119,7 @@ function OpenInAppButton() {
               >
                 {deepLinkUrl && openByAppButtonLabel ? (
                   <Button
+                    mb="$4"
                     onPress={() => {
                       console.log(
                         'URL Account openByApp deepLinkUrl',
@@ -193,7 +193,7 @@ function ShareButton() {
         }
       }}
       size="small"
-      icon="ShareArrowSolid"
+      icon="ShareOutline"
     />
   );
 }
