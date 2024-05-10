@@ -57,7 +57,6 @@ import type {
   IDBAddAccountDerivationParams,
   IDBAddress,
   IDBApiGetContextOptions,
-  IDBConnectedSite,
   IDBContext,
   IDBCreateHDWalletParams,
   IDBCreateHWWalletParams,
@@ -71,8 +70,6 @@ import type {
   IDBSetAccountNameParams,
   IDBSetAccountTemplateParams,
   IDBSetWalletNameAndAvatarParams,
-  IDBSignedMessage,
-  IDBSignedTransaction,
   IDBUpdateDeviceSettingsParams,
   IDBUpdateFirmwareVerifiedParams,
   IDBWallet,
@@ -1584,14 +1581,22 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       });
 
       // add account record
-      const { added, addedIds } = await db.txAddRecords({
+      let { added, addedIds } = await db.txAddRecords({
         tx,
         name: ELocalDBStoreNames.Account,
         records: accounts,
         skipIfExists: true,
       });
 
-      const actualAdded = added - removed;
+      let actualAdded = added - removed;
+
+      // filter out url account
+      const allAddedIds = addedIds;
+      addedIds = addedIds.filter(
+        (id) => !accountUtils.isUrlAccountFn({ accountId: id }),
+      );
+      const urlAccountsCount = allAddedIds.length - addedIds.length;
+      actualAdded = Math.max(0, actualAdded - urlAccountsCount);
 
       // update singleton wallet.accounts & nextAccountId
       if (actualAdded > 0 && this.isSingletonWallet({ walletId })) {
@@ -1677,7 +1682,10 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
     return {
       accounts: accounts
-        .filter(Boolean)
+        .filter(
+          (item) =>
+            item && !accountUtils.isUrlAccountFn({ accountId: item.id }),
+        )
         .map((account) => this.refillAccountInfo({ account })),
     };
   }
