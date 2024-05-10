@@ -118,7 +118,6 @@ function WeblnMakeInvoiceModal() {
             amountReadOnly={Number(makeInvoiceParams.amount) > 0}
             descriptionLabelId="form__withdraw_description"
             memo={makeInvoiceParams.defaultMemo}
-            origin={$sourceInfo?.origin ?? ''}
           />
         </DAppRequestLayout>
       </Page.Body>
