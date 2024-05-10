@@ -246,9 +246,12 @@ export default class Vault extends VaultBase {
   getConfirmedUTXOs<T extends { value: string | number }>(
     utxos: T[],
     amount: string,
+    fee: string,
     minTransferAmount = '0',
   ): T[] {
-    const transactionAmount = new BigNumber(amount).plus(minTransferAmount);
+    const transactionAmount = new BigNumber(amount)
+      .plus(fee)
+      .plus(minTransferAmount);
     const confirmedUTXOs = utxos.sort((a, b) =>
       new BigNumber(b.value).gt(a.value) ? 1 : -1,
     );
@@ -260,9 +263,15 @@ export default class Vault extends VaultBase {
         break;
       }
     }
+
+    // all amount
+    if (sum.eq(amount) && i === confirmedUTXOs.length) {
+      return utxos;
+    }
     if (sum.lt(transactionAmount)) {
       return [];
     }
+
     return confirmedUTXOs.slice(0, i + 1);
   }
 
@@ -332,8 +341,8 @@ export default class Vault extends VaultBase {
       })),
       new BigNumber(encodedTx.transferInfo?.amount || 0)
         .shiftedBy(network.decimals)
-        .plus(encodedTx?.gas || 0)
         .toFixed(),
+      new BigNumber(encodedTx?.gas || 0).toFixed(),
       await this.getMinTransferAmount(),
     );
 
@@ -380,6 +389,7 @@ export default class Vault extends VaultBase {
       new BigNumber(encodedTx.transferInfo?.amount || 0)
         .shiftedBy(network.decimals)
         .toFixed(),
+      '0',
       await this.getMinTransferAmount(),
     ).length;
     const estimateSizedSize = estimateSize(vinLength, encodedTx.outputs);
