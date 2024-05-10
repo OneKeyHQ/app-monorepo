@@ -7,6 +7,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
@@ -16,6 +17,7 @@ import type {
   IAddressValidation,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
+  IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 import type {
   IProxyRequest,
@@ -29,16 +31,6 @@ import ServiceBase from './ServiceBase';
 type IAddressNetworkIdParams = {
   networkId: string;
   address: string;
-};
-
-type IQueryAddressArgs = {
-  networkId: string;
-  address: string;
-  accountId?: string;
-  enableNameResolve?: boolean;
-  enableAddressBook?: boolean;
-  enableWalletName?: boolean;
-  enableAddressInteractionStatus?: boolean;
 };
 
 @backgroundClass()
@@ -142,6 +134,26 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
+  private async verifySendFundToSelf({
+    networkId,
+    accountId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountId: string;
+    accountAddress: string;
+  }): Promise<boolean> {
+    const networkIds = [getNetworkIdsMap().trx];
+    if (!networkIds.includes(networkId)) {
+      return false;
+    }
+    const acc = await this.backgroundApi.serviceAccount.getAccount({
+      networkId,
+      accountId,
+    });
+    return acc.address.toLowerCase() === accountAddress.toLowerCase();
+  }
+
   @backgroundMethod()
   public async queryAddress({
     networkId,
@@ -151,7 +163,8 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
-  }: IQueryAddressArgs) {
+    enableVerifySendFundToSelf,
+  }: IQueryCheckAddressArgs) {
     const result: IAddressQueryResult = { input: address };
     if (!networkId) {
       return result;
@@ -168,6 +181,18 @@ class ServiceAccountProfile extends ServiceBase {
       return result;
     }
     const resolveAddress = result.resolveAddress ?? result.input;
+    if (enableVerifySendFundToSelf && accountId && resolveAddress) {
+      const disableFundToSelf = await this.verifySendFundToSelf({
+        networkId,
+        accountId,
+        accountAddress: resolveAddress,
+      });
+      if (disableFundToSelf) {
+        result.validStatus = 'prohibit-send-to-self';
+        return result;
+      }
+    }
+
     if (enableAddressBook && resolveAddress) {
       // handleAddressBookName
       const addressBookItem =
