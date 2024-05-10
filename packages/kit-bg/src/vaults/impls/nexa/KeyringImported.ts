@@ -24,7 +24,7 @@ export class KeyringImported extends KeyringImportedBase {
   override async prepareAccounts(
     params: IPrepareImportedAccountsParams,
   ): Promise<IDBAccount[]> {
-    return this.basePrepareAccountsImported(params);
+    return this.basePrepareAccountsImportedUtxo(params);
   }
 
   override async signTransaction(
