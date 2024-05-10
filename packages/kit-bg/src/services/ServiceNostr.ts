@@ -92,7 +92,7 @@ class ServiceNostr extends ServiceBase {
         );
       const vault = await vaultFactory.getVault({ networkId, accountId });
       const signedEvent =
-        await this.backgroundApi.serviceHardware.withHardwareProcessing(
+        await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
           async () => {
             const signedTx = await vault.signTransaction({
               unsignedTx: {
@@ -142,7 +142,7 @@ class ServiceNostr extends ServiceBase {
       accountId,
     })) as IVaultNostr;
     const encrypted =
-      await this.backgroundApi.serviceHardware.withHardwareProcessing(
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
           const signedTx = await vault.encrypt({
             pubkey,
@@ -238,7 +238,7 @@ class ServiceNostr extends ServiceBase {
       accountId,
     })) as IVaultNostr;
     const signedMessage =
-      await this.backgroundApi.serviceHardware.withHardwareProcessing(
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
           const signedTx = await vault.keyring.signMessage({
             messages: [
