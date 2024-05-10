@@ -131,7 +131,6 @@ export type IFetchHistoryTxDetailsParams = {
   networkId: string;
   txid: string;
   accountAddress: string;
-  status: EDecodedTxStatus;
 };
 
 export type IFetchHistoryTxDetailsResp = {
