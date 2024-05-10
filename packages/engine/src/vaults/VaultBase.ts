@@ -789,7 +789,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   getConfirmedUTXOs<T extends { value: string | number }>(
     utxos: T[],
     amount: string,
+    minTransferAmount = '0',
   ): T[] {
+    const transactionAmount = new BigNumber(amount).plus(minTransferAmount);
     const confirmedUTXOs = utxos.sort((a, b) =>
       new BigNumber(b.value).gt(a.value) ? 1 : -1,
     );
@@ -797,11 +799,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     let i = 0;
     for (i = 0; i < confirmedUTXOs.length; i += 1) {
       sum = sum.plus(confirmedUTXOs[i].value);
-      if (sum.gt(amount)) {
+      if (sum.gt(transactionAmount)) {
         break;
       }
     }
-    if (sum.lt(amount)) {
+    if (sum.lt(transactionAmount)) {
       return [];
     }
     return confirmedUTXOs.slice(0, i + 1);

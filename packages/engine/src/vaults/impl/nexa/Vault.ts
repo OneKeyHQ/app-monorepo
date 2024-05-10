@@ -288,6 +288,15 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
+  async getMinTransferAmount() {
+    const network = await this.getNetwork();
+    return network.settings.minTransferAmount
+      ? new BigNumber(network.settings.minTransferAmount)
+          .shiftedBy(network.decimals)
+          .toFixed()
+      : undefined;
+  }
+
   override async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxNexa,
   ): Promise<IUnsignedTxPro> {
@@ -302,6 +311,7 @@ export default class Vault extends VaultBase {
         .shiftedBy(network.decimals)
         .plus(encodedTx?.gas || 0)
         .toFixed(),
+      await this.getMinTransferAmount(),
     );
 
     if (confirmedUTXOs.length > client.MAX_TX_NUM_VIN) {
@@ -347,6 +357,7 @@ export default class Vault extends VaultBase {
       new BigNumber(encodedTx.transferInfo?.amount || 0)
         .shiftedBy(network.decimals)
         .toFixed(),
+      await this.getMinTransferAmount(),
     ).length;
     const estimateSizedSize = estimateSize(vinLength, encodedTx.outputs);
     const remoteEstimateFee = await client.estimateFee(estimateSizedSize);
