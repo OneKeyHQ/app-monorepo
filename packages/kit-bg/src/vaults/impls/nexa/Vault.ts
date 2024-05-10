@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { getDisplayAddress } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import type {
   IEncodedTx,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -21,7 +23,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -47,10 +48,24 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
-  override buildAccountAddressDetail(
+  override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    throw new Error('Method not implemented.');
+    const { account, networkId } = params;
+    const network = await this.getNetwork();
+    const displayAddress = getDisplayAddress({
+      address: checkIsDefined(account.pub),
+      chainId: network.chainId,
+    });
+    return {
+      networkId,
+      normalizedAddress: displayAddress,
+      displayAddress,
+      address: displayAddress,
+      baseAddress: checkIsDefined(account.pub),
+      isValid: true,
+      allowEmptyAddress: false,
+    };
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
