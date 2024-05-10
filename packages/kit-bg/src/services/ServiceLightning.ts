@@ -97,7 +97,7 @@ class ServiceLightning extends ServiceBase {
         accountId,
         reason: EReasonForNeedPassword.LightningNetworkAuth,
       });
-    await this.backgroundApi.serviceHardware.withHardwareProcessing(
+    await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const vault = (await vaultFactory.getVault({
           networkId,

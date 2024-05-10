@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import type {
   IDBAccount,
+  IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -117,6 +118,7 @@ export interface IAccountSelectorActiveAccountInfo {
   dbAccount: IDBAccount | undefined;
   accountName: string;
   wallet: IDBWallet | undefined;
+  device: IDBDevice | undefined;
   network: IServerNetwork | undefined;
   deriveType: IAccountDeriveTypes;
   deriveInfo?: IAccountDeriveInfo | undefined;
@@ -129,6 +131,7 @@ export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
     dbAccount: undefined,
     accountName: '',
     wallet: undefined,
+    device: undefined,
     network: undefined,
     deriveType: 'default',
     deriveInfoItems: [],

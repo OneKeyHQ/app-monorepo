@@ -16,7 +16,7 @@ import type {
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
-import localDb from '../dbs/local/localDbInstance';
+import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 
 import ServiceBase from './ServiceBase';

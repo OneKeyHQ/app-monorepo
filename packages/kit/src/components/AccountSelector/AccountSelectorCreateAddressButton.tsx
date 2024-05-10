@@ -5,11 +5,14 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 
+import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
+
 export function AccountSelectorCreateAddressButton({
   num,
   children,
   selectAfterCreate,
   account,
+  activeAccount,
 }: {
   num: number;
   children?: React.ReactNode;
@@ -20,6 +23,7 @@ export function AccountSelectorCreateAddressButton({
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
   };
+  activeAccount?: IAccountSelectorActiveAccountInfo;
 }) {
   const { serviceAccount } = backgroundApiProxy;
 
@@ -31,6 +35,7 @@ export function AccountSelectorCreateAddressButton({
       borderWidth={0}
       variant="tertiary"
       onPress={async () => {
+        console.log({ account, activeAccount });
         if (
           !account ||
           !account.walletId ||

@@ -279,6 +279,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
     <Stack flex={1} pb={bottom}>
       <WalletDetailsHeader
         wallet={focusedWalletInfo?.wallet}
+        device={focusedWalletInfo?.device}
         titleProps={{
           opacity: editMode && editable ? 0 : 1,
         }}

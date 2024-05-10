@@ -570,7 +570,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           if (device && device.featuresInfo?.passphrase_protection) {
             // wait previous action done, wait device ready
             if (!params.hideCheckingDeviceLoading) {
-              await backgroundApiProxy.serviceHardware.showCheckingDeviceDialog(
+              await backgroundApiProxy.serviceHardwareUI.showCheckingDeviceDialog(
                 {
                   connectId: device.connectId,
                 },

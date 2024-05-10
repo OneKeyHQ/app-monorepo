@@ -37,6 +37,11 @@ const SettingSignatureRecordModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SignatureRecord'),
 );
 
+const FirmwareUpdateDevSettings = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
+);
+
 export const ModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -79,6 +84,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingSignatureRecordModal,
     component: SettingSignatureRecordModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevFirmwareUpdateModal,
+    component: FirmwareUpdateDevSettings,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

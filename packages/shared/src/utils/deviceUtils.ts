@@ -1,16 +1,24 @@
-import {
-  getDeviceBootloaderVersion,
-  getDeviceFirmwareVersion,
-} from '@onekeyfe/hd-core';
-
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import type { IOneKeyDeviceFeatures } from '../../types';
-import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+import {
+  EFirmwareUpdateTipMessages,
+  EOneKeyDeviceMode,
+} from '../../types/device';
+import { CoreSDKLoader } from '../hardware/instance';
+import platformEnv from '../platformEnv';
+
+import { DeviceScannerUtils } from './DeviceScannerUtils';
+
+import type { IOneKeyDeviceFeatures } from '../../types/device';
+import type { IDeviceType, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
 type IGetDeviceVersionParams = {
-  device: SearchDevice;
-  features: IOneKeyDeviceFeatures;
+  device: SearchDevice | undefined;
+  features: IOneKeyDeviceFeatures | undefined;
 };
 
 // TODO move to db converter
@@ -29,32 +37,36 @@ function dbDeviceToSearchDevice(device: IDBDevice) {
 // web sdk return KnownDevice
 // ble sdk return SearchDevice
 // db return IDBDevice
-function getDeviceVersion(params: IGetDeviceVersionParams): {
+async function getDeviceVersion(params: IGetDeviceVersionParams): Promise<{
   bleVersion: string;
   firmwareVersion: string;
   bootloaderVersion: string;
-} {
+}> {
+  const { getDeviceBootloaderVersion, getDeviceFirmwareVersion } =
+    await CoreSDKLoader();
   const { device, features } = params;
-  const knownDevice = device as KnownDevice;
-  const dbDevice = device as IDBDevice;
+  const knownDevice = device as KnownDevice | undefined;
+  const dbDevice = device as IDBDevice | undefined;
   const usedFeatures =
     features || dbDevice?.featuresInfo || knownDevice?.features;
 
-  const bootloaderVersion =
-    (getDeviceBootloaderVersion(usedFeatures) || []).join('.') ||
-    usedFeatures?.bootloader_version ||
-    '';
+  const bootloaderVersion = usedFeatures
+    ? (getDeviceBootloaderVersion(usedFeatures) || []).join('.') ||
+      usedFeatures?.bootloader_version ||
+      ''
+    : '';
 
   const bleVersion =
     (knownDevice?.bleFirmwareVersion || []).join('.') ||
     usedFeatures?.ble_ver ||
     '';
 
-  const firmwareVersion =
-    (getDeviceFirmwareVersion(usedFeatures) || []).join('.') ||
-    (knownDevice?.firmwareVersion || []).join('.') ||
-    usedFeatures?.onekey_firmware_version ||
-    '';
+  const firmwareVersion = usedFeatures
+    ? (getDeviceFirmwareVersion(usedFeatures) || []).join('.') ||
+      (knownDevice?.firmwareVersion || []).join('.') ||
+      usedFeatures?.onekey_firmware_version ||
+      ''
+    : '';
 
   return {
     bleVersion,
@@ -63,15 +75,91 @@ function getDeviceVersion(params: IGetDeviceVersionParams): {
   };
 }
 
-function getDeviceVersionStr(params: IGetDeviceVersionParams) {
+async function getDeviceVersionStr(params: IGetDeviceVersionParams) {
   const { bleVersion, firmwareVersion, bootloaderVersion } =
-    getDeviceVersion(params);
+    await getDeviceVersion(params);
   // keep empty if version not found
   return `${bootloaderVersion}--${bleVersion}--${firmwareVersion}`;
+}
+
+async function getDeviceTypeFromFeatures({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures;
+}): Promise<IDeviceType> {
+  const { getDeviceType } = await CoreSDKLoader();
+  return Promise.resolve(getDeviceType(features));
+}
+
+let scanner: DeviceScannerUtils | undefined;
+function getDeviceScanner({
+  backgroundApi,
+}: {
+  backgroundApi: IBackgroundApi;
+}) {
+  if (!scanner) {
+    scanner = new DeviceScannerUtils({ backgroundApi });
+  }
+  return scanner;
+}
+
+async function getDeviceModeFromFeatures({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures;
+}): Promise<EOneKeyDeviceMode> {
+  // https://github.com/OneKeyHQ/hardware-js-sdk/blob/onekey/packages/core/src/device/Device.ts#L503
+  if (features?.bootloader_mode) return EOneKeyDeviceMode.bootloader;
+  if (!features?.initialized) return EOneKeyDeviceMode.initialize;
+  if (features?.no_backup) return EOneKeyDeviceMode.seedless;
+  return EOneKeyDeviceMode.normal;
+}
+
+async function isBootloaderModeByFeatures({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures;
+}) {
+  return (
+    (await getDeviceModeFromFeatures({ features })) ===
+    EOneKeyDeviceMode.bootloader
+  );
+}
+
+async function isBootloaderModeFromSearchDevice({
+  device,
+}: {
+  device: { mode?: string };
+}) {
+  return device?.mode === 'bootloader';
+}
+
+function isConfirmOnDeviceAction(state: IHardwareUiState | undefined) {
+  return (
+    state?.action === EHardwareUiStateAction.REQUEST_PIN ||
+    state?.action === EHardwareUiStateAction.REQUEST_BUTTON ||
+    state?.payload?.firmwareTipData?.message ===
+      EFirmwareUpdateTipMessages.ConfirmOnDevice
+  );
+}
+
+function getUpdatingConnectId({
+  connectId,
+}: {
+  connectId: string | undefined;
+}) {
+  return platformEnv.isNative ? connectId : undefined;
 }
 
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
   getDeviceVersionStr,
+  getDeviceTypeFromFeatures,
+  getDeviceModeFromFeatures,
+  isBootloaderModeByFeatures,
+  isBootloaderModeFromSearchDevice,
+  getDeviceScanner,
+  getUpdatingConnectId,
+  isConfirmOnDeviceAction,
 };

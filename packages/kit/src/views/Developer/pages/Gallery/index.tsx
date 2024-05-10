@@ -72,6 +72,13 @@ const ErrorToastGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ErrorToastGallery'
     ),
 );
+
+const FirmwareUpdateGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FirmwareUpdateGallery'
+    ),
+);
 const FormGallery = LazyLoadPage(
   () =>
     import(
@@ -498,6 +505,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentJotaiGlobal, component: JotaiGlobalGallery },
   { name: EGalleryRoutes.ComponentLocalDB, component: LocalDBGallery },
   { name: EGalleryRoutes.ComponentErrorToast, component: ErrorToastGallery },
+  {
+    name: EGalleryRoutes.ComponentFirmwareUpdate,
+    component: FirmwareUpdateGallery,
+  },
   {
     name: EGalleryRoutes.ComponentForm,
     component: FormGallery,

@@ -4,8 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, ESwitchSize, Switch, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Section } from '../Section';
 
@@ -16,6 +18,7 @@ import { StartTimePanel } from './StartTimePanel';
 export const DevSettingsSection = () => {
   const [settings] = useDevSettingsPersistAtom();
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
@@ -67,6 +70,17 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionPressItem
+        title="FirmwareUpdateDevSettings"
+        testID="firmware-update-dev-settings-menu"
+        onPress={() => {
+          navigation.push(EModalSettingRoutes.SettingDevFirmwareUpdateModal);
+          // const dialog = Dialog.cancel({
+          //   title: 'FirmwareUpdateDevSettings',
+          //   renderContent: <FirmwareUpdateDevSettings />,
+          // });
+        }}
+      />
       <SectionPressItem
         title="Clear App Data"
         testID="clear-data-menu"

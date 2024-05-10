@@ -61,5 +61,5 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
   //   });
   // }, [actions, isReady, num, othersWalletAccountId]);
 
-  useDebugComponentRemountLog({ name: 'useNetworkAutoSelect' });
+  useDebugComponentRemountLog({ name: `useNetworkAutoSelect:${num}` });
 }

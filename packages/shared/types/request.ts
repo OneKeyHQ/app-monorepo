@@ -7,5 +7,6 @@ export interface IJsonRpcResponsePro<T> extends IJsonRpcResponse<T> {
 export type IOneKeyAPIBaseResponse<T = any> = {
   code: number;
   message: string;
+  messageId?: string;
   data: T;
 };

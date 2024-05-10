@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -23,8 +24,10 @@ import { useAutoSelectAccount } from './hooks/useAutoSelectAccount';
 import { useAutoSelectDeriveType } from './hooks/useAutoSelectDeriveType';
 import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
 
-function useExternalAccountActivate({ num }: { num: number }) {
+function useCurrentAccountActivate({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
+  const activeAccountRef = useRef(activeAccount);
+  activeAccountRef.current = activeAccount;
   const connectionInfo = (
     activeAccount.account as IDBExternalAccount | undefined
   )?.connectionInfo;
@@ -33,6 +36,7 @@ function useExternalAccountActivate({ num }: { num: number }) {
     if (!connectionInfo) {
       return;
     }
+    // activate connector will register account events
     void backgroundApiProxy.serviceDappSide.activateConnector({
       connectionInfo,
     });
@@ -50,6 +54,10 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
+  useDebugComponentRemountLog({
+    name: `AccountSelectorEffects:${sceneName}:${sceneUrl || ''}:${num}`,
+  });
+
   useEffect(() => {
     setContextData({
       sceneName,
@@ -65,7 +73,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   useAutoSelectAccount({ num });
   useAutoSelectNetwork({ num });
   useAutoSelectDeriveType({ num });
-  useExternalAccountActivate({ num });
+  useCurrentAccountActivate({ num });
 
   const reloadActiveAccountInfo = useCallback(async () => {
     if (!isReady) {

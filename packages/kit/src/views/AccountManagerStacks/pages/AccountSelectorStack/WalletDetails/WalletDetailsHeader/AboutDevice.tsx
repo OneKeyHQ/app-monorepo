@@ -1,4 +1,7 @@
 import { Dialog, IconButton, SizableText, XStack } from '@onekeyhq/components';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 function DescriptionList({
   label,
@@ -16,27 +19,40 @@ function DescriptionList({
     </XStack>
   );
 }
-
-const ListData = [
-  {
-    label: 'Serial Number',
-    description: 'Bixin21042001987',
-  },
-  {
-    label: 'Bluetooth Name',
-    description: 'K8101',
-  },
-  {
-    label: 'Firmware Version',
-    description: '3.4.0',
-  },
-  {
-    label: 'Bluetooth Firmware Version',
-    description: '1.4.1',
-  },
-];
-
-export function AboutDevice() {
+export function AboutDevice({ device }: { device?: IDBDevice | undefined }) {
+  const { result: listData = [] } = usePromiseResult(async () => {
+    const featuresInfo = device?.featuresInfo;
+    if (!featuresInfo) {
+      return [];
+    }
+    const { bleVersion, firmwareVersion, bootloaderVersion } =
+      await deviceUtils.getDeviceVersion({
+        device,
+        features: device.featuresInfo,
+      });
+    return [
+      {
+        label: 'Serial Number',
+        description: device.uuid || '--',
+      },
+      {
+        label: 'Bluetooth Name',
+        description: featuresInfo.ble_name || '--',
+      },
+      {
+        label: 'Firmware Version',
+        description: firmwareVersion || '--',
+      },
+      {
+        label: 'Bluetooth Firmware Version',
+        description: bleVersion || '--',
+      },
+      {
+        label: 'Bootloader Version',
+        description: bootloaderVersion || '--',
+      },
+    ];
+  }, [device]);
   return (
     <IconButton
       title="About"
@@ -48,7 +64,7 @@ export function AboutDevice() {
           showFooter: false,
           renderContent: (
             <>
-              {ListData.map((item) => (
+              {listData.map((item) => (
                 <DescriptionList
                   key={item.label}
                   label={item.label}

@@ -304,6 +304,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceHardwareUI() {
+    const Service =
+      require('../services/ServiceHardwareUI') as typeof import('../services/ServiceHardwareUI');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHardwareUI', { value });
+    return value;
+  }
+
+  get serviceFirmwareUpdate() {
+    const Service =
+      require('../services/ServiceFirmwareUpdate') as typeof import('../services/ServiceFirmwareUpdate');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceFirmwareUpdate', { value });
+    return value;
+  }
+
   get serviceOnboarding() {
     const Service =
       require('../services/ServiceOnboarding') as typeof import('../services/ServiceOnboarding');

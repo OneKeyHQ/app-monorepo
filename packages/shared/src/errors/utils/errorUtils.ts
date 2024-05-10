@@ -1,11 +1,14 @@
-import { isString, isUndefined, omitBy } from 'lodash';
+import { isObject, isString, isUndefined, omitBy } from 'lodash';
 
 import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
 
-import type { IOneKeyError } from '../types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyHardwareErrorPayload,
+} from '../types/errorTypes';
 import type { MessageDescriptor } from 'react-intl';
 
 // TODO also update JsBridgeBase.toPlainError
@@ -91,6 +94,12 @@ export const errorsIntlFormatter: {
   formatMessage: undefined,
 };
 
+export function getDeviceErrorPayloadMessage(
+  payload: IOneKeyHardwareErrorPayload,
+) {
+  return payload.error || payload.message || '';
+}
+
 export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
@@ -100,12 +109,14 @@ export function normalizeErrorProps(
     alwaysAppendDefaultMessage?: boolean;
   },
 ): IOneKeyError {
+  // props.message
   let msg: string | undefined = isString(props) ? props : props?.message;
+
+  // i18n message
   const key =
     (isString(props) ? undefined : props?.key) ||
     config?.defaultKey ||
     undefined;
-
   if (!msg && key && appLocale.intl.formatMessage && !platformEnv.isJest) {
     msg = appLocale.intl.formatMessage(
       { id: key },
@@ -115,7 +126,18 @@ export function normalizeErrorProps(
       msg = [config?.defaultMessage, key].filter(Boolean).join(' ');
     }
   }
-  msg = msg || config?.defaultMessage || '';
+
+  // device error message
+  if (!msg && isObject(props) && props.payload) {
+    msg = getDeviceErrorPayloadMessage(props.payload);
+  }
+
+  // fallback to default message
+  if (!msg && config?.defaultMessage) {
+    msg = config?.defaultMessage;
+  }
+
+  msg = msg || '';
 
   if (config?.alwaysAppendDefaultMessage) {
     if (config?.defaultMessage) {

@@ -271,19 +271,20 @@ class ServiceSend extends ServiceBase {
         reason: EReasonForNeedPassword.CreateTransaction,
       });
     // signTransaction
-    const tx = await this.backgroundApi.serviceHardware.withHardwareProcessing(
-      async () => {
-        const signedTx = await vault.signTransaction({
-          unsignedTx,
-          password,
-          deviceParams,
-          signOnly,
-        });
-        console.log('signTx@vault.signTransaction', signedTx);
-        return signedTx;
-      },
-      { deviceParams },
-    );
+    const tx =
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          const signedTx = await vault.signTransaction({
+            unsignedTx,
+            password,
+            deviceParams,
+            signOnly,
+          });
+          console.log('signTx@vault.signTransaction', signedTx);
+          return signedTx;
+        },
+        { deviceParams },
+      );
 
     console.log('signTx@serviceSend.signTransaction', tx);
 
@@ -564,7 +565,7 @@ class ServiceSend extends ServiceBase {
         reason: EReasonForNeedPassword.CreateTransaction,
       });
     const signedMessage =
-      await this.backgroundApi.serviceHardware.withHardwareProcessing(
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
           const [_signedMessage] = await vault.keyring.signMessage({
             messages: [validUnsignedMessage as IUnsignedMessage],

@@ -22,7 +22,7 @@ export function HomeScreen() {
     <WalletOptionItem
       icon="AiImagesOutline"
       label="Homescreen"
-      onPress={() =>
+      onPress={() => {
         Dialog.show({
           title: 'Homescreen',
           renderContent: (
@@ -81,8 +81,8 @@ export function HomeScreen() {
               </XStack>
             </ScrollView>
           ),
-        })
-      }
+        });
+      }}
     />
   );
 }

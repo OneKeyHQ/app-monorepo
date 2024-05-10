@@ -63,7 +63,7 @@ function useFirmwareVerifyBase({
       }
       throw error;
     } finally {
-      await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog({
+      await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
         connectId: device.connectId || '',
         skipDeviceCancel,
       });
@@ -443,7 +443,7 @@ export function useFirmwareVerifyDialog({
         ),
         async onClose() {
           if (device.connectId) {
-            await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog(
+            await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
               {
                 connectId: device.connectId,
                 skipDeviceCancel: true, // FirmwareAuthenticationDialogContent onClose

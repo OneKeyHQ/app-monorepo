@@ -5,8 +5,10 @@ import { isObject, isString } from 'lodash';
 
 import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
+import { EOneKeyErrorClassNames } from '../types/errorTypes';
+
+import type { IOneKeyAPIBaseResponse } from '../../../types/request';
 import type {
-  EOneKeyErrorClassNames,
   IOneKeyError,
   IOneKeyErrorI18nInfo,
   IOneKeyHardwareErrorPayload,
@@ -110,4 +112,12 @@ export class OneKeyError<
 
     return serialized;
   }
+}
+
+export class OneKeyServerApiError extends OneKeyError<
+  any,
+  IOneKeyAPIBaseResponse
+> {
+  override className?: EOneKeyErrorClassNames | undefined =
+    EOneKeyErrorClassNames.OneKeyServerApiError;
 }

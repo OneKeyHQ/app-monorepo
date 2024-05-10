@@ -3,11 +3,18 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
-import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import {
+  devSettingsPersistAtom,
+  firmwareUpdateDevSettingsPersistAtom,
+} from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 
-import type { IDevSettingsKeys } from '../states/jotai/atoms/devSettings';
+import type {
+  IDevSettingsKeys,
+  IFirmwareUpdateDevSettings,
+  IFirmwareUpdateDevSettingsKeys,
+} from '../states/jotai/atoms/devSettings';
 
 @backgroundClass()
 class ServiceDevSetting extends ServiceBase {
@@ -32,6 +39,18 @@ class ServiceDevSetting extends ServiceBase {
         [name]: value,
       },
     }));
+  }
+
+  @backgroundMethod()
+  public async getFirmwareUpdateDevSettings<
+    T extends IFirmwareUpdateDevSettingsKeys,
+  >(key: T): Promise<IFirmwareUpdateDevSettings[T] | undefined> {
+    const dev = await devSettingsPersistAtom.get();
+    if (!dev.enabled) {
+      return undefined;
+    }
+    const fwDev = await firmwareUpdateDevSettingsPersistAtom.get();
+    return fwDev[key];
   }
 }
 

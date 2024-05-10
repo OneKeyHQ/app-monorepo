@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorJotaiProvider } from '../../states/jotai/contexts/accountSelector';
@@ -18,6 +19,10 @@ function AccountSelectorRootProviderCmp({
   sceneName: EAccountSelectorSceneName;
   sceneUrl?: string;
 }) {
+  useDebugComponentRemountLog({
+    name: `AccountSelectorRootProvider:${sceneName}:${sceneUrl || ''}`,
+  });
+
   const config = useMemo(
     () => ({ sceneName, sceneUrl }),
     [sceneName, sceneUrl],

@@ -7,7 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import localDb from '../dbs/local/localDbInstance';
+import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
 import { passwordPersistAtom } from '../states/jotai/atoms/password';

@@ -19,6 +19,7 @@ type IWalletDetailsHeaderProps = {
 
 export function WalletDetailsHeader({
   wallet,
+  device,
   editable,
   editMode,
   onEditButtonPress,
@@ -42,7 +43,7 @@ export function WalletDetailsHeader({
           borderRightWidth={StyleSheet.hairlineWidth}
           borderRightColor="$borderSubdued"
         >
-          {showAboutDevice ? <AboutDevice /> : null}
+          {showAboutDevice ? <AboutDevice device={device} /> : null}
           {showRemoveButton ? <WalletRemoveButton wallet={wallet} /> : null}
         </XStack>
       ) : null}
