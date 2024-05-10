@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
@@ -8,11 +7,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InvalidAddress,
   OneKeyInternalError,
@@ -40,12 +35,10 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -54,7 +47,6 @@ import type {
   IGetPrivateKeyFromImportedResult,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 
 export default class Vault extends VaultBase {
@@ -96,7 +88,7 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
     }
-    const { to, amount, tokenInfo } = transferInfo;
+    const { to, amount } = transferInfo;
     const dbAccount = await this.getAccount();
     let destination = to;
     let destinationTag: number | undefined = transferInfo.destinationTag
@@ -113,31 +105,47 @@ export default class Vault extends VaultBase {
       }
     }
 
-    // FIXME: autofill logic
-    // const client = await this.getClient();
-    // const currentLedgerIndex = await client.getLedgerIndex();
-    // const prepared = await client.autofill({
-    //   TransactionType: 'Payment',
-    //   Account: dbAccount.address,
-    //   Amount: XRPL.xrpToDrops(amount),
-    //   Destination: destination,
-    //   DestinationTag: destinationTag,
-    //   LastLedgerSequence: currentLedgerIndex + 50,
-    // });
-    // return {
-    //   ...prepared,
-    // };
+    const [currentLedgerIndex] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<number>({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: 'getLedgerIndex',
+              params: [],
+            },
+          },
+        ],
+      });
+    const [prepared] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
+        Awaited<ReturnType<XRPL.Client['autofill']>>
+      >({
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: 'autofill',
+              params: [
+                {
+                  TransactionType: 'Payment',
+                  Account: dbAccount.address,
+                  Amount: XRPL.xrpToDrops(amount),
+                  Destination: destination,
+                  DestinationTag: destinationTag,
+                  LastLedgerSequence: currentLedgerIndex + 50,
+                },
+              ],
+            },
+          },
+        ],
+      });
 
     return {
-      'TransactionType': 'Payment',
-      'Account': 'rKmyYKs9gyKV93PYFa6tdPUW5tNg1NsK2B',
-      'Amount': '110000',
-      'Destination': 'r4kJAnV216Bx6WBmS5qGZxaSmuTeF4uxAK',
-      'LastLedgerSequence': 87747153,
-      'Flags': 0,
-      'Sequence': 71730694,
-      'Fee': '12',
-    };
+      ...prepared,
+    } as IEncodedTxXrp;
   }
 
   override async buildDecodedTx(
@@ -219,9 +227,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve(params.unsignedTx);
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
+  override broadcastTransaction(): Promise<ISignedTxPro> {
     throw new Error('Method not implemented.');
   }
 
@@ -236,7 +242,7 @@ export default class Vault extends VaultBase {
     return Promise.reject(new InvalidAddress());
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
+  override validateXpub(): Promise<IXpubValidation> {
     throw new Error('Method not implemented.');
   }
 
@@ -249,7 +255,7 @@ export default class Vault extends VaultBase {
     return Promise.resolve({ privateKey });
   }
 
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+  override validateXprvt(): Promise<IXprvtValidation> {
     throw new Error('Method not implemented.');
   }
 
