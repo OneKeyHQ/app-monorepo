@@ -339,11 +339,20 @@ export default class Vault extends VaultBase {
   ): Promise<IFeeInfo> {
     const network = await this.getNetwork();
     const client = await this.getSDKClient();
-    const estimateSizedSize = estimateSize(encodedTx);
+    const vinLength = this.getConfirmedUTXOs(
+      encodedTx.inputs.map((input) => ({
+        ...input,
+        value: input.satoshis,
+      })),
+      new BigNumber(encodedTx.transferInfo?.amount || 0)
+        .shiftedBy(network.decimals)
+        .toFixed(),
+    ).length;
+    const estimateSizedSize = estimateSize(vinLength, encodedTx.outputs);
     const remoteEstimateFee = await client.estimateFee(estimateSizedSize);
-    const localEstimateFee = estimateFee(encodedTx);
+    const localEstimateFee = estimateFee(vinLength, encodedTx.outputs);
     const feeInfo = specifiedFeeRate
-      ? estimateFee(encodedTx, Number(specifiedFeeRate))
+      ? estimateFee(vinLength, encodedTx.outputs, Number(specifiedFeeRate))
       : Math.max(remoteEstimateFee, localEstimateFee);
     return {
       nativeSymbol: network.symbol,
