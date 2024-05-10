@@ -14,7 +14,7 @@ export function UniversalSearchInput() {
     });
   }, [navigation]);
   return (
-    <View position="relative">
+    <View w={280}>
       <Input size="small" key="searchInput" placeholder="Search" />
       <View
         position="absolute"
