@@ -2,8 +2,9 @@ import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
+import { HeaderLeft } from './HeaderLeft';
 import { HeaderRight } from './HeaderRight';
-import { HeaderLeft } from './HedaerLeft';
+import { HeaderTitle } from './HeaderTitle';
 
 import type { ITabPageHeaderProp } from './type';
 
@@ -19,6 +20,7 @@ export function TabPageHeader({
     <>
       <Page.Header headerShown={false} />
       <XStack
+        alignItems="center"
         justifyContent="space-between"
         px="$5"
         pt={top}
@@ -27,7 +29,10 @@ export function TabPageHeader({
         <View>
           <HeaderLeft sceneName={sceneName} />
         </View>
-        {showHeaderRight ? <HeaderRight /> : null}
+        <View>
+          <HeaderTitle sceneName={sceneName} />
+        </View>
+        {showHeaderRight ? <HeaderRight sceneName={sceneName} /> : null}
       </XStack>
     </>
   );

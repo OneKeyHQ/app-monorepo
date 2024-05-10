@@ -9,6 +9,7 @@ export * from './dAppConnection';
 export * from './discovery';
 export * from './gallery';
 export * from './modal';
+export * from './modalUrlAccount';
 export * from './onboarding';
 export * from './receive';
 export * from './firmwareUpdate';
