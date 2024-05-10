@@ -230,10 +230,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     ) {
       throw new OneKeyInternalError('Invalid signature');
     }
-    const sign = await client.getAuthorization({
+    const authParams = {
       accountId: dbAccount.id,
       networkId: network.id,
-    });
+    };
+    await client.checkAuthWithRefresh(authParams);
+    const sign = await client.getAuthorization(authParams);
 
     const rawTx = {
       amount,

@@ -206,9 +206,21 @@ class ClientLightning {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
     },
   );
+
+  async checkAuthWithRefresh(params: { accountId: string; networkId: string }) {
+    return this.retryOperation(
+      async () => {
+        await this.checkAuth(params);
+      },
+      isAuthError,
+      async () => {
+        await this.backgroundApi.serviceLightning.exchangeToken(params);
+      },
+    );
+  }
 
   getConfig = memoizee(
     async () =>
