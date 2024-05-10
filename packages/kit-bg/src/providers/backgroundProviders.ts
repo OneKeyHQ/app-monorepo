@@ -10,10 +10,10 @@ import ProviderApiEthereum from './ProviderApiEthereum';
 // import ProviderApiNear from './ProviderApiNear';
 // import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
-// import ProviderApiSolana from './ProviderApiSolana';
+import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 // import ProviderApiSui from './ProviderApiSui';
-// import ProviderApiTron from './ProviderApiTron';
+import ProviderApiTron from './ProviderApiTron';
 import ProviderApiWebln from './ProviderApiWebln';
 
 import type ProviderApiBase from './ProviderApiBase';
@@ -34,9 +34,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.solana]: new ProviderApiSolana({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.solana]: new ProviderApiSolana({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.starcoin]: new ProviderApiStarcoin({
     //   backgroundApi,
     // }),
@@ -49,9 +49,9 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.conflux]: new ProviderApiConflux({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.tron]: new ProviderApiTron({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.tron]: new ProviderApiTron({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.algo]: new ProviderAlgo({
     //   backgroundApi,
     // }),

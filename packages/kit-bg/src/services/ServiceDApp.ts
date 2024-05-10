@@ -38,7 +38,9 @@ import type {
 
 import ServiceBase from './ServiceBase';
 
+import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -171,6 +173,7 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
+      // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
       void extUtils.openStandaloneWindow({
         routes: routeNames,
         params: routeParams,
@@ -247,11 +250,13 @@ class ServiceDApp extends ServiceBase {
     encodedTx,
     accountId,
     networkId,
+    signOnly,
   }: {
     request: IJsBridgeMessagePayload;
     encodedTx: IEncodedTx;
     accountId: string;
     networkId: string;
+    signOnly?: boolean;
   }) {
     return this.openModal({
       request,
@@ -260,6 +265,7 @@ class ServiceDApp extends ServiceBase {
         encodedTx,
         accountId,
         networkId,
+        signOnly,
       },
       fullScreen: true,
     });
@@ -732,7 +738,7 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async proxyRPCCall({
+  async proxyRPCCall<T>({
     networkId,
     request,
   }: {
@@ -743,17 +749,40 @@ class ServiceDApp extends ServiceBase {
     const results = await client.post<{
       data: {
         data: {
+          id: number | string;
           jsonrpc: string;
-          id: number;
-          result: unknown;
-        };
+          result: T;
+        }[];
       };
     }>('/wallet/v1/proxy/network', {
       networkId,
-      body: [request.id ? request : { ...request, id: 0 }],
+      body: [
+        {
+          route: 'rpc',
+          params: request.id ? request : { ...request, id: 0 },
+        },
+      ],
     });
 
-    return parseRPCResponse(results.data.data.data);
+    const data = results.data.data.data;
+
+    return data.map((item) => parseRPCResponse(item));
+  }
+
+  @backgroundMethod()
+  isWebEmbedApiReady() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.isWebEmbedApiReady;
+  }
+
+  @backgroundMethod()
+  callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.callWebEmbedApiProxy(data);
   }
 }
 

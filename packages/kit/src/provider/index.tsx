@@ -1,7 +1,9 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { WebViewWebEmbed } from '@onekeyhq/kit/src/views/Discovery/components/WebView/WebViewWebEmbed';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
@@ -25,6 +27,7 @@ const LastActivityTracker = LazyLoad(
 const flexStyle = { flex: 1 };
 
 export function KitProvider() {
+  useDebugComponentRemountLog({ name: 'KitProvider' });
   return (
     <GlobalJotaiReady>
       <ThemeProvider>
@@ -34,6 +37,7 @@ export function KitProvider() {
           </GestureHandlerRootView>
         </SplashProvider>
         <PasswordVerifyPromptMount />
+        <WebViewWebEmbed />
         <LastActivityTracker />
         <InAppNotification />
       </ThemeProvider>

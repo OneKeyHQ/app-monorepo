@@ -22,7 +22,7 @@
     "build:electron:mas": "electron-builder build -m --config electron-builder-mas.config.js",
     "build:electron:snap": "electron-builder build -l --config electron-builder-snap.config.js",
     "build": "yarn keytar && NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron --publish never\"",
-    "build:snap": "NODE_ENV=production && DESK_CHANNEL=ms-store sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:snap --publish never\"",
+    "build:snap": "NODE_ENV=production && sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:snap --publish never\"",
     "build:mac": "NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:mac --publish never\"",
     "build:mas": "yarn keytar && NODE_ENV=production sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:mas --publish never\"",
     "build:winms": "NODE_ENV=production && DESK_CHANNEL=ms-store sh -c \"yarn clean:build && yarn build:renderer && yarn build:main && yarn build:electron:winms --publish never\"",

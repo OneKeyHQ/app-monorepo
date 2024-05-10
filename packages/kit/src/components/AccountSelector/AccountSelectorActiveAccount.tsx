@@ -1,90 +1,19 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import {
-  Button,
   SizableText,
   Tooltip,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
-  useAccountSelectorActions,
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
-import { AccountSelectorSyncButton } from './AccountSelectorSyncButton';
-
-export function AccountSelectorActiveAccountLegacy({ num }: { num: number }) {
-  const { serviceAccount } = backgroundApiProxy;
-  const {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    activeAccount: { wallet, network, account, indexedAccount },
-  } = useActiveAccount({ num });
-  const actions = useAccountSelectorActions();
-
-  const [showFullAddress, setShowFullAddress] = useState(false);
-
-  const { selectedAccount } = useSelectedAccount({ num });
-
-  return (
-    <>
-      <SizableText>
-        {'>>>>>>'} {wallet?.name} -- {network?.name} --{' '}
-        {/* {JSON.stringify(indexedAccount)} */}
-        {selectedAccount?.deriveType}/{selectedAccount.indexedAccountId} --{' '}
-        {account?.name}
-        {selectedAccount.focusedWallet}
-      </SizableText>
-
-      {account?.address ? (
-        <>
-          <SizableText onPress={() => setShowFullAddress((v) => !v)}>
-            {showFullAddress
-              ? account.address || ''
-              : accountUtils.shortenAddress({
-                  address: account?.address || '',
-                })}
-          </SizableText>
-          <SizableText>{account?.id}</SizableText>
-          <SizableText>{account?.path}</SizableText>
-        </>
-      ) : (
-        <Button
-          onPress={async () => {
-            if (!selectedAccount) {
-              return;
-            }
-            const c = await serviceAccount.addHDOrHWAccounts({
-              walletId: selectedAccount?.walletId,
-              networkId: selectedAccount?.networkId,
-              indexedAccountId: selectedAccount?.indexedAccountId,
-              deriveType: selectedAccount?.deriveType,
-            });
-            console.log(c);
-            // await refreshCurrentAccount();
-            actions.current.refresh({ num });
-          }}
-        >
-          暂无账户，点击创建
-        </Button>
-      )}
-      <AccountSelectorSyncButton
-        from={{
-          sceneName: EAccountSelectorSceneName.home,
-          sceneNum: 0,
-        }}
-        num={num}
-      />
-      <XStack h="$4" />
-    </>
-  );
-}
 
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });

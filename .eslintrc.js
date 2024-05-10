@@ -45,7 +45,25 @@ const jsRules = {
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
 };
+const restrictedImportsPatterns = [
+  {
+    allowTypeImports: true,
+    group: ['@onekeyfe/hd-core'],
+    message: 'using `const {} = await CoreSDKLoader()` instead',
+  },
+  {
+    group: ['**/localDbInstance', '**/localDbInstance.native'],
+    message:
+      'import localDbInstance directly is not allowd, use localDb instead',
+  },
+];
 const tsRules = {
+  '@typescript-eslint/no-restricted-imports': [
+    'error',
+    {
+      patterns: [...restrictedImportsPatterns],
+    },
+  ],
   '@typescript-eslint/default-param-last': 'off',
   '@typescript-eslint/consistent-type-imports': [
     'error',
@@ -243,6 +261,7 @@ module.exports = {
           'error',
           {
             patterns: [
+              ...restrictedImportsPatterns,
               {
                 allowTypeImports: true,
                 group: ['@onekeyhq/kit/*', '@onekeyhq/kit-bg/*'],
@@ -266,6 +285,7 @@ module.exports = {
           'error',
           {
             patterns: [
+              ...restrictedImportsPatterns,
               {
                 allowTypeImports: true,
                 group: [
@@ -289,6 +309,7 @@ module.exports = {
           'error',
           {
             patterns: [
+              ...restrictedImportsPatterns,
               {
                 allowTypeImports: true,
                 group: [
@@ -318,6 +339,7 @@ module.exports = {
           'error',
           {
             patterns: [
+              ...restrictedImportsPatterns,
               {
                 allowTypeImports: true,
                 group: ['tamagui'],

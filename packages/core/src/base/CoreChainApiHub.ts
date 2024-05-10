@@ -14,10 +14,10 @@ import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
 // import CoreChainNear from '../chains/near';
 // import CoreChainNexa from '../chains/nexa';
-// import CoreChainSol from '../chains/sol';
+import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
 // import CoreChainSui from '../chains/sui';
-// import CoreChainTron from '../chains/tron';
+import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
 import CoreChainXrp from '../chains/xrp';
 
@@ -46,9 +46,9 @@ export class CoreChainApiHub {
 
   xrp = new CoreChainXrp();
 
-  // tron = new CoreChainTron();
+  tron = new CoreChainTron();
 
-  // sol = new CoreChainSol();
+  sol = new CoreChainSol();
 
   // near = new CoreChainNear();
 
