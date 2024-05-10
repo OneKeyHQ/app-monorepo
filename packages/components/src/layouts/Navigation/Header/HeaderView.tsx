@@ -175,4 +175,4 @@ function HeaderView({
 
 export default memo(HeaderView);
 
-export { NavBackButton } from './HeaderBackButton';
+export { NavBackButton, NavCloseButton } from './HeaderBackButton';

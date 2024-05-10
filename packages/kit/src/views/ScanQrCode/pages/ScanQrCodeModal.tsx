@@ -5,6 +5,7 @@ import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 
 import { Button, Input, Page, Stack, XStack } from '@onekeyhq/components';
+import { NavCloseButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -40,11 +41,28 @@ export default function ScanQrCodeModal() {
       if (data) callback(data);
     }
   }, [callback]);
+
+  const headerLeftCall = useCallback(
+    () => (
+      <Page.Close>
+        <NavCloseButton
+          iconProps={{
+            color: '$whiteA12',
+          }}
+        />
+      </Page.Close>
+    ),
+    [],
+  );
+
   const headerRightCall = useCallback(
     () => (
       <HeaderIconButton
         onPress={pickImage}
         icon="ImageSquareMountainOutline"
+        iconProps={{
+          color: '$whiteA12',
+        }}
         testID="scan-open-photo"
       />
     ),
@@ -64,7 +82,6 @@ export default function ScanQrCodeModal() {
               placeholder="demo qrcode scan text"
             />
           </Stack>
-
           <Button onPress={() => callback(inputText)}>Test</Button>
         </XStack>
       );
@@ -82,6 +99,7 @@ export default function ScanQrCodeModal() {
         headerTitleStyle={{
           color: '#ffffff',
         }}
+        headerLeft={headerLeftCall}
         headerTintColor="white"
         headerRight={headerRightCall}
       />
