@@ -25,7 +25,6 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
-  IGetAddressParams,
   IPrepareHardwareAccountsParams,
   ISignTransactionParams,
 } from '../../types';
@@ -169,6 +168,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           }) => {
             const sdk = await this.getHardwareSDKInstance();
 
+            console.log('evm-getAddress', { connectId, deviceId });
             const response = await sdk.evmGetAddress(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams, // passpharse params
               bundle: usedIndexes.map((index, arrIndex) => ({

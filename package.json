@@ -81,6 +81,7 @@
     "lru-cache": "^10.2.0",
     "memoizee": "^0.4.15",
     "mipd": "^0.0.7",
+    "mobile-detect": "^1.4.5",
     "natsort": "^2.0.3",
     "prettier": "^2.8.1",
     "punycode": "^2.3.1",

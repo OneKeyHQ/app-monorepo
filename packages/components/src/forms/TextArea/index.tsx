@@ -47,6 +47,7 @@ function BaseTextArea(
       selectionColor={selectionColor}
       cursor={sharedStyles.cursor}
       borderCurve="continuous"
+      editable={editable}
       {...props}
     />
   );

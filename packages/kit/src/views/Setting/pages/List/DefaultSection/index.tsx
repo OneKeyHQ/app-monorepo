@@ -7,7 +7,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
 import {
   useAddressBookPersistAtom,
   usePasswordPersistAtom,
@@ -23,6 +22,7 @@ import {
   EDAppConnectionModal,
   ELiteCardRoutes,
   EModalAddressBookRoutes,
+  EModalKeyTagRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
@@ -142,19 +142,18 @@ export const DefaultSection = () => {
           title={`${backupPlatform().cloudName} Backup`}
           drillIn
           onPress={async () => {
-            await checkBackupEntryStatus();
             navigation.pushModal(EModalRoutes.CloudBackupModal, {
               screen: ECloudBackupRoutes.CloudBackupHome,
             });
           }}
         />
       ) : null}
-      <ListItem
+      {/* <ListItem
         icon="RepeatOutline"
         title="Migration"
         drillIn
         onPress={() => {}}
-      />
+      /> */}
       {platformEnv.isNative ? (
         <ListItem
           icon="OnekeyLiteOutline"
@@ -171,7 +170,11 @@ export const DefaultSection = () => {
         icon="OnekeyKeytagOutline"
         title="OneKey KeyTag"
         drillIn
-        onPress={() => {}}
+        onPress={() => {
+          navigation.pushModal(EModalRoutes.KeyTagModal, {
+            screen: EModalKeyTagRoutes.UserOptions,
+          });
+        }}
       />
     </YStack>
   );

@@ -26,3 +26,30 @@ export const {
     enabled: !!platformEnv.isDev,
   },
 });
+
+export type IFirmwareUpdateDevSettings = {
+  lowBatteryLevel: boolean;
+  shouldUpdateBridge: boolean;
+  shouldUpdateFullRes: boolean;
+  shouldUpdateFromWeb: boolean;
+  allIsUpToDate: boolean;
+  usePreReleaseConfig: boolean;
+  forceUpdateResEvenSameVersion: boolean;
+};
+export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
+export const {
+  target: firmwareUpdateDevSettingsPersistAtom,
+  use: useFirmwareUpdateDevSettingsPersistAtom,
+} = globalAtom<IFirmwareUpdateDevSettings>({
+  persist: true,
+  name: EAtomNames.firmwareUpdateDevSettingsPersistAtom,
+  initialValue: {
+    lowBatteryLevel: false,
+    shouldUpdateBridge: false,
+    shouldUpdateFullRes: false,
+    shouldUpdateFromWeb: false,
+    allIsUpToDate: false,
+    usePreReleaseConfig: false,
+    forceUpdateResEvenSameVersion: false,
+  },
+});

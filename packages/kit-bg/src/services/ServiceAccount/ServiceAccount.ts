@@ -47,7 +47,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
-import localDb from '../../dbs/local/localDbInstance';
+import localDb from '../../dbs/local/localDb';
 import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 
@@ -388,7 +388,7 @@ class ServiceAccount extends ServiceBase {
       walletId,
     });
 
-    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         // addHDOrHWAccounts
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
@@ -1063,7 +1063,7 @@ class ServiceAccount extends ServiceBase {
     const { connectId } = dbDevice;
 
     // createHWHiddenWallet
-    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const passphraseState =
           await this.backgroundApi.serviceHardware.getPassphraseState({
@@ -1102,7 +1102,7 @@ class ServiceAccount extends ServiceBase {
   @toastIfError()
   async createHWWallet(params: IDBCreateHWWalletParamsBase) {
     // createHWWallet
-    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () => this.createHWWalletBase(params),
       {
         deviceParams: {
@@ -1340,7 +1340,8 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
     });
-    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+    // getHWAccountAddresses
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
         return accounts.map((account) => account.address);

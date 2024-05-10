@@ -6,10 +6,11 @@ import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avat
 import { AllWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 import type { IWalletProps } from '../../views/AccountManagerStacks/type';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export type IWalletAvatarBaseProps = {
   size?: SizeTokens;
-  img?: IAllWalletAvatarImageNames; // use img for WalletAvatarEdit
+  img?: IAllWalletAvatarImageNames | IDeviceType; // use img for WalletAvatarEdit
   wallet: IDBWallet | undefined;
 };
 export type IWalletAvatarProps = IWalletAvatarBaseProps & {
@@ -21,11 +22,7 @@ export function WalletAvatarBase({
   size,
   img,
   wallet,
-}: {
-  size?: SizeTokens;
-  img?: IAllWalletAvatarImageNames; // use img for WalletAvatarEdit
-  wallet: IDBWallet | undefined;
-}) {
+}: IWalletAvatarBaseProps) {
   const theImg = img || wallet?.avatarInfo?.img;
   if (!theImg) {
     return null;
