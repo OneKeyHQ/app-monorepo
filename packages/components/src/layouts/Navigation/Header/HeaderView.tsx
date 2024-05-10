@@ -144,7 +144,7 @@ function HeaderView({
             headerTitleStyle={{
               lineHeight: 28,
               fontWeight: '600',
-              ...headerTitleStyle,
+              ...(headerTitleStyle as any),
             }}
             headerTitleContainerStyle={{
               marginHorizontal: 0,
