@@ -1641,6 +1641,58 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const sol = {
+    'balance2FeeDecimals': 0,
+    'chainId': '101',
+    'code': 'sol',
+    'decimals': 9,
+    'extensions': {
+      'defaultStableTokens': [
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        'FR87nWEUxVgerFGhZM8Y4AggKGLnaXswr1Pd8wZ4kZcp',
+        '9mWRABuz2x6koTPCWiCPM49WUbcrNqGTHBV9T9k7y1o7',
+      ],
+      'position': 4,
+    },
+    'id': 'sol--101',
+    'impl': 'sol',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
+    'name': 'Solana',
+    'shortcode': 'sol',
+    'shortname': 'SOL',
+    'symbol': 'SOL',
+    'feeMeta': {
+      'code': 'sol',
+      'decimals': 9,
+      'symbol': 'SOL',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'solana',
+        'platform': 'solana',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'SOL1',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.solana.com/address/{address}',
+        'block': 'https://explorer.solana.com/block/{block}',
+        'name': 'https://explorer.solana.com/',
+        'transaction': 'https://explorer.solana.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     osmosis,
     cosmoshub,
@@ -1665,6 +1717,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     polygon,
     cardano,
     tron,
+    sol,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

@@ -250,11 +250,13 @@ class ServiceDApp extends ServiceBase {
     encodedTx,
     accountId,
     networkId,
+    signOnly,
   }: {
     request: IJsBridgeMessagePayload;
     encodedTx: IEncodedTx;
     accountId: string;
     networkId: string;
+    signOnly?: boolean;
   }) {
     return this.openModal({
       request,
@@ -263,6 +265,7 @@ class ServiceDApp extends ServiceBase {
         encodedTx,
         accountId,
         networkId,
+        signOnly,
       },
       fullScreen: true,
     });

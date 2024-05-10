@@ -140,6 +140,7 @@ function TxFeeContainer(props: IProps) {
         txFee.gas?.length ||
         txFee.feeUTXO?.length ||
         txFee.feeTron?.length ||
+        txFee.feeSol?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -149,6 +150,7 @@ function TxFeeContainer(props: IProps) {
           gasEIP1559: txFee.gasEIP1559?.[i],
           feeUTXO: txFee.feeUTXO?.[i],
           feeTron: txFee.feeTron?.[i],
+          feeSol: txFee.feeSol?.[i],
         };
 
         items.push({
@@ -157,6 +159,20 @@ function TxFeeContainer(props: IProps) {
           }),
           value: i,
           feeInfo,
+          type: EFeeType.Standard,
+        });
+      }
+
+      // only have base fee fallback
+      if (items.length === 0) {
+        items.push({
+          label: intl.formatMessage({
+            id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: 1 }),
+          }),
+          value: 1,
+          feeInfo: {
+            common: txFee.common,
+          },
           type: EFeeType.Standard,
         });
       }
