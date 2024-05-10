@@ -60,7 +60,6 @@ export class Nexa extends SimpleClient {
   async getTransaction(txHash: string): Promise<INexaTransaction> {
     return this.rpc.call<INexaTransaction>('blockchain.transaction.get', [
       txHash,
-      true,
     ]);
   }
 

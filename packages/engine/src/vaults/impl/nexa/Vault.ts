@@ -243,6 +243,29 @@ export default class Vault extends VaultBase {
     return Promise.resolve({} as IDecodedTxLegacy);
   }
 
+  getConfirmedUTXOs<T extends { value: string | number }>(
+    utxos: T[],
+    amount: string,
+    minTransferAmount = '0',
+  ): T[] {
+    const transactionAmount = new BigNumber(amount).plus(minTransferAmount);
+    const confirmedUTXOs = utxos.sort((a, b) =>
+      new BigNumber(b.value).gt(a.value) ? 1 : -1,
+    );
+    let sum = new BigNumber(0);
+    let i = 0;
+    for (i = 0; i < confirmedUTXOs.length; i += 1) {
+      sum = sum.plus(confirmedUTXOs[i].value);
+      if (sum.gt(transactionAmount)) {
+        break;
+      }
+    }
+    if (sum.lt(transactionAmount)) {
+      return [];
+    }
+    return confirmedUTXOs.slice(0, i + 1);
+  }
+
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxNexa> {
@@ -288,6 +311,15 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
+  async getMinTransferAmount() {
+    const network = await this.getNetwork();
+    return network.settings.minTransferAmount
+      ? new BigNumber(network.settings.minTransferAmount)
+          .shiftedBy(network.decimals)
+          .toFixed()
+      : undefined;
+  }
+
   override async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxNexa,
   ): Promise<IUnsignedTxPro> {
@@ -302,6 +334,7 @@ export default class Vault extends VaultBase {
         .shiftedBy(network.decimals)
         .plus(encodedTx?.gas || 0)
         .toFixed(),
+      await this.getMinTransferAmount(),
     );
 
     if (confirmedUTXOs.length > client.MAX_TX_NUM_VIN) {
@@ -339,11 +372,21 @@ export default class Vault extends VaultBase {
   ): Promise<IFeeInfo> {
     const network = await this.getNetwork();
     const client = await this.getSDKClient();
-    const estimateSizedSize = estimateSize(encodedTx);
+    const vinLength = this.getConfirmedUTXOs(
+      encodedTx.inputs.map((input) => ({
+        ...input,
+        value: input.satoshis,
+      })),
+      new BigNumber(encodedTx.transferInfo?.amount || 0)
+        .shiftedBy(network.decimals)
+        .toFixed(),
+      await this.getMinTransferAmount(),
+    ).length;
+    const estimateSizedSize = estimateSize(vinLength, encodedTx.outputs);
     const remoteEstimateFee = await client.estimateFee(estimateSizedSize);
-    const localEstimateFee = estimateFee(encodedTx);
+    const localEstimateFee = estimateFee(vinLength, encodedTx.outputs);
     const feeInfo = specifiedFeeRate
-      ? estimateFee(encodedTx, Number(specifiedFeeRate))
+      ? estimateFee(vinLength, encodedTx.outputs, Number(specifiedFeeRate))
       : Math.max(remoteEstimateFee, localEstimateFee);
     return {
       nativeSymbol: network.symbol,
