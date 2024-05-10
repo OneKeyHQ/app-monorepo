@@ -46,6 +46,7 @@ export default function ScanQrCodeModal() {
     () => (
       <Page.Close>
         <NavCloseButton
+          mr="$4"
           iconProps={{
             color: '$whiteA12',
           }}
