@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Input, View } from '@onekeyhq/components';
+import { Input, View, XStack } from '@onekeyhq/components';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 
@@ -14,7 +14,7 @@ export function UniversalSearchInput() {
     });
   }, [navigation]);
   return (
-    <View w={280} position="relative">
+    <XStack w={280}>
       <Input size="small" key="searchInput" placeholder="Search address" />
       <View
         position="absolute"
@@ -24,6 +24,6 @@ export function UniversalSearchInput() {
         bottom={0}
         onPress={toUniversalSearchPage}
       />
-    </View>
+    </XStack>
   );
 }
