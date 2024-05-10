@@ -31,7 +31,7 @@ function HomeAccountSelectorInfoDemo() {
       </Button>
       <Button
         onPress={() => {
-          void backgroundApiProxy.serviceHardware.showEnterPassphraseOnDeviceDialog();
+          void backgroundApiProxy.serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
         }}
       >
         硬件输入 Passphrase

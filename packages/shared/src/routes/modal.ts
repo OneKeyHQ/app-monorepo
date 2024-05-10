@@ -9,9 +9,9 @@ import type { ICloudBackupParamList } from './cloudBackup';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
 import type { IDiscoveryModalParamList } from './discovery';
 import type { IModalFiatCryptoParamList } from './fiatCrypto';
+import type { IModalFirmwareUpdateParamList } from './firmwareUpdate';
 import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
-import type { IModalUrlAccountParamList } from './modalUrlAccount';
 import type { IOnboardingParamList } from './onboarding';
 import type { IModalReceiveParamList } from './receive';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
@@ -30,11 +30,11 @@ export enum EModalRoutes {
   SwapModal = 'SwapModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
+  FirmwareUpdateModal = 'FirmwareUpdateModal',
   AssetSelectorModal = 'AssetSelectorModal',
   ChainSelectorModal = 'ChainSelectorModal',
   SendModal = 'SendModal',
   ReceiveModal = 'ReceiveModal',
-  UrlAccountModal = 'UrlAccountModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
   LiteCardModal = 'LiteCardModal',
   CloudBackupModal = 'CloudBackupModal',
@@ -56,11 +56,11 @@ export type IModalParamList = {
   [EModalRoutes.SwapModal]: IModalSwapParamList;
   [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
+  [EModalRoutes.FirmwareUpdateModal]: IModalFirmwareUpdateParamList;
   [EModalRoutes.AssetSelectorModal]: IAssetSelectorParamList;
   [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
   [EModalRoutes.SendModal]: IModalSendParamList;
   [EModalRoutes.ReceiveModal]: IModalReceiveParamList;
-  [EModalRoutes.UrlAccountModal]: IModalUrlAccountParamList;
   [EModalRoutes.ScanQrCodeModal]: IScanQrCodeModalParamList;
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
   [EModalRoutes.CloudBackupModal]: ICloudBackupParamList;
