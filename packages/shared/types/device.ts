@@ -1,13 +1,93 @@
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 
-import type { IOneKeyDeviceType } from '.';
 import type {
+  BleReleaseInfoEvent,
   CommonParams,
+  Features as FeaturesCore,
+  IDeviceBLEFirmwareStatus,
+  IDeviceType,
+  ReleaseInfoEvent,
   Response,
   Success,
   Unsuccessful,
 } from '@onekeyfe/hd-core';
+import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
+
+export type IOneKeyDeviceType = IDeviceType;
+
+export type IOneKeyDeviceFeatures = FeaturesTransport;
+export type IOneKeyDeviceFeaturesCore = FeaturesCore;
+
+export type IFirmwareChangeLog = {
+  [key in ILocaleSymbol]?: string;
+};
+
+export type IFirmwareUpdatesDetectResult = {
+  lastDetectAt?: number;
+  updateInfo?: {
+    firmware?: IFirmwareUpdateInfo;
+    ble?: IBleFirmwareUpdateInfo;
+  };
+};
+
+export type IFirmwareUpdatesDetectMap = Partial<{
+  [connectId: string]: IFirmwareUpdatesDetectResult;
+}>;
+
+export type IFirmwareUpdatesDetectStatus = Partial<{
+  [connectId: string]: {
+    connectId: string;
+    hasUpgrade: boolean;
+    // hasUpgradeForce: boolean;
+  };
+}>;
+
+export type IFirmwareReleasePayload = Omit<
+  ReleaseInfoEvent['payload'],
+  'features'
+> & {
+  features: IOneKeyDeviceFeatures;
+  connectId?: string;
+
+  hasUpgradeForce?: boolean;
+  hasUpgrade?: boolean;
+};
+
+export type IBleFirmwareReleasePayload = BleReleaseInfoEvent['payload'] & {
+  features: IOneKeyDeviceFeatures;
+  connectId?: string;
+};
+// TODO should export sdk type CheckBootloaderReleaseResponse
+export type IBootloaderReleasePayload = {
+  shouldUpdate: boolean;
+  status: IDeviceBLEFirmwareStatus;
+  release: IFirmwareReleasePayload['release'];
+  bootloaderMode: boolean;
+};
+// TODO should export sdk type CheckBridgeReleaseResponse
+export type IHardwareBridgeReleasePayload = {
+  shouldUpdate: boolean;
+  status: 'outdated' | 'valid';
+  releaseVersion: string;
+};
+
+type IFirmwareUpdateInfoBase<T> = {
+  connectId: string | undefined;
+  hasUpgrade: boolean;
+  hasUpgradeForce: boolean;
+  firmwareType: IDeviceFirmwareType;
+  fromVersion: string;
+  toVersion: string;
+  changelog: IFirmwareChangeLog | undefined;
+  releasePayload: T;
+};
+export type IFirmwareUpdateInfo =
+  IFirmwareUpdateInfoBase<IFirmwareReleasePayload>;
+export type IBleFirmwareUpdateInfo =
+  IFirmwareUpdateInfoBase<IBleFirmwareReleasePayload>;
+export type IBootloaderUpdateInfo =
+  IFirmwareUpdateInfoBase<IBootloaderReleasePayload>;
 
 export type IDeviceResponseUnsuccessful = Unsuccessful;
 export type IDeviceResponseSuccess<T> = Success<T>;
@@ -60,21 +140,17 @@ export type IHardwarePopup = {
 };
 export type IPopupType = 'normal' | 'inputPin' | 'inputPassphrase';
 
-export type IChangelog = {
-  [key in ILocaleSymbol]?: string;
-};
-
 export type ISYSFirmwareInfo = {
   required: boolean;
   version: number[];
   url: string;
   fingerprint: string;
-  changelog: IChangelog;
+  changelog: IFirmwareChangeLog;
   fullResource?: string;
   fullResourceRange?: string[];
   bootloaderVersion?: number[];
   bootloaderRelatedFirmwareVersion?: number[];
-  bootloaderChangelog?: IChangelog;
+  bootloaderChangelog?: IFirmwareChangeLog;
 };
 
 export type IBLEFirmwareInfo = {
@@ -84,7 +160,7 @@ export type IBLEFirmwareInfo = {
   webUpdate: string;
   fingerprint: string;
   fingerprintWeb: string;
-  changelog: IChangelog;
+  changelog: IFirmwareChangeLog;
 };
 
 export type IResourceUpdateInfo = {
@@ -93,6 +169,8 @@ export type IResourceUpdateInfo = {
   minVersion?: string;
   limitVersion?: string;
 };
+
+export type IDeviceFirmwareType = 'firmware' | 'ble' | 'bootloader';
 
 export const CUSTOM_UI_RESPONSE = {
   // monorepo custom
@@ -120,3 +198,49 @@ export const UI_REQUEST = {
 
   FIRMWARE_PROGRESS: 'ui-firmware-progress',
 } as const;
+
+export enum EOneKeyDeviceMode {
+  bootloader = 'bootloader',
+  initialize = 'initialize',
+  seedless = 'seedless',
+  normal = 'normal',
+}
+
+// check this.postTipMessage('AutoRebootToBootloader'); from sdk/hd-core
+export enum EFirmwareUpdateTipMessages {
+  AutoRebootToBootloader = 'AutoRebootToBootloader',
+  GoToBootloaderSuccess = 'GoToBootloaderSuccess',
+  DownloadFirmware = 'DownloadFirmware',
+  DownloadFirmwareSuccess = 'DownloadFirmwareSuccess',
+  DownloadLatestBootloaderResource = 'DownloadLatestBootloaderResource',
+  DownloadLatestBootloaderResourceSuccess = 'DownloadLatestBootloaderResourceSuccess',
+
+  ConfirmOnDevice = 'ConfirmOnDevice',
+
+  FirmwareEraseSuccess = 'FirmwareEraseSuccess',
+
+  // Touch & Pro only
+  CheckLatestUiResource = 'CheckLatestUiResource',
+  DownloadLatestUiResource = 'DownloadLatestUiResource',
+  DownloadLatestUiResourceSuccess = 'DownloadLatestUiResourceSuccess',
+  UpdateSysResource = 'UpdateSysResource',
+  UpdateSysResourceSuccess = 'UpdateSysResourceSuccess',
+  StartTransferData = 'StartTransferData',
+  InstallingFirmware = 'InstallingFirmware',
+}
+/*
+,AutoRebootToBootloader,GoToBootloaderSuccess,DownloadFirmware,DownloadFirmwareSuccess,ConfirmOnDevice,FirmwareEraseSuccess,AutoRebootToBootloader,GoToBootloaderSuccess,DownloadFirmware,DownloadFirmwareSuccess,ConfirmOnDevice,FirmwareEraseSuccess
+
+1. CheckLatestUiResource
+2. DownloadLatestUiResource
+3. DownloadLatestUiResourceSuccess
+4. UpdateSysResource
+5. UpdateSysResourceSuccess
+6. AutoRebootToBootloader
+7. GoToBootloaderSuccess
+8. DownloadFirmware
+9. DownloadFirmwareSuccess
+10. StartTransferData
+11. ConfirmOnDevice
+12. InstallingFirmware
+*/

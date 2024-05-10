@@ -16,7 +16,6 @@ import {
   TokenState,
   createTransferInstruction as createTokenMetadataTransferInstruction,
 } from '@metaplex-foundation/mpl-token-metadata';
-import { wait } from '@onekeyfe/hd-core';
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -355,7 +354,7 @@ export default class Vault extends VaultBase {
           lastRpcErrorMessage = rpcErrorData.message;
         }
       }
-      await wait(1000);
+      await timerUtils.wait(1000);
     }
 
     throw new Error(
