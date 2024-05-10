@@ -1,4 +1,4 @@
-import bech32 from 'bech32';
+import { bech32 } from 'bech32';
 
 export const pubkeyToCosmosPublic = (pub: Buffer, hrp = 'cosmos') => {
   const AminoSecp256k1PubkeyPrefix = Buffer.from('EB5AE987', 'hex');
