@@ -17,7 +17,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUti
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
-import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListRootProvider';
+import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
 import {
   SwapModalRootProvider,
   SwapRootProvider,

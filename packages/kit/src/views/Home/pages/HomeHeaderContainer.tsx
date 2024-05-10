@@ -2,7 +2,7 @@ import { Portal, Stack } from '@onekeyhq/components';
 
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import HomeSelector from '../components/HomeSelector';
-import { HomeTokenListProviderMirror } from '../components/HomeTokenListProviderMirror';
+import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
