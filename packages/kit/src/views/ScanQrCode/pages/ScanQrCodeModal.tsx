@@ -95,6 +95,7 @@ export default function ScanQrCodeModal() {
         title={intl.formatMessage({
           id: 'title__scan_qr_code',
         })}
+        disableClose
         headerTransparent
         headerTitleStyle={{
           color: '#ffffff',
