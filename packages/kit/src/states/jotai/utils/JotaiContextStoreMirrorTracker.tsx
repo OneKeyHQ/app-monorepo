@@ -13,6 +13,7 @@ import {
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
@@ -27,6 +28,10 @@ import { buildJotaiContextStoreId } from './jotaiContextStore';
 // AccountSelectorMapTracker
 export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
   const { storeName, accountSelectorInfo } = data;
+  useDebugComponentRemountLog({
+    name: `JotaiContextStoreMirrorTracker`,
+    payload: data,
+  });
   const { setMap } = useJotaiContextTrackerMap();
   const storeId = buildJotaiContextStoreId(data);
   useEffect(() => {

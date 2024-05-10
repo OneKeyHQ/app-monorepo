@@ -9,6 +9,7 @@ import type { ICloudBackupParamList } from './cloudBackup';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
 import type { IDiscoveryModalParamList } from './discovery';
 import type { IModalFiatCryptoParamList } from './fiatCrypto';
+import type { IModalFirmwareUpdateParamList } from './firmwareUpdate';
 import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
 import type { IOnboardingParamList } from './onboarding';
@@ -18,6 +19,7 @@ import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
 import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
+import type { IUniversalSearchParamList } from './universalSearch';
 import type { IModalWebViewParamList } from './webView';
 
 export enum EModalRoutes {
@@ -28,6 +30,7 @@ export enum EModalRoutes {
   SwapModal = 'SwapModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
+  FirmwareUpdateModal = 'FirmwareUpdateModal',
   AssetSelectorModal = 'AssetSelectorModal',
   ChainSelectorModal = 'ChainSelectorModal',
   SendModal = 'SendModal',
@@ -41,6 +44,7 @@ export enum EModalRoutes {
   AppUpdateModal = 'AppUpdateModal',
   FiatCryptoModal = 'FiatCryptoModal',
   KeyTagModal = 'KeyTagModal',
+  UniversalSearchModal = 'UniversalSearchModal',
 }
 
 export type IModalParamList = {
@@ -52,6 +56,7 @@ export type IModalParamList = {
   [EModalRoutes.SwapModal]: IModalSwapParamList;
   [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
+  [EModalRoutes.FirmwareUpdateModal]: IModalFirmwareUpdateParamList;
   [EModalRoutes.AssetSelectorModal]: IAssetSelectorParamList;
   [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
   [EModalRoutes.SendModal]: IModalSendParamList;
@@ -65,4 +70,5 @@ export type IModalParamList = {
   [EModalRoutes.AppUpdateModal]: IAppUpdatePagesParamList;
   [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
+  [EModalRoutes.UniversalSearchModal]: IUniversalSearchParamList;
 };

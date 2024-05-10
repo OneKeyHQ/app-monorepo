@@ -11,6 +11,17 @@ import HeaderIconButton from './HeaderIconButton';
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
 
+export function NavBackButton({ onPress }: { onPress?: () => void }) {
+  return (
+    <HeaderIconButton
+      onPress={onPress}
+      icon="ChevronLeftOutline"
+      {...(platformEnv.isNativeIOS && { pressStyle: undefined })}
+      testID="nav-header-back"
+    />
+  );
+}
+
 function HeaderBackButton({
   isModelScreen,
   isRootScreen,
@@ -26,14 +37,7 @@ function HeaderBackButton({
 
   const renderBackButton = () => {
     if (canGoBack) {
-      return (
-        <HeaderIconButton
-          onPress={props.onPress}
-          icon="ChevronLeftOutline"
-          {...(platformEnv.isNativeIOS && { pressStyle: undefined })}
-          testID="nav-header-back"
-        />
-      );
+      return <NavBackButton onPress={props.onPress} />;
     }
     if (showCloseButton) {
       return (
