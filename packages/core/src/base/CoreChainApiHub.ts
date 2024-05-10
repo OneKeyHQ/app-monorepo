@@ -14,16 +14,16 @@ import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
 // import CoreChainNear from '../chains/near';
 // import CoreChainNexa from '../chains/nexa';
-// import CoreChainSol from '../chains/sol';
+import CoreChainNostr from '../chains/nostr';
+import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
 // import CoreChainSui from '../chains/sui';
-// import CoreChainTron from '../chains/tron';
+import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
-import CoreChainNostr from '../chains/nostr';
-import CoreChainRipple from '../chains/ripple';
+import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
-  cardano = new CoreChainAda();
+  ada = new CoreChainAda();
 
   evm = new CoreChainEvm();
 
@@ -45,11 +45,11 @@ export class CoreChainApiHub {
 
   // cfx = new CoreChainCfx();
 
-  ripple = new CoreChainRipple();
+  xrp = new CoreChainXrp();
 
-  // tron = new CoreChainTron();
+  tron = new CoreChainTron();
 
-  // sol = new CoreChainSol();
+  sol = new CoreChainSol();
 
   // near = new CoreChainNear();
 

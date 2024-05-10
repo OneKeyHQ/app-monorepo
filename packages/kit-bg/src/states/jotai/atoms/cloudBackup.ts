@@ -4,6 +4,8 @@ import { globalAtom } from '../utils';
 export type ICloudBackupPersistAtom = {
   isEnabled: boolean;
   isInProgress: boolean;
+  isFirstEnabled: boolean;
+  isFirstDisabled: boolean;
 };
 export const {
   target: cloudBackupPersistAtom,
@@ -14,5 +16,7 @@ export const {
   initialValue: {
     isEnabled: false,
     isInProgress: false,
+    isFirstEnabled: true,
+    isFirstDisabled: true,
   },
 });

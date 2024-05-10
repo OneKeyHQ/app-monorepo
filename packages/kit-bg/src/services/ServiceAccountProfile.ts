@@ -233,7 +233,7 @@ class ServiceAccountProfile extends ServiceBase {
     const client = await this.getClient();
     const request: IProxyRequest = { networkId, body };
     const resp = await client.post<IProxyResponse<T>>(
-      '/wallet/v1/network/proxy',
+      '/wallet/v1/proxy/wallet',
       request,
     );
     const data = resp.data.data.data;

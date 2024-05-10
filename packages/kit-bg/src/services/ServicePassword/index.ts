@@ -28,6 +28,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
 import {
+  firmwareUpdateWorkflowRunningAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
@@ -500,6 +501,11 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async lockApp() {
+    const isRunning = await firmwareUpdateWorkflowRunningAtom.get();
+    if (isRunning) {
+      return;
+    }
+
     await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
   }

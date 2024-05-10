@@ -27,6 +27,8 @@ import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
 } from '@onekeyhq/shared/src/routes';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
+import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -35,6 +37,9 @@ import { EAddressState } from '../types';
 import type { RouteProp } from '@react-navigation/core';
 
 function ReceiveToken() {
+  useDebugComponentRemountLog({
+    name: 'ReceiveToken9971',
+  });
   const intl = useIntl();
   const route =
     useRoute<
@@ -82,7 +87,7 @@ function ReceiveToken() {
           networkId,
           indexedAccountId: account?.indexedAccountId,
           deriveType,
-          confirmOnDevice: true,
+          confirmOnDevice: EConfirmOnDeviceType.EveryItem,
         });
 
       const isSameAddress =

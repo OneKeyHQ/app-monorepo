@@ -12,7 +12,7 @@ import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxNostr } from '../chains/nostr/types';
-import type { IEncodedTxRipple } from '../chains/ripple/types';
+import type { IEncodedTxRipple } from '../chains/xrp/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
 import type { IEncodedTxXmr } from '../chains/xmr/types';

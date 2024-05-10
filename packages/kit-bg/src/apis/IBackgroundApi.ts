@@ -26,8 +26,10 @@ import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
+import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
+import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
@@ -48,6 +50,7 @@ import type ServiceToken from '../services/ServiceToken';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type { EAtomNames } from '../states/jotai/atomNames';
+import type { IWebembedApiKeys } from '../webembeds/instance/IWebembedApi';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IInjectedProviderNames,
@@ -62,6 +65,10 @@ import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
 
 export type IBackgroundApiInternalCallMessage = IJsonRpcRequest & {
   service: string;
+};
+
+export type IBackgroundApiWebembedCallMessage = IJsonRpcRequest & {
+  module: IWebembedApiKeys;
 };
 
 export type IOffscreenApiMessagePayload = IJsonRpcRequest & {
@@ -126,6 +133,8 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceWalletConnect: ServiceWalletConnect;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
+  serviceHardwareUI: ServiceHardwareUI;
+  serviceFirmwareUpdate: ServiceFirmwareUpdate;
   serviceLightning: ServiceLightning;
   serviceOnboarding: ServiceOnboarding;
   serviceScanQRCode: ServiceScanQRCode;

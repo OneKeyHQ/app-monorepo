@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -41,7 +42,9 @@ class ServicePromise extends ServiceBase {
 
   // TODO increase timeout as hardware sign transaction may take a long time
   //    can set timeout for each callback
-  protected callbacksExpireTimeout: number = 10 * 60 * 1000;
+  protected callbacksExpireTimeout: number = timerUtils.getTimeDurationMs({
+    minute: 10,
+  });
 
   public createCallback({
     resolve,

@@ -50,8 +50,8 @@ const IMPL_BCH = 'bch';
 const COINTYPE_BCH = '145';
 export const COINNAME_BCH = 'BCH';
 
-const IMPL_RIPPLE = 'xrp';
-const COINTYPE_RIPPLE = '144';
+const IMPL_XRP = 'xrp';
+const COINTYPE_XRP = '144';
 
 const IMPL_COSMOS = 'cosmos';
 const COINTYPE_COSMOS = '118';
@@ -106,7 +106,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_LTC,
   IMPL_BCH,
   IMPL_ALGO,
-  IMPL_RIPPLE,
+  IMPL_XRP,
   IMPL_COSMOS,
   IMPL_ADA,
   IMPL_SUI,
@@ -135,7 +135,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_LTC,
   IMPL_BCH,
   IMPL_ALGO,
-  IMPL_RIPPLE,
+  IMPL_XRP,
   IMPL_COSMOS,
   IMPL_ADA,
   IMPL_SUI,
@@ -213,7 +213,7 @@ export {
   COINTYPE_TRON,
   COINTYPE_XMR,
   COINTYPE_NOSTR,
-  COINTYPE_RIPPLE,
+  COINTYPE_XRP,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -239,7 +239,7 @@ export {
   IMPL_TRON,
   IMPL_XMR,
   IMPL_NOSTR,
-  IMPL_RIPPLE,
+  IMPL_XRP,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,

@@ -10,7 +10,7 @@ import type {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 import type {
   IBaseConnectedSite,
@@ -261,10 +261,12 @@ export type IDBDeviceSettings = {
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string; // TODO rename to featuresRaw
   featuresInfo?: IOneKeyDeviceFeatures; // readonly field // TODO rename to features
-  connectId: string; // alias mac\sn, never changed
+  // TODO make index for better performance (getDeviceByQuery)
+  connectId: string; // alias mac\sn, never changed even if device reset
   name: string;
+  // TODO make index for better performance (getDeviceByQuery)
   uuid: string;
-  deviceId: string; // deviceId changed after device reset
+  deviceId: string; // features.device_id changed after device reset
   deviceType: IDeviceType;
   settingsRaw: string;
   settings?: IDBDeviceSettings;

@@ -22,8 +22,10 @@ import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
+import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
+import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
@@ -142,6 +144,14 @@ class BackgroundApiProxy
   serviceHardware = this._createProxyService(
     'serviceHardware',
   ) as ServiceHardware;
+
+  serviceHardwareUI = this._createProxyService(
+    'serviceHardwareUI',
+  ) as ServiceHardwareUI;
+
+  serviceFirmwareUpdate = this._createProxyService(
+    'serviceFirmwareUpdate',
+  ) as ServiceFirmwareUpdate;
 
   serviceAddressBook = this._createProxyService(
     'serviceAddressBook',

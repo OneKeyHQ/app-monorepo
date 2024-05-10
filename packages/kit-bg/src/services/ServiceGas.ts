@@ -27,7 +27,6 @@ class ServiceGas extends ServiceBase {
       params,
     );
     const gasFee = resp.data.data;
-
     return {
       common: {
         baseFee: gasFee.baseFee,
@@ -40,6 +39,8 @@ class ServiceGas extends ServiceBase {
       gas: gasFee.gas,
       gasEIP1559: gasFee.gasEIP1559,
       feeUTXO: gasFee.feeUTXO,
+      feeTron: gasFee.feeTron,
+      feeSol: gasFee.feeSol,
     };
   }
 
