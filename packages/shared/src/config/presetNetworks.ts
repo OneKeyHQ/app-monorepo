@@ -820,7 +820,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'status': ENetworkStatus.LISTED,
     'createdAt': '2023-12-05T00:00:24.951Z',
     'updatedAt': '2023-12-05T00:00:24.951Z',
-  }
+  };
 
   const polygon: IServerNetwork = {
     'balance2FeeDecimals': 9,

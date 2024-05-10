@@ -1,25 +1,34 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+import { stripHexPrefix } from 'ethjs-util';
+import { bytesToHex, hexToBytes } from 'viem';
+
+import type { UnpackedMessage } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import {
   MessageType,
-  StdFee,
   TransactionWrapper,
   TxAminoBuilder,
   TxMsgBuilder,
-  UnpackedMessage,
   defaultAminoMsgOpts,
   getFee,
   getMsgs,
   getSequence,
   pubkeyToAddressDetail,
+  serializeSignedTx,
   setFee,
   validateCosmosAddress,
 } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import type { ProtoMsgsOrWithAminoMsgs } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/ITxMsgBuilder';
+import type {
+  ICosmosStdFee,
+  IEncodedTxCosmos,
+} from '@onekeyhq/core/src/chains/cosmos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   IAddressValidation,
@@ -29,7 +38,15 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import { EDecodedTxActionType, EDecodedTxDirection, EDecodedTxStatus, type IDecodedTxActionAssetTransfer, type IDecodedTx, type IDecodedTxAction } from '@onekeyhq/shared/types/tx';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+  type IDecodedTx,
+  type IDecodedTxAction,
+  type IDecodedTxActionAssetTransfer,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -52,14 +69,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import BigNumber from 'bignumber.js';
-import { TxProtoBuilder } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/proto/TxProtoBuilder';
-import type { ProtoMsgsOrWithAminoMsgs } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/ITxMsgBuilder';
-import { hexToBytes } from 'viem';
-import { stripHexPrefix } from 'ethjs-util';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import { ICosmosStdFee, IEncodedTxCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
 
 export default class VaultCosmos extends VaultBase {
   override coreApi = coreChainApi.cosmos.hd;
@@ -72,7 +81,7 @@ export default class VaultCosmos extends VaultBase {
     return this.baseValidatePrivateKey(privateKey);
   }
 
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+  override validateXprvt(): Promise<IXprvtValidation> {
     return Promise.resolve({
       isValid: false,
     });
@@ -147,16 +156,24 @@ export default class VaultCosmos extends VaultBase {
     transfersInfo.forEach((transfer) => {
       const { amount, from, to } = transfer;
       if (transfer.tokenInfo && transfer.tokenInfo.address) {
-        const { address, decimals, symbol } = transfer.tokenInfo;
-        const amountValue = new BigNumber(amount)
-          .shiftedBy(decimals)
-          .toFixed();
+        const { address, decimals } = transfer.tokenInfo;
+        const amountValue = new BigNumber(amount).shiftedBy(decimals).toFixed();
         if (this._isIbcToken(address)) {
-          const msg = this.txMsgBuilder.makeSendNativeMsg(from, to, amountValue, address);
+          const msg = this.txMsgBuilder.makeSendNativeMsg(
+            from,
+            to,
+            amountValue,
+            address,
+          );
           msgs.protoMsgs.push(...msg.protoMsgs);
           msgs.aminoMsgs.push(...msg.aminoMsgs);
         } else {
-          const msg = this.txMsgBuilder.makeSendCwTokenMsg(from, address, to, amountValue);
+          const msg = this.txMsgBuilder.makeSendCwTokenMsg(
+            from,
+            address,
+            to,
+            amountValue,
+          );
           msgs.protoMsgs.push(...msg.protoMsgs);
           msgs.aminoMsgs.push(...msg.aminoMsgs);
         }
@@ -164,15 +181,24 @@ export default class VaultCosmos extends VaultBase {
         const amountValue = new BigNumber(amount)
           .shiftedBy(network.decimals)
           .toFixed();
-        const msg = this.txMsgBuilder.makeSendNativeMsg(from, to, amountValue, (network.extensions?.providerOptions as any).mainCoinDenom as string);
+        const providerOptions = network.extensions?.providerOptions as {
+          mainCoinDenom: string;
+        };
+        const msg = this.txMsgBuilder.makeSendNativeMsg(
+          from,
+          to,
+          amountValue,
+          providerOptions.mainCoinDenom,
+        );
         msgs.protoMsgs.push(...msg.protoMsgs);
         msgs.aminoMsgs.push(...msg.aminoMsgs);
       }
     });
-    const accountInfo = await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-      networkId: network.id,
-      accountAddress: transfersInfo[0].from,
-    });
+    const accountInfo =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId: network.id,
+        accountAddress: transfersInfo[0].from,
+      });
     if (!accountInfo) {
       throw new Error('Invalid account');
     }
@@ -183,10 +209,10 @@ export default class VaultCosmos extends VaultBase {
     }
     const pubkey = hexToBytes(`0x${stripHexPrefix(account.pub)}`);
 
-    let gasLimit = '0';
-    let feeAmount = '0';
-    let mainCoinDenom = network.symbol;
-    
+    const gasLimit = '0';
+    const feeAmount = '0';
+    const mainCoinDenom = network.symbol;
+
     const tx = txBuilder.makeTxWrapper(msgs, {
       memo: '',
       gasLimit,
@@ -199,7 +225,7 @@ export default class VaultCosmos extends VaultBase {
     });
 
     if (feeInfo) {
-      return await this._attachFeeInfoToEncodedTx({
+      return this._attachFeeInfoToEncodedTx({
         encodedTx: tx,
         feeInfo,
       });
@@ -207,15 +233,24 @@ export default class VaultCosmos extends VaultBase {
     return tx.toObject();
   }
 
-  override async buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || transfersInfo.length === 0) {
       throw new Error('transfersInfo is required');
     }
-    return await this._buildEncodedTxWithFee({ transfersInfo });
+    transfersInfo.forEach((transferInfo) => {
+      if (!transferInfo.to) {
+        throw new Error('Invalid transferInfo.to params');
+      }
+    });
+    return this._buildEncodedTxWithFee({ transfersInfo });
   }
 
-  private _getTransactionTypeByMessage(message: UnpackedMessage): EDecodedTxActionType {
+  private _getTransactionTypeByMessage(
+    message: UnpackedMessage,
+  ): EDecodedTxActionType {
     if ('unpacked' in message) {
       if (
         message.typeUrl === MessageType.SEND ||
@@ -225,31 +260,34 @@ export default class VaultCosmos extends VaultBase {
       }
     }
     return EDecodedTxActionType.UNKNOWN;
-  };
+  }
 
-  override async buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxCosmos;
     const network = await this.getNetwork();
     const account = await this.getAccount();
     const txWrapper = new TransactionWrapper(encodedTx.signDoc, encodedTx.msg);
     const msgs = getMsgs(txWrapper);
-    
+
     const actions = [];
     for (const msg of msgs) {
       let action: IDecodedTxAction | null = null;
-      const actionType = this._getTransactionTypeByMessage(
-        msg,
-      );
+      const actionType = this._getTransactionTypeByMessage(msg);
       if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
         const { amount, fromAddress, toAddress } =
           'unpacked' in msg ? msg.unpacked : msg.value;
+        const amounts = amount as Array<{ denom: string; amount: string }>;
         const token = await this.backgroundApi.serviceToken.getToken({
           networkId: network.id,
-          tokenIdOnNetwork: amount[0].denom,
+          tokenIdOnNetwork: amounts[0].denom,
           accountAddress: account.address,
         });
-        const amountNumber = new BigNumber(amount[0].amount).shiftedBy(-token.decimals).toFixed();
+        const amountNumber = new BigNumber(amounts[0].amount)
+          .shiftedBy(-token.decimals)
+          .toFixed();
         const amountDenom = token.symbol;
 
         const transferAction: IDecodedTxActionAssetTransfer = {
@@ -264,7 +302,7 @@ export default class VaultCosmos extends VaultBase {
               symbol: amountDenom,
               name: token.name,
               tokenIdOnNetwork: '',
-            }
+            },
           ],
           receives: [],
         };
@@ -314,7 +352,7 @@ export default class VaultCosmos extends VaultBase {
         gas: {
           gasPrice: feePrice,
           gasLimit: fee?.gas_limit,
-        }
+        },
       },
       extraInfo: null,
       encodedTx,
@@ -325,7 +363,7 @@ export default class VaultCosmos extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = params.encodedTx ?? await this.buildEncodedTx(params);
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
       return {
         encodedTx,
@@ -340,7 +378,7 @@ export default class VaultCosmos extends VaultBase {
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxCosmos> {
     const { gas, common } = params.feeInfo;
-    const { gasPrice: price, gasLimit: limit } = gas!;
+    const { gasPrice: price, gasLimit: limit } = gas ?? {};
 
     if (!price || typeof price !== 'string') {
       throw new OneKeyInternalError('Invalid gas price.');
@@ -350,13 +388,20 @@ export default class VaultCosmos extends VaultBase {
     }
     const gasLimitNum = new BigNumber(limit);
     const gasPriceNum = new BigNumber(price);
-    const amount = gasLimitNum.multipliedBy(gasPriceNum).toFixed(common.feeDecimals);
-    let newAmount = [{
-      denom: common.feeSymbol,
-      amount,
-    }];
+    const amount = gasLimitNum
+      .multipliedBy(gasPriceNum)
+      .toFixed(common.feeDecimals);
+    const newAmount = [
+      {
+        denom: common.feeSymbol,
+        amount,
+      },
+    ];
 
-    const txWrapper = new TransactionWrapper(params.encodedTx.signDoc, params.encodedTx.msg);
+    const txWrapper = new TransactionWrapper(
+      params.encodedTx.signDoc,
+      params.encodedTx.msg,
+    );
     const fee = getFee(txWrapper);
     const newFee: ICosmosStdFee = {
       amount: newAmount,
@@ -375,29 +420,31 @@ export default class VaultCosmos extends VaultBase {
     if (!params.unsignedTx || !params.feeInfo) {
       throw new OneKeyInternalError('unsignedTx and feeInfo are required');
     }
-    const {unsignedTx, feeInfo} = params;
+    const { unsignedTx, feeInfo } = params;
     if (!unsignedTx.encodedTx) {
       unsignedTx.encodedTx = await this._buildEncodedTxWithFee({
-        transfersInfo: unsignedTx.transfersInfo!,
+        transfersInfo: unsignedTx.transfersInfo ?? [],
         feeInfo,
-      })
+      });
     } else {
       unsignedTx.encodedTx = await this._attachFeeInfoToEncodedTx({
         encodedTx: unsignedTx.encodedTx as IEncodedTxCosmos,
         feeInfo,
-      })
+      });
     }
 
     return {
       ...unsignedTx,
       feeInfo,
-    }
+    };
   }
 
   override async broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
-    const txid = await this.backgroundApi.serviceSend.broadcastTransaction(params);
+    const txid = await this.backgroundApi.serviceSend.broadcastTransaction(
+      params,
+    );
     return {
       ...params.signedTx,
       txid,
@@ -412,7 +459,7 @@ export default class VaultCosmos extends VaultBase {
     });
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
+  override validateXpub(): Promise<IXpubValidation> {
     return Promise.resolve({
       isValid: false,
     });
@@ -422,5 +469,27 @@ export default class VaultCosmos extends VaultBase {
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
     return super.baseGetPrivateKeyFromImported(params);
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }): Promise<IEncodedTx | undefined> {
+    const account = await this.getAccount();
+    const encodedTxCosmos = encodedTx as IEncodedTxCosmos;
+    const rawTx = serializeSignedTx({
+      txWrapper: new TransactionWrapper(
+        encodedTxCosmos?.signDoc,
+        encodedTxCosmos?.msg,
+      ),
+      signature: {
+        signatures: [Buffer.alloc(64, 0)],
+      },
+      publicKey: {
+        pubKey: account.pub ?? '',
+      },
+    });
+    return bytesToHex(rawTx) as unknown as IEncodedTx;
   }
 }

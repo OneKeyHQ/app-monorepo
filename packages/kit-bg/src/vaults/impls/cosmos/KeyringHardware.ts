@@ -1,7 +1,22 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import { HardwareError } from '@onekeyfe/hd-shared';
+import { bytesToHex, hexToBytes } from 'viem';
 
+import {
+  TransactionWrapper,
+  generateSignBytes,
+  getADR36SignDoc,
+  pubkeyToAddress,
+  serializeSignedTx,
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import type { IEncodedTxCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ICoreApiGetAddressItem, ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ICoreApiGetAddressItem,
+  ISignedMessagePro,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -11,12 +26,6 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import { bytesToHex, hexToBytes } from 'viem';
-import { TransactionWrapper, generateSignBytes, getADR36SignDoc, pubkeyToAddress, pubkeyToBaseAddress, serializeSignedTx } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
-import { HardwareError } from '@onekeyfe/hd-shared';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { IEncodedTxCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.cosmos.hd;
@@ -32,11 +41,15 @@ export class KeyringHardware extends KeyringHardwareBase {
     const txWrapper = new TransactionWrapper(encodedTx.signDoc, encodedTx.msg);
     const unSignedRawTx = bytesToHex(generateSignBytes(txWrapper));
     const result = await convertDeviceResponse(async () => {
-      const res = await sdk.cosmosSignTransaction(dbDevice.connectId, dbDevice.deviceId, {
-        path: account.path,
-        rawTx: unSignedRawTx,
-        ...deviceCommonParams,
-      });
+      const res = await sdk.cosmosSignTransaction(
+        dbDevice.connectId,
+        dbDevice.deviceId,
+        {
+          path: account.path,
+          rawTx: unSignedRawTx,
+          ...deviceCommonParams,
+        },
+      );
       return res;
     });
     const rawTx = serializeSignedTx({
@@ -55,28 +68,32 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override async signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
     const { messages } = params;
-    const results = await Promise.all(messages.map(async (commonMessage) => {
-      const { data, signer } = JSON.parse(commonMessage.message);
+    const results = await Promise.all(
+      messages.map(async (commonMessage) => {
+        const { data, signer } = JSON.parse(commonMessage.message);
 
-      const messageData = Buffer.from(data).toString('base64');
-      const unSignDoc = getADR36SignDoc(signer, messageData);
-      const encodedTx = TransactionWrapper.fromAminoSignDoc(
-        unSignDoc,
-        undefined,
-      );
+        const messageData = Buffer.from(data).toString('base64');
+        const unSignDoc = getADR36SignDoc(signer, messageData);
+        const encodedTx = TransactionWrapper.fromAminoSignDoc(
+          unSignDoc,
+          undefined,
+        );
 
-      const { rawTx } = await this.signTransaction({
-        ...params,
-        unsignedTx: {
-          encodedTx,
-        },
-        signOnly: true,
-      });
+        const { rawTx } = await this.signTransaction({
+          ...params,
+          unsignedTx: {
+            encodedTx,
+          },
+          signOnly: true,
+        });
 
-      return rawTx;
-    }));
+        return rawTx;
+      }),
+    );
     return results;
   }
 
@@ -100,7 +117,6 @@ export class KeyringHardware extends KeyringHardwareBase {
             deviceId,
             pathPrefix,
             pathSuffix,
-            coinName,
             showOnOnekeyFn,
           }) => {
             const sdk = await this.getHardwareSDKInstance();
@@ -129,13 +145,16 @@ export class KeyringHardware extends KeyringHardwareBase {
           const item = publicKeys[i];
           const { path, publicKey } = item;
           const pubkey = hexToBytes(`0x${publicKey}`);
-          const address = pubkeyToBaseAddress(curve, pubkey);
           const addressInfo: ICoreApiGetAddressItem = {
             address: '',
             path,
             publicKey,
             addresses: {
-              [this.networkId]: pubkeyToAddress(curve, networkInfo.addressPrefix, pubkey),
+              [this.networkId]: pubkeyToAddress(
+                curve,
+                networkInfo.addressPrefix,
+                pubkey,
+              ),
             },
           };
           ret.push(addressInfo);
