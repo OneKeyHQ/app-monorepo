@@ -15,6 +15,8 @@ import type { IListUTXO, INexaHistoryItem, INexaTransaction } from '../types';
 export class Nexa extends SimpleClient {
   readonly rpc: WebSocketRequest;
 
+  readonly MAX_TX_NUM_VIN = 256;
+
   constructor(
     url: string,
     readonly defaultFinality: 'optimistic' | 'final' = 'optimistic',
