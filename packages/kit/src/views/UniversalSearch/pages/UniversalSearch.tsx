@@ -69,7 +69,7 @@ export function UniversalSearch() {
       ]);
     }
     setSearchStatus(ESearchStatus.done);
-  }, 80);
+  }, 1200);
 
   const handleChangeText = useCallback(() => {
     setSearchStatus(ESearchStatus.loading);
