@@ -354,7 +354,7 @@ class ServiceLightning extends ServiceBase {
       });
 
     const loginURL =
-      await this.backgroundApi.serviceHardware.withHardwareProcessing(
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () =>
           vault.getLnurlAuthUrl({ lnurlDetail, password, deviceParams }),
         { deviceParams },
