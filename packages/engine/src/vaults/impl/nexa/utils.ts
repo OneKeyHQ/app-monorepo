@@ -296,7 +296,7 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
     new BN(0),
   );
 
-  const fee = new BN(gas || estimateFee(encodedTx));
+  const fee = new BN(gas || estimateFee(inputs.length, outputs));
   const available = inputAmount.sub(fee);
   if (available.lt(new BN(0))) {
     console.error(inputAmount.toString(), fee.toString());
