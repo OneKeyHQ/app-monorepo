@@ -15,7 +15,12 @@ export function UniversalSearchInput() {
   }, [navigation]);
   return (
     <XStack w={280}>
-      <Input size="small" key="searchInput" placeholder="Search address" />
+      <Input
+        containerProps={{ w: '100%' }}
+        size="small"
+        key="searchInput"
+        placeholder="Search address"
+      />
       <View
         position="absolute"
         top={0}

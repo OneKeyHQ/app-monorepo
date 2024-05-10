@@ -122,7 +122,7 @@ function OpenInAppButton() {
                 justifyContent="center"
                 overflow="hidden"
               >
-                {/* {deepLinkUrl && openByAppButtonLabel ? (
+                {deepLinkUrl && openByAppButtonLabel ? (
                   <Button
                     mb="$4"
                     onPress={() => {
@@ -135,7 +135,7 @@ function OpenInAppButton() {
                   >
                     {openByAppButtonLabel}
                   </Button>
-                ) : null} */}
+                ) : null}
                 <Stack
                   p="$4"
                   borderRadius="$6"

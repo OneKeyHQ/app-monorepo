@@ -91,7 +91,7 @@ export default function ScanQrCodeModal() {
   }, [callback, inputText]);
 
   return (
-    <Page>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({
           id: 'title__scan_qr_code',
