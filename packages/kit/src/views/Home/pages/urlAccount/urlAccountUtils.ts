@@ -70,7 +70,8 @@ export function buildUrlAccountLandingRoute({
 }) {
   const path = `/${networkCode || networkId || ''}/${address || ''}`;
   if (includingOrigin) {
-    const origin = platformEnv.isWeb ? window.location.origin : WEB_APP_URL;
+    // const origin = platformEnv.isWeb ? window.location.origin : WEB_APP_URL;
+    const origin = WEB_APP_URL;
     return `${origin}${path}`;
   }
   return path;
