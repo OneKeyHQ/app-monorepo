@@ -137,8 +137,10 @@ export function UniversalSearch() {
     <Page>
       <Page.Header title="Search" />
       <Page.Body>
-        <View p="$5">
+        <View p="$5" pt={0}>
           <SearchBar
+            autoFocus
+            placeholder="Search"
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />
