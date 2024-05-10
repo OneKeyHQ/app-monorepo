@@ -804,6 +804,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       }
     }
     if (sum.lt(transactionAmount)) {
+      if (sum.gt(amount)) {
+        break;
+      }
+    }
+    if (sum.lt(amount)) {
       return [];
     }
     return confirmedUTXOs.slice(0, i + 1);
