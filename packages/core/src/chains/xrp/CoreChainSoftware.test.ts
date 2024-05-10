@@ -1,6 +1,7 @@
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import CoreChainHd from './CoreChainHd';
 

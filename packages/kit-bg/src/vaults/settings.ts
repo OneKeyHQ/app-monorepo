@@ -11,6 +11,7 @@ import {
   IMPL_SOL,
   IMPL_TBTC,
   IMPL_TRON,
+  IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -64,6 +65,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),
     [IMPL_ADA]: () => import('./impls/ada/settings'),
+    [IMPL_XRP]: () => import('./impls/xrp/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

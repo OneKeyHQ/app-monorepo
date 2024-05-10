@@ -1602,6 +1602,45 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const ripple = {
+    'balance2FeeDecimals': 6,
+    'chainId': '0',
+    'code': 'xrp',
+    'decimals': 6,
+    'id': 'xrp--0',
+    'impl': 'xrp',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/xrp.png',
+    'name': 'Ripple',
+    'shortcode': 'xrp',
+    'shortname': 'Ripple',
+    'symbol': 'XRP',
+    'feeMeta': {
+      'code': 'xrp',
+      'decimals': 6,
+      'symbol': 'xrp',
+      'native': 'ripple',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ripple',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://xrpscan.com/account/{address}',
+        'block': 'https://xrpscan.com/ledger/{block}',
+        'name': 'https://xrpscan.com/',
+        'transaction': 'https://xrpscan.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const tron = {
     'balance2FeeDecimals': 0,
     'chainId': '0x2b6653dc',
@@ -1716,6 +1755,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     avax,
     polygon,
     cardano,
+    ripple,
     tron,
     sol,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
