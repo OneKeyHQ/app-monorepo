@@ -26,20 +26,28 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountId, networkId, tokenIdOnNetwork, onChainHistoryDisabled } =
+      params;
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
       });
-    const onChainHistoryTxs = await this.fetchAccountOnChainHistory({
-      ...params,
-      accountAddress,
-    });
 
-    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
-      onChainHistoryTxs,
-    );
+    let onChainHistoryTxs: IAccountHistoryTx[] = [];
+    let localHistoryConfirmedTxs: IAccountHistoryTx[] = [];
+
+    if (onChainHistoryDisabled) {
+      localHistoryConfirmedTxs = [];
+    } else {
+      onChainHistoryTxs = await this.fetchAccountOnChainHistory({
+        ...params,
+        accountAddress,
+      });
+      await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
+        onChainHistoryTxs,
+      );
+    }
 
     const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
       networkId,
@@ -47,7 +55,7 @@ class ServiceHistory extends ServiceBase {
       tokenIdOnNetwork,
     });
 
-    return [...localHistoryPendingTxs, ...onChainHistoryTxs];
+    return [...localHistoryPendingTxs, ...OnChainHistoryTxs];
   }
 
   @backgroundMethod()
@@ -109,12 +117,22 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getAccountLocalHistoryTxs(params: {
+    networkId: string;
+    accountId: string;
+    tokenIdOnNetwork?: string;
+    limit?: number;
+    withPending?: boolean;
+  }) {
+    
+  }
+
+  @backgroundMethod()
   public async getAccountLocalHistoryPendingTxs(params: {
     networkId: string;
     accountId: string;
     tokenIdOnNetwork?: string;
     limit?: number;
-    isPending?: boolean;
   }) {
     const { accountId, networkId, tokenIdOnNetwork } = params;
     const localHistoryPendingTxs =
@@ -138,6 +156,27 @@ class ServiceHistory extends ServiceBase {
     return this.backgroundApi.simpleDb.localHistory.saveLocalHistoryPendingTxs(
       pendingTxs,
     );
+  }
+
+  @backgroundMethod()
+  public async getAccountLocalHistoryConfirmedTxs({}: {
+    networkId: string;
+    accountId: string;
+    tokenIdOnNetwork?: string;
+    limit?: number;
+    isPending?: boolean;
+  }) {
+    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const localHistoryPendingTxs =
+      await this.backgroundApi.simpleDb.localHistory.getAccountLocalHistoryPendingTxs(
+        {
+          networkId,
+          accountId,
+          tokenIdOnNetwork,
+        },
+      );
+
+    return localHistoryPendingTxs;
   }
 
   @backgroundMethod()

@@ -9,6 +9,7 @@ import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export interface ILocalHistory {
   pendingTxs: IAccountHistoryTx[];
+  confirmedTxs: IAccountHistoryTx[];
 }
 
 export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory> {
@@ -115,6 +116,15 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     }
 
     return accountPendingTxs;
+  }
+
+  @backgroundMethod()
+  public async getAccountLocalHistoryConfirmedTxs(params: {
+    accountId: string;
+    networkId: string;
+    tokenIdOnNetwork?: string;
+  }) {
+    return (await this.getAccountLocalHistoryPendingTxs(params)).length;
   }
 
   @backgroundMethod()

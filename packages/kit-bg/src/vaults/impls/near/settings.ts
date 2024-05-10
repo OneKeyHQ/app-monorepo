@@ -34,6 +34,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  onChainHistoryDisabled: true,
 
   accountDeriveInfo,
   networkInfo: {
