@@ -20,11 +20,7 @@ import type {
 } from '@onekeyhq/shared/types/lightning/webln';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
-import {
-  findLnurl,
-  getLnurlDetails,
-  isLNURLRequestError,
-} from '../vaults/impls/lightning/sdkLightning/lnurl';
+import { findLnurl } from '../vaults/impls/lightning/sdkLightning/lnurl';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -193,10 +189,8 @@ class ProviderApiWebln extends ProviderApiBase {
           networkId: networkId ?? '',
         });
       console.log('webln.signMessage: ', message, signature);
-      return {
-        message,
-        signature,
-      } as ISignMessageResponse;
+
+      return JSON.parse(signature as any) as ISignMessageResponse;
     } catch (e) {
       console.error(`webln.signMessage error: `, e);
       throw e;

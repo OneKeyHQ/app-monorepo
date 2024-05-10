@@ -41,6 +41,7 @@ import type {
   IEncodedTxLightning,
   IInvoiceDecodedResponse,
   ILNURLAuthServiceResponse,
+  ILnurlAuthParams,
 } from '@onekeyhq/shared/types/lightning';
 import { ELnPaymentStatusEnum } from '@onekeyhq/shared/types/lightning/payments';
 import {
@@ -528,17 +529,8 @@ export default class Vault extends VaultBase {
     };
   }
 
-  async getLnurlAuthUrl({
-    lnurlDetail,
-    password,
-  }: {
-    lnurlDetail: ILNURLAuthServiceResponse;
-    password: string;
-  }) {
-    return (this.keyring as KeyringHd).lnurlAuth({
-      lnurlDetail,
-      password,
-    });
+  async getLnurlAuthUrl(params: ILnurlAuthParams) {
+    return (this.keyring as KeyringHd).lnurlAuth(params);
   }
 
   async verifyMessage({

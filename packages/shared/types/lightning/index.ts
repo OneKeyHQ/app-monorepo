@@ -1,8 +1,14 @@
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 
 import type { IInvoiceConfig, IInvoiceDecodedResponse } from './invoice';
-import type { ILNURLPaymentSuccessAction } from './lnurl';
-import type { IDevicePassphraseParams } from '../device';
+import type {
+  ILNURLAuthServiceResponse,
+  ILNURLPaymentSuccessAction,
+} from './lnurl';
+import type {
+  IDevicePassphraseParams,
+  IDeviceSharedCallParams,
+} from '../device';
 
 export type * from './accounts';
 export type * from './invoice';
@@ -31,4 +37,10 @@ export type IEncodedTxLightning = {
   config: IInvoiceConfig;
   successAction?: ILNURLPaymentSuccessAction;
   decodedInvoice?: IInvoiceDecodedResponse;
+};
+
+export type ILnurlAuthParams = {
+  lnurlDetail: ILNURLAuthServiceResponse;
+  password?: string;
+  deviceParams?: IDeviceSharedCallParams;
 };

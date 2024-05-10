@@ -10,7 +10,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type {
   IEncodedTxLightning,
-  ILNURLAuthServiceResponse,
+  ILnurlAuthParams,
   ISignApiMessageParams,
 } from '@onekeyhq/shared/types/lightning';
 
@@ -218,8 +218,8 @@ export class KeyringHd extends KeyringHdBase {
     };
     const accountAddress = account.addressDetail.normalizedAddress;
     const result = await Promise.all(
-      messages.map((msg) =>
-        coreChainApi.btc.hd.signMessage({
+      messages.map(async (msg) => {
+        const signature = await coreChainApi.btc.hd.signMessage({
           networkInfo: {
             isTestnet: networkInfo.isTestnet,
             networkChainCode: IMPL_BTC,
@@ -250,10 +250,11 @@ export class KeyringHd extends KeyringHdBase {
               },
             },
           },
-        }),
-      ),
+        });
+        return { message: msg.message, signature };
+      }),
     );
-    return result;
+    return result.map((ret) => JSON.stringify(ret));
   }
 
   async signApiMessage(params: ISignApiMessageParams) {
@@ -275,23 +276,19 @@ export class KeyringHd extends KeyringHdBase {
     });
   }
 
-  async lnurlAuth({
-    lnurlDetail,
-    password,
-  }: {
-    lnurlDetail: ILNURLAuthServiceResponse;
-    password: string;
-  }) {
+  async lnurlAuth(params: ILnurlAuthParams) {
+    const { lnurlDetail } = params;
     if (lnurlDetail.tag !== 'login') {
       throw new Error('lnurl-auth: invalid tag');
     }
+    const password = checkIsDefined(params.password);
     const credentials = await this.baseGetCredentialsInfo({ password });
-    const params = {
+    const coreParams = {
       lnurlDetail,
       password,
       credentials,
     };
-    const result = await this.coreApi.lnurlAuth(params);
+    const result = await this.coreApi.lnurlAuth(coreParams);
 
     return result;
   }

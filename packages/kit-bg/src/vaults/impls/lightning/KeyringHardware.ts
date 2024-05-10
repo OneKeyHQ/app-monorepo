@@ -23,10 +23,9 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
   IEncodedTxLightning,
-  ILNURLAuthServiceResponse,
+  ILnurlAuthParams,
   ISignApiMessageParams,
 } from '@onekeyhq/shared/types/lightning';
 
@@ -272,10 +271,10 @@ export class KeyringHardware extends KeyringHardwareBase {
       params.messages.map(async ({ message }) => {
         const response = await sdk.btcSignMessage(connectId, deviceId, {
           ...params.deviceParams?.deviceCommonParams,
-          path: accountUtils.buildLnToBtcPath({
+          path: `${accountUtils.buildLnToBtcPath({
             path: dbAccount.path,
             isTestnet: network.isTestnet,
-          }),
+          })}/0/0`,
           coin: coinName,
           messageHex: Buffer.from(message).toString('hex'),
         });
@@ -288,10 +287,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     return result.map((ret) => JSON.stringify(ret));
   }
 
-  async lnurlAuth(params: {
-    lnurlDetail: ILNURLAuthServiceResponse;
-    deviceParams?: IDeviceSharedCallParams;
-  }) {
+  async lnurlAuth(params: ILnurlAuthParams) {
     const { lnurlDetail } = params;
     if (lnurlDetail.tag !== 'login') {
       throw new Error('lnurl-auth: invalid tag');
