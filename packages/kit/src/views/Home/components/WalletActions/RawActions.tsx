@@ -101,7 +101,6 @@ function RawActions({ children, ...rest }: IXStackProps) {
   return (
     <XStack
       justifyContent="space-between"
-      pt="$5"
       $gtSm={{
         justifyContent: 'unset',
         space: '$2',
