@@ -69,7 +69,7 @@ function HeaderView({
 
   const headerLeftView = useCallback(
     (props: HeaderBackButtonProps): ReactNode => (
-      <XStack>
+      <XStack mr="$4">
         {!disableClose ? (
           <HeaderBackButton
             canGoBack={!topStack}
