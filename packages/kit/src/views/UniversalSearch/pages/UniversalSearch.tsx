@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
+  Empty,
   Page,
   SearchBar,
   SectionList,
@@ -67,9 +68,11 @@ export function UniversalSearch() {
           data: items,
         },
       ]);
+    } else {
+      setSections([]);
     }
     setSearchStatus(ESearchStatus.done);
-  }, 80);
+  }, 1200);
 
   const handleChangeText = useCallback(() => {
     setSearchStatus(ESearchStatus.loading);
@@ -103,6 +106,9 @@ export function UniversalSearch() {
           <SectionList
             sections={sections}
             renderSectionHeader={renderSectionHeader}
+            ListEmptyComponent={
+              <Empty icon="SearchOutline" title="No Results" />
+            }
             renderItem={({ item }: { item: IUniversalSearchResultItem }) => (
               <ListItem
                 onPress={() => {
