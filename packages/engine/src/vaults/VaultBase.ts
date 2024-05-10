@@ -786,34 +786,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return nextNonce;
   }
 
-  getConfirmedUTXOs<T extends { value: string | number }>(
-    utxos: T[],
-    amount: string,
-    minTransferAmount = '0',
-  ): T[] {
-    const transactionAmount = new BigNumber(amount).plus(minTransferAmount);
-    const confirmedUTXOs = utxos.sort((a, b) =>
-      new BigNumber(b.value).gt(a.value) ? 1 : -1,
-    );
-    let sum = new BigNumber(0);
-    let i = 0;
-    for (i = 0; i < confirmedUTXOs.length; i += 1) {
-      sum = sum.plus(confirmedUTXOs[i].value);
-      if (sum.gt(transactionAmount)) {
-        break;
-      }
-    }
-    if (sum.lt(transactionAmount)) {
-      if (sum.gt(amount)) {
-        break;
-      }
-    }
-    if (sum.lt(amount)) {
-      return [];
-    }
-    return confirmedUTXOs.slice(0, i + 1);
-  }
-
   validateSendAmount(amount: string, tokenBalance: string, to: string) {
     return Promise.resolve(true);
   }
