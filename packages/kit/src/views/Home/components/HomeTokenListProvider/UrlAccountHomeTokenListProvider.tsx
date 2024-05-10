@@ -4,19 +4,19 @@ import { ProviderJotaiContextTokenList } from '@onekeyhq/kit/src/states/jotai/co
 import { useJotaiContextRootStore } from '@onekeyhq/kit/src/states/jotai/utils/useJotaiContextRootStore';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-export function useHomeTokenListContextStoreInitData() {
+export function useUrlAccountHomeTokenListContextStoreInitData() {
   const data = useMemo(
     () => ({
-      storeName: EJotaiContextStoreNames.homeTokenList,
+      storeName: EJotaiContextStoreNames.urlAccountHomeTokenList,
     }),
     [],
   );
   return data;
 }
 
-export const HomeTokenListRootProvider = memo(() => {
-  const data = useHomeTokenListContextStoreInitData();
+export const UrlAccountHomeTokenListProvider = memo(() => {
+  const data = useUrlAccountHomeTokenListContextStoreInitData();
   const store = useJotaiContextRootStore(data);
   return <ProviderJotaiContextTokenList store={store} />;
 });
-HomeTokenListRootProvider.displayName = 'HomeTokenListRootProvider';
+UrlAccountHomeTokenListProvider.displayName = 'UrlAccountHomeTokenListProvider';

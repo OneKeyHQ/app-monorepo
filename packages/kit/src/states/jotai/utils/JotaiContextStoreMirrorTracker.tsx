@@ -18,6 +18,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUti
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
 import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
+import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
 import {
   SwapModalRootProvider,
   SwapRootProvider,
@@ -126,6 +127,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.homeTokenList: {
             return <HomeTokenListRootProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.urlAccountHomeTokenList: {
+            return <UrlAccountHomeTokenListProvider key={key} />;
           }
           case EJotaiContextStoreNames.discoveryBrowser: {
             return <DiscoveryBrowserRootProvider key={key} />;
