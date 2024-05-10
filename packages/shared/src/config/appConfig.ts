@@ -13,7 +13,8 @@ export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYCN =
   process.env.HARDWARE_SDK_CONNECT_SRC_ONEKEYCN || 'https://jssdk.onekeycn.com';
 
-export const HARDWARE_SDK_VERSION = '1.0.0-alpha.7';
+// export const HARDWARE_SDK_VERSION = '1.0.0-alpha.2'; // 0.3.43     1.0.0-alpha.2
+export const HARDWARE_SDK_VERSION = '1.0.0-alpha.7'; // 0.3.43     1.0.0-alpha.2
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
@@ -34,6 +35,9 @@ export const ONEKEY_APP_TEST_UPDATE_URL =
   'https://data.onekey.so/pre-config.json';
 export const ONEKY_API_URL = 'https://rest.onekeytest.com';
 export const ONEKY_TEST_API_URL = 'https://rest.onekeytest.com';
+// https://1key.so
+export const WEB_APP_URL = 'https://wallet.onekeytest.com';
+export const WEB_APP_URL_DEV = 'https://wallet.onekeytest.com';
 
 export const EXT_RATE_URL = {
   'chrome':

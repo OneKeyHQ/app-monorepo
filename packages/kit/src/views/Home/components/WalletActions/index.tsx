@@ -10,6 +10,10 @@ import {
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import type {
+  IModalSendParamList,
+  IModalSwapParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EAssetSelectorRoutes,
   EModalReceiveRoutes,
@@ -17,10 +21,7 @@ import {
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type {
-  IModalSendParamList,
-  IModalSwapParamList,
-} from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -159,6 +160,11 @@ function WalletActions() {
   const {
     activeAccount: { network, account },
   } = useActiveAccount({ num: 0 });
+
+  if (accountUtils.isUrlAccountFn({ accountId: account?.id })) {
+    return null;
+  }
+
   return (
     <RawActions>
       <WalletActionSend />

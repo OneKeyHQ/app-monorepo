@@ -42,6 +42,7 @@ import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 import type {
   ICreateConnectedSiteParams,
   ICreateSignedMessageParams,
@@ -992,9 +993,9 @@ export abstract class LocalDbBase implements ILocalDBAgent {
         tx,
         name: ELocalDBStoreNames.Device,
         ids: [id],
-        updater: (item) => {
+        updater: async (item) => {
           if (verifyResult === 'official') {
-            const versionText = deviceUtils.getDeviceVersionStr({
+            const versionText = await deviceUtils.getDeviceVersionStr({
               device,
               features: checkIsDefined(featuresInfo),
             });
@@ -1014,6 +1015,27 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
+  async updateDevice({ features }: { features: IOneKeyDeviceFeatures }) {
+    const device = await this.getDeviceByQuery({
+      features,
+    });
+    if (!device) {
+      return;
+    }
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [device.id],
+        updater: async (item) => {
+          item.features = JSON.stringify(features);
+          return item;
+        },
+      });
+    });
+  }
+
   // TODO remove unused hidden wallet first
   async createHWWallet(params: IDBCreateHWWalletParams) {
     const db = await this.readyDb;
@@ -1023,16 +1045,16 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     // TODO check features if exists
     const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
     const { connectId } = device;
+    if (!connectId) {
+      throw new Error('createHWWallet ERROR: connectId is required');
+    }
     const context = await this.getContext();
     // const serialNo = features.onekey_serial ?? features.serial_no ?? '';
     const deviceType = device.deviceType || getDeviceType(features);
     const deviceUUID = device.uuid || getDeviceUUID(features);
     const rawDeviceId = device.deviceId || features.device_id || '';
     let walletName =
-      name ??
-      features.label ??
-      features.ble_name ??
-      `OneKey ${deviceUUID.slice(-4)}`;
+      name ?? (await accountUtils.buildDeviceName({ device, features }));
     if (passphraseState) {
       // TODO use nextHidden in IDBWallet
       walletName = 'Hidden Wallet #1';
@@ -1086,11 +1108,11 @@ export abstract class LocalDbBase implements ILocalDBAgent {
         tx,
         name: ELocalDBStoreNames.Device,
         ids: [dbDeviceId],
-        updater: (item) => {
+        updater: async (item) => {
           item.features = featuresStr;
           item.updatedAt = now;
           if (isFirmwareVerified) {
-            const versionText = deviceUtils.getDeviceVersionStr({
+            const versionText = await deviceUtils.getDeviceVersionStr({
               device,
               features,
             });
@@ -1952,6 +1974,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     const { records: devices } = await this.getAllRecords({
       name: ELocalDBStoreNames.Device,
     });
+    devices.forEach((item) => this.refillDeviceInfo({ device: item }));
     return devices;
   }
 
@@ -1982,9 +2005,42 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     throw new Error('wallet associatedDevice not found');
   }
 
-  async getDeviceByConnectId({ connectId }: { connectId: string }) {
+  async getDeviceByQuery({
+    connectId,
+    featuresDeviceId,
+    features,
+  }: {
+    connectId?: string;
+    featuresDeviceId?: string;
+    features?: IOneKeyDeviceFeatures;
+  }) {
+    const { getDeviceUUID } = await CoreSDKLoader();
     const devices = await this.getAllDevices();
-    const device = devices.find((item) => item.connectId === connectId);
+    const device = devices.find((item) => {
+      let predicate: boolean | undefined;
+      const mergePredicate = (p: boolean) => {
+        if (isNil(predicate)) {
+          predicate = p;
+        } else {
+          predicate = predicate && p;
+        }
+      };
+      if (connectId) {
+        mergePredicate(item.connectId === connectId);
+      }
+      if (featuresDeviceId) {
+        mergePredicate(item.deviceId === featuresDeviceId);
+      }
+      if (features) {
+        let uuidInDb = item.uuid;
+        if (!uuidInDb) {
+          uuidInDb = item.featuresInfo ? getDeviceUUID(item.featuresInfo) : '';
+        }
+        const uuidInQuery = features ? getDeviceUUID(features) : '';
+        mergePredicate(!!uuidInDb && !!uuidInQuery && uuidInQuery === uuidInDb);
+      }
+      return predicate ?? false;
+    });
     return device ? this.refillDeviceInfo({ device }) : undefined;
   }
 

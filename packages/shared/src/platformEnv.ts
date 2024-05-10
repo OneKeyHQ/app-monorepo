@@ -1,3 +1,4 @@
+import MobileDetect from 'mobile-detect';
 import { Platform } from 'react-native';
 
 /*
@@ -50,6 +51,10 @@ export type IPlatformEnv = {
   isWeb?: boolean;
   isWebTouchable?: boolean;
   isWebEmbed?: boolean;
+  isWebMobile?: boolean;
+  isWebMobileAndroid?: boolean;
+  isWebMobileIOS?: boolean;
+  isWebSafari?: boolean;
   /** running in the desktop system APP */
   isDesktop?: boolean;
   /** running in the browser extension */
@@ -292,6 +297,27 @@ const isWebTouchable =
   isRuntimeBrowser &&
   ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
+let isWebMobile = false;
+let isWebMobileAndroid = false;
+let isWebMobileIOS = false;
+let isWebSafari = false;
+(function () {
+  if (!isWeb) {
+    return;
+  }
+  // https://hgoebl.github.io/mobile-detect.js/doc/MobileDetect.html
+  const md = new MobileDetect(window.navigator?.userAgent);
+  const mobileInfo = md.mobile();
+  isWebMobile = Boolean(mobileInfo);
+  const os = md.os();
+  const ua = md.userAgent();
+
+  isWebMobileAndroid = os === 'AndroidOS';
+  isWebMobileIOS = os === 'iOS' || os === 'iPadOS';
+  isWebSafari =
+    ua === 'Safari' || window.navigator?.userAgent?.includes('Safari');
+})();
+
 const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 
@@ -363,6 +389,10 @@ const platformEnv: IPlatformEnv = {
   isWeb,
   isWebTouchable,
   isWebEmbed,
+  isWebMobile,
+  isWebMobileAndroid,
+  isWebMobileIOS,
+  isWebSafari,
   isDesktop,
   isExtension,
   isNative,

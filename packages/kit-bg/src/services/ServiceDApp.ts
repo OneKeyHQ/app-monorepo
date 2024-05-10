@@ -173,6 +173,7 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
+      // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
       void extUtils.openStandaloneWindow({
         routes: routeNames,
         params: routeParams,
@@ -249,11 +250,13 @@ class ServiceDApp extends ServiceBase {
     encodedTx,
     accountId,
     networkId,
+    signOnly,
   }: {
     request: IJsBridgeMessagePayload;
     encodedTx: IEncodedTx;
     accountId: string;
     networkId: string;
+    signOnly?: boolean;
   }) {
     return this.openModal({
       request,
@@ -262,6 +265,7 @@ class ServiceDApp extends ServiceBase {
         encodedTx,
         accountId,
         networkId,
+        signOnly,
       },
       fullScreen: true,
     });

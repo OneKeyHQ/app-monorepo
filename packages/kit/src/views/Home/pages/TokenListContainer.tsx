@@ -2,12 +2,12 @@ import { memo, useCallback, useEffect } from 'react';
 
 import { CanceledError } from 'axios';
 
+import type { ITabPageProps } from '@onekeyhq/components';
 import {
   Portal,
   useMedia,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
-import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -131,9 +131,9 @@ function TokenListContainer(props: ITabPageProps) {
       refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
       refreshSmallBalanceTokensFiatValue,
-      updateTokenListState,
       refreshAllTokenList,
       refreshAllTokenListMap,
+      updateTokenListState,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,

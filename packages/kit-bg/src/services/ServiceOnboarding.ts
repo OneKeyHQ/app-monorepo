@@ -3,7 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
-import localDb from '../dbs/local/localDbInstance';
+import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 
 import ServiceBase from './ServiceBase';
