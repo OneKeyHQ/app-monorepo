@@ -18,6 +18,7 @@ import {
   IMPL_NOSTR,
   IMPL_SOL,
   IMPL_NEAR,
+  IMPL_SOL,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,

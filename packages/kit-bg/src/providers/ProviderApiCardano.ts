@@ -61,17 +61,6 @@ class ProviderApiCardano extends ProviderApiBase {
     return { account: accountsInfo?.[0]?.account.address };
   }
 
-  getAccountsInfo = async (request: IJsBridgeMessagePayload) => {
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    if (!accountsInfo) {
-      throw web3Errors.provider.unauthorized();
-    }
-    return accountsInfo;
-  };
-
   private async getAdaVault(request: IJsBridgeMessagePayload) {
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
