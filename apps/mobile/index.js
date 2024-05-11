@@ -8,8 +8,6 @@ markJsBundleLoadedTime();
 
 import { registerRootComponent } from 'expo';
 
-import 'expo-dev-client';
-
 import App from './App';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
