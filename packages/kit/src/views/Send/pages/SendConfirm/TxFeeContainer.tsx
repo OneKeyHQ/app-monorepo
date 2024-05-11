@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -167,7 +167,7 @@ function TxFeeContainer(props: IProps) {
       if (items.length === 0) {
         items.push({
           label: intl.formatMessage({
-            id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: 1 }),
+            id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: 0 }),
           }),
           value: 1,
           feeInfo: {
@@ -242,9 +242,12 @@ function TxFeeContainer(props: IProps) {
     if (sendSelectedFee.feeType === EFeeType.Custom) {
       selectedFeeInfo = feeSelectorItems[feeSelectorItems.length - 1].feeInfo;
     } else {
-      selectedFeeInfo = (
-        feeSelectorItems[sendSelectedFee.presetIndex] ?? feeSelectorItems[0]
-      ).feeInfo;
+      let feeSelectorItem =
+        feeSelectorItems[sendSelectedFee.presetIndex] ?? feeSelectorItems[0];
+      if (feeSelectorItem.type === EFeeType.Custom) {
+        feeSelectorItem = feeSelectorItems[0];
+      }
+      selectedFeeInfo = feeSelectorItem.feeInfo;
     }
 
     const {
@@ -298,9 +301,13 @@ function TxFeeContainer(props: IProps) {
           feeType,
           presetIndex,
         });
+        void backgroundApiProxy.serviceGas.updateFeePresetIndex({
+          networkId,
+          presetIndex,
+        });
       }
     },
-    [updateCustomFee, updateSendSelectedFee],
+    [networkId, updateCustomFee, updateSendSelectedFee],
   );
 
   useEffect(() => {
@@ -308,6 +315,21 @@ function TxFeeContainer(props: IProps) {
       updateSendSelectedFeeInfo(selectedFee);
     }
   }, [selectedFee, updateSendSelectedFeeInfo]);
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceGas
+      .getFeePresetIndex({
+        networkId,
+      })
+      .then((presetIndex) => {
+        const index = presetIndex ?? vaultSettings?.defaultFeePresetIndex;
+        if (!isNil(index)) {
+          updateSendSelectedFee({
+            presetIndex: index,
+          });
+        }
+      });
+  }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
     if (!txFeeInit.current || nativeTokenInfo.isLoading) return;

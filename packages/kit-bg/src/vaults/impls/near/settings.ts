@@ -27,12 +27,14 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  defaultFeePresetIndex: 0,
+
   isUtxo: false,
   isSingleToken: false,
   NFTEnabled: false,
   nonceRequired: true,
   feeUTXORequired: false,
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
   onChainHistoryDisabled: true,
 
