@@ -30,7 +30,7 @@ import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenLi
 import { WalletActions } from '../components/WalletActions';
 
 function TokenListContainer({
-  showWalletActions = true,
+  showWalletActions = false,
   ...props
 }: ITabPageProps) {
   const { onContentSizeChange } = props;
@@ -211,11 +211,11 @@ const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
   });
   return isUrlAccount ? (
     <UrlAccountHomeTokenListProviderMirror>
-      <TokenListContainer showWalletActions={false} {...props} />
+      <TokenListContainer {...props} />
     </UrlAccountHomeTokenListProviderMirror>
   ) : (
     <HomeTokenListProviderMirror>
-      <TokenListContainer {...props} />
+      <TokenListContainer showWalletActions {...props} />
     </HomeTokenListProviderMirror>
   );
 });
