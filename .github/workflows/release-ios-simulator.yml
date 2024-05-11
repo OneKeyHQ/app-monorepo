@@ -1,9 +1,6 @@
 name: release-ios-simulator
 
 on:
-  pull_request:
-    types:
-      - opened
   workflow_dispatch:
     inputs:
       is-split-bundle:
