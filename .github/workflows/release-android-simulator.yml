@@ -1,8 +1,8 @@
 name: release-android-simulator
 on:
   pull_request:
-    branches:
-      - x
+    types:
+      - opened
   workflow_dispatch:
     inputs:
       is-split-bundle:
