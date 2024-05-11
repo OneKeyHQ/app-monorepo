@@ -23,7 +23,7 @@ async function backupToggleAction(
       ? { isFirstEnabled: false, isInProgress: true }
       : { isFirstDisabled: false, isInProgress: false }),
   });
-  if (platformEnv.isNativeAndroid) {
+  if (!willIsEnabled && platformEnv.isNativeAndroid) {
     await backgroundApiProxy.serviceCloudBackup.logoutFromGoogleDrive(false);
   }
   callback?.(willIsEnabled);
