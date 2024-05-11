@@ -8,7 +8,7 @@ on:
         required: false
         default: ''
 jobs:
-  release-ios:
+  release-ios-simulator:
     runs-on: ubuntu-latest
 
     steps:

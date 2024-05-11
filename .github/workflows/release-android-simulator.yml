@@ -8,7 +8,7 @@ on:
         required: false
         default: ''
 jobs:
-  release-android:
+  release-android-simulator:
     runs-on: ubuntu-latest
 
     steps:
