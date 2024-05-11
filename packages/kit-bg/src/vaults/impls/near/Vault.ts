@@ -186,9 +186,11 @@ export default class Vault extends VaultBase {
     const account = await this.getAccount();
     const pubKey = getPublicKey({ accountPub: account.pub, prefix: false });
     const publicKey = nearApiJs.utils.key_pair.PublicKey.from(pubKey);
-    // TODO Mock value here, update nonce and blockHash in buildUnsignedTxFromEncodedTx later
-    const nonce = 0; // 65899896000001
+
+    // Mock value here, update nonce and blockHash in buildUnsignedTx later
+    const nonce = 0;
     const blockHash = '91737S76o1EfWfjxUQ4k3dyD3qmxDQ7hqgKUKxgxsSUW';
+
     const tx = nearApiJs.transactions.createTransaction(
       // 'c3be856133196da252d0f1083614cdc87a85c8aa8abeaf87daff1520355eec51',
       transferInfo.from,
@@ -407,8 +409,6 @@ export default class Vault extends VaultBase {
     const nativeTx = deserializeTransaction(encodedTx);
     const cli = await this.getClient();
 
-    // nonce is not correct if accounts contains multiple AccessKeys
-    // const { nonce } = await cli.getAddress(nativeTx.signerId);
     const accessKey = await this._fetchAccountAccessKey();
     const { blockHash } = await cli.getBestBlock();
 

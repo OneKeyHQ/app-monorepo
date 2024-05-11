@@ -24,7 +24,7 @@ const settings: IVaultSettings = {
 
   importedAccountEnabled: true,
   hardwareAccountEnabled: true,
-  externalAccountEnabled: true,
+  externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
   isUtxo: false,
