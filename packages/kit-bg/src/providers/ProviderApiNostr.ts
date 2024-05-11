@@ -1,6 +1,5 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import PQueue from 'p-queue/dist';
 
 import type {
   INostrEvent,
@@ -10,6 +9,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import PQueue from '@onekeyhq/shared/src/modules3rdParty/p-queue';
 import {
   EDAppConnectionModal,
   EModalRoutes,
