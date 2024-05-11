@@ -2,8 +2,8 @@ name: release-android-simulator
 
 on:
   pull_request:
-    types:
-      - opened
+    branches:
+      - x
   push:
     branches:
       - x

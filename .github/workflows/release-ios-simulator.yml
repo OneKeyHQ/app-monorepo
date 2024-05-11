@@ -2,8 +2,8 @@ name: release-ios-simulator
 
 on:
   pull_request:
-    types:
-      - opened
+    branches:
+      - x
   push:
     branches:
       - x
