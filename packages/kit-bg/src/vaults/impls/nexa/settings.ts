@@ -42,6 +42,7 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+  minTransferAmount: '5.46',
 };
 
 export default Object.freeze(settings);
