@@ -1,4 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
+
+import type {
+  IEncodedTxAlgo,
+  IEncodedTxGroupAlgo,
+} from '@onekeyhq/core/src/chains/algo/types';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -8,6 +15,9 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -26,6 +36,8 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import sdkAlgo from './sdkAlgo';
+import ClientAlgo from './sdkAlgo/ClientAlog';
+import { encodeTransaction } from './utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -37,9 +49,9 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 
 export default class Vault extends VaultBase {
@@ -50,6 +62,32 @@ export default class Vault extends VaultBase {
     watching: KeyringWatching,
     external: KeyringExternal,
   };
+
+  _getSuggestedParams = memoizee(
+    async () => {
+      const client = await this.getClient();
+      return client.getSuggestedParams();
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  _getClientCache = memoizee(
+    async () =>
+      new ClientAlgo({
+        networkId: this.networkId,
+        backgroundApi: this.backgroundApi,
+      }),
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  async getClient() {
+    return this._getClientCache();
+  }
 
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
@@ -71,8 +109,62 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+  override buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxAlgo | IEncodedTxGroupAlgo> {
+    const { transfersInfo } = params;
+
+    if (transfersInfo && !isEmpty(transfersInfo)) {
+      if (transfersInfo.length === 1) {
+        return this._buildEncodedTxFromTransfer({
+          transferInfo: transfersInfo[0],
+        });
+      }
+      throw new OneKeyInternalError('Batch transfers not supported');
+    }
+
+    throw new OneKeyInternalError();
+  }
+
+  async _buildEncodedTxFromTransfer(params: { transferInfo: ITransferInfo }) {
+    const { transferInfo } = params;
+    const tx = await this._buildAlgoTxFromTransferInfo(transferInfo);
+    return encodeTransaction(tx);
+  }
+
+  async _buildAlgoTxFromTransferInfo(transferInfo: ITransferInfo) {
+    if (!transferInfo.to) {
+      throw new Error('Invalid transferInfo.to params');
+    }
+    const { from, to, amount, tokenInfo } = transferInfo;
+
+    if (!tokenInfo) {
+      throw new Error(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
+      );
+    }
+
+    const suggestedParams = await this._getSuggestedParams();
+    if (tokenInfo.isNative) {
+      return sdkAlgo.makePaymentTxnWithSuggestedParamsFromObject({
+        amount: BigInt(
+          new BigNumber(amount).shiftedBy(tokenInfo.decimals).toFixed(),
+        ),
+        from,
+        to,
+        suggestedParams,
+      });
+    }
+
+    return sdkAlgo.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      amount: BigInt(
+        new BigNumber(amount).shiftedBy(tokenInfo.decimals).toFixed(),
+      ),
+      assetIndex: parseInt(tokenInfo.address),
+      from,
+      to,
+      suggestedParams,
+    });
   }
 
   override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {

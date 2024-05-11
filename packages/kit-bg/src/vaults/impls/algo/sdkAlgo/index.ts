@@ -5,6 +5,7 @@ export type {
   EncodedTransaction as ISdkAlgoEncodedTransaction,
   TransactionType as ISdkAlgoTransactionType,
   Transaction as ISdkAlgoTransaction,
+  SuggestedParams as ISdkAlgoSuggestedParams,
 } from 'algosdk';
 
 export default sdk as typeof import('algosdk');

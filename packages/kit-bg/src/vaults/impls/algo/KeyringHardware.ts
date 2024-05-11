@@ -10,7 +10,6 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
-  IPrepareAccountsParams,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
