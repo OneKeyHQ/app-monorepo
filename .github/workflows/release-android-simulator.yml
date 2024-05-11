@@ -1,11 +1,6 @@
-name: release-android
+name: release-android-simulator
 
 on:
-  workflow_run:
-    workflows:
-      - daily-build
-    types:
-      - completed
   workflow_dispatch:
     inputs:
       is-split-bundle:
@@ -16,7 +11,6 @@ jobs:
   release-android:
     runs-on: ubuntu-latest
 
-    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
       - uses: actions/checkout@v3
         with:
