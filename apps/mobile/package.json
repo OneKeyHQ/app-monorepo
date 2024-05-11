@@ -49,6 +49,7 @@
     "expo-barcode-scanner": "12.7.0",
     "expo-blur": "12.9.1",
     "expo-clipboard": "5.0.1",
+    "expo-dev-client": "4.0.13",
     "expo-device": "5.9.3",
     "expo-haptics": "12.6.0",
     "expo-image-manipulator": "11.5.0",
