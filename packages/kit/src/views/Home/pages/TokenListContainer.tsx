@@ -29,7 +29,10 @@ import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider
 import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
 
-function TokenListContainer(props: ITabPageProps) {
+function TokenListContainer({
+  showWalletActions = true,
+  ...props
+}: ITabPageProps) {
   const { onContentSizeChange } = props;
   const { isFocused } = useTabIsRefreshingFocused();
 
@@ -180,9 +183,11 @@ function TokenListContainer(props: ITabPageProps) {
 
   return (
     <>
-      <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-        <WalletActions />
-      </Portal.Body>
+      {showWalletActions ? (
+        <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
+          <WalletActions />
+        </Portal.Body>
+      ) : null}
       <TokenListView
         withHeader
         withFooter
@@ -206,7 +211,7 @@ const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
   });
   return isUrlAccount ? (
     <UrlAccountHomeTokenListProviderMirror>
-      <TokenListContainer {...props} />
+      <TokenListContainer showWalletActions={false} {...props} />
     </UrlAccountHomeTokenListProviderMirror>
   ) : (
     <HomeTokenListProviderMirror>
