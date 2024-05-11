@@ -1,13 +1,25 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { isArray } from 'lodash';
+
+import type {
+  IEncodedTxAlgo,
+  IEncodedTxGroupAlgo,
+} from '@onekeyhq/core/src/chains/algo/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
+import sdkAlgo from './sdkAlgo';
+
+import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IPrepareHardwareAccountsParams,
@@ -21,8 +33,6 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    const chainId = await this.getNetworkChainId();
-
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
         const addresses = await this.baseGetDeviceAccountAddresses({
@@ -73,10 +83,80 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  override signTransaction(
+  async _signAlgoTx({
+    encodedTx,
+    deviceParams,
+  }: {
+    encodedTx: IEncodedTxAlgo;
+    deviceParams?: IDeviceSharedCallParams;
+  }) {
+    const sdk = await this.getHardwareSDKInstance();
+    const path = await this.vault.getAccountPath();
+    const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
+    const { connectId, deviceId } = dbDevice;
+
+    const transaction = sdkAlgo.Transaction.from_obj_for_encoding(
+      sdkAlgo.decodeObj(
+        Buffer.from(encodedTx, 'base64'),
+      ) as ISdkAlgoEncodedTransaction,
+    );
+
+    const result = await convertDeviceResponse(async () =>
+      sdk.nearSignTransaction(connectId, deviceId, {
+        path,
+        rawTx: transaction.bytesToSign().toString('hex'),
+        ...deviceCommonParams,
+      }),
+    );
+
+    const { signature } = result;
+
+    return {
+      txid: transaction.txID(),
+      rawTx: Buffer.from(
+        sdkAlgo.encodeObj({
+          sig: Buffer.from(signature, 'hex'),
+          txn: transaction.get_obj_for_encoding(),
+        }),
+      ).toString('base64'),
+    };
+  }
+
+  override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    const { unsignedTx, deviceParams } = params;
+    const encodedTx = unsignedTx.encodedTx as
+      | IEncodedTxAlgo
+      | IEncodedTxGroupAlgo;
+
+    if (isArray(encodedTx)) {
+      const signedTxs = [];
+      for (let i = 0; i < encodedTx.length; i += 1) {
+        const tx = encodedTx[i];
+        const signedTx = await this._signAlgoTx({
+          encodedTx: tx,
+          deviceParams,
+        });
+        signedTxs.push(signedTx);
+      }
+      return {
+        encodedTx: unsignedTx.encodedTx,
+        txid: signedTxs.map((tx) => tx.txid).join(','),
+        rawTx: signedTxs.map((tx) => tx.rawTx).join(','),
+      };
+    }
+
+    const signedTx = await this._signAlgoTx({
+      encodedTx,
+      deviceParams,
+    });
+
+    return {
+      encodedTx: unsignedTx.encodedTx,
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    };
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
