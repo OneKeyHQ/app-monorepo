@@ -406,7 +406,7 @@ export default class Vault extends VaultBase {
       const { addresses, path, address, xpub } = params;
       const stakeAddress = addresses['2/0'];
       try {
-        const { utxos } =
+        const { utxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
             accountAddress: address,
@@ -414,13 +414,13 @@ export default class Vault extends VaultBase {
             withUTXOList: true,
             cardanoPubKey: xpub,
           });
-        if (!utxos || isEmpty(utxos)) {
+        if (!utxoList || isEmpty(utxoList)) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
 
         const pathIndex = path.split('/')[3];
 
-        return utxos.map((utxo) => {
+        return utxoList.map((utxo) => {
           let { path: utxoPath } = utxo;
           if (utxoPath && utxoPath.length > 0) {
             const pathArray = utxoPath.split('/');

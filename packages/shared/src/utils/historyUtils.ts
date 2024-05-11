@@ -43,7 +43,11 @@ export function getOnChainHistoryTxAssetInfo({
   let price = '0';
   let decimals = 0;
   nft = nfts[tokenAddress];
-  token = tokens[tokenAddress || 'native'];
+  if (tokenAddress === '') {
+    token = tokens[tokenAddress] || tokens.native;
+  } else {
+    token = tokens[tokenAddress];
+  }
   if (nft) {
     name = nft.metadata?.name ?? '';
     symbol = nft.metadata?.name ?? '';

@@ -24,3 +24,15 @@ export interface IProxyResponse<T> {
     }>;
   };
 }
+
+export interface IRpcProxyResponse<T> {
+  code: number;
+  message: string;
+  data: {
+    data: Array<{
+      id: string;
+      jsonrpc: string;
+      result: T;
+    }>;
+  };
+}

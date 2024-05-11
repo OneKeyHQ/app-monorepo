@@ -53,7 +53,6 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { calculateNativeAmountInActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -648,9 +647,6 @@ export default class Vault extends VaultBase {
       signature = null;
     }
 
-    const { nativeAmount, nativeAmountValue } =
-      calculateNativeAmountInActions(actions);
-
     const owner = await this.getAccountAddress();
     const decodedTx: IDecodedTx = {
       txid: signature ? bs58.encode(signature) : '',
@@ -662,9 +658,6 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
 
-      nativeAmount,
-      nativeAmountValue,
-
       extraInfo: null,
       encodedTx,
     };
@@ -673,9 +666,10 @@ export default class Vault extends VaultBase {
   }
 
   _getAssociatedAccountInfo = memoizee(
-    async (ataAddress): Promise<IAssociatedTokenInfo> => {
+    async (ataAddress: string): Promise<IAssociatedTokenInfo> => {
       const client = await this.getClient();
-      const ataInfo = (await client.getAccountInfo(ataAddress)) ?? {};
+      const ataInfo =
+        (await client.getAccountInfo({ address: ataAddress })) ?? {};
       const { mint, owner } = (ataInfo as IParsedAccountInfo).data.parsed.info;
       return { mint, owner };
     },
@@ -711,6 +705,7 @@ export default class Vault extends VaultBase {
             const nativeToken =
               await this.backgroundApi.serviceToken.getNativeToken({
                 networkId: this.networkId,
+                accountAddress,
               });
             const { fromPubkey, toPubkey, lamports } =
               SystemInstruction.decodeTransfer(instruction);
