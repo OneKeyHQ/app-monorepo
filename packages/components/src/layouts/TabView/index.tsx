@@ -37,7 +37,7 @@ import type { LayoutChangeEvent } from 'react-native';
 
 export type ITabPageProps = {
   onContentSizeChange: (width: number, height: number) => void;
-  showWalletActions: boolean;
+  showWalletActions?: boolean;
 };
 
 export type ITabPageType = ComponentType<ITabPageProps>;
