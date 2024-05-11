@@ -2,6 +2,7 @@ import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSe
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
+import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
@@ -18,6 +19,8 @@ export class SimpleDb {
   browserTabs = new SimpleDbEntityBrowserTabs();
 
   browserBookmarks = new SimpleDbEntityBrowserBookmarks();
+
+  browserRiskWhiteList = new SimpleDbEntityBrowserRiskWhiteList();
 
   dappConnection = new SimpleDbEntityDappConnection();
 

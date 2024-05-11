@@ -122,7 +122,16 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkUrlSecurity(url: string) {
+  async checkUrlSecurity(url: string, whiteListEnabled = false) {
+    if (whiteListEnabled && (await this._isUrlExistInRiskWhiteList(url))) {
+      return {
+        host: url,
+        level: 'security',
+        attackTypes: [],
+        phishingSite: false,
+        alert: '',
+      };
+    }
     return this._checkUrlSecurity(url);
   }
 
@@ -171,6 +180,34 @@ class ServiceDiscovery extends ServiceBase {
     return bookmarks;
   }
 
+  _isUrlExistInRiskWhiteList = memoizee(
+    async (url: string) => {
+      const data =
+        await this.backgroundApi.simpleDb.browserRiskWhiteList.getRawData();
+      const whiteList = data?.data ?? [];
+      return whiteList.findIndex((item) => item.url === url) !== -1;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  async addBrowserUrlToRiskWhiteList(url: string) {
+    if (await this._isUrlExistInRiskWhiteList(url)) {
+      return;
+    }
+    const data =
+      await this.backgroundApi.simpleDb.browserRiskWhiteList.getRawData();
+    const whiteList = data?.data ?? [];
+    whiteList.push({ url });
+    await this.backgroundApi.simpleDb.browserRiskWhiteList.setRawData({
+      data: whiteList,
+    });
+    await this._isUrlExistInRiskWhiteList.delete(url);
+  }
+
   @backgroundMethod()
   async getHistoryData(
     options:
@@ -213,6 +250,8 @@ class ServiceDiscovery extends ServiceBase {
       simpleDb.browserBookmarks.clearRawData(),
       simpleDb.browserHistory.clearRawData(),
       simpleDb.dappConnection.clearRawData(),
+      simpleDb.browserRiskWhiteList.clearRawData(),
+      this._isUrlExistInRiskWhiteList.clear(),
     ]);
   }
 }
