@@ -1,6 +1,9 @@
 name: release-ios-simulator
 
 on:
+  push:
+    branches:
+      - x
   workflow_dispatch:
     inputs:
       is-split-bundle:
