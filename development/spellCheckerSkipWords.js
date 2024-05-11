@@ -690,4 +690,9 @@ module.exports = [
   'Lnurl',
   'millisatoshis',
   'withdrawable',
+  'npub',
+  'plaintext',
+  'ciphertext',
+  'decrypted',
+  'cip',
 ];

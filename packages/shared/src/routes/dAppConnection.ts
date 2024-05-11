@@ -1,3 +1,4 @@
+import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
 import type {
@@ -17,6 +18,8 @@ export enum EDAppConnectionModal {
   // WebLN
   MakeInvoice = 'MakeInvoice',
   VerifyMessage = 'VerifyMessage',
+  // Nostr
+  NostrSignEventModal = 'NostrSignEventModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -41,4 +44,15 @@ export type IDAppConnectionModalParamList = {
     networkId: string;
   };
   [EDAppConnectionModal.VerifyMessage]: IVerifyMessageArgs;
+  // Nostr
+  [EDAppConnectionModal.NostrSignEventModal]: {
+    event?: INostrEvent;
+    pubkey?: string;
+    plaintext?: string;
+    ciphertext?: string;
+    sigHash?: string;
+    walletId: string;
+    accountId: string;
+    networkId: string;
+  };
 };
