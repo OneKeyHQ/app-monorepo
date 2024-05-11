@@ -5575,7 +5575,7 @@ __metadata:
     expo-notifications: "npm:0.27.6"
     expo-screen-capture: "npm:5.8.1"
     expo-secure-store: "npm:12.5.0"
-    expo-sharing: "npm:^12.0.1"
+    expo-sharing: "npm:11.10.0"
     expo-splash-screen: "npm:0.26.4"
     expo-status-bar: "npm:~1.6.0"
     folderslint: "npm:^1.2.0"
@@ -18092,12 +18092,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-sharing@npm:^12.0.1":
-  version: 12.0.1
-  resolution: "expo-sharing@npm:12.0.1"
+"expo-sharing@npm:11.10.0":
+  version: 11.10.0
+  resolution: "expo-sharing@npm:11.10.0"
   peerDependencies:
     expo: "*"
-  checksum: 10/11f90dbef9a0f9defedeeaf9898a1af7cb25a7c30fed3e19d09f32a1ae218bac7c35a4575235b541daf20145e36597bd8286bf60b98a027cbaf8832424bbada4
+  checksum: 10/54c51e8a2630c921c11a71b895f55e475fa649493f5bc26e192bbf56553d5e20dcd137387a609dcc98fa9a9128ee35d4add7b22207abfa684ceb5e3de60a11b3
   languageName: node
   linkType: hard
 
