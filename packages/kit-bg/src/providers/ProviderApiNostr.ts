@@ -1,6 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import PQueue from 'p-queue';
+import PQueue from 'p-queue/dist';
 
 import type {
   INostrEvent,
