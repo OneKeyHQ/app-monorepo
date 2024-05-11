@@ -13,7 +13,6 @@ export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYCN =
   process.env.HARDWARE_SDK_CONNECT_SRC_ONEKEYCN || 'https://jssdk.onekeycn.com';
 
-// export const HARDWARE_SDK_VERSION = '1.0.0-alpha.2'; // 0.3.43     1.0.0-alpha.2
 export const HARDWARE_SDK_VERSION = '1.0.0-alpha.7'; // 0.3.43     1.0.0-alpha.2
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
