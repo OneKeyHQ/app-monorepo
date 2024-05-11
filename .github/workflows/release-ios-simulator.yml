@@ -3,8 +3,6 @@ name: release-ios-simulator
 on:
   pull_request:
     branches:
-  push:
-    branches:
       - x
   workflow_dispatch:
     inputs:
