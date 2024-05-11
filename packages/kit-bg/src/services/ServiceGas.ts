@@ -54,6 +54,27 @@ class ServiceGas extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildEstimateFeeParams({ encodedTx });
   }
+
+  @backgroundMethod()
+  async getFeePresetIndex({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.feeInfo.getPresetIndex({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  async updateFeePresetIndex({
+    networkId,
+    presetIndex,
+  }: {
+    networkId: string;
+    presetIndex: number;
+  }) {
+    return this.backgroundApi.simpleDb.feeInfo.updatePresetIndex({
+      networkId,
+      presetIndex,
+    });
+  }
 }
 
 export default ServiceGas;

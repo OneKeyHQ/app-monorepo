@@ -7,8 +7,9 @@ import ProviderApiCardano from './ProviderApiCardano';
 // import ProviderApiConflux from './ProviderApiConflux';
 // import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
-// import ProviderApiNear from './ProviderApiNear';
+import ProviderApiNear from './ProviderApiNear';
 // import ProviderApiPolkadot from './ProviderApiPolkadot';
+import ProviderApiNostr from './ProviderApiNostr';
 import ProviderApiPrivate from './ProviderApiPrivate';
 import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
@@ -40,9 +41,9 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.starcoin]: new ProviderApiStarcoin({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.near]: new ProviderApiNear({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.near]: new ProviderApiNear({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.aptos]: new ProviderApiAptos({
     //   backgroundApi,
     // }),
@@ -68,6 +69,7 @@ function createBackgroundProviders({
     //   backgroundApi,
     // }),
     [IInjectedProviderNames.webln]: new ProviderApiWebln({ backgroundApi }),
+    [IInjectedProviderNames.nostr]: new ProviderApiNostr({ backgroundApi }),
     [IInjectedProviderNames.btc]: new ProviderApiBtc({
       backgroundApi,
     }),
