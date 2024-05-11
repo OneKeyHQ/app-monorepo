@@ -130,7 +130,7 @@ class ServiceDiscovery extends ServiceBase {
         attackTypes: [],
         phishingSite: false,
         alert: '',
-      };
+      } as IHostSecurity;
     }
     return this._checkUrlSecurity(url);
   }
