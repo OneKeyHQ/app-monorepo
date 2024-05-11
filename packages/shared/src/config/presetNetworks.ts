@@ -1602,6 +1602,33 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const nostr = {
+    id: 'nostr--0',
+    impl: 'nostr',
+    chainId: '0',
+    code: 'nostr',
+    defaultEnabled: true,
+    isTestnet: false,
+    priceConfigs: [],
+    explorers: [],
+    rpcURLs: [],
+    feeMeta: {
+      symbol: 'nostr',
+      decimals: 0,
+      code: 'nostr',
+    },
+    balance2FeeDecimals: 0,
+    decimals: 0,
+    'status': ENetworkStatus.LISTED,
+    name: 'Nostr',
+    symbol: 'Nostr',
+    shortname: 'Nostr',
+    shortcode: 'nostr',
+    extensions: {},
+    clientApi: {},
+    logoURI: 'https://uni.onekey-asset.com/static/chain/nostr.png',
+  } as unknown as IServerNetwork;
+
   const ripple = {
     'balance2FeeDecimals': 6,
     'chainId': '0',
@@ -1756,6 +1783,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     polygon,
     cardano,
     ripple,
+    nostr,
     tron,
     sol,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),

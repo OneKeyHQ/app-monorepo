@@ -8,6 +8,7 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
+  IMPL_NOSTR,
   IMPL_SOL,
   IMPL_TBTC,
   IMPL_TRON,
@@ -64,6 +65,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),
+    [IMPL_NOSTR]: () => import('./impls/nostr/settings'),
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
   };

@@ -14,6 +14,7 @@ import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
 // import CoreChainNear from '../chains/near';
 // import CoreChainNexa from '../chains/nexa';
+import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
 // import CoreChainSui from '../chains/sui';
@@ -65,4 +66,6 @@ export class CoreChainApiHub {
   // xmr = new CoreChainXmr();
 
   // nexa = new CoreChainNexa();
+
+  nostr = new CoreChainNostr();
 }
