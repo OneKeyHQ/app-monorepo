@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, max-classes-per-file */
 
-import { wait } from '@onekeyfe/hd-core';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 
@@ -22,7 +21,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
   }
 
   override async waitRemoteApiReady(): Promise<void> {
-    await wait(0);
+    await timerUtils.wait(0);
   }
 
   protected override async callRemoteApi(options: {

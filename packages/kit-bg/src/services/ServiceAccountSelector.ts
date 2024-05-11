@@ -23,6 +23,7 @@ import ServiceBase from './ServiceBase';
 
 import type {
   IDBAccount,
+  IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
 } from '../dbs/local/types';
@@ -151,6 +152,7 @@ class ServiceAccountSelector extends ServiceBase {
     // in this case, we should use dbAccount
     let dbAccount: IDBAccount | undefined;
     let wallet: IDBWallet | undefined;
+    let device: IDBDevice | undefined;
     let network: IServerNetwork | undefined;
     let indexedAccount: IDBIndexedAccount | undefined;
     let deriveInfo: IAccountDeriveInfo | undefined;
@@ -248,12 +250,28 @@ class ServiceAccountSelector extends ServiceBase {
       return '';
     })();
 
+    if (
+      accountUtils.isHwWallet({
+        walletId: wallet?.id,
+      }) &&
+      wallet?.associatedDevice
+    ) {
+      try {
+        device = await serviceAccount.getDevice({
+          dbDeviceId: wallet?.associatedDevice,
+        });
+      } catch (e) {
+        //
+      }
+    }
+
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,
       indexedAccount,
       accountName: universalAccountName,
       wallet,
+      device,
       network,
       deriveType,
       deriveInfo,

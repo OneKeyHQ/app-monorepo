@@ -11,7 +11,7 @@ import ProviderApiEthereum from './ProviderApiEthereum';
 // import ProviderApiNear from './ProviderApiNear';
 // import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
-// import ProviderApiSolana from './ProviderApiSolana';
+import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 // import ProviderApiSui from './ProviderApiSui';
 import ProviderApiTron from './ProviderApiTron';
@@ -35,9 +35,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.solana]: new ProviderApiSolana({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.solana]: new ProviderApiSolana({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.starcoin]: new ProviderApiStarcoin({
     //   backgroundApi,
     // }),

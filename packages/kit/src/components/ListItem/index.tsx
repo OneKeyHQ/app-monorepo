@@ -14,6 +14,7 @@ import {
   Image,
   MatchSizeableText,
   SizableText,
+  Spinner,
   Stack,
   Unspaced,
   withStaticProperties,
@@ -264,8 +265,9 @@ export type IListItemProps = PropsWithChildren<{
   icon?: IIconProps['name'];
   iconProps?: Exclude<ComponentProps<typeof Icon>, 'name'>;
   drillIn?: boolean;
+  isLoading?: boolean;
   checkMark?: boolean;
-  onPress?: () => void;
+  onPress?: () => void | Promise<void>;
 }>;
 
 const renderWithFallback = (
@@ -296,6 +298,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
     subtitle,
     subtitleProps,
     drillIn,
+    isLoading,
     iconProps,
     checkMark,
     onPress,
@@ -375,7 +378,8 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
         renderItemText,
       )}
       {children}
-      {drillIn ? <ListItemDrillIn /> : null}
+      {drillIn && !isLoading ? <ListItemDrillIn /> : null}
+      {isLoading ? <Spinner /> : null}
       <Unspaced>
         <AnimatePresence>
           {checkMark ? <ListItemCheckMark key="checkmark" /> : null}
