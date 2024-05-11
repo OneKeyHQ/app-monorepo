@@ -227,19 +227,13 @@ function HistoryDetails() {
           networkId,
           accountAddress,
           txid: historyTx.decodedTx.txid,
-          status: historyTx.decodedTx.status,
         }),
         backgroundApiProxy.serviceToken.getNativeToken({
           networkId,
           accountAddress,
         }),
       ]),
-    [
-      accountAddress,
-      historyTx.decodedTx.status,
-      historyTx.decodedTx.txid,
-      networkId,
-    ],
+    [accountAddress, historyTx.decodedTx.txid, networkId],
     { watchLoading: true },
   );
 

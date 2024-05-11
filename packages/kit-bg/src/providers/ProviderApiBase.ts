@@ -71,6 +71,17 @@ abstract class ProviderApiBase {
     //  RPC methods
     //  throwMethodNotFound
   }
+
+  getAccountsInfo = async (request: IJsBridgeMessagePayload) => {
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+    if (!accountsInfo) {
+      throw web3Errors.provider.unauthorized();
+    }
+    return accountsInfo;
+  };
 }
 
 export default ProviderApiBase;
