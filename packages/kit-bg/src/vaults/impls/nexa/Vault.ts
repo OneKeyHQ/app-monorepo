@@ -19,6 +19,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -239,8 +240,7 @@ export default class Vault extends VaultBase {
     if (encodedTx) {
       return {
         encodedTx,
-        // FIXME: txSize is not correct
-        txSize: 1,
+        txSize: checkIsDefined(encodedTx.estimateTxSize),
       };
     }
     throw new OneKeyInternalError('Failed to build unsigned tx');
