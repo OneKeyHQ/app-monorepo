@@ -3,6 +3,7 @@ name: release-ios-simulator
 on:
   pull_request:
     branches:
+      - x
   push:
     branches:
       - x
