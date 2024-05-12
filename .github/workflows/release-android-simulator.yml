@@ -107,11 +107,25 @@ jobs:
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: 'cd apps/mobile/android && ./gradlew assembleDebug'
-
-      - name: Upload Artifacts Release
+      
+      - name: Upload Main Debug Apk
         uses: actions/upload-artifact@v3
         with:
-          name: release
+          name: release-prod-debug
           path: |
-            ./apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+            ./apps/mobile/android/app/build/outputs/apk/prod/debug
+
+      - name: Upload Google Debug Apk
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-google-debug
+          path: |
+            ./apps/mobile/android/app/build/outputs/apk/google/debug
+      
+      - name: Upload Huawei Debug Apk
+        uses: actions/upload-artifact@v3
+        with:
+            name: release-huawei-debug
+            path: |
+                ./apps/mobile/android/app/build/outputs/apk/huawei/debug
 
