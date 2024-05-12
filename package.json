@@ -79,7 +79,6 @@
     "eslint": "^8.25.0",
     "expiry-map": "^2.0.0",
     "expo": "50.0.5",
-    "expo-dev-client": "~3.3.11",
     "jotai": "^2.5.0",
     "lru-cache": "^10.2.0",
     "memoizee": "^0.4.15",
