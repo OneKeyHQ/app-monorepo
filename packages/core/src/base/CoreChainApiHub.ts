@@ -9,7 +9,7 @@ import CoreChainDnx from '../chains/dnx';
 import CoreChainDoge from '../chains/doge';
 // import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
-// import CoreChainFil from '../chains/fil';
+import CoreChainFil from '../chains/fil';
 import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
@@ -63,7 +63,7 @@ export class CoreChainApiHub {
 
   // dot = new CoreChainDot();
 
-  // fil = new CoreChainFil();
+  fil = new CoreChainFil();
 
   // xmr = new CoreChainXmr();
 
