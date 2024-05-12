@@ -43,6 +43,7 @@ const settings: IVaultSettings = {
     },
   },
   minTransferAmount: '5.46',
+  defaultFeePresetIndex: 1,
 };
 
 export default Object.freeze(settings);
