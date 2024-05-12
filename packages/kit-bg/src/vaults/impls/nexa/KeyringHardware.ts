@@ -1,8 +1,20 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { getNexaPrefix } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
+import {
+  buildInputScriptBuffer,
+  buildRawTx,
+  buildSignatureBuffer,
+  buildTxid,
+  getNexaPrefix,
+} from '@onekeyhq/core/src/chains/nexa/sdkNexa';
+import type {
+  IEncodedTxNexa,
+  INexaInputSignature,
+} from '@onekeyhq/core/src/chains/nexa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -71,10 +83,54 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  override signTransaction(
+  override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    const sdk = await this.getHardwareSDKInstance();
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxNexa;
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const dbAccount = await this.vault.getAccount();
+    const chainId = await this.getNetworkChainId();
+
+    const { inputSignatures, outputSignatures, signatureBuffer } =
+      buildSignatureBuffer(encodedTx, dbAccount.address);
+
+    const response = await sdk.nexaSignTransaction(connectId, deviceId, {
+      ...params.deviceParams?.deviceCommonParams,
+      inputs: [
+        {
+          path: dbAccount.path,
+          prefix: getNexaPrefix(chainId),
+          message: signatureBuffer.toString('hex'),
+        },
+      ],
+    });
+
+    if (response.success) {
+      const nexaSignatures = response.payload;
+      const publicKey = Buffer.from(dbAccount.address, 'hex');
+      const defaultSignature = Buffer.from(nexaSignatures[0].signature, 'hex');
+      const inputSigs: INexaInputSignature[] = inputSignatures.map(
+        (inputSig) => ({
+          ...inputSig,
+          publicKey,
+          signature: defaultSignature,
+          scriptBuffer: buildInputScriptBuffer(publicKey, defaultSignature),
+        }),
+      );
+
+      const txid = buildTxid(inputSigs, outputSignatures);
+      const rawTx = buildRawTx(inputSigs, outputSignatures, 0, true);
+
+      return {
+        txid,
+        rawTx: rawTx.toString('hex'),
+        encodedTx,
+      };
+    }
+
+    throw convertDeviceError(response.payload);
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
