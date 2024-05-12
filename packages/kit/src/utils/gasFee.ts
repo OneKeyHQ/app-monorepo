@@ -65,6 +65,7 @@ export function calculateTotalFeeRange({
   if (feeInfo.feeUTXO?.feeRate) {
     const fee = new BigNumber(feeInfo.feeUTXO.feeRate)
       .multipliedBy(txSize ?? 0)
+      .decimalPlaces(feeInfo.common.feeDecimals, BigNumber.ROUND_CEIL)
       .toFixed();
     return {
       min: nanToZeroString(fee),

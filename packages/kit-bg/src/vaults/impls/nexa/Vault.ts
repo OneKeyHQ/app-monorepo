@@ -253,9 +253,14 @@ export default class Vault extends VaultBase {
       unsignedTx: { txSize, encodedTx },
       feeInfo,
     } = params;
+    const network = await this.getNetwork();
     console.log('====>params: ', params);
     const newFee = new BigNumber(feeInfo?.feeUTXO?.feeRate || '0.03')
       .times(txSize ?? 0)
+      .decimalPlaces(
+        feeInfo?.common.feeDecimals ?? network.feeMeta.decimals,
+        BigNumber.ROUND_CEIL,
+      )
       .toString();
     const { finalInputs } = await this._estimateTxSize(
       params.unsignedTx.encodedTx as IEncodedTxNexa,
