@@ -20,22 +20,6 @@
         }
       }
     },
-    "development": {
-      "extends": "base",
-      "developmentClient": true,
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
-    },
-    "development-simulator": {
-      "extends": "base",
-      "developmentClient": false,
-      "distribution": "internal",
-      "ios": {
-        "simulator": true
-      }
-    },
     "production-store": {
       "extends": "base",
       "distribution": "store",
