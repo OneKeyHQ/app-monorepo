@@ -3,7 +3,7 @@ import CoreChainAda from '../chains/ada';
 // import CoreChainApt from '../chains/apt';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
-// import CoreChainCfx from '../chains/cfx';
+import CoreChainCfx from '../chains/cfx';
 import CoreChainCosmos from '../chains/cosmos';
 import CoreChainDnx from '../chains/dnx';
 import CoreChainDoge from '../chains/doge';
@@ -45,7 +45,7 @@ export class CoreChainApiHub {
 
   // apt = new CoreChainApt();
 
-  // cfx = new CoreChainCfx();
+  cfx = new CoreChainCfx();
 
   xrp = new CoreChainXrp();
 
