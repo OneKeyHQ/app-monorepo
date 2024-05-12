@@ -23,11 +23,10 @@
     "development": {
       "extends": "base",
       "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
-      "extends": "base",
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
     },
     "development-simulator": {
       "extends": "base",
