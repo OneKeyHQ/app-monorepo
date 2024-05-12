@@ -100,7 +100,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       ...params.deviceParams?.deviceCommonParams,
       inputs: [
         {
-          path: dbAccount.path,
+          path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
           prefix: getNexaPrefix(chainId),
           message: signatureBuffer.toString('hex'),
         },
