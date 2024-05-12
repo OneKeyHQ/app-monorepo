@@ -114,7 +114,7 @@ export default class Vault extends VaultBase {
       address: dbAccount.address,
     });
 
-    const preEncodedTx = {
+    const preEncodedTx: IEncodedTxNexa = {
       inputs: utxos,
       outputs: [
         {
@@ -123,6 +123,7 @@ export default class Vault extends VaultBase {
           outType: 1,
         },
       ],
+      allUtxos: utxos,
     };
 
     const { finalInputs, estimateTxSize } = await this._estimateTxSize(
@@ -136,6 +137,7 @@ export default class Vault extends VaultBase {
       totalFeeInNative: '0',
       finalInputs,
       estimateTxSize,
+      allUtxos: utxos,
     };
   }
 
@@ -144,7 +146,7 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxNexa;
-    const { inputs, outputs } = encodedTx;
+    const { finalInputs: inputs, outputs } = encodedTx;
     const network = await this.getNetwork();
     const account = await this.getAccount();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
@@ -159,7 +161,7 @@ export default class Vault extends VaultBase {
 
     let actions: IDecodedTxAction[] = [];
 
-    const utxoFrom = inputs.map((input) => ({
+    const utxoFrom = (inputs ?? []).map((input) => ({
       address: input.address,
       balance: new BigNumber(input.satoshis)
         .shiftedBy(-network.decimals)
@@ -237,10 +239,14 @@ export default class Vault extends VaultBase {
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     const encodedTx = await this.buildEncodedTx(params);
+    const account = await this.getAccount();
     if (encodedTx) {
       return {
         encodedTx,
         txSize: checkIsDefined(encodedTx.estimateTxSize),
+        payload: {
+          address: account.address,
+        },
       };
     }
     throw new OneKeyInternalError('Failed to build unsigned tx');
@@ -257,11 +263,12 @@ export default class Vault extends VaultBase {
     console.log('====>params: ', params);
     const newFee = new BigNumber(feeInfo?.feeUTXO?.feeRate || '0.03')
       .times(txSize ?? 0)
+      .shiftedBy(network.decimals)
       .decimalPlaces(
         feeInfo?.common.feeDecimals ?? network.feeMeta.decimals,
         BigNumber.ROUND_CEIL,
       )
-      .toString();
+      .toFixed(0);
     const { finalInputs } = await this._estimateTxSize(
       params.unsignedTx.encodedTx as IEncodedTxNexa,
       newFee,
@@ -329,7 +336,6 @@ export default class Vault extends VaultBase {
     async (params: { address: string }): Promise<INexaUTXO[]> => {
       const { address } = params;
       try {
-        // @ts-expect-error
         const { utxoList: utxos } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
@@ -340,7 +346,7 @@ export default class Vault extends VaultBase {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
 
-        return (utxos as IUtxoInfo[]).map((utxo) => ({
+        return utxos.map((utxo) => ({
           txId: utxo.txid,
           outputIndex: utxo.vout,
           satoshis: utxo.value,
@@ -363,39 +369,62 @@ export default class Vault extends VaultBase {
     fee: string,
     minTransferAmount = '0',
   ): INexaUTXO[] {
-    const totalAmount = new BigNumber(amount).plus(fee).plus(minTransferAmount);
+    const amountBig = new BigNumber(amount);
+    const feeBig = new BigNumber(fee);
+    const requiredAmount = amountBig.plus(feeBig);
+
     const confirmedUTXOs = utxos.sort((a, b) =>
       new BigNumber(b.satoshis).gt(a.satoshis) ? 1 : -1,
     );
+
+    // Calculate the total satoshis available from all UTXOs
+    let totalUtxosSum = new BigNumber(0);
+    utxos.forEach((utxo) => {
+      totalUtxosSum = totalUtxosSum.plus(utxo.satoshis);
+    });
+
+    // Check if it's a max value transfer
+    if (totalUtxosSum.eq(amountBig) || totalUtxosSum.eq(requiredAmount)) {
+      // If the total UTXOs sum matches exactly the amount or amount + fee
+      // it's a maximum value transfer, return all UTXOs
+      return utxos;
+    }
+
     let sum = new BigNumber(0);
-    let i = 0;
-    for (i = 0; i < confirmedUTXOs.length; i += 1) {
-      sum = sum.plus(confirmedUTXOs[i].satoshis);
-      if (sum.gt(totalAmount)) {
-        break;
+    const selectedUTXOs = [];
+    for (const utxo of confirmedUTXOs) {
+      sum = sum.plus(utxo.satoshis);
+      selectedUTXOs.push(utxo);
+      if (sum.gte(requiredAmount)) {
+        if (sum.eq(requiredAmount)) {
+          // If the total exactly matches the required amount, no change is needed
+          return selectedUTXOs;
+        }
+        if (sum.lt(requiredAmount.plus(minTransferAmount))) {
+          // If the current total is less than the required amount plus the minimum transfer amount,
+          // continue selecting UTXOs to avoid creating dust change
+          // eslint-disable-next-line no-continue
+          continue; // Assuming the logic here is to keep looping to select more UTXOs
+        } else {
+          // Otherwise, the total is sufficient and the change is also adequate, safely return
+          return selectedUTXOs;
+        }
       }
     }
 
-    // all amount
-    if (sum.eq(amount) && i === confirmedUTXOs.length) {
-      return utxos;
-    }
-    if (sum.lt(totalAmount)) {
-      return [];
-    }
-
-    return confirmedUTXOs.slice(0, i + 1);
+    // Return all UTXOs if sum is enough including minTransferAmount, otherwise empty array
+    return sum.gte(requiredAmount.plus(minTransferAmount)) ? selectedUTXOs : [];
   }
 
   async _estimateTxSize(encodedTx: IEncodedTxNexa, fee: string) {
-    const { inputs, outputs } = encodedTx;
+    const { allUtxos, outputs } = encodedTx;
     const settings = await this.getVaultSettings();
     const network = await this.getNetwork();
     const minTransferAmount = new BigNumber(settings.minTransferAmount ?? '0')
       .shiftedBy(network.decimals)
       .toFixed();
     const finalInputs = this._coinSelect(
-      inputs,
+      allUtxos ?? [],
       new BigNumber(outputs[0].satoshis || 0).toFixed(),
       fee,
       minTransferAmount,

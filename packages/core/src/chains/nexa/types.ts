@@ -11,6 +11,7 @@ export type IEncodedTxNexa = {
   totalFeeInNative?: string;
   finalInputs?: Array<INexaUTXO>;
   estimateTxSize?: number;
+  allUtxos?: Array<INexaUTXO>;
 };
 
 export enum NexaSignature {
