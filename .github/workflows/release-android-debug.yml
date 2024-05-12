@@ -103,29 +103,29 @@ jobs:
         run: |
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
 
-      - name: Build Apk
+      - name: Build APK
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: 'cd apps/mobile/android && ./gradlew assembleDebug'
       
-      - name: Upload Main Debug Apk
+      - name: Upload Main Debug APK
         uses: actions/upload-artifact@v3
         with:
           name: release-prod-debug
           path: |
-            ./apps/mobile/android/app/build/outputs/apk/prod/debug
+            ./apps/mobile/android/app/build/outputs/APK/prod/debug
 
-      - name: Upload Google Debug Apk
+      - name: Upload Google Debug APK
         uses: actions/upload-artifact@v3
         with:
           name: release-google-debug
           path: |
-            ./apps/mobile/android/app/build/outputs/apk/google/debug
+            ./apps/mobile/android/app/build/outputs/APK/google/debug
       
-      - name: Upload Huawei Debug Apk
+      - name: Upload Huawei Debug APK
         uses: actions/upload-artifact@v3
         with:
             name: release-huawei-debug
             path: |
-                ./apps/mobile/android/app/build/outputs/apk/huawei/debug
+                ./apps/mobile/android/app/build/outputs/APK/huawei/debug
 
