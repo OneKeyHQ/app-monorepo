@@ -22,7 +22,7 @@
     },
     "development": {
       "extends": "base",
-      "developmentClient": false,
+      "developmentClient": true,
       "distribution": "internal"
     },
     "preview": {
@@ -31,7 +31,7 @@
     },
     "development-simulator": {
       "extends": "base",
-      "developmentClient": false,
+      "developmentClient": true,
       "distribution": "internal",
       "ios": {
         "simulator": true
