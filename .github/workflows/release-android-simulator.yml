@@ -23,9 +23,6 @@ jobs:
         with:
           lfs: true
 
-      - name: Install Snapcraft
-        uses: samuelmeuli/action-snapcraft@v2
-
       - name: Dotenv Action
         id: dotenv
         uses: OneKeyHQ/actions/dotenv-action@main
