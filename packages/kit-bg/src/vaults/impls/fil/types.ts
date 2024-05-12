@@ -5,3 +5,8 @@ export enum EProtocolIndicator {
   BLS,
   DELEGATED,
 }
+
+export enum ETransferMethod {
+  FIL = 0,
+  EVM = 3844450837,
+}
