@@ -18,39 +18,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
         with:
           lfs: true
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Install Snapcraft
+        uses: samuelmeuli/action-snapcraft@v2
+
+      - name: Dotenv Action
+        id: dotenv
+        uses: OneKeyHQ/actions/dotenv-action@main
         with:
-          node-version: 20.x
-          registry-url: 'https://npm.pkg.github.com'
-          always-auth: true
-          scope: '@onekeyhq'
+          path: .env.version
 
-      - name: Setup keys secret
-        run: |
-          echo ${{ secrets.AUTO_SUBMIT_GOOGLE_PLAY_KEY }} | base64 -d > apps/mobile/pc-api-8644398719570171123-0-dcae07e2afab.json
-          rm -rf apps/mobile/android/app/google-services.json
-          echo ${{ secrets.GOOGLE_SERVICE_ANDROID }} | base64 -d > apps/mobile/android/app/google-services.json
-
-      - name: Setup Expo
-        uses: OneKeyHQ/actions/expo-server@main
-        with:
-          eas-version: 9.x
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Setup ENV BUILD_NUMBER to 1
-        if: ${{ !github.event.workflow_run }}
-        run: |
-          # Generate build number ------- start
-          echo "BUILD_NUMBER=1" >> $GITHUB_ENV
-          # Generate build number ------- end
-
-      - name: Setup ENV BUILD_NUMBER by workflow_run
-        if: ${{ github.event.workflow_run }}
+      - name: 'Setup ENV'
         run: |
           echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
 
@@ -63,40 +45,73 @@ jobs:
           echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
           # Generate build number ------- end
 
+          github_ref="${github_ref////-}"
+          github_ref="${github_ref/refs-heads-/}"
+          github_ref="${github_ref/refs-tags-/}"
+          echo '$github_ref='$github_ref
+          echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
+          # echo "::set-env name=GITHUB_TAG::$github_ref"
+
+          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
+          echo '$pkg_version='$pkg_version
+          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+
         env:
+          github_ref: ${{ github.ref }}
           workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
-      - name: Dotenv Action
-        id: dotenv
-        uses: OneKeyHQ/actions/dotenv-action@main
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
-          path: .env.version
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
 
-      - name: Modify build.gradle
-        uses: OneKeyHQ/actions/build-gradle-edit@main
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
-          versionCode: ${{ env.BUILD_NUMBER }}
-          versionName: ${{ steps.dotenv.outputs.version }}
-          packageName: 'so.onekey.app.wallet'
-          android_dir: ./apps/mobile
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
 
-      - name: Write .env.version
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
-          # pass BUILD_NUMBER as env variable to expo server
-          echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
+          yarn
 
       - name: Inject Environment Variables
         env:
-          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
           GITHUB_SHA: ${{ github.sha }}
         run: |
-          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
-          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
-          echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> .env.expo
-          echo "NO_FLIPPER=1" >> .env.expo
-  
-      - name: Build on EAS
-        if: ${{ !github.event.workflow_run }}
-        run: |
-          cd apps/mobile
-          eas build --profile development --platform android --non-interactive --no-wait --resource-class large
+          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+
+      - name: Build Apk
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: 'cd apps/mobile/android && ./gradlew assembleDebug'
+
+      - name: Upload Artifacts Release
+        uses: actions/upload-artifact@v3
+        with:
+          name: release
+          path: |
+            ./apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+
