@@ -4,6 +4,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -21,7 +22,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
+import { conflux as sdkCfx } from './sdkCfx';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -35,8 +36,9 @@ import type {
   IGetPrivateKeyFromImportedResult,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
+
+const { Conflux, address: confluxAddress } = sdkCfx;
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
@@ -47,10 +49,24 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
-  override buildAccountAddressDetail(
+  override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    throw new Error('Method not implemented.');
+    const { account, networkId } = params;
+
+    const address = account.address || '';
+
+    const { normalizedAddress, displayAddress, isValid } =
+      await this.validateAddress(address);
+    return {
+      networkId,
+      normalizedAddress,
+      displayAddress,
+      address: displayAddress,
+      baseAddress: normalizedAddress,
+      isValid,
+      allowEmptyAddress: false,
+    };
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
@@ -79,33 +95,67 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new Error('Method not implemented.');
+  override async validateAddress(address: string): Promise<IAddressValidation> {
+    const isValid = confluxAddress.isValidCfxAddress(address);
+    const chainId = await this.getNetworkChainId();
+    if (isValid) {
+      return Promise.resolve({
+        normalizedAddress: hexUtils.addHexPrefix(
+          confluxAddress.decodeCfxAddress(address).hexAddress.toString('hex'),
+        ),
+        displayAddress: address.toLowerCase(),
+        isValid,
+      });
+    }
+
+    const isValidHexAddress = confluxAddress.isValidHexAddress(address);
+    if (isValidHexAddress) {
+      const displayAddress = confluxAddress.encodeCfxAddress(
+        address,
+        parseInt(chainId),
+      );
+      return Promise.resolve({
+        normalizedAddress: address.toLowerCase(),
+        displayAddress,
+        isValid: true,
+      });
+    }
+
+    return Promise.resolve({
+      normalizedAddress: '',
+      displayAddress: '',
+      isValid,
+    });
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    return super.baseGetPrivateKeyFromImported(params);
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    return this.baseValidatePrivateKey(privateKey);
   }
 
-  override validateGeneralInput(
+  override async validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new Error('Method not implemented.');
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
   }
 }
