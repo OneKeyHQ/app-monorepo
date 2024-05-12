@@ -99,5 +99,4 @@ jobs:
         if: ${{ !github.event.workflow_run }}
         run: |
           cd apps/mobile
-          cp -r ../../node_modules/expo-dev-client node_modules
           eas build --profile development --platform android --non-interactive --no-wait --resource-class large
