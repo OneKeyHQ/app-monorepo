@@ -47,6 +47,7 @@ function CommonError({
 }
 
 function ShouldUpdateBridge({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   result,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;

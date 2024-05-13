@@ -140,6 +140,7 @@ export function FirmwareUpdateProgressBar({
   const firmwareProgress = state?.payload?.firmwareProgress;
   const isConfirmOnDevice = deviceUtils.isConfirmOnDeviceAction(state);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isUpdatingResource = [
     EFirmwareUpdateTipMessages.CheckLatestUiResource,
     EFirmwareUpdateTipMessages.DownloadLatestUiResource,

@@ -1,10 +1,4 @@
 import { Button, SizableText, Stack } from '@onekeyhq/components';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
-import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
-import {
-  useFirmwareUpdateRetryAtom,
-  useFirmwareUpdatesDetectStatusAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -17,15 +11,20 @@ import {
   EnterBootModeGuide,
   useFirmwareUpdateErrors,
 } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareUpdateErrors';
+import { FirmwareUpdateProgressBarView } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareUpdateProgressBar';
 import { FirmwareUpdateWarningMessage } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareUpdateWarningMessage';
 import { FirmwareUpdateReminderAlert } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
+import {
+  useFirmwareUpdateRetryAtom,
+  useFirmwareUpdatesDetectStatusAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import * as AllErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
-
-import { FirmwareUpdateProgressBarView } from '../../../../../FirmwareUpdate/components/FirmwareUpdateProgressBar';
 
 import { Layout } from './utils/Layout';
 
