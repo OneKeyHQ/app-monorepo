@@ -1,6 +1,12 @@
 name: release-ios-debug
 
 on:
+  pull_request:
+    branches:
+      - x
+  push:
+    branches:
+      - x
   workflow_dispatch:
     inputs:
       is-split-bundle:
