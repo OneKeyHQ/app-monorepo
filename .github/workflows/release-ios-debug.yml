@@ -1,4 +1,4 @@
-name: release-android-debug
+name: release-ios-debug
 
 on:
   workflow_dispatch:
@@ -8,11 +8,13 @@ on:
         required: false
         default: ''
 jobs:
-  release-android-debug:
-    runs-on: ubuntu-latest
+  release-ios-debug:
+    runs-on: macos-latest
     strategy:
       matrix:
         node-version: [20.x]
+        ruby-version: [2.7.x]
+        xcode-version: [15.3]
 
     steps:
       - name: Checkout Source Code
@@ -49,13 +51,6 @@ jobs:
           github_ref: ${{ github.ref }}
           workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-          cache: 'gradle'
-
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
@@ -83,6 +78,15 @@ jobs:
         run: |
           yarn
 
+      - name: Install Pods
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          cd apps/mobile/ios
+          gem install cocoapods -v 1.15.2
+          pod install
+
       - name: Inject Environment Variables
         env:
           GITHUB_SHA: ${{ github.sha }}
@@ -94,27 +98,14 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web-embed:build
-          cd apps/mobile/android
-          ./gradlew assembleDebug
+          cd apps/mobile/ios
+          xcodebuild -workspace OneKeyWallet.xcworkspace -configuration Debug -scheme OneKeyWallet -sdk iphonesimulator17.4 -derivedDataPath ./app
       
-      - name: Upload Main Debug APK
+      - name: Upload App File
         uses: actions/upload-artifact@v3
         with:
-          name: release-prod-debug
+          name: release-App-debug
           path: |
-            ./apps/mobile/android/app/build/outputs/apk/prod/debug
+            ./apps/mobile/ios/app/Build/Products/Debug-iphonesimulator/OneKeyWallet.app
 
-      - name: Upload Google Debug APK
-        uses: actions/upload-artifact@v3
-        with:
-          name: release-google-debug
-          path: |
-            ./apps/mobile/android/app/build/outputs/apk/google/debug
-      
-      - name: Upload Huawei Debug APK
-        uses: actions/upload-artifact@v3
-        with:
-            name: release-huawei-debug
-            path: |
-                ./apps/mobile/android/app/build/outputs/apk/huawei/debug
 
