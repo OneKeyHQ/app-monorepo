@@ -8,6 +8,8 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
+  IMPL_NEAR,
+  IMPL_NOSTR,
   IMPL_SOL,
   IMPL_TBTC,
   IMPL_TRON,
@@ -59,11 +61,13 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_BCH]: () => import('./impls/bch/settings'),
     [IMPL_LTC]: () => import('./impls/ltc/settings'),
     [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
+    [IMPL_NEAR]: () => import('./impls/near/settings'),
     [IMPL_TRON]: () => import('./impls/tron/settings'),
     [IMPL_SOL]: () => import('./impls/sol/settings'),
     [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),
+    [IMPL_NOSTR]: () => import('./impls/nostr/settings'),
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
   };

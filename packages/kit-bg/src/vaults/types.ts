@@ -132,6 +132,8 @@ export type IVaultSettings = {
   };
   validationRequired?: boolean;
   allowZeroFee?: boolean;
+
+  onChainHistoryDisabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
