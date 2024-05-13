@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { Semaphore } from 'async-mutex';
 
 import type {
   INostrEvent,
@@ -9,7 +10,6 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { TaskQueue } from '@onekeyhq/shared/src/queue/TaskQueue';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -28,7 +28,7 @@ import type {
 class ProviderApiNostr extends ProviderApiBase {
   public providerName = IInjectedProviderNames.nostr;
 
-  private decryptQueue = new TaskQueue();
+  private decryptMutex = new Semaphore(1);
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
@@ -232,7 +232,7 @@ class ProviderApiNostr extends ProviderApiBase {
 
   @providerApiMethod()
   public async decrypt(request: IJsBridgeMessagePayload): Promise<string> {
-    const result = await this.decryptQueue.add(() =>
+    const result = await this.decryptMutex.runExclusive(() =>
       this.decryptRequest(request),
     );
     console.log('====>>>>>DECRYPT: ', result);
