@@ -56,7 +56,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       sha256(serializeTxForSignature(txWrapper)),
     );
     const [signature] = await signer.sign(txBytes);
-    const senderPublicKey = await signer.getPubkeyHex();
+    const senderPublicKey = await signer.getPubkeyHex(true);
     if (!senderPublicKey) {
       throw new OneKeyInternalError('Unable to get sender public key.');
     }

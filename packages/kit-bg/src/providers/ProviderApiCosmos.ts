@@ -390,10 +390,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       },
     });
 
-    return Promise.resolve({
-      ...params,
-      txid: res,
-    });
+    return Promise.resolve(res);
   }
 
   private async signArbitraryMessage(

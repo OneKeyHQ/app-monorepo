@@ -58,7 +58,6 @@ import { KeyringWatching } from './KeyringWatching';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -158,7 +157,7 @@ export default class VaultCosmos extends VaultBase {
       if (transfer.tokenInfo && transfer.tokenInfo.address) {
         const { address, decimals } = transfer.tokenInfo;
         const amountValue = new BigNumber(amount).shiftedBy(decimals).toFixed();
-        if (this._isIbcToken(address)) {
+        if (transfer.tokenInfo.isNative || this._isIbcToken(address)) {
           const msg = this.txMsgBuilder.makeSendNativeMsg(
             from,
             to,
@@ -390,7 +389,8 @@ export default class VaultCosmos extends VaultBase {
     const gasPriceNum = new BigNumber(price);
     const amount = gasLimitNum
       .multipliedBy(gasPriceNum)
-      .toFixed(common.feeDecimals);
+      .shiftedBy(common.feeDecimals)
+      .toFixed();
     const newAmount = [
       {
         denom: common.feeSymbol,
