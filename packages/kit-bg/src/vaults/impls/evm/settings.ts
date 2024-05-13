@@ -66,6 +66,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: true,
   watchingAccountEnabled: true,
 
+  defaultFeePresetIndex: 1,
+
   isUtxo: false,
   isSingleToken: false,
   NFTEnabled: true,

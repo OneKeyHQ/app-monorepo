@@ -29,6 +29,7 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
 
   minTransferAmount: '1',
+  defaultFeePresetIndex: 0,
 
   isUtxo: true,
   isSingleToken: false,

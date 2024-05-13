@@ -81,6 +81,7 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
 
   minTransferAmount: '0.00000546',
+  defaultFeePresetIndex: 1,
 
   accountDeriveInfo,
   networkInfo: {
