@@ -26,6 +26,8 @@ import type {
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
 
+import { vaultFactory } from '../vaults/factory';
+
 import ServiceBase from './ServiceBase';
 
 type IAddressNetworkIdParams = {
@@ -143,8 +145,9 @@ class ServiceAccountProfile extends ServiceBase {
     accountId: string;
     accountAddress: string;
   }): Promise<boolean> {
-    const networkIds = [getNetworkIdsMap().trx];
-    if (!networkIds.includes(networkId)) {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const vaultSettings = await vault.getVaultSettings();
+    if (!vaultSettings.prohibitSendFundToSelf) {
       return false;
     }
     const acc = await this.backgroundApi.serviceAccount.getAccount({
