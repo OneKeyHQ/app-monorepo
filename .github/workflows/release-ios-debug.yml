@@ -105,13 +105,13 @@ jobs:
         run: |
           yarn app:web-embed:build
           cd apps/mobile/ios
-          xcodebuild -workspace OneKeyWallet.xcworkspace -configuration Debug -scheme OneKeyWallet -sdk iphonesimulator17.4 -derivedDataPath ./app
+          xcodebuild -workspace OneKeyWallet.xcworkspace -configuration Debug -scheme OneKeyWallet -sdk iphonesimulator17.4 -derivedDataPath ./outputs
       
       - name: Upload App File
         uses: actions/upload-artifact@v3
         with:
           name: release-App-debug
           path: |
-            ./apps/mobile/ios/app/Build/Products/Debug-iphonesimulator/OneKeyWallet.app
+            ./apps/mobile/outputs/app/Build/Products/Debug-iphonesimulator/OneKeyWallet.app
 
 
