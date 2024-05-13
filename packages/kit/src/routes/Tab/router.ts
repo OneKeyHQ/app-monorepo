@@ -77,7 +77,7 @@ export const getTabRouter = (params?: IGetTabRouterParams) => {
       name: ETabRoutes.Market,
       tabBarIcon: (focused?: boolean) =>
         focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
-      translationId: 'title__swap',
+      translationId: 'title__market',
       freezeOnBlur: Boolean(params?.freezeOnBlur),
       rewrite: '/market',
       exact: true,
