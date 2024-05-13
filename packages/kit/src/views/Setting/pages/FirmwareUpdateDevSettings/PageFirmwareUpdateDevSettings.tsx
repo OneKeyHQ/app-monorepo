@@ -4,7 +4,7 @@ import { FirmwareUpdateDevSettings } from '../List/DevSettingsSection/FirmwareUp
 
 export default function PageFirmwareUpdateDevSettings() {
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="FirmwareUpdateDevSettings" />
       <FirmwareUpdateDevSettings />
     </Page>
