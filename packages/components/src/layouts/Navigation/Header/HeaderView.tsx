@@ -51,6 +51,7 @@ function HeaderView({
     headerBackground,
     headerShown = true,
     headerSearchBarOptions,
+    headerTitleStyle,
   } = options || {};
 
   const theme = useTheme();
@@ -143,6 +144,7 @@ function HeaderView({
             headerTitleStyle={{
               lineHeight: 28,
               fontWeight: '600',
+              ...(headerTitleStyle as any),
             }}
             headerTitleContainerStyle={{
               marginHorizontal: 0,
@@ -175,4 +177,4 @@ function HeaderView({
 
 export default memo(HeaderView);
 
-export { NavBackButton } from './HeaderBackButton';
+export { NavBackButton, NavCloseButton } from './HeaderBackButton';
