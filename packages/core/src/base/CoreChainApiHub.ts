@@ -21,6 +21,7 @@ import CoreChainSol from '../chains/sol';
 import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
 import CoreChainXrp from '../chains/xrp';
+import CoreChainNeurai from '../chains/neurai';
 
 export class CoreChainApiHub {
   ada = new CoreChainAda();
@@ -68,4 +69,6 @@ export class CoreChainApiHub {
   nexa = new CoreChainNexa();
 
   nostr = new CoreChainNostr();
+
+  neurai = new CoreChainNeurai();
 }
