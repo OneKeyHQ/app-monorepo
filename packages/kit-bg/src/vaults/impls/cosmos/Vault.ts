@@ -439,16 +439,8 @@ export default class VaultCosmos extends VaultBase {
     };
   }
 
-  override async broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    const txid = await this.backgroundApi.serviceSend.broadcastTransaction(
-      params,
-    );
-    return {
-      ...params.signedTx,
-      txid,
-    };
+  override async broadcastTransaction(): Promise<ISignedTxPro> {
+    throw new Error('Method not implemented.');
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {

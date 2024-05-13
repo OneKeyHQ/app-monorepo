@@ -380,20 +380,20 @@ class ProviderApiCosmos extends ProviderApiBase {
 
     const account = await this._getAccount(request, networkId);
 
-    const res = await this.backgroundApi.serviceSend.broadcastTransactionLegacy(
-      {
-        networkId,
-        accountId: account?.account.id ?? '',
-        accountAddress: account?.account.address ?? '',
-        signedTx: {
-          rawTx: Buffer.from(params.tx, 'hex').toString('base64'),
-          txid: '',
-          encodedTx: null,
-        },
+    const res = await this.backgroundApi.serviceSend.broadcastTransaction({
+      networkId,
+      accountAddress: account?.account.address ?? '',
+      signedTx: {
+        rawTx: Buffer.from(params.tx, 'hex').toString('base64'),
+        txid: '',
+        encodedTx: null,
       },
-    );
+    });
 
-    return Promise.resolve(res.txid);
+    return Promise.resolve({
+      ...params,
+      txid: res,
+    });
   }
 
   private async signArbitraryMessage(
