@@ -103,7 +103,7 @@ jobs:
         run: |
           echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
 
-      - name: Build APK
+      - name: Build App File
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
