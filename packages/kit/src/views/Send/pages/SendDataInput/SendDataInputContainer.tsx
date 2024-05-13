@@ -40,7 +40,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProviderMirror';
+import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 

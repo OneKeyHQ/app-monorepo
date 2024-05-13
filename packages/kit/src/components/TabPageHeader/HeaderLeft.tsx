@@ -15,16 +15,17 @@ export function HeaderLeft({
   sceneName: EAccountSelectorSceneName;
 }) {
   const items = useMemo(() => {
-    if (
-      platformEnv.isNative &&
-      sceneName === EAccountSelectorSceneName.homeUrlAccount
-    ) {
-      return (
-        <Page.Close>
-          <NavBackButton />
-        </Page.Close>
-      );
+    if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+      if (platformEnv.isNative) {
+        return (
+          <Page.Close>
+            <NavBackButton />
+          </Page.Close>
+        );
+      }
+      return null;
     }
+
     const accountSelectorTrigger = (
       <AccountSelectorTriggerHome num={0} key="accountSelectorTrigger" />
     );

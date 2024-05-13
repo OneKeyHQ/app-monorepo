@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 
 import * as ExpoSharing from 'expo-sharing';
+import { StyleSheet } from 'react-native';
 
 import {
   Button,
   Dialog,
+  HeaderIconButton,
   IconButton,
   QRCode,
   SizableText,
@@ -16,7 +18,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -53,7 +55,7 @@ function Address() {
     <XStack alignItems="center">
       {/* use navigation built-in back button */}
       {/* <Back /> */}
-      <SizableText>
+      <SizableText size="$headingLg">
         {accountUtils.shortenAddress({ address: account?.address })}
       </SizableText>
     </XStack>
@@ -110,6 +112,9 @@ function OpenInAppButton() {
         });
         Dialog.show({
           title: 'Scan to open in OneKey',
+          floatingPanelProps: {
+            overflow: 'hidden',
+          },
           renderContent: (
             <Stack>
               <Stack
@@ -119,6 +124,7 @@ function OpenInAppButton() {
               >
                 {deepLinkUrl && openByAppButtonLabel ? (
                   <Button
+                    mb="$4"
                     onPress={() => {
                       console.log(
                         'URL Account openByApp deepLinkUrl',
@@ -130,14 +136,31 @@ function OpenInAppButton() {
                     {openByAppButtonLabel}
                   </Button>
                 ) : null}
-                <QRCode value={text} logoSvg="OnekeyBrand" size={240} />
+                <Stack
+                  p="$4"
+                  borderRadius="$6"
+                  borderCurve="continuous"
+                  borderWidth={StyleSheet.hairlineWidth}
+                  borderColor="$borderSubdued"
+                >
+                  <QRCode value={text} logoSvg="OnekeyBrand" size={224} />
+                </Stack>
               </Stack>
-              <XStack mt="$6">
-                <SizableText flex={1}>Don’t have the app yet?</SizableText>
+              <XStack
+                m="$-5"
+                mt="$5"
+                py="$4"
+                px="$5"
+                backgroundColor="$bgSubdued"
+                alignItems="center"
+              >
+                <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+                  Don’t have the app yet?
+                </SizableText>
                 <Button
                   size="small"
                   onPress={() => {
-                    openUrlExternal(DOWNLOAD_URL);
+                    openUrlExternal(DOWNLOAD_MOBILE_APP_URL);
                   }}
                 >
                   Download
@@ -178,7 +201,7 @@ function ShareButton() {
     return null;
   }
   return (
-    <IconButton
+    <HeaderIconButton
       onPress={async () => {
         const text = buildUrlAccountFullUrl({
           account,
@@ -191,8 +214,7 @@ function ShareButton() {
           copyText(text);
         }
       }}
-      size="small"
-      icon="ShareArrowSolid"
+      icon="ShareOutline"
     />
   );
 }
