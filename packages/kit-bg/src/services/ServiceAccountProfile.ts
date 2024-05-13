@@ -8,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
@@ -22,6 +23,7 @@ import type {
   IProxyRequest,
   IProxyRequestItem,
   IProxyResponse,
+  IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
 
 import ServiceBase from './ServiceBase';
@@ -254,6 +256,25 @@ class ServiceAccountProfile extends ServiceBase {
       throw new Error('Failed to send proxy request');
     }
     return data.map((item) => item.data);
+  }
+
+  async sendRpcProxyRequest<T>({
+    networkId,
+    body,
+  }: {
+    networkId: string;
+    body: IProxyRequestItem[];
+  }): Promise<T[]> {
+    const client = await this.getClient();
+    const request: IProxyRequest = { networkId, body };
+    const resp = await client.post<IRpcProxyResponse<T>>(
+      '/wallet/v1/proxy/wallet',
+      request,
+    );
+
+    const data = resp.data.data.data;
+
+    return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
   }
 }
 

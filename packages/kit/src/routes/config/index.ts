@@ -10,10 +10,6 @@ import {
   type ITabNavigatorExtraConfig,
   useRouterEventsRef,
 } from '@onekeyhq/components';
-import {
-  ONEKEY_APP_DEEP_LINK,
-  WALLET_CONNECT_DEEP_LINK,
-} from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';

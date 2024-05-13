@@ -118,6 +118,7 @@ export type IVaultSettings = {
   nonceRequired: boolean;
   feeUTXORequired: boolean;
   editFeeEnabled: boolean;
+  defaultFeePresetIndex: number;
   checkFeeDetailEnabled?: boolean;
   replaceTxEnabled: boolean;
 
@@ -135,6 +136,8 @@ export type IVaultSettings = {
   hideAmountInputOnFirstEntry?: boolean;
   allowZeroFee?: boolean;
   sendTransactionBySelf?: boolean;
+
+  onChainHistoryDisabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {

@@ -1707,6 +1707,49 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const near = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'near',
+    'decimals': 24,
+    'id': 'near--0',
+    'impl': 'near',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/near.png',
+    'name': 'Near',
+    'shortcode': 'near',
+    'shortname': 'Near',
+    'symbol': 'NEAR',
+    'feeMeta': {
+      'code': 'near',
+      'decimals': 24,
+      'symbol': 'NEAR',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'near',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'NEAR',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.mainnet.near.org/accounts/{address}',
+        'block': 'https://explorer.mainnet.near.org/blocks/{block}',
+        'name': 'https://explorer.mainnet.near.org/',
+        'transaction':
+          'https://explorer.mainnet.near.org/transactions/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const sol = {
     'balance2FeeDecimals': 0,
     'chainId': '101',
@@ -1784,6 +1827,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     cardano,
     ripple,
     nostr,
+    near,
     tron,
     sol,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),

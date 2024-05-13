@@ -83,10 +83,15 @@ export function TokenDetails() {
           });
 
         if (!a) return;
-        const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
-          accountId,
-          networkId,
-        });
+        const [xpub, vaultSettings] = await Promise.all([
+          backgroundApiProxy.serviceAccount.getAccountXpub({
+            accountId,
+            networkId,
+          }),
+          backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          }),
+        ]);
         const [history, details] = await Promise.all([
           backgroundApiProxy.serviceHistory.fetchAccountHistory({
             accountId: a.id,
@@ -94,6 +99,7 @@ export function TokenDetails() {
             xpub,
             networkId,
             tokenIdOnNetwork: tokenInfo.address,
+            onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
           }),
           backgroundApiProxy.serviceToken.fetchTokensDetails({
             networkId,

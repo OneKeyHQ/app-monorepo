@@ -12,7 +12,7 @@ import CoreChainEvm from '../chains/evm';
 // import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
-// import CoreChainNear from '../chains/near';
+import CoreChainNear from '../chains/near';
 // import CoreChainNexa from '../chains/nexa';
 import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
@@ -51,7 +51,7 @@ export class CoreChainApiHub {
 
   sol = new CoreChainSol();
 
-  // near = new CoreChainNear();
+  near = new CoreChainNear();
 
   // stc = new CoreChainStc();
 
