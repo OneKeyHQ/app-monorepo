@@ -11,6 +11,7 @@ import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceApp from '../services/ServiceApp';
+import type ServiceMarket from '../services/ServiceMarket';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
@@ -160,6 +161,10 @@ class BackgroundApiProxy
   serviceAppUpdate = this._createProxyService(
     'serviceAppUpdate',
   ) as ServiceAppUpdate;
+
+  serviceMarket = this._createProxyService(
+    'serviceMarket',
+  ) as ServiceMarket;
 
   serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
 

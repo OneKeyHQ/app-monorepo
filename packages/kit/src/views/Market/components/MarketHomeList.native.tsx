@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Icon,
@@ -8,6 +8,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export function MarketHomeList() {
   const selectOptions = useMemo(
@@ -31,6 +33,10 @@ export function MarketHomeList() {
     ),
     [],
   );
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceMarket.fetchConfig().then(console.log);
+  }, []);
 
   const [sortByType, setSortByType] = useState('Default');
   return (
