@@ -2,13 +2,18 @@ import { useCallback, useMemo } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import { Button, SizableText, Stack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
+import type { IFirmwareUpdateRetry } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EFirmwareUpdateSteps,
-  useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  FIRMWARE_UPDATE_BRIDGE_GUIDE,
+  FIRMWARE_UPDATE_FULL_RES_GUIDE,
+  FIRMWARE_UPDATE_WEB_TOOLS_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import {
   ECustomOneKeyHardwareError,
   type IOneKeyError,
@@ -18,26 +23,26 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import ImgEnterBootGuideMini from '../assets/enter-boot-guide-mini.png';
 
+import { FirmwareUpdateBaseMessageView } from './FirmwareUpdateBaseMessageView';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 // like: DeviceNotFound
 function CommonError({
-  onRetry,
   message,
+  title,
 }: {
-  onRetry?: () => void;
-  message: string | undefined;
+  message?: string | undefined;
+  title?: string | undefined;
 }) {
   return (
-    <Stack>
-      <SizableText color="$textCaution">
-        {message || 'Something went wrong'}
-      </SizableText>
-      {onRetry ? <Button onPress={onRetry}>Retry</Button> : null}
-    </Stack>
+    <FirmwareUpdateBaseMessageView
+      title={title || 'Error Occurred'}
+      message={message}
+    />
   );
 }
 
@@ -46,19 +51,20 @@ function ShouldUpdateBridge({
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
+  // HARDWARE_BRIDGE_DOWNLOAD_URL
   return (
     <Stack>
-      <SizableText>
-        Your bridge is out of date, your should update to{' '}
-        {result?.updateInfos?.bridge?.releaseVersion}
-      </SizableText>
-      <Button
-        onPress={() =>
-          openUrlExternal('https://www.onekey.so/download?client=bridge')
-        }
-      >
-        Download Bridge
-      </Button>
+      <FirmwareUpdateBaseMessageView
+        icon={<Icon name="InfoCircleOutline" size={56} />}
+        title="New Bridge Version Available for Update"
+        message={`Hardware update requires the latest bridge software. Please visit our online tutorial  [Solution for failed firmware upgrade on Touch] ${FIRMWARE_UPDATE_BRIDGE_GUIDE} for detailed installation instructions.`}
+      />
+      <FirmwareUpdatePageFooter
+        onConfirm={() => {
+          openUrlExternal(FIRMWARE_UPDATE_BRIDGE_GUIDE);
+        }}
+        onConfirmText="Visit website"
+      />
     </Stack>
   );
 }
@@ -66,13 +72,17 @@ function ShouldUpdateBridge({
 function ShouldUpdateByWeb() {
   return (
     <Stack>
-      <SizableText>
-        Your device is too old, your should update from web
-        https://firmware.onekey.so/
-      </SizableText>
-      <Button onPress={() => openUrlExternal('https://firmware.onekey.so/')}>
-        Update
-      </Button>
+      <FirmwareUpdateBaseMessageView
+        icon={<Icon name="InfoCircleOutline" size={56} />}
+        title="Update in official web tool"
+        message={`Your hardware wallet firmware requires an update. Please visit ${FIRMWARE_UPDATE_WEB_TOOLS_URL} on your computer to proceed with the upgrade.`}
+      />
+      <FirmwareUpdatePageFooter
+        onConfirm={() => {
+          openUrlExternal(FIRMWARE_UPDATE_WEB_TOOLS_URL);
+        }}
+        onConfirmText="Visit website"
+      />
     </Stack>
   );
 }
@@ -80,32 +90,46 @@ function ShouldUpdateByWeb() {
 function HowToUpdateFullResource() {
   return (
     <Stack>
-      <SizableText>
-        Your device is too old, your should update by this guide:
-        https://help.onekey.so/hc/articles/8884680775951
-      </SizableText>
-      <Button
-        onPress={() =>
-          openUrlExternal('https://help.onekey.so/hc/articles/8884680775951')
-        }
-      >
-        Update
-      </Button>
+      <FirmwareUpdateBaseMessageView
+        icon={<Icon name="InfoCircleOutline" size={56} />}
+        title="Outdated Version Detected"
+        message={`Your current firmware version is too low. Please visit our online tutorial  [Solution for failed firmware upgrade on Touch] ${FIRMWARE_UPDATE_FULL_RES_GUIDE} and follow the step-by-step instructions to complete the update.`}
+      />
+      <FirmwareUpdatePageFooter
+        onConfirm={() => {
+          openUrlExternal(FIRMWARE_UPDATE_FULL_RES_GUIDE);
+        }}
+        onConfirmText="View tutorial"
+      />
     </Stack>
   );
 }
 
-function EnterBootModeGuide({
+export function EnterBootModeGuide({
   deviceType,
 }: {
   deviceType: IDeviceType | undefined;
 }) {
+  if (deviceType === 'mini') {
+    return (
+      <Stack mb="$6">
+        <Image w={353} h={224} source={ImgEnterBootGuideMini} />
+        <SizableText size="$headingMd">
+          Manually Entering BootLoader Mode
+        </SizableText>
+        <SizableText mt="$2" color="$textSubdued">
+          To enter BootLoader mode on your OneKey Mini, press and hold the lock
+          screen button while inserting the data cable into the computer, then
+          click 'Verify Status and Continue'.
+        </SizableText>
+      </Stack>
+    );
+  }
   return (
-    <Stack>
-      <SizableText>How to enter boot mode for {deviceType}:</SizableText>
-      <SizableText>1. xxxxxxx</SizableText>
-      <SizableText>2. xxxxxxx</SizableText>
-      <SizableText>3. xxxxxxx</SizableText>
+    <Stack mb="$6">
+      <SizableText mt="$2">
+        Follow the online tutorial to proceed manually, then click "Retry".
+      </SizableText>
     </Stack>
   );
 }
@@ -142,10 +166,14 @@ export function useFirmwareUpdateErrors({
           EFirmwareUpdateTipMessages.AutoRebootToBootloader)
     ) {
       return {
-        content: <CommonError message={error?.message} />,
+        content: <CommonError title={error?.message} />,
         detail: <EnterBootModeGuide deviceType={result?.deviceType} />,
         onRetryHandler: onRetry,
-        retryText: 'Continue',
+        retryText:
+          result?.deviceType === 'mini'
+            ? 'Verify Status and Continue'
+            : defaultRetryText,
+        // retryText: 'Continue',
       };
     }
 
@@ -246,14 +274,15 @@ function WorkflowErrors({
 }
 
 function InstallingErrors({
+  retryInfo,
   result,
   lastFirmwareTipMessage,
 }: {
+  retryInfo: IFirmwareUpdateRetry | undefined;
   result: ICheckAllFirmwareReleaseResult | undefined;
   lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
 }) {
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
-  const [retryInfo] = useFirmwareUpdateRetryAtom();
 
   const onRetry = useCallback(async () => {
     if (!retryInfo) {

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
+import type { IFirmwareUpdateRetry } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateRetryAtom,
@@ -15,6 +16,51 @@ import { FirmwareUpdateErrors } from './FirmwareUpdateErrors';
 import { FirmwareUpdateProgressBar } from './FirmwareUpdateProgressBar';
 import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
 
+export function FirmwareInstallingViewBase({
+  result,
+  isDone,
+  tipMessage,
+  retryInfo,
+  progressBarKey,
+}: {
+  result: ICheckAllFirmwareReleaseResult | undefined;
+  isDone?: boolean;
+  tipMessage?: EFirmwareUpdateTipMessages | undefined;
+  retryInfo?: IFirmwareUpdateRetry | undefined;
+  progressBarKey?: number;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const profile = <FirmwareUpdateWalletProfile result={result} />;
+
+  const content = useMemo(() => {
+    if (isDone) {
+      return <FirmwareUpdateDone result={result} />;
+    }
+    if (retryInfo) {
+      return (
+        <FirmwareUpdateErrors.InstallingErrors
+          retryInfo={retryInfo}
+          result={result}
+          lastFirmwareTipMessage={tipMessage}
+        />
+      );
+    }
+    return (
+      <FirmwareUpdateProgressBar
+        lastFirmwareTipMessage={tipMessage}
+        isDone={isDone}
+        key={progressBarKey}
+      />
+    );
+  }, [isDone, progressBarKey, result, retryInfo, tipMessage]);
+  return (
+    <Stack>
+      {/* {profile} */}
+      {content}
+    </Stack>
+  );
+}
+
 export function FirmwareInstallingView({
   result,
   isDone,
@@ -25,7 +71,6 @@ export function FirmwareInstallingView({
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
   const [retryInfo] = useFirmwareUpdateRetryAtom();
   const [state] = useHardwareUiStateAtom();
-  const installProgressText = useRef('');
 
   const lastUpdateTimeRef = useRef(0);
   if (stepInfo.step === EFirmwareUpdateSteps.updateStart) {
@@ -44,33 +89,15 @@ export function FirmwareInstallingView({
     }
   }, [firmwareTipMessage]);
 
-  useEffect(() => {
-    if (state?.payload?.firmwareTipData?.message)
-      installProgressText.current = `${installProgressText.current},${state?.payload?.firmwareTipData?.message}`;
-  }, [state?.payload?.firmwareTipData?.message]);
-
   return (
     <>
-      <Stack>
-        <FirmwareUpdateWalletProfile result={result} />
-
-        <Stack my="$6">
-          {retryInfo ? (
-            <FirmwareUpdateErrors.InstallingErrors
-              result={result}
-              lastFirmwareTipMessage={lastFirmwareTipMessage}
-            />
-          ) : (
-            <FirmwareUpdateProgressBar
-              lastFirmwareTipMessage={lastFirmwareTipMessage}
-              isDone={isDone}
-              key={lastUpdateTimeRef.current}
-            />
-          )}
-        </Stack>
-
-        {isDone ? <FirmwareUpdateDone /> : null}
-      </Stack>
+      <FirmwareInstallingViewBase
+        result={result}
+        isDone={isDone}
+        tipMessage={lastFirmwareTipMessage}
+        retryInfo={retryInfo}
+        progressBarKey={lastUpdateTimeRef.current}
+      />
     </>
   );
 }

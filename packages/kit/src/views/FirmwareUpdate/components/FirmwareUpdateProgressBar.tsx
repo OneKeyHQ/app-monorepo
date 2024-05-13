@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNumber } from 'lodash';
 
-import { Progress, SizableText, Stack } from '@onekeyhq/components';
+import {
+  Button,
+  Progress,
+  SizableText,
+  Skeleton,
+  Stack,
+} from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   EHardwareUiStateAction,
@@ -12,6 +18,7 @@ import {
   useHardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import type { IDeviceFirmwareType } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -33,6 +40,62 @@ type IProgressConfigItem = {
 
 const defaultDesc = () => `Checking device`;
 
+const checkingMaxProgress = 10;
+
+export function FirmwareUpdateProgressBarView({
+  stepText,
+  title,
+  fromVersion: versionFrom,
+  toVersion: versionTo,
+  progress,
+  desc,
+}: {
+  stepText: string | undefined;
+  title: string;
+  fromVersion: string | undefined;
+  toVersion: string | undefined;
+  progress: number | null | undefined;
+  desc: string;
+}) {
+  const phaseStepView = useMemo(() => {
+    if (!stepText) {
+      return <Skeleton width={120} height={16} />;
+    }
+    return (
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {stepText}
+      </SizableText>
+    );
+  }, [stepText]);
+
+  const versionView = useMemo(() => {
+    if (!versionTo) {
+      return <Skeleton width={80} height={16} />;
+    }
+    return (
+      <SizableText>
+        {versionFrom ? `${versionFrom} - ` : ''} {versionTo}
+      </SizableText>
+    );
+  }, [versionFrom, versionTo]);
+
+  return (
+    <Stack py="$6">
+      {phaseStepView}
+      <SizableText size="$heading2xl" my="$3">
+        {title}
+      </SizableText>
+      {versionView}
+      <Stack mt="$12" mb="$3">
+        <Progress value={progress} />
+      </Stack>
+      <SizableText size="$bodyLg" color="$textSubdued">
+        {desc}
+      </SizableText>
+    </Stack>
+  );
+}
+
 export function FirmwareUpdateProgressBar({
   lastFirmwareTipMessage,
   isDone,
@@ -49,11 +112,11 @@ export function FirmwareUpdateProgressBar({
   const progressRef = useRef(progress);
   progressRef.current = progress;
 
-  const progressMaxRef = useRef(99);
+  const progressMaxRef = useRef(checkingMaxProgress);
 
   const [desc, setDesc] = useState(defaultDesc());
 
-  const firmwareType = useMemo(() => {
+  const firmwareType: IDeviceFirmwareType | undefined = useMemo(() => {
     if (stepInfo?.step === EFirmwareUpdateSteps.installing) {
       return (
         stepInfo.payload.installingTarget?.updateInfo?.firmwareType || undefined
@@ -61,11 +124,15 @@ export function FirmwareUpdateProgressBar({
     }
   }, [stepInfo.payload, stepInfo?.step]);
 
-  const firmwareVersion = useMemo(() => {
+  const firmwareVersionInfo = useMemo(() => {
     if (stepInfo?.step === EFirmwareUpdateSteps.installing) {
-      return (
-        stepInfo.payload.installingTarget?.updateInfo.toVersion || undefined
-      );
+      return {
+        fromVersion:
+          stepInfo.payload.installingTarget?.updateInfo.fromVersion ||
+          undefined,
+        toVersion:
+          stepInfo.payload.installingTarget?.updateInfo.toVersion || undefined,
+      };
     }
   }, [stepInfo.payload, stepInfo?.step]);
 
@@ -88,23 +155,38 @@ export function FirmwareUpdateProgressBar({
 
   const installProgressList = useRef<string[]>([]);
 
-  const titleView = useMemo(() => {
-    let text = 'Preparing...';
-    if (firmwareType) {
-      text = `Updating ${firmwareType} v${firmwareVersion || ''}...`;
+  const phaseStepText = useMemo(() => {
+    // TODO use <Skeleton width={250} height={24} />
+    // let phaseStepText = 'Step */*';
+    let text = '';
+    if (stepInfo?.step === EFirmwareUpdateSteps.installing) {
+      if (stepInfo?.payload?.installingTarget) {
+        const { totalPhase, currentPhase } = stepInfo.payload.installingTarget;
+        text = `Step ${
+          totalPhase.findIndex((item) => item === currentPhase) + 1
+        }/${totalPhase.length}`;
+      }
     }
-    if (isUpdatingResource) {
-      text = `Updating resources v${firmwareVersion || ''}...`;
+    return text;
+  }, [stepInfo]);
+
+  const titleText = useMemo(() => {
+    let text = 'Preparing...';
+    if (lastFirmwareTipMessage) {
+      text = 'Updating...';
+    }
+    if (firmwareType) {
+      // type IDeviceFirmwareType = 'firmware' | 'ble' | 'bootloader';
+      text = `Updating ${firmwareType}...`;
+      if (firmwareType === 'ble') {
+        text = `Updating bluetooth...`;
+      }
     }
     if (isDone) {
       text = `Done`;
     }
-    return (
-      <SizableText>
-        {text} ({parseInt(progress.toFixed(), 10)}%)
-      </SizableText>
-    );
-  }, [firmwareType, firmwareVersion, isDone, isUpdatingResource, progress]);
+    return text;
+  }, [firmwareType, isDone, lastFirmwareTipMessage]);
 
   const updateProgress = useCallback(
     (type: IProgressType) => {
@@ -112,7 +194,7 @@ export function FirmwareUpdateProgressBar({
         {
           type: ['checking'],
           progress: () => 1,
-          progressMax: () => 10,
+          progressMax: () => checkingMaxProgress,
           desc: () => defaultDesc(),
         },
         {
@@ -143,7 +225,7 @@ export function FirmwareUpdateProgressBar({
         {
           type: [EFirmwareUpdateTipMessages.AutoRebootToBootloader],
           progress: () => 10,
-          desc: () => `Reboot to bootloader mode, confirm on device`,
+          desc: () => `Reboot to bootloader mode`,
         },
         {
           type: [EFirmwareUpdateTipMessages.GoToBootloaderSuccess],
@@ -258,6 +340,12 @@ export function FirmwareUpdateProgressBar({
   }, [firmwareType, prevFirmwareType, retryInfo]);
 
   useEffect(() => {
+    if (stepInfo?.step === EFirmwareUpdateSteps.updateStart || !firmwareType) {
+      setDesc(defaultDesc());
+    }
+  }, [firmwareType, stepInfo?.step]);
+
+  useEffect(() => {
     const timer = setInterval(() => {
       if (retryInfo || isDone) {
         return;
@@ -320,24 +408,37 @@ export function FirmwareUpdateProgressBar({
     }
   }, [lastFirmwareTipMessage]);
 
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
   const debugInfo = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
       return (
         <Stack my="$6">
-          <SizableText>
-            {'debugInfo >>> '}
-            {lastFirmwareTipMessage} ({firmwareProgress ?? '--'}%)
-          </SizableText>
+          <Button
+            size="small"
+            onPress={() => {
+              setShowDebugInfo((v) => !v);
+            }}
+          >
+            ProgressDebugInfo ({parseInt(progress.toFixed(), 10)}%)
+          </Button>
+          {showDebugInfo ? (
+            <Stack>
+              <SizableText>
+                lastTipMessage:
+                {lastFirmwareTipMessage} ({firmwareProgress ?? '--'}%)
+              </SizableText>
 
-          {installProgressList.current.map((item, index) => (
-            <SizableText key={index}>
-              {index + 1}. {item}
-            </SizableText>
-          ))}
+              {installProgressList.current.map((item, index) => (
+                <SizableText key={index}>
+                  {index + 1}. {item}
+                </SizableText>
+              ))}
+            </Stack>
+          ) : null}
         </Stack>
       );
     }
-  }, [firmwareProgress, lastFirmwareTipMessage]);
+  }, [firmwareProgress, lastFirmwareTipMessage, progress, showDebugInfo]);
 
   // if (isDone) {
   //   return <Stack>{debugInfo}</Stack>;
@@ -345,9 +446,14 @@ export function FirmwareUpdateProgressBar({
 
   return (
     <Stack>
-      {titleView}
-      <Progress value={progress} />
-      <SizableText>{desc}</SizableText>
+      <FirmwareUpdateProgressBarView
+        stepText={phaseStepText}
+        title={titleText}
+        progress={progress}
+        desc={desc}
+        fromVersion={firmwareVersionInfo?.fromVersion}
+        toVersion={firmwareVersionInfo?.toVersion}
+      />
       {debugInfo}
     </Stack>
   );
