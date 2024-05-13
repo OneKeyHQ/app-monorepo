@@ -4849,23 +4849,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-ble-sdk@npm:1.0.0-alpha.7":
-  version: 1.0.0-alpha.7
-  resolution: "@onekeyfe/hd-ble-sdk@npm:1.0.0-alpha.7"
+"@onekeyfe/hd-ble-sdk@npm:1.0.0-alpha.8":
+  version: 1.0.0-alpha.8
+  resolution: "@onekeyfe/hd-ble-sdk@npm:1.0.0-alpha.8"
   dependencies:
-    "@onekeyfe/hd-core": "npm:^1.0.0-alpha.7"
-    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.7"
-    "@onekeyfe/hd-transport-react-native": "npm:^1.0.0-alpha.7"
-  checksum: 10/dd8f70585106d5dd74b5d9b349b00d3cfa1eac4c02b26be3e03f51e284ef78d92a481ac3afe017daabf1e3ef0d6e2dea6fc6c999d99e19280e5a763a557cfd52
+    "@onekeyfe/hd-core": "npm:^1.0.0-alpha.8"
+    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.8"
+    "@onekeyfe/hd-transport-react-native": "npm:^1.0.0-alpha.8"
+  checksum: 10/eba65c2f7a7a44fdc3bc2420a57c20970d6550246dfdc5d44238214a5d8736ce3f19a6f74b4da8edafe679245a91b91aefbd78d1ace937daf3f22cfc13425e94
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-core@npm:1.0.0-alpha.7, @onekeyfe/hd-core@npm:^1.0.0-alpha.7":
-  version: 1.0.0-alpha.7
-  resolution: "@onekeyfe/hd-core@npm:1.0.0-alpha.7"
+"@onekeyfe/hd-core@npm:1.0.0-alpha.8, @onekeyfe/hd-core@npm:^1.0.0-alpha.8":
+  version: 1.0.0-alpha.8
+  resolution: "@onekeyfe/hd-core@npm:1.0.0-alpha.8"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.7"
-    "@onekeyfe/hd-transport": "npm:^1.0.0-alpha.7"
+    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.8"
+    "@onekeyfe/hd-transport": "npm:^1.0.0-alpha.8"
     axios: "npm:^0.27.2"
     bignumber.js: "npm:^9.0.2"
     bytebuffer: "npm:^5.0.1"
@@ -4875,71 +4875,71 @@ __metadata:
   peerDependencies:
     "@noble/hashes": ^1.1.3
     ripple-keypairs: ^1.1.4
-  checksum: 10/8371a587eb77658fd127e3d5a7b4443b9328ce4e2db9e6612914b1f873c12ba98289cc0cd36e224a0e672ba68a0698e848746a2042356d9656e08f271d64412b
+  checksum: 10/1ed515e3df0559d70bc26a1e2cae7aa8c9ff3bc3a48aff648849e8b3d7afeb0a69cd6b79eda86870f4efe1684426f9eff04dca02455e3fbc62060f8b4c09ca3f
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-shared@npm:1.0.0-alpha.7, @onekeyfe/hd-shared@npm:^1.0.0-alpha.7":
-  version: 1.0.0-alpha.7
-  resolution: "@onekeyfe/hd-shared@npm:1.0.0-alpha.7"
-  checksum: 10/87775c8d542735ca36953fa5ab2ebf6aef0154a252d563b8c2a4230d8f854c2e229b7cb816ae41688b5c7863db5832c8d599196e1c8c542eb794aa25d07cd4c4
+"@onekeyfe/hd-shared@npm:1.0.0-alpha.8, @onekeyfe/hd-shared@npm:^1.0.0-alpha.8":
+  version: 1.0.0-alpha.8
+  resolution: "@onekeyfe/hd-shared@npm:1.0.0-alpha.8"
+  checksum: 10/995cec55c3ab3a8dd27c71b014219981fed13ad455d10fe02bf25208cdf003c24b781691239c0161df208904aaaf412819a542ed0e80696c85cc5d5f534a2141
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-http@npm:^1.0.0-alpha.7":
-  version: 1.0.0-alpha.7
-  resolution: "@onekeyfe/hd-transport-http@npm:1.0.0-alpha.7"
+"@onekeyfe/hd-transport-http@npm:^1.0.0-alpha.8":
+  version: 1.0.0-alpha.8
+  resolution: "@onekeyfe/hd-transport-http@npm:1.0.0-alpha.8"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.7"
-    "@onekeyfe/hd-transport": "npm:^1.0.0-alpha.7"
+    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.8"
+    "@onekeyfe/hd-transport": "npm:^1.0.0-alpha.8"
     axios: "npm:^0.27.2"
-  checksum: 10/a8f836fadc4d9bf30f426d3f9a6951b112b52f89738b6e16f55bd447c1b00032fcc9c1ec0903be2f0a9822d64d8bcf0ba650eb5cc5035622823c95105d9a7b7a
+  checksum: 10/ff96e5c4de857dffcbe60c1bda1b69b00cf060407ee109d976e45edec1cedff6fc382ec43cdd309b22f104c9f52916520025efae940347e068dbd94254356e5c
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-react-native@npm:^1.0.0-alpha.7":
-  version: 1.0.0-alpha.7
-  resolution: "@onekeyfe/hd-transport-react-native@npm:1.0.0-alpha.7"
+"@onekeyfe/hd-transport-react-native@npm:^1.0.0-alpha.8":
+  version: 1.0.0-alpha.8
+  resolution: "@onekeyfe/hd-transport-react-native@npm:1.0.0-alpha.8"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.7"
-    "@onekeyfe/hd-transport": "npm:^1.0.0-alpha.7"
+    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.8"
+    "@onekeyfe/hd-transport": "npm:^1.0.0-alpha.8"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     react-native-ble-manager: "npm:^8.1.0"
-  checksum: 10/7fdf6faa6d7c99a3b7010ece5a6e83d5098d4c9edaa596de6a1e0b0f1d6959c5c92aa4354e88e04a05a1ec13629f68a43f786beb401f6b90a5740f1deca9a019
+  checksum: 10/9cbc626303da519157fcdb382a3e2b1004fe1f6309f951967c5ea080d604c7697c49bb61343527ef36964847ecd29aa8c5efe9ce5fe0d89b8f3d9a271135088a
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport-webusb@npm:^1.0.0-alpha.7":
-  version: 1.0.0-alpha.7
-  resolution: "@onekeyfe/hd-transport-webusb@npm:1.0.0-alpha.7"
+"@onekeyfe/hd-transport-webusb@npm:^1.0.0-alpha.8":
+  version: 1.0.0-alpha.8
+  resolution: "@onekeyfe/hd-transport-webusb@npm:1.0.0-alpha.8"
   dependencies:
-    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.7"
-    "@onekeyfe/hd-transport": "npm:^1.0.0-alpha.7"
-  checksum: 10/eca85d3c2cf0fc4a748ad0363bc71e3431fbf372758e85270a582d3a7b440ff47c57999dca302743f51989fa76f30226ab1903b6483d1be917dc66ca1be071a2
+    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.8"
+    "@onekeyfe/hd-transport": "npm:^1.0.0-alpha.8"
+  checksum: 10/8eb4aa7160d8734102c84b2c6c40533039568295d409bacdebe1b84df67805dc8cbc4d6fcb15606ea83928b30d03f7beaa103fd2de81b34e10318a5e712ffa0d
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-transport@npm:1.0.0-alpha.7, @onekeyfe/hd-transport@npm:^1.0.0-alpha.7":
-  version: 1.0.0-alpha.7
-  resolution: "@onekeyfe/hd-transport@npm:1.0.0-alpha.7"
+"@onekeyfe/hd-transport@npm:1.0.0-alpha.8, @onekeyfe/hd-transport@npm:^1.0.0-alpha.8":
+  version: 1.0.0-alpha.8
+  resolution: "@onekeyfe/hd-transport@npm:1.0.0-alpha.8"
   dependencies:
     bytebuffer: "npm:^5.0.1"
     long: "npm:^4.0.0"
     protobufjs: "npm:^6.11.2"
-  checksum: 10/64fe34a383979785e45689f2415cbf585c1ff93f71789733968b0bc1e1738798333bdae4a41e164765a184fe6770e277005b009f6a2d697aad10d9d8ae46ac49
+  checksum: 10/b7d029b7e6367359eb3d31a47601912bfd65f26de4ccb8b7e23317b611148d9161def1d696be34c6e5bfb587f07d86634acad6dff8ef6b716772bcd819a3af85
   languageName: node
   linkType: hard
 
-"@onekeyfe/hd-web-sdk@npm:1.0.0-alpha.7":
-  version: 1.0.0-alpha.7
-  resolution: "@onekeyfe/hd-web-sdk@npm:1.0.0-alpha.7"
+"@onekeyfe/hd-web-sdk@npm:1.0.0-alpha.8":
+  version: 1.0.0-alpha.8
+  resolution: "@onekeyfe/hd-web-sdk@npm:1.0.0-alpha.8"
   dependencies:
     "@onekeyfe/cross-inpage-provider-core": "npm:^0.0.17"
-    "@onekeyfe/hd-core": "npm:^1.0.0-alpha.7"
-    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.7"
-    "@onekeyfe/hd-transport-http": "npm:^1.0.0-alpha.7"
-    "@onekeyfe/hd-transport-webusb": "npm:^1.0.0-alpha.7"
-  checksum: 10/492fad0e3aade4bb7e4c2168a6c64c623b0b89a917a85e2b6bad25912fab600d52456231d570f8a2aea7c56effbc3c0ac9cc748358f2c80bd8943b0ee30aa10b
+    "@onekeyfe/hd-core": "npm:^1.0.0-alpha.8"
+    "@onekeyfe/hd-shared": "npm:^1.0.0-alpha.8"
+    "@onekeyfe/hd-transport-http": "npm:^1.0.0-alpha.8"
+    "@onekeyfe/hd-transport-webusb": "npm:^1.0.0-alpha.8"
+  checksum: 10/27a680ed250941a77a57512e8609f6ebd1e3d72be357c1661f9779262434fb6f371debf025e9ecbd5111d3bdee83b57b67eb4234b4d629b5122f188ebc9b3e5a
   languageName: node
   linkType: hard
 
@@ -5240,11 +5240,11 @@ __metadata:
     "@onekeyfe/cross-inpage-provider-injected": "npm:2.0.0-alpha.2"
     "@onekeyfe/cross-inpage-provider-types": "npm:2.0.0-alpha.2"
     "@onekeyfe/extension-bridge-hosted": "npm:2.0.0-alpha.2"
-    "@onekeyfe/hd-ble-sdk": "npm:1.0.0-alpha.7"
-    "@onekeyfe/hd-core": "npm:1.0.0-alpha.7"
-    "@onekeyfe/hd-shared": "npm:1.0.0-alpha.7"
-    "@onekeyfe/hd-transport": "npm:1.0.0-alpha.7"
-    "@onekeyfe/hd-web-sdk": "npm:1.0.0-alpha.7"
+    "@onekeyfe/hd-ble-sdk": "npm:1.0.0-alpha.8"
+    "@onekeyfe/hd-core": "npm:1.0.0-alpha.8"
+    "@onekeyfe/hd-shared": "npm:1.0.0-alpha.8"
+    "@onekeyfe/hd-transport": "npm:1.0.0-alpha.8"
+    "@onekeyfe/hd-web-sdk": "npm:1.0.0-alpha.8"
     "@onekeyfe/onekey-cross-webview": "npm:2.0.0-alpha.2"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
@@ -5309,6 +5309,7 @@ __metadata:
     eslint-plugin-react-hooks: "npm:^4.6.0"
     eslint-plugin-spellcheck: "npm:^0.0.20"
     eslint-plugin-use-effect-no-deps: "npm:^1.1.2"
+    expiry-map: "npm:^2.0.0"
     expo: "npm:50.0.5"
     fake-indexeddb: "npm:^5.0.0"
     html-webpack-plugin: "npm:^5.5.3"
@@ -17785,6 +17786,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"expiry-map@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "expiry-map@npm:2.0.0"
+  dependencies:
+    map-age-cleaner: "npm:^0.2.0"
+  checksum: 10/9be8662e1a5c1084fb6d0ddc5402658dd06101c330454062b2f5efbf1477259d272e54ec16663d7d12a93d08ed510535781c36acb214696c5bc3a690a02a7a9d
+  languageName: node
+  linkType: hard
+
 "expo-application@npm:5.8.3, expo-application@npm:~5.8.0":
   version: 5.8.3
   resolution: "expo-application@npm:5.8.3"
@@ -23205,6 +23215,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"map-age-cleaner@npm:^0.2.0":
+  version: 0.2.0
+  resolution: "map-age-cleaner@npm:0.2.0"
+  dependencies:
+    p-defer: "npm:^1.0.0"
+  checksum: 10/13a6810b76b0067efa7f4b0f3dc58b58b4a4b5faa4cae5a0e8d5d59eda04d7074724eee426c9b5890a1d7e14d1e2902a090587acc8e2430198e79ab1556a2dad
+  languageName: node
+  linkType: hard
+
 "map-stream@npm:~0.1.0":
   version: 0.1.0
   resolution: "map-stream@npm:0.1.0"
@@ -25102,6 +25121,13 @@ __metadata:
   version: 3.0.0
   resolution: "p-cancelable@npm:3.0.0"
   checksum: 10/a5eab7cf5ac5de83222a014eccdbfde65ecfb22005ee9bc242041f0b4441e07fac7629432c82f48868aa0f8413fe0df6c6067c16f76bf9217cd8dc651923c93d
+  languageName: node
+  linkType: hard
+
+"p-defer@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "p-defer@npm:1.0.0"
+  checksum: 10/1d8fb7138a0ccebb65479160fd93f245303c06c977c976105d75838f7f504a9a6ef11b7e058f98b4c957a6a8df268c616da1ee339285d565f9e5ba00304e027b
   languageName: node
   linkType: hard
 

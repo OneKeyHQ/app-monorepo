@@ -1,9 +1,31 @@
-import { SizableText, Stack } from '@onekeyhq/components';
+import { Icon, Stack } from '@onekeyhq/components';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 
-export function FirmwareUpdateDone() {
+import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+
+import { FirmwareChangeLogContentView } from './FirmwareChangeLogView';
+import { FirmwareUpdateBaseMessageView } from './FirmwareUpdateBaseMessageView';
+import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
+
+export function FirmwareUpdateDone({
+  result,
+}: {
+  result: ICheckAllFirmwareReleaseResult | undefined;
+}) {
+  const actions = useFirmwareUpdateActions();
   return (
     <Stack>
-      <SizableText size="$heading3xl">Firmware Update Done!</SizableText>
+      <FirmwareUpdateBaseMessageView
+        icon={<Icon name="CheckLargeOutline" size={56} />}
+        title="All updates complete 👏🏻"
+      />
+      <FirmwareChangeLogContentView result={result} isDone />
+      <FirmwareUpdatePageFooter
+        onConfirmText="Got it"
+        onConfirm={() => {
+          actions.closeUpdateModal();
+        }}
+      />
     </Stack>
   );
 }

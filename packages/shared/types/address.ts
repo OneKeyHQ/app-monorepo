@@ -37,7 +37,7 @@ export type IFetchAccountDetailsResp = {
   accountNumber?: number;
   isContract?: boolean;
   netWorth?: string;
-  utxos?: IUtxoInfo[];
+  utxoList?: IUtxoInfo[];
   validateInfo?: {
     isValid: boolean;
     addressType: string;

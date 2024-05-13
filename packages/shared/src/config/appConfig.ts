@@ -13,11 +13,16 @@ export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYCN =
   process.env.HARDWARE_SDK_CONNECT_SRC_ONEKEYCN || 'https://jssdk.onekeycn.com';
 
-// export const HARDWARE_SDK_VERSION = '1.0.0-alpha.2'; // 0.3.43     1.0.0-alpha.2
-export const HARDWARE_SDK_VERSION = '1.0.0-alpha.7'; // 0.3.43     1.0.0-alpha.2
+export const HARDWARE_SDK_VERSION = '1.0.0-alpha.8'; // 0.3.43     1.0.0-alpha.2
 
 export const HARDWARE_BRIDGE_DOWNLOAD_URL =
   'https://onekey.so/download/?client=bridge';
+
+export const FIRMWARE_UPDATE_WEB_TOOLS_URL = 'https://firmware.onekey.so';
+export const FIRMWARE_UPDATE_FULL_RES_GUIDE =
+  'https://help.onekey.so/hc/articles/8884680775951';
+export const FIRMWARE_UPDATE_BRIDGE_GUIDE =
+  'https://help.onekey.so/hc/articles/8884680775951';
 
 export const CERTIFICATE_URL = 'https://certificate.onekey.so/verify';
 export const CERTIFICATE_URL_PATH = '/verify';

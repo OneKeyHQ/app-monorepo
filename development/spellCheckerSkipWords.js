@@ -5,6 +5,7 @@ module.exports = [
   'Eip',
   'Sizeable',
   'Liquidty',
+  'bluetooth',
   'passpharse',
   'uosmo',
   'uatom',
@@ -687,4 +688,9 @@ module.exports = [
   'copyable',
   'apk',
   'dbs',
+  'npub',
+  'plaintext',
+  'ciphertext',
+  'decrypted',
+  'cip',
 ];

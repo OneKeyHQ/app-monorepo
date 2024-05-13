@@ -107,6 +107,7 @@ export type ICheckAllFirmwareReleaseResult = {
     bootloader: IBootloaderUpdateInfo | undefined;
     bridge: IHardwareBridgeReleasePayload | undefined;
   };
+  totalPhase: IDeviceFirmwareType[];
 };
 
 export type IUpdateFirmwareTaskFn = ({
@@ -200,6 +201,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
   @backgroundMethod()
   async resetShouldDetectTimeCheck({ connectId }: { connectId: string }) {
     this.detectMap.resetLastDetectAt({ connectId });
+  }
+
+  @backgroundMethod()
+  async getFirmwareUpdateDetectInfo({ connectId }: { connectId: string }) {
+    const info = this.detectMap.detectMapCache[connectId];
+    return info;
   }
 
   // TODO sdk not ready yet(slow network test)
@@ -360,6 +367,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     if (dbDeviceName) {
       deviceName = `${deviceName} (${dbDeviceName})`;
     }
+
+    const totalPhase: Array<IDeviceFirmwareType | undefined> = [
+      bootloader?.hasUpgrade ? 'bootloader' : undefined,
+      firmware?.hasUpgrade ? 'firmware' : undefined,
+      ble?.hasUpgrade ? 'ble' : undefined,
+    ];
+
     return {
       updatingConnectId,
       originalConnectId,
@@ -378,6 +392,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         bootloader,
         bridge,
       },
+      totalPhase: totalPhase.filter(Boolean),
     };
   }
 
@@ -612,14 +627,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
     payload: IFirmwareReleasePayload,
   ): Promise<IFirmwareUpdateInfo> {
     serviceHardwareUtils.hardwareLog('_checkFirmwareUpdate', payload);
-    if (!payload.features) {
+    if (!payload?.features) {
       throw new Error('setFirmwareUpdateInfo ERROR: features is required');
     }
     const connectId = await this.getConnectIdFromReleaseInfo(payload);
 
     const { firmwareVersion } = await deviceUtils.getDeviceVersion({
       device: undefined,
-      features: payload.features,
+      features: payload?.features,
     });
 
     const fromVersion = firmwareVersion || '';
@@ -770,6 +785,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           step: EFirmwareUpdateSteps.installing,
           payload: {
             installingTarget: {
+              totalPhase: params.releaseResult.totalPhase,
+              currentPhase: 'bootloader',
               updateInfo,
             },
           },
@@ -788,6 +805,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           step: EFirmwareUpdateSteps.installing,
           payload: {
             installingTarget: {
+              totalPhase: params.releaseResult.totalPhase,
+              currentPhase: 'bootloader',
               updateInfo,
             },
           },
@@ -859,6 +878,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async updatingFirmware(
     { connectId, version, firmwareType, deviceType }: IAutoUpdateFirmwareParams,
     updateInfo: IBleFirmwareUpdateInfo | IFirmwareUpdateInfo,
+    workflowParams: IUpdateFirmwareWorkflowParams,
   ): Promise<Success> {
     // const { dispatch } = this.backgroundApi;
     // dispatch(setUpdateFirmwareStep(''));
@@ -883,6 +903,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
         step: EFirmwareUpdateSteps.installing,
         payload: {
           installingTarget: {
+            totalPhase: workflowParams.releaseResult.totalPhase,
+            currentPhase: firmwareType,
             updateInfo,
           },
         },
@@ -1098,7 +1120,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
         // ** bootloader update
         await this.cancelUpdateWorkflowIfExit();
-        if (params?.releaseResult?.updateInfos?.firmware?.hasUpgrade) {
+        if (params?.releaseResult?.updateInfos?.bootloader?.hasUpgrade) {
           await waitRebootDelayForNextPhase();
 
           await this.startUpdateBootloaderTask(params);
@@ -1125,6 +1147,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               deviceType,
             },
             params?.releaseResult?.updateInfos?.firmware,
+            params,
           );
 
           shouldRebootAfterUpdate = true;
@@ -1146,6 +1169,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               deviceType,
             },
             params?.releaseResult?.updateInfos?.ble,
+            params,
           );
 
           shouldRebootAfterUpdate = true;
@@ -1211,9 +1235,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async startUpdateFirmwareTaskBase(
     params: IAutoUpdateFirmwareParams,
     updateInfo: IBleFirmwareUpdateInfo | IFirmwareUpdateInfo,
+    workflowParams: IUpdateFirmwareWorkflowParams,
   ) {
     return this.createRunTaskWithRetry({
-      fn: async () => this.updatingFirmware(params, updateInfo),
+      fn: async () => this.updatingFirmware(params, updateInfo, workflowParams),
     });
   }
 
@@ -1430,9 +1455,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async validateDeviceBattery(params: IUpdateFirmwareWorkflowParams) {
     const { features: deviceFeatures } = params.releaseResult;
 
-    // battery_level?: number;
-    // @ts-ignore
-    let batteryLevel = deviceFeatures?.battery_level as number | undefined;
+    let batteryLevel: number | undefined = deviceFeatures?.battery_level;
 
     const mockLowBattery =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
