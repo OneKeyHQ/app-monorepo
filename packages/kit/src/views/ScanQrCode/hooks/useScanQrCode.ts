@@ -19,7 +19,7 @@ export default function useScanQrCode() {
   const start = useCallback(
     (autoHandleResult = true) =>
       new Promise<IQRCodeHandlerParseResult<IBaseValue>>((resolve, reject) => {
-        navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
+        navigation.pushFullModal(EModalRoutes.ScanQrCodeModal, {
           screen: EScanQrCodeModalPages.ScanQrCodeStack,
           params: {
             callback: async (value: string) => {

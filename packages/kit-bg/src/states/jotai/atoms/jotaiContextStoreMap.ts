@@ -8,6 +8,7 @@ import { globalAtom } from '../utils';
 
 export enum EJotaiContextStoreNames {
   accountSelector = 'accountSelector',
+  urlAccountHomeTokenList = 'urlAccountHomeTokenList',
   homeTokenList = 'homeTokenList',
   discoveryBrowser = 'discoveryBrowser',
   swap = 'swap',
