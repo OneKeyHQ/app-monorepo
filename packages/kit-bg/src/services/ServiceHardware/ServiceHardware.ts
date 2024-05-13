@@ -227,7 +227,11 @@ class ServiceHardware extends ServiceBase {
       // call getFeatures() or checkFirmwareRelease();
       instance.on(FIRMWARE_EVENT, (messages: CoreMessage) => {
         if (messages.type === FIRMWARE.RELEASE_INFO) {
-          const payload: IFirmwareReleasePayload = messages.payload;
+          const payload: IFirmwareReleasePayload = {
+            ...messages.payload,
+            features: messages?.payload?.device?.features,
+            connectId: messages?.payload?.device?.connectId ?? undefined,
+          };
           serviceHardwareUtils.hardwareLog(
             'FIRMWARE_EVENT>RELEASE_INFO: ',
             payload,
@@ -237,7 +241,11 @@ class ServiceHardware extends ServiceBase {
           );
         }
         if (messages.type === FIRMWARE.BLE_RELEASE_INFO) {
-          const payload: IBleFirmwareReleasePayload = messages.payload;
+          const payload: IBleFirmwareReleasePayload = {
+            ...messages.payload,
+            features: messages?.payload?.device?.features,
+            connectId: messages?.payload?.device?.connectId ?? undefined,
+          };
           serviceHardwareUtils.hardwareLog(
             'FIRMWARE_EVENT>BLE_RELEASE_INFO: ',
             payload,

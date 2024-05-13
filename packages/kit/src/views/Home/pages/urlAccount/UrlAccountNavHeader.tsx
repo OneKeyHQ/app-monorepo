@@ -5,7 +5,6 @@ import * as ExpoSharing from 'expo-sharing';
 import {
   Button,
   Dialog,
-  Icon,
   IconButton,
   QRCode,
   SizableText,

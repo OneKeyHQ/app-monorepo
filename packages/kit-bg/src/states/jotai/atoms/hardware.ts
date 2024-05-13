@@ -6,6 +6,7 @@ import type {
   EOneKeyDeviceMode,
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
+  IDeviceFirmwareType,
   IFirmwareUpdateInfo,
   IFirmwareUpdatesDetectStatus,
 } from '@onekeyhq/shared/types/device';
@@ -101,6 +102,8 @@ export type IFirmwareUpdateStepInfo =
       step: EFirmwareUpdateSteps.installing;
       payload: {
         installingTarget?: {
+          totalPhase: IDeviceFirmwareType[];
+          currentPhase: IDeviceFirmwareType;
           updateInfo:
             | IBootloaderUpdateInfo
             | IBleFirmwareUpdateInfo

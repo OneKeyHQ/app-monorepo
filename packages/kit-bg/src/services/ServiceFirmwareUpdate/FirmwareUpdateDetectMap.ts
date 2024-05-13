@@ -63,6 +63,12 @@ export class FirmwareUpdateDetectMap {
               ...value?.[connectId],
               hasUpgrade,
               connectId,
+              toVersion:
+                detectCache?.updateInfo?.firmware?.toVersion ??
+                value?.[connectId]?.toVersion,
+              toVersionBle:
+                detectCache?.updateInfo?.ble?.toVersion ??
+                value?.[connectId]?.toVersionBle,
             },
           };
           return newValue;

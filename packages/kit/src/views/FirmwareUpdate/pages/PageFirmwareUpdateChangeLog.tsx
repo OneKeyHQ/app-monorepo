@@ -21,8 +21,12 @@ import { FirmwareInstallingView } from '../components/FirmwareInstallingView';
 import { FirmwareLatestVersionInstalled } from '../components/FirmwareLatestVersionInstalled';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
 import { FirmwareUpdateErrors } from '../components/FirmwareUpdateErrors';
-import { FirmwareUpdateExitPrevent } from '../components/FirmwareUpdateExitPrevent';
+import {
+  FirmwareUpdateExitPrevent,
+  ForceExtensionUpdatingFromExpandTab,
+} from '../components/FirmwareUpdateExitPrevent';
 import { FirmwareUpdatePageLayout } from '../components/FirmwareUpdatePageLayout';
+import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
 
 function PageFirmwareUpdateChangeLog() {
   const route = useAppRoute<
@@ -92,11 +96,15 @@ function PageFirmwareUpdateChangeLog() {
     }
     if (stepInfo.step === EFirmwareUpdateSteps.error) {
       return (
-        <FirmwareUpdateErrors.WorkflowErrors
-          error={stepInfo.payload.error}
-          onRetry={run}
-          result={result}
-        />
+        <>
+          <FirmwareUpdateWarningMessage />
+          <FirmwareUpdateExitPrevent />
+          <FirmwareUpdateErrors.WorkflowErrors
+            error={stepInfo.payload.error}
+            onRetry={run}
+            result={result}
+          />
+        </>
       );
     }
     if (stepInfo.step === EFirmwareUpdateSteps.showChangeLog) {
@@ -110,13 +118,16 @@ function PageFirmwareUpdateChangeLog() {
       stepInfo.step === EFirmwareUpdateSteps.installing ||
       stepInfo.step === EFirmwareUpdateSteps.updateDone
     ) {
+      const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;
       return (
         <>
-          <FirmwareUpdateExitPrevent />
-          <FirmwareInstallingView
-            result={result}
-            isDone={stepInfo.step === EFirmwareUpdateSteps.updateDone}
-          />
+          {!isDone ? (
+            <>
+              <FirmwareUpdateWarningMessage />
+              <FirmwareUpdateExitPrevent />
+            </>
+          ) : null}
+          <FirmwareInstallingView result={result} isDone={isDone} />
         </>
       );
     }
@@ -136,7 +147,10 @@ function PageFirmwareUpdateChangeLog() {
         await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
       }}
     >
-      <FirmwareUpdatePageLayout>{content}</FirmwareUpdatePageLayout>
+      <FirmwareUpdatePageLayout>
+        <ForceExtensionUpdatingFromExpandTab />
+        {content}
+      </FirmwareUpdatePageLayout>
     </Page>
   );
 }

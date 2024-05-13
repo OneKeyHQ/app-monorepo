@@ -2,12 +2,12 @@ import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 
 import type {
-  BleReleaseInfoEvent,
+  BleReleaseInfoPayload,
   CommonParams,
   Features as FeaturesCore,
   IDeviceBLEFirmwareStatus,
   IDeviceType,
-  ReleaseInfoEvent,
+  ReleaseInfoPayload,
   Response,
   Success,
   Unsuccessful,
@@ -39,24 +39,23 @@ export type IFirmwareUpdatesDetectStatus = Partial<{
   [connectId: string]: {
     connectId: string;
     hasUpgrade: boolean;
+    toVersion: string | undefined;
+    toVersionBle: string | undefined;
     // hasUpgradeForce: boolean;
   };
 }>;
 
-export type IFirmwareReleasePayload = Omit<
-  ReleaseInfoEvent['payload'],
-  'features'
-> & {
-  features: IOneKeyDeviceFeatures;
-  connectId?: string;
-
-  hasUpgradeForce?: boolean;
-  hasUpgrade?: boolean;
+export type IFirmwareReleasePayload = Omit<ReleaseInfoPayload, 'device'> & {
+  features: IOneKeyDeviceFeatures | undefined;
+  connectId: string | undefined;
 };
 
-export type IBleFirmwareReleasePayload = BleReleaseInfoEvent['payload'] & {
-  features: IOneKeyDeviceFeatures;
-  connectId?: string;
+export type IBleFirmwareReleasePayload = Omit<
+  BleReleaseInfoPayload,
+  'device'
+> & {
+  features: IOneKeyDeviceFeatures | undefined;
+  connectId: string | undefined;
 };
 // TODO should export sdk type CheckBootloaderReleaseResponse
 export type IBootloaderReleasePayload = {

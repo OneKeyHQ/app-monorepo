@@ -5,6 +5,7 @@ module.exports = [
   'Eip',
   'Sizeable',
   'Liquidty',
+  'bluetooth',
   'passpharse',
   'uosmo',
   'uatom',

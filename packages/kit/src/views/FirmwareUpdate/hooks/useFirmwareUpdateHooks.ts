@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { Alert, BackHandler } from 'react-native';
 
 import { Dialog, usePreventRemove } from '@onekeyhq/components';
+import { FIRMWARE_UPDATE_PREVENT_EXIT } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firmwareUpdateConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalFirmwareUpdateRoutes,
@@ -17,11 +18,11 @@ import { useFirmwareUpdateActions } from './useFirmwareUpdateActions';
 let isNavExitConfirmShow = false;
 
 export function useModalExitPrevent({
-  message,
   title,
+  message,
 }: {
-  message: string;
   title: string;
+  message: string;
 }) {
   const navigation = useAppNavigation();
   const navPreventRemoveCallback = useCallback(
@@ -44,9 +45,11 @@ export function useModalExitPrevent({
       Dialog.show({
         title,
         description: message,
+        onConfirmText: FIRMWARE_UPDATE_PREVENT_EXIT.confirm,
         onConfirm: () => {
           navigation.dispatch(data.action);
         },
+        onCancelText: FIRMWARE_UPDATE_PREVENT_EXIT.cancel,
         onClose: () => {
           isNavExitConfirmShow = false;
         },
@@ -88,13 +91,16 @@ export function useAppExitPrevent({
         message,
         [
           {
-            text: 'Cancel',
+            text: FIRMWARE_UPDATE_PREVENT_EXIT.cancel,
             onPress: () => {
               // Do nothing
             },
             style: 'cancel',
           },
-          { text: 'YES', onPress: () => BackHandler.exitApp() },
+          {
+            text: FIRMWARE_UPDATE_PREVENT_EXIT.confirm,
+            onPress: () => BackHandler.exitApp(),
+          },
         ],
         { cancelable: false },
       );

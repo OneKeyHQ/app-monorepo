@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import type { ICheckedState } from '@onekeyhq/components';
-import { Checkbox } from '@onekeyhq/components';
+import { Checkbox, SizableText, Stack } from '@onekeyhq/components';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import {
   EFirmwareUpdateSteps,
@@ -9,6 +9,7 @@ import {
   useFirmwareUpdateWorkflowRunningAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -27,19 +28,27 @@ export function FirmwareUpdateCheckList({
   const isAllChecked = val.every((v) => v);
 
   return (
-    <>
+    <Stack>
+      <SizableText size="$heading2xl" my="$8">
+        Ready to Upgrade? Let’s Check You're all set 📝
+      </SizableText>
       <Checkbox.Group
-        label="All"
+        label="Check All"
         listStyle={
           {
             // height: 200,
           }
         }
         options={[
-          { label: 'Apple' },
-          { label: 'Banana' },
-          { label: 'Orange' },
-          { label: 'Watermelon' },
+          { label: "I've backed up my recovery phrase." },
+          {
+            label: platformEnv.isNative
+              ? 'My device is connected via bluetooth.'
+              : 'My device is connected via USB cable.',
+          },
+          { label: 'The device battery is fully charged.' },
+          { label: 'Only one device is connected.' },
+          { label: 'All other OneKey Apps and web upgrade tools are closed.' },
         ]}
         value={val}
         onChange={(value) => {
@@ -90,6 +99,6 @@ export function FirmwareUpdateCheckList({
         }
         onConfirmText="Continue"
       />
-    </>
+    </Stack>
   );
 }

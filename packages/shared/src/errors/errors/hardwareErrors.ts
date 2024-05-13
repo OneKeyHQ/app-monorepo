@@ -180,7 +180,7 @@ export class FirmwareUpdateBatteryTooLow extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'FirmwareUpdateBatteryTooLow',
+        defaultMessage: 'Insufficient Battery Power',
       }),
     );
   }
