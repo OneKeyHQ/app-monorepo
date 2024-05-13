@@ -10,16 +10,16 @@ import type {
   IFirmwareUpdateInfo,
 } from '@onekeyhq/shared/types/device';
 
-import { useExtensionUpdatingFromExpandTab } from '../hooks/useFirmwareUpdateHooks';
-
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
 
 function ChangeLogSection({
   title,
+  isDone,
   updateInfo,
 }: {
   title: string;
+  isDone?: boolean;
   updateInfo:
     | IFirmwareUpdateInfo
     | IBleFirmwareUpdateInfo
@@ -29,6 +29,11 @@ function ChangeLogSection({
   return (
     <Stack mt="$6">
       <SizableText size="$heading3xl">{title}</SizableText>
+      <SizableText>
+        {isDone
+          ? `Updated to the latest version ${updateInfo?.toVersion || ''}`
+          : `${updateInfo?.toVersion || ''} is available`}
+      </SizableText>
       <SizableText>
         {updateInfo?.fromVersion || '?.?.?'}-{updateInfo?.toVersion}
       </SizableText>
@@ -42,15 +47,48 @@ function ChangeLogSection({
   );
 }
 
+export function FirmwareChangeLogContentView({
+  result,
+  isDone,
+}: {
+  result: ICheckAllFirmwareReleaseResult | undefined;
+  isDone?: boolean;
+}) {
+  return (
+    <Stack>
+      {result?.updateInfos?.firmware?.hasUpgrade ? (
+        <ChangeLogSection
+          title="Firmware"
+          updateInfo={result?.updateInfos?.firmware}
+          isDone={isDone}
+        />
+      ) : null}
+
+      {result?.updateInfos?.ble?.hasUpgrade ? (
+        <ChangeLogSection
+          title="BlueTooth"
+          updateInfo={result?.updateInfos?.ble}
+          isDone={isDone}
+        />
+      ) : null}
+
+      {result?.updateInfos?.bootloader?.hasUpgrade ? (
+        <ChangeLogSection
+          title="Bootloader"
+          updateInfo={result?.updateInfos?.bootloader}
+          isDone={isDone}
+        />
+      ) : null}
+    </Stack>
+  );
+}
+
 export function FirmwareChangeLogView({
   result,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
-
-  // TODO move to pageBase, ignore it at Bootloader guide
-  useExtensionUpdatingFromExpandTab();
 
   return (
     <>
@@ -66,26 +104,7 @@ export function FirmwareChangeLogView({
       <Stack>
         <FirmwareUpdateWalletProfile result={result} />
 
-        {result?.updateInfos?.firmware?.hasUpgrade ? (
-          <ChangeLogSection
-            title="New Firmware Version 🎉"
-            updateInfo={result?.updateInfos?.firmware}
-          />
-        ) : null}
-
-        {result?.updateInfos?.ble?.hasUpgrade ? (
-          <ChangeLogSection
-            title="New BlueTooth Version 🎉"
-            updateInfo={result?.updateInfos?.ble}
-          />
-        ) : null}
-
-        {result?.updateInfos?.bootloader?.hasUpgrade ? (
-          <ChangeLogSection
-            title="New Bootloader Version 🎉"
-            updateInfo={result?.updateInfos?.bootloader}
-          />
-        ) : null}
+        <FirmwareChangeLogContentView result={result} />
       </Stack>
     </>
   );
