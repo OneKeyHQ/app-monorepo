@@ -1,6 +1,5 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import PQueue from 'p-queue';
 
 import type {
   INostrEvent,
@@ -10,6 +9,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { TaskQueue } from '@onekeyhq/shared/src/queue/TaskQueue';
 import {
   EDAppConnectionModal,
   EModalRoutes,
@@ -28,7 +28,7 @@ import type {
 class ProviderApiNostr extends ProviderApiBase {
   public providerName = IInjectedProviderNames.nostr;
 
-  private decryptQueue = new PQueue({ concurrency: 1 });
+  private decryptQueue = new TaskQueue();
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
@@ -236,7 +236,7 @@ class ProviderApiNostr extends ProviderApiBase {
       this.decryptRequest(request),
     );
     console.log('====>>>>>DECRYPT: ', result);
-    return result as string;
+    return result;
   }
 
   private async decryptRequest(
