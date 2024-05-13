@@ -52,4 +52,6 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     });
 }
 
-export default new WebembedApiProxy();
+const webembedApiProxy = new WebembedApiProxy();
+export default webembedApiProxy;
+global.$webembedApiProxy = webembedApiProxy;
