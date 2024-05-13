@@ -14,6 +14,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -47,6 +48,15 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
   >();
 
   useEffect(() => {
+    if (
+      !platformEnv.isDev &&
+      platformEnv.isDesktop &&
+      route.path === '/index.html' // production Desktop use `file:///index.html` not `file:///` as init route
+    ) {
+      urlAccountNavigation.replaceHomePage(navigation, route.params);
+      return;
+    }
+
     setTimeout(async () => {
       let networkId = routeParams?.networkId;
       let networkCode = routeParams?.networkId;
@@ -147,6 +157,8 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
     actions,
     navigation,
     redirectMode,
+    route.params,
+    route.path,
     routeParams,
     routeParams?.address,
     routeParams?.networkId,
