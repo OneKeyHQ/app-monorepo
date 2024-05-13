@@ -9,6 +9,7 @@ import type {
 
 export enum ETabRoutes {
   Home = 'Home',
+  Market = 'Market',
   Discovery = 'Discovery',
   Me = 'Me',
   Developer = 'Developer',
