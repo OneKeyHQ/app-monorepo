@@ -2,9 +2,9 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { Semaphore } from 'async-mutex';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
-import Queue from 'p-queue/dist';
 
 import type { StdSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import {
@@ -35,7 +35,7 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 class ProviderApiCosmos extends ProviderApiBase {
   public providerName = IInjectedProviderNames.cosmos;
 
-  private _queue = new Queue({ concurrency: 1 });
+  private _queue = new Semaphore(1);
 
   private async _getAccounts(request: IJsBridgeMessagePayload) {
     const accounts =
@@ -152,7 +152,7 @@ class ProviderApiCosmos extends ProviderApiBase {
 
   @providerApiMethod()
   public enable(request: IJsBridgeMessagePayload, params: string[]) {
-    return this._queue.add(() => this._enable(request, params));
+    return this._queue.runExclusive(() => this._enable(request, params));
   }
 
   @providerApiMethod()
