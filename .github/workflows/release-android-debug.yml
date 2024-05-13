@@ -45,14 +45,6 @@ jobs:
           echo '$github_ref='$github_ref
           echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
           # echo "::set-env name=GITHUB_TAG::$github_ref"
-
-          eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
-          echo '$pkg_version='$pkg_version
-          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
-
-          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
-
         env:
           github_ref: ${{ github.ref }}
           workflow_run_number: ${{ github.event.workflow_run.run_number}}
