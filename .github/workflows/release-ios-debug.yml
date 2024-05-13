@@ -111,12 +111,17 @@ jobs:
           cd apps/mobile/ios
           xcodebuild -workspace OneKeyWallet.xcworkspace -configuration Debug -scheme OneKeyWallet -sdk iphonesimulator -derivedDataPath ./outputs
       
+      - name: Make Artefact
+        run: |
+          cd apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator
+          zip OneKeyWallet-Debug.zip OneKeyWallet.app
+
       - name: Upload App File
         uses: actions/upload-artifact@v3
         with:
           name: release-App-debug
           path: |
-            ./apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet.app/*
+            ./apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet-Debug.zip
           if-no-files-found: error
 
 
