@@ -13,6 +13,7 @@ import CoreChainEvm from '../chains/evm';
 import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
 import CoreChainNear from '../chains/near';
+import CoreChainNeurai from '../chains/neurai';
 import CoreChainNexa from '../chains/nexa';
 import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
@@ -21,7 +22,6 @@ import CoreChainSol from '../chains/sol';
 import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
 import CoreChainXrp from '../chains/xrp';
-import CoreChainNeurai from '../chains/neurai';
 
 export class CoreChainApiHub {
   ada = new CoreChainAda();
