@@ -23,6 +23,7 @@ class ClientCfx {
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         epochNumber: number;
         chainId: number;
+        networkId: number;
       }>({
         networkId: this.networkId,
         body: [
