@@ -55,6 +55,10 @@ const ImportWalletOptions = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportWalletOptions'),
 );
 
+const ImportKeyTag = LazyLoadPage(
+  () => import('../pages/ImportWallet/ImportKeyTag'),
+);
+
 export const OnboardingRouter: IModalFlowNavigatorConfig<
   EOnboardingPages,
   IOnboardingParamList
@@ -101,6 +105,10 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.ImportRecoveryPhrase,
     component: ImportRecoveryPhrase,
+  },
+  {
+    name: EOnboardingPages.ImportKeyTag,
+    component: ImportKeyTag,
   },
   {
     name: EOnboardingPages.ImportPrivateKey,

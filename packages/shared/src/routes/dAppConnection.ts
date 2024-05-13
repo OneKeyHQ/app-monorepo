@@ -1,3 +1,4 @@
+import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
@@ -9,6 +10,7 @@ export enum EDAppConnectionModal {
   'SignMessageModal' = 'SignMessageModal',
   'CurrentConnectionModal' = 'CurrentConnectionModal',
   'DefaultWalletSettingsModal' = 'DefaultWalletSettingsModal',
+  'NostrSignEventModal' = 'NostrSignEventModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -27,4 +29,14 @@ export type IDAppConnectionModalParamList = {
     faviconUrl: string;
   };
   [EDAppConnectionModal.DefaultWalletSettingsModal]: undefined;
+  [EDAppConnectionModal.NostrSignEventModal]: {
+    event?: INostrEvent;
+    pubkey?: string;
+    plaintext?: string;
+    ciphertext?: string;
+    sigHash?: string;
+    walletId: string;
+    accountId: string;
+    networkId: string;
+  };
 };

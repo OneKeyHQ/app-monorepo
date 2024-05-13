@@ -2,15 +2,32 @@ import { useState } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  cloudBackupPersistAtom,
-  useCloudBackupPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { cloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { checkBackupEntryStatus } from './CheckBackupEntryStatus';
+
+async function backupToggleAction(
+  willIsEnabled: boolean,
+  callback?: (isEnabled: boolean) => void,
+) {
+  if (willIsEnabled) {
+    await checkBackupEntryStatus();
+  }
+  await cloudBackupPersistAtom.set({
+    ...(await cloudBackupPersistAtom.get()),
+    isEnabled: willIsEnabled,
+    ...(willIsEnabled
+      ? { isFirstEnabled: false, isInProgress: true }
+      : { isFirstDisabled: false, isInProgress: false }),
+  });
+  if (!willIsEnabled && platformEnv.isNativeAndroid) {
+    await backgroundApiProxy.serviceCloudBackup.logoutFromGoogleDrive(false);
+  }
+  callback?.(willIsEnabled);
+}
 
 function BackupToggleDialogFooter({
   willIsEnabled,
@@ -20,7 +37,6 @@ function BackupToggleDialogFooter({
   callback?: (isEnabled: boolean) => void;
 }) {
   const [loading, setLoading] = useState(false);
-  const [cloudBackup, setCloudBackup] = useCloudBackupPersistAtom();
 
   return (
     <Dialog.Footer
@@ -31,18 +47,10 @@ function BackupToggleDialogFooter({
       onConfirm={async () => {
         try {
           setLoading(true);
+          await backupToggleAction(willIsEnabled, callback);
           await timerUtils.wait(500);
-          setCloudBackup({ ...cloudBackup, isEnabled: willIsEnabled });
-          callback?.(willIsEnabled);
-          if (platformEnv.isNativeAndroid) {
-            if (willIsEnabled) {
-              await checkBackupEntryStatus();
-            } else {
-              await backgroundApiProxy.serviceCloudBackup.logoutFromGoogleDrive(
-                false,
-              );
-            }
-          }
+        } catch (e) {
+          //
         } finally {
           setLoading(false);
         }
@@ -55,7 +63,15 @@ export async function maybeShowBackupToggleDialog(willIsEnabled: boolean) {
   if (!platformEnv.isNative) {
     return;
   }
-  if (willIsEnabled === (await cloudBackupPersistAtom.get()).isEnabled) {
+  const cloudBackupValueList = await cloudBackupPersistAtom.get();
+  if (willIsEnabled === cloudBackupValueList.isEnabled) {
+    return;
+  }
+  if (
+    (willIsEnabled && !cloudBackupValueList.isFirstEnabled) ||
+    (!willIsEnabled && !cloudBackupValueList.isFirstDisabled)
+  ) {
+    await backupToggleAction(willIsEnabled);
     return;
   }
   return new Promise((resolve) => {

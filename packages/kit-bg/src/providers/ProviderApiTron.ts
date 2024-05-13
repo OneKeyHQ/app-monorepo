@@ -76,7 +76,7 @@ class ProviderApiTron extends ProviderApiBase {
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
     const { data } = request;
     const { accountInfo: { networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
     const rpcRequest = data as IJsonRpcRequest;
 
@@ -182,7 +182,7 @@ class ProviderApiTron extends ProviderApiBase {
     console.log('tron_signTransaction', request, transaction);
 
     const { accountInfo: { networkId, accountId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
 
     const result =
@@ -202,17 +202,6 @@ class ProviderApiTron extends ProviderApiBase {
   async wallet_watchAsset() {
     throw web3Errors.rpc.methodNotSupported();
   }
-
-  _getAccountsInfo = async (request: IJsBridgeMessagePayload) => {
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    if (!accountsInfo) {
-      throw web3Errors.provider.unauthorized();
-    }
-    return accountsInfo;
-  };
 }
 
 export default ProviderApiTron;

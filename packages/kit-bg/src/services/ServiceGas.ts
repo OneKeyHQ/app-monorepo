@@ -27,7 +27,6 @@ class ServiceGas extends ServiceBase {
       params,
     );
     const gasFee = resp.data.data;
-
     return {
       common: {
         baseFee: gasFee.baseFee,
@@ -41,6 +40,7 @@ class ServiceGas extends ServiceBase {
       gasEIP1559: gasFee.gasEIP1559,
       feeUTXO: gasFee.feeUTXO,
       feeTron: gasFee.feeTron,
+      feeSol: gasFee.feeSol,
     };
   }
 
@@ -53,6 +53,27 @@ class ServiceGas extends ServiceBase {
     const { networkId, accountId, encodedTx } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildEstimateFeeParams({ encodedTx });
+  }
+
+  @backgroundMethod()
+  async getFeePresetIndex({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.feeInfo.getPresetIndex({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  async updateFeePresetIndex({
+    networkId,
+    presetIndex,
+  }: {
+    networkId: string;
+    presetIndex: number;
+  }) {
+    return this.backgroundApi.simpleDb.feeInfo.updatePresetIndex({
+      networkId,
+      presetIndex,
+    });
   }
 }
 

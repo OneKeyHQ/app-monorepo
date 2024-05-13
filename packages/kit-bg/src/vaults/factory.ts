@@ -15,8 +15,12 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
+  IMPL_NEAR,
+  IMPL_NOSTR,
+  IMPL_SOL,
   IMPL_TBTC,
   IMPL_TRON,
+  IMPL_XRP,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -82,11 +86,15 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_DOGE]: () => import('./impls/doge/Vault') as any,
     [IMPL_BCH]: () => import('./impls/bch/Vault') as any,
     [IMPL_LTC]: () => import('./impls/ltc/Vault') as any,
+    [IMPL_SOL]: () => import('./impls/sol/Vault') as any,
     [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
     [IMPL_TRON]: () => import('./impls/tron/Vault') as any,
+    [IMPL_NEAR]: () => import('./impls/near/Vault') as any,
     [IMPL_LIGHTNING]: () => import('./impls/lightning/Vault') as any,
     [IMPL_LIGHTNING_TESTNET]: () => import('./impls/lightning/Vault') as any,
+    [IMPL_NOSTR]: () => import('./impls/nostr/Vault') as any,
     [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
+    [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

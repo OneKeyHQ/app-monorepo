@@ -60,7 +60,9 @@ const SetPasswordItem = () => {
   const intl = useIntl();
   return (
     <ListItem
-      onPress={() => backgroundApiProxy.servicePassword.promptPasswordVerify()}
+      onPress={() => {
+        void backgroundApiProxy.servicePassword.promptPasswordVerify();
+      }}
       icon="KeyOutline"
       title={intl.formatMessage({ id: 'title__set_password' })}
       drillIn
