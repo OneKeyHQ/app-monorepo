@@ -1,0 +1,117 @@
+name: release-android-debug
+
+on:
+  workflow_dispatch:
+    inputs:
+      is-split-bundle:
+        description: "Should it run as split-bundle? (keep it null if you don't need it)"
+        required: false
+        default: ''
+jobs:
+  release-android-debug:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Dotenv Action
+        id: dotenv
+        uses: OneKeyHQ/actions/dotenv-action@main
+        with:
+          path: .env.version
+
+      - name: 'Setup ENV'
+        run: |
+          echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+
+          github_ref="${github_ref////-}"
+          github_ref="${github_ref/refs-heads-/}"
+          github_ref="${github_ref/refs-tags-/}"
+          echo '$github_ref='$github_ref
+          echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
+          # echo "::set-env name=GITHUB_TAG::$github_ref"
+        env:
+          github_ref: ${{ github.ref }}
+          workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn config get cacheFolder)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn
+
+      - name: Inject Environment Variables
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
+
+      - name: Build APK
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: 'cd apps/mobile/android && ./gradlew assembleDebug'
+      
+      - name: Upload Main Debug APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-prod-debug
+          path: |
+            ./apps/mobile/android/app/build/outputs/apk/prod/debug
+
+      - name: Upload Google Debug APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-google-debug
+          path: |
+            ./apps/mobile/android/app/build/outputs/apk/google/debug
+      
+      - name: Upload Huawei Debug APK
+        uses: actions/upload-artifact@v3
+        with:
+            name: release-huawei-debug
+            path: |
+                ./apps/mobile/android/app/build/outputs/apk/huawei/debug
+
