@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { cloneDeep } from 'lodash';
+
 import {
   Button,
   Page,
@@ -53,7 +55,12 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
       platformEnv.isDesktop &&
       route.path === '/index.html' // production Desktop use `file:///index.html` not `file:///` as init route
     ) {
-      urlAccountNavigation.replaceHomePage(navigation, route.params);
+      const newRouteParams = cloneDeep(routeParams);
+      // 'file:///?networkId=index.html'
+      if (newRouteParams && newRouteParams?.networkId === 'index.html') {
+        delete newRouteParams.networkId;
+      }
+      urlAccountNavigation.replaceHomePage(navigation, newRouteParams);
       return;
     }
 
