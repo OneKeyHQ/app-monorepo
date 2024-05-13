@@ -2,7 +2,7 @@ import { Portal, Stack } from '@onekeyhq/components';
 
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import HomeSelector from '../components/HomeSelector';
-import { HomeTokenListProviderMirror } from '../components/HomeTokenListProviderMirror';
+import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
@@ -13,7 +13,6 @@ function HomeHeaderContainer() {
       <Stack testID="Wallet-Tab-Header" p="$5">
         <HomeSelector mb="$2.5" />
         <Stack
-          space="$5"
           $gtLg={{
             flexDirection: 'row',
             justifyContent: 'space-between',

@@ -17,6 +17,7 @@ import {
   EModalAssetDetailRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
@@ -24,10 +25,14 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
-import { HomeTokenListProviderMirror } from '../components/HomeTokenListProviderMirror';
+import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { UrlAccountHomeTokenListProviderMirror } from '../components/HomeTokenListProvider/UrlAccountHomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
 
-function TokenListContainer(props: ITabPageProps) {
+function TokenListContainer({
+  showWalletActions = false,
+  ...props
+}: ITabPageProps) {
   const { onContentSizeChange } = props;
   const { isFocused } = useTabIsRefreshingFocused();
 
@@ -178,9 +183,11 @@ function TokenListContainer(props: ITabPageProps) {
 
   return (
     <>
-      <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-        <WalletActions />
-      </Portal.Body>
+      {showWalletActions ? (
+        <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
+          <WalletActions />
+        </Portal.Body>
+      ) : null}
       <TokenListView
         withHeader
         withFooter
@@ -195,11 +202,23 @@ function TokenListContainer(props: ITabPageProps) {
   );
 }
 
-const TokenListContainerWithProvider = memo((props: ITabPageProps) => (
-  <HomeTokenListProviderMirror>
-    <TokenListContainer {...props} />
-  </HomeTokenListProviderMirror>
-));
+const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
+  const isUrlAccount = accountUtils.isUrlAccountFn({
+    accountId: account?.id ?? '',
+  });
+  return isUrlAccount ? (
+    <UrlAccountHomeTokenListProviderMirror>
+      <TokenListContainer {...props} />
+    </UrlAccountHomeTokenListProviderMirror>
+  ) : (
+    <HomeTokenListProviderMirror>
+      <TokenListContainer showWalletActions {...props} />
+    </HomeTokenListProviderMirror>
+  );
+});
 TokenListContainerWithProvider.displayName = 'TokenListContainerWithProvider';
 
 export { TokenListContainerWithProvider };
