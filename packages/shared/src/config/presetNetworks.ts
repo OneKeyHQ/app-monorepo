@@ -1802,12 +1802,48 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const kaspa = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'kaspa',
+    'code': 'kaspa',
+    'decimals': 8,
+    'id': 'kaspa--kaspa',
+    'impl': 'kaspa',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/kas.png',
+    'name': 'Kaspa',
+    'shortcode': 'kaspa',
+    'shortname': 'KAS',
+    'symbol': 'KAS',
+    'feeMeta': {
+      'code': 'kaspa',
+      'decimals': 8,
+      'symbol': 'KAS',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'kaspa',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.kaspa.org/addresses/{address}',
+        'block': 'https://explorer.kaspa.org/blocks/{block}',
+        'name': 'https://explorer.kaspa.org',
+        'transaction': 'https://explorer.kaspa.org/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     osmosis,
     cosmoshub,
     tatom, // Cosmos Testnet
-    lightning,
-    tlightning,
   ];
 
   return [
@@ -1830,6 +1866,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     near,
     tron,
     sol,
+    kaspa,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });
