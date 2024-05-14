@@ -40,7 +40,7 @@ export function MarketHomeList() {
 
   const [sortByType, setSortByType] = useState('Default');
   return (
-    <YStack px="$5" borderBottomWidth="$1" borderBottomColor="$borderSubbed">
+    <YStack px="$5" borderBottomWidth="$px" borderBottomColor="$borderSubbed">
       <XStack h="$11" ai="center" justifyContent="space-between">
         <XStack ai="center" space="$2">
           <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
