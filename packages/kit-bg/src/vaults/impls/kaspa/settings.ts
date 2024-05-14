@@ -37,7 +37,7 @@ const settings: IVaultSettings = {
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
-  editFeeEnabled: true,
+  editFeeEnabled: false,
   replaceTxEnabled: false,
 
   accountDeriveInfo,

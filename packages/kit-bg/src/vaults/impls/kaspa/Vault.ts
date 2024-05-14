@@ -1,9 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
+
+import type {
+  IKaspaUTXO,
+  UnspentOutputInfo,
+} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
+  CONFIRMATION_COUNT,
+  DUST_AMOUNT,
+  MAX_BLOCK_SIZE,
+  MAX_ORPHAN_TX_MASS,
   isValidAddress,
   privateKeyFromWIF,
+  selectUTXOs,
+  toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -11,8 +25,13 @@ import {
 import type {
   IEncodedTx,
   ISignedTxPro,
+  ITxInput,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -41,6 +60,7 @@ import type {
   IBuildUnsignedTxParams,
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
+  ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
   IVaultSettings,
@@ -71,17 +91,86 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxKaspa> {
+    const { transfersInfo } = params;
+    if (!transfersInfo || isEmpty(transfersInfo)) {
+      throw new OneKeyInternalError('transfersInfo is required');
+    }
+    if (transfersInfo.length > 1) {
+      throw new OneKeyInternalError('Batch transfer is not supported');
+    }
+    const transferInfo = transfersInfo[0];
+    if (!transferInfo.to) {
+      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+    }
+    const { to, amount } = transferInfo;
+    const dbAccount = await this.getAccount();
+    const confirmUtxos = await this._collectUTXOsInfoByApi({
+      address: dbAccount.address,
+    });
+
+    let encodedTx = await this.prepareAndBuildTx({
+      confirmUtxos,
+      transferInfo,
+    });
+
+    // validate tx size
+    let txn = toTransaction(encodedTx);
+    const { mass, txSize } = txn.getMassAndSize();
+
+    if (mass > MAX_ORPHAN_TX_MASS || txSize > MAX_BLOCK_SIZE) {
+      encodedTx = await this.prepareAndBuildTx({
+        confirmUtxos,
+        transferInfo,
+        priority: { satoshis: true },
+      });
+      txn = toTransaction(encodedTx);
+      const massAndSize = txn.getMassAndSize();
+      if (
+        massAndSize.mass > MAX_ORPHAN_TX_MASS ||
+        massAndSize.txSize > MAX_BLOCK_SIZE
+      ) {
+        throw new OneKeyInternalError('Transaction size is too large');
+      }
+    }
+    return encodedTx;
   }
 
   override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
     throw new Error('Method not implemented.');
   }
 
-  override buildUnsignedTx(
+  override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
+    const encodedTx = await this.buildEncodedTx(params);
+    if (encodedTx) {
+      const { inputs, outputs } = encodedTx;
+
+      const inputsInUnsignedTx: ITxInput[] = [];
+      for (const input of inputs) {
+        const value = new BigNumber(input.satoshis);
+        inputsInUnsignedTx.push({
+          address: input.address.toString(),
+          value,
+          // publicKey,
+          utxo: { txid: input.txid, vout: input.vout, value },
+        });
+      }
+      const outputsInUnsignedTx = outputs.map(({ address, value }) => ({
+        address,
+        value: new BigNumber(value),
+        payload: {},
+      }));
+      return {
+        encodedTx,
+        transfersInfo: params.transfersInfo,
+        inputs: inputsInUnsignedTx,
+        outputs: outputsInUnsignedTx,
+      };
+    }
     throw new Error('Method not implemented.');
   }
 
@@ -167,5 +256,140 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  _collectUTXOsInfoByApi = memoizee(
+    async (params: { address: string }): Promise<UnspentOutputInfo[]> => {
+      const { address } = params;
+      try {
+        const { utxoList: utxos } =
+          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+            networkId: this.networkId,
+            accountAddress: address,
+            withUTXOList: true,
+          });
+        if (!utxos || isEmpty(utxos)) {
+          throw new OneKeyInternalError('Failed to get UTXO list.');
+        }
+
+        // TODO: query virtualDaaScore
+        const blueScore = new BigNumber('79354618');
+        const confirmedUtxos = utxos.filter((utxo) =>
+          blueScore
+            .minus(utxo.confirmations)
+            .isGreaterThanOrEqualTo(CONFIRMATION_COUNT),
+        );
+
+        return confirmedUtxos.map((utxo) => ({
+          ...utxo,
+          scriptPubKey: utxo.scriptPublicKey?.scriptPublicKey ?? '',
+          scriptPublicKeyVersion: utxo.scriptPublicKey?.version ?? 0,
+          satoshis: new BigNumber(utxo.value).toNumber(),
+          blockDaaScore: new BigNumber(utxo.confirmations).toNumber(),
+        }));
+      } catch (e) {
+        throw new OneKeyInternalError('Failed to get UTXO list.');
+      }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  _coinSelect({
+    confirmUtxos,
+    amountValue,
+    priority,
+  }: {
+    confirmUtxos: UnspentOutputInfo[];
+    amountValue: string;
+    priority?: { satoshis: boolean };
+  }) {
+    let { utxoIds, utxos, mass } = selectUTXOs(
+      confirmUtxos,
+      new BigNumber(amountValue).toNumber(),
+      priority,
+    );
+
+    const limit = new BigNumber(mass).toString();
+
+    let hasMaxSend = false;
+    if (utxos.length === confirmUtxos.length) {
+      hasMaxSend = utxos
+        .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
+        .lte(amountValue);
+    }
+
+    if (
+      !hasMaxSend &&
+      utxos
+        .reduce((v, { satoshis }) => v.plus(satoshis), new BigNumber('0'))
+        .lte(new BigNumber(amountValue).plus(DUST_AMOUNT))
+    ) {
+      const newSelectUtxo = selectUTXOs(
+        confirmUtxos,
+        new BigNumber(amountValue).plus(mass).plus(DUST_AMOUNT).toNumber(),
+      );
+      utxoIds = newSelectUtxo.utxoIds;
+      utxos = newSelectUtxo.utxos;
+      mass = newSelectUtxo.mass;
+    }
+
+    return {
+      utxoIds,
+      utxos,
+      mass,
+      limit,
+      hasMaxSend,
+    };
+  }
+
+  async prepareAndBuildTx({
+    confirmUtxos,
+    transferInfo,
+    priority,
+  }: {
+    confirmUtxos: UnspentOutputInfo[];
+    transferInfo: ITransferInfo;
+    priority?: { satoshis: boolean };
+  }) {
+    const network = await this.getNetwork();
+    const { to, amount } = transferInfo;
+    const amountValue = new BigNumber(amount)
+      .shiftedBy(network.decimals)
+      .toFixed();
+
+    if (new BigNumber(amountValue).isLessThan(DUST_AMOUNT)) {
+      throw new OneKeyInternalError('Amount is too small');
+    }
+
+    const { utxoIds, utxos, limit, hasMaxSend } = this._coinSelect({
+      confirmUtxos,
+      amountValue,
+      priority,
+    });
+    const feeRate = chainValueUtils.convertChainValueToGwei({
+      network,
+      value: '1',
+    });
+
+    return {
+      utxoIds,
+      inputs: utxos,
+      outputs: [
+        {
+          address: to,
+          value: amountValue,
+        },
+      ],
+      feeInfo: {
+        price: feeRate,
+        limit,
+      },
+      hasMaxSend,
+      mass: new BigNumber(limit).toNumber(),
+    };
   }
 }
