@@ -34,7 +34,7 @@ const settings: IVaultSettings = Object.freeze({
       template: `m/44'/${COINTYPE_DYNEX}'/0'/0'/${INDEX_PLACEHOLDER}'`,
       coinType: COINTYPE_DYNEX,
       label: 'Default',
-      subDesc: `m/44'/${COINTYPE_DYNEX}'/0'/0'/x'`,
+      subDesc: `m/44'/${COINTYPE_DYNEX}'/0'/0'/*'`,
     },
   },
 });
