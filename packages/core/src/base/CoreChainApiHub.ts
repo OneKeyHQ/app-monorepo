@@ -12,14 +12,15 @@ import CoreChainEvm from '../chains/evm';
 // import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
-// import CoreChainNear from '../chains/near';
+import CoreChainNear from '../chains/near';
 // import CoreChainNexa from '../chains/nexa';
-// import CoreChainSol from '../chains/sol';
+import CoreChainNostr from '../chains/nostr';
+import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
 // import CoreChainSui from '../chains/sui';
 import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
-// import CoreChainXrp from '../chains/xrp';
+import CoreChainXrp from '../chains/xrp';
 
 export class CoreChainApiHub {
   ada = new CoreChainAda();
@@ -44,13 +45,13 @@ export class CoreChainApiHub {
 
   // cfx = new CoreChainCfx();
 
-  // xrp = new CoreChainXrp();
+  xrp = new CoreChainXrp();
 
   tron = new CoreChainTron();
 
-  // sol = new CoreChainSol();
+  sol = new CoreChainSol();
 
-  // near = new CoreChainNear();
+  near = new CoreChainNear();
 
   // stc = new CoreChainStc();
 
@@ -65,4 +66,6 @@ export class CoreChainApiHub {
   // xmr = new CoreChainXmr();
 
   // nexa = new CoreChainNexa();
+
+  nostr = new CoreChainNostr();
 }

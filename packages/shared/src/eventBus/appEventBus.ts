@@ -32,6 +32,8 @@ export enum EAppEventBusNames {
   ShowToast = 'ShowToast',
   RealmInit = 'RealmInit',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
+  ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
+  ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -82,6 +84,12 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
+  [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
+    connectId: string | undefined;
+  };
+  [EAppEventBusNames.ShowFirmwareUpdateForce]: {
+    connectId: string | undefined;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

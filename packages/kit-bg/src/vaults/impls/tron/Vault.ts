@@ -13,7 +13,6 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
-import { calculateNativeAmountInActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -234,10 +233,6 @@ export default class Vault extends VaultBase {
       }
     }
 
-    const { nativeAmount, nativeAmountValue } = calculateNativeAmountInActions([
-      action,
-    ]);
-
     const owner = await this.getAccountAddress();
     return {
       txid: encodedTx.txID,
@@ -246,8 +241,6 @@ export default class Vault extends VaultBase {
       to: toAddress,
       nonce: 0,
       actions: [action],
-      nativeAmount,
-      nativeAmountValue,
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,

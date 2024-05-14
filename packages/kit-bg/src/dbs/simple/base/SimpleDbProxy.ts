@@ -9,6 +9,7 @@ import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrows
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import type { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import type { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
@@ -93,4 +94,6 @@ export class SimpleDbProxy
   ) as SimpleDbEntityNetworkSelector;
 
   lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
+
+  feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
 }

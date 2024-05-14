@@ -72,6 +72,13 @@ const ErrorToastGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ErrorToastGallery'
     ),
 );
+
+const FirmwareUpdateGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FirmwareUpdateGallery'
+    ),
+);
 const FormGallery = LazyLoadPage(
   () =>
     import(
@@ -388,6 +395,13 @@ const WebEmbedGallery = LazyLoadPage(
     ),
 );
 
+const DotMapGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DotMap'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -492,6 +506,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentLocalDB, component: LocalDBGallery },
   { name: EGalleryRoutes.ComponentErrorToast, component: ErrorToastGallery },
   {
+    name: EGalleryRoutes.ComponentFirmwareUpdate,
+    component: FirmwareUpdateGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentForm,
     component: FormGallery,
   },
@@ -554,5 +572,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentWebEmbed,
     component: WebEmbedGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentDotMap,
+    component: DotMapGallery,
   },
 ];

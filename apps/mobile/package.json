@@ -62,6 +62,7 @@
     "expo-notifications": "0.27.6",
     "expo-screen-capture": "5.8.1",
     "expo-secure-store": "12.5.0",
+    "expo-sharing": "11.10.0",
     "expo-splash-screen": "0.26.4",
     "expo-status-bar": "~1.6.0",
     "https-browserify": "^1.0.0",

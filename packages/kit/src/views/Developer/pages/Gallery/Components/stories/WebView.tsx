@@ -1,19 +1,19 @@
-// import WebView from '@onekeyhq/kit/src/views/Discovery/components/WebView';
+import { useCallback, useState } from 'react';
 
-// const WebviewGallery = () => (
-//   <WebView
-//     src="https://dapp-example.onekeytest.com"
-//     containerProps={{
-//       w: '100%',
-//       h: '100%',
-//     }}
-//   />
-// );
+import { Button, Input, Page } from '@onekeyhq/components';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 
-// export default WebviewGallery;
-
-import Browser from '@onekeyhq/kit/src/views/Discovery/pages/Browser/Browser';
-
-const WebviewGallery = () => <Browser />;
-
-export default WebviewGallery;
+export default function WebviewGallery() {
+  const [url, setUrl] = useState('https://www.baidu.com');
+  const openWebView = useCallback(() => {
+    openUrl(url);
+  }, [url]);
+  return (
+    <Page>
+      <Page.Body justifyContent="center" gap="$5" px="$10">
+        <Input flex={1} value={url} onChangeText={setUrl} />
+        <Button onPress={openWebView}>Go</Button>
+      </Page.Body>
+    </Page>
+  );
+}

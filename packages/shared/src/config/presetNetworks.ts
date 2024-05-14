@@ -1602,6 +1602,72 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const nostr = {
+    id: 'nostr--0',
+    impl: 'nostr',
+    chainId: '0',
+    code: 'nostr',
+    defaultEnabled: true,
+    isTestnet: false,
+    priceConfigs: [],
+    explorers: [],
+    rpcURLs: [],
+    feeMeta: {
+      symbol: 'nostr',
+      decimals: 0,
+      code: 'nostr',
+    },
+    balance2FeeDecimals: 0,
+    decimals: 0,
+    'status': ENetworkStatus.LISTED,
+    name: 'Nostr',
+    symbol: 'Nostr',
+    shortname: 'Nostr',
+    shortcode: 'nostr',
+    extensions: {},
+    clientApi: {},
+    logoURI: 'https://uni.onekey-asset.com/static/chain/nostr.png',
+  } as unknown as IServerNetwork;
+
+  const ripple = {
+    'balance2FeeDecimals': 6,
+    'chainId': '0',
+    'code': 'xrp',
+    'decimals': 6,
+    'id': 'xrp--0',
+    'impl': 'xrp',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/xrp.png',
+    'name': 'Ripple',
+    'shortcode': 'xrp',
+    'shortname': 'Ripple',
+    'symbol': 'XRP',
+    'feeMeta': {
+      'code': 'xrp',
+      'decimals': 6,
+      'symbol': 'xrp',
+      'native': 'ripple',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ripple',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://xrpscan.com/account/{address}',
+        'block': 'https://xrpscan.com/ledger/{block}',
+        'name': 'https://xrpscan.com/',
+        'transaction': 'https://xrpscan.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const tron = {
     'balance2FeeDecimals': 0,
     'chainId': '0x2b6653dc',
@@ -1641,6 +1707,101 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const near = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'near',
+    'decimals': 24,
+    'id': 'near--0',
+    'impl': 'near',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/near.png',
+    'name': 'Near',
+    'shortcode': 'near',
+    'shortname': 'Near',
+    'symbol': 'NEAR',
+    'feeMeta': {
+      'code': 'near',
+      'decimals': 24,
+      'symbol': 'NEAR',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'near',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'NEAR',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.mainnet.near.org/accounts/{address}',
+        'block': 'https://explorer.mainnet.near.org/blocks/{block}',
+        'name': 'https://explorer.mainnet.near.org/',
+        'transaction':
+          'https://explorer.mainnet.near.org/transactions/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const sol = {
+    'balance2FeeDecimals': 0,
+    'chainId': '101',
+    'code': 'sol',
+    'decimals': 9,
+    'extensions': {
+      'defaultStableTokens': [
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        'FR87nWEUxVgerFGhZM8Y4AggKGLnaXswr1Pd8wZ4kZcp',
+        '9mWRABuz2x6koTPCWiCPM49WUbcrNqGTHBV9T9k7y1o7',
+      ],
+      'position': 4,
+    },
+    'id': 'sol--101',
+    'impl': 'sol',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
+    'name': 'Solana',
+    'shortcode': 'sol',
+    'shortname': 'SOL',
+    'symbol': 'SOL',
+    'feeMeta': {
+      'code': 'sol',
+      'decimals': 9,
+      'symbol': 'SOL',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'solana',
+        'platform': 'solana',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'SOL1',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.solana.com/address/{address}',
+        'block': 'https://explorer.solana.com/block/{block}',
+        'name': 'https://explorer.solana.com/',
+        'transaction': 'https://explorer.solana.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     osmosis,
     cosmoshub,
@@ -1664,7 +1825,11 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     avax,
     polygon,
     cardano,
+    ripple,
+    nostr,
+    near,
     tron,
+    sol,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

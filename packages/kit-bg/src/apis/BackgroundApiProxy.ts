@@ -22,8 +22,10 @@ import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
+import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
+import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
@@ -31,6 +33,7 @@ import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
+import type ServiceNostr from '../services/ServiceNostr';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
@@ -142,6 +145,14 @@ class BackgroundApiProxy
     'serviceHardware',
   ) as ServiceHardware;
 
+  serviceHardwareUI = this._createProxyService(
+    'serviceHardwareUI',
+  ) as ServiceHardwareUI;
+
+  serviceFirmwareUpdate = this._createProxyService(
+    'serviceFirmwareUpdate',
+  ) as ServiceFirmwareUpdate;
+
   serviceAddressBook = this._createProxyService(
     'serviceAddressBook',
   ) as ServiceAddressBook;
@@ -169,6 +180,8 @@ class BackgroundApiProxy
   serviceSignature = this._createProxyService(
     'serviceSignature',
   ) as ServiceSignature;
+
+  serviceNostr = this._createProxyService('serviceNostr') as ServiceNostr;
 }
 
 export default BackgroundApiProxy;
