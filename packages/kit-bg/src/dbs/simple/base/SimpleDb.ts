@@ -6,6 +6,7 @@ import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrow
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
 import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
 import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
@@ -47,4 +48,6 @@ export class SimpleDb {
   networkSelector = new SimpleDbEntityNetworkSelector();
 
   lightning = new SimpleDbEntityLightning();
+
+  feeInfo = new SimpleDbEntityFeeInfo();
 }
