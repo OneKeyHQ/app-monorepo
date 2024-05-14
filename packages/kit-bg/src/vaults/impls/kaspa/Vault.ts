@@ -1,4 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
+import {
+  isValidAddress,
+  privateKeyFromWIF,
+} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import {
+  decodeSensitiveText,
+  encodeSensitiveText,
+} from '@onekeyhq/core/src/secret';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -21,7 +30,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -89,8 +97,14 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new Error('Method not implemented.');
+  override async validateAddress(address: string): Promise<IAddressValidation> {
+    const chainId = await this.getNetworkChainId();
+    const isValid = isValidAddress(address, chainId);
+    return {
+      isValid,
+      normalizedAddress: address,
+      displayAddress: address,
+    };
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
@@ -100,22 +114,58 @@ export default class Vault extends VaultBase {
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    const input = decodeSensitiveText({ encodedText: params.input });
+    if (this.isHexPrivateKey(input)) {
+      let privateKey = input.startsWith('0x') ? input.slice(2) : input;
+      privateKey = encodeSensitiveText({ text: privateKey });
+      return Promise.resolve({
+        privateKey,
+      });
+    }
+
+    if (this.isWIFPrivateKey(input)) {
+      const privateKeyBuffer = privateKeyFromWIF(input);
+      const wifPrivateKey = encodeSensitiveText({
+        text: privateKeyBuffer.toString(),
+      });
+      return Promise.resolve({
+        privateKey: wifPrivateKey,
+      });
+    }
+
+    throw new Error('Invalid private key');
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
-  override validatePrivateKey(
+  override async validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    const settings = await this.getVaultSettings();
+    const isValid =
+      settings.importedAccountEnabled &&
+      (this.isHexPrivateKey(privateKey) || this.isWIFPrivateKey(privateKey));
+    return {
+      isValid,
+    };
   }
 
-  override validateGeneralInput(
+  isHexPrivateKey(input: string) {
+    return /^(0x)?[0-9a-zA-Z]{64}$/.test(input);
+  }
+
+  isWIFPrivateKey(input: string) {
+    return /^[5KL][1-9A-HJ-NP-Za-km-z]{50,51}$/.test(input);
+  }
+
+  override async validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new Error('Method not implemented.');
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
   }
 }
