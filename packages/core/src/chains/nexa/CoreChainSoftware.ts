@@ -63,7 +63,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
@@ -76,7 +75,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
     const { publicKey, networkInfo, publicKeyInfo } = query;
     const address = publicKey;
 
@@ -99,6 +97,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       xpub: '',
       path,
       addresses: { [networkInfo.networkId]: displayAddress },
+      relPath: '0/0'
     });
   }
 
