@@ -17,6 +17,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
   IMPL_TBTC,
@@ -96,6 +97,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_NOSTR]: () => import('./impls/nostr/Vault') as any,
     [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
+    [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
     [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,
   };
   const loader = vaultsLoader[impl];

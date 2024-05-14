@@ -10,6 +10,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
   IMPL_TBTC,
@@ -71,6 +72,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_NOSTR]: () => import('./impls/nostr/settings'),
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
+    [IMPL_NEXA]: () => import('./impls/nexa/settings'),
     [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
   };
   const loader = settingsLoader[impl];
