@@ -6,7 +6,7 @@ import CoreChainBtc from '../chains/btc';
 // import CoreChainCfx from '../chains/cfx';
 import CoreChainCosmos from '../chains/cosmos';
 import CoreChainDoge from '../chains/doge';
-// import CoreChainDot from '../chains/dot';
+import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
 // import CoreChainFil from '../chains/fil';
 // import CoreChainKaspa from '../chains/kaspa';
@@ -59,7 +59,7 @@ export class CoreChainApiHub {
 
   // sui = new CoreChainSui();
 
-  // dot = new CoreChainDot();
+  dot = new CoreChainDot();
 
   // fil = new CoreChainFil();
 

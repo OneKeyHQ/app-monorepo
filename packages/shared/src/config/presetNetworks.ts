@@ -1802,7 +1802,52 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const polkadot: IServerNetwork = {
+    'balance2FeeDecimals': 10,
+    'chainId': 'polkadot',
+    'code': 'dot',
+    'decimals': 10,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '0',
+        'addressRegex': '^1[a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--polkadot',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/polkadot.png',
+    'name': 'Polkadot',
+    'shortcode': 'dot',
+    'shortname': 'DOT',
+    'symbol': 'DOT',
+    'feeMeta': {
+      'code': 'dot',
+      'decimals': 10,
+      'symbol': 'DOT',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'polkadot',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://polkadot.subscan.io/account/{address}',
+        'block': 'https://polkadot.subscan.io/block/{block}',
+        'name': 'https://polkadot.subscan.io/',
+        'transaction': 'https://polkadot.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
+    polkadot,
     osmosis,
     cosmoshub,
     tatom, // Cosmos Testnet

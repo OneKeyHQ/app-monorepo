@@ -4,6 +4,7 @@ import {
   IMPL_BTC,
   IMPL_COSMOS,
   IMPL_DOGE,
+  IMPL_DOT,
   IMPL_EVM,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
@@ -70,6 +71,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_NOSTR]: () => import('./impls/nostr/settings'),
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
+    [IMPL_DOT]: () => import('./impls/dot/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

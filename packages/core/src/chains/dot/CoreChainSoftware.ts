@@ -1,5 +1,5 @@
 import { bufferToU8a, u8aConcat, u8aToU8a, u8aWrapBytes } from '@polkadot/util';
-import { hdLedger } from '@polkadot/util-crypto';
+import { hdLedger, encodeAddress } from '@polkadot/util-crypto';
 import { merge } from 'lodash';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -26,6 +26,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
+import { hexToBytes } from 'viem';
 
 const curve: ICurveName = 'ed25519';
 
@@ -145,7 +146,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
@@ -158,11 +158,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
-    const { publicKey } = query;
+    const { publicKey, networkInfo } = query;
+    const pubKeyBytes = hexToBytes(hexUtils.addHexPrefix(publicKey));
     return Promise.resolve({
       address: '',
-      addresses: {},
+      addresses: {
+        [networkInfo.networkId]: encodeAddress(pubKeyBytes, +(networkInfo.addressPrefix ?? 0)),
+      },
       publicKey,
     });
   }

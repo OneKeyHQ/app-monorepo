@@ -11,6 +11,7 @@ import {
   IMPL_BTC,
   IMPL_COSMOS,
   IMPL_DOGE,
+  IMPL_DOT,
   IMPL_EVM,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
@@ -95,6 +96,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_NOSTR]: () => import('./impls/nostr/Vault') as any,
     [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
+    [IMPL_DOT]: () => import('./impls/dot/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
