@@ -265,10 +265,35 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override updateUnsignedTx(
+  override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxKaspa;
+    const { outputs } = encodedTx;
+    // if (params.nativeAmountInfo?.maxSendAmount && outputs.length > 0) {
+    //   const network = await this.getNetwork();
+
+    //   const fee = new BigNumber(payload.feeInfo?.limit ?? '3000').multipliedBy(
+    //     '1.2',
+    //   );
+
+    //   const sendAmount = new BigNumber(payload.totalBalance ?? payload.amount)
+    //     .shiftedBy(network.decimals)
+    //     .toFixed(0);
+
+    //   return Promise.resolve({
+    //     ...encodedTx,
+    //     hasMaxSend: true,
+    //     outputs: [
+    //       {
+    //         address: outputs[0].address,
+    //         value: sendAmount,
+    //       },
+    //     ],
+    //     mass: parseInt(fee.toFixed(0)),
+    //   });
+    // }
+    return Promise.resolve(params.unsignedTx);
   }
 
   override broadcastTransaction(
