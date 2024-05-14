@@ -358,7 +358,9 @@ export default class Vault extends VaultBase {
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override getPrivateKeyFromImported(
