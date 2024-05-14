@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ICoreApiGetAddressItem,
+  ISignedMessagePro,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -17,7 +21,48 @@ export class KeyringHardware extends KeyringHardwareBase {
   override prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    throw new Error('Method not implemented.');
+    return this.basePrepareHdNormalAccounts(params, {
+      buildAddressesInfo: async ({ usedIndexes }) => {
+        const addresses = await this.baseGetDeviceAccountAddresses({
+          params,
+          usedIndexes,
+          sdkGetAddressFn: async ({
+            connectId,
+            deviceId,
+            pathPrefix,
+            pathSuffix,
+            showOnOnekeyFn,
+          }) => {
+            const sdk = await this.getHardwareSDKInstance();
+
+            const response = await sdk.starcoinGetAddress(connectId, deviceId, {
+              ...params.deviceParams.deviceCommonParams,
+              bundle: usedIndexes.map((index, arrIndex) => ({
+                path: `${pathPrefix}/${pathSuffix.replace(
+                  '{index}',
+                  `${index}`,
+                )}`,
+                showOnOneKey: showOnOnekeyFn(arrIndex),
+              })),
+            });
+            return response;
+          },
+        });
+
+        const ret: ICoreApiGetAddressItem[] = [];
+        for (let i = 0; i < addresses.length; i += 1) {
+          const item = addresses[i];
+          const { path, address } = item;
+          const addressInfo: ICoreApiGetAddressItem = {
+            address: address || '',
+            path,
+            publicKey: '',
+          };
+          ret.push(addressInfo);
+        }
+        return ret;
+      },
+    });
   }
 
   override signTransaction(

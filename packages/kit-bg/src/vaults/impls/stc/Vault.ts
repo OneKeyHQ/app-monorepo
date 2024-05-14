@@ -1,9 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { encoding } from '@starcoin/starcoin';
+
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
+import {
+  EAddressEncodings,
+  type IEncodedTx,
+  type ISignedTxPro,
+  type IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type {
   IAddressValidation,
@@ -49,10 +52,24 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
-  override buildAccountAddressDetail(
+  override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    throw new Error('Method not implemented.');
+    const { account, networkId } = params;
+
+    const address = account.address || '';
+
+    const { normalizedAddress, displayAddress, isValid } =
+      await this.validateAddress(address);
+    return {
+      networkId,
+      normalizedAddress,
+      displayAddress,
+      address: displayAddress,
+      baseAddress: normalizedAddress,
+      isValid,
+      allowEmptyAddress: false,
+    };
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
@@ -81,33 +98,74 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new Error('Method not implemented.');
+  override async validateAddress(address: string): Promise<IAddressValidation> {
+    if (address.startsWith('stc')) {
+      try {
+        const riv = encoding.decodeReceiptIdentifier(address);
+        return {
+          normalizedAddress: `0x${riv.accountAddress}`,
+          displayAddress: address,
+          isValid: true,
+          encoding: EAddressEncodings.BECH32,
+        };
+      } catch (error) {
+        // pass
+      }
+    } else {
+      try {
+        const normalizedAddress = address.startsWith('0x')
+          ? address.toLowerCase()
+          : `0x${address.toLowerCase()}`;
+        const accountAddress = encoding.addressToSCS(normalizedAddress);
+        // in order to check invalid address length, because the auto padding 0 at head of address
+        if (encoding.addressFromSCS(accountAddress) === normalizedAddress) {
+          return {
+            normalizedAddress,
+            displayAddress: normalizedAddress,
+            isValid: true,
+            encoding: EAddressEncodings.HEX,
+          };
+        }
+      } catch (error) {
+        // pass
+      }
+    }
+
+    return {
+      isValid: false,
+      normalizedAddress: '',
+      displayAddress: '',
+    };
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    return super.baseGetPrivateKeyFromImported(params);
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    return this.baseValidatePrivateKey(privateKey);
   }
 
-  override validateGeneralInput(
+  override async validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new Error('Method not implemented.');
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
   }
 }
