@@ -2,7 +2,9 @@
 
 import type { LocalDbBase } from '@onekeyhq/kit-bg/src/dbs/local/LocalDbBase';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
+import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOffscreenApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
+import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebembedApi';
 import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -61,6 +63,9 @@ declare global {
       }
     | undefined;
   var $navigationRef: React.RefObject<NavigationContainerRef<any>>;
+
+  var $offscreenApiProxy: IOffscreenApi;
+  var $webembedApiProxy: IWebembedApi;
 
   var chrome: typeof chrome; // chrome api
   var browser: typeof chrome; // firefox api

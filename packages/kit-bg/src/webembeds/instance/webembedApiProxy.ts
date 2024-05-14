@@ -63,7 +63,11 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
   test: WebEmbedApiTest = this._createProxyModule<IWebembedApiKeys>('test');
 
   chainAdaLegacy: WebEmbedApiChainAdaLegacy =
-    this._createProxyModule<IWebembedApiKeys>('chainAdaLegacy');
+    this._createProxyModule<IWebembedApiKeys>('chainAdaLegacy', undefined, {
+      asyncThenSupport: true,
+    });
 }
 
-export default new WebembedApiProxy();
+const webembedApiProxy = new WebembedApiProxy();
+export default webembedApiProxy;
+global.$webembedApiProxy = webembedApiProxy;
