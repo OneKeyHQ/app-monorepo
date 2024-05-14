@@ -90,9 +90,9 @@ export async function listFiles(target: string) {
 async function getFileObject(
   target: string,
 ): Promise<{ id: string; name: string } | undefined> {
-  if ((await checkInternet()) === false) {
-    return undefined;
-  }
+  // if ((await checkInternet()) === false) {
+  //   return undefined;
+  // }
   const { files }: { files: Array<{ id: string; name: string }> } =
     await RNCloudFs.listFiles({
       scope: 'hidden',
@@ -102,9 +102,9 @@ async function getFileObject(
 }
 
 export async function deleteFile(target: string): Promise<boolean> {
-  if ((await checkInternet()) === false) {
-    return Promise.resolve(false);
-  }
+  // if ((await checkInternet()) === false) {
+  //   return Promise.resolve(false);
+  // }
   await loginIfNeeded(false);
   const file = await getFileObject(target);
   if (file) {
@@ -115,9 +115,9 @@ export async function deleteFile(target: string): Promise<boolean> {
 }
 
 export async function downloadFromCloud(target: string): Promise<string> {
-  if ((await checkInternet()) === false) {
-    return Promise.resolve('');
-  }
+  // if ((await checkInternet()) === false) {
+  //   return Promise.resolve('');
+  // }
   await loginIfNeeded(false);
   const file = await getFileObject(target);
   if (file) {
