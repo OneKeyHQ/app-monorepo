@@ -7,7 +7,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
@@ -154,7 +153,10 @@ class ServiceAccountProfile extends ServiceBase {
       networkId,
       accountId,
     });
-    return acc.address.toLowerCase() === accountAddress.toLowerCase();
+    const addressValidation = await vault.validateAddress(accountAddress);
+    return (
+      acc.addressDetail.displayAddress === addressValidation.displayAddress
+    );
   }
 
   @backgroundMethod()
