@@ -40,7 +40,13 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+  type IDecodedTx,
+  type IDecodedTxAction,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -138,8 +144,93 @@ export default class Vault extends VaultBase {
     return encodedTx;
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
+    const { inputs, outputs, feeInfo } = encodedTx;
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+
+    const nativeToken = await this.backgroundApi.serviceToken.getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: '',
+      accountAddress: account.address,
+    });
+
+    if (!nativeToken) {
+      throw new OneKeyInternalError('Native token not found');
+    }
+
+    const sends = [];
+    for (const output of outputs) {
+      sends.push({
+        from: account.address,
+        to: output.address,
+        isNative: true,
+        tokenIdOnNetwork: '',
+        name: nativeToken.name,
+        icon: nativeToken.logoURI ?? '',
+        amount: new BigNumber(output.value)
+          .shiftedBy(-network.decimals)
+          .toFixed(),
+        amountValue: output.value,
+        symbol: network.symbol,
+      });
+    }
+
+    const utxoFrom = inputs.map((input) => ({
+      address: input.address.toString(),
+      balance: new BigNumber(input.satoshis.toString())
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      balanceValue: input.satoshis?.toString() ?? '0',
+      symbol: network.symbol,
+      isMine: true,
+    }));
+
+    const utxoTo = outputs.map((output) => ({
+      address: output.address,
+      balance: new BigNumber(output.value)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      balanceValue: output.value.toString(),
+      symbol: network.symbol,
+      isMine: false, // output.address === dbAccount.address,
+    }));
+
+    const actions: IDecodedTxAction[] = [
+      {
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: {
+          from: account.address,
+          to: utxoTo[0].address,
+          sends,
+          receives: [],
+          utxoFrom,
+          utxoTo,
+        },
+      },
+    ];
+    return {
+      txid: '',
+      owner: account.address,
+      signer: account.address,
+      nonce: 0,
+      actions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      extraInfo: null,
+      payload: {
+        type: EOnChainHistoryTxType.Send,
+      },
+      encodedTx,
+      totalFeeInNative: new BigNumber(encodedTx.feeInfo?.limit ?? '0')
+        .multipliedBy(feeInfo?.price ?? '0.00000001')
+        .toFixed(),
+    };
   }
 
   override async buildUnsignedTx(
