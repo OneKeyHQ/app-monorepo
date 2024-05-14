@@ -13,7 +13,11 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
-import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_BTC,
+  IMPL_TBTC,
+  isBTCNetwork,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import type {
   DecodedPsbt,
@@ -677,6 +681,19 @@ class ProviderApiBtc extends ProviderApiBase {
     }
 
     return result;
+  }
+
+  @providerApiMethod()
+  public async getBTCTipHeight() {
+    const { networkId } = getActiveWalletAccount();
+    if (!isBTCNetwork(networkId)) {
+      throw new Error('Invalid network');
+    }
+    const status = await this.backgroundApi.serviceNetwork.measureRpcStatus(
+      networkId,
+    );
+    const blockHeight = new BigNumber(status?.latestBlock ?? '0').toNumber();
+    return blockHeight;
   }
 }
 
