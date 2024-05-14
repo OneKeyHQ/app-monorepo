@@ -37,17 +37,18 @@ export function TokenListItem({
       <Token tokenImageUri={tokenImageSrc} networkImageUri={networkImageSrc} />
       <ListItem.Text
         flex={1}
-        primary={tokenName}
+        primary={tokenSymbol}
         secondary={
           <XStack>
-            <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
-              {tokenSymbol}
-            </SizableText>
             {tokenContrastAddress ? (
               <SizableText size="$bodyMd" color="$textDisabled">
                 {tokenContrastAddress}
               </SizableText>
-            ) : null}
+            ) : (
+              <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
+                {tokenName}
+              </SizableText>
+            )}
           </XStack>
         }
       />

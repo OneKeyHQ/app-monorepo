@@ -104,7 +104,7 @@ const SwapTokenSelectPage = () => {
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
       setCurrentSelectNetwork(network);
-      if (type === ESwapDirectionType.FROM && network.networkId !== 'all') {
+      if (type === ESwapDirectionType.FROM) {
         void updateSelectedAccountNetwork({
           num: 0,
           networkId: network.networkId,
@@ -144,13 +144,11 @@ const SwapTokenSelectPage = () => {
         tokenImageSrc: item.logoURI,
         tokenName: item.name,
         tokenSymbol: item.symbol,
-        tokenContrastAddress:
-          searchKeyword || currentSelectNetwork?.networkId === 'all'
-            ? accountUtils.shortenAddress({
-                address: item.contractAddress,
-              })
-            : undefined,
-        networkImageSrc: item.networkLogoURI,
+        tokenContrastAddress: searchKeyword
+          ? accountUtils.shortenAddress({
+              address: item.contractAddress,
+            })
+          : undefined,
         balance: !balanceBN.isZero() ? item.balanceParsed : undefined,
         valueProps:
           item.fiatValue && !fiatValueBN.isZero()
@@ -170,7 +168,6 @@ const SwapTokenSelectPage = () => {
       onSelectToken,
       sameTokenDisabled,
       searchKeyword,
-      currentSelectNetwork,
       settingsPersistAtom.currencyInfo.symbol,
     ],
   );
@@ -246,15 +243,13 @@ const SwapTokenSelectPage = () => {
             {`${intl.formatMessage({ id: 'network__network' })}:`}
           </SizableText>
           <XStack>
-            {currentSelectNetwork?.networkId !== 'all' ? (
-              <Image height="$5" width="$5" borderRadius="$full" mr="$2">
-                <Image.Source
-                  source={{
-                    uri: currentSelectNetwork?.logoURI,
-                  }}
-                />
-              </Image>
-            ) : null}
+            <Image height="$5" width="$5" borderRadius="$full" mr="$2">
+              <Image.Source
+                source={{
+                  uri: currentSelectNetwork?.logoURI,
+                }}
+              />
+            </Image>
             <SizableText size="$bodyMd">
               {currentSelectNetwork?.name ??
                 currentSelectNetwork?.symbol ??

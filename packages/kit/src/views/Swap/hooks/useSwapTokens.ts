@@ -266,7 +266,6 @@ export function useSwapTokenList(
   useEffect(() => {
     if (
       tokenFetchParams.accountNetworkId &&
-      tokenFetchParams.networkId !== 'all' &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId
     ) {
       // current network is not the same as account network skip fetch
@@ -278,7 +277,6 @@ export function useSwapTokenList(
   useEffect(() => {
     if (
       tokenFetchParams.accountNetworkId &&
-      tokenFetchParams.networkId !== 'all' &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId
     ) {
       return;
