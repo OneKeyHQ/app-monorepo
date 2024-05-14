@@ -1,7 +1,7 @@
 import type { IGetCardanoApi } from './types';
 
 const getCardanoApi: IGetCardanoApi = async () => {
-  const Loader = await import('@onekeyfe/cardano-coin-selection');
+  const Loader = await import('@onekeyfe/cardano-coin-selection-asmjs');
   return {
     composeTxPlan: Loader.onekeyUtils.composeTxPlan,
     signTransaction: Loader.onekeyUtils.signTransaction,

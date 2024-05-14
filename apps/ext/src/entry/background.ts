@@ -100,10 +100,8 @@ if (!platformEnv.isManifestV3) {
   );
 }
 
+global.$offscreenApiProxy = offscreenApiProxy;
 if (process.env.NODE_ENV !== 'production') {
-  // @ts-ignore
-  global.$$offscreenApiProxy = offscreenApiProxy;
-  void offscreenApiProxy.adaSdk.sayHello().then(console.log);
-  void offscreenApiProxy.xmrSdk.showMe().then(console.log);
+  void global.$offscreenApiProxy.adaSdk.sayHello().then(console.log);
 }
 export {};
