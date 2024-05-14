@@ -413,7 +413,7 @@ class ServiceHardware extends ServiceBase {
 
       // update bootloader
       if (
-        deviceType === 'touch' &&
+        (deviceType === 'touch' || deviceType === 'pro') &&
         response.success &&
         firmwareType === 'firmware'
       ) {
