@@ -261,7 +261,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const accountId = accountUtils.buildImportedAccountId({
       coinType,
-      xpub,
+      xpub: xpub || publicKey,
       addressEncoding,
     });
     return Promise.resolve([
