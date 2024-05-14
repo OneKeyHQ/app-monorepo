@@ -190,7 +190,6 @@ class ProviderApiPrivate extends ProviderApiBase {
             'If you understand the risks and want to proceed, you can',
           continueLink: 'dismiss',
           addToWhiteListLink: 'add to whitelist',
-          closeButton: 'Close Tab',
           sourceMessage: 'Powered by',
         },
       };

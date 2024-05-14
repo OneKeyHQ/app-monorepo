@@ -183,9 +183,9 @@ class ServiceDiscovery extends ServiceBase {
   _isUrlExistInRiskWhiteList = memoizee(
     async (url: string) => {
       const data =
-        await this.backgroundApi.simpleDb.browserRiskWhiteList.getRawData();
-      const whiteList = data?.data ?? [];
-      return whiteList.findIndex((item) => item.url === url) !== -1;
+        (await this.backgroundApi.simpleDb.browserRiskWhiteList.getRawData()) ??
+        {};
+      return data[url];
     },
     {
       promise: true,
@@ -199,12 +199,10 @@ class ServiceDiscovery extends ServiceBase {
       return;
     }
     const data =
-      await this.backgroundApi.simpleDb.browserRiskWhiteList.getRawData();
-    const whiteList = data?.data ?? [];
-    whiteList.push({ url });
-    await this.backgroundApi.simpleDb.browserRiskWhiteList.setRawData({
-      data: whiteList,
-    });
+      (await this.backgroundApi.simpleDb.browserRiskWhiteList.getRawData()) ??
+      {};
+    data[url] = true;
+    await this.backgroundApi.simpleDb.browserRiskWhiteList.setRawData(data);
     await this._isUrlExistInRiskWhiteList.delete(url);
   }
 

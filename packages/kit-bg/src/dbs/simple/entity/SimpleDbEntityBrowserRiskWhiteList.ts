@@ -2,9 +2,10 @@ import type { IBrowserRiskWhiteList } from '@onekeyhq/kit/src/views/Discovery/ty
 
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
-export interface IBrowserRiskWhiteListValue {
-  data: IBrowserRiskWhiteList[];
-}
+export type IBrowserRiskWhiteListValue = Record<
+  IBrowserRiskWhiteList['url'],
+  boolean
+>;
 
 export class SimpleDbEntityBrowserRiskWhiteList extends SimpleDbEntityBase<IBrowserRiskWhiteListValue> {
   entityName = 'browserRiskWhilteList';
