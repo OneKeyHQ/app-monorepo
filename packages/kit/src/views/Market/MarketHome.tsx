@@ -22,11 +22,11 @@ function MarketHome() {
     <Page>
       <MarketHomeHeader />
       <Page.Body>
-        <Tab
+        <Tab.Page
           data={tabConfig}
-          initialScrollIndex={0}
-          contentWidth={windowWidth}
-          showsVerticalScrollIndicator={false}
+          onSelectedPageIndex={(index: number) => {
+            console.log('选中', index);
+          }}
         />
       </Page.Body>
     </Page>
