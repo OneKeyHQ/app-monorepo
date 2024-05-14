@@ -17,7 +17,7 @@ import CoreChainNeurai from '../chains/neurai';
 import CoreChainNexa from '../chains/nexa';
 import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
-// import CoreChainStc from '../chains/stc';
+import CoreChainStc from '../chains/stc';
 // import CoreChainSui from '../chains/sui';
 import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
@@ -54,7 +54,7 @@ export class CoreChainApiHub {
 
   near = new CoreChainNear();
 
-  // stc = new CoreChainStc();
+  stc = new CoreChainStc();
 
   // kaspa = new CoreChainKaspa();
 

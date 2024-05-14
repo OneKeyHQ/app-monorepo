@@ -13,6 +13,7 @@ import {
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
+  IMPL_STC,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
@@ -67,6 +68,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_NEAR]: () => import('./impls/near/settings'),
     [IMPL_TRON]: () => import('./impls/tron/settings'),
     [IMPL_SOL]: () => import('./impls/sol/settings'),
+    [IMPL_STC]: () => import('./impls/stc/settings'),
     [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),

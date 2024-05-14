@@ -1906,6 +1906,48 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-06-19T00:29:24.951Z',
   };
 
+  const stc = {
+    'balance2FeeDecimals': 0,
+    'chainId': '1',
+    'code': 'stc',
+    'decimals': 9,
+    'extensions': {
+      'position': 13,
+    },
+    'id': 'stc--1',
+    'impl': 'stc',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/stc.png',
+    'name': 'Starcoin',
+    'shortcode': 'stc',
+    'shortname': 'STC',
+    'symbol': 'STC',
+    'feeMeta': {
+      'code': 'stc',
+      'decimals': 9,
+      'symbol': 'STC',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'starcoin',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://stcscan.io/main/address/{address}',
+        'block': 'https://stcscan.io/main/blocks/height/{block}',
+        'name': 'https://stcscan.io/',
+        'transaction':
+          'https://stcscan.io/main/transactions/detail/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     osmosis,
     cosmoshub,
@@ -1935,6 +1977,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     near,
     tron,
     sol,
+    stc,
     nexa,
     nexaTestnet,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
