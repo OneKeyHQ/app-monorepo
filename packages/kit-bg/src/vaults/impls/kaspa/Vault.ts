@@ -268,32 +268,37 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxKaspa;
-    const { outputs } = encodedTx;
-    // if (params.nativeAmountInfo?.maxSendAmount && outputs.length > 0) {
-    //   const network = await this.getNetwork();
+    const { feeInfo, unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
+    const { gasLimit, gasPrice } = feeInfo?.gas ?? {};
+    if (typeof gasLimit !== 'string' || typeof gasPrice !== 'string') {
+      throw new Error('gasLimit or gasPrice is not a string.');
+    }
 
-    //   const fee = new BigNumber(payload.feeInfo?.limit ?? '3000').multipliedBy(
-    //     '1.2',
-    //   );
+    try {
+      const bigNumberGasLimit = new BigNumber(gasLimit);
+      const bigNumberGasPrice = new BigNumber(gasPrice);
 
-    //   const sendAmount = new BigNumber(payload.totalBalance ?? payload.amount)
-    //     .shiftedBy(network.decimals)
-    //     .toFixed(0);
-
-    //   return Promise.resolve({
-    //     ...encodedTx,
-    //     hasMaxSend: true,
-    //     outputs: [
-    //       {
-    //         address: outputs[0].address,
-    //         value: sendAmount,
-    //       },
-    //     ],
-    //     mass: parseInt(fee.toFixed(0)),
-    //   });
-    // }
-    return Promise.resolve(params.unsignedTx);
+      if (bigNumberGasLimit.isNaN() || bigNumberGasPrice.isNaN()) {
+        throw new Error('Fee is not a valid number.');
+      }
+    } catch (error) {
+      throw new Error(`Invalid fee value: ${(error as Error).message}`);
+    }
+    const network = await this.getNetwork();
+    const mass = new BigNumber(gasLimit)
+      .shiftedBy(network.decimals)
+      .decimalPlaces(0, BigNumber.ROUND_HALF_UP)
+      .toNumber();
+    const newFeeInfo = { price: gasPrice, limit: mass.toString() };
+    return {
+      ...params.unsignedTx,
+      encodedTx: {
+        ...encodedTx,
+        feeInfo: newFeeInfo,
+        mass,
+      },
+    };
   }
 
   override broadcastTransaction(
