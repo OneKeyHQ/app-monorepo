@@ -536,6 +536,7 @@ function SendDataInputContainer() {
                 networkId={networkId}
                 enableAddressBook
                 enableWalletName
+                enableVerifySendFundToSelf
                 enableAddressInteractionStatus
                 contacts
                 accountSelector={{ num: 0 }}

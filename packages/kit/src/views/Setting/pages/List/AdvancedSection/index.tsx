@@ -55,17 +55,32 @@ const HardwareBridgeListItems = () => {
   );
 };
 
-export const AdvancedSection = () => {
+const SpendDustUTXOItem = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
     navigation.push(EModalSettingRoutes.SettingSpendUTXOModal);
   }, [navigation]);
+  const intl = useIntl();
+  const [{ spendDustUTXO }] = useSettingsPersistAtom();
+  return (
+    <ListItem
+      onPress={onPress}
+      icon="CryptoCoinOutline"
+      title={intl.formatMessage({ id: 'form__spend_dust_utxo' })}
+      drillIn
+    >
+      <ListItem.Text primary={spendDustUTXO ? 'On' : 'Off'} align="right" />
+    </ListItem>
+  );
+};
+
+export const AdvancedSection = () => {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onAccountDerivation = useCallback(() => {
     navigation.push(EModalSettingRoutes.SettingAccountDerivationModal);
   }, [navigation]);
-  const intl = useIntl();
-  const [{ spendDustUTXO }] = useSettingsPersistAtom();
   return (
     <Section title="Advanced">
       <ListItem
@@ -74,15 +89,7 @@ export const AdvancedSection = () => {
         title="Account Derivation Path"
         drillIn
       />
-      <ListItem
-        onPress={onPress}
-        icon="CryptoCoinOutline"
-        title={intl.formatMessage({ id: 'form__spend_dust_utxo' })}
-        drillIn
-      >
-        <ListItem.Text primary={spendDustUTXO ? 'On' : 'Off'} align="right" />
-      </ListItem>
-
+      {/* <SpendDustUTXOItem />  Hide the spendDustUTXO function; it's not ready yet. */}
       {platformEnv.isExtension || platformEnv.isWeb ? (
         <HardwareBridgeListItems />
       ) : null}

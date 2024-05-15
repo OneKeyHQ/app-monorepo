@@ -84,4 +84,19 @@ export type IAddressInteractionStatus =
   | 'not-interacted'
   | 'unknown';
 
-export type IAddressValidateStatus = 'valid' | 'invalid' | 'unknown';
+export type IAddressValidateStatus =
+  | 'valid'
+  | 'invalid'
+  | 'unknown'
+  | 'prohibit-send-to-self';
+
+export type IQueryCheckAddressArgs = {
+  networkId: string;
+  address: string;
+  accountId?: string;
+  enableNameResolve?: boolean;
+  enableAddressBook?: boolean;
+  enableWalletName?: boolean;
+  enableAddressInteractionStatus?: boolean;
+  enableVerifySendFundToSelf?: boolean;
+};

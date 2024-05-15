@@ -44,6 +44,8 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+
+  cannotSendToSelf: true,
 };
 
 export default Object.freeze(settings);

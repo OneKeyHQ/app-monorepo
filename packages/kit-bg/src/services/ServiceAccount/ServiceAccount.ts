@@ -1226,9 +1226,10 @@ class ServiceAccount extends ServiceBase {
         accountId: account.id,
       });
     }
-    await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-      walletId,
-    });
+    // await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+    //   walletId,
+    // });
+    //  OK-26980 remove account without password
     if (account) {
       const accountId = account.id;
       await localDb.removeAccount({ accountId, walletId });
