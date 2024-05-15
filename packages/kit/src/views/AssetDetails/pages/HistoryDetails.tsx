@@ -399,12 +399,12 @@ function HistoryDetails() {
         from:
           txDetails.sends.length > 1
             ? `${txDetails.sends.length} addresses`
-            : txDetails.sends[0].from,
+            : txDetails.sends[0]?.from ?? txDetails.from,
 
         to:
           txDetails.receives.length > 1
             ? `${txDetails.receives.length} addresses`
-            : txDetails.receives[0].to,
+            : txDetails.receives[0]?.to ?? txDetails.to,
       };
     }
 
@@ -440,7 +440,7 @@ function HistoryDetails() {
             size="$bodyMd"
             color="$textSubdued"
           >
-            {txInfo?.gasFeeFiatValue}
+            {txInfo?.gasFeeFiatValue ?? '0'}
           </NumberSizeableText>
           )
         </SizableText>
