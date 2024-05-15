@@ -29,7 +29,7 @@
     "@formatjs/intl-getcanonicallocales": "^1.9.2",
     "@formatjs/intl-locale": "^2.4.47",
     "@formatjs/intl-pluralrules": "^4.3.3",
-    "@onekeyfe/react-native-animated-charts": "https://github.com/OneKeyHQ/react-native-animated-charts.git",
+    "@onekeyfe/react-native-animated-charts": "https://github.com/OneKeyHQ/react-native-animated-charts.git#f2b637d09b4f25f0a55f181e9ef926e5372bf1b0",
     "@onekeyfe/react-native-ble-plx": "3.0.0",
     "@onekeyfe/react-native-lite-card": "1.0.5",
     "@onekeyfe/react-native-tab-page-view": "1.0.3",

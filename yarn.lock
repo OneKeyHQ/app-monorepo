@@ -5208,7 +5208,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git":
+"@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git#f2b637d09b4f25f0a55f181e9ef926e5372bf1b0":
   version: 1.0.0
   resolution: "@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git#commit=f2b637d09b4f25f0a55f181e9ef926e5372bf1b0"
   dependencies:
@@ -5585,7 +5585,7 @@ __metadata:
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
-    "@onekeyfe/react-native-animated-charts": "https://github.com/OneKeyHQ/react-native-animated-charts.git"
+    "@onekeyfe/react-native-animated-charts": "https://github.com/OneKeyHQ/react-native-animated-charts.git#f2b637d09b4f25f0a55f181e9ef926e5372bf1b0"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.5"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.3"
