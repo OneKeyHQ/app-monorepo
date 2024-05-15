@@ -3,6 +3,10 @@ import { useCallback, useMemo } from 'react';
 
 import type { IStackProps } from '@onekeyhq/components';
 import { ListView, SizableText, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+
+import type { IMarketHomeListProps } from './type';
 
 function Column({
   key,
@@ -96,10 +100,20 @@ function TableRow({
   );
 }
 
-export function MarketHomeList() {
+export function MarketHomeList({ category }: IMarketHomeListProps) {
   const Columns = useMemo(
     () => <TableRow tableConfig={TableHeaderConfig} height={16} />,
     [],
+  );
+
+  const { result: categories } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceMarket.fetchCategory(
+        category.categoryId,
+        category.coingeckoIds,
+        true,
+      ),
+    [category.categoryId, category.coingeckoIds],
   );
   const renderItem = useCallback(
     ({ item }: any) => <TableRow tableConfig={TableHeaderConfig} item={item} />,

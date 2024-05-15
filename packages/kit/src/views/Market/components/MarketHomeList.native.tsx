@@ -11,7 +11,9 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-export function MarketHomeList() {
+import type { IMarketHomeListProps } from './type';
+
+export function MarketHomeList({ category }: IMarketHomeListProps) {
   const selectOptions = useMemo(
     () => [
       { label: 'Default', value: 'Default' },

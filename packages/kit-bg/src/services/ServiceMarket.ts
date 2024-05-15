@@ -1,14 +1,10 @@
-import axios from 'axios';
-
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { ONEKEY_APP_UPDATE_URL } from '@onekeyhq/shared/src/config/appConfig';
+import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import ServiceBase from './ServiceBase';
-
-const AxiosInstance = axios.create();
 
 @backgroundClass()
 class ServiceMarket extends ServiceBase {
@@ -17,18 +13,35 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEndpoints() {
-    const url = ONEKEY_APP_UPDATE_URL;
-    const key = Math.random().toString();
-    return `${url}?&nocache=${key}`;
+  async fetchCategories() {
+    const client = await this.getClient();
+    // const response = await client.get('/api/market/category/list');
+    // console.log('---response.data---', response.data);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return require('./serviceMarket.json') as IMarketCategory[];
   }
 
   @backgroundMethod()
-  async fetchConfig() {
-    const url = await this.getEndpoints();
-    const response = await AxiosInstance.get<unknown>(url);
+  async fetchCategory(
+    category: string,
+    coingeckoIds: string[],
+    sparkline: boolean,
+  ) {
+    const client = await this.getClient();
+    const response = await client.get('/utility/v1/market/tokens', {
+      params: {
+        category,
+        ids: encodeURI(coingeckoIds.join(',')),
+        sparkline,
+      },
+      paramsSerializer: (params) => {
+        const urlSearchParams = new URLSearchParams(params);
+        return urlSearchParams.toString();
+      },
+    });
     console.log('---response.data---', response.data);
-    return response.data;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return require('./serviceMarket.json') as IMarketCategory[];
   }
 }
 

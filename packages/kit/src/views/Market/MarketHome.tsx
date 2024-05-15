@@ -1,22 +1,27 @@
-import { useCallback, useMemo } from 'react';
-
-import { Dimensions } from 'react-native';
+import { useMemo } from 'react';
 
 import { Page, Tab } from '@onekeyhq/components';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeList } from './components/MarketHomeList';
 
-const windowWidth = Dimensions.get('window').width;
-
 function MarketHome() {
-  const tabConfig = useMemo(
-    () => [
-      { title: 'WatchList', page: MarketHomeList },
-      { title: 'Trending', page: MarketHomeList },
-      { title: 'New', page: MarketHomeList },
-    ],
+  const { result: categories } = usePromiseResult(
+    async () => backgroundApiProxy.serviceMarket.fetchCategories(),
     [],
+  );
+
+  const tabConfig = useMemo(
+    () =>
+      categories?.map((category) => ({
+        title: category.name,
+        // eslint-disable-next-line react/no-unstable-nested-components
+        page: () => <MarketHomeList category={category} />,
+      })) || [],
+    [categories],
   );
   return (
     <Page>
