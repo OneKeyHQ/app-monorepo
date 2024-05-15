@@ -13,6 +13,7 @@ import CoreChainEvm from '../chains/evm';
 import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
 import CoreChainNear from '../chains/near';
+import CoreChainNeurai from '../chains/neurai';
 import CoreChainNexa from '../chains/nexa';
 import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
@@ -68,4 +69,6 @@ export class CoreChainApiHub {
   nexa = new CoreChainNexa();
 
   nostr = new CoreChainNostr();
+
+  neurai = new CoreChainNeurai();
 }
