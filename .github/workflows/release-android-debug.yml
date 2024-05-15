@@ -92,7 +92,10 @@ jobs:
       - name: Build APK
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: 'cd apps/mobile/android && ./gradlew assembleDebug'
+        run: |
+          yarn app:web-embed:build
+          cd apps/mobile/android
+          ./gradlew assembleDebug
       
       - name: Upload Main Debug APK
         uses: actions/upload-artifact@v3

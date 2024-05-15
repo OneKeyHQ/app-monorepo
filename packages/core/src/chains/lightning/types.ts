@@ -19,7 +19,7 @@ type IAuthMsgType = {
 type IPaymentBolt11MsgType = {
   scenario: typeof LightningScenario;
   type: 'transfer';
-  invoice: string;
+  paymentRequest: string;
   paymentHash: string;
   expired: string;
   created: number;
@@ -31,3 +31,18 @@ export type IUnionMsgType =
   | IRegisterMsgType
   | IAuthMsgType
   | IPaymentBolt11MsgType;
+
+// export type ILightningHDSignatureParams = {
+//   msgPayload: UnionMsgType;
+//   engine: Engine;
+//   path: string;
+//   password: string;
+//   entropy: Buffer;
+//   isTestnet: boolean;
+// };
+
+// export type ILightningHWSIgnatureParams = {
+//   msgPayload: UnionMsgType;
+//   path: string;
+//   isTestnet: boolean;
+// };

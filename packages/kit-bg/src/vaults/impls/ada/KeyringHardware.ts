@@ -217,7 +217,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             connectId,
             deviceId,
             {
-              ...params,
+              ...params.deviceParams?.deviceCommonParams,
               path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
               networkId,
               derivationType,
