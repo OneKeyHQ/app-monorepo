@@ -240,7 +240,7 @@ function TableRow({
 }
 
 export function MarketHomeList({ category }: IMarketHomeListProps) {
-  const Columns = useMemo(
+  const HeaderColumns = useMemo(
     () => <TableRow tableConfig={TableHeaderConfig} minHeight={16} />,
     [],
   );
@@ -261,13 +261,14 @@ export function MarketHomeList({ category }: IMarketHomeListProps) {
     [],
   );
   return (
-    <ListView
-      stickyHeaderHiddenOnScroll
-      contentContainerStyle={{ flex: 1, px: '$6', py: '$3' }}
-      ListHeaderComponent={Columns}
-      estimatedItemSize={60}
-      data={listData}
-      renderItem={renderItem}
-    />
+    <YStack flex={1} px="$6" py="$3">
+      {HeaderColumns}
+      <ListView
+        stickyHeaderHiddenOnScroll
+        estimatedItemSize={60}
+        data={listData}
+        renderItem={renderItem}
+      />
+    </YStack>
   );
 }
