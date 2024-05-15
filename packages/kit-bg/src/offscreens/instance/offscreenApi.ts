@@ -37,8 +37,6 @@ const createOffscreenApiModule = memoizee(
         return HardwareLowLevelSDK;
       case 'adaSdk':
         return new (await import('../OffscreenApiAdaSdk')).default();
-      case 'xmrSdk':
-        return new (await import('../OffscreenApiXmrSdk')).default();
       default:
         throw new Error(`Unknown offscreen API module: ${name as string}`);
     }

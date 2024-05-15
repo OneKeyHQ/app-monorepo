@@ -1,6 +1,7 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
 
+import '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 import {
   backgroundClass,
   backgroundMethod,

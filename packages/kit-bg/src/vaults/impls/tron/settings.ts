@@ -27,6 +27,8 @@ const settings: IVaultSettings = {
   externalAccountEnabled: false,
   watchingAccountEnabled: true,
 
+  defaultFeePresetIndex: 0,
+
   isUtxo: false,
   isSingleToken: false,
   NFTEnabled: false,
@@ -44,6 +46,8 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+
+  cannotSendToSelf: true,
 };
 
 export default Object.freeze(settings);

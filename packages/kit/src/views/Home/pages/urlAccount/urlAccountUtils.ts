@@ -123,10 +123,10 @@ export const urlAccountNavigation = {
       StackActions.push(ETabHomeRoutes.TabHome),
     );
   },
-  replaceHomePage(navigation: IAppNavigation) {
+  replaceHomePage(navigation: IAppNavigation, params?: object | undefined) {
     navigation.dispatch(
       // StackActions.replace(ETabHomeRoutes.TabHome, routeParams),
-      StackActions.replace(ETabHomeRoutes.TabHome),
+      StackActions.replace(ETabHomeRoutes.TabHome, params),
     );
   },
   pushUrlAccountPage(
