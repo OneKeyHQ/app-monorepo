@@ -29,6 +29,7 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
@@ -137,30 +138,36 @@ const SwapTokenSelectPage = () => {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: ISwapToken }) => {
-      const balanceBN = new BigNumber(item.balanceParsed ?? 0);
-      const fiatValueBN = new BigNumber(item.fiatValue ?? 0);
+    ({ item }: { item: ISwapToken | IFuseResult<ISwapToken> }) => {
+      const rawItem = (item as IFuseResult<ISwapToken>).item
+        ? (item as IFuseResult<ISwapToken>).item
+        : (item as ISwapToken);
+      const balanceBN = new BigNumber(rawItem.balanceParsed ?? 0);
+      const fiatValueBN = new BigNumber(rawItem.fiatValue ?? 0);
       const tokenItem: ITokenListItemProps = {
-        tokenImageSrc: item.logoURI,
-        tokenName: item.name,
-        tokenSymbol: item.symbol,
+        tokenImageSrc: rawItem.logoURI,
+        tokenName: rawItem.name,
+        tokenSymbol: rawItem.symbol,
         tokenContrastAddress: searchKeyword
           ? accountUtils.shortenAddress({
-              address: item.contractAddress,
+              address: rawItem.contractAddress,
             })
           : undefined,
-        balance: !balanceBN.isZero() ? item.balanceParsed : undefined,
+        balance: !balanceBN.isZero() ? rawItem.balanceParsed : undefined,
         valueProps:
-          item.fiatValue && !fiatValueBN.isZero()
+          rawItem.fiatValue && !fiatValueBN.isZero()
             ? {
-                value: item.fiatValue,
+                value: rawItem.fiatValue,
                 currency: settingsPersistAtom.currencyInfo.symbol,
               }
             : undefined,
-        onPress: !sameTokenDisabled(item)
-          ? () => onSelectToken(item)
+        onPress: !sameTokenDisabled(rawItem)
+          ? () => onSelectToken(rawItem)
           : undefined,
-        disabled: sameTokenDisabled(item),
+        disabled: sameTokenDisabled(rawItem),
+        titleMatch: (item as IFuseResult<ISwapToken>).matches?.find(
+          (v) => v.key === 'symbol',
+        ),
       };
       return <TokenListItem {...tokenItem} />;
     },

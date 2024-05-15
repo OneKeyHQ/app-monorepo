@@ -1,4 +1,4 @@
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import { NumberSizeableText } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 
@@ -32,26 +32,16 @@ export function TokenListItem({
       {...(disabled && {
         opacity: 0.5,
       })}
+      title={tokenSymbol}
+      subtitle={tokenContrastAddress || tokenName}
+      renderAvatar={
+        <Token
+          tokenImageUri={tokenImageSrc}
+          networkImageUri={networkImageSrc}
+        />
+      }
       {...rest}
     >
-      <Token tokenImageUri={tokenImageSrc} networkImageUri={networkImageSrc} />
-      <ListItem.Text
-        flex={1}
-        primary={tokenSymbol}
-        secondary={
-          <XStack>
-            {tokenContrastAddress ? (
-              <SizableText size="$bodyMd" color="$textDisabled">
-                {tokenContrastAddress}
-              </SizableText>
-            ) : (
-              <SizableText size="$bodyMd" color="$textSubdued" pr="$1.5">
-                {tokenName}
-              </SizableText>
-            )}
-          </XStack>
-        }
-      />
       <ListItem.Text
         align="right"
         primary={

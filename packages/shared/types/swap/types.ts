@@ -24,6 +24,14 @@ export enum ESwapRateDifferenceUnit {
   DEFAULT = 'default',
 }
 
+export enum ETokenRiskLevel {
+  UNKNOWN = 0,
+  BENIGN = 1,
+  WARNING = 2,
+  SPAM = 1000,
+  MALICIOUS = 1001,
+}
+
 export interface ISwapInitParams {
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
@@ -60,7 +68,7 @@ export interface ISwapToken {
   accountAddress?: string;
   networkLogoURI?: string;
 
-  riskLevel?: number;
+  riskLevel?: ETokenRiskLevel;
 }
 
 export interface ISwapTokenCatch {
