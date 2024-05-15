@@ -148,6 +148,14 @@ function ConnectionModal() {
       connectedAccountInfo,
     ],
   );
+  const showContinueOperateCheckbox = useMemo(
+    () =>
+      !(
+        riskLevel === EHostSecurityLevel.Security ||
+        riskLevel === EHostSecurityLevel.Unknown
+      ),
+    [riskLevel],
+  );
 
   return (
     <Page scrollEnabled>
@@ -177,9 +185,7 @@ function ConnectionModal() {
           confirmButtonProps={{
             disabled: confirmDisabled,
           }}
-          showContinueOperateCheckbox={
-            riskLevel !== EHostSecurityLevel.Security
-          }
+          showContinueOperateCheckbox={showContinueOperateCheckbox}
           riskLevel={riskLevel}
         />
       </Page.Footer>

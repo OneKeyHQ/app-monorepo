@@ -18,6 +18,7 @@ import type {
   IAddressValidation,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
+  IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 import type {
   IProxyRequest,
@@ -26,21 +27,13 @@ import type {
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
 
+import { vaultFactory } from '../vaults/factory';
+
 import ServiceBase from './ServiceBase';
 
 type IAddressNetworkIdParams = {
   networkId: string;
   address: string;
-};
-
-type IQueryAddressArgs = {
-  networkId: string;
-  address: string;
-  accountId?: string;
-  enableNameResolve?: boolean;
-  enableAddressBook?: boolean;
-  enableWalletName?: boolean;
-  enableAddressInteractionStatus?: boolean;
 };
 
 @backgroundClass()
@@ -155,6 +148,30 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
+  private async verifyCannotSendToSelf({
+    networkId,
+    accountId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountId: string;
+    accountAddress: string;
+  }): Promise<boolean> {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const vaultSettings = await vault.getVaultSettings();
+    if (!vaultSettings.cannotSendToSelf) {
+      return false;
+    }
+    const acc = await this.backgroundApi.serviceAccount.getAccount({
+      networkId,
+      accountId,
+    });
+    const addressValidation = await vault.validateAddress(accountAddress);
+    return (
+      acc.addressDetail.displayAddress === addressValidation.displayAddress
+    );
+  }
+
   @backgroundMethod()
   public async queryAddress({
     networkId,
@@ -164,7 +181,8 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
-  }: IQueryAddressArgs) {
+    enableVerifySendFundToSelf,
+  }: IQueryCheckAddressArgs) {
     const result: IAddressQueryResult = { input: address };
     if (!networkId) {
       return result;
@@ -181,6 +199,18 @@ class ServiceAccountProfile extends ServiceBase {
       return result;
     }
     const resolveAddress = result.resolveAddress ?? result.input;
+    if (enableVerifySendFundToSelf && accountId && resolveAddress) {
+      const disableFundToSelf = await this.verifyCannotSendToSelf({
+        networkId,
+        accountId,
+        accountAddress: resolveAddress,
+      });
+      if (disableFundToSelf) {
+        result.validStatus = 'prohibit-send-to-self';
+        return result;
+      }
+    }
+
     if (enableAddressBook && resolveAddress) {
       // handleAddressBookName
       const addressBookItem =

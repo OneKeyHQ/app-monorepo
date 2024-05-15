@@ -696,4 +696,5 @@ module.exports = [
   'ciphertext',
   'decrypted',
   'cip',
+  'neurai',
 ];

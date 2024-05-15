@@ -138,6 +138,8 @@ export type IVaultSettings = {
   sendTransactionBySelf?: boolean;
 
   onChainHistoryDisabled?: boolean;
+
+  cannotSendToSelf?: boolean;
 };
 
 export type IVaultFactoryOptions = {
