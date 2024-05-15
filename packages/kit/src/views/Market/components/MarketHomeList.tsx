@@ -23,10 +23,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketToken } from '@onekeyhq/shared/types/market';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
+
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
 
 import type { IMarketHomeListProps } from './type';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 
 function Column({
   key,
@@ -100,91 +103,119 @@ const TableHeaderConfig: ITableColumnConfig = {
   'sparkline': () => 'Last 7 days',
 };
 
-const TableRowConfig: ITableColumnConfig = {
-  'serialNumber': (item) => (
-    <SizableText size="$bodyMd" color="$textSubdued">
-      {item.serialNumber}
-    </SizableText>
-  ),
-  'name': (item) => (
-    <XStack space="$3" ai="center">
-      <Image src={item.image} size="$8" borderRadius="100%" />
-      <YStack width="$20">
-        <SizableText size="$bodyLgMedium">{item.symbol}</SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {item.name}
+const useBuildTableRowConfig = () => {
+  const navigation = useAppNavigation();
+  return useMemo(() => {
+    const tableRowConfig: ITableColumnConfig = {
+      'serialNumber': (item) => (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {item.serialNumber}
         </SizableText>
-      </YStack>
-      <Button size="small">Swap</Button>
-    </XStack>
-  ),
-  'price': (item) => (
-    <NumberSizeableText
-      size="$bodyMd"
-      formatter="price"
-      formatterOptions={{ currency: '$' }}
-    >
-      {item.price}
-    </NumberSizeableText>
-  ),
-  'priceChangePercentage1H': (item) => (
-    <PriceChangePercentage>
-      {item.priceChangePercentage24H}
-    </PriceChangePercentage>
-  ),
-  'priceChangePercentage24H': (item) => (
-    <PriceChangePercentage>
-      {item.priceChangePercentage24H}
-    </PriceChangePercentage>
-  ),
-  'priceChangePercentage7D': (item) => (
-    <PriceChangePercentage>
-      {item.priceChangePercentage24H}
-    </PriceChangePercentage>
-  ),
-  'totalVolume': (item) => (
-    <NumberSizeableText
-      size="$bodyMd"
-      formatter="marketCap"
-      formatterOptions={{ currency: '$' }}
-    >
-      {item.totalVolume}
-    </NumberSizeableText>
-  ),
-  'marketCap': (item) => (
-    <NumberSizeableText
-      size="$bodyMd"
-      formatter="marketCap"
-      formatterOptions={{ currency: '$' }}
-    >
-      {item.marketCap}
-    </NumberSizeableText>
-  ),
-  'sparkline': (item) => (
-    <SparklineChart
-      data={item.sparkline}
-      width={100}
-      height={40}
-      lineColor={
-        item.priceChangePercentage24H &&
-        Number(item.priceChangePercentage24H) >= 0
-          ? '#33C641'
-          : '#FF6259'
-      }
-      linearGradientColor={
-        item.priceChangePercentage24H &&
-        Number(item.priceChangePercentage24H) >= 0
-          ? 'rgba(0, 184, 18, 0.2)'
-          : 'rgba(255, 98, 89, 0.2)'
-      }
-    />
-  ),
-  'actions': (item) => (
-    <XStack space="$6">
-      <Icon name="StarOutline" size="$5" />
-      <Icon name="DotVerSolid" size="$5" />
-    </XStack>
-  ),
+      ),
+      'name': (item) => (
+        <XStack space="$3" ai="center">
+          <Image src={item.image} size="$8" borderRadius="100%" />
+          <YStack width="$20">
+            <SizableText size="$bodyLgMedium">{item.symbol}</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {item.name}
+            </SizableText>
+          </YStack>
+          <Button
+            size="small"
+            onPress={() => {
+              navigation.pushModal(EModalRoutes.SwapModal, {
+                screen: EModalSwapRoutes.SwapMainLand,
+                params: {
+                  importNetworkId: networkId,
+                  importFromToken: {
+                    contractAddress: tokenInfo.address,
+                    symbol: tokenInfo.symbol,
+                    networkId,
+                    isNative: tokenInfo.isNative,
+                    decimals: tokenInfo.decimals,
+                    name: tokenInfo.name,
+                    logoURI: tokenInfo.logoURI,
+                    networkLogoURI: network?.logoURI,
+                  },
+                },
+              });
+            }}
+          >
+            Swap
+          </Button>
+        </XStack>
+      ),
+      'price': (item) => (
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="price"
+          formatterOptions={{ currency: '$' }}
+        >
+          {item.price}
+        </NumberSizeableText>
+      ),
+      'priceChangePercentage1H': (item) => (
+        <PriceChangePercentage>
+          {item.priceChangePercentage24H}
+        </PriceChangePercentage>
+      ),
+      'priceChangePercentage24H': (item) => (
+        <PriceChangePercentage>
+          {item.priceChangePercentage24H}
+        </PriceChangePercentage>
+      ),
+      'priceChangePercentage7D': (item) => (
+        <PriceChangePercentage>
+          {item.priceChangePercentage24H}
+        </PriceChangePercentage>
+      ),
+      'totalVolume': (item) => (
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="marketCap"
+          formatterOptions={{ currency: '$' }}
+        >
+          {item.totalVolume}
+        </NumberSizeableText>
+      ),
+      'marketCap': (item) => (
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="marketCap"
+          formatterOptions={{ currency: '$' }}
+        >
+          {item.marketCap}
+        </NumberSizeableText>
+      ),
+      'sparkline': (item) => (
+        <SparklineChart
+          data={item.sparkline}
+          width={100}
+          height={40}
+          lineColor={
+            item.priceChangePercentage24H &&
+            Number(item.priceChangePercentage24H) >= 0
+              ? '#33C641'
+              : '#FF6259'
+          }
+          linearGradientColor={
+            item.priceChangePercentage24H &&
+            Number(item.priceChangePercentage24H) >= 0
+              ? 'rgba(0, 184, 18, 0.2)'
+              : 'rgba(255, 98, 89, 0.2)'
+          }
+        />
+      ),
+      'actions': (item) => (
+        <XStack space="$6">
+          <Icon name="StarOutline" size="$5" />
+          <Icon name="DotVerSolid" size="$5" />
+        </XStack>
+      ),
+    };
+    return tableRowConfig;
+  }, []);
 };
 
 function TableRow({
@@ -335,11 +366,13 @@ export function MarketHomeList({ category }: IMarketHomeListProps) {
       ),
     [category.categoryId, category.coingeckoIds],
   );
+
+  const tableRowConfig = useBuildTableRowConfig();
   const renderItem = useCallback(
     ({ item }: any) => (
-      <TableRow tableConfig={TableRowConfig} item={item} minHeight={60} />
+      <TableRow tableConfig={tableRowConfig} item={item} minHeight={60} />
     ),
-    [],
+    [tableRowConfig],
   );
 
   const renderMdItem = useCallback(
