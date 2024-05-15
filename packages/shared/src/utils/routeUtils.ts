@@ -7,6 +7,7 @@ import {
   ETabDeveloperRoutes,
   ETabDiscoveryRoutes,
   ETabHomeRoutes,
+  ETabMarketRoutes,
   ETabMeRoutes,
   ETabRoutes,
   ETabSwapRoutes,
@@ -80,6 +81,12 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
   // Page: /main/tab-Home/TabHomeStack1
   const rules = {
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Home}${ETabHomeRoutes.TabHome}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    // Swap Pages
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.TabMarket}`]:
       {
         showUrl: true,
         showParams: true,

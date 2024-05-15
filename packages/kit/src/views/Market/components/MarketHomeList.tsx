@@ -11,17 +11,20 @@ import {
   Image,
   ListView,
   NumberSizeableText,
+  Popover,
   Select,
   SizableText,
   XStack,
   YStack,
   useMedia,
+  usePopoverContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMarketToken } from '@onekeyhq/shared/types/market';
 
 import SparklineChart from './SparklineChart';
+import { ToggleButton } from './ToggleButton';
 
 import type { IMarketHomeListProps } from './type';
 
@@ -241,6 +244,71 @@ function TableRow({
   );
 }
 
+function PopoverSettingsContent({
+  dataDisplay: defaultDataDisplay,
+  priceChange: defaultPriceChange,
+  onConfirm,
+}: {
+  dataDisplay: string;
+  priceChange: string;
+  onConfirm: (value: { dataDisplay: string; priceChange: string }) => void;
+}) {
+  const { closePopover } = usePopoverContext();
+  const [dataDisplay, setDataDisplay] = useState(defaultDataDisplay);
+  const [priceChange, setPriceChange] = useState(defaultPriceChange);
+  return (
+    <YStack px="$5" space="$5">
+      <ToggleButton
+        title="Data Display"
+        value={dataDisplay}
+        onChange={setDataDisplay}
+        options={[
+          {
+            label: '24h volume',
+            value: 'totalVolume',
+          },
+          {
+            label: 'Market Cap',
+            value: 'marketCap',
+          },
+        ]}
+      />
+      <ToggleButton
+        title="Price Change"
+        value={priceChange}
+        onChange={setPriceChange}
+        options={[
+          {
+            label: '1 hour',
+            value: 'priceChangePercentage1H',
+          },
+          {
+            label: '24 hour',
+            value: 'priceChangePercentage24H',
+          },
+          {
+            label: '7 days',
+            value: 'priceChangePercentage7D',
+          },
+        ]}
+      />
+      <Button
+        my="$5"
+        variant="primary"
+        onPress={async () => {
+          await closePopover?.();
+          onConfirm({
+            dataDisplay,
+            priceChange,
+          });
+        }}
+      >
+        Confirm
+      </Button>
+    </YStack>
+  );
+}
+
 export function MarketHomeList({ category }: IMarketHomeListProps) {
   const selectOptions = useMemo(
     () => [
@@ -364,7 +432,19 @@ export function MarketHomeList({ category }: IMarketHomeListProps) {
                 renderTrigger={renderSelectTrigger}
               />
             </XStack>
-            <Icon name="SliderVerOutline" color="$iconSubdued" size="$5" />
+            <Popover
+              title="Settings"
+              renderTrigger={
+                <Icon name="SliderVerOutline" color="$iconSubdued" size="$5" />
+              }
+              renderContent={
+                <PopoverSettingsContent
+                  dataDisplay=""
+                  priceChange=""
+                  onConfirm={console.log}
+                />
+              }
+            />
           </XStack>
         </YStack>
       )}
