@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 
+import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useBrowserBookmarkAction,
@@ -21,8 +22,6 @@ import {
 import { getWebviewWrapperRef, webviewRefs } from '../../utils/explorerUtils';
 
 import { withBrowserProvider } from './WithBrowserProvider';
-
-import type { IElectronWebView } from '../../components/WebView/types';
 
 function DesktopBrowserNavigationBar({
   id,

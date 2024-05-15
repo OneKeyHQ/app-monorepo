@@ -1,10 +1,10 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useMemo } from 'react';
 
+import WebView from '@onekeyhq/kit/src/components/WebView';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
 import { webviewRefs } from '../../utils/explorerUtils';
-import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
 import type { WebViewProps } from '@onekeyfe/react-native-webview';

@@ -774,7 +774,7 @@ class ServiceDApp extends ServiceBase {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate
       | undefined;
-    return privateProvider?.isWebEmbedApiReady;
+    return Promise.resolve(privateProvider?.isWebEmbedApiReady);
   }
 
   @backgroundMethod()

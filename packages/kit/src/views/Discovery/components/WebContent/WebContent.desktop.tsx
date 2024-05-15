@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import WebView from '@onekeyhq/kit/src/components/WebView';
+import type { PageFaviconUpdatedEvent } from '@onekeyhq/kit/src/components/WebView/DesktopWebView';
+import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useBrowserAction,
@@ -11,11 +14,8 @@ import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
-import WebView from '../WebView';
 
 import type { IWebTab } from '../../types';
-import type { PageFaviconUpdatedEvent } from '../WebView/DesktopWebView';
-import type { IElectronWebView } from '../WebView/types';
 import type { WebViewProps } from '@onekeyfe/react-native-webview';
 import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 
