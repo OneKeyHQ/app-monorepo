@@ -161,6 +161,18 @@ const dash: IBtcForkNetwork = {
   wif: 0xcc,
 };
 
+const neurai: IBtcForkNetwork = {
+  messagePrefix: '\x19Neurai Signed Message:\n',
+  bech32: '',
+  bip32: {
+    private: 0x0488ade4,
+    public: 0x0488b21e,
+  },
+  pubKeyHash: 0x35,
+  scriptHash: 0x75,
+  wif: 0x80,
+};
+
 const extendedNetworks: Record<string, IBtcForkNetwork> = {
   btc,
   tbtc,
@@ -168,6 +180,7 @@ const extendedNetworks: Record<string, IBtcForkNetwork> = {
   ltc,
   bch,
   doge,
+  neurai,
   btg,
   dgb,
   nmc,
