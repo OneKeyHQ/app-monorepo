@@ -19,6 +19,10 @@ export interface IBrowserBookmark {
   logo?: string;
 }
 
+export interface IBrowserRiskWhiteList {
+  url: string;
+}
+
 export interface IGotoSiteFnParams {
   url: string;
   title?: string;

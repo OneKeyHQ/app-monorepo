@@ -42,6 +42,7 @@ export function isPrivateAllowedMethod(method?: string) {
       'wallet_scanQrcode',
       'wallet_detectRiskLevel',
       'wallet_closeCurrentBrowserTab',
+      'wallet_addBrowserUrlToRiskWhiteList',
     ].includes(method || '')
   );
 }

@@ -65,13 +65,8 @@ class ServiceE2E extends ServiceBase {
 
   @backgroundMethodForDev()
   async clearDiscoveryPageData() {
-    const { simpleDb } = this.backgroundApi;
-    await Promise.all([
-      simpleDb.browserTabs.clearRawData(),
-      simpleDb.browserBookmarks.clearRawData(),
-      simpleDb.browserHistory.clearRawData(),
-      simpleDb.dappConnection.clearRawData(),
-    ]);
+    const { serviceDiscovery } = this.backgroundApi;
+    await serviceDiscovery.clearDiscoveryPageData();
   }
 }
 
