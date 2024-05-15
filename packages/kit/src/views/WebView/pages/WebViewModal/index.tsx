@@ -6,7 +6,7 @@ import { Share } from 'react-native';
 
 import { ActionList, Page, useClipboard } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import WebView from '@onekeyhq/kit/src/views/Discovery/components/WebView';
+import WebView from '@onekeyhq/kit/src/components/WebView';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalWebViewRoutes,
