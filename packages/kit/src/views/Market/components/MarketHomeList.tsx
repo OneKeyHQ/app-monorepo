@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type {
   INumberSizeableTextProps,
@@ -11,9 +11,11 @@ import {
   Image,
   ListView,
   NumberSizeableText,
+  Select,
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -229,7 +231,7 @@ function TableRow({
       <Column key="marketCap" alignRight width={75}>
         {marketCap?.(item)}
       </Column>
-      <Column key="sparkline" alignRight width={100} pl="$2">
+      <Column key="sparkline" alignRight width={100} pl="$4">
         {sparkline?.(item)}
       </Column>
       <Column key="action" alignLeft width={200} pl="$4">
@@ -240,6 +242,17 @@ function TableRow({
 }
 
 export function MarketHomeList({ category }: IMarketHomeListProps) {
+  const selectOptions = useMemo(
+    () => [
+      { label: 'Default', value: 'Default' },
+      { label: 'Last price', value: 'Last price' },
+      { label: 'Most 24h volume', value: 'Most 24h volume' },
+      { label: 'Most market cap', value: 'Most market cap' },
+      { label: 'Price change up', value: 'Price change up' },
+      { label: 'Price change down', value: 'Price change down' },
+    ],
+    [],
+  );
   const HeaderColumns = useMemo(
     () => <TableRow tableConfig={TableHeaderConfig} minHeight={16} />,
     [],
@@ -260,15 +273,111 @@ export function MarketHomeList({ category }: IMarketHomeListProps) {
     ),
     [],
   );
+
+  const renderMdItem = useCallback(
+    ({ item }: { item: IMarketToken }) => (
+      <XStack height={60} justifyContent="space-between">
+        <XStack space="$3" ai="center">
+          <Image src={item.image} size="$10" borderRadius="100%" />
+          <YStack>
+            <SizableText size="$bodyLgMedium">
+              {item.symbol.toUpperCase()}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {`VOL `}
+              <NumberSizeableText
+                size="$bodySm"
+                formatter="marketCap"
+                color="$textSubdued"
+                formatterOptions={{ currency: '$' }}
+              >
+                {item.totalVolume}
+              </NumberSizeableText>
+            </SizableText>
+          </YStack>
+        </XStack>
+        <XStack ai="center" space="$5" flexShrink={1}>
+          <NumberSizeableText
+            flexShrink={1}
+            numberOfLines={1}
+            size="$bodyLgMedium"
+            formatter="price"
+            formatterOptions={{ currency: '$' }}
+          >
+            {item.price}
+          </NumberSizeableText>
+          <XStack
+            width="$20"
+            height="$8"
+            jc="center"
+            ai="center"
+            backgroundColor={
+              Number(item.priceChangePercentage24H) > 0
+                ? '$bgSuccessStrong'
+                : '$bgCriticalStrong'
+            }
+            borderRadius="$2"
+          >
+            <NumberSizeableText
+              size="$bodyMdMedium"
+              color="white"
+              formatter="priceChange"
+              formatterOptions={{ currency: '$' }}
+            >
+              {item.priceChangePercentage24H}
+            </NumberSizeableText>
+          </XStack>
+        </XStack>
+      </XStack>
+    ),
+    [],
+  );
+  const { gtMd } = useMedia();
+  const [sortByType, setSortByType] = useState('Default');
+
+  const renderSelectTrigger = useCallback(
+    ({ label }: { label?: string }) => (
+      <XStack ai="center" space="$1">
+        <SizableText>{label}</SizableText>
+        <Icon name="ChevronBottomSolid" size="$4" />
+      </XStack>
+    ),
+    [],
+  );
+
   return (
-    <YStack flex={1} px="$6" py="$3">
-      {HeaderColumns}
-      <ListView
-        stickyHeaderHiddenOnScroll
-        estimatedItemSize={60}
-        data={listData}
-        renderItem={renderItem}
-      />
-    </YStack>
+    <>
+      {gtMd ? undefined : (
+        <YStack
+          px="$5"
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
+          <XStack h="$11" ai="center" justifyContent="space-between">
+            <XStack ai="center" space="$2">
+              <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
+              <Select
+                items={selectOptions}
+                title="Sort by"
+                value={sortByType}
+                onChange={setSortByType}
+                renderTrigger={renderSelectTrigger}
+              />
+            </XStack>
+            <Icon name="SliderVerOutline" color="$iconSubdued" size="$5" />
+          </XStack>
+        </YStack>
+      )}
+
+      <YStack flex={1} px="$5" py="$3">
+        {gtMd ? HeaderColumns : undefined}
+        <ListView
+          stickyHeaderHiddenOnScroll
+          estimatedItemSize={60}
+          data={listData}
+          renderItem={gtMd ? renderItem : renderMdItem}
+        />
+      </YStack>
+    </>
   );
 }

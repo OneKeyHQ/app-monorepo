@@ -8,6 +8,7 @@ import { MarketHomeHeaderSearchBar } from './MarketHomeHeaderSearchBar';
 
 export function MarketHomeHeader() {
   const intl = useIntl();
+  const renderHeaderLeft = useCallback(() => null, []);
   const renderHeaderRight = useCallback(
     () => (
       <Stack width={280}>
@@ -19,6 +20,7 @@ export function MarketHomeHeader() {
   return (
     <Page.Header
       title={intl.formatMessage({ id: 'title__market' })}
+      headerLeft={renderHeaderLeft}
       headerRight={renderHeaderRight}
     />
   );

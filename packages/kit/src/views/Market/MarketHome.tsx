@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
 
-import { Page, Tab } from '@onekeyhq/components';
+import { Page, Tab, useMedia } from '@onekeyhq/components';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { MarketHomeHeader } from './components/MarketHomeHeader';
+import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeList } from './components/MarketHomeList';
 
 function MarketHome() {
@@ -13,6 +14,8 @@ function MarketHome() {
     async () => backgroundApiProxy.serviceMarket.fetchCategories(),
     [],
   );
+
+  const { gtMd } = useMedia();
 
   const tabConfig = useMemo(
     () =>
@@ -25,7 +28,7 @@ function MarketHome() {
   );
   return (
     <Page>
-      <MarketHomeHeader />
+      {gtMd ? <MarketHomeHeader /> : <MDMarketHomeHeader />}
       <Page.Body>
         <Tab.Page
           data={tabConfig}

@@ -21,9 +21,14 @@ export function MarketHomeHeader() {
     ),
     [intl],
   );
+  const renderHeaderRight = useCallback(() => null, []);
   return (
     <>
-      <Page.Header headerLeft={renderLeft} />
+      <Page.Header
+        title=""
+        headerLeft={renderLeft}
+        headerRight={renderHeaderRight}
+      />
       <Stack px="$5" pb="$3">
         <MarketHomeHeaderSearchBar />
       </Stack>
