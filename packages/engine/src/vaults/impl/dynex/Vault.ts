@@ -83,8 +83,12 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const balances: (BigNumber | undefined)[] = [];
     for (let i = 0; i < requests.length; i += 1) {
-      const balance = await client.getBalanceOfAddress(requests[i].address);
-      balances.push(balance);
+      try {
+        const balance = await client.getBalanceOfAddress(requests[i].address);
+        balances.push(balance);
+      } catch (e) {
+        balances.push(new BigNumber(0));
+      }
     }
 
     return balances;
