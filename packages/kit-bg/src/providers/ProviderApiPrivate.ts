@@ -267,6 +267,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async webEmbedApiReady(): Promise<void> {
     this.isWebEmbedApiReady = true;
+    appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, undefined);
     return Promise.resolve();
   }
 

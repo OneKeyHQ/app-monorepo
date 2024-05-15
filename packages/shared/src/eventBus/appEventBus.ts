@@ -34,6 +34,8 @@ export enum EAppEventBusNames {
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
+  LoadWebEmbedWebView = 'LoadWebEmbedWebView',
+  LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -90,6 +92,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowFirmwareUpdateForce]: {
     connectId: string | undefined;
   };
+  [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
+  [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
