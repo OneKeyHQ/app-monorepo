@@ -135,6 +135,8 @@ export type IVaultSettings = {
   allowZeroFee?: boolean;
 
   onChainHistoryDisabled?: boolean;
+
+  cannotSendToSelf?: boolean;
 };
 
 export type IVaultFactoryOptions = {

@@ -3,7 +3,7 @@ import { type FC, useCallback } from 'react';
 import { IconButton } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import type { IAddressPluginProps } from '../types';
 
@@ -24,10 +24,18 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   );
 };
 
-export const ScanPlugin: FC<IAddressPluginProps> = ({ onChange, testID }) => (
+type IScanPluginProps = IAddressPluginProps & {
+  sceneName: EAccountSelectorSceneName;
+};
+
+export const ScanPlugin: FC<IScanPluginProps> = ({
+  onChange,
+  testID,
+  sceneName,
+}) => (
   <AccountSelectorProviderMirror
     config={{
-      sceneName: EAccountSelectorSceneName.home,
+      sceneName,
     }}
     enabledNum={[0]}
   >
