@@ -28,20 +28,19 @@ class ServiceMarket extends ServiceBase {
     sparkline: boolean,
   ) {
     const client = await this.getClient();
-    const response = await client.get('/utility/v1/market/tokens', {
-      params: {
-        category,
-        ids: encodeURI(coingeckoIds.join(',')),
-        sparkline,
-      },
-      paramsSerializer: (params) => {
-        const urlSearchParams = new URLSearchParams(params);
-        return urlSearchParams.toString();
-      },
-    });
-    console.log('---response.data---', response.data);
+    // const response = await client.get('/utility/v1/market/tokens', {
+    //   params: {
+    //     category,
+    //     ids: encodeURI(coingeckoIds.join(',')),
+    //     sparkline,
+    //   },
+    //   paramsSerializer: (params) => {
+    //     const urlSearchParams = new URLSearchParams(params);
+    //     return urlSearchParams.toString();
+    //   },
+    // });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return require('./serviceMarket.json') as IMarketCategory[];
+    return require('./serviceMarketToken.json') as IMarketCategory[];
   }
 }
 

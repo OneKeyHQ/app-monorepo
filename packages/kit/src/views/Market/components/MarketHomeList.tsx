@@ -1,33 +1,59 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import type { IStackProps } from '@onekeyhq/components';
-import { ListView, SizableText, XStack } from '@onekeyhq/components';
+import type {
+  INumberSizeableTextProps,
+  IStackProps,
+} from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  Image,
+  ListView,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { IMarketToken } from '@onekeyhq/shared/types/market';
+
+import SparklineChart from './SparklineChart';
 
 import type { IMarketHomeListProps } from './type';
 
 function Column({
   key,
-  alignLeft = true,
+  alignLeft,
   alignRight,
   children,
   width,
-}: PropsWithChildren<{
-  key: string;
-  alignLeft?: boolean;
-  alignRight?: boolean;
-  width?: IStackProps['width'];
-}>) {
+  ...props
+}: PropsWithChildren<
+  {
+    key: string;
+    alignLeft?: boolean;
+    alignRight?: boolean;
+  } & IStackProps
+>) {
   const jc = useMemo(() => {
     if (alignLeft) {
       return 'flex-start';
     }
-    return alignRight ? 'flex-end' : undefined;
+    if (alignRight) {
+      return 'flex-end';
+    }
   }, [alignLeft, alignRight]);
   return (
-    <XStack key={key} jc={jc} alignItems="center" width={width}>
+    <XStack
+      key={key}
+      testID={`list-column-${key}`}
+      jc={jc}
+      alignItems="center"
+      width={width}
+      {...props}
+    >
       {typeof children === 'string' ? (
         <SizableText color="$textSubdued" size="$bodySmMedium">
           {children}
@@ -39,62 +65,175 @@ function Column({
   );
 }
 
+function PriceChangePercentage({ children }: INumberSizeableTextProps) {
+  return (
+    <NumberSizeableText
+      size="$bodyMd"
+      formatter="priceChange"
+      color={Number(children) > 0 ? '$textSuccess' : '$textCritical'}
+      formatterOptions={{ currency: '$' }}
+    >
+      {children}
+    </NumberSizeableText>
+  );
+}
+
 type ITableColumnConfig = Record<
   string,
-  (item: Record<string, string>) => ReactElement | string
+  (item: IMarketToken) => ReactElement | string
 >;
 
 const TableHeaderConfig: ITableColumnConfig = {
-  'no': () => '#',
+  'serialNumber': () => '#',
   'name': () => 'Name',
   'price': () => 'Price',
-  'r1h': () => '1h%',
-  'r24h': () => '24h%',
-  'r7d': () => '7d%',
-  'r24hv': () => '24h volume',
+  'priceChangePercentage1H': () => '1h%',
+  'priceChangePercentage24H': () => '24h%',
+  'priceChangePercentage7D': () => '7d%',
+  'totalVolume': () => '24h volume',
   'marketCap': () => 'Market cap',
-  'l7d': () => 'Last 7 days',
+  'sparkline': () => 'Last 7 days',
+};
+
+const TableRowConfig: ITableColumnConfig = {
+  'serialNumber': (item) => (
+    <SizableText size="$bodyMd" color="$textSubdued">
+      {item.serialNumber}
+    </SizableText>
+  ),
+  'name': (item) => (
+    <XStack space="$3" ai="center">
+      <Image src={item.image} size="$8" borderRadius="100%" />
+      <YStack width="$20">
+        <SizableText size="$bodyLgMedium">{item.symbol}</SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {item.name}
+        </SizableText>
+      </YStack>
+      <Button size="small">Swap</Button>
+    </XStack>
+  ),
+  'price': (item) => (
+    <NumberSizeableText
+      size="$bodyMd"
+      formatter="price"
+      formatterOptions={{ currency: '$' }}
+    >
+      {item.price}
+    </NumberSizeableText>
+  ),
+  'priceChangePercentage1H': (item) => (
+    <PriceChangePercentage>
+      {item.priceChangePercentage24H}
+    </PriceChangePercentage>
+  ),
+  'priceChangePercentage24H': (item) => (
+    <PriceChangePercentage>
+      {item.priceChangePercentage24H}
+    </PriceChangePercentage>
+  ),
+  'priceChangePercentage7D': (item) => (
+    <PriceChangePercentage>
+      {item.priceChangePercentage24H}
+    </PriceChangePercentage>
+  ),
+  'totalVolume': (item) => (
+    <NumberSizeableText
+      size="$bodyMd"
+      formatter="marketCap"
+      formatterOptions={{ currency: '$' }}
+    >
+      {item.totalVolume}
+    </NumberSizeableText>
+  ),
+  'marketCap': (item) => (
+    <NumberSizeableText
+      size="$bodyMd"
+      formatter="marketCap"
+      formatterOptions={{ currency: '$' }}
+    >
+      {item.marketCap}
+    </NumberSizeableText>
+  ),
+  'sparkline': (item) => (
+    <SparklineChart
+      data={item.sparkline}
+      width={100}
+      height={40}
+      lineColor={
+        item.priceChangePercentage24H &&
+        Number(item.priceChangePercentage24H) >= 0
+          ? '#33C641'
+          : '#FF6259'
+      }
+      linearGradientColor={
+        item.priceChangePercentage24H &&
+        Number(item.priceChangePercentage24H) >= 0
+          ? 'rgba(0, 184, 18, 0.2)'
+          : 'rgba(255, 98, 89, 0.2)'
+      }
+    />
+  ),
+  'actions': (item) => (
+    <XStack space="$6">
+      <Icon name="StarOutline" size="$5" />
+      <Icon name="DotVerSolid" size="$5" />
+    </XStack>
+  ),
 };
 
 function TableRow({
-  item = {},
+  item = {} as IMarketToken,
   tableConfig,
-  height = 60,
+  minHeight = 60,
 }: {
-  item?: Record<string, string>;
+  item?: IMarketToken;
   tableConfig: ITableColumnConfig;
-  height?: IStackProps['height'];
+  minHeight?: IStackProps['height'];
 }) {
-  const { no, name, price, r1h, r24h, r7d, r24hv, marketCap, l7d } =
-    tableConfig;
+  const {
+    serialNumber,
+    name,
+    price,
+    priceChangePercentage1H,
+    priceChangePercentage24H,
+    priceChangePercentage7D,
+    totalVolume,
+    marketCap,
+    sparkline,
+    actions,
+  } = tableConfig;
   return (
-    <XStack space="$3" height={height}>
-      <Column key="no" alignLeft width="$4">
-        {no(item)}
+    <XStack space="$3" minHeight={minHeight}>
+      <Column key="serialNumber" alignLeft width={40}>
+        {serialNumber?.(item)}
       </Column>
       <Column key="name" alignLeft width={261}>
-        {name(item)}
+        {name?.(item)}
       </Column>
       <Column key="price" alignRight width={85}>
-        {price(item)}
+        {price?.(item)}
       </Column>
-      <Column key="r1h" alignRight width={75}>
-        {r1h(item)}
+      <Column key="priceChangePercentage1H" alignRight width={75}>
+        {priceChangePercentage1H?.(item)}
       </Column>
-      <Column key="r24h" alignRight width={75}>
-        {r24h(item)}
+      <Column key="priceChangePercentage24H" alignRight width={75}>
+        {priceChangePercentage24H?.(item)}
       </Column>
-      <Column key="r7d" alignRight width={75}>
-        {r7d(item)}
+      <Column key="priceChangePercentage7D" alignRight width={75}>
+        {priceChangePercentage7D?.(item)}
       </Column>
-      <Column key="r24hv" alignRight width={75}>
-        {r24hv(item)}
+      <Column key="totalVolume" alignRight width={75}>
+        {totalVolume?.(item)}
       </Column>
       <Column key="marketCap" alignRight width={75}>
-        {marketCap(item)}
+        {marketCap?.(item)}
       </Column>
-      <Column key="l7d" alignRight width={100}>
-        {l7d(item)}
+      <Column key="sparkline" alignRight width={100} pl="$2">
+        {sparkline?.(item)}
+      </Column>
+      <Column key="action" alignLeft width={200} pl="$4">
+        {actions?.(item)}
       </Column>
     </XStack>
   );
@@ -102,11 +241,11 @@ function TableRow({
 
 export function MarketHomeList({ category }: IMarketHomeListProps) {
   const Columns = useMemo(
-    () => <TableRow tableConfig={TableHeaderConfig} height={16} />,
+    () => <TableRow tableConfig={TableHeaderConfig} minHeight={16} />,
     [],
   );
 
-  const { result: categories } = usePromiseResult(
+  const { result: listData } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceMarket.fetchCategory(
         category.categoryId,
@@ -116,27 +255,18 @@ export function MarketHomeList({ category }: IMarketHomeListProps) {
     [category.categoryId, category.coingeckoIds],
   );
   const renderItem = useCallback(
-    ({ item }: any) => <TableRow tableConfig={TableHeaderConfig} item={item} />,
+    ({ item }: any) => (
+      <TableRow tableConfig={TableRowConfig} item={item} minHeight={60} />
+    ),
     [],
   );
   return (
     <ListView
+      stickyHeaderHiddenOnScroll
       contentContainerStyle={{ flex: 1, px: '$6', py: '$3' }}
       ListHeaderComponent={Columns}
       estimatedItemSize={60}
-      data={[
-        {
-          'no': 'no',
-          'name': 'name',
-          'price': 'price',
-          'r1h': 'r1h',
-          'r24h': 'r24h',
-          'r7d': 'r7d',
-          'r24hv': 'r24hv',
-          'marketCap': 'marketCap',
-          'l7d': 'l7d',
-        },
-      ]}
+      data={listData}
       renderItem={renderItem}
     />
   );

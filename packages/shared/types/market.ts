@@ -10,13 +10,26 @@ export interface IMarketCategory {
   sequenceId: number;
   status?: string;
   coingeckoUrl?: string;
-  customTokens?: IMarketToken[];
+  customTokens?: IMarketCustomToken[];
 }
 
-export interface IMarketToken {
+export interface IMarketCustomToken {
   coingeckoId: string;
   iconUrl: string;
   symbol: string;
   rankIndex?: number;
   name?: string;
+}
+
+export interface IMarketToken {
+  coingeckoId: string;
+  name: string;
+  serialNumber: number;
+  price: number;
+  totalVolume: number;
+  marketCap: number;
+  symbol: string;
+  image: string;
+  priceChangePercentage24H: number;
+  sparkline: number[];
 }
