@@ -135,7 +135,7 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
-  private async verifySendFundToSelf({
+  private async verifyCannotSendToSelf({
     networkId,
     accountId,
     accountAddress,
@@ -146,7 +146,7 @@ class ServiceAccountProfile extends ServiceBase {
   }): Promise<boolean> {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const vaultSettings = await vault.getVaultSettings();
-    if (!vaultSettings.prohibitSendFundToSelf) {
+    if (!vaultSettings.cannotSendToSelf) {
       return false;
     }
     const acc = await this.backgroundApi.serviceAccount.getAccount({
@@ -187,7 +187,7 @@ class ServiceAccountProfile extends ServiceBase {
     }
     const resolveAddress = result.resolveAddress ?? result.input;
     if (enableVerifySendFundToSelf && accountId && resolveAddress) {
-      const disableFundToSelf = await this.verifySendFundToSelf({
+      const disableFundToSelf = await this.verifyCannotSendToSelf({
         networkId,
         accountId,
         accountAddress: resolveAddress,

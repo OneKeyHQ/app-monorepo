@@ -47,7 +47,7 @@ const settings: IVaultSettings = {
     },
   },
 
-  prohibitSendFundToSelf: true,
+  cannotSendToSelf: true,
 };
 
 export default Object.freeze(settings);

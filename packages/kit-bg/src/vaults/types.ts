@@ -136,7 +136,7 @@ export type IVaultSettings = {
 
   onChainHistoryDisabled?: boolean;
 
-  prohibitSendFundToSelf?: boolean;
+  cannotSendToSelf?: boolean;
 };
 
 export type IVaultFactoryOptions = {
