@@ -8,7 +8,10 @@ import type {
   ICreateInvoiceResponse,
   ICreateUserResponse,
   IInvoiceConfig,
+  IInvoiceDecodedResponse,
+  IInvoiceType,
 } from '@onekeyhq/shared/types/lightning';
+import type { ICheckPaymentResponse } from '@onekeyhq/shared/types/lightning/payments';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import type { AxiosInstance } from 'axios';
@@ -70,7 +73,7 @@ class ClientLightning {
     }
   };
 
-  private async getAuthorization({
+  async getAuthorization({
     accountId,
     networkId,
     address,
@@ -203,9 +206,21 @@ class ClientLightning {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
     },
   );
+
+  async checkAuthWithRefresh(params: { accountId: string; networkId: string }) {
+    return this.retryOperation(
+      async () => {
+        await this.checkAuth(params);
+      },
+      isAuthError,
+      async () => {
+        await this.backgroundApi.serviceLightning.exchangeToken(params);
+      },
+    );
+  }
 
   getConfig = memoizee(
     async () =>
@@ -262,6 +277,71 @@ class ClientLightning {
         });
       },
     );
+  }
+
+  async decodedInvoice(invoice: string) {
+    return this.request
+      .get<IOneKeyAPIBaseResponse<IInvoiceDecodedResponse>>(
+        `${this.prefix}/invoices/decode/${invoice}`,
+      )
+      .then((i) => i.data.data);
+  }
+
+  specialInvoice = memoizee(
+    async ({
+      accountId,
+      networkId,
+      paymentHash,
+    }: {
+      accountId: string;
+      networkId: string;
+      paymentHash: string;
+    }) =>
+      this.request
+        .get<IOneKeyAPIBaseResponse<IInvoiceType>>(
+          `${this.prefix}/invoices/${paymentHash}`,
+          {
+            params: {
+              testnet: this.testnet,
+            },
+            headers: {
+              Authorization: await this.getAuthorization({
+                accountId,
+                networkId,
+              }),
+            },
+          },
+        )
+        .then((i) => i.data.data),
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 1 }),
+    },
+  );
+
+  async checkBolt11({
+    accountId,
+    networkId,
+    nonce,
+  }: {
+    accountId: string;
+    networkId: string;
+    nonce: number;
+  }) {
+    return this.request
+      .get<IOneKeyAPIBaseResponse<ICheckPaymentResponse>>(
+        `${this.prefix}/payments/check-bolt11`,
+        {
+          params: { nonce, testnet: this.testnet },
+          headers: {
+            Authorization: await this.getAuthorization({
+              accountId,
+              networkId,
+            }),
+          },
+        },
+      )
+      .then((i) => i.data.data);
   }
 }
 

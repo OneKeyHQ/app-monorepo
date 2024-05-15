@@ -21,5 +21,10 @@ export type IModalReceiveParamList = {
     deriveInfo: IAccountDeriveInfo;
     deriveType: IAccountDeriveTypes;
   };
-  [EModalReceiveRoutes.ReceiveInvoice]: undefined;
+  [EModalReceiveRoutes.ReceiveInvoice]: {
+    networkId: string;
+    accountId: string;
+    paymentRequest: string;
+    paymentHash: string;
+  };
 };

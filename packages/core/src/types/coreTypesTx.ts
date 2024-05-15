@@ -1,5 +1,6 @@
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 import type { ICurveName } from './coreTypesBase';
@@ -32,15 +33,15 @@ export type IEncodedTx =
   | IEncodedTxXmr
   | IEncodedTxTron
   | IEncodedTxNexa
+  | IEncodedTxLightning
   | IEncodedTxNostr;
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
 //   | IEncodedTxBtc
+//   | IEncodedTxDot
 //   | IEncodedTxSTC
 //   | IEncodedTxAptos
 //   | IEncodedTxCfx
-//   | IEncodedTxDot
-//   | IEncodedTxLightning;
 
 export type INativeTx = object;
 //   | INativeTxEvm
@@ -120,3 +121,9 @@ export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
 };
 export type ISignedMessagePro = string[];
+export type IVerifiedMessagePro = {
+  isValid: boolean;
+  message: string;
+  signature: string;
+  address: string;
+};

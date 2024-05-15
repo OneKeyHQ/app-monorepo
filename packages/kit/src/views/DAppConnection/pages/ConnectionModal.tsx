@@ -72,6 +72,9 @@ function ConnectionModal() {
       return true;
     }
     if (!selectedAccount?.account?.address) {
+      if (selectedAccount?.account?.addressDetail.isValid) {
+        return false;
+      }
       return true;
     }
     return false;

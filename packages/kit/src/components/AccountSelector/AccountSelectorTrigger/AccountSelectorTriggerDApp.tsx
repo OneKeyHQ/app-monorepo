@@ -49,11 +49,16 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
     }, []);
 
-    const addressText = account?.address
-      ? accountUtils.shortenAddress({
-          address: account.address || '',
-        })
-      : 'No Address';
+    let addressText = '';
+    if (account?.address) {
+      addressText = accountUtils.shortenAddress({
+        address: account.address || '',
+      });
+    } else if (!account?.address && account?.addressDetail.isValid) {
+      addressText = '';
+    } else {
+      addressText = 'No Address';
+    }
 
     const accountName = account?.name ? account.name : 'No Account';
 
@@ -64,7 +69,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       if (isLoading) {
         return <Skeleton w="$6" h="$6" />;
       }
-      if (account?.address) {
+      if (account?.address || account?.addressDetail.isValid) {
         return (
           <AccountAvatar
             size="small"

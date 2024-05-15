@@ -4,6 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Form,
   Input,
@@ -12,12 +13,14 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type {
-  EModalReceiveRoutes,
   IModalReceiveParamList,
+  IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -34,6 +37,8 @@ function CreateInvoice() {
     useRoute<
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.CreateInvoice>
     >();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const { accountId, networkId } = route.params;
   const { serviceLightning } = backgroundApiProxy;
 
@@ -51,10 +56,17 @@ function CreateInvoice() {
         amount: values.amount,
         description: values.description,
       });
-      console.log('invoice: ', response.payment_request);
-      // TODO: show invoice, to Receive page
+      navigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.ReceiveInvoice,
+        params: {
+          networkId,
+          accountId,
+          paymentHash: response.payment_hash,
+          paymentRequest: response.payment_request,
+        },
+      });
     },
-    [accountId, networkId, serviceLightning],
+    [accountId, networkId, serviceLightning, navigation],
   );
 
   return (

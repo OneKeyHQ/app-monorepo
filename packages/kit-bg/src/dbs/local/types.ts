@@ -10,6 +10,7 @@ import type {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 import type {
@@ -229,7 +230,7 @@ export type IDBIndexedAccount = IDBBaseObjectWithName & {
   walletId: string;
   index: number;
   idHash: string;
-  associateAccount?: IDBAccount; // readonly
+  associateAccount?: INetworkAccount; // readonly
 };
 // TODO remove, use accountsMap instead, wallet->network->derivation(template)
 export type IDBAccountDerivation = IDBBaseObject & {

@@ -7,6 +7,7 @@ import type {
   ICoreImportedCredentialEncryptHex,
   ISignedMessagePro,
   ISignedTxPro,
+  IVerifiedMessagePro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';

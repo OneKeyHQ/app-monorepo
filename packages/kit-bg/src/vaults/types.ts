@@ -22,6 +22,7 @@ import type {
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
+import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -132,7 +133,9 @@ export type IVaultSettings = {
     [networkId: string]: IVaultSettingsNetworkInfo;
   };
   validationRequired?: boolean;
+  hideAmountInputOnFirstEntry?: boolean;
   allowZeroFee?: boolean;
+  sendTransactionBySelf?: boolean;
 
   onChainHistoryDisabled?: boolean;
 
@@ -260,6 +263,10 @@ export type ITransferInfo = {
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+
+  // Lightning network
+  lnurlPaymentInfo?: ILNURLPaymentInfo;
+  lightningAddress?: string;
 };
 
 export type IApproveInfo = {

@@ -247,7 +247,7 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   @backgroundMethod()
   async getAccountSelectorNum(
     origin: string,
-    networkImpl: string,
+    networkImpls: string[],
     storageType: IConnectionStorageType,
   ): Promise<number> {
     const rawData = await this.getRawData();
@@ -265,9 +265,11 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       return 0;
     }
 
-    const accountNumbers = connectionItem.networkImplMap[networkImpl];
-    if (accountNumbers && accountNumbers.length > 0) {
-      return Math.max(...accountNumbers);
+    for (const networkImpl of networkImpls) {
+      const accountNumbers = connectionItem.networkImplMap[networkImpl];
+      if (accountNumbers && accountNumbers.length > 0) {
+        return Math.max(...accountNumbers);
+      }
     }
     return generateAccountSelectorNumber(
       connectionItem.connectionMap,

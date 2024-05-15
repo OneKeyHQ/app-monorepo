@@ -2,7 +2,11 @@
 import { isNil } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
-import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ISignedMessagePro,
+  ISignedTxPro,
+  IVerifiedMessagePro,
+} from '@onekeyhq/core/src/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 

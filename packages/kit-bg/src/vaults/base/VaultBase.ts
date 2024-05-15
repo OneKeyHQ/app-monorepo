@@ -36,6 +36,7 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
+  IFetchAccountHistoryParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
@@ -217,6 +218,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   abstract getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult>;
+
+  async validateAmountInputShown({ toAddress }: { toAddress: string }) {
+    return Promise.resolve({
+      isValid: true,
+    });
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -268,6 +275,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     encodedTx: IEncodedTx | undefined;
   }) {
     return Promise.resolve(encodedTx);
+  }
+
+  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+    return Promise.resolve({});
   }
 
   async buildHistoryTx({
