@@ -1,12 +1,20 @@
 import { encodeAddress } from '@polkadot/util-crypto';
 import { hexToBytes } from 'viem';
 
+import {
+  serializeSignedTransaction,
+  serializeUnsignedTransaction,
+} from '@onekeyhq/core/src/chains/dot/sdkDot';
+import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
@@ -80,10 +88,32 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  override signTransaction(
+  override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    const sdk = await this.getHardwareSDKInstance();
+    const unsignedTx = checkIsDefined(params.unsignedTx);
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const encodedTx = checkIsDefined(unsignedTx.encodedTx) as IEncodedTxDot;
+    const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
+    const { connectId = '', deviceId } = dbDevice;
+    const account = await this.vault.getAccount();
+    const tx = await serializeUnsignedTransaction(encodedTx);
+    const { signature } = await convertDeviceResponse(async () =>
+      sdk.polkadotSignTransaction(connectId, deviceId, {
+        path: account.path,
+        network: this.vault.networkId,
+        rawTx: bufferUtils.bytesToHex(tx.rawTx),
+        ...deviceCommonParams,
+      }),
+    );
+    const signedTx = await serializeSignedTransaction(encodedTx, signature);
+    return {
+      txid: '',
+      rawTx: signedTx,
+      encodedTx,
+      signature,
+    };
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {

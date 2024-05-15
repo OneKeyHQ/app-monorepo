@@ -10,12 +10,12 @@ export class KeyringExternal extends KeyringExternalBase {
   override coreApi: CoreChainApiBase | undefined;
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+    return this.baseSignMessageByExternalWallet(params);
   }
 
   override signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    return this.baseSendTransactionByExternalWallet(params);
   }
 }

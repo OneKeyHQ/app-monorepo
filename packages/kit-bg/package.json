@@ -4,6 +4,9 @@
   "private": true,
   "main": "src/index.tsx",
   "dependencies": {
+    "@polkadot/extension-inject": "^0.47.4",
+    "@polkadot/types": "^11.0.3",
+    "@substrate/txwrapper-polkadot": "^7.4.0",
     "eth-url-parser": "^1.0.4",
     "idb": "^7.1.1"
   },
