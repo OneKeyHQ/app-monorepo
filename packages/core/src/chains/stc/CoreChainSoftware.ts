@@ -1,13 +1,6 @@
-import {
-  crypto_hash as CryptoHash,
-  starcoin_types as StarcoinTypes,
-  bcs,
-  encoding,
-  utils,
-} from '@starcoin/starcoin';
+import { encoding } from '@starcoin/starcoin';
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { Verifier } from '../../base/ChainSigner';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -23,8 +16,12 @@ import type {
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
-  IUnsignedTxPro,
 } from '../../types';
+import {
+  buildSignedTx,
+  buildUnsignedRawTx,
+  hashRawTx,
+} from '@onekeyhq/kit-bg/src/vaults/impls/stc/utils';
 
 const curve: ICurveName = 'ed25519';
 
@@ -45,85 +42,6 @@ const pubkeyToAddress = async (
     throw new Error('invalid encoding');
   }
   return address;
-};
-
-const buildUnsignedRawTx = (
-  unsignedTx: IUnsignedTxPro,
-  chainId: string,
-): [StarcoinTypes.RawUserTransaction, Uint8Array] => {
-  const fromAddr = unsignedTx?.inputs?.[0].address;
-  const { scriptFn, data } = unsignedTx.payload || {};
-
-  const gasLimit = unsignedTx.feeLimit;
-  const gasPrice = unsignedTx.feePricePerUnit;
-  const { nonce } = unsignedTx;
-  const { expirationTime } = unsignedTx.payload || {};
-
-  if (
-    !fromAddr ||
-    !(scriptFn || data) ||
-    !gasLimit ||
-    !gasPrice ||
-    typeof nonce === 'undefined'
-  ) {
-    throw new Error('invalid unsignedTx');
-  }
-
-  let txPayload: StarcoinTypes.TransactionPayload;
-  if (scriptFn) {
-    txPayload = scriptFn;
-  } else {
-    txPayload = encoding.bcsDecode(StarcoinTypes.TransactionPayload, data);
-  }
-
-  const rawTxn = utils.tx.generateRawUserTransaction(
-    fromAddr,
-    txPayload,
-    gasLimit.toNumber(),
-    gasPrice.toNumber(),
-    nonce,
-    expirationTime,
-    Number(chainId),
-  );
-
-  const serializer = new bcs.BcsSerializer();
-  rawTxn.serialize(serializer);
-
-  return [rawTxn, serializer.getBytes()];
-};
-
-const hashRawTx = (rawUserTransactionBytes: Uint8Array): Uint8Array => {
-  const hashSeedBytes = CryptoHash.createRawUserTransactionHasher().get_salt();
-  return Uint8Array.of(...hashSeedBytes, ...rawUserTransactionBytes);
-};
-
-const buildSignedTx = (
-  senderPublicKey: string,
-  rawSignature: Buffer,
-  rawTxn: StarcoinTypes.RawUserTransaction,
-  encodedTx: any,
-) => {
-  const publicKey = new StarcoinTypes.Ed25519PublicKey(
-    Buffer.from(senderPublicKey, 'hex'),
-  );
-  const signature = new StarcoinTypes.Ed25519Signature(rawSignature);
-  const transactionAuthenticatorVariantEd25519 =
-    new StarcoinTypes.TransactionAuthenticatorVariantEd25519(
-      publicKey,
-      signature,
-    );
-  const signedUserTransaction = new StarcoinTypes.SignedUserTransaction(
-    rawTxn,
-    transactionAuthenticatorVariantEd25519,
-  );
-  const se = new bcs.BcsSerializer();
-  signedUserTransaction.serialize(se);
-  const txid = CryptoHash.createUserTransactionHasher().crypto_hash(
-    se.getBytes(),
-  );
-  const rawTx = hexUtils.hexlify(se.getBytes());
-
-  return { txid, rawTx, encodedTx };
 };
 
 export default class CoreChainSoftware extends CoreChainApiBase {

@@ -12,6 +12,7 @@ import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxNostr } from '../chains/nostr/types';
+import type { IEncodedTxStc } from '../chains/stc/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
 import type { IEncodedTxXmr } from '../chains/xmr/types';
@@ -32,11 +33,11 @@ export type IEncodedTx =
   | IEncodedTxXmr
   | IEncodedTxTron
   | IEncodedTxNexa
-  | IEncodedTxNostr;
+  | IEncodedTxNostr
+  | IEncodedTxStc;
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
 //   | IEncodedTxBtc
-//   | IEncodedTxSTC
 //   | IEncodedTxAptos
 //   | IEncodedTxCfx
 //   | IEncodedTxDot
