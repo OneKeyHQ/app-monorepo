@@ -1,10 +1,11 @@
 import { memo, useEffect, useState } from 'react';
 
-import { WebViewWebEmbed } from '@onekeyhq/kit/src/views/Discovery/components/WebView/WebViewWebEmbed';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+
+import { WebViewWebEmbed } from '../components/WebViewWebEmbed';
 
 function BasicWebViewWebEmbedProvider() {
   const [isShow, setIsShow] = useState(false);
