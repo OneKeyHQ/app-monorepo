@@ -65,6 +65,7 @@ export function calculateTotalFeeRange({
   if (feeInfo.feeUTXO?.feeRate) {
     const fee = new BigNumber(feeInfo.feeUTXO.feeRate)
       .multipliedBy(txSize ?? 0)
+      .decimalPlaces(feeInfo.common.feeDecimals, BigNumber.ROUND_CEIL)
       .toFixed();
     return {
       min: nanToZeroString(fee),
@@ -73,7 +74,6 @@ export function calculateTotalFeeRange({
       maxForDisplay: nanToZeroString(fee),
     };
   }
-
   if (feeInfo.gas) {
     const gasInfo = gas as IGasLegacy;
     const limit = gasInfo.gasLimit;
@@ -82,6 +82,24 @@ export function calculateTotalFeeRange({
 
     const maxForDisplay = new BigNumber(limitForDisplay)
       .times(gasInfo.gasPrice)
+      .toFixed();
+
+    return {
+      min: nanToZeroString(max),
+      max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(maxForDisplay),
+      maxForDisplay: nanToZeroString(maxForDisplay),
+    };
+  }
+
+  if (feeInfo.feeSol) {
+    const gasInfo = feeInfo.feeSol;
+    const limit = gasInfo.limit;
+    const limitForDisplay = limit;
+    const max = new BigNumber(limit).times(gasInfo.price).toFixed();
+
+    const maxForDisplay = new BigNumber(limitForDisplay)
+      .times(gasInfo.price)
       .toFixed();
 
     return {
@@ -174,7 +192,8 @@ export function getFeeLabel({
     return 'content__custom';
   }
 
-  return PRESET_FEE_LABEL[presetIndex ?? 1] as ILocaleIds;
+  return (PRESET_FEE_LABEL[presetIndex ?? 1] ??
+    PRESET_FEE_LABEL[0]) as ILocaleIds;
 }
 export function getFeeIcon({
   feeType,

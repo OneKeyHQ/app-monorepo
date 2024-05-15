@@ -25,6 +25,15 @@ const DefaultWalletSettingsModal = LazyLoadPage(
   () => import('../pages/DefaultWalletSettingsModal'),
 );
 
+// For Lightning WebLN
+const MakeInvoiceModal = LazyLoadPage(
+  () => import('../../LightningNetwork/pages/Webln/WeblnMakeInvoiceModal'),
+);
+
+const NostrSignEventModal = LazyLoadPage(
+  () => import('../pages/NostrSignEventModal'),
+);
+
 export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   EDAppConnectionModal,
   IDAppConnectionModalParamList
@@ -52,5 +61,13 @@ export const DAppConnectionRouter: IModalFlowNavigatorConfig<
   {
     name: EDAppConnectionModal.DefaultWalletSettingsModal,
     component: DefaultWalletSettingsModal,
+  },
+  {
+    name: EDAppConnectionModal.MakeInvoice,
+    component: MakeInvoiceModal,
+  },
+  {
+    name: EDAppConnectionModal.NostrSignEventModal,
+    component: NostrSignEventModal,
   },
 ];

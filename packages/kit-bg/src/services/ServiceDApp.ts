@@ -38,7 +38,9 @@ import type {
 
 import ServiceBase from './ServiceBase';
 
+import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -73,19 +75,19 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const storageType: IConnectionStorageType = isWalletConnectRequest
     ? 'walletConnect'
     : 'injectedProvider';
-  let networkImpl: string | undefined = '';
+  let networkImpls: string[] | undefined = [];
   if (options.networkImpl) {
-    networkImpl = options.networkImpl;
+    networkImpls = [options.networkImpl];
   } else if (scope) {
-    networkImpl = getNetworkImplsFromDappScope(scope)?.[0];
+    networkImpls = getNetworkImplsFromDappScope(scope);
   }
 
-  if (!networkImpl) {
+  if (!networkImpls) {
     throw new Error('networkImpl not found');
   }
   return {
     storageType,
-    networkImpl,
+    networkImpls,
   };
 }
 
@@ -171,6 +173,7 @@ class ServiceDApp extends ServiceBase {
     modalParams: { screen: any; params: any };
   }) => {
     if (platformEnv.isExtension) {
+      // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
       void extUtils.openStandaloneWindow({
         routes: routeNames,
         params: routeParams,
@@ -247,11 +250,13 @@ class ServiceDApp extends ServiceBase {
     encodedTx,
     accountId,
     networkId,
+    signOnly,
   }: {
     request: IJsBridgeMessagePayload;
     encodedTx: IEncodedTx;
     accountId: string;
     networkId: string;
+    signOnly?: boolean;
   }) {
     return this.openModal({
       request,
@@ -260,6 +265,7 @@ class ServiceDApp extends ServiceBase {
         encodedTx,
         accountId,
         networkId,
+        signOnly,
       },
       fullScreen: true,
     });
@@ -268,10 +274,10 @@ class ServiceDApp extends ServiceBase {
   // connection allowance
   @backgroundMethod()
   async getAccountSelectorNum(params: IGetDAppAccountInfoParams) {
-    const { storageType, networkImpl } = getQueryDAppAccountParams(params);
+    const { storageType, networkImpls } = getQueryDAppAccountParams(params);
     return this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
       params.origin,
-      networkImpl,
+      networkImpls,
       storageType,
     );
   }
@@ -429,22 +435,29 @@ class ServiceDApp extends ServiceBase {
     isWalletConnectRequest,
     options,
   }: IGetDAppAccountInfoParams) {
-    const { storageType, networkImpl } = getQueryDAppAccountParams({
+    const { storageType, networkImpls } = getQueryDAppAccountParams({
       origin,
       scope,
       isWalletConnectRequest,
       options,
     });
-    const accountsInfo =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOriginAndScope(
-        origin,
-        storageType,
-        networkImpl,
-      );
-    if (!accountsInfo) {
+    const allAccountsInfo = [];
+    for (const networkImpl of networkImpls) {
+      const accountsInfo =
+        await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOriginAndScope(
+          origin,
+          storageType,
+          networkImpl,
+        );
+      if (accountsInfo) {
+        allAccountsInfo.push(...accountsInfo);
+      }
+    }
+    if (!allAccountsInfo.length) {
       return null;
     }
-    return accountsInfo;
+
+    return allAccountsInfo;
   }
 
   @backgroundMethod()
@@ -637,11 +650,11 @@ class ServiceDApp extends ServiceBase {
       return;
     }
 
-    const { storageType, networkImpl } = getQueryDAppAccountParams(params);
+    const { storageType, networkImpls } = getQueryDAppAccountParams(params);
     const accountSelectorNum =
       await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
         params.origin,
-        networkImpl,
+        networkImpls,
         storageType,
       );
     console.log('====> accountSelectorNum: ', accountSelectorNum);
@@ -660,10 +673,12 @@ class ServiceDApp extends ServiceBase {
         );
       console.log('===>newSelectedAccount: ', newSelectedAccount);
     }
-
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: newNetworkId,
+    });
     await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
       params.origin,
-      networkImpl,
+      network.impl,
       newNetworkId,
       storageType,
     );
@@ -732,7 +747,7 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async proxyRPCCall({
+  async proxyRPCCall<T>({
     networkId,
     request,
   }: {
@@ -743,17 +758,40 @@ class ServiceDApp extends ServiceBase {
     const results = await client.post<{
       data: {
         data: {
+          id: number | string;
           jsonrpc: string;
-          id: number;
-          result: unknown;
-        };
+          result: T;
+        }[];
       };
     }>('/wallet/v1/proxy/network', {
       networkId,
-      body: [request.id ? request : { ...request, id: 0 }],
+      body: [
+        {
+          route: 'rpc',
+          params: request.id ? request : { ...request, id: 0 },
+        },
+      ],
     });
 
-    return parseRPCResponse(results.data.data.data);
+    const data = results.data.data.data;
+
+    return data.map((item) => parseRPCResponse(item));
+  }
+
+  @backgroundMethod()
+  isWebEmbedApiReady() {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return Promise.resolve(privateProvider?.isWebEmbedApiReady);
+  }
+
+  @backgroundMethod()
+  callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
+    const privateProvider = this.backgroundApi.providers.$private as
+      | ProviderApiPrivate
+      | undefined;
+    return privateProvider?.callWebEmbedApiProxy(data);
   }
 }
 

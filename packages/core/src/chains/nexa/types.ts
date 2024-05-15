@@ -1,13 +1,7 @@
 import type BN from 'bn.js';
 
 export type IEncodedTxNexa = {
-  inputs: Array<{
-    address: string;
-    txId: string;
-    satoshis: string;
-    outputIndex: number;
-    sequenceNumber?: number;
-  }>;
+  inputs: Array<INexaUTXO>;
   outputs: Array<{
     address: string;
     satoshis: string;
@@ -15,8 +9,9 @@ export type IEncodedTxNexa = {
   }>;
   gas?: string;
   totalFeeInNative?: string;
-  // TODO ITransferInfo
-  // transferInfo?: ITransferInfo;
+  finalInputs?: Array<INexaUTXO>;
+  estimateTxSize?: number;
+  allUtxos?: Array<INexaUTXO>;
 };
 
 export enum NexaSignature {
@@ -46,3 +41,12 @@ export interface INexaOutputSignature {
   outType: number;
   scriptBuffer: Buffer;
 }
+
+export type INexaUTXO = {
+  txId: string;
+  outputIndex: number;
+  satoshis: string;
+  address: string;
+  sequenceNumber?: number;
+};
+

@@ -88,13 +88,13 @@ class ProviderApiEthereum extends ProviderApiBase {
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
     const { data } = request;
     const { accountInfo: { networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
     const rpcRequest = data as IJsonRpcRequest;
 
     console.log(`${this.providerName} RpcCall=====>>>> : BgApi:`, request);
 
-    const result = await this.backgroundApi.serviceDApp.proxyRPCCall({
+    const [result] = await this.backgroundApi.serviceDApp.proxyRPCCall({
       networkId: networkId ?? '',
       request: rpcRequest,
     });
@@ -228,7 +228,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     transaction: IEncodedTxEvm,
   ) {
     const { accountInfo: { accountId, networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
 
     if (!isNil(transaction.value)) {
@@ -274,7 +274,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async eth_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
     const { accountInfo: { accountId, networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
     return this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
@@ -293,7 +293,7 @@ class ProviderApiEthereum extends ProviderApiBase {
   async personal_sign(request: IJsBridgeMessagePayload, ...messages: any[]) {
     const {
       accountInfo: { accountId, networkId, address: accountAddress } = {},
-    } = (await this._getAccountsInfo(request))[0];
+    } = (await this.getAccountsInfo(request))[0];
 
     let message = messages[0] as string;
     let address = messages[1] as string;
@@ -361,7 +361,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     ...messages: any[]
   ) {
     const { accountInfo: { accountId, networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
 
     let message;
@@ -422,7 +422,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     ...messages: any[]
   ) {
     const { accountInfo: { accountId, networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
     console.log('eth_signTypedData_v3', messages, request);
     return this.backgroundApi.serviceDApp.openSignMessageModal({
@@ -443,7 +443,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     ...messages: any[]
   ) {
     const { accountInfo: { accountId, networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
     console.log('eth_signTypedData_v4', messages, request);
     return this.backgroundApi.serviceDApp.openSignMessageModal({
@@ -508,17 +508,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     } catch {
       return false;
     }
-  };
-
-  _getAccountsInfo = async (request: IJsBridgeMessagePayload) => {
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    if (!accountsInfo) {
-      throw web3Errors.provider.unauthorized();
-    }
-    return accountsInfo;
   };
 
   _personalECRecover = async (

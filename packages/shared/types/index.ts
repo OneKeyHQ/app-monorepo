@@ -2,11 +2,6 @@ import type {
   IInjectedProviderNamesStrings,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
-import type { Features, IDeviceType } from '@onekeyfe/hd-core';
-
-export type IOneKeyDeviceType = IDeviceType;
-
-export type IOneKeyDeviceFeatures = Features;
 
 export type IDappSourceInfo = {
   id: string | number; // ServicePromise callback id to reject/resolve
@@ -78,6 +73,7 @@ export enum EOnekeyDomain {
 
 export enum EAccountSelectorSceneName {
   home = 'home',
+  homeUrlAccount = 'homeUrlAccount',
   swap = 'swap',
   discover = 'discover',
   settings = 'settings',

@@ -7,13 +7,14 @@ import ProviderApiCardano from './ProviderApiCardano';
 // import ProviderApiConflux from './ProviderApiConflux';
 // import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
-// import ProviderApiNear from './ProviderApiNear';
+import ProviderApiNear from './ProviderApiNear';
 // import ProviderApiPolkadot from './ProviderApiPolkadot';
+import ProviderApiNostr from './ProviderApiNostr';
 import ProviderApiPrivate from './ProviderApiPrivate';
-// import ProviderApiSolana from './ProviderApiSolana';
+import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 // import ProviderApiSui from './ProviderApiSui';
-// import ProviderApiTron from './ProviderApiTron';
+import ProviderApiTron from './ProviderApiTron';
 import ProviderApiWebln from './ProviderApiWebln';
 
 import type ProviderApiBase from './ProviderApiBase';
@@ -34,24 +35,24 @@ function createBackgroundProviders({
     [IInjectedProviderNames.ethereum]: new ProviderApiEthereum({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.solana]: new ProviderApiSolana({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.solana]: new ProviderApiSolana({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.starcoin]: new ProviderApiStarcoin({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.near]: new ProviderApiNear({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.near]: new ProviderApiNear({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.aptos]: new ProviderApiAptos({
     //   backgroundApi,
     // }),
     // [IInjectedProviderNames.conflux]: new ProviderApiConflux({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.tron]: new ProviderApiTron({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.tron]: new ProviderApiTron({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.algo]: new ProviderAlgo({
     //   backgroundApi,
     // }),
@@ -68,6 +69,7 @@ function createBackgroundProviders({
     //   backgroundApi,
     // }),
     [IInjectedProviderNames.webln]: new ProviderApiWebln({ backgroundApi }),
+    [IInjectedProviderNames.nostr]: new ProviderApiNostr({ backgroundApi }),
     [IInjectedProviderNames.btc]: new ProviderApiBtc({
       backgroundApi,
     }),

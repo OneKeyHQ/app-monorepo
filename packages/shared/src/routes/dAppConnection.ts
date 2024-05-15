@@ -1,5 +1,10 @@
+import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
+import type {
+  IRequestInvoiceArgs,
+  IVerifyMessageArgs,
+} from '../../types/lightning/webln';
 import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 export enum EDAppConnectionModal {
@@ -9,6 +14,12 @@ export enum EDAppConnectionModal {
   'SignMessageModal' = 'SignMessageModal',
   'CurrentConnectionModal' = 'CurrentConnectionModal',
   'DefaultWalletSettingsModal' = 'DefaultWalletSettingsModal',
+
+  // WebLN
+  MakeInvoice = 'MakeInvoice',
+  VerifyMessage = 'VerifyMessage',
+  // Nostr
+  NostrSignEventModal = 'NostrSignEventModal',
 }
 
 export type IDAppConnectionModalParamList = {
@@ -27,4 +38,21 @@ export type IDAppConnectionModalParamList = {
     faviconUrl: string;
   };
   [EDAppConnectionModal.DefaultWalletSettingsModal]: undefined;
+  // WebLN
+  [EDAppConnectionModal.MakeInvoice]: IRequestInvoiceArgs & {
+    accountId: string;
+    networkId: string;
+  };
+  [EDAppConnectionModal.VerifyMessage]: IVerifyMessageArgs;
+  // Nostr
+  [EDAppConnectionModal.NostrSignEventModal]: {
+    event?: INostrEvent;
+    pubkey?: string;
+    plaintext?: string;
+    ciphertext?: string;
+    sigHash?: string;
+    walletId: string;
+    accountId: string;
+    networkId: string;
+  };
 };

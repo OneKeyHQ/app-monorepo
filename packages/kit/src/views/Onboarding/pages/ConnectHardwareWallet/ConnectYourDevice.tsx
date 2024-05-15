@@ -23,7 +23,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import {
   BleLocationServiceError,
   InitIframeLoadFail,
@@ -35,16 +34,52 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+
+import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
-import type { KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
+
+type IConnectYourDeviceItem = {
+  title: string;
+  src: ImageSourcePropType;
+  onPress: () => void | Promise<void>;
+  opacity?: number;
+};
 
 const headerRight = (onPress: () => void) => (
   <HeaderIconButton icon="QuestionmarkOutline" onPress={onPress} />
 );
+
+function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
+  const [isLoading, setIsLoading] = useState(false);
+  return (
+    <ListItem
+      opacity={item.opacity ?? 0.5}
+      avatarProps={{
+        source: item.src,
+      }}
+      title={item.title}
+      drillIn
+      isLoading={isLoading}
+      // TODO add loading for onPress
+      onPress={async () => {
+        try {
+          setIsLoading(true);
+          await item.onPress();
+        } finally {
+          setIsLoading(false);
+        }
+      }}
+      focusable={false}
+    />
+  );
+}
 
 export function ConnectYourDevicePage() {
   const navigation = useAppNavigation();
@@ -55,9 +90,11 @@ export function ConnectYourDevicePage() {
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const actions = useAccountSelectorActions();
 
-  // deviceScan
   useEffect(() => {
-    uiDeviceUtils.startDeviceScan(
+    const deviceScanner = deviceUtils.getDeviceScanner({
+      backgroundApi: backgroundApiProxy,
+    });
+    deviceScanner.startDeviceScan(
       (response) => {
         if (!response.success) {
           const error = convertDeviceError(response.payload);
@@ -71,7 +108,7 @@ export function ConnectYourDevicePage() {
                 title: error.message || 'DeviceScanError',
               });
             } else {
-              uiDeviceUtils.stopScan();
+              deviceScanner.stopScan();
             }
           } else if (
             error instanceof InitIframeLoadFail ||
@@ -80,7 +117,7 @@ export function ConnectYourDevicePage() {
             Toast.error({
               title: error.message || 'DeviceScanError',
             });
-            uiDeviceUtils.stopScan();
+            deviceScanner.stopScan();
           }
           setIsSearching(false);
           return;
@@ -169,34 +206,22 @@ export function ConnectYourDevicePage() {
     async ({
       device,
       isFirmwareVerified,
+      features,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
+      features: IOneKeyDeviceFeatures;
     }) => {
-      if ((device as { mode?: string } | undefined)?.mode === 'bootloader') {
-        Toast.error({
-          title: 'Device is in bootloader mode',
-        });
-        throw new Error('Device is in bootloader mode');
-      }
-      navigation.push(EOnboardingPages.FinalizeWalletSetup);
       try {
         console.log('ConnectYourDevice -> createHwWallet', device);
-        let { features } = device as KnownDevice;
 
-        features = undefined as any; // force getFeatures again
-        if (!features) {
-          const now = Date.now();
-          features = await backgroundApiProxy.serviceHardware.getFeatures(
-            device.connectId || '',
-          );
-          console.log('getFeatures duration>>>>>>', (Date.now() - now) / 1000);
-        }
+        navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
         await Promise.all([
           await actions.current.createHWWalletWithHidden({
             device,
-            hideCheckingDeviceLoading: true, // device checking loading is not need for onboarding
+            // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
+            hideCheckingDeviceLoading: true,
             skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
             features,
             isFirmwareVerified,
@@ -206,7 +231,7 @@ export function ConnectYourDevicePage() {
         navigation.pop();
         throw error;
       } finally {
-        await backgroundApiProxy.serviceHardware.closeHardwareUiStateDialog({
+        await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
           connectId: device.connectId || '',
         });
       }
@@ -215,9 +240,41 @@ export function ConnectYourDevicePage() {
   );
 
   const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
+  const fwUpdateActions = useFirmwareUpdateActions();
 
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
+      const handleBootloaderMode = () => {
+        Toast.error({
+          title: 'Device is in bootloader mode',
+        });
+        fwUpdateActions.showBootloaderMode({
+          connectId: device.connectId ?? undefined,
+        });
+        console.log('Device is in bootloader mode', device);
+        throw new Error('Device is in bootloader mode');
+      };
+      if (
+        await deviceUtils.isBootloaderModeFromSearchDevice({
+          device: device as any,
+        })
+      ) {
+        handleBootloaderMode();
+        return;
+      }
+
+      const features = await backgroundApiProxy.serviceHardware.connect({
+        device,
+      });
+      if (!features) {
+        throw new Error('connect device failed, no features returned');
+      }
+
+      if (await deviceUtils.isBootloaderModeByFeatures({ features })) {
+        handleBootloaderMode();
+        return;
+      }
+
       if (
         await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
           device,
@@ -226,25 +283,22 @@ export function ConnectYourDevicePage() {
         await showFirmwareVerifyDialog({
           device,
           onContinue: async ({ checked }) => {
-            await createHwWallet({ device, isFirmwareVerified: checked });
+            await createHwWallet({
+              device,
+              isFirmwareVerified: checked,
+              features,
+            });
           },
         });
         return;
       }
 
-      await createHwWallet({ device });
+      await createHwWallet({ device, features });
     },
-    [showFirmwareVerifyDialog, createHwWallet],
+    [createHwWallet, fwUpdateActions, showFirmwareVerifyDialog],
   );
 
-  const devicesData = useMemo<
-    {
-      title: string;
-      src: ImageSourcePropType;
-      onPress: () => void;
-      opacity?: number;
-    }[]
-  >(
+  const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
       /*
       navigation.replace(RootRoutes.Onboarding, {
@@ -329,17 +383,7 @@ export function ConnectYourDevicePage() {
               : 'Connect your device via USB'}
           </SizableText>
           {devicesData.map((item, index) => (
-            <ListItem
-              opacity={item.opacity ?? 0.5}
-              avatarProps={{
-                source: item.src,
-              }}
-              key={index}
-              title={item.title}
-              drillIn
-              onPress={item.onPress}
-              focusable={false}
-            />
+            <DeviceListItem item={item} key={index} />
           ))}
         </ScrollView>
 

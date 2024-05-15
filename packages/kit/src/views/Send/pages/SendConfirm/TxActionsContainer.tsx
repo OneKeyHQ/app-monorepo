@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -13,7 +13,10 @@ import {
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
-import { isSendNativeTokenAction } from '@onekeyhq/shared/src/utils/txActionUtils';
+import {
+  calculateNativeAmountInActions,
+  isSendNativeTokenAction,
+} from '@onekeyhq/shared/src/utils/txActionUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 
 type IProps = {
@@ -55,7 +58,9 @@ function TxActionsContainer(props: IProps) {
     let nativeTokenTransferBN = new BigNumber(0);
     decodedTxs.forEach((decodedTx) => {
       nativeTokenTransferBN = nativeTokenTransferBN.plus(
-        decodedTx.nativeAmount ?? 0,
+        decodedTx.nativeAmount ??
+          calculateNativeAmountInActions(decodedTx.actions).nativeAmount ??
+          0,
       );
     });
 

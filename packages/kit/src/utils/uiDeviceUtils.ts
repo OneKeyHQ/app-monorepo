@@ -14,28 +14,22 @@ import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types';
-import {
-  CUSTOM_UI_RESPONSE,
-  type IHardwarePopup,
-  type IResourceUpdateInfo,
-  type ISYSFirmwareInfo,
+import type {
+  IHardwarePopup,
+  IOneKeyDeviceFeatures,
+  IResourceUpdateInfo,
+  ISYSFirmwareInfo,
 } from '@onekeyhq/shared/types/device';
+import { CUSTOM_UI_RESPONSE } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-import type {
-  Features,
-  IDeviceType,
-  IVersionArray,
-  SearchDevice,
-  Success,
-  Unsuccessful,
-} from '@onekeyfe/hd-core';
+import type { Features, IDeviceType, IVersionArray } from '@onekeyfe/hd-core';
 import type { Deferred } from '@onekeyfe/hd-shared';
 
 type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const MAX_SEARCH_TRY_COUNT = 15;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
@@ -82,75 +76,6 @@ class DeviceUtils {
     }
     await BleManager.start({ showAlert: false });
     this.bleManager = BleManager;
-  }
-
-  startDeviceScan(
-    callback: (searchResponse: Unsuccessful | Success<SearchDevice[]>) => void,
-    onSearchStateChange: (state: 'start' | 'stop') => void,
-    pollIntervalRate = POLL_INTERVAL_RATE,
-    pollInterval = POLL_INTERVAL,
-    maxTryCount = MAX_SEARCH_TRY_COUNT,
-  ) {
-    const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
-    const searchDevices = async () => {
-      // Should search Throttling
-      if (searchPromise) {
-        await searchPromise.promise;
-        return;
-      }
-
-      searchPromise = createDeferred();
-      onSearchStateChange('start');
-
-      let searchResponse;
-      try {
-        searchResponse =
-          await backgroundApiProxy.serviceHardware?.searchDevices();
-      } finally {
-        searchPromise?.resolve();
-        searchPromise = null;
-      }
-
-      callback(searchResponse);
-
-      this.tryCount += 1;
-      onSearchStateChange('stop');
-      return searchResponse;
-    };
-
-    const poll: IPollFn<void> = async (
-      time = POLL_INTERVAL,
-      searchIndex = 0,
-      rate = POLL_INTERVAL_RATE,
-    ) => {
-      if (!this.scanMap[searchIndex]) {
-        return;
-      }
-      if (this.tryCount > MaxTryCount) {
-        this.stopScan();
-        return;
-      }
-
-      await searchDevices();
-      return new Promise((resolve: (p: void) => void) =>
-        setTimeout(() => resolve(poll(time * rate, searchIndex, rate)), time),
-      );
-    };
-
-    this.searchIndex += 1;
-    this.scanMap[this.searchIndex] = true;
-    const time = platformEnv.isNativeAndroid
-      ? 2000
-      : pollInterval ?? POLL_INTERVAL;
-    const rate = pollIntervalRate ?? POLL_INTERVAL_RATE;
-    poll(time, this.searchIndex, rate);
-  }
-
-  stopScan() {
-    Object.keys(this.scanMap).forEach(
-      (key: string) => (this.scanMap[key] = false),
-    );
-    this.tryCount = 0;
   }
 
   /**

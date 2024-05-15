@@ -24,9 +24,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IAddressInteractionStatus,
   IAddressValidateStatus,
+  IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 
 import { BaseInput } from '../BaseInput';
@@ -128,7 +130,7 @@ type IAddressInputProps = Omit<
 
   // plugins options for control button display
   clipboard?: boolean;
-  scan?: boolean;
+  scan?: { sceneName: EAccountSelectorSceneName };
   contacts?: boolean;
   accountSelector?: { num: number; onBeforeAccountSelectorOpen?: () => void };
 
@@ -137,8 +139,9 @@ type IAddressInputProps = Omit<
   enableAddressBook?: boolean;
   enableWalletName?: boolean;
 
-  accountId?: string; // for check address interaction
-  enableAddressInteractionStatus?: boolean;
+  accountId?: string;
+  enableAddressInteractionStatus?: boolean; // for check address interaction
+  enableVerifySendFundToSelf?: boolean; // To verify whether funds can be sent to one's own address.
 };
 
 export type IAddressQueryResult = {
@@ -212,7 +215,7 @@ export function AddressInput(props: IAddressInputProps) {
     networkId,
     placeholder,
     clipboard = true,
-    scan = true,
+    scan = { sceneName: EAccountSelectorSceneName.home },
     contacts,
     accountSelector,
     enableNameResolve = true,
@@ -220,6 +223,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableWalletName,
     accountId,
     enableAddressInteractionStatus,
+    enableVerifySendFundToSelf,
     ...rest
   } = props;
   const intl = useIntl();
@@ -256,15 +260,7 @@ export function AddressInput(props: IAddressInputProps) {
   }, [rawAddress, onChangeText]);
 
   const queryAddress = useDebouncedCallback(
-    async (params: {
-      address: string;
-      networkId: string;
-      accountId?: string;
-      enableNameResolve?: boolean;
-      enableAddressBook?: boolean;
-      enableWalletName?: boolean;
-      enableAddressInteractionStatus?: boolean;
-    }) => {
+    async (params: IQueryCheckAddressArgs) => {
       if (!params.address) {
         setQueryResult({});
         return;
@@ -292,6 +288,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableAddressInteractionStatus,
       enableNameResolve,
       enableWalletName,
+      enableVerifySendFundToSelf,
     });
   }, [
     inputText,
@@ -301,9 +298,26 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
+    enableVerifySendFundToSelf,
     refreshNum,
     queryAddress,
   ]);
+
+  const getValidateMessage = useCallback(
+    (status?: Exclude<IAddressValidateStatus, 'valid'>) => {
+      if (!status) return;
+      const message: Record<
+        Exclude<IAddressValidateStatus, 'valid'>,
+        string
+      > = {
+        'unknown': 'Check request error, please refresh again',
+        'prohibit-send-to-self': 'Cannot send to myself',
+        'invalid': intl.formatMessage({ id: 'form__address_invalid' }),
+      };
+      return message[status];
+    },
+    [intl],
+  );
 
   useEffect(() => {
     if (Object.keys(queryResult).length === 0) return;
@@ -320,14 +334,19 @@ export function AddressInput(props: IAddressInputProps) {
         pending: false,
         validateError: {
           type: queryResult.validStatus,
-          message:
-            queryResult.validStatus === 'unknown'
-              ? 'Check request error, please refresh again'
-              : intl.formatMessage({ id: 'form__address_invalid' }),
+          message: getValidateMessage(queryResult.validStatus),
         },
       });
     }
-  }, [queryResult, intl, clearErrors, setError, name, onChange]);
+  }, [
+    queryResult,
+    intl,
+    clearErrors,
+    setError,
+    name,
+    onChange,
+    getValidateMessage,
+  ]);
 
   const AddressInputExtension = useMemo(
     () => (
@@ -353,6 +372,7 @@ export function AddressInput(props: IAddressInputProps) {
           ) : null}
           {scan ? (
             <ScanPlugin
+              sceneName={scan.sceneName}
               onChange={onChangeText}
               testID={`${rest.testID ?? ''}-scan`}
             />

@@ -9,7 +9,31 @@ import HeaderCollapseButton from './HeaderCollapseButton';
 import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
+import type { IIconButtonProps } from '../../../actions';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
+
+type INavButtonProps = Omit<IIconButtonProps, 'icon' | 'testID'>;
+
+export function NavBackButton(props: INavButtonProps) {
+  return (
+    <HeaderIconButton
+      icon="ChevronLeftOutline"
+      {...(platformEnv.isNativeIOS && { pressStyle: undefined })}
+      testID="nav-header-back"
+      {...props}
+    />
+  );
+}
+
+export function NavCloseButton(props: INavButtonProps) {
+  return (
+    <HeaderIconButton
+      icon="CrossedLargeOutline"
+      testID="nav-header-close"
+      {...props}
+    />
+  );
+}
 
 function HeaderBackButton({
   isModelScreen,
@@ -26,23 +50,10 @@ function HeaderBackButton({
 
   const renderBackButton = () => {
     if (canGoBack) {
-      return (
-        <HeaderIconButton
-          onPress={props.onPress}
-          icon="ChevronLeftOutline"
-          {...(platformEnv.isNativeIOS && { pressStyle: undefined })}
-          testID="nav-header-back"
-        />
-      );
+      return <NavBackButton onPress={props.onPress} />;
     }
     if (showCloseButton) {
-      return (
-        <HeaderIconButton
-          onPress={props.onPress}
-          icon="CrossedLargeOutline"
-          testID="nav-header-close"
-        />
-      );
+      return <NavCloseButton onPress={props.onPress} />;
     }
     return null;
   };

@@ -6,7 +6,6 @@ import { EAppUpdateStatus } from './type';
 
 import type { IAppUpdateInfo } from './type';
 
-export * from './handle';
 export * from './utils';
 export * from './type';
 

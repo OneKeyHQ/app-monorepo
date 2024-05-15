@@ -1,5 +1,6 @@
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 import type { ICurveName } from './coreTypesBase';
@@ -11,6 +12,7 @@ import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
+import type { IEncodedTxNostr } from '../chains/nostr/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTron } from '../chains/tron/types';
 import type { IEncodedTxXmr } from '../chains/xmr/types';
@@ -30,15 +32,16 @@ export type IEncodedTx =
   | IEncodedTxXrp
   | IEncodedTxXmr
   | IEncodedTxTron
-  | IEncodedTxNexa;
+  | IEncodedTxNexa
+  | IEncodedTxLightning
+  | IEncodedTxNostr;
 //   | IEncodedTxAlgo
 //   | IEncodedTxNear
 //   | IEncodedTxBtc
+//   | IEncodedTxDot
 //   | IEncodedTxSTC
 //   | IEncodedTxAptos
 //   | IEncodedTxCfx
-//   | IEncodedTxDot
-//   | IEncodedTxLightning;
 
 export type INativeTx = object;
 //   | INativeTxEvm
@@ -118,3 +121,9 @@ export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
 };
 export type ISignedMessagePro = string[];
+export type IVerifiedMessagePro = {
+  isValid: boolean;
+  message: string;
+  signature: string;
+  address: string;
+};

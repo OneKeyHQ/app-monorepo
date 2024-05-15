@@ -19,10 +19,14 @@ export function backupPlatform() {
 }
 
 export async function isAvailable(): Promise<boolean> {
-  const hasPlayServices = await GoogleSignin.hasPlayServices({
-    showPlayServicesUpdateDialog: false,
-  });
-  return Promise.resolve(hasPlayServices);
+  try {
+    const hasPlayServices = await GoogleSignin.hasPlayServices({
+      showPlayServicesUpdateDialog: false,
+    });
+    return hasPlayServices;
+  } catch (e) {
+    return false;
+  }
 }
 
 async function checkInternet() {

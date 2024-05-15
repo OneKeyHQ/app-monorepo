@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
@@ -26,5 +26,12 @@ export function useClipboard() {
     [intl],
   );
 
-  return { copyText, getClipboard };
+  const clearText = useCallback(() => {
+    void setStringAsync('');
+  }, []);
+
+  return useMemo(
+    () => ({ copyText, clearText, getClipboard }),
+    [clearText, copyText],
+  );
 }
