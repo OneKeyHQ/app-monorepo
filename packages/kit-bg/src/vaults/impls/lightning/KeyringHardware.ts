@@ -14,11 +14,20 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  convertDeviceError,
+  convertDeviceResponse,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { ISignApiMessageParams } from '@onekeyhq/shared/types/lightning';
+import type {
+  IEncodedTxLightning,
+  ILnurlAuthParams,
+  ISignApiMessageParams,
+} from '@onekeyhq/shared/types/lightning';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -175,13 +184,141 @@ export class KeyringHardware extends KeyringHardwareBase {
     return response.signature;
   }
 
-  override signTransaction(
+  override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    const { unsignedTx } = params;
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxLightning;
+    const dbAccount = await this.vault.getAccount();
+    const { invoice, expired, created, paymentHash, amount } = encodedTx;
+    const client = await (this.vault as LightningVault).getClient();
+    const signTemplate = await client.fetchSignTemplate(
+      dbAccount.addressDetail.normalizedAddress,
+      'transfer',
+    );
+    if (signTemplate.type !== 'transfer') {
+      throw new Error('Wrong transfer signature type');
+    }
+    const network = await this.getNetwork();
+    const signature = await this.signApiMessage({
+      connectId,
+      deviceId,
+      deviceCommonParams: deviceParams.deviceCommonParams,
+      msgPayload: {
+        ...signTemplate,
+        paymentHash,
+        paymentRequest: invoice,
+        expired,
+        created: Number(created),
+        nonce: signTemplate.nonce,
+        randomSeed: signTemplate.randomSeed,
+      },
+      address: dbAccount.addressDetail.normalizedAddress,
+      path: accountUtils.buildLnToBtcPath({
+        path: dbAccount.path,
+        isTestnet: network.isTestnet,
+      }),
+    });
+
+    if (
+      !signature ||
+      typeof signTemplate.nonce !== 'number' ||
+      typeof signTemplate.randomSeed !== 'number'
+    ) {
+      throw new OneKeyInternalError('Invalid signature');
+    }
+    const authParams = {
+      accountId: dbAccount.id,
+      networkId: network.id,
+    };
+    await client.checkAuthWithRefresh(authParams);
+    const sign = await client.getAuthorization(authParams);
+
+    const rawTx = {
+      amount,
+      created: Number(created),
+      expired,
+      nonce: signTemplate.nonce,
+      paymentHash,
+      paymentRequest: invoice,
+      randomSeed: signTemplate.randomSeed,
+      sign,
+      signature,
+      testnet: network.isTestnet,
+    };
+
+    return {
+      txid: paymentHash,
+      rawTx: JSON.stringify(rawTx),
+      nonce: signTemplate.nonce,
+      randomSeed: signTemplate.randomSeed,
+      encodedTx,
+    };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    console.log('LightningNetwork signMessage: ', params);
+    const network = await this.vault.getNetwork();
+    const coinName = this.getBtcCoinName(network.isTestnet);
+    const dbAccount = await this.vault.getAccount();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const sdk = await this.getHardwareSDKInstance();
+    const result = await Promise.all(
+      params.messages.map(async ({ message }) => {
+        const response = await sdk.btcSignMessage(connectId, deviceId, {
+          ...params.deviceParams?.deviceCommonParams,
+          path: `${accountUtils.buildLnToBtcPath({
+            path: dbAccount.path,
+            isTestnet: network.isTestnet,
+          })}/0/0`,
+          coin: coinName,
+          messageHex: Buffer.from(message).toString('hex'),
+        });
+        if (!response.success) {
+          throw convertDeviceError(response.payload);
+        }
+        return { message, signature: response.payload.signature };
+      }),
+    );
+    return result.map((ret) => JSON.stringify(ret));
+  }
+
+  async lnurlAuth(params: ILnurlAuthParams) {
+    const { lnurlDetail } = params;
+    if (lnurlDetail.tag !== 'login') {
+      throw new Error('lnurl-auth: invalid tag');
+    }
+
+    const url = new URL(lnurlDetail.url);
+
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const sdk = await this.getHardwareSDKInstance();
+    const response = await sdk.lnurlAuth(connectId, deviceId, {
+      ...params.deviceParams?.deviceCommonParams,
+      domain: url.hostname,
+      k1: lnurlDetail.k1,
+    });
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+
+    const { signature, publickey } = response.payload;
+    if (!signature || !publickey) {
+      throw new OneKeyInternalError('Unable to get signature or publickey');
+    }
+
+    const loginURL = url;
+    loginURL.searchParams.set('sig', signature ?? '');
+    loginURL.searchParams.set('key', publickey ?? '');
+    loginURL.searchParams.set('t', Date.now().toString());
+
+    return loginURL.toString();
   }
 }

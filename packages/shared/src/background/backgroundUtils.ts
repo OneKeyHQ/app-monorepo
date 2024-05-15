@@ -303,6 +303,7 @@ export const scopeNetworks: Record<
   '$hardware_sdk': undefined,
   '$private': undefined,
   '$walletConnect': undefined,
+  '$privateExternalAccount': undefined,
 };
 
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
