@@ -177,23 +177,20 @@ class ProviderApiPrivate extends ProviderApiBase {
       const securityInfo =
         await this.backgroundApi.serviceDiscovery.checkUrlSecurity(
           request.origin,
+          true,
         );
       return {
         securityInfo,
         isExtension: !!platformEnv.isExtension,
         i18n: {
           title: 'Malicious Dapp',
-          listTitle: 'Potential risks:',
-          listContent: [
-            'Theft of recovery phrase or password',
-            'Phishing attacks',
-            'Fake tokens or scams',
-          ],
+          description:
+            'The current website may be malicious. Continue visiting could result in loss of assets.',
           continueMessage:
             'If you understand the risks and want to proceed, you can',
-          continueLink: 'continue to the site',
-          closeButton: 'Close Tab',
-          sourceMessage: 'Connection blocked by',
+          continueLink: 'dismiss',
+          addToWhiteListLink: 'add to whitelist',
+          sourceMessage: 'Powered by',
         },
       };
     }
@@ -213,6 +210,23 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
     console.log('wallet_closeCurrentBrowserTab');
     appEventBus.emit(EAppEventBusNames.CloseCurrentBrowserTab, undefined);
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_addBrowserUrlToRiskWhiteList',
+    });
+  */
+  @providerApiMethod()
+  async wallet_addBrowserUrlToRiskWhiteList(request: IJsBridgeMessagePayload) {
+    console.log('ProviderApiPrivate.addBrowserUrlToRiskWhiteList', request);
+    if (request.origin) {
+      await this.backgroundApi.serviceDiscovery.addBrowserUrlToRiskWhiteList(
+        request.origin,
+      );
+      return;
+    }
+    throw new Error('Invalid request');
   }
 
   @providerApiMethod()
