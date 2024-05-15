@@ -339,22 +339,6 @@ class ProviderApiEthereum extends ProviderApiBase {
     );
   }
 
-  autoFixPersonalSignMessage({ message }: { message: string }) {
-    let messageFixed = message;
-    try {
-      ethUtils.toBuffer(message);
-    } catch (error) {
-      const tmpMsg = `0x${message}`;
-      try {
-        ethUtils.toBuffer(tmpMsg);
-        messageFixed = tmpMsg;
-      } catch (err) {
-        // message not including valid hex character
-      }
-    }
-    return messageFixed;
-  }
-
   @providerApiMethod()
   async eth_signTypedData(
     request: IJsBridgeMessagePayload,

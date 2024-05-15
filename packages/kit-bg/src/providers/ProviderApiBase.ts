@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await,@typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import * as ethUtils from 'ethereumjs-util';
 
 import {
   PROVIDER_API_METHOD_PREFIX,
@@ -81,6 +82,22 @@ abstract class ProviderApiBase {
       throw web3Errors.provider.unauthorized();
     }
     return accountsInfo;
+  };
+
+  autoFixPersonalSignMessage = ({ message }: { message: string }) => {
+    let messageFixed = message;
+    try {
+      ethUtils.toBuffer(message);
+    } catch (error) {
+      const tmpMsg = `0x${message}`;
+      try {
+        ethUtils.toBuffer(tmpMsg);
+        messageFixed = tmpMsg;
+      } catch (err) {
+        // message not including valid hex character
+      }
+    }
+    return messageFixed;
   };
 }
 
