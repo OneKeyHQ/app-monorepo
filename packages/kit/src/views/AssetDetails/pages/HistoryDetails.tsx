@@ -395,16 +395,22 @@ function HistoryDetails() {
     }
 
     if (vaultSettings?.isUtxo) {
+      const utxoSends = txDetails.sends.filter(
+        (send) => send.from !== accountAddress,
+      );
+      const utxoReceives = txDetails.receives.filter(
+        (receive) => receive.to !== accountAddress,
+      );
       return {
         from:
-          txDetails.sends.length > 1
-            ? `${txDetails.sends.length} addresses`
-            : txDetails.sends[0]?.from ?? txDetails.from,
+          utxoSends.length > 1
+            ? `${utxoSends.length} addresses`
+            : utxoSends[0]?.from ?? txDetails.sends[0]?.from ?? txDetails.from,
 
         to:
-          txDetails.receives.length > 1
-            ? `${txDetails.receives.length} addresses`
-            : txDetails.receives[0]?.to ?? txDetails.to,
+          utxoReceives.length > 1
+            ? `${utxoReceives.length} addresses`
+            : utxoReceives[0]?.to ?? txDetails.receives[0]?.to ?? txDetails.to,
       };
     }
 
