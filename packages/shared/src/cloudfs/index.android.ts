@@ -30,7 +30,6 @@ export async function isAvailable(): Promise<boolean> {
 }
 
 async function checkInternet() {
-  return true;
   const result = await axios
     .head('https://www.googleapis.com/auth/drive.file', {
       timeout: 1000,
@@ -79,9 +78,9 @@ export function sync(): Promise<boolean> {
 }
 
 export async function listFiles(target: string) {
-  if ((await checkInternet()) === false) {
-    return [];
-  }
+  // if ((await checkInternet()) === false) {
+  //   return [];
+  // }
   await loginIfNeeded(false);
   const { files }: { files: Array<{ isFile: boolean; name: string }> } =
     await RNCloudFs.listFiles({ scope: 'hidden', targetPath: target });
