@@ -102,9 +102,9 @@ async function getFileObject(
 }
 
 export async function deleteFile(target: string): Promise<boolean> {
-  // if ((await checkInternet()) === false) {
-  //   return Promise.resolve(false);
-  // }
+  if ((await checkInternet()) === false) {
+    return Promise.resolve(false);
+  }
   await loginIfNeeded(false);
   const file = await getFileObject(target);
   if (file) {
@@ -130,6 +130,9 @@ export async function uploadToCloud(
   source: string,
   target: string,
 ): Promise<void> {
+  if ((await checkInternet()) === false) {
+    throw new Error('NETWORK');
+  }
   await loginIfNeeded(false);
   await RNCloudFs.copyToCloud({
     mimeType: null,
