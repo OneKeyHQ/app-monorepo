@@ -53,9 +53,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 
   const handleToInstall = useCallback(async () => {
     try {
-      if (platformEnv.isNativeAndroid) {
-        await installPackage(appUpdateInfo.data);
-      }
+      await installPackage(appUpdateInfo.data);
     } catch (error) {
       const { message } = error as { message: string };
       if (message) {
