@@ -285,11 +285,7 @@ export default class Vault extends VaultBase {
     } catch (error) {
       throw new Error(`Invalid fee value: ${(error as Error).message}`);
     }
-    const network = await this.getNetwork();
-    const mass = new BigNumber(gasLimit)
-      .shiftedBy(network.decimals)
-      .decimalPlaces(0, BigNumber.ROUND_HALF_UP)
-      .toNumber();
+    const mass = new BigNumber(gasLimit).toNumber();
     const newFeeInfo = { price: gasPrice, limit: mass.toString() };
     return {
       ...params.unsignedTx,
