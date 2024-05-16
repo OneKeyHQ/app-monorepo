@@ -4,6 +4,8 @@ export interface UTXOResponse {
   utxoEntry: UTXO;
 }
 
+export type IKaspaUTXO = UTXOResponse
+
 export interface Outpoint {
   transactionId: string;
   index: number;

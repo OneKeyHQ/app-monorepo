@@ -7,12 +7,15 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   IMPL_ADA,
+  IMPL_ALGO,
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_FIL,
+  IMPL_KASPA,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
@@ -92,6 +95,8 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_LTC]: () => import('./impls/ltc/Vault') as any,
     [IMPL_NEURAI]: () => import('./impls/neurai/Vault') as any,
     [IMPL_SOL]: () => import('./impls/sol/Vault') as any,
+    [IMPL_FIL]: () => import('./impls/fil/Vault') as any,
+    [IMPL_ALGO]: () => import('./impls/algo/Vault') as any,
     [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
     [IMPL_TRON]: () => import('./impls/tron/Vault') as any,
     [IMPL_CFX]: () => import('./impls/cfx/Vault') as any,
@@ -103,6 +108,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
     [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
     [IMPL_SUI]: () => import('./impls/sui/Vault') as any,
+    [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
