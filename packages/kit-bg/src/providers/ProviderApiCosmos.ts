@@ -58,18 +58,11 @@ class ProviderApiCosmos extends ProviderApiBase {
       (item) => item.accountInfo?.networkId === networkId,
     );
     if (!account) {
-      const vault = await vaultFactory.getVault({
-        networkId,
-        accountId: accounts[0].account.id,
-      });
-      const vaultAccount = await vault.getAccount();
       account = {
-        account: vaultAccount,
-        accountInfo: {
-          ...accounts[0].accountInfo,
-          address: vaultAccount.address,
+        account: await this.backgroundApi.serviceAccount.getAccount({
           networkId,
-        },
+          accountId: accounts[0].account.id,
+        }),
       };
     }
 
@@ -125,14 +118,9 @@ class ProviderApiCosmos extends ProviderApiBase {
     const networkId = this.convertCosmosChainId(chainId);
     if (!networkId) throw new Error('Invalid chainId');
 
-    let network;
-    try {
-      network = await this.backgroundApi.serviceNetwork.getNetwork({
-        networkId,
-      });
-    } catch (error) {
-      network = undefined;
-    }
+    const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+      networkId,
+    });
     if (!network) return false;
 
     try {
@@ -163,7 +151,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     }
     await this.backgroundApi.serviceDApp.disconnectWebsite({
       origin,
-      storageType: 'walletConnect',
+      storageType: 'injectedProvider',
     });
   }
 

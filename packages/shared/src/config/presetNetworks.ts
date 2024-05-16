@@ -2371,14 +2371,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   };
 
   const chainsOnlyEnabledInDev = [
-    celestia,
-    secret,
-    juno,
-    fetchai,
-    cryptoorgchain,
-    akash,
-    osmosis,
-    cosmoshub,
     tatom, // Cosmos Testnet
     lightning,
     tlightning,
@@ -2421,6 +2413,15 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     iotex,
     mantapacific,
     blast,
+    // cosmos
+    celestia,
+    secret,
+    juno,
+    fetchai,
+    cryptoorgchain,
+    akash,
+    osmosis,
+    cosmoshub,
 
     cardano,
     ripple,

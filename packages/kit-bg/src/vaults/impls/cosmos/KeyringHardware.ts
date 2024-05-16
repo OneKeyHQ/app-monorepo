@@ -116,7 +116,6 @@ export class KeyringHardware extends KeyringHardwareBase {
             connectId,
             deviceId,
             pathPrefix,
-            pathSuffix,
             showOnOnekeyFn,
           }) => {
             const sdk = await this.getHardwareSDKInstance();
@@ -124,10 +123,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             const response = await sdk.cosmosGetPublicKey(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams, // passpharse params
               bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${pathSuffix.replace(
-                  '{index}',
-                  `${index}`,
-                )}`,
+                path: `${pathPrefix}/${index}`,
                 /**
                  * Search accounts not show detail at device.Only show on device when add accounts into wallet.
                  */
