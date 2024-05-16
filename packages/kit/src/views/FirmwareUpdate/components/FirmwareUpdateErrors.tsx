@@ -58,7 +58,8 @@ function ShouldUpdateBridge({
       <FirmwareUpdateBaseMessageView
         icon="InfoCircleOutline"
         title="New Bridge Version Available for Update"
-        message={`Hardware update requires the latest bridge software. Please visit our online tutorial  [Solution for failed firmware upgrade on Touch] ${FIRMWARE_UPDATE_BRIDGE_GUIDE} for detailed installation instructions.`}
+        message="Hardware update requires the latest bridge software. Please visit our online tutorial [Solution for failed firmware upgrade on Touch] for detailed installation instructions."
+        linkList={[{ start: 86, end: 134, url: FIRMWARE_UPDATE_BRIDGE_GUIDE }]}
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
@@ -76,7 +77,8 @@ function ShouldUpdateByWeb() {
       <FirmwareUpdateBaseMessageView
         icon="InfoCircleOutline"
         title="Update in official web tool"
-        message={`Your hardware wallet firmware requires an update. Please visit ${FIRMWARE_UPDATE_WEB_TOOLS_URL} on your computer to proceed with the upgrade.`}
+        message="Your hardware wallet firmware requires an update. Please visit firmware.onekey.so on your computer to proceed with the upgrade."
+        linkList={[{ start: 62, end: 81, url: FIRMWARE_UPDATE_WEB_TOOLS_URL }]}
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
@@ -94,7 +96,10 @@ function HowToUpdateFullResource() {
       <FirmwareUpdateBaseMessageView
         icon="InfoCircleOutline"
         title="Outdated Version Detected"
-        message={`Your current firmware version is too low. Please visit our online tutorial  [Solution for failed firmware upgrade on Touch] ${FIRMWARE_UPDATE_FULL_RES_GUIDE} and follow the step-by-step instructions to complete the update.`}
+        message="Your current firmware version is too low. Please visit our online tutorial [Solution for failed firmware upgrade on Touch] and follow the step-by-step instructions to complete the update."
+        linkList={[
+          { start: 75, end: 122, url: FIRMWARE_UPDATE_FULL_RES_GUIDE },
+        ]}
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
