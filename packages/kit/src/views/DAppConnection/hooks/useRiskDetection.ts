@@ -15,7 +15,10 @@ function useRiskDetection({ origin }: { origin: string }) {
     return backgroundApiProxy.serviceDiscovery.checkUrlSecurity(origin);
   }, [origin]);
 
-  const riskLevel = urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown;
+  const riskLevel = useMemo(
+    () => urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown,
+    [urlSecurityInfo],
+  );
   const showContinueOperate = useMemo(() => {
     if (!urlSecurityInfo) {
       return false;
