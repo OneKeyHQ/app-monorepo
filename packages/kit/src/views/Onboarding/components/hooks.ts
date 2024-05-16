@@ -217,14 +217,14 @@ export const useSuggestion = (
     [checkIsValidWord, getFormValueByIndex, selectInputIndex],
   );
 
-  const { copyText } = useClipboard();
+  const { clearText } = useClipboard();
 
   const onPasteMnemonic = useCallback(
     (value: string) => {
       const arrays = value.split(' ');
       if (arrays.length === phraseLength) {
         setTimeout(() => {
-          copyText(' ');
+          clearText();
           Toast.success({ title: 'Pasted and clipboard cleared' });
           form.reset(
             arrays.reduce((prev, next, index) => {
@@ -238,7 +238,7 @@ export const useSuggestion = (
       }
       return false;
     },
-    [copyText, form, phraseLength, resetSuggestions],
+    [clearText, form, phraseLength, resetSuggestions],
   );
 
   const closePopover = useCallback(() => {

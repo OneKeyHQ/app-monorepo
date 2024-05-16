@@ -298,10 +298,11 @@ class ServiceSend extends ServiceBase {
   ) {
     const { networkId, accountId, unsignedTx, signOnly } = params;
 
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
 
     const signedTx = await this.signTransaction({
       networkId,
@@ -317,11 +318,29 @@ class ServiceSend extends ServiceBase {
         accountId,
       })
     ) {
-      const txid = await this.broadcastTransaction({
-        networkId,
-        signedTx,
-        accountAddress: account.address,
-      });
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+      let txid: string | undefined;
+      if (vaultSettings.sendTransactionBySelf) {
+        const vault = await vaultFactory.getVault({
+          networkId,
+          accountId,
+        });
+        ({ txid } = await vault.broadcastTransaction({
+          networkId,
+          accountAddress,
+          signedTx,
+        }));
+      } else {
+        txid = await this.broadcastTransaction({
+          networkId,
+          signedTx,
+          accountAddress,
+        });
+      }
+      if (!txid) {
+        throw new Error('Broadcast transaction failed.');
+      }
       return { ...signedTx, txid };
     }
 
