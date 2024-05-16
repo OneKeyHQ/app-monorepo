@@ -9,6 +9,8 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEURAI,
+  IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
   IMPL_TBTC,
@@ -60,6 +62,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_DOGE]: () => import('./impls/doge/settings'),
     [IMPL_BCH]: () => import('./impls/bch/settings'),
     [IMPL_LTC]: () => import('./impls/ltc/settings'),
+    [IMPL_NEURAI]: () => import('./impls/neurai/settings'),
     [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
     [IMPL_NEAR]: () => import('./impls/near/settings'),
     [IMPL_TRON]: () => import('./impls/tron/settings'),
@@ -70,6 +73,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_NOSTR]: () => import('./impls/nostr/settings'),
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
+    [IMPL_NEXA]: () => import('./impls/nexa/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

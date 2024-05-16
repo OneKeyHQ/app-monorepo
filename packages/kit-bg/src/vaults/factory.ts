@@ -16,6 +16,8 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEURAI,
+  IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
   IMPL_TBTC,
@@ -86,6 +88,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_DOGE]: () => import('./impls/doge/Vault') as any,
     [IMPL_BCH]: () => import('./impls/bch/Vault') as any,
     [IMPL_LTC]: () => import('./impls/ltc/Vault') as any,
+    [IMPL_NEURAI]: () => import('./impls/neurai/Vault') as any,
     [IMPL_SOL]: () => import('./impls/sol/Vault') as any,
     [IMPL_COSMOS]: () => import('./impls/cosmos/Vault') as any,
     [IMPL_TRON]: () => import('./impls/tron/Vault') as any,
@@ -95,6 +98,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_NOSTR]: () => import('./impls/nostr/Vault') as any,
     [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
+    [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

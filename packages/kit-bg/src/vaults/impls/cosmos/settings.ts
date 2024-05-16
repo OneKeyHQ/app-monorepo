@@ -44,6 +44,8 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   onChainHistoryDisabled: true,
 
+  defaultFeePresetIndex: 1,
+
   accountDeriveInfo,
   networkInfo: {
     default: {
