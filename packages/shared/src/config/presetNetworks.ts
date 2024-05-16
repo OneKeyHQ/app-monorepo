@@ -2493,6 +2493,45 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2024-04-09T00:00:00.001Z',
   };
 
+  const fil = {
+    'balance2FeeDecimals': 0,
+    'chainId': '314',
+    'code': 'fil',
+    'decimals': 18,
+    'id': 'fil--314',
+    'impl': 'fil',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/fil.png',
+    'name': 'Filecoin',
+    'shortcode': 'fil',
+    'shortname': 'FIL',
+    'symbol': 'FIL',
+    'feeMeta': {
+      'code': 'fil',
+      'decimals': 18,
+      'symbol': 'FIL',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'filecoin',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://filscan.io/address/general?address={address}',
+        'block': 'https://filscan.io/tipset/chain?hash={block}',
+        'name': 'https://filscan.io/',
+        'transaction':
+          'https://filscan.io/tipset/message-detail?cid={transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     tatom, // Cosmos Testnet
     nexaTestnet,
@@ -2557,6 +2596,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     nexa,
     kaspa,
     dnx,
+    fil,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });
