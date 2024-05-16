@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ICoreApiGetAddressItem,
+  ISignedMessagePro,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
+
+import { getConfig } from './utils/config';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -14,10 +20,56 @@ import type {
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ckb.hd;
 
-  override prepareAccounts(
+  override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    throw new Error('Method not implemented.');
+    const config = getConfig(await this.getNetworkChainId());
+    return this.basePrepareHdNormalAccounts(params, {
+      buildAddressesInfo: async ({ usedIndexes }) => {
+        const nearAddresses = await this.baseGetDeviceAccountAddresses({
+          params,
+          usedIndexes,
+          sdkGetAddressFn: async ({
+            connectId,
+            deviceId,
+            pathPrefix,
+            pathSuffix,
+            showOnOnekeyFn,
+          }) => {
+            const sdk = await this.getHardwareSDKInstance();
+
+            const response = await sdk.nervosGetAddress(connectId, deviceId, {
+              ...params.deviceParams.deviceCommonParams,
+              bundle: usedIndexes.map((index, arrIndex) => ({
+                path: `${pathPrefix}/${pathSuffix.replace(
+                  '{index}',
+                  `${index}`,
+                )}`,
+                showOnOneKey: showOnOnekeyFn(arrIndex),
+                network: config.PREFIX,
+              })),
+            });
+            return response;
+          },
+        });
+
+        const ret: ICoreApiGetAddressItem[] = [];
+        for (let i = 0; i < nearAddresses.length; i += 1) {
+          const item = nearAddresses[i];
+          const { path, address } = item;
+          const { normalizedAddress } = await this.vault.validateAddress(
+            address ?? '',
+          );
+          const addressInfo: ICoreApiGetAddressItem = {
+            address: normalizedAddress || address || '',
+            path,
+            publicKey: '',
+          };
+          ret.push(addressInfo);
+        }
+        return ret;
+      },
+    });
   }
 
   override signTransaction(

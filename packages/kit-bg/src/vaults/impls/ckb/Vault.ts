@@ -21,6 +21,8 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { isValidateAddress } from './utils/address';
+import { getConfig } from './utils/config';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -46,10 +48,24 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
-  override buildAccountAddressDetail(
+  override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    throw new Error('Method not implemented.');
+    const { account, networkId } = params;
+
+    const address = account.address || '';
+
+    const { normalizedAddress, displayAddress, isValid } =
+      await this.validateAddress(address);
+    return {
+      networkId,
+      normalizedAddress,
+      displayAddress,
+      address: displayAddress,
+      baseAddress: normalizedAddress,
+      isValid,
+      allowEmptyAddress: false,
+    };
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
@@ -78,33 +94,54 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new Error('Method not implemented.');
+  async _getCurrentConfig() {
+    return getConfig(await this.getNetworkChainId());
+  }
+
+  override async validateAddress(address: string): Promise<IAddressValidation> {
+    const config = await this._getCurrentConfig();
+    if (isValidateAddress(address, { config })) {
+      return {
+        isValid: true,
+        normalizedAddress: address,
+        displayAddress: address,
+      };
+    }
+    return {
+      isValid: false,
+      normalizedAddress: '',
+      displayAddress: '',
+    };
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    return this.baseGetPrivateKeyFromImported(params);
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    return this.baseValidatePrivateKey(privateKey);
   }
 
-  override validateGeneralInput(
+  override async validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new Error('Method not implemented.');
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
   }
 }

@@ -12,7 +12,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
     namePrefix: 'CKB',
     labelKey: 'form__bip44_standard',
-    template: `m/44'/${COINTYPE_NERVOS}'/0'/0/${INDEX_PLACEHOLDER}`,
+    template: `m/44'/${COINTYPE_CKB}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_CKB,
   },
 };
@@ -22,10 +22,10 @@ const settings: IVaultSettings = {
   coinTypeDefault: COINTYPE_CKB,
   accountType: EDBAccountType.SIMPLE,
 
-  importedAccountEnabled: true,
+  importedAccountEnabled: false,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
-  watchingAccountEnabled: true,
+  watchingAccountEnabled: false,
 
   defaultFeePresetIndex: 0,
 
