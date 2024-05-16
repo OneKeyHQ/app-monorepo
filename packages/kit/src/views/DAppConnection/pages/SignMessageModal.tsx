@@ -44,6 +44,7 @@ function SignMessageModal() {
   }, [currentNetwork]);
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
@@ -102,7 +103,7 @@ function SignMessageModal() {
           confirmButtonProps={{
             disabled: !canContinueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

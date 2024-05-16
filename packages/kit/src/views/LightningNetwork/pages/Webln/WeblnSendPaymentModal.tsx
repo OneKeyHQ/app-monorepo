@@ -39,6 +39,7 @@ function WeblnSendPaymentModal() {
   const sendConfirm = useSendConfirm({ accountId, networkId });
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
@@ -177,7 +178,7 @@ function WeblnSendPaymentModal() {
             loading: isLoading,
             disabled: !canContinueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

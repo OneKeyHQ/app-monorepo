@@ -61,6 +61,7 @@ function LnurlPayRequestModal() {
   const sendConfirm = useSendConfirm({ accountId, networkId });
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
@@ -216,7 +217,7 @@ function LnurlPayRequestModal() {
             loading: isLoading,
             disabled: !canContinueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

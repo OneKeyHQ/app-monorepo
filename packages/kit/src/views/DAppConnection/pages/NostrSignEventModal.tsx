@@ -55,6 +55,7 @@ function NostrSignEventModal() {
   });
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
@@ -302,7 +303,7 @@ function NostrSignEventModal() {
             loading: isLoading,
             disabled: !canContinueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

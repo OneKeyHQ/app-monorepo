@@ -57,6 +57,7 @@ function LnurlWithdrawModal() {
   const [isLoading, setIsLoading] = useState(false);
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
@@ -184,7 +185,7 @@ function LnurlWithdrawModal() {
             loading: isLoading,
             disabled: !canContinueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

@@ -57,6 +57,7 @@ function LnurlAuthModal() {
   const [isLoading, setIsLoading] = useState(false);
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
@@ -232,7 +233,7 @@ function LnurlAuthModal() {
             loading: isLoading,
             disabled: !canContinueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

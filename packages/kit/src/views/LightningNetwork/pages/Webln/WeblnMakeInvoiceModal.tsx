@@ -38,6 +38,7 @@ function WeblnMakeInvoiceModal() {
   const makeInvoiceParams = $sourceInfo?.data.params as IRequestInvoiceArgs;
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
@@ -134,7 +135,7 @@ function WeblnMakeInvoiceModal() {
             loading: isLoading,
             disabled: !canContinueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>
