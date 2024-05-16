@@ -41,6 +41,7 @@
     "cosmjs-types": "^0.8.0",
     "ecpair": "^2.1.0",
     "elliptic": "^6.5.4",
+    "eth-sig-util": "^3.0.1",
     "js-conflux-sdk": "^2.1.12",
     "jsrsasign": "^10.8.6",
     "near-api-js": "^2.1.4",

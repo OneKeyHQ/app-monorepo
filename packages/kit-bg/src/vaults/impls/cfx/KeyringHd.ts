@@ -1,19 +1,19 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
-import { KeyringImportedBase } from '../../base/KeyringImportedBase';
+import { KeyringHdBase } from '../../base/KeyringHdBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
-  IPrepareImportedAccountsParams,
+  IPrepareHdAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 
-export class KeyringImported extends KeyringImportedBase {
-  override coreApi = coreChainApi.cosmos.imported;
+export class KeyringHd extends KeyringHdBase {
+  override coreApi = coreChainApi.cfx.hd;
 
   override async getPrivateKeys(
     params: IGetPrivateKeysParams,
@@ -22,9 +22,9 @@ export class KeyringImported extends KeyringImportedBase {
   }
 
   override async prepareAccounts(
-    params: IPrepareImportedAccountsParams,
+    params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
-    return this.basePrepareAccountsImported(params);
+    return this.basePrepareAccountsHd(params);
   }
 
   override async signTransaction(
@@ -33,9 +33,8 @@ export class KeyringImported extends KeyringImportedBase {
     return this.baseSignTransaction(params);
   }
 
-  override async signMessage(
-    params: ISignMessageParams,
-  ): Promise<ISignedMessagePro> {
+  override async signMessage(params: ISignMessageParams): Promise<string[]> {
+    // throw new Error('Method not implemented.');
     return this.baseSignMessage(params);
   }
 }
