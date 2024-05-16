@@ -389,8 +389,26 @@ export default class Vault extends VaultBase {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
 
-        // TODO: query virtualDaaScore
-        const blueScore = new BigNumber('79354618');
+        const [networkInfo] =
+          await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+            networkName: string;
+            blockCount: string;
+            headerCount: string;
+            virtualDaaScore: string;
+          }>({
+            networkId: this.networkId,
+            body: [
+              {
+                route: 'rpc',
+                params: {
+                  method: 'GET',
+                  // @ts-expect-error
+                  url: '/info/network',
+                },
+              },
+            ],
+          });
+        const blueScore = new BigNumber(networkInfo.virtualDaaScore);
         const confirmedUtxos = utxos.filter((utxo) =>
           blueScore
             .minus(utxo.confirmations)
