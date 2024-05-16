@@ -111,6 +111,7 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+  softwareAccountDisabled?: boolean;
 
   isUtxo: boolean;
   isSingleToken: boolean;
@@ -267,6 +268,8 @@ export type ITransferInfo = {
   // Lightning network
   lnurlPaymentInfo?: ILNURLPaymentInfo;
   lightningAddress?: string;
+
+  paymentId?: string; // Dynex chain paymentId
 };
 
 export type IApproveInfo = {
