@@ -2057,6 +2057,50 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2024-03-10T00:29:24.951Z',
   };
 
+  const dnx = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'dynex',
+    'decimals': 9,
+    'id': 'dynex--0',
+    'impl': 'dynex',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/dynex.png',
+    'name': 'Dynex',
+    'rpcURLs': [
+      {
+        'url':
+          'https://node-fra-infra-01.dynexcoin.org/rpc/34e68104-238a-43ad-953d-83e9ea76c810',
+      },
+    ],
+    'shortcode': 'dnx',
+    'shortname': 'DNX',
+    'symbol': 'DNX',
+    'feeMeta': {
+      'code': 'dnx',
+      'decimals': 9,
+      'symbol': 'DNX',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'dynex',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://blockexplorer.dynexcoin.org/?wallet={address}',
+        'block': 'https://blockexplorer.dynexcoin.org/?block={block}',
+        'name': 'https://blockexplorer.dynexcoin.org',
+        'transaction': 'https://blockexplorer.dynexcoin.org/?tx={transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-04-09T00:00:00.001Z',
+    'updatedAt': '2024-04-09T00:00:00.001Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     osmosis,
     cosmoshub,
@@ -2111,6 +2155,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     sol,
     nexa,
     nexaTestnet,
+    dnx,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

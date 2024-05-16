@@ -5,6 +5,7 @@ import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
 // import CoreChainCfx from '../chains/cfx';
 import CoreChainCosmos from '../chains/cosmos';
+import CoreChainDnx from '../chains/dnx';
 import CoreChainDoge from '../chains/doge';
 // import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
@@ -71,4 +72,6 @@ export class CoreChainApiHub {
   nostr = new CoreChainNostr();
 
   neurai = new CoreChainNeurai();
+
+  dnx = new CoreChainDnx();
 }

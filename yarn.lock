@@ -5294,6 +5294,7 @@ __metadata:
     babel-plugin-transform-define: "npm:^2.1.2"
     babel-plugin-transform-inline-environment-variables: "npm:^0.4.4"
     bech32: "npm:^2.0.0"
+    biginteger: "npm:^1.0.3"
     bignumber.js: "npm:9.1.2"
     browserify-zlib: "npm:^0.2.0"
     check-disk-space: "npm:^3.4.0"
@@ -12689,6 +12690,13 @@ __metadata:
     bindings: "npm:^1.3.0"
     node-gyp: "npm:latest"
   checksum: 10/be70c7ad00f5e1a4739251755ef35fe8f183ec34782353cfde0820dcc7c84eefa647c12d75c003650a19c333a0528fde2d4fb9d0c41c724c27cd6b0245d20987
+  languageName: node
+  linkType: hard
+
+"biginteger@npm:^1.0.3":
+  version: 1.0.3
+  resolution: "biginteger@npm:1.0.3"
+  checksum: 10/d22934a618cd84ce95964aa0ab0e2605f4d906e84e836bc094f51925b9a4496d64b461505f0242a251e3821b51f1024f580b945d682a6861e9167acb4e908d8c
   languageName: node
   linkType: hard
 
