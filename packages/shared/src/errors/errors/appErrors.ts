@@ -573,3 +573,33 @@ export class MinimumTransferBalanceRequiredError extends OneKeyError<IMinimumTra
     );
   }
 }
+
+export type IMinimumTransferBalanceRequiredForSendingAssetErrorInfo = {
+  name: string;
+  amount: string;
+  symbol: string;
+};
+
+export class MinimumTransferBalanceRequiredForSendingAssetError extends OneKeyError<IMinimumTransferBalanceRequiredForSendingAssetErrorInfo> {
+  constructor(
+    props: IOneKeyError<IMinimumTransferBalanceRequiredForSendingAssetErrorInfo>,
+  ) {
+    super(
+      normalizeErrorProps(
+        {
+          ...props,
+          info: {
+            '0': props.info?.name,
+            '1': props.info?.amount,
+            '2': props.info?.symbol,
+          },
+        },
+        {
+          defaultMessage: 'MinimumTransferBalanceRequiredForSendingAssetError',
+          defaultKey:
+            'msg__sending_str_requires_an_account_balance_of_at_least_str_str',
+        },
+      ),
+    );
+  }
+}

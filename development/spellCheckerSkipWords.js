@@ -698,4 +698,5 @@ module.exports = [
   'cip',
   'neurai',
   'ckb',
+  'Xudt',
 ];

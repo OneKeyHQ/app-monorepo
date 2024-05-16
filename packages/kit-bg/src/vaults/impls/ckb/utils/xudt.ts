@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable no-param-reassign */
-import { utils } from '@ckb-lumos/base';
 import { BI } from '@ckb-lumos/bi';
 import { bytes, number } from '@ckb-lumos/codec';
 import { common, secp256k1Blake160 } from '@ckb-lumos/common-scripts';
@@ -11,17 +10,13 @@ import {
   parseAddress,
 } from '@ckb-lumos/helpers';
 import BigNumber from 'bignumber.js';
-import fetch from 'cross-fetch';
 import { List, Set } from 'immutable';
 
-import type { Token as IToken } from '@onekeyhq/engine/src/types/token';
-
-import { MinimumTransferBalanceRequiredForSendingAssetError } from '../../../../errors';
+import { MinimumTransferBalanceRequiredForSendingAssetError } from '@onekeyhq/shared/src/errors';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { addCellDep } from './script';
 
-import type { PartialTokenInfo } from '../../../../types/provider';
-import type { XUDTInfoResponse } from '../types/TokenInfo';
 import type {
   Address,
   Cell,
@@ -302,13 +297,15 @@ export async function transfer(
   }
 
   if (!done || changeAmount.lt(0) || changeCapacity.lt(0)) {
-    throw new MinimumTransferBalanceRequiredForSendingAssetError(
-      `${new BigNumber(amount.toString())
-        .shiftedBy(-token.decimals)
-        .toString()} ${token.symbol}`,
-      _requiresExtraNativeToken.div(10 ** 8).toString(),
-      'CKB',
-    );
+    throw new MinimumTransferBalanceRequiredForSendingAssetError({
+      info: {
+        name: `${new BigNumber(amount.toString())
+          .shiftedBy(-token.decimals)
+          .toString()} ${token.symbol}`,
+        amount: _requiresExtraNativeToken.div(10 ** 8).toString(),
+        symbol: 'CKB',
+      },
+    });
   }
 
   const minimalChangeCellWithoutSudtCapacity = BI.from(
@@ -357,41 +354,4 @@ export async function transfer(
   }
 
   return txSkeleton;
-}
-
-export async function getTokenInfo(
-  token: Token,
-  config: Config,
-): Promise<PartialTokenInfo | undefined> {
-  const xudtScript = generateXudtScript(token, config);
-  const scriptHash = utils.computeScriptHash(xudtScript);
-
-  try {
-    const response = await fetch(
-      `https://mainnet-api.explorer.nervos.org/api/v1/xudts/${scriptHash}`,
-      {
-        headers: {
-          'Content-Type': 'application/vnd.api+json',
-          'Accept': 'application/vnd.api+json',
-        },
-      },
-    );
-
-    if (response.status === 200) {
-      const res = JSON.parse(await response.text()) as XUDTInfoResponse;
-      if (
-        res.data.attributes.type_script.args.toLowerCase() ===
-        token.toLowerCase()
-      ) {
-        return {
-          name: res.data.attributes.full_name,
-          symbol: res.data.attributes.symbol,
-          decimals: parseInt(res.data.attributes.decimal),
-        };
-      }
-    }
-  } catch (error) {
-    // ignore
-  }
-  return undefined;
 }
