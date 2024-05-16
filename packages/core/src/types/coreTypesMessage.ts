@@ -49,9 +49,12 @@ export type IUnsignedMessageBtc = {
   };
 };
 
+export type IUnsignedMessageCfx = IUnsignedMessageEth;
+
 export type IUnsignedMessage =
   | IUnsignedMessageCommon
   | IUnsignedMessageEth
   | IUnsignedMessageBtc
   | IUnsignedMessageAptos
-  | IUnsignedMessageAda;
+  | IUnsignedMessageAda
+  | IUnsignedMessageCfx;

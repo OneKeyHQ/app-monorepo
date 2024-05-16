@@ -29,7 +29,7 @@ export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
     presetIndex: number;
   }>({
     feeType: EFeeType.Standard,
-    presetIndex: 1,
+    presetIndex: 0,
   });
 
 export const { atom: customFeeAtom, use: useCustomFeeAtom } = contextAtom<

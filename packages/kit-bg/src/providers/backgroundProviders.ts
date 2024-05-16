@@ -4,8 +4,9 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 // import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBtc from './ProviderApiBtc';
 import ProviderApiCardano from './ProviderApiCardano';
-// import ProviderApiConflux from './ProviderApiConflux';
+import ProviderApiConflux from './ProviderApiConflux';
 // import ProviderApiCosmos from './ProviderApiCosmos';
+import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiNear from './ProviderApiNear';
 // import ProviderApiPolkadot from './ProviderApiPolkadot';
@@ -47,9 +48,9 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.aptos]: new ProviderApiAptos({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.conflux]: new ProviderApiConflux({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.conflux]: new ProviderApiConflux({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.tron]: new ProviderApiTron({
       backgroundApi,
     }),
@@ -62,9 +63,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.cardano]: new ProviderApiCardano({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.polkadot]: new ProviderApiPolkadot({
     //   backgroundApi,
     // }),
