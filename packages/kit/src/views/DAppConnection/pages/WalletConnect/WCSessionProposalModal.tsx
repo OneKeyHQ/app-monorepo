@@ -35,6 +35,7 @@ function SessionProposalModal() {
   const { origin } = new URL(proposal.params.proposer.metadata.url);
   const favicon = proposal.params.proposer.metadata.icons[0];
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
@@ -171,7 +172,7 @@ function SessionProposalModal() {
           confirmButtonProps={{
             disabled: confirmDisabled,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

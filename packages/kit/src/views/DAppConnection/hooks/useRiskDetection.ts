@@ -15,18 +15,30 @@ function useRiskDetection({ origin }: { origin: string }) {
     return backgroundApiProxy.serviceDiscovery.checkUrlSecurity(origin);
   }, [origin]);
 
-  const canContinueOperate = useMemo(
+  const riskLevel = urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown;
+  const showContinueOperate = useMemo(
     () =>
-      urlSecurityInfo?.level === EHostSecurityLevel.Security || continueOperate,
-    [continueOperate, urlSecurityInfo?.level],
+      !(
+        riskLevel === EHostSecurityLevel.Security ||
+        riskLevel === EHostSecurityLevel.Unknown
+      ),
+    [riskLevel],
   );
 
+  const canContinueOperate = useMemo(() => {
+    if (!showContinueOperate) {
+      return true;
+    }
+    return continueOperate;
+  }, [continueOperate, showContinueOperate]);
+
   return {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
     urlSecurityInfo,
-    riskLevel: urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown,
+    riskLevel,
   };
 }
 

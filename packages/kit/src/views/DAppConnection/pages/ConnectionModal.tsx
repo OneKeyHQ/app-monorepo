@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
-import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -32,6 +31,7 @@ function ConnectionModal() {
     closeWindowAfterResolved: true,
   });
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
     canContinueOperate,
@@ -148,14 +148,6 @@ function ConnectionModal() {
       connectedAccountInfo,
     ],
   );
-  const showContinueOperateCheckbox = useMemo(
-    () =>
-      !(
-        riskLevel === EHostSecurityLevel.Security ||
-        riskLevel === EHostSecurityLevel.Unknown
-      ),
-    [riskLevel],
-  );
 
   return (
     <Page scrollEnabled>
@@ -185,7 +177,7 @@ function ConnectionModal() {
           confirmButtonProps={{
             disabled: confirmDisabled,
           }}
-          showContinueOperateCheckbox={showContinueOperateCheckbox}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>
