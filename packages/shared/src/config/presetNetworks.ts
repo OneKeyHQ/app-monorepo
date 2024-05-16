@@ -1884,6 +1884,39 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const zksyncera = {
+    'balance2FeeDecimals': 9,
+    'chainId': '324',
+    'code': 'zksyncera',
+    'decimals': 18,
+    'id': 'evm--324',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/zksyncera.png',
+    'name': 'zkSync Era Mainnet',
+    'shortcode': 'zksyncera',
+    'shortname': 'ZKSYNCERA',
+    'symbol': 'ETH',
+    'feeMeta': {
+      'code': 'zksyncera',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://explorer.zksync.io/address/{address}',
+        'block': 'https://explorer.zksync.io/block/{block}',
+        'name': 'https://explorer.zksync.io/',
+        'transaction': 'https://explorer.zksync.io/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const nexa = {
     'balance2FeeDecimals': 0,
     'chainId': '0',
@@ -1950,6 +1983,124 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-06-19T00:29:24.951Z',
   };
 
+  const iotex = {
+    'balance2FeeDecimals': 9,
+    'chainId': '4689',
+    'code': 'iotex',
+    'decimals': 18,
+    'id': 'evm--4689',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI':
+      'https://nft.onekey-asset.com/admin/upload_1710215845256.0.7011825641467067.0.webp',
+    'name': 'IoTeX Network Mainnet',
+    'shortcode': 'iotex',
+    'shortname': 'iotex',
+    'symbol': 'IOTX',
+    'feeMeta': {
+      'code': 'iotex',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'iotex',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://iotexscan.io/address/{address}',
+        'block': 'https://iotexscan.io/block/{block}',
+        'name': 'https://iotexscan.io/',
+        'transaction': 'https://iotexscan.io/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-03-19T00:29:24.951Z',
+    'updatedAt': '2024-03-19T00:29:24.951Z',
+  };
+
+  const mantapacific = {
+    'balance2FeeDecimals': 9,
+    'chainId': '169',
+    'code': 'mantapacific',
+    'decimals': 18,
+    'id': 'evm--169',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI':
+      'https://nft.onekey-asset.com/admin/upload_1707122414644.0.38264347863462334.0.webp',
+    'name': 'Manta Pacific Mainnet',
+    'shortcode': 'mantapacific',
+    'shortname': 'mantapacific',
+    'symbol': 'MANTASPACIFIC',
+    'feeMeta': {
+      'code': 'eth',
+      'decimals': 9,
+      'symbol': 'ETH',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://pacific-explorer.manta.network/address/{address}',
+        'block': 'https://pacific-explorer.manta.network/block/{block}',
+        'name': 'https://pacific-explorer.manta.network/',
+        'transaction':
+          'https://pacific-explorer.manta.network/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-02-05T00:29:24.951Z',
+    'updatedAt': '2024-02-05T00:29:24.951Z',
+  };
+
+  const blast = {
+    'balance2FeeDecimals': 9,
+    'chainId': '81457',
+    'code': 'blast',
+    'decimals': 18,
+    'id': 'evm--81457',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI':
+      'https://nft.onekey-asset.com/admin/upload_1709276470548.0.0022311721712551247.0.png',
+    'name': 'Blast',
+    'shortcode': 'blast',
+    'shortname': 'blast',
+    'symbol': 'BLAST',
+    'feeMeta': {
+      'code': 'eth',
+      'decimals': 9,
+      'symbol': 'ETH',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://blastscan.io/address/{address}',
+        'block': 'https://blastscan.io/block/{block}',
+        'name': 'https://blastscan.io/',
+        'transaction': 'https://blastscan.io/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-03-10T00:29:24.951Z',
+    'updatedAt': '2024-03-10T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     polkadot,
     osmosis,
@@ -1960,20 +2111,43 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   ];
 
   return [
+    // btc & btc fork
     btc,
     doge,
     bch,
     ltc,
     neurai,
     tbtc,
+    // evm
     eth,
     sepolia,
-    base,
-    bsc,
     op,
-    arb,
-    avax,
+    xdai,
+    ethw,
+    cfxespace,
+    heco,
+    aurora,
     polygon,
+    cronos,
+    ftm,
+    boba,
+    fevm,
+    zksyncera,
+    arb,
+    celo,
+    avax,
+    etf,
+    bsc,
+    etc,
+    okt,
+    mvm,
+    linea,
+    base,
+    mnt,
+    iotex,
+    mantapacific,
+    blast,
+
     cardano,
     ripple,
     nostr,
