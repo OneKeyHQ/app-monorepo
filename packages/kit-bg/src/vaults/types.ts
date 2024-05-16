@@ -141,6 +141,10 @@ export type IVaultSettings = {
   onChainHistoryDisabled?: boolean;
 
   cannotSendToSelf?: boolean;
+
+  withPaymentId?: boolean;
+
+  enabledOnClassicOnly?: boolean;
 };
 
 export type IVaultFactoryOptions = {

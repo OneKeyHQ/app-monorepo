@@ -38,6 +38,12 @@ const settings: IVaultSettings = {
   editFeeEnabled: false,
   replaceTxEnabled: false,
 
+  withPaymentId: true,
+
+  enabledOnClassicOnly: true,
+
+  minTransferAmount: '0.000000001',
+
   accountDeriveInfo,
   networkInfo: {
     default: {

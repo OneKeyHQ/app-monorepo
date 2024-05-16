@@ -4,11 +4,12 @@ import { keccak256 } from '@ethersproject/keccak256';
 import { BigInteger } from 'biginteger';
 import BigNumber from 'bignumber.js';
 
-import type { DnxSignature } from '@onekeyfe/hd-core';
-import {
+import type {
   IEncodedTxDnx,
   ISignTxParams,
 } from '@onekeyhq/core/src/chains/dnx/types';
+
+import type { DnxSignature } from '@onekeyfe/hd-core';
 
 const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 185;
 const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 29;

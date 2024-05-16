@@ -115,7 +115,7 @@ export default class Vault extends VaultBase {
       amount: new BigNumber(finalAmount).shiftedBy(-network.decimals).toFixed(),
       paymentId: transferInfo.paymentId,
       fee: new BigNumber(DEFAULT_TX_FEE)
-        .shiftedBy(-network.feeDecimals)
+        .shiftedBy(-network.feeMeta.decimals)
         .toFixed(),
       inputs,
     };
