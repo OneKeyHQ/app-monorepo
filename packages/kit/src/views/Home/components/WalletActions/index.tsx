@@ -162,13 +162,13 @@ function WalletActions() {
 
   return (
     <RawActions>
-      <WalletActionSend />
-      <WalletActionReceive />
       <WalletActionBuy
         networkId={network?.id ?? ''}
         accountId={account?.id ?? ''}
       />
       <WalletActionSwap networkId={network?.id} />
+      <WalletActionSend />
+      <WalletActionReceive />
       <WalletActionMore />
     </RawActions>
   );
