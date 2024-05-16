@@ -60,4 +60,12 @@ export class TransactionWrapper {
   clone(): TransactionWrapper {
     return new TransactionWrapper(this.signDoc);
   }
+
+  toObject() {
+    return {
+      mode: this.mode,
+      signDoc: this.signDoc,
+      msg: this.msg,
+    };
+  }
 }

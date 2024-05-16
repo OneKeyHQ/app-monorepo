@@ -36,7 +36,6 @@ export class KeyringImported extends KeyringImportedBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    // throw new Error('Method not implemented.')
     return this.baseSignMessage(params);
   }
 }

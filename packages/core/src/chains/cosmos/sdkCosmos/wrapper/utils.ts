@@ -272,3 +272,25 @@ function sortObjectByKey(obj: Record<string, any>): any {
 export function sortedJsonByKeyStringify(obj: Record<string, any>): string {
   return JSON.stringify(sortObjectByKey(obj));
 }
+
+export function getADR36SignDoc(signer: string, data: string): StdSignDoc {
+  return {
+    chain_id: '',
+    account_number: '0',
+    sequence: '0',
+    fee: {
+      gas: '0',
+      amount: [],
+    },
+    msgs: [
+      {
+        type: 'sign/MsgSignData',
+        value: {
+          signer,
+          data,
+        },
+      },
+    ],
+    memo: '',
+  };
+}

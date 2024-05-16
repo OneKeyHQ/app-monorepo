@@ -6,6 +6,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import {
+  TransactionWrapper,
+  getADR36SignDoc,
   pubkeyToAddressDetail,
   serializeSignedTx,
   serializeTxForSignature,
@@ -20,6 +22,7 @@ import type {
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
+  ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
@@ -41,7 +44,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new Error('Method not implemented.');
     const { unsignedTx } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
@@ -49,16 +51,17 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
     const encodedTx = unsignedTx.encodedTx as IEncodedTxCosmos;
 
+    const txWrapper = new TransactionWrapper(encodedTx.signDoc, encodedTx.msg);
     const txBytes = bufferUtils.toBuffer(
-      sha256(serializeTxForSignature(encodedTx)),
+      sha256(serializeTxForSignature(txWrapper)),
     );
     const [signature] = await signer.sign(txBytes);
-    const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
+    const senderPublicKey = await signer.getPubkeyHex(true);
     if (!senderPublicKey) {
       throw new OneKeyInternalError('Unable to get sender public key.');
     }
     const rawTxBytes = serializeSignedTx({
-      txWrapper: encodedTx,
+      txWrapper,
       signature: {
         signatures: [signature],
       },
@@ -74,8 +77,24 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     };
   }
 
-  override async signMessage(): Promise<string> {
-    throw new Error('Method not implemented.');
+  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+    const { data, signer } = JSON.parse(payload.unsignedMsg.message);
+
+    const [messageData] = Buffer.from(data).toString('base64');
+    const unSignDoc = getADR36SignDoc(signer, messageData);
+    const encodedTx = TransactionWrapper.fromAminoSignDoc(
+      unSignDoc,
+      undefined,
+    );
+
+    const { rawTx } = await this.signTransaction({
+      ...payload,
+      unsignedTx: {
+        encodedTx,
+      },
+    });
+
+    return rawTx;
   }
 
   override async getAddressFromPrivate(
