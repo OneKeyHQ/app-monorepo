@@ -64,7 +64,6 @@ function LnurlPayRequestModal() {
     showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
@@ -215,7 +214,7 @@ function LnurlPayRequestModal() {
           }}
           confirmButtonProps={{
             loading: isLoading,
-            disabled: !canContinueOperate,
+            disabled: !continueOperate,
           }}
           showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}

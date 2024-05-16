@@ -58,7 +58,6 @@ function NostrSignEventModal() {
     showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
@@ -301,7 +300,7 @@ function NostrSignEventModal() {
           onCancel={() => dappApprove.reject()}
           confirmButtonProps={{
             loading: isLoading,
-            disabled: !canContinueOperate,
+            disabled: !continueOperate,
           }}
           showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}

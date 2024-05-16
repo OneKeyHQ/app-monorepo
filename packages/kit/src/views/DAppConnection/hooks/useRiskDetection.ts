@@ -16,27 +16,24 @@ function useRiskDetection({ origin }: { origin: string }) {
   }, [origin]);
 
   const riskLevel = urlSecurityInfo?.level ?? EHostSecurityLevel.Unknown;
-  const showContinueOperate = useMemo(
-    () =>
-      !(
-        riskLevel === EHostSecurityLevel.Security ||
-        riskLevel === EHostSecurityLevel.Unknown
-      ),
-    [riskLevel],
-  );
-
-  const canContinueOperate = useMemo(() => {
-    if (!showContinueOperate) {
-      return true;
+  const showContinueOperate = useMemo(() => {
+    if (!urlSecurityInfo) {
+      return false;
     }
-    return continueOperate;
-  }, [continueOperate, showContinueOperate]);
+    const show = !(
+      riskLevel === EHostSecurityLevel.Security ||
+      riskLevel === EHostSecurityLevel.Unknown
+    );
+    if (!show && !continueOperate) {
+      setContinueOperate(true);
+    }
+    return show;
+  }, [riskLevel, urlSecurityInfo, continueOperate]);
 
   return {
     showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     urlSecurityInfo,
     riskLevel,
   };

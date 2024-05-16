@@ -38,7 +38,6 @@ function SessionProposalModal() {
     showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin });
@@ -53,9 +52,9 @@ function SessionProposalModal() {
     [num: number]: IHandleAccountChangedParams;
   }>({});
   const confirmDisabled = useMemo(() => {
-    if (!canContinueOperate) return true;
+    if (!continueOperate) return true;
     return false;
-  }, [canContinueOperate]);
+  }, [continueOperate]);
 
   const onApproval = useCallback(
     async (close: () => void) => {

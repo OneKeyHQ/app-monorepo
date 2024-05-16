@@ -60,7 +60,6 @@ function LnurlWithdrawModal() {
     showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
@@ -183,7 +182,7 @@ function LnurlWithdrawModal() {
           }}
           confirmButtonProps={{
             loading: isLoading,
-            disabled: !canContinueOperate,
+            disabled: !continueOperate,
           }}
           showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}

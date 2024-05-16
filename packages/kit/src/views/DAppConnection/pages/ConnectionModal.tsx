@@ -34,7 +34,6 @@ function ConnectionModal() {
     showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
@@ -68,7 +67,7 @@ function ConnectionModal() {
   }, [selectedAccount?.network?.name]);
 
   const confirmDisabled = useMemo(() => {
-    if (!canContinueOperate) {
+    if (!continueOperate) {
       return true;
     }
     if (!selectedAccount?.account?.address) {
@@ -78,7 +77,7 @@ function ConnectionModal() {
       return true;
     }
     return false;
-  }, [selectedAccount, canContinueOperate]);
+  }, [selectedAccount, continueOperate]);
 
   const onApproval = useCallback(
     async (close: () => void) => {
