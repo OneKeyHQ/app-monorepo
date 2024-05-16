@@ -1,8 +1,6 @@
 import {
   COINTYPE_DOT,
-  COINTYPE_ETH,
   IMPL_DOT,
-  IMPL_EVM,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -36,6 +34,8 @@ const settings: IVaultSettings = {
   editFeeEnabled: false,
   replaceTxEnabled: false,
 
+  defaultFeePresetIndex: 0,
+
   accountDeriveInfo,
   networkInfo: {
     default: {
@@ -45,6 +45,22 @@ const settings: IVaultSettings = {
     'dot--polkadot': {
       curve: 'ed25519',
       addressPrefix: '0',
+    },
+    'dot--astar': {
+      curve: 'ed25519',
+      addressPrefix: '5',
+    },
+    'dot--kusama': {
+      curve: 'ed25519',
+      addressPrefix: '2',
+    },
+    'dot--manta': {
+      curve: 'ed25519',
+      addressPrefix: '77',
+    },
+    'dot--joystream': {
+      curve: 'ed25519',
+      addressPrefix: '126',
     },
   },
 };
