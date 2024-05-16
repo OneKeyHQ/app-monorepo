@@ -76,6 +76,11 @@ export function TokenDetails() {
           accountId,
           networkId,
         });
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            accountId,
+            networkId,
+          });
 
         if (!a) return;
         const [xpub, vaultSettings] = await Promise.all([
@@ -90,7 +95,7 @@ export function TokenDetails() {
         const [history, details] = await Promise.all([
           backgroundApiProxy.serviceHistory.fetchAccountHistory({
             accountId: a.id,
-            accountAddress: a.address,
+            accountAddress,
             xpub,
             networkId,
             tokenIdOnNetwork: tokenInfo.address,
@@ -99,7 +104,7 @@ export function TokenDetails() {
           backgroundApiProxy.serviceToken.fetchTokensDetails({
             networkId,
             xpub,
-            accountAddress: a.address,
+            accountAddress,
             contractList: [tokenInfo.address],
           }),
         ]);

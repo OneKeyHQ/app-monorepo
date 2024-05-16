@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Page, Toast } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -16,6 +18,7 @@ import {
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
 function SignMessageModal() {
+  const intl = useIntl();
   const { $sourceInfo, unsignedMessage, accountId, networkId } = useDappQuery<{
     unsignedMessage: IUnsignedMessage;
     accountId: string;
@@ -64,9 +67,14 @@ function SignMessageModal() {
         message: unsignedMessage.message,
         sourceInfo: $sourceInfo,
       });
+      Toast.success({
+        title: intl.formatMessage({
+          id: 'msg__success',
+        }),
+      });
       close?.();
     },
-    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo],
+    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo, intl],
   );
 
   return (

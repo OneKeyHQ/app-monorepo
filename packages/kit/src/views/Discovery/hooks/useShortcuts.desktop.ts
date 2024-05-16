@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
@@ -16,8 +17,6 @@ import { EBrowserShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts
 import { webviewRefs } from '../utils/explorerUtils';
 
 import { useActiveTabId } from './useWebTabs';
-
-import type { IElectronWebView } from '../components/WebView/types';
 
 export const useShortcuts = () => {
   const navigation =
