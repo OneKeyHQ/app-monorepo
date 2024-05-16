@@ -21,7 +21,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSwapRoutes,
+  ETabMarketRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type {
   IMarketCategory,
   IMarketToken,
@@ -31,8 +35,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
-
-import type { IMarketHomeListProps } from './type';
 
 function Column({
   key,
@@ -238,10 +240,12 @@ function TableRow({
   item = {} as IMarketToken,
   tableConfig,
   minHeight = 60,
+  onPress,
 }: {
   item?: IMarketToken;
   tableConfig: ITableColumnConfig;
   minHeight?: IStackProps['height'];
+  onPress?: (item: IMarketToken) => void;
 }) {
   const {
     serialNumber,
@@ -255,8 +259,11 @@ function TableRow({
     sparkline,
     actions,
   } = tableConfig;
+  const handlePress = useCallback(() => {
+    onPress?.(item);
+  }, [item, onPress]);
   return (
-    <XStack space="$3" minHeight={minHeight}>
+    <XStack space="$3" minHeight={minHeight} onPress={handlePress}>
       <Column key="serialNumber" alignLeft width={40}>
         {serialNumber?.(item)}
       </Column>
@@ -357,6 +364,7 @@ function PopoverSettingsContent({
 }
 
 export function MarketHomeList({ category }: { category: IMarketCategory }) {
+  const navigation = useAppNavigation();
   const selectOptions = useMemo(
     () => [
       { label: 'Default', value: 'Default' },
@@ -384,16 +392,37 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
   );
 
   const tableRowConfig = useBuildTableRowConfig();
+
+  const toDetailPage = useCallback(
+    (item: IMarketToken) => {
+      navigation.push(ETabMarketRoutes.MarketDetail, {
+        coinGeckoId: item.coingeckoId,
+        icon: item.image,
+        symbol: item.symbol,
+      });
+    },
+    [navigation],
+  );
+
   const renderItem = useCallback(
     ({ item }: any) => (
-      <TableRow tableConfig={tableRowConfig} item={item} minHeight={60} />
+      <TableRow
+        tableConfig={tableRowConfig}
+        item={item}
+        minHeight={60}
+        onPress={toDetailPage}
+      />
     ),
-    [tableRowConfig],
+    [tableRowConfig, toDetailPage],
   );
 
   const renderMdItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
-      <XStack height={60} justifyContent="space-between">
+      <XStack
+        height={60}
+        justifyContent="space-between"
+        onPress={() => toDetailPage(item)}
+      >
         <XStack space="$3" ai="center">
           <Image
             src={decodeURIComponent(item.image)}
@@ -451,7 +480,7 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
         </XStack>
       </XStack>
     ),
-    [],
+    [toDetailPage],
   );
   const { gtMd } = useMedia();
   const [sortByType, setSortByType] = useState('Default');

@@ -4,7 +4,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
-import type { IMarketCategory } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketCategory,
+  IMarketToken,
+} from '@onekeyhq/shared/types/market';
 
 import ServiceBase from './ServiceBase';
 
@@ -44,7 +47,7 @@ class ServiceMarket extends ServiceBase {
     const client = await this.getClient();
     const response = await client.get<{
       code: number;
-      data: IMarketCategory[];
+      data: IMarketToken[];
     }>('/utility/v1/market/tokens', {
       headers: await getDevHeaders(),
       params: {

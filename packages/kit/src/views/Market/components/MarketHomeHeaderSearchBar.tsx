@@ -1,17 +1,14 @@
-import type { ISearchBarProps } from '@onekeyhq/components';
-import { SearchBar } from '@onekeyhq/components';
+import { SearchBar, View } from '@onekeyhq/components';
 
-export function MarketHomeHeaderSearchBar({
-  size,
-}: {
-  size?: ISearchBarProps['size'];
-}) {
+export function MarketHomeHeaderSearchBar() {
   return (
-    <SearchBar
-      placeholder="Search symbol, contract address"
-      containerProps={{ w: '100%' }}
-      size={size}
-      key="MarketHomeSearchInput"
-    />
+    <View $gtMd={{ minWidth: 280 }}>
+      <SearchBar
+        placeholder="Search symbol, contract address"
+        containerProps={{ w: '100%' }}
+        $gtMd={{ size: 'small' }}
+        key="MarketHomeSearchInput"
+      />
+    </View>
   );
 }

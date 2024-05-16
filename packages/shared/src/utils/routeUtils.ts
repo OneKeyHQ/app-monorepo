@@ -85,8 +85,13 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
-    // Swap Pages
+    // Market Pages
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.TabMarket}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetail}`]:
       {
         showUrl: true,
         showParams: true,

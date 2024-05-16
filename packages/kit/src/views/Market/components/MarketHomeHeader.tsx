@@ -12,7 +12,7 @@ export function MarketHomeHeader() {
   const renderHeaderRight = useCallback(
     () => (
       <Stack width={280}>
-        <MarketHomeHeaderSearchBar size="small" />
+        <MarketHomeHeaderSearchBar />
       </Stack>
     ),
     [],
