@@ -1610,10 +1610,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
-  const etf = {
+  const dis = {
     'balance2FeeDecimals': 9,
     'chainId': '513100',
-    'code': 'etf',
+    'code': 'dis',
     'decimals': 18,
     'extensions': {
       'providerOptions': {
@@ -1624,28 +1624,22 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'impl': 'evm',
     'isTestnet': false,
     'logoURI': 'https://uni.onekey-asset.com/static/chain/etf.png',
-    'name': 'Ethereum Fair',
-    'shortcode': 'etf',
-    'shortname': 'ETHF',
-    'symbol': 'ETHF',
+    'name': 'DIS CHAIN',
+    'shortcode': 'dis',
+    'shortname': 'DIS',
+    'symbol': 'DIS',
     'feeMeta': {
-      'code': 'etf',
+      'code': 'dis',
       'decimals': 9,
       'symbol': 'Gwei',
     },
     'defaultEnabled': true,
-    'priceConfigs': [
-      {
-        'channel': 'coingecko',
-        'native': 'ethereumfair',
-      },
-    ],
     'explorers': [
       {
-        'address': 'https://explorer.etherfair.org/address/{address}',
-        'block': 'https://explorer.etherfair.org/block/{block}',
-        'name': 'https://explorer.etherfair.org',
-        'transaction': 'https://explorer.etherfair.org/tx/{transaction}',
+        'address': 'https://scan.dischain.xyz/address/{address}',
+        'block': 'https://scan.dischain.xyz/block/{block}',
+        'name': 'https://scan.dischain.xyz',
+        'transaction': 'https://scan.dischain.xyz/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,
@@ -2611,7 +2605,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     arb,
     celo,
     avax,
-    etf,
+    dis,
     bsc,
     etc,
     okt,
