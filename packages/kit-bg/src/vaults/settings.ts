@@ -1,10 +1,14 @@
 import {
   IMPL_ADA,
+  IMPL_ALGO,
   IMPL_BCH,
   IMPL_BTC,
+  IMPL_CFX,
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_FIL,
+  IMPL_KASPA,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
@@ -63,10 +67,13 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_BCH]: () => import('./impls/bch/settings'),
     [IMPL_LTC]: () => import('./impls/ltc/settings'),
     [IMPL_NEURAI]: () => import('./impls/neurai/settings'),
+    [IMPL_ALGO]: () => import('./impls/algo/settings'),
     [IMPL_COSMOS]: () => import('./impls/cosmos/settings'),
     [IMPL_NEAR]: () => import('./impls/near/settings'),
+    [IMPL_CFX]: () => import('./impls/cfx/settings'),
     [IMPL_TRON]: () => import('./impls/tron/settings'),
     [IMPL_SOL]: () => import('./impls/sol/settings'),
+    [IMPL_FIL]: () => import('./impls/fil/settings'),
     [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),
@@ -74,6 +81,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
     [IMPL_NEXA]: () => import('./impls/nexa/settings'),
+    [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

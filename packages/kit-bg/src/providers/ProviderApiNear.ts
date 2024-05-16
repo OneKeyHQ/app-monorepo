@@ -25,7 +25,10 @@ class ProviderApiNear extends ProviderApiBase {
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
-      const params = await this.near_accounts({ origin });
+      const params = await this.near_accounts({
+        origin,
+        scope: this.providerName,
+      });
       const result = {
         method: 'wallet_events_accountsChanged',
         params,
@@ -37,7 +40,10 @@ class ProviderApiNear extends ProviderApiBase {
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
     const data = async ({ origin }: { origin: string }) => {
-      const params = await this.near_network({ origin });
+      const params = await this.near_network({
+        origin,
+        scope: this.providerName,
+      });
       const result = {
         method: 'wallet_events_chainChanged',
         params,
