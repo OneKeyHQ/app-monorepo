@@ -20,10 +20,40 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
+import { ISigner } from '../../base/ChainSigner';
+import { isArray } from 'lodash';
 
 const curve: ICurveName = 'ed25519';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  async _signAlgoTx({
+    encodedTx,
+    signer,
+  }: {
+    encodedTx: IEncodedTxAlgo;
+    signer: ISigner;
+  }) {
+    const transaction = sdkAlgo.Transaction.from_obj_for_encoding(
+      sdkAlgo.decodeObj(
+        Buffer.from(encodedTx, 'base64'),
+      ) as ISdkAlgoEncodedTransaction,
+    );
+
+    const [signature] = await signer.sign(transaction.bytesToSign());
+
+    const txid: string = transaction.txID();
+    const rawTx: string = Buffer.from(
+      sdkAlgo.encodeObj({
+        sig: signature,
+        txn: transaction.get_obj_for_encoding(),
+      }),
+    ).toString('base64');
+    return {
+      txid,
+      rawTx,
+    };
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
@@ -42,21 +72,25 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
     const encodedTx = unsignedTx.encodedTx as IEncodedTxAlgo;
-    const transaction = sdkAlgo.Transaction.from_obj_for_encoding(
-      sdkAlgo.decodeObj(
-        Buffer.from(encodedTx, 'base64'),
-      ) as ISdkAlgoEncodedTransaction,
-    );
 
-    const [signature] = await signer.sign(transaction.bytesToSign());
+    if (isArray(encodedTx)) {
+      const signedTxs = await Promise.all(
+        encodedTx.map((tx) =>
+          this._signAlgoTx({
+            encodedTx: tx,
+            signer,
+          }),
+        ),
+      );
 
-    const txid: string = transaction.txID();
-    const rawTx: string = Buffer.from(
-      sdkAlgo.encodeObj({
-        sig: signature,
-        txn: transaction.get_obj_for_encoding(),
-      }),
-    ).toString('base64');
+      return {
+        encodedTx: unsignedTx.encodedTx,
+        txid: signedTxs.map((tx) => tx.txid).join(','),
+        rawTx: signedTxs.map((tx) => tx.rawTx).join(','),
+      };
+    }
+
+    const { txid, rawTx } = await this._signAlgoTx({ encodedTx, signer });
     return {
       encodedTx: unsignedTx.encodedTx,
       txid,

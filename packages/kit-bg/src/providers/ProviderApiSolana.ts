@@ -51,7 +51,10 @@ class ProviderApiSolana extends ProviderApiBase {
       const result = {
         method: 'wallet_events_accountChanged',
         params: {
-          accounts: await this._getConnectedAccountsPublicKey({ origin }),
+          accounts: await this._getConnectedAccountsPublicKey({
+            origin,
+            scope: this.providerName,
+          }),
         },
       };
       return result;

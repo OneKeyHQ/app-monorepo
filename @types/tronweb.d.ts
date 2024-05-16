@@ -98,6 +98,7 @@ type IWithdrawExpireUnfreezeContractCall = {
 };
 
 type IUnsignedTransaction = {
+  visible: boolean;
   txID: string;
   raw_data: {
     contract: Array<

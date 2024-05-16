@@ -46,7 +46,7 @@ class ProviderApiTron extends ProviderApiBase {
     const data = async ({ origin }: { origin: string }) => {
       const result = {
         method: 'wallet_events_accountsChanged',
-        params: await this.tron_accounts({ origin }),
+        params: await this.tron_accounts({ origin, scope: this.providerName }),
       };
       return result;
     };

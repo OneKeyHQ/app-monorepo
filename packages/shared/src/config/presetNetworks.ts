@@ -1914,6 +1914,53 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
+
+  const algo = {
+    'balance2FeeDecimals': 0,
+    'chainId': '4160',
+    'code': 'algo',
+    'decimals': 6,
+    'extensions': {
+      'position': 15,
+    },
+    'id': 'algo--4160',
+    'impl': 'algo',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/algo.png',
+    'name': 'Algorand',
+    'shortcode': 'algo',
+    'shortname': 'ALGO',
+    'symbol': 'ALGO',
+    'feeMeta': {
+      'code': 'algo',
+      'decimals': 6,
+      'symbol': 'ALGO',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'algorand',
+        'platform': 'algorand',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'ALGO',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://algoexplorer.io/address/{address}',
+        'block': 'https://algoexplorer.io/block/{block}',
+        'name': 'https://algoexplorer.io/',
+        'transaction': 'https://algoexplorer.io/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const cardano = {
     'balance2FeeDecimals': 6,
     'chainId': '0',
@@ -2597,6 +2644,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     kaspa,
     dnx,
     fil,
+    algo,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });
