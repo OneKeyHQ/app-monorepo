@@ -37,22 +37,11 @@ class ProviderApiCosmos extends ProviderApiBase {
 
   private _queue = new Semaphore(1);
 
-  private async _getAccounts(request: IJsBridgeMessagePayload) {
-    const accounts =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    if (!accounts) {
-      throw web3Errors.provider.unauthorized();
-    }
-    return accounts;
-  }
-
   private async _getAccount(
     request: IJsBridgeMessagePayload,
     networkId: string,
   ) {
-    const accounts = await this._getAccounts(request);
+    const accounts = await this.getAccountsInfo(request);
 
     let account = accounts.find(
       (item) => item.accountInfo?.networkId === networkId,
@@ -73,7 +62,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ) {
     const data = async () => {
-      const accounts = await this._getAccounts({
+      const accounts = await this.getAccountsInfo({
         origin: info.targetOrigin,
         scope: this.providerName,
       });
@@ -90,7 +79,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     info: IProviderBaseBackgroundNotifyInfo,
   ) {
     const data = async () => {
-      const accounts = await this._getAccounts({
+      const accounts = await this.getAccountsInfo({
         origin: info.targetOrigin,
         scope: this.providerName,
       });
@@ -124,12 +113,12 @@ class ProviderApiCosmos extends ProviderApiBase {
     if (!network) return false;
 
     try {
-      await this._getAccounts(request);
+      await this.getAccountsInfo(request);
     } catch (error) {
       try {
         await this.backgroundApi.serviceDApp.openConnectionModal(request);
         await timerUtils.wait(100);
-        await this._getAccounts(request);
+        await this.getAccountsInfo(request);
       } catch (e) {
         return false;
       }
