@@ -133,11 +133,13 @@ const useBuildTableRowConfig = () => {
           <Button
             size="small"
             onPress={async () => {
+              console.log('----log', item);
               const response =
                 await backgroundApiProxy.serviceMarket.fetchPools(
                   item.symbol,
                   item.symbol,
                 );
+
               // navigation.pushModal(EModalRoutes.SwapModal, {
               //   screen: EModalSwapRoutes.SwapMainLand,
               //   params: {
