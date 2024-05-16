@@ -1914,6 +1914,53 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'createdAt': '2023-05-31T00:29:24.951Z',
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
+
+  const algo = {
+    'balance2FeeDecimals': 0,
+    'chainId': '4160',
+    'code': 'algo',
+    'decimals': 6,
+    'extensions': {
+      'position': 15,
+    },
+    'id': 'algo--4160',
+    'impl': 'algo',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/algo.png',
+    'name': 'Algorand',
+    'shortcode': 'algo',
+    'shortname': 'ALGO',
+    'symbol': 'ALGO',
+    'feeMeta': {
+      'code': 'algo',
+      'decimals': 6,
+      'symbol': 'ALGO',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'algorand',
+        'platform': 'algorand',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'ALGO',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://algoexplorer.io/address/{address}',
+        'block': 'https://algoexplorer.io/block/{block}',
+        'name': 'https://algoexplorer.io/',
+        'transaction': 'https://algoexplorer.io/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const cardano = {
     'balance2FeeDecimals': 6,
     'chainId': '0',
@@ -2368,6 +2415,85 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const kaspa = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'kaspa',
+    'code': 'kaspa',
+    'decimals': 8,
+    'id': 'kaspa--kaspa',
+    'impl': 'kaspa',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/kas.png',
+    'name': 'Kaspa',
+    'shortcode': 'kaspa',
+    'shortname': 'KAS',
+    'symbol': 'KAS',
+    'feeMeta': {
+      'code': 'kaspa',
+      'decimals': 8,
+      'symbol': 'KAS',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'kaspa',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.kaspa.org/addresses/{address}',
+        'block': 'https://explorer.kaspa.org/blocks/{block}',
+        'name': 'https://explorer.kaspa.org',
+        'transaction': 'https://explorer.kaspa.org/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const cfx = {
+    'balance2FeeDecimals': 0,
+    'chainId': '1029',
+    'code': 'cfx',
+    'decimals': 18,
+    'extensions': {
+      'position': 14,
+    },
+    'id': 'cfx--1029',
+    'impl': 'cfx',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/cfx.png',
+    'name': 'Conflux',
+    'shortcode': 'cfx',
+    'shortname': 'CFX',
+    'symbol': 'CFX',
+    'feeMeta': {
+      'code': 'cfx',
+      'decimals': 18,
+      'symbol': 'CFX',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'conflux',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://confluxscan.io/address/{address}',
+        'block': 'https://confluxscan.io/block/{block}',
+        'name': 'https://confluxscan.io/',
+        'transaction': 'https://confluxscan.io/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const zksyncera = {
     'balance2FeeDecimals': 9,
     'chainId': '324',
@@ -2417,7 +2543,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'feeMeta': {
       'code': 'nexa',
       'decimals': 2,
-      'symbol': 'nexa',
+      'symbol': 'NEX',
     },
     'defaultEnabled': true,
     'priceConfigs': [],
@@ -2450,7 +2576,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'feeMeta': {
       'code': 'nexatest',
       'decimals': 2,
-      'symbol': 'NEXATEST',
+      'symbol': 'TNEX',
     },
     'defaultEnabled': false,
     'priceConfigs': [],
@@ -2629,6 +2755,45 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2024-04-09T00:00:00.001Z',
   };
 
+  const fil = {
+    'balance2FeeDecimals': 0,
+    'chainId': '314',
+    'code': 'fil',
+    'decimals': 18,
+    'id': 'fil--314',
+    'impl': 'fil',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/fil.png',
+    'name': 'Filecoin',
+    'shortcode': 'fil',
+    'shortname': 'FIL',
+    'symbol': 'FIL',
+    'feeMeta': {
+      'code': 'fil',
+      'decimals': 18,
+      'symbol': 'FIL',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'filecoin',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://filscan.io/address/general?address={address}',
+        'block': 'https://filscan.io/tipset/chain?hash={block}',
+        'name': 'https://filscan.io/',
+        'transaction':
+          'https://filscan.io/tipset/message-detail?cid={transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     polkadot,
     astar,
@@ -2636,7 +2801,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     manta,
     joystream,
     tatom, // Cosmos Testnet
-    lightning,
+    nexaTestnet,
     tlightning,
   ];
 
@@ -2687,15 +2852,19 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     osmosis,
     cosmoshub,
 
+    lightning,
     cardano,
     ripple,
     nostr,
     near,
     tron,
+    cfx,
     sol,
     nexa,
-    nexaTestnet,
+    kaspa,
     dnx,
+    fil,
+    algo,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

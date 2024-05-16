@@ -1,10 +1,10 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
-// import ProviderAlgo from './ProviderAlgo';
+import ProviderApiAlgo from './ProviderApiAlgo';
 // import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBtc from './ProviderApiBtc';
 import ProviderApiCardano from './ProviderApiCardano';
-// import ProviderApiConflux from './ProviderApiConflux';
+import ProviderApiConflux from './ProviderApiConflux';
 // import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
@@ -48,15 +48,15 @@ function createBackgroundProviders({
     // [IInjectedProviderNames.aptos]: new ProviderApiAptos({
     //   backgroundApi,
     // }),
-    // [IInjectedProviderNames.conflux]: new ProviderApiConflux({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.conflux]: new ProviderApiConflux({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.tron]: new ProviderApiTron({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.algo]: new ProviderAlgo({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.algo]: new ProviderApiAlgo({
+      backgroundApi,
+    }),
     // [IInjectedProviderNames.sui]: new ProviderApiSui({
     //   backgroundApi,
     // }),

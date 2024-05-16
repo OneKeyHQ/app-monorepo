@@ -14,6 +14,7 @@
   "dependencies": {
     "@conflux-dev/conflux-address-js": "^1.3.16",
     "@glif/filecoin-address": "^2.0.43",
+    "@glif/filecoin-message": "^2.0.44",
     "@kaspa/core-lib": "^1.6.5",
     "@magiceden-oss/open_creator_protocol": "^0.3.2",
     "@metaplex-foundation/mpl-token-metadata": "^2.7.0",
@@ -43,6 +44,7 @@
     "cosmjs-types": "^0.8.0",
     "ecpair": "^2.1.0",
     "elliptic": "^6.5.4",
+    "eth-sig-util": "^3.0.1",
     "js-conflux-sdk": "^2.1.12",
     "jsrsasign": "^10.8.6",
     "near-api-js": "^2.1.4",

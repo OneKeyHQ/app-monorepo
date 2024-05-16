@@ -1,3 +1,4 @@
+import type { IDecodedTxExtraAlgo } from '@onekeyhq/core/src/chains/algo/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import type { IFeeInfoUnit } from './fee';
@@ -92,7 +93,7 @@ export type IDecodedTx = {
 
   interactInfo?: IDecodedTxInteractInfo;
 
-  extraInfo: null;
+  extraInfo: null | IDecodedTxExtraAlgo;
 
   encodedTx?: IEncodedTx;
   // used for speed up double check if encodedTx modified by some bugs
@@ -156,12 +157,10 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
-  tokenAddress: string;
   decimals: number;
   name: string;
   symbol: string;
   tokenIdOnNetwork: string;
-  networkId: string;
 };
 
 export type IDecodedTxAction = {
