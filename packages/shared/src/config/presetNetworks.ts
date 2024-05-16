@@ -2153,6 +2153,47 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const cfx = {
+    'balance2FeeDecimals': 0,
+    'chainId': '1029',
+    'code': 'cfx',
+    'decimals': 18,
+    'extensions': {
+      'position': 14,
+    },
+    'id': 'cfx--1029',
+    'impl': 'cfx',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/cfx.png',
+    'name': 'Conflux',
+    'shortcode': 'cfx',
+    'shortname': 'CFX',
+    'symbol': 'CFX',
+    'feeMeta': {
+      'code': 'cfx',
+      'decimals': 18,
+      'symbol': 'CFX',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'conflux',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://confluxscan.io/address/{address}',
+        'block': 'https://confluxscan.io/block/{block}',
+        'name': 'https://confluxscan.io/',
+        'transaction': 'https://confluxscan.io/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const zksyncera = {
     'balance2FeeDecimals': 9,
     'chainId': '324',
@@ -2472,6 +2513,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     nostr,
     near,
     tron,
+    cfx,
     sol,
     nexa,
     nexaTestnet,
