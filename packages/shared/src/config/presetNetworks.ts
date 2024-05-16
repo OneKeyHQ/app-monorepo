@@ -1927,7 +1927,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'feeMeta': {
       'code': 'nexa',
       'decimals': 2,
-      'symbol': 'nexa',
+      'symbol': 'NEX',
     },
     'defaultEnabled': true,
     'priceConfigs': [],
@@ -1960,7 +1960,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'feeMeta': {
       'code': 'nexatest',
       'decimals': 2,
-      'symbol': 'NEXATEST',
+      'symbol': 'TNEX',
     },
     'defaultEnabled': false,
     'priceConfigs': [],
@@ -2100,6 +2100,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     cosmoshub,
     tatom, // Cosmos Testnet
     nexaTestnet,
+    tlightning,
   ];
 
   return [
@@ -2140,6 +2141,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     mantapacific,
     blast,
 
+    lightning,
     cardano,
     ripple,
     nostr,
