@@ -1633,6 +1633,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
       'decimals': 9,
       'symbol': 'Gwei',
     },
+    'priceConfigs': [],
     'defaultEnabled': true,
     'explorers': [
       {
@@ -2573,6 +2574,44 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const ckb = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'nervos',
+    'code': 'nervos',
+    'decimals': 8,
+    'id': 'nervos--mainnet',
+    'impl': 'nervos',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/nervos.png',
+    'name': 'Nervos',
+    'shortcode': 'ckb',
+    'shortname': 'CKB',
+    'symbol': 'CKB',
+    'feeMeta': {
+      'code': 'ckb',
+      'decimals': 8,
+      'symbol': 'CKB',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'nervos-network',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.nervos.org/address/{address}',
+        'block': 'https://explorer.nervos.org/block/{block}',
+        'name': 'https://explorer.nervos.org',
+        'transaction': 'https://explorer.nervos.org/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-03-05T00:00:00.002Z',
+    'updatedAt': '2024-03-05T00:00:00.002Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     tatom, // Cosmos Testnet
     nexaTestnet,
@@ -2639,6 +2678,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     dnx,
     fil,
     algo,
+    ckb,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });
