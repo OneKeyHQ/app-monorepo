@@ -21,7 +21,11 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IMarketToken } from '@onekeyhq/shared/types/market';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  IMarketCategory,
+  IMarketToken,
+} from '@onekeyhq/shared/types/market';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
@@ -29,7 +33,6 @@ import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
 
 import type { IMarketHomeListProps } from './type';
-import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 
 function Column({
   key,
@@ -114,32 +117,43 @@ const useBuildTableRowConfig = () => {
       ),
       'name': (item) => (
         <XStack space="$3" ai="center">
-          <Image src={item.image} size="$8" borderRadius="100%" />
+          <Image
+            src={decodeURIComponent(item.image)}
+            size="$8"
+            borderRadius="100%"
+          />
           <YStack width="$20">
-            <SizableText size="$bodyLgMedium">{item.symbol}</SizableText>
+            <SizableText size="$bodyLgMedium">
+              {item.symbol.toUpperCase()}
+            </SizableText>
             <SizableText size="$bodySm" color="$textSubdued">
               {item.name}
             </SizableText>
           </YStack>
           <Button
             size="small"
-            onPress={() => {
-              navigation.pushModal(EModalRoutes.SwapModal, {
-                screen: EModalSwapRoutes.SwapMainLand,
-                params: {
-                  importNetworkId: networkId,
-                  importFromToken: {
-                    contractAddress: tokenInfo.address,
-                    symbol: tokenInfo.symbol,
-                    networkId,
-                    isNative: tokenInfo.isNative,
-                    decimals: tokenInfo.decimals,
-                    name: tokenInfo.name,
-                    logoURI: tokenInfo.logoURI,
-                    networkLogoURI: network?.logoURI,
-                  },
-                },
-              });
+            onPress={async () => {
+              const response =
+                await backgroundApiProxy.serviceMarket.fetchPools(
+                  item.symbol,
+                  item.symbol,
+                );
+              // navigation.pushModal(EModalRoutes.SwapModal, {
+              //   screen: EModalSwapRoutes.SwapMainLand,
+              //   params: {
+              //     importNetworkId: networkId,
+              //     importFromToken: {
+              //       contractAddress: tokenInfo.address,
+              //       symbol: tokenInfo.symbol,
+              //       networkId,
+              //       isNative: tokenInfo.isNative,
+              //       decimals: tokenInfo.decimals,
+              //       name: tokenInfo.name,
+              //       logoURI: tokenInfo.logoURI,
+              //       networkLogoURI: network?.logoURI,
+              //     },
+              //   },
+              // });
             }}
           >
             Swap
@@ -340,7 +354,7 @@ function PopoverSettingsContent({
   );
 }
 
-export function MarketHomeList({ category }: IMarketHomeListProps) {
+export function MarketHomeList({ category }: { category: IMarketCategory }) {
   const selectOptions = useMemo(
     () => [
       { label: 'Default', value: 'Default' },
@@ -379,7 +393,11 @@ export function MarketHomeList({ category }: IMarketHomeListProps) {
     ({ item }: { item: IMarketToken }) => (
       <XStack height={60} justifyContent="space-between">
         <XStack space="$3" ai="center">
-          <Image src={item.image} size="$10" borderRadius="100%" />
+          <Image
+            src={decodeURIComponent(item.image)}
+            size="$10"
+            borderRadius="100%"
+          />
           <YStack>
             <SizableText size="$bodyLgMedium">
               {item.symbol.toUpperCase()}
