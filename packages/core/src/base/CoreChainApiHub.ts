@@ -19,7 +19,7 @@ import CoreChainNexa from '../chains/nexa';
 import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
-// import CoreChainSui from '../chains/sui';
+import CoreChainSui from '../chains/sui';
 import CoreChainTron from '../chains/tron';
 // import CoreChainXmr from '../chains/xmr';
 import CoreChainXrp from '../chains/xrp';
@@ -59,7 +59,7 @@ export class CoreChainApiHub {
 
   // kaspa = new CoreChainKaspa();
 
-  // sui = new CoreChainSui();
+  sui = new CoreChainSui();
 
   // dot = new CoreChainDot();
 

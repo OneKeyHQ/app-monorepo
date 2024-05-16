@@ -12,7 +12,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
     namePrefix: 'SUI',
     labelKey: 'form__bip44_standard',
-    template: `m/44'/${COINTYPE_SUI}'/${INDEX_PLACEHOLDER}'/0/0`,
+    template: `m/44'/${COINTYPE_SUI}'/${INDEX_PLACEHOLDER}'/0'/0'`,
     coinType: COINTYPE_SUI,
   },
 };
