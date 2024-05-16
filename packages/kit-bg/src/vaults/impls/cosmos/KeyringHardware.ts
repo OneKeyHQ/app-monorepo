@@ -1,13 +1,28 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import { HardwareError } from '@onekeyfe/hd-shared';
+import { bytesToHex, hexToBytes } from 'viem';
 
+import {
+  TransactionWrapper,
+  generateSignBytes,
+  getADR36SignDoc,
+  pubkeyToAddress,
+  serializeSignedTx,
+} from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import type { IEncodedTxCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ICoreApiGetAddressItem,
+  ISignedMessagePro,
+  ISignedTxPro,
+} from '@onekeyhq/core/src/types';
+import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
-  IPrepareAccountsParams,
+  IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
@@ -15,19 +30,133 @@ import type {
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.cosmos.hd;
 
-  override signTransaction(
+  override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    const sdk = await this.getHardwareSDKInstance();
+    const account = await this.vault.getAccount();
+    const { unsignedTx, deviceParams } = params;
+    const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxCosmos;
+    const txWrapper = new TransactionWrapper(encodedTx.signDoc, encodedTx.msg);
+    const unSignedRawTx = bytesToHex(generateSignBytes(txWrapper));
+    const result = await convertDeviceResponse(async () => {
+      const res = await sdk.cosmosSignTransaction(
+        dbDevice.connectId,
+        dbDevice.deviceId,
+        {
+          path: account.path,
+          rawTx: unSignedRawTx,
+          ...deviceCommonParams,
+        },
+      );
+      return res;
+    });
+    const rawTx = serializeSignedTx({
+      txWrapper,
+      signature: {
+        signatures: [hexToBytes(`0x${result.signature}`)],
+      },
+      publicKey: {
+        pubKey: account.pub ?? '',
+      },
+    });
+    return {
+      txid: '',
+      rawTx: Buffer.from(rawTx).toString('base64'),
+      encodedTx,
+    };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    const { messages } = params;
+    const results = await Promise.all(
+      messages.map(async (commonMessage) => {
+        const { data, signer } = JSON.parse(commonMessage.message);
+
+        const messageData = Buffer.from(data).toString('base64');
+        const unSignDoc = getADR36SignDoc(signer, messageData);
+        const encodedTx = TransactionWrapper.fromAminoSignDoc(
+          unSignDoc,
+          undefined,
+        );
+
+        const { rawTx } = await this.signTransaction({
+          ...params,
+          unsignedTx: {
+            encodedTx,
+          },
+          signOnly: true,
+        });
+
+        return rawTx;
+      }),
+    );
+    return results;
   }
 
-  override prepareAccounts(
-    params: IPrepareAccountsParams,
+  override async prepareAccounts(
+    params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    throw new Error('Method not implemented.');
+    const chainId = await this.getNetworkChainId();
+
+    return this.basePrepareHdNormalAccounts(params, {
+      buildAddressesInfo: async ({ usedIndexes }) => {
+        const { curve } = await this.getNetworkInfo();
+        if (curve === 'ed25519') {
+          throw new HardwareError('ed25519 curve is not supported');
+        }
+
+        const publicKeys = await this.baseGetDeviceAccountPublicKeys({
+          params,
+          usedIndexes,
+          sdkGetPublicKeysFn: async ({
+            connectId,
+            deviceId,
+            pathPrefix,
+            showOnOnekeyFn,
+          }) => {
+            const sdk = await this.getHardwareSDKInstance();
+
+            const response = await sdk.cosmosGetPublicKey(connectId, deviceId, {
+              ...params.deviceParams.deviceCommonParams, // passpharse params
+              bundle: usedIndexes.map((index, arrIndex) => ({
+                path: `${pathPrefix}/${index}`,
+                /**
+                 * Search accounts not show detail at device.Only show on device when add accounts into wallet.
+                 */
+                showOnOneKey: showOnOnekeyFn(arrIndex),
+                chainId: Number(chainId),
+              })),
+            });
+            return response;
+          },
+        });
+
+        const networkInfo = await this.getNetworkInfo();
+        const ret: ICoreApiGetAddressItem[] = [];
+        for (let i = 0; i < publicKeys.length; i += 1) {
+          const item = publicKeys[i];
+          const { path, publicKey } = item;
+          const pubkey = hexToBytes(`0x${publicKey}`);
+          const addressInfo: ICoreApiGetAddressItem = {
+            address: '',
+            path,
+            publicKey,
+            addresses: {
+              [this.networkId]: pubkeyToAddress(
+                curve,
+                networkInfo.addressPrefix,
+                pubkey,
+              ),
+            },
+          };
+          ret.push(addressInfo);
+        }
+        return ret;
+      },
+    });
   }
 }
