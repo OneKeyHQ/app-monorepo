@@ -133,7 +133,7 @@ function UpdateAction({
 }) {
   const data = UPDATE_ACTION_STYLE[updateInfo.status];
   if (!data) {
-    return null;
+    // return null;
   }
   const { icon, label, variant, prefixElement } = data;
   return (

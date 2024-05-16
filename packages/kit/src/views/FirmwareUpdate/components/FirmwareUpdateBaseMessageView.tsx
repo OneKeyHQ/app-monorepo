@@ -1,8 +1,13 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
-import { Icon, SizableText, Stack } from '@onekeyhq/components';
+import {
+  Icon,
+  RichSizeableText,
+  SizableText,
+  Stack,
+} from '@onekeyhq/components';
+import type { IRichSizeableTextProps } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { ColorTokens } from 'tamagui';
 
@@ -47,13 +52,13 @@ export function FirmwareUpdateBaseMessageView({
   title,
   tone,
   message,
-  linkList = [],
+  linkList,
 }: {
   icon?: IKeyOfIcons;
   title?: string;
   tone?: IToneType;
-  message?: string;
-  linkList?: { start: number; end: number; url: string }[];
+  message?: IRichSizeableTextProps['children'];
+  linkList?: IRichSizeableTextProps['linkList'];
 }) {
   const renderIcon = useCallback(
     () =>
@@ -71,30 +76,6 @@ export function FirmwareUpdateBaseMessageView({
       ),
     [icon, tone],
   );
-  const textList = useMemo(() => {
-    if (!message) {
-      return undefined;
-    }
-    let index = 0;
-    const subTextList = [];
-    linkList
-      .sort((a, b) => a.start - b.start)
-      .forEach((link) => {
-        subTextList.push(message.slice(index, link.start));
-        index = link.start;
-        subTextList.push(
-          <SizableText
-            color="$textInfo"
-            onPress={() => openUrlExternal(link.url)}
-          >
-            {message.slice(index, link.end)}
-          </SizableText>,
-        );
-        index = link.end;
-      });
-    subTextList.push(message.slice(index));
-    return subTextList;
-  }, [message, linkList]);
   return (
     <Stack py="$6">
       {icon ? renderIcon() : null}
@@ -103,10 +84,14 @@ export function FirmwareUpdateBaseMessageView({
           {title}
         </SizableText>
       ) : null}
-      {textList ? (
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {textList}
-        </SizableText>
+      {message ? (
+        <RichSizeableText
+          size="$bodyLg"
+          color="$textSubdued"
+          linkList={linkList}
+        >
+          {message}
+        </RichSizeableText>
       ) : null}
     </Stack>
   );

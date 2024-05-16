@@ -22,7 +22,17 @@ export function FirmwareUpdateReminderAlert({
   onPress?: () => any;
 }) {
   return (
-    <XStack alignItems="center" space="$2" flex={1}>
+    <XStack
+      px="$5"
+      py="$2"
+      borderTopWidth="$px"
+      borderBottomWidth="$px"
+      bg="$bgInfoSubdued"
+      borderColor="$borderInfoSubdued"
+      alignItems="center"
+      space="$2"
+      flex={1}
+    >
       <Icon size="$4" name="DownloadOutline" color="$iconInfo" />
       <SizableText
         flex={1}
@@ -87,14 +97,7 @@ function HomeFirmwareUpdateReminderCmp() {
   }, [actions, connectId, result]);
 
   return (
-    <XStack
-      px="$5"
-      py="$2"
-      borderTopWidth="$px"
-      borderBottomWidth="$px"
-      bg="$bgInfoSubdued"
-      borderColor="$borderInfoSubdued"
-    >
+    <XStack>
       <HomeFirmwareUpdateDetect />
       <BootloaderModeUpdateReminder />
       {updateButton}

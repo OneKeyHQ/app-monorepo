@@ -22,6 +22,8 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
+import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
+
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
 export function HomePageView({
@@ -125,7 +127,6 @@ export function HomePageView({
     if (!account) {
       return (
         <YStack height="100%">
-          <UpdateReminder />
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             <EmptyAccount
@@ -184,7 +185,11 @@ export function HomePageView({
     return (
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
-        <Page.Body>{content}</Page.Body>
+        <Page.Body>
+          <UpdateReminder />
+          <HomeFirmwareUpdateReminder />
+          {content}
+        </Page.Body>
       </>
     );
   }, [ready, wallet, sceneName, renderHomePageContent]);
