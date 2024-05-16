@@ -35,6 +35,8 @@ const settings: IVaultSettings = {
   editFeeEnabled: false,
   replaceTxEnabled: false,
 
+  defaultFeePresetIndex: 0,
+
   accountDeriveInfo,
   networkInfo: {
     default: {
