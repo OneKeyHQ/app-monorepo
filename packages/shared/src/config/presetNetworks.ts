@@ -2455,6 +2455,41 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2024-04-09T00:00:00.001Z',
   };
 
+  const sui = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'mainnet',
+    'code': 'sui',
+    'decimals': 9,
+    'id': 'sui--mainnet',
+    'impl': 'sui',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
+    'name': 'SUI',
+    'shortcode': 'sui',
+    'shortname': 'SUI',
+    'symbol': 'SUI',
+    'feeMeta': {
+      'code': 'sui',
+      'decimals': 9,
+      'symbol': 'SUI',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address':
+          'https://explorer.sui.io/addresses/{address}/?network=mainnet',
+        'block': 'https://explorer.sui.io/objects/{block}/?network=mainnet',
+        'name': 'https://explorer.sui.io?network=mainnet',
+        'transaction':
+          'https://explorer.sui.io/transactions/{transaction}/?network=mainnet',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     tatom, // Cosmos Testnet
     lightning,
@@ -2518,6 +2553,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     nexa,
     nexaTestnet,
     dnx,
+    sui,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

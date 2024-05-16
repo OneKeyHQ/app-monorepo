@@ -14,6 +14,7 @@ import {
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
+  IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
@@ -76,6 +77,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
     [IMPL_NEXA]: () => import('./impls/nexa/settings'),
+    [IMPL_SUI]: () => import('./impls/sui/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {
