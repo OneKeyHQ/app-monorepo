@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
-import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
+import { Image, SizableText, Stack } from '@onekeyhq/components';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import type { IFirmwareUpdateRetry } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -56,7 +56,7 @@ function ShouldUpdateBridge({
   return (
     <Stack>
       <FirmwareUpdateBaseMessageView
-        icon={<Icon name="InfoCircleOutline" size={56} />}
+        icon="InfoCircleOutline"
         title="New Bridge Version Available for Update"
         message={`Hardware update requires the latest bridge software. Please visit our online tutorial  [Solution for failed firmware upgrade on Touch] ${FIRMWARE_UPDATE_BRIDGE_GUIDE} for detailed installation instructions.`}
       />
@@ -74,7 +74,7 @@ function ShouldUpdateByWeb() {
   return (
     <Stack>
       <FirmwareUpdateBaseMessageView
-        icon={<Icon name="InfoCircleOutline" size={56} />}
+        icon="InfoCircleOutline"
         title="Update in official web tool"
         message={`Your hardware wallet firmware requires an update. Please visit ${FIRMWARE_UPDATE_WEB_TOOLS_URL} on your computer to proceed with the upgrade.`}
       />
@@ -92,7 +92,7 @@ function HowToUpdateFullResource() {
   return (
     <Stack>
       <FirmwareUpdateBaseMessageView
-        icon={<Icon name="InfoCircleOutline" size={56} />}
+        icon="InfoCircleOutline"
         title="Outdated Version Detected"
         message={`Your current firmware version is too low. Please visit our online tutorial  [Solution for failed firmware upgrade on Touch] ${FIRMWARE_UPDATE_FULL_RES_GUIDE} and follow the step-by-step instructions to complete the update.`}
       />

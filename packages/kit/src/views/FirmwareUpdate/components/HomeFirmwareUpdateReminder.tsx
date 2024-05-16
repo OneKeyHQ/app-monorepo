@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useFirmwareUpdatesDetectStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -22,11 +22,16 @@ export function FirmwareUpdateReminderAlert({
   onPress?: () => any;
 }) {
   return (
-    <XStack p="$2" backgroundColor="$bgInfoSubdued" flex={1}>
-      <Icon name="DownloadOutline" />
-      <Stack mx="$4" flex={1}>
-        <SizableText>{message}</SizableText>
-      </Stack>
+    <XStack alignItems="center" space="$2" flex={1}>
+      <Icon size="$4" name="DownloadOutline" color="$iconInfo" />
+      <SizableText
+        flex={1}
+        size="$bodyMdMedium"
+        color="$text"
+        numberOfLines={1}
+      >
+        {message}
+      </SizableText>
       <Button size="small" onPress={onPress}>
         View
       </Button>
@@ -82,7 +87,14 @@ function HomeFirmwareUpdateReminderCmp() {
   }, [actions, connectId, result]);
 
   return (
-    <XStack px="$4">
+    <XStack
+      px="$5"
+      py="$2"
+      borderTopWidth="$px"
+      borderBottomWidth="$px"
+      bg="$bgInfoSubdued"
+      borderColor="$borderInfoSubdued"
+    >
       <HomeFirmwareUpdateDetect />
       <BootloaderModeUpdateReminder />
       {updateButton}

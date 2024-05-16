@@ -13,7 +13,6 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import HomeSelector from '../components/HomeSelector';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 
@@ -185,10 +184,7 @@ export function HomePageView({
     return (
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
-        <Page.Body>
-          <HomeFirmwareUpdateReminder />
-          {content}
-        </Page.Body>
+        <Page.Body>{content}</Page.Body>
       </>
     );
   }, [ready, wallet, sceneName, renderHomePageContent]);

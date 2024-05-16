@@ -1,4 +1,14 @@
-import { Markdown, SizableText, Stack } from '@onekeyhq/components';
+import { useCallback, useState } from 'react';
+
+import {
+  Icon,
+  IconButton,
+  Markdown,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import {
   EFirmwareUpdateSteps,
@@ -12,13 +22,18 @@ import type {
 
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
 import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
+import { FirmwareVersionProgressBar } from './FirmwareVersionProgressBar';
 
 function ChangeLogSection({
   title,
+  icon,
+  initialCollapse = true,
   isDone,
   updateInfo,
 }: {
   title: string;
+  icon: IKeyOfIcons;
+  initialCollapse?: boolean;
   isDone?: boolean;
   updateInfo:
     | IFirmwareUpdateInfo
@@ -26,23 +41,42 @@ function ChangeLogSection({
     | IBootloaderUpdateInfo
     | undefined;
 }) {
+  const [collapse, setCollapse] = useState(initialCollapse);
+  const onDropDownPressed = useCallback(() => {
+    setCollapse(!collapse);
+  }, [collapse]);
   return (
-    <Stack mt="$6">
-      <SizableText size="$heading3xl">{title}</SizableText>
-      <SizableText>
-        {isDone
-          ? `Updated to the latest version ${updateInfo?.toVersion || ''}`
-          : `${updateInfo?.toVersion || ''} is available`}
-      </SizableText>
-      <SizableText>
-        {updateInfo?.fromVersion || '?.?.?'}-{updateInfo?.toVersion}
-      </SizableText>
-      <Markdown>
-        {
-          // TODO type of IBootloaderUpdateInfo
-          updateInfo?.changelog?.['en-US'] || 'No change log found.'
-        }
-      </Markdown>
+    <Stack>
+      <XStack space="$3" py="$2" ai="center">
+        <Icon name={icon} size="$5" />
+        <Stack flex={1}>
+          <SizableText size="$bodyLgMedium">{title}</SizableText>
+          <SizableText size="$bodyMd" color="$textInfo">
+            {isDone
+              ? `Updated to the latest version ${updateInfo?.toVersion || ''}`
+              : `${updateInfo?.toVersion || ''} is available`}
+          </SizableText>
+        </Stack>
+        <IconButton
+          icon={collapse ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'}
+          variant="tertiary"
+          onPress={onDropDownPressed}
+        />
+      </XStack>
+      {collapse ? null : (
+        <Stack bg="$bgStrong" p="$5" borderRadius="$3">
+          <FirmwareVersionProgressBar
+            fromVersion={updateInfo?.fromVersion || '?.?.?'}
+            toVersion={updateInfo?.toVersion}
+          />
+          <Markdown>
+            {
+              // TODO type of IBootloaderUpdateInfo
+              updateInfo?.changelog?.['en-US'] || 'No change log found.'
+            }
+          </Markdown>
+        </Stack>
+      )}
     </Stack>
   );
 }
@@ -55,27 +89,29 @@ export function FirmwareChangeLogContentView({
   isDone?: boolean;
 }) {
   return (
-    <Stack>
-      {result?.updateInfos?.firmware?.hasUpgrade ? (
+    <Stack mt="$8">
+      {result?.updateInfos?.bootloader?.hasUpgrade ? (
         <ChangeLogSection
-          title="Firmware"
-          updateInfo={result?.updateInfos?.firmware}
+          title="Bootloader"
+          icon="StorageOutline"
+          initialCollapse={isDone ?? false}
+          updateInfo={result?.updateInfos?.bootloader}
           isDone={isDone}
         />
       ) : null}
-
       {result?.updateInfos?.ble?.hasUpgrade ? (
         <ChangeLogSection
           title="BlueTooth"
+          icon="BluetoothOutline"
           updateInfo={result?.updateInfos?.ble}
           isDone={isDone}
         />
       ) : null}
-
-      {result?.updateInfos?.bootloader?.hasUpgrade ? (
+      {result?.updateInfos?.firmware?.hasUpgrade ? (
         <ChangeLogSection
-          title="Bootloader"
-          updateInfo={result?.updateInfos?.bootloader}
+          title="Firmware"
+          icon="LaunchOutline"
+          updateInfo={result?.updateInfos?.firmware}
           isDone={isDone}
         />
       ) : null}
