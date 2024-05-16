@@ -6,6 +6,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_EVM,
+  IMPL_KASPA,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
@@ -76,6 +77,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_ADA]: () => import('./impls/ada/settings'),
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
     [IMPL_NEXA]: () => import('./impls/nexa/settings'),
+    [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

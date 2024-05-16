@@ -61,9 +61,11 @@ export async function queryConfirmUTXOs(
 export function selectUTXOs(
   confirmUtxos: UnspentOutputInfo[],
   txAmount: number,
+  prioritys?: { satoshis: boolean }
 ): {
   utxoIds: string[];
   utxos: UnspentOutputInfo[];
+  prioritys?: { satoshis: boolean };
   mass: number;
 } {
   const sortedUtxos = sortUXTO(confirmUtxos);

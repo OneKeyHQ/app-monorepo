@@ -10,7 +10,7 @@ import CoreChainDoge from '../chains/doge';
 // import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
 // import CoreChainFil from '../chains/fil';
-// import CoreChainKaspa from '../chains/kaspa';
+import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
 import CoreChainNear from '../chains/near';
@@ -57,7 +57,7 @@ export class CoreChainApiHub {
 
   // stc = new CoreChainStc();
 
-  // kaspa = new CoreChainKaspa();
+  kaspa = new CoreChainKaspa();
 
   // sui = new CoreChainSui();
 

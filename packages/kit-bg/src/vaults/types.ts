@@ -309,6 +309,10 @@ export type IUtxoInfo = {
   amount?: IAdaAmount[];
   datumHash?: string | null;
   referenceScriptHash?: string | null;
+  scriptPublicKey?: {
+    scriptPublicKey: string;
+    version: number;
+  };
 };
 
 export type INativeAmountInfo = {
