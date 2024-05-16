@@ -24,6 +24,31 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@0no-co/graphql.web@npm:^1.0.5":
+  version: 1.0.7
+  resolution: "@0no-co/graphql.web@npm:1.0.7"
+  peerDependencies:
+    graphql: ^14.0.0 || ^15.0.0 || ^16.0.0
+  peerDependenciesMeta:
+    graphql:
+      optional: true
+  checksum: 10/8be5d80ba57df759a11f905ba7ac4bc6e9bc75034804bb679db4fa4eed3396f97b0191421031ba2d94af259fa7d55042a152e3f94294eba62ae81591d41bad87
+  languageName: node
+  linkType: hard
+
+"@0no-co/graphqlsp@npm:^1.12.1":
+  version: 1.12.3
+  resolution: "@0no-co/graphqlsp@npm:1.12.3"
+  dependencies:
+    "@gql.tada/internal": "npm:^1.0.0"
+    graphql: "npm:^15.5.0 || ^16.0.0 || ^17.0.0"
+  peerDependencies:
+    graphql: ^15.5.0 || ^16.0.0 || ^17.0.0
+    typescript: ^5.0.0
+  checksum: 10/10f970f8ce5dfcc9a5ca8f2563c61e58c93de5a7713a638b73bc0e9e745397e013548d69c03953b215bf3fc68e662c2379785e0eeacd6540cd9122b9b7235442
+  languageName: node
+  linkType: hard
+
 "@aashutoshrathi/word-wrap@npm:^1.2.3":
   version: 1.2.6
   resolution: "@aashutoshrathi/word-wrap@npm:1.2.6"
@@ -3487,7 +3512,36 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@graphql-typed-document-node/core@npm:^3.1.0":
+"@gql.tada/cli-utils@npm:1.3.9":
+  version: 1.3.9
+  resolution: "@gql.tada/cli-utils@npm:1.3.9"
+  dependencies:
+    "@0no-co/graphqlsp": "npm:^1.12.1"
+    "@gql.tada/internal": "npm:1.0.0"
+    "@vue/compiler-dom": "npm:^3.4.23"
+    "@vue/language-core": "npm:^2.0.17"
+    graphql: "npm:^15.5.0 || ^16.0.0 || ^17.0.0"
+    svelte2tsx: "npm:^0.7.6"
+  peerDependencies:
+    graphql: ^15.5.0 || ^16.0.0 || ^17.0.0
+    typescript: ^5.0.0
+  checksum: 10/c92e3a7d89821457c446cd44c66923b4a54102713cb3b4b79ac6933426af277ce8948260d318a0ea24a525318ccc1bd97286562af0a5686305ba4144bcd3fa99
+  languageName: node
+  linkType: hard
+
+"@gql.tada/internal@npm:1.0.0, @gql.tada/internal@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "@gql.tada/internal@npm:1.0.0"
+  dependencies:
+    "@0no-co/graphql.web": "npm:^1.0.5"
+  peerDependencies:
+    graphql: ^15.5.0 || ^16.0.0 || ^17.0.0
+    typescript: ^5.0.0
+  checksum: 10/f01c21b2ded06638bfecf65444fcd651a368121a99450b511ebce3c904dc3ca3078cd97c75a2878850009652bf1500f5f7a4ebd5ac4969faf3496a0d66154953
+  languageName: node
+  linkType: hard
+
+"@graphql-typed-document-node/core@npm:^3.1.0, @graphql-typed-document-node/core@npm:^3.2.0":
   version: 3.2.0
   resolution: "@graphql-typed-document-node/core@npm:3.2.0"
   peerDependencies:
@@ -4376,6 +4430,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mysten/bcs@npm:0.11.1":
+  version: 0.11.1
+  resolution: "@mysten/bcs@npm:0.11.1"
+  dependencies:
+    bs58: "npm:^5.0.0"
+  checksum: 10/d7524ea992ce7d71b5fed161b8a33362725df20fbca275a977c3b5c83e047e92a565a05c7c0f7b09739a872395e35e91372efe84f37863856ff98b5f98903c72
+  languageName: node
+  linkType: hard
+
 "@mysten/bcs@npm:0.7.4":
   version: 0.7.4
   resolution: "@mysten/bcs@npm:0.7.4"
@@ -4400,6 +4463,26 @@ __metadata:
     superstruct: "npm:^1.0.3"
     tweetnacl: "npm:^1.0.3"
   checksum: 10/118b7c80b3548cd99abd69738184476dd29339d22ff8e72bffcc4960138d7ec1006907208031116edd98e8bebb0c4ab68fa37265d2e44ac3afeeda88798a07df
+  languageName: node
+  linkType: hard
+
+"@mysten/sui.js@npm:^0.54.1":
+  version: 0.54.1
+  resolution: "@mysten/sui.js@npm:0.54.1"
+  dependencies:
+    "@graphql-typed-document-node/core": "npm:^3.2.0"
+    "@mysten/bcs": "npm:0.11.1"
+    "@noble/curves": "npm:^1.1.0"
+    "@noble/hashes": "npm:^1.3.1"
+    "@scure/bip32": "npm:^1.3.1"
+    "@scure/bip39": "npm:^1.2.1"
+    "@suchipi/femver": "npm:^1.0.0"
+    bech32: "npm:^2.0.0"
+    gql.tada: "npm:^1.7.0"
+    graphql: "npm:^16.8.1"
+    superstruct: "npm:^1.0.3"
+    tweetnacl: "npm:^1.0.3"
+  checksum: 10/0e2ef0b3a0278ab9d5da4ddce576218bd563cb31ce250f2e2d8bc9c38d4ef938e7bfaa6ad84fffd85d8e469211b140b1344f501ab75a299a0a8b7cffb94e7ce3
   languageName: node
   linkType: hard
 
@@ -5260,6 +5343,7 @@ __metadata:
     "@emurgo/cardano-message-signing-nodejs": "npm:^1.0.1"
     "@emurgo/cardano-serialization-lib-nodejs": "npm:^11.5.0"
     "@expo/webpack-config": "npm:~19.0.1"
+    "@mysten/sui.js": "npm:^0.54.1"
     "@onekeyfe/cross-inpage-provider-core": "npm:2.0.0-alpha.5"
     "@onekeyfe/cross-inpage-provider-errors": "npm:2.0.0-alpha.5"
     "@onekeyfe/cross-inpage-provider-injected": "npm:2.0.0-alpha.5"
@@ -10411,6 +10495,74 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@volar/language-core@npm:~2.2.4":
+  version: 2.2.4
+  resolution: "@volar/language-core@npm:2.2.4"
+  dependencies:
+    "@volar/source-map": "npm:2.2.4"
+  checksum: 10/1c1b2f8af6fa75e39aeb08185c7c43ddbaa1f6180518790b09bd23e3e2ee8fcad1101509fc6f5e172929883c28ee7b14577a879766557a30185cd60e6843e84b
+  languageName: node
+  linkType: hard
+
+"@volar/source-map@npm:2.2.4":
+  version: 2.2.4
+  resolution: "@volar/source-map@npm:2.2.4"
+  dependencies:
+    muggle-string: "npm:^0.4.0"
+  checksum: 10/5bc767f0c68279800c009e4f34bbcc0cefd939802686d4dabe5b61cf1a339e97f6487891ba9e533c7489d4d8e66822544a17fb0f99978d2c0f0bb32fbfda7397
+  languageName: node
+  linkType: hard
+
+"@vue/compiler-core@npm:3.4.27":
+  version: 3.4.27
+  resolution: "@vue/compiler-core@npm:3.4.27"
+  dependencies:
+    "@babel/parser": "npm:^7.24.4"
+    "@vue/shared": "npm:3.4.27"
+    entities: "npm:^4.5.0"
+    estree-walker: "npm:^2.0.2"
+    source-map-js: "npm:^1.2.0"
+  checksum: 10/35e19f18ffc8658644b7ab023d732079db20444eccce537b68f10ea817ebb758d51a0d936bb2a374f54030f4910eb6c444892ece17eedf6a3e7201d5fcffb307
+  languageName: node
+  linkType: hard
+
+"@vue/compiler-dom@npm:^3.4.0, @vue/compiler-dom@npm:^3.4.23":
+  version: 3.4.27
+  resolution: "@vue/compiler-dom@npm:3.4.27"
+  dependencies:
+    "@vue/compiler-core": "npm:3.4.27"
+    "@vue/shared": "npm:3.4.27"
+  checksum: 10/0332b0b5480ba063f59e45d60b7c73a95481b5c6c9356bac4957dd47303e3242b349a37c8be1215db115d6ea7b3e834bdc5c05ad9dffb225dac7a9b5ce2c5f2a
+  languageName: node
+  linkType: hard
+
+"@vue/language-core@npm:^2.0.17":
+  version: 2.0.19
+  resolution: "@vue/language-core@npm:2.0.19"
+  dependencies:
+    "@volar/language-core": "npm:~2.2.4"
+    "@vue/compiler-dom": "npm:^3.4.0"
+    "@vue/shared": "npm:^3.4.0"
+    computeds: "npm:^0.0.1"
+    minimatch: "npm:^9.0.3"
+    path-browserify: "npm:^1.0.1"
+    vue-template-compiler: "npm:^2.7.14"
+  peerDependencies:
+    typescript: "*"
+  peerDependenciesMeta:
+    typescript:
+      optional: true
+  checksum: 10/c59e195b3fb3c3b4c341153858febbfeda27c183d0792c4cc855518c6a0365c415f377742c524aaea9ff0a706c62e0d7b6ceab0d306f4ec4e75a8d0e35cd1964
+  languageName: node
+  linkType: hard
+
+"@vue/shared@npm:3.4.27, @vue/shared@npm:^3.4.0":
+  version: 3.4.27
+  resolution: "@vue/shared@npm:3.4.27"
+  checksum: 10/abb5d18f3e48509dd3029c6f02e329cfde772818857f568f1289126eddca3a0c5572c32f7477b80b5eedab9a56cb27ed13fc4132a01ec745d8da2cafa68d00db
+  languageName: node
+  linkType: hard
+
 "@wagmi/core@npm:2.6.9":
   version: 2.6.9
   resolution: "@wagmi/core@npm:2.6.9"
@@ -14445,6 +14597,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"computeds@npm:^0.0.1":
+  version: 0.0.1
+  resolution: "computeds@npm:0.0.1"
+  checksum: 10/738625ccec6e483124d0ac79ec5474ab5c9df103ea05afc1fd840eed7d9004e3d6009b7bc806df564d66ad915c1ee1fb017bd91b2b32606a252ea9870b6a4026
+  languageName: node
+  linkType: hard
+
 "concat-map@npm:0.0.1":
   version: 0.0.1
   resolution: "concat-map@npm:0.0.1"
@@ -15288,6 +15447,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"de-indent@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "de-indent@npm:1.0.2"
+  checksum: 10/30bf43744dca005f9252dbb34ed95dcb3c30dfe52bfed84973b89c29eccff04e27769f222a34c61a93354acf47457785e9032e6184be390ed1d324fb9ab3f427
+  languageName: node
+  linkType: hard
+
 "debounce-fn@npm:^4.0.0":
   version: 4.0.0
   resolution: "debounce-fn@npm:4.0.0"
@@ -15370,6 +15536,13 @@ __metadata:
   dependencies:
     mimic-response: "npm:^3.1.0"
   checksum: 10/d377cf47e02d805e283866c3f50d3d21578b779731e8c5072d6ce8c13cc31493db1c2f6784da9d1d5250822120cefa44f1deab112d5981015f2e17444b763812
+  languageName: node
+  linkType: hard
+
+"dedent-js@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "dedent-js@npm:1.0.1"
+  checksum: 10/a2ee4d7f3547ae69084f36b6027e0d9e092355fccc44d512de86c3aa1ef54a5d2405d98b6c9f7a3db8e8a17101fd738d2dec2191accab2a7370928ee37e8b442
   languageName: node
   linkType: hard
 
@@ -16353,7 +16526,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"entities@npm:^4.2.0, entities@npm:^4.4.0":
+"entities@npm:^4.2.0, entities@npm:^4.4.0, entities@npm:^4.5.0":
   version: 4.5.0
   resolution: "entities@npm:4.5.0"
   checksum: 10/ede2a35c9bce1aeccd055a1b445d41c75a14a2bb1cd22e242f20cf04d236cdcd7f9c859eb83f76885327bfae0c25bf03303665ee1ce3d47c5927b98b0e3e3d48
@@ -17456,6 +17629,13 @@ __metadata:
   version: 5.3.0
   resolution: "estraverse@npm:5.3.0"
   checksum: 10/37cbe6e9a68014d34dbdc039f90d0baf72436809d02edffcc06ba3c2a12eb298048f877511353b130153e532aac8d68ba78430c0dd2f44806ebc7c014b01585e
+  languageName: node
+  linkType: hard
+
+"estree-walker@npm:^2.0.2":
+  version: 2.0.2
+  resolution: "estree-walker@npm:2.0.2"
+  checksum: 10/b02109c5d46bc2ed47de4990eef770f7457b1159a229f0999a09224d2b85ffeed2d7679cffcff90aeb4448e94b0168feb5265b209cdec29aad50a3d6e93d21e2
   languageName: node
   linkType: hard
 
@@ -19659,6 +19839,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"gql.tada@npm:^1.7.0":
+  version: 1.7.5
+  resolution: "gql.tada@npm:1.7.5"
+  dependencies:
+    "@0no-co/graphql.web": "npm:^1.0.5"
+    "@gql.tada/cli-utils": "npm:1.3.9"
+    "@gql.tada/internal": "npm:1.0.0"
+  peerDependencies:
+    typescript: ^5.0.0
+  bin:
+    gql-tada: bin/cli.js
+    gql.tada: bin/cli.js
+  checksum: 10/49250fbe6da19143c30c4c661a912123273d8a3fb4e86c6f47da5d8f81c41bf5b7cad3553960ad6937f750619f821b7098aa30d78d930f831533d0a0ddff242c
+  languageName: node
+  linkType: hard
+
 "graceful-fs@npm:^4.1.11, graceful-fs@npm:^4.1.2, graceful-fs@npm:^4.1.3, graceful-fs@npm:^4.1.6, graceful-fs@npm:^4.2.0, graceful-fs@npm:^4.2.4, graceful-fs@npm:^4.2.6, graceful-fs@npm:^4.2.9":
   version: 4.2.11
   resolution: "graceful-fs@npm:4.2.11"
@@ -19695,6 +19891,13 @@ __metadata:
   version: 15.8.0
   resolution: "graphql@npm:15.8.0"
   checksum: 10/f8d830287a9028d6779b59c437e0ade63a713b47521b02b60316df1761b805b1a7ce03be88053d224b7f78f5d1d1a786d287ab229cd158b42ebeea9e86daaba5
+  languageName: node
+  linkType: hard
+
+"graphql@npm:^15.5.0 || ^16.0.0 || ^17.0.0, graphql@npm:^16.8.1":
+  version: 16.8.1
+  resolution: "graphql@npm:16.8.1"
+  checksum: 10/7a09d3ec5f75061afe2bd2421a2d53cf37273d2ecaad8f34febea1f1ac205dfec2834aec3419fa0a10fcc9fb345863b2f893562fb07ea825da2ae82f6392893c
   languageName: node
   linkType: hard
 
@@ -23920,6 +24123,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"minimatch@npm:^9.0.3":
+  version: 9.0.4
+  resolution: "minimatch@npm:9.0.4"
+  dependencies:
+    brace-expansion: "npm:^2.0.1"
+  checksum: 10/4cdc18d112b164084513e890d6323370db14c22249d536ad1854539577a895e690a27513dc346392f61a4a50afbbd8abc88f3f25558bfbbbb862cd56508b20f5
+  languageName: node
+  linkType: hard
+
 "minimist@npm:^1.2.0, minimist@npm:^1.2.3, minimist@npm:^1.2.5, minimist@npm:^1.2.6, minimist@npm:^1.2.7":
   version: 1.2.8
   resolution: "minimist@npm:1.2.8"
@@ -24214,6 +24426,13 @@ __metadata:
   version: 2.1.3
   resolution: "ms@npm:2.1.3"
   checksum: 10/aa92de608021b242401676e35cfa5aa42dd70cbdc082b916da7fb925c542173e36bce97ea3e804923fe92c0ad991434e4a38327e15a1b5b5f945d66df615ae6d
+  languageName: node
+  linkType: hard
+
+"muggle-string@npm:^0.4.0":
+  version: 0.4.1
+  resolution: "muggle-string@npm:0.4.1"
+  checksum: 10/8fa2ea08f497c04069718bd3fd1909b382114dacbad832d10967ca72690de43f5f8492d8ccfbf827d6be63868ed5fc10395e7b7c082aa95997eea498586c6620
   languageName: node
   linkType: hard
 
@@ -25454,7 +25673,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pascal-case@npm:^3.1.2":
+"pascal-case@npm:^3.1.1, pascal-case@npm:^3.1.2":
   version: 3.1.2
   resolution: "pascal-case@npm:3.1.2"
   dependencies:
@@ -29416,6 +29635,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"source-map-js@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "source-map-js@npm:1.2.0"
+  checksum: 10/74f331cfd2d121c50790c8dd6d3c9de6be21926de80583b23b37029b0f37aefc3e019fa91f9a10a5e120c08135297e1ecf312d561459c45908cb1e0e365f49e5
+  languageName: node
+  linkType: hard
+
 "source-map-loader@npm:^3.0.1":
   version: 3.0.2
   resolution: "source-map-loader@npm:3.0.2"
@@ -30271,6 +30497,19 @@ __metadata:
   version: 1.0.0
   resolution: "supports-preserve-symlinks-flag@npm:1.0.0"
   checksum: 10/a9dc19ae2220c952bd2231d08ddeecb1b0328b61e72071ff4000c8384e145cc07c1c0bdb3b5a1cb06e186a7b2790f1dee793418b332f6ddf320de25d9125be7e
+  languageName: node
+  linkType: hard
+
+"svelte2tsx@npm:^0.7.6":
+  version: 0.7.8
+  resolution: "svelte2tsx@npm:0.7.8"
+  dependencies:
+    dedent-js: "npm:^1.0.1"
+    pascal-case: "npm:^3.1.1"
+  peerDependencies:
+    svelte: ^3.55 || ^4.0.0-next.0 || ^4.0 || ^5.0.0-next.0
+    typescript: ^4.9.4 || ^5.0.0
+  checksum: 10/f9d94dec8f3aacd5ce7e5e3312f1f56ee8d3d3c6aec77a5323c1fa485487aed94a9f7933422e7f4d82c955ef51ca871db5de590e49038fdcd8ba39a7d3713829
   languageName: node
   linkType: hard
 
@@ -32016,6 +32255,16 @@ __metadata:
   version: 2.0.4
   resolution: "vlq@npm:2.0.4"
   checksum: 10/b2ed0d3a5423f34bba98a18250f8b13a96eebff9c8f9427fa9cd78065d31f35641f6fd659c5642253b79532000a37aec0582abac95d1ef4af2cd0c96a716f1b6
+  languageName: node
+  linkType: hard
+
+"vue-template-compiler@npm:^2.7.14":
+  version: 2.7.16
+  resolution: "vue-template-compiler@npm:2.7.16"
+  dependencies:
+    de-indent: "npm:^1.0.2"
+    he: "npm:^1.2.0"
+  checksum: 10/8b05748dc64ee709a6077d576b4af234b229ecd36f7fda7cd2e17851403b66d168ad81c91636b5c28da6356d7723fd1ffe1202c73ffcdcc3ac9ad3ba748e42c7
   languageName: node
   linkType: hard
 

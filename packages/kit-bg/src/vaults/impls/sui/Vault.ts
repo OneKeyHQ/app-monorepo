@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { isValidSuiAddress } from '@mysten/sui.js/utils';
+
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -38,6 +41,8 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.sui.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
     hw: KeyringHardware,
@@ -89,7 +94,12 @@ export default class Vault extends VaultBase {
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new Error('Method not implemented.');
+    const isValid = isValidSuiAddress(address);
+    return Promise.resolve({
+      isValid,
+      normalizedAddress: isValid ? address : '',
+      displayAddress: isValid ? address : '',
+    });
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
@@ -98,10 +108,10 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    return super.baseGetPrivateKeyFromImported(params);
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
@@ -110,10 +120,10 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override validatePrivateKey(
+  override async validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    return this.baseValidatePrivateKey(privateKey);
   }
 
   override async validateGeneralInput(
