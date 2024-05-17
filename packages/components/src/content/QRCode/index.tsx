@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { values } from 'lodash';
 import QRCodeUtil from 'qrcode';
 import Svg, {
   Circle,
@@ -21,7 +22,7 @@ import type { IThemeColorKeys } from '../../hooks';
 import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';
 
-export type IQRCodeProps = {
+type IBasicQRCodeProps = {
   size: number;
   ecl?: 'L' | 'M' | 'Q' | 'H';
   logo?: ImageProps['source'];
@@ -84,7 +85,7 @@ const transformMatrixIntoPath = (matrix: number[][], size: number) => {
   };
 };
 
-export function QRCode({
+function BasicQRCode({
   ecl = 'M',
   logo,
   logoSvg,
@@ -99,7 +100,7 @@ export function QRCode({
   enableLinearGradient = false,
   gradientDirection = ['0%', '0%', '100%', '100%'],
   linearGradient = ['rgb(255,0,0)', 'rgb(0,255,255)'],
-}: IQRCodeProps) {
+}: IBasicQRCodeProps) {
   const logoBackgroundColor = useThemeValue(logoBGColor);
   const href = (logo as ImageURISource)?.uri ?? logo;
   const primaryColor = useThemeValue('text');
@@ -263,4 +264,26 @@ export function QRCode({
       ) : null}
     </Svg>
   );
+}
+export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
+  value: string | string[];
+  interval?: number;
+}
+export function QRCode({ value, interval, ...props }: IQRCodeProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const currentValue = typeof value === 'string' ? value : value[currentIndex];
+
+  const changeImageIndex = useCallback(() => {
+    setTimeout(() => {
+      setCurrentIndex((index) => (index + 1 === value.length ? 0 : index + 1));
+      changeImageIndex();
+    }, interval);
+  }, [interval, value.length]);
+
+  useEffect(() => {
+    if (interval) {
+      changeImageIndex();
+    }
+  }, [changeImageIndex, interval]);
+  return <BasicQRCode value={currentValue} {...props} />;
 }
