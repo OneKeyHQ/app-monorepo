@@ -10,7 +10,6 @@ let decoder = new URDecoder();
 // ur://bytes/2-3/2ABC
 // ur://bytes/3-3/3ABC
 export const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
-  console.log('🥹', value);
   if (!/^ur:/i.test(value)) {
     return null;
   }
