@@ -1,14 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { SuiHTTPTransport } from '@mysten/sui.js/client';
-import { isValidSuiAddress } from '@mysten/sui.js/utils';
+import { SUI_TYPE_ARG, isValidSuiAddress } from '@mysten/sui.js/utils';
+import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
 
+import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -28,7 +33,9 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
+import { createCoinSendTransaction } from './sdkSui/Coin';
 import { SuiTransportProxy } from './sdkSui/SuiTransportProxy';
+import { normalizeSuiCoinType } from './sdkSui/utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -95,8 +102,42 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxSui> {
+    const { transfersInfo } = params;
+    if (!transfersInfo || isEmpty(transfersInfo)) {
+      throw new OneKeyInternalError('transfersInfo is required');
+    }
+    if (transfersInfo.length > 1) {
+      throw new OneKeyInternalError('Batch transfer is not supported');
+    }
+    const transferInfo = transfersInfo[0];
+    if (!transferInfo.to) {
+      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+    }
+    const { to, amount, tokenInfo } = transferInfo;
+    const account = await this.getAccount();
+    const recipient = hexUtils.addHexPrefix(to);
+    const sender = hexUtils.addHexPrefix(account.address);
+    if (!tokenInfo?.decimals) {
+      throw new OneKeyInternalError('Token decimals is required');
+    }
+    const amountValue = new BigNumber(amount)
+      .shiftedBy(tokenInfo.decimals)
+      .toFixed();
+    const client = await this.getClient();
+    const transaction = await createCoinSendTransaction({
+      client,
+      address: sender,
+      to: recipient,
+      amount: amountValue,
+      coinType: normalizeSuiCoinType(tokenInfo.address),
+    });
+
+    return {
+      rawTx: transaction.serialize(),
+    };
   }
 
   override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
@@ -106,7 +147,13 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
+    if (encodedTx) {
+      return {
+        encodedTx,
+      };
+    }
+    throw new OneKeyInternalError();
   }
 
   override async updateUnsignedTx(

@@ -82,7 +82,7 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('transfersInfo is required');
     }
     if (transfersInfo.length > 1) {
-      throw new OneKeyInternalError('Only one transfer is allowed');
+      throw new OneKeyInternalError('Batch transfer is not supported');
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
