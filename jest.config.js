@@ -45,6 +45,7 @@ module.exports = async () => {
         '@emurgo/cardano-message-signing-nodejs',
       '\\./adaWebSdk$':
         '<rootDir>/packages/core/src/chains/ada/sdkAda/sdk/adaWebSdk.jest.ts',
+      '^lodash-es$': 'lodash',
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: ['nodo_modules/react-native-reanimated'],

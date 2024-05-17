@@ -77,7 +77,7 @@ class ServiceToken extends ServiceBase {
       data: ({
         info: IToken;
       } & ITokenFiat)[];
-    }>('/wallet/v1/account/token/detail', params);
+    }>('/wallet/v1/account/token/search', params);
 
     return resp.data.data;
   }

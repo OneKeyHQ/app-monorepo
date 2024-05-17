@@ -46,6 +46,10 @@ const IMPL_LTC = 'ltc';
 const COINTYPE_LTC = '2';
 export const COINNAME_LTC = 'LTC';
 
+const IMPL_NEURAI = 'neurai';
+const COINTYPE_NEURAI = '1900';
+export const COINNAME_NEURAI = 'NEURAI';
+
 const IMPL_BCH = 'bch';
 const COINTYPE_BCH = '145';
 export const COINNAME_BCH = 'BCH';
@@ -89,6 +93,9 @@ const COINTYPE_LIGHTNING_TESTNET = '81297820149140';
 const IMPL_NOSTR = 'nostr';
 const COINTYPE_NOSTR = '1237';
 
+const IMPL_DNX = 'dnx';
+const COINTYPE_DNX = '29538';
+
 const IMPL_ALLNETWORKS = 'all';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -118,6 +125,8 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_NOSTR,
+  IMPL_NEURAI,
+  IMPL_DNX,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -147,6 +156,8 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_LIGHTNING_TESTNET,
   IMPL_NOSTR,
   IMPL_NEXA,
+  IMPL_NEURAI,
+  IMPL_DNX,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -214,6 +225,8 @@ export {
   COINTYPE_XMR,
   COINTYPE_NOSTR,
   COINTYPE_XRP,
+  COINTYPE_NEURAI,
+  COINTYPE_DNX,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -240,6 +253,8 @@ export {
   IMPL_XMR,
   IMPL_NOSTR,
   IMPL_XRP,
+  IMPL_NEURAI,
+  IMPL_DNX,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,

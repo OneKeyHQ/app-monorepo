@@ -688,9 +688,13 @@ module.exports = [
   'copyable',
   'apk',
   'dbs',
+  'Lnurl',
+  'millisatoshis',
+  'withdrawable',
   'npub',
   'plaintext',
   'ciphertext',
   'decrypted',
   'cip',
+  'neurai',
 ];

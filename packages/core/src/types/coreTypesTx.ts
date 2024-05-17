@@ -1,15 +1,19 @@
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
+import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from '../chains/algo/types';
 import type { IEncodedTxBtc } from '../chains/btc/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
+import type { IEncodedTxDnx } from '../chains/dnx/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
+import type { IEncodedTxNear } from '../chains/near/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxNostr } from '../chains/nostr/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
@@ -32,15 +36,18 @@ export type IEncodedTx =
   | IEncodedTxXmr
   | IEncodedTxTron
   | IEncodedTxNexa
-  | IEncodedTxNostr;
-//   | IEncodedTxAlgo
-//   | IEncodedTxNear
+  | IEncodedTxLightning
+  | IEncodedTxNostr
+  | IEncodedTxDnx
+  | IEncodedTxNostr
+  | IEncodedTxAlgo
+  | IEncodedTxGroupAlgo
+  | IEncodedTxNear;
 //   | IEncodedTxBtc
+//   | IEncodedTxDot
 //   | IEncodedTxSTC
 //   | IEncodedTxAptos
 //   | IEncodedTxCfx
-//   | IEncodedTxDot
-//   | IEncodedTxLightning;
 
 export type INativeTx = object;
 //   | INativeTxEvm
@@ -120,3 +127,9 @@ export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
 };
 export type ISignedMessagePro = string[];
+export type IVerifiedMessagePro = {
+  isValid: boolean;
+  message: string;
+  signature: string;
+  address: string;
+};
