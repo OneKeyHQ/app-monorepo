@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { SuiHTTPTransport } from '@mysten/sui.js/client';
 import { isValidSuiAddress } from '@mysten/sui.js/utils';
 
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -7,6 +8,8 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -24,6 +27,8 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { OneKeySuiClient } from './sdkSui/ClientSui';
+import { SuiTransportProxy } from './sdkSui/SuiTransportProxy';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -51,6 +56,29 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
+  getClientCache = memoizee(async () => this.getSuiClient(), {
+    promise: true,
+    max: 1,
+    maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+  });
+
+  async getClient() {
+    return this.getClientCache();
+  }
+
+  getSuiClient() {
+    const transportProxy = new SuiTransportProxy({
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+    });
+    return new OneKeySuiClient({
+      transport: new SuiHTTPTransport({
+        url: '',
+        fetch: (...args) => transportProxy.fetch(...args),
+      }),
+    });
+  }
+
   override buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
@@ -75,13 +103,13 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override buildUnsignedTx(
+  override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     throw new Error('Method not implemented.');
   }
 
-  override updateUnsignedTx(
+  override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     throw new Error('Method not implemented.');

@@ -6,7 +6,6 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
