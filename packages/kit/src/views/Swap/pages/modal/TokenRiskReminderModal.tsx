@@ -82,7 +82,7 @@ const SwapRiskReminderModal = ({
   return (
     <Page>
       <Page.Header headerTitle="Risk reminder" />
-      <Page.Body p="$5" space="$4">
+      <Page.Body px="$5" space="$4">
         {token.riskLevel === ETokenRiskLevel.SPAM ||
         token.riskLevel === ETokenRiskLevel.MALICIOUS ? (
           <Alert
@@ -90,6 +90,8 @@ const SwapRiskReminderModal = ({
               token.riskLevel === ETokenRiskLevel.SPAM ? 'warning' : 'critical'
             }
             fullBleed
+            mx="$-5"
+            mt="$1"
             icon={
               token.riskLevel === ETokenRiskLevel.SPAM
                 ? 'MessageExclamationOutline'
