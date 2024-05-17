@@ -7,6 +7,7 @@ import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
   IMarketCategory,
   IMarketToken,
+  IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
 import ServiceBase from './ServiceBase';
@@ -69,7 +70,7 @@ class ServiceMarket extends ServiceBase {
     const client = await this.getClient();
     const response = await client.get<{
       code: number;
-      data: IMarketCategory[];
+      data: IMarketTokenDetail;
     }>('/utility/v1/market/detail', {
       headers: await getDevHeaders(),
       params: {
@@ -78,7 +79,7 @@ class ServiceMarket extends ServiceBase {
       },
     });
     const { code, data } = response.data;
-    return code === 0 ? data : [];
+    return code === 0 ? data : ({} as IMarketTokenDetail);
   }
 
   @backgroundMethod()
