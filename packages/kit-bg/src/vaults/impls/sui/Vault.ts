@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { bcs } from '@mysten/sui.js/bcs';
 import { SuiHTTPTransport } from '@mysten/sui.js/client';
+import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SUI_TYPE_ARG, isValidSuiAddress } from '@mysten/sui.js/utils';
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { get, isEmpty } from 'lodash';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -13,6 +15,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -23,7 +26,14 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+  type IDecodedTx,
+  type IDecodedTxAction,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -51,6 +61,16 @@ import type {
   IValidateGeneralInputParams,
   IVaultSettings,
 } from '../../types';
+import type { SuiGasData } from '@mysten/sui.js/client';
+import type {
+  TransactionBlockInput,
+  Transactions,
+} from '@mysten/sui.js/transactions';
+
+type ITransactionsType = TransactionBlock['blockData']['transactions'];
+type ITransactionElementType = ITransactionsType extends Array<infer U>
+  ? U
+  : never;
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sui.hd;
@@ -140,8 +160,212 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx?.encodedTx as IEncodedTxSui;
+    const transactionBlock = TransactionBlock.from(encodedTx.rawTx);
+    if (!transactionBlock) {
+      throw new OneKeyInternalError('Failed to decode transaction');
+    }
+
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+    const { inputs, transactions, gasConfig } = transactionBlock.blockData;
+    let gasLimit = '0';
+    if (gasConfig.budget) {
+      gasLimit = gasConfig.budget.toString() ?? '0';
+    }
+
+    const actions: IDecodedTxAction[] = [];
+    try {
+      for (const transaction of transactions) {
+        switch (transaction.kind) {
+          case 'TransferObjects': {
+            const action = await this._buildTxActionFromTransferObjects({
+              transaction,
+              transactions,
+              inputs,
+              payments: gasConfig.payment,
+            });
+            console.log('TransferObjects actions: ', action);
+            break;
+          }
+          case 'MoveCall': {
+            console.log('MoveCall', transaction);
+            break;
+          }
+          case 'MakeMoveVec':
+          case 'SplitCoins':
+          case 'MergeCoins':
+            break;
+          default:
+            actions.push({
+              type: EDecodedTxActionType.UNKNOWN,
+              direction: EDecodedTxDirection.OTHER,
+              unknownAction: {
+                from: account.address,
+                to: '',
+                icon: network.logoURI ?? '',
+              },
+            });
+            break;
+        }
+      }
+    } catch {
+      // ignore parse error
+    }
+
+    const result: IDecodedTx = {
+      txid: '',
+      owner: account.address,
+      signer: account.address,
+      nonce: 0,
+      actions,
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      // feeInfo: {
+      //   price: chainValueUtils.convertChainValueToGwei({
+      //     value: '1',
+      //     network,
+      //   }),
+      //   limit: gasLimit,
+      // },
+      payload: {
+        type: EOnChainHistoryTxType.Send,
+      },
+      extraInfo: null,
+      encodedTx,
+    };
+
+    return Promise.resolve(result);
+  }
+
+  async _buildTxActionFromTransferObjects({
+    transaction,
+    transactions,
+    inputs,
+    payments,
+  }: {
+    transaction: ITransactionElementType;
+    transactions: ITransactionsType;
+    inputs: TransactionBlockInput[];
+    payments?: SuiGasData['payment'] | undefined;
+  }) {
+    if (transaction.kind !== 'TransferObjects') {
+      throw new Error('Invalid transaction kind');
+    }
+
+    const client = await this.getClient();
+    let amount = new BigNumber('0');
+    let coinType = SUI_TYPE_ARG;
+    for (const obj of transaction.objects) {
+      if (obj.kind === 'GasCoin' && payments) {
+        // payment all
+        coinType = SUI_TYPE_ARG;
+
+        const objectIds = payments?.reduce((acc, current) => {
+          if (current.objectId) {
+            acc.push(current.objectId);
+          }
+          return acc;
+        }, new Array<string>(inputs.length));
+
+        const objects = await client.multiGetObjects({
+          ids: objectIds,
+          options: {
+            showType: true,
+            showOwner: true,
+            showContent: true,
+          },
+        });
+
+        amount = objects.reduce((acc, current) => {
+          let temp = acc;
+          const content = current.data?.content;
+          if (content?.dataType === 'moveObject') {
+            const balance = content.fields?.balance;
+            temp = temp.plus(new BigNumber(balance));
+          }
+          return temp;
+        }, new BigNumber(0));
+      } else if (obj.kind === 'Result') {
+        const result = transactions[obj.index];
+        if (result.kind === 'SplitCoins' && result.coin.kind === 'Input') {
+          const object = await client.getObject({
+            id: result.coin.value,
+            options: {
+              showType: true,
+              showOwner: true,
+              showContent: true,
+            },
+          });
+
+          const regex = /<([^>]+)>/;
+          const match = object.data?.type?.match(regex);
+
+          if (match) {
+            const extracted = match[1];
+            if (object.data?.type?.startsWith('0x2::coin::Coin<')) {
+              coinType = extracted;
+            }
+          }
+
+          amount = result.amounts.reduce((acc, curr) => {
+            let current = acc;
+            if (curr.kind === 'Input') {
+              current = current.plus(new BigNumber(curr.value));
+            }
+            return current;
+          }, new BigNumber(0));
+          break;
+        }
+      } else if (obj.kind === 'Input') {
+        const inputResult = inputs[obj.index];
+        if (inputResult.type === 'pure') {
+          amount = new BigNumber(inputResult.value);
+          break;
+        }
+        if (inputResult.type === 'object') {
+          // NFT
+        }
+      } else if (obj.kind === 'NestedResult') {
+        const inputResult = inputs[obj.index];
+        amount.plus(new BigNumber(inputResult.value ?? '0'));
+      }
+    }
+
+    let to = '';
+    if (transaction.address.kind === 'Input') {
+      const argValue = get(transaction.address.value, 'Pure', undefined);
+      if (argValue) {
+        try {
+          const r = bcs.string(argValue);
+          console.log('rrr= : ', r);
+          to = bcs.string(argValue);
+        } catch (e) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            to = argValue.toString();
+          } catch (error) {
+            // ignore
+          }
+        }
+      } else {
+        to = transaction.address.value;
+      }
+    }
+
+    const isNative = coinType === SUI_TYPE_ARG;
+    return {
+      type: EDecodedTxActionType.ASSET_TRANSFER,
+      isNative,
+      coinType,
+      amount,
+      recipient: to,
+    };
   }
 
   override async buildUnsignedTx(
@@ -159,7 +383,7 @@ export default class Vault extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(params.unsignedTx);
   }
 
   override broadcastTransaction(
