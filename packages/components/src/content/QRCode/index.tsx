@@ -269,7 +269,7 @@ export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
   value: string | string[];
   interval?: number;
 }
-export function QRCode({ value, interval, ...props }: IQRCodeProps) {
+export function QRCode({ value, interval = 150, ...props }: IQRCodeProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentValue = typeof value === 'string' ? value : value[currentIndex];
 
@@ -281,9 +281,9 @@ export function QRCode({ value, interval, ...props }: IQRCodeProps) {
   }, [interval, value.length]);
 
   useEffect(() => {
-    if (interval) {
+    if (Array.isArray(value)) {
       changeImageIndex();
     }
-  }, [changeImageIndex, interval]);
+  }, [changeImageIndex, interval, value]);
   return <BasicQRCode value={currentValue} {...props} />;
 }

@@ -89,7 +89,6 @@ const QRCodeGallery = () => (
           <YStack justifyContent="center" flex={1} space="$4">
             <QRCode
               drawType="line"
-              interval={150}
               value={[
                 'Lorem ipsum dolor sit amet consectetur',
                 'Nisi in arcu ultrices neque vel nec.',
