@@ -74,6 +74,20 @@ const QRCodeGallery = () => (
           </YStack>
         ),
       },
+      {
+        title: 'dynimic qrcode',
+        element: (
+          <YStack justifyContent="center" flex={1} space="$4">
+            <QRCode
+              value={JSON.stringify(
+                new Array(200).fill(0).map((_, index) => index),
+              )}
+              size={200}
+              interval={300}
+            />
+          </YStack>
+        ),
+      },
     ]}
   />
 );

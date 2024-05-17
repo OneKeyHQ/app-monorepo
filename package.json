@@ -47,6 +47,7 @@
     "test": "yarn jest"
   },
   "dependencies": {
+    "@ngraveio/bc-ur": "^1.1.13",
     "@onekeyfe/cross-inpage-provider-core": "2.0.0-alpha.5",
     "@onekeyfe/cross-inpage-provider-errors": "2.0.0-alpha.5",
     "@onekeyfe/cross-inpage-provider-injected": "2.0.0-alpha.5",

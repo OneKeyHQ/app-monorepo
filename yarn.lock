@@ -3933,6 +3933,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@keystonehq/alias-sampling@npm:^0.1.1":
+  version: 0.1.2
+  resolution: "@keystonehq/alias-sampling@npm:0.1.2"
+  checksum: 10/4dfdfb91e070b1d9f28058c92b5b8fad81696ac63bd432cd6bd359f2ab92eb50df75e8c5da1f75a351756387e9902f043b3ecc2cbf662c9c9456ecacc848abfd
+  languageName: node
+  linkType: hard
+
 "@leichtgewicht/ip-codec@npm:^2.0.1":
   version: 2.0.4
   resolution: "@leichtgewicht/ip-codec@npm:2.0.4"
@@ -4554,6 +4561,21 @@ __metadata:
     bn.js: "npm:5.2.1"
     borsh: "npm:^0.7.0"
   checksum: 10/9600b78fb421f7d117eb641be966bf58f785da8865f80ce0c7751f25aa50dfbac7459cecc2cc5ce24ef69ba885f6856c0d17038f14465b57934daa112f47edbf
+  languageName: node
+  linkType: hard
+
+"@ngraveio/bc-ur@npm:^1.1.13":
+  version: 1.1.13
+  resolution: "@ngraveio/bc-ur@npm:1.1.13"
+  dependencies:
+    "@keystonehq/alias-sampling": "npm:^0.1.1"
+    assert: "npm:^2.0.0"
+    bignumber.js: "npm:^9.0.1"
+    cbor-sync: "npm:^1.0.4"
+    crc: "npm:^3.8.0"
+    jsbi: "npm:^3.1.5"
+    sha.js: "npm:^2.4.11"
+  checksum: 10/0d3301b673a0bd9a069dae1f017cfd03010fddf19c1449d1a9e986b9b879ee4611f5af690ace9f59b75707573d1d3d6a4983166207db743425974a736689c6a0
   languageName: node
   linkType: hard
 
@@ -5260,6 +5282,7 @@ __metadata:
     "@emurgo/cardano-message-signing-nodejs": "npm:^1.0.1"
     "@emurgo/cardano-serialization-lib-nodejs": "npm:^11.5.0"
     "@expo/webpack-config": "npm:~19.0.1"
+    "@ngraveio/bc-ur": "npm:^1.1.13"
     "@onekeyfe/cross-inpage-provider-core": "npm:2.0.0-alpha.5"
     "@onekeyfe/cross-inpage-provider-errors": "npm:2.0.0-alpha.5"
     "@onekeyfe/cross-inpage-provider-injected": "npm:2.0.0-alpha.5"
@@ -13765,6 +13788,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"cbor-sync@npm:^1.0.4":
+  version: 1.0.4
+  resolution: "cbor-sync@npm:1.0.4"
+  checksum: 10/bdad5fbf442b5b2478ba59433cab145ad823f963f674ec42f3b730689e679327ec8a6dfab97724b63295badac915574139984e702475ff8025d7cb175e50e9ae
+  languageName: node
+  linkType: hard
+
 "cborg@npm:^4.0.0":
   version: 4.0.5
   resolution: "cborg@npm:4.0.5"
@@ -22141,7 +22171,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsbi@npm:^3.1.4":
+"jsbi@npm:^3.1.4, jsbi@npm:^3.1.5":
   version: 3.2.5
   resolution: "jsbi@npm:3.2.5"
   checksum: 10/2cceb3a06dcb16493e936aa22384d912dd5f0a1fd474b97b5c6705011bd0aac8214d9a392a730b3f3ffb61a8fbe910a34d0fe881329be6a02857520d7a61ace6
@@ -29009,7 +29039,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sha.js@npm:^2.4.0, sha.js@npm:^2.4.8":
+"sha.js@npm:^2.4.0, sha.js@npm:^2.4.11, sha.js@npm:^2.4.8":
   version: 2.4.11
   resolution: "sha.js@npm:2.4.11"
   dependencies:

@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { UR, UREncoder } from '@ngraveio/bc-ur';
 import QRCodeUtil from 'qrcode';
 import Svg, { Circle, ClipPath, Defs, G, Image, Rect } from 'react-native-svg';
 
@@ -21,6 +22,7 @@ export type IQRCodeProps = {
   logoMargin?: number;
   logoSize?: number;
   value: string;
+  interval?: number;
 };
 
 const generateMatrix = (
@@ -52,11 +54,26 @@ export function QRCode({
   logoSize = 62,
   size,
   value,
+  interval,
 }: IQRCodeProps) {
   const logoBackgroundColor = useThemeValue(logoBGColor);
   const href = (logo as ImageURISource)?.uri ?? logo;
   const primaryColor = useThemeValue('text');
   const secondaryColor = useThemeValue('bgApp');
+
+  const [partValue, setPartValue] = useState<string | undefined>();
+  useEffect(() => {
+    if (!interval || interval <= 0) {
+      return;
+    }
+    const urEncoder = new UREncoder(UR.fromBuffer(Buffer.from(value)));
+    const timer = setInterval(() => {
+      const part = urEncoder.nextPart();
+      setPartValue(part);
+    }, interval);
+    return () => clearInterval(timer);
+  }, [value, interval]);
+
   const dots = useMemo(() => {
     const arr: ReactElement[] = [];
     const qrList = [
@@ -64,7 +81,7 @@ export function QRCode({
       { x: 1, y: 0 },
       { x: 0, y: 1 },
     ];
-    const matrix = generateMatrix(value, ecl);
+    const matrix = generateMatrix(partValue ?? value, ecl);
     const cellSize = size / matrix.length;
     qrList.forEach(({ x, y }) => {
       const x1 = (matrix.length - 7) * cellSize * x;
@@ -121,7 +138,7 @@ export function QRCode({
       });
     });
     return arr;
-  }, [ecl, logoSize, primaryColor, secondaryColor, size, value]);
+  }, [ecl, logoSize, primaryColor, secondaryColor, size, value, partValue]);
   const logoPosition = size / 2 - logoSize / 2 - logoMargin;
   const logoWrapperSize = logoSize + logoMargin * 2;
 
