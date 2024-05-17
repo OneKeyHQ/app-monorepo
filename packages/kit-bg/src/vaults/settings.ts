@@ -1,6 +1,7 @@
 import {
   IMPL_ADA,
   IMPL_ALGO,
+  IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
@@ -82,6 +83,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
     [IMPL_NEXA]: () => import('./impls/nexa/settings'),
     [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
+    [IMPL_APTOS]: () => import('./impls/aptos/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

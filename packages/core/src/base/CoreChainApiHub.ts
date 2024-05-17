@@ -1,6 +1,6 @@
 import CoreChainAda from '../chains/ada';
 import CoreChainAlgo from '../chains/algo';
-// import CoreChainApt from '../chains/apt';
+import CoreChainAptos from '../chains/aptos';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
 import CoreChainCfx from '../chains/cfx';
@@ -43,7 +43,7 @@ export class CoreChainApiHub {
 
   algo = new CoreChainAlgo();
 
-  // apt = new CoreChainApt();
+  aptos = new CoreChainAptos();
 
   cfx = new CoreChainCfx();
 
