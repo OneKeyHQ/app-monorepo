@@ -9,8 +9,8 @@ import ProviderApiConflux from './ProviderApiConflux';
 import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiNear from './ProviderApiNear';
-// import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiNostr from './ProviderApiNostr';
+import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
 import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
@@ -66,9 +66,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.polkadot]: new ProviderApiPolkadot({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.polkadot]: new ProviderApiPolkadot({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.webln]: new ProviderApiWebln({ backgroundApi }),
     [IInjectedProviderNames.nostr]: new ProviderApiNostr({ backgroundApi }),
     [IInjectedProviderNames.btc]: new ProviderApiBtc({

@@ -5521,6 +5521,7 @@ __metadata:
   dependencies:
     "@polkadot/extension-inject": "npm:^0.47.4"
     "@polkadot/types": "npm:^11.0.3"
+    "@polkadot/util-crypto": "npm:^12.6.2"
     "@substrate/txwrapper-polkadot": "npm:^7.4.0"
     eth-url-parser: "npm:^1.0.4"
     folderslint: "npm:^1.2.0"
