@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { Stack } from 'tamagui';
+
 import {
   HeaderIconButton,
   Icon,
@@ -29,40 +31,63 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
+import { TextCell } from './components/TextCell';
 
 function TokenDetailHeader({
   token: {
-    stats: { performance },
+    stats: { performance, volume24h, marketCap, marketCapRank, fdv },
   },
 }: {
   token: IMarketTokenDetail;
 }) {
+  const { gtMd } = useMedia();
   return (
-    <XStack ai="center" jc="space-between" px="$5">
-      <YStack>
-        <SizableText size="$headingMd" color="$textSubdued">
-          Ethereum
-        </SizableText>
-        <NumberSizeableText
-          size="$heading3xl"
-          formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
-          formatter="price"
-        >
-          2963.6
-        </NumberSizeableText>
-        <NumberSizeableText
-          formatter="priceChange"
-          color={
-            Number(performance.priceChangePercentage24h) > 0
-              ? '$textSuccess'
-              : '$textCritical'
-          }
-        >
-          {performance.priceChangePercentage24h}
-        </NumberSizeableText>
-      </YStack>
-      <Icon name="StarOutline" size="$5" />
-    </XStack>
+    <YStack $gtMd={{ minWidth: 296 }}>
+      <XStack>
+        <YStack>
+          <SizableText size="$headingMd" color="$textSubdued">
+            Ethereum
+          </SizableText>
+          <NumberSizeableText
+            pt="$2"
+            size="$heading3xl"
+            formatterOptions={{ currency: '$' }}
+            formatter="price"
+          >
+            2963.6
+          </NumberSizeableText>
+          <NumberSizeableText
+            formatter="priceChange"
+            formatterOptions={{ showPlusMinusSigns: true }}
+            color={
+              Number(performance.priceChangePercentage24h) > 0
+                ? '$textSuccess'
+                : '$textCritical'
+            }
+          >
+            {performance.priceChangePercentage24h}
+          </NumberSizeableText>
+        </YStack>
+        <Icon name="StarOutline" size="$5" />
+      </XStack>
+      {gtMd ? null : (
+        <XStack pt="$6" flex={1} ai="center" jc="center" space="$2">
+          <TextCell title="24H VOL(USD)">{volume24h}</TextCell>
+          <TextCell title="Market Cap" rank={marketCapRank}>
+            {marketCap}
+          </TextCell>
+          <TextCell title="FDV">{fdv}</TextCell>
+        </XStack>
+      )}
+    </YStack>
+  );
+}
+
+function DetailTokenChart() {
+  return (
+    <YStack width="100%" $gtMd={{ px: '$5' }}>
+      <SizableText>chart</SizableText>
+    </YStack>
   );
 }
 
@@ -111,7 +136,16 @@ function MarketDetail({
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
       />
-      <TokenDetailHeader token={tokenDetail} />
+      <YStack px="$5">
+        <Stack
+          flexDirection="column"
+          $gtMd={{ flexDirection: 'row' }}
+          space="$5"
+        >
+          <TokenDetailHeader token={tokenDetail} />
+          <DetailTokenChart />
+        </Stack>
+      </YStack>
     </Page>
   );
 }
