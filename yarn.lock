@@ -5522,7 +5522,7 @@ __metadata:
     "@polkadot/extension-inject": "npm:^0.47.4"
     "@polkadot/types": "npm:^11.0.3"
     "@polkadot/util-crypto": "npm:^12.6.2"
-    "@substrate/txwrapper-polkadot": "npm:^7.4.0"
+    "@substrate/txwrapper-polkadot": "npm:^7.2.0"
     eth-url-parser: "npm:^1.0.4"
     folderslint: "npm:^1.2.0"
     idb: "npm:^7.1.1"
@@ -8157,7 +8157,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@substrate/txwrapper-polkadot@npm:^7.4.0":
+"@substrate/txwrapper-polkadot@npm:^7.2.0, @substrate/txwrapper-polkadot@npm:^7.4.0":
   version: 7.4.0
   resolution: "@substrate/txwrapper-polkadot@npm:7.4.0"
   dependencies:

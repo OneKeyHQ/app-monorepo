@@ -19,7 +19,7 @@ export async function serializeUnsignedTransaction(encodedTx: IEncodedTxDot): Pr
 
   const registry = getRegistry({
     ...encodedTx,
-    specName: encodedTx.specName as 'polkadot',
+    specName: (encodedTx.specName ?? '') as 'polkadot',
     specVersion: +numberUtils.hexToDecimal(encodedTx.specVersion).toString(),
     chainName: encodedTx.chainName ?? '',
   });
@@ -53,7 +53,7 @@ export async function serializeSignedTransaction(
   const { metadataRpc } = encodedTx;
   const registry = getRegistry({
     ...encodedTx,
-    specName: encodedTx.specName as 'polkadot',
+    specName: (encodedTx.specName ?? '') as 'polkadot',
     specVersion: +numberUtils.hexToDecimal(encodedTx.specVersion).toString(),
     chainName: encodedTx.chainName ?? '',
   });

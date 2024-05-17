@@ -1,6 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
+import { decodeAddress, encodeAddress } from '@polkadot/util-crypto/address';
 
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
