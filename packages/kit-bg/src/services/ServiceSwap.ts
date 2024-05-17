@@ -89,14 +89,6 @@ export default class ServiceSwap extends ServiceBase {
             explorers: clientNetwork.explorers,
           };
         }
-        if (network.networkId === 'all') {
-          return {
-            ...network,
-            name: 'All Network',
-            symbol: 'All Net',
-            shortcode: 'All',
-          };
-        }
         return null;
       })
       .filter(Boolean);
@@ -115,7 +107,7 @@ export default class ServiceSwap extends ServiceBase {
     await this.cancelFetchTokenList();
     const params = {
       protocol: EProtocolOfExchange.SWAP,
-      networkId: networkId === 'all' ? undefined : networkId,
+      networkId,
       keywords,
       limit,
       accountAddress,

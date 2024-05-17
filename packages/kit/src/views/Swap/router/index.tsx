@@ -8,6 +8,7 @@ import SwapMainLandModal from '../pages/modal/SwapMainLandModal';
 import SwapProviderSelectModal from '../pages/modal/SwapProviderSelectModal';
 import SwapToAnotherAddressModal from '../pages/modal/SwapToAnotherAddressModal';
 import SwapTokenSelectModal from '../pages/modal/SwapTokenSelectModal';
+import TokenRiskReminderModal from '../pages/modal/TokenRiskReminderModal';
 
 export const ModalSwapStack: IModalFlowNavigatorConfig<
   EModalSwapRoutes,
@@ -42,5 +43,9 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     name: EModalSwapRoutes.SwapToAnotherAddress,
     component: SwapToAnotherAddressModal,
     translationId: 'form__enter_address',
+  },
+  {
+    name: EModalSwapRoutes.TokenRiskReminder,
+    component: TokenRiskReminderModal,
   },
 ];

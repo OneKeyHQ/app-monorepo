@@ -215,6 +215,20 @@ class ServiceSetting extends ServiceBase {
       items: config,
     };
   }
+
+  @backgroundMethod()
+  public async addConfirmedRiskTokens(tokens: string[]) {
+    await this.backgroundApi.simpleDb.riskyTokens.addConfirmedRiskTokens(
+      tokens,
+    );
+  }
+
+  @backgroundMethod()
+  public async checkConfirmedRiskToken(tokenId: string) {
+    const confirmedRiskTokens =
+      await this.backgroundApi.simpleDb.riskyTokens.getConfirmedRiskTokens();
+    return confirmedRiskTokens.includes(tokenId);
+  }
 }
 
 export default ServiceSetting;

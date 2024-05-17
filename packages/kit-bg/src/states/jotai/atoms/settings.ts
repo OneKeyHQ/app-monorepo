@@ -18,6 +18,7 @@ export type ISettingsPersistAtom = {
   isBiologyAuthSwitchOn: boolean;
   protectCreateTransaction: boolean;
   protectCreateOrRemoveWallet: boolean;
+  tokenRiskReminder: boolean;
   spendDustUTXO: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
@@ -41,6 +42,7 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       isBiologyAuthSwitchOn: true,
       protectCreateTransaction: false,
       protectCreateOrRemoveWallet: false,
+      tokenRiskReminder: true,
       spendDustUTXO: false,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
       currencyInfo: {

@@ -14,6 +14,7 @@ export enum EModalSwapRoutes {
   SwapHistoryList = 'SwapHistoryList',
   SwapHistoryDetail = 'SwapHistoryDetail',
   SwapToAnotherAddress = 'SwapToAnotherAddress',
+  TokenRiskReminder = 'TokenRiskReminder',
 }
 
 export type IModalSwapParamList = {
@@ -39,5 +40,10 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapToAnotherAddress]: {
     address?: string;
     storeName: EJotaiContextStoreNames;
+  };
+  [EModalSwapRoutes.TokenRiskReminder]: {
+    storeName: EJotaiContextStoreNames;
+    token: ISwapToken;
+    onConfirm: () => void;
   };
 };
