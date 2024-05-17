@@ -5273,6 +5273,7 @@ __metadata:
     "@onekeyfe/onekey-cross-webview": "npm:2.0.0-alpha.5"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
+    "@polkadot/util-crypto": "npm:^12.6.2"
     "@tamagui/animations-moti": "npm:1.79.19"
     "@tamagui/babel-plugin": "npm:1.79.19"
     "@tamagui/config": "npm:1.79.19"

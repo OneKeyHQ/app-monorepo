@@ -3,6 +3,7 @@
 /* eslint-disable camelcase */
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import polkadotSdk from '@onekeyhq/kit-bg/src/vaults/impls/nostr/polkadotSdk';
 import {
   backgroundClass,
   providerApiMethod,
@@ -22,6 +23,8 @@ import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type BackgroundApiBase from '../apis/BackgroundApiBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
+const { decodeAddress } = polkadotSdk;
 
 export interface IOneKeyWalletInfo {
   enableExtContentScriptReloadButton?: boolean;
@@ -79,6 +82,7 @@ class ProviderApiPrivate extends ProviderApiBase {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public rpcCall(request: IJsBridgeMessagePayload): any {
     // noop
+    decodeAddress('XXXX');
   }
 
   // ----------------------------------------------
