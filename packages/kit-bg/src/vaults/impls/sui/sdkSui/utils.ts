@@ -1,4 +1,12 @@
-import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui.js';
+import {
+  SUI_TYPE_ARG,
+  TransactionBlock,
+  normalizeSuiAddress,
+} from '@mysten/sui.js';
+
+import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
+
+import type { JsonRpcProvider } from '@mysten/sui.js';
 
 export function normalizeSuiCoinType(coinType: string): string {
   if (coinType !== SUI_TYPE_ARG) {
@@ -14,4 +22,28 @@ export function normalizeSuiCoinType(coinType: string): string {
     }
   }
   return coinType;
+}
+
+export const moveCallTxnName = (moveCallFunctionName?: string): string =>
+  moveCallFunctionName ? moveCallFunctionName.replace(/_/g, ' ') : '';
+
+export async function toTransaction(
+  client: JsonRpcProvider,
+  sender: string,
+  tx: IEncodedTxSui | Uint8Array,
+) {
+  let transactionBlockBytes;
+  if (tx instanceof Uint8Array) {
+    transactionBlockBytes = tx;
+  } else {
+    const transactionBlock = TransactionBlock.from(tx.rawTx);
+    // If the sender has not yet been set on the transaction, then set it.
+    // NOTE: This allows for signing transactions with miss matched senders, which is important for sponsored transactions.
+    transactionBlock.setSenderIfNotSet(sender);
+    transactionBlockBytes = await transactionBlock.build({
+      provider: client,
+    });
+  }
+
+  return transactionBlockBytes;
 }

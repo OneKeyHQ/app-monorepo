@@ -47,7 +47,11 @@ import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
 import { createCoinSendTransaction } from './sdkSui/coin-helper';
 import { SuiJsonRpcClient } from './sdkSui/SuiJsonRpcClient';
-import { normalizeSuiCoinType } from './sdkSui/utils';
+import {
+  moveCallTxnName,
+  normalizeSuiCoinType,
+  toTransaction,
+} from './sdkSui/utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -150,6 +154,7 @@ export default class Vault extends VaultBase {
 
     return {
       rawTx: transaction.serialize(),
+      sender: account.address,
     };
   }
 
@@ -186,7 +191,56 @@ export default class Vault extends VaultBase {
             break;
           }
           case 'MoveCall': {
-            console.log('MoveCall', transaction);
+            if (transaction.kind !== 'MoveCall') break;
+            const args: string[] = [];
+            let argInput;
+            for (const arg of transaction.arguments ?? []) {
+              switch (arg.kind) {
+                case 'Input':
+                case 'Result':
+                case 'NestedResult':
+                  argInput = inputs[arg.index];
+                  if (argInput.type === 'pure') {
+                    const argValue = get(
+                      argInput.value,
+                      'Pure',
+                      argInput.value,
+                    );
+
+                    try {
+                      args.push(builder.de('vector<u8>', argValue));
+                    } catch (e) {
+                      try {
+                        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                        args.push(argValue.toString());
+                      } catch (error) {
+                        // ignore
+                      }
+                    }
+                  } else if (argInput.type === 'object') {
+                    try {
+                      args.push(JSON.stringify(argInput.value));
+                    } catch (e) {
+                      args.push('unable to parse object');
+                    }
+                  }
+                  break;
+
+                default:
+              }
+            }
+
+            const callName = moveCallTxnName(transaction.target).split('::');
+            actions.push({
+              type: EDecodedTxActionType.FUNCTION_CALL,
+              'functionCall': {
+                from: account.address,
+                to: `${callName?.[1]}::${callName?.[2]}`,
+                functionName: callName?.[0] ?? '',
+                args,
+                icon: network.logoURI ?? '',
+              },
+            });
             break;
           }
           case 'MakeMoveVec':
@@ -236,17 +290,140 @@ export default class Vault extends VaultBase {
     return Promise.resolve(result);
   }
 
+  override async buildUnsignedTx(
+    params: IBuildUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
+    if (encodedTx) {
+      return {
+        encodedTx,
+        transfersInfo: params.transfersInfo,
+      };
+    }
+    throw new OneKeyInternalError();
+  }
+
+  override async updateUnsignedTx(
+    params: IUpdateUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    const client = await this.getClient();
+    const { unsignedTx, feeInfo, nativeAmountInfo } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxSui;
+
+    // Initial transaction conversion to generate rawTxUnsigned
+    const initialTransaction = await toTransaction(
+      client,
+      encodedTx.sender,
+      encodedTx,
+    );
+    const rawTxUnsigned = Buffer.from(initialTransaction).toString('hex');
+
+    if (nativeAmountInfo?.maxSendAmount) {
+      const { rawTx } = encodedTx;
+      const oldTx = TransactionBlock.from(rawTx);
+
+      const transferObject = oldTx.blockData.transactions.find((transaction) =>
+        transaction.kind === 'TransferObjects' ? transaction : undefined,
+      );
+
+      if (!transferObject || transferObject.kind !== 'TransferObjects') {
+        return Promise.resolve(unsignedTx);
+      }
+
+      const to = get(transferObject.address, 'value');
+      if (!to) {
+        throw new OneKeyInternalError('Invalid transfer object');
+      }
+
+      const newTx = await createCoinSendTransaction({
+        client,
+        address: oldTx.blockData.sender ?? (await this.getAccountAddress()),
+        to,
+        amount: '100',
+        coinType: SUI_TYPE_ARG,
+        isPayAllSui: true,
+      });
+      const newEncodedTx = {
+        ...encodedTx,
+        rawTx: newTx.serialize(),
+      };
+      const newProcessedTransaction = await toTransaction(
+        client,
+        encodedTx.sender,
+        newEncodedTx,
+      );
+      const newRawTxUnsigned = Buffer.from(newProcessedTransaction).toString(
+        'hex',
+      );
+
+      return {
+        ...unsignedTx,
+        encodedTx: newEncodedTx,
+        rawTxUnsigned: newRawTxUnsigned,
+      };
+    }
+
+    return Promise.resolve({
+      ...unsignedTx,
+      rawTxUnsigned,
+    });
+  }
+
+  override broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    throw new Error('Method not implemented.');
+  }
+
+  override validateAddress(address: string): Promise<IAddressValidation> {
+    const isValid = isValidSuiAddress(address);
+    return Promise.resolve({
+      isValid,
+      normalizedAddress: isValid ? address : '',
+      displayAddress: isValid ? address : '',
+    });
+  }
+
+  override validateXpub(xpub: string): Promise<IXpubValidation> {
+    return Promise.resolve({
+      isValid: false,
+    });
+  }
+
+  override async getPrivateKeyFromImported(
+    params: IGetPrivateKeyFromImportedParams,
+  ): Promise<IGetPrivateKeyFromImportedResult> {
+    return super.baseGetPrivateKeyFromImported(params);
+  }
+
+  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    return Promise.resolve({
+      isValid: false,
+    });
+  }
+
+  override async validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    return this.baseValidatePrivateKey(privateKey);
+  }
+
+  override async validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
+    const { result } = await this.baseValidateGeneralInput(params);
+    return result;
+  }
+
   async _buildTxActionFromTransferObjects({
     transaction,
     transactions,
     inputs,
     payments,
-  }: // tokenInfo,
-  {
+  }: {
     transaction: TransferObjectsTransaction;
     transactions: TransactionBlock['blockData']['transactions'];
     inputs: TransactionBlockInput[];
-    // tokenInfo: V
     payments?: SuiGasData['payment'] | undefined;
   }): Promise<IDecodedTxAction> {
     if (transaction.kind !== 'TransferObjects') {
@@ -378,70 +555,5 @@ export default class Vault extends VaultBase {
         receives: [],
       },
     };
-  }
-
-  override async buildUnsignedTx(
-    params: IBuildUnsignedTxParams,
-  ): Promise<IUnsignedTxPro> {
-    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
-    if (encodedTx) {
-      return {
-        encodedTx,
-        transfersInfo: params.transfersInfo,
-      };
-    }
-    throw new OneKeyInternalError();
-  }
-
-  override async updateUnsignedTx(
-    params: IUpdateUnsignedTxParams,
-  ): Promise<IUnsignedTxPro> {
-    return Promise.resolve(params.unsignedTx);
-  }
-
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
-  override validateAddress(address: string): Promise<IAddressValidation> {
-    const isValid = isValidSuiAddress(address);
-    return Promise.resolve({
-      isValid,
-      normalizedAddress: isValid ? address : '',
-      displayAddress: isValid ? address : '',
-    });
-  }
-
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
-    return Promise.resolve({
-      isValid: false,
-    });
-  }
-
-  override async getPrivateKeyFromImported(
-    params: IGetPrivateKeyFromImportedParams,
-  ): Promise<IGetPrivateKeyFromImportedResult> {
-    return super.baseGetPrivateKeyFromImported(params);
-  }
-
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    return Promise.resolve({
-      isValid: false,
-    });
-  }
-
-  override async validatePrivateKey(
-    privateKey: string,
-  ): Promise<IPrivateKeyValidation> {
-    return this.baseValidatePrivateKey(privateKey);
-  }
-
-  override async validateGeneralInput(
-    params: IValidateGeneralInputParams,
-  ): Promise<IGeneralInputValidation> {
-    const { result } = await this.baseValidateGeneralInput(params);
-    return result;
   }
 }
