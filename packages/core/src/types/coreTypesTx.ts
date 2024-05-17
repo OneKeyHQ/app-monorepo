@@ -6,6 +6,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
 import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from '../chains/algo/types';
+import type { IEncodedTxAptos } from '../chains/aptos/types';
 import type { IEncodedTxBtc } from '../chains/btc/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
@@ -32,6 +33,7 @@ export type IEncodedTx =
   | IEncodedTxFil
   | IEncodedTxKaspa
   | IEncodedTxSui
+  | IEncodedTxAptos
   | IEncodedTxXrp
   | IEncodedTxXmr
   | IEncodedTxTron
@@ -46,7 +48,6 @@ export type IEncodedTx =
 //   | IEncodedTxBtc
 //   | IEncodedTxDot
 //   | IEncodedTxSTC
-//   | IEncodedTxAptos
 //   | IEncodedTxCfx
 
 export type INativeTx = object;
