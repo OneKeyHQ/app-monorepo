@@ -1,4 +1,4 @@
-import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui.js/utils';
+import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui.js';
 
 export function normalizeSuiCoinType(coinType: string): string {
   if (coinType !== SUI_TYPE_ARG) {

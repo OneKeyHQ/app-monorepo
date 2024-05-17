@@ -1,3 +1,3 @@
-import { SuiClient } from '@mysten/sui.js/client';
+import { JsonRpcProvider } from '@mysten/sui.js';
 
-export class OneKeySuiClient extends SuiClient {}
+export class OneKeySuiClient extends JsonRpcProvider {}

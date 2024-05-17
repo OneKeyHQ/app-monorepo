@@ -47,7 +47,7 @@
     "test": "yarn jest"
   },
   "dependencies": {
-    "@mysten/sui.js": "^0.54.1",
+    "@mysten/sui.js": "0.33.0",
     "@onekeyfe/cross-inpage-provider-core": "2.0.0-alpha.5",
     "@onekeyfe/cross-inpage-provider-errors": "2.0.0-alpha.5",
     "@onekeyfe/cross-inpage-provider-injected": "2.0.0-alpha.5",

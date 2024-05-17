@@ -1,18 +1,17 @@
-import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { SUI_TYPE_ARG } from '@mysten/sui.js/utils';
+import { SUI_TYPE_ARG, TransactionBlock } from '@mysten/sui.js';
 
 import { normalizeSuiCoinType } from './utils';
 
 import type {
   CoinStruct,
+  JsonRpcProvider,
   PaginatedCoins,
-  SuiClient,
-} from '@mysten/sui.js/client';
+} from '@mysten/sui.js';
 
 const MAX_COINS_PER_REQUEST = 50;
 
 export async function getAllCoins(
-  client: SuiClient,
+  client: JsonRpcProvider,
   address: string,
   coinType: string | null,
 ): Promise<CoinStruct[]> {
@@ -51,7 +50,7 @@ export async function createCoinSendTransaction({
   coinType = SUI_TYPE_ARG,
   isPayAllSui,
 }: {
-  client: SuiClient;
+  client: JsonRpcProvider;
   address: string;
   to: string;
   amount: string;
@@ -61,9 +60,7 @@ export async function createCoinSendTransaction({
   const tx = new TransactionBlock();
   const coinsData = await getAllCoins(client, address, coinType);
 
-  // TODO: debugger struct
-  // const coins = coinsData?.filter(({ lockedUntilEpoch: lock }) => !lock);
-  const coins = coinsData;
+  const coins = coinsData?.filter(({ lockedUntilEpoch: lock }) => !lock);
 
   if (isPayAllSui && coinType === SUI_TYPE_ARG) {
     tx.transferObjects([tx.gas], tx.pure(to));

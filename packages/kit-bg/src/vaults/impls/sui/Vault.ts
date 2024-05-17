@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { bcs } from '@mysten/sui.js/bcs';
-import { SuiHTTPTransport } from '@mysten/sui.js/client';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { SUI_TYPE_ARG, isValidSuiAddress } from '@mysten/sui.js/utils';
+import {
+  SUI_TYPE_ARG,
+  TransactionBlock,
+  builder,
+  isValidSuiAddress,
+} from '@mysten/sui.js';
 import BigNumber from 'bignumber.js';
 import { get, isEmpty } from 'lodash';
 
@@ -43,8 +45,8 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
-import { createCoinSendTransaction } from './sdkSui/Coin';
-import { SuiTransportProxy } from './sdkSui/SuiTransportProxy';
+import { createCoinSendTransaction } from './sdkSui/coin-helper';
+import { SuiJsonRpcClient } from './sdkSui/SuiJsonRpcClient';
 import { normalizeSuiCoinType } from './sdkSui/utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -59,18 +61,12 @@ import type {
   IGetPrivateKeyFromImportedResult,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
-import type { SuiGasData } from '@mysten/sui.js/client';
 import type {
+  SuiGasData,
   TransactionBlockInput,
-  Transactions,
-} from '@mysten/sui.js/transactions';
-
-type ITransactionsType = TransactionBlock['blockData']['transactions'];
-type ITransactionElementType = ITransactionsType extends Array<infer U>
-  ? U
-  : never;
+  TransferObjectsTransaction,
+} from '@mysten/sui.js';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sui.hd;
@@ -94,15 +90,12 @@ export default class Vault extends VaultBase {
   }
 
   getSuiClient() {
-    const transportProxy = new SuiTransportProxy({
+    const rpcClient = new SuiJsonRpcClient({
       backgroundApi: this.backgroundApi,
       networkId: this.networkId,
     });
-    return new OneKeySuiClient({
-      transport: new SuiHTTPTransport({
-        url: '',
-        fetch: (...args) => transportProxy.fetch(...args),
-      }),
+    return new OneKeySuiClient(undefined, {
+      rpcClient,
     });
   }
 
@@ -189,7 +182,7 @@ export default class Vault extends VaultBase {
               inputs,
               payments: gasConfig.payment,
             });
-            console.log('TransferObjects actions: ', action);
+            actions.push(action);
             break;
           }
           case 'MoveCall': {
@@ -248,12 +241,14 @@ export default class Vault extends VaultBase {
     transactions,
     inputs,
     payments,
-  }: {
-    transaction: ITransactionElementType;
-    transactions: ITransactionsType;
+  }: // tokenInfo,
+  {
+    transaction: TransferObjectsTransaction;
+    transactions: TransactionBlock['blockData']['transactions'];
     inputs: TransactionBlockInput[];
+    // tokenInfo: V
     payments?: SuiGasData['payment'] | undefined;
-  }) {
+  }): Promise<IDecodedTxAction> {
     if (transaction.kind !== 'TransferObjects') {
       throw new Error('Invalid transaction kind');
     }
@@ -313,12 +308,12 @@ export default class Vault extends VaultBase {
             }
           }
 
-          amount = result.amounts.reduce((acc, curr) => {
-            let current = acc;
-            if (curr.kind === 'Input') {
-              current = current.plus(new BigNumber(curr.value));
+          amount = result.amounts.reduce((acc, current) => {
+            let newAmount = acc;
+            if (current.kind === 'Input') {
+              newAmount = newAmount.plus(new BigNumber(current.value));
             }
-            return current;
+            return newAmount;
           }, new BigNumber(0));
           break;
         }
@@ -342,9 +337,7 @@ export default class Vault extends VaultBase {
       const argValue = get(transaction.address.value, 'Pure', undefined);
       if (argValue) {
         try {
-          const r = bcs.string(argValue);
-          console.log('rrr= : ', r);
-          to = bcs.string(argValue);
+          to = builder.de('vector<u8>', argValue);
         } catch (e) {
           try {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
@@ -359,12 +352,31 @@ export default class Vault extends VaultBase {
     }
 
     const isNative = coinType === SUI_TYPE_ARG;
+    const { address: sender } = await this.getAccount();
+    const token = await this.backgroundApi.serviceToken.getToken({
+      networkId: this.networkId,
+      tokenIdOnNetwork: coinType,
+      accountAddress: sender,
+    });
     return {
       type: EDecodedTxActionType.ASSET_TRANSFER,
-      isNative,
-      coinType,
-      amount,
-      recipient: to,
+      assetTransfer: {
+        from: sender,
+        to,
+        sends: [
+          {
+            from: sender,
+            to,
+            amount: amount.shiftedBy(-token.decimals).toFixed(),
+            icon: token.logoURI ?? '',
+            name: token.name,
+            symbol: token.symbol,
+            tokenIdOnNetwork: coinType,
+            isNative,
+          },
+        ],
+        receives: [],
+      },
     };
   }
 
@@ -375,6 +387,7 @@ export default class Vault extends VaultBase {
     if (encodedTx) {
       return {
         encodedTx,
+        transfersInfo: params.transfersInfo,
       };
     }
     throw new OneKeyInternalError();
