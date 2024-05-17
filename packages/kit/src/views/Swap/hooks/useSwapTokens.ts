@@ -5,6 +5,8 @@ import { isNil } from 'lodash';
 import { Toast } from '@onekeyhq/components';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type {
   ISwapInitParams,
   ISwapNetwork,
@@ -231,7 +233,9 @@ export function useSwapTokenList(
   currentNetworkId?: string,
   keywords?: string,
 ) {
-  const [currentTokens, setCurrentTokens] = useState<ISwapToken[]>([]);
+  const [currentTokens, setCurrentTokens] = useState<
+    (ISwapToken | IFuseResult<ISwapToken>)[]
+  >([]);
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const { tokenListFetchAction } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
@@ -263,10 +267,19 @@ export function useSwapTokenList(
     ],
   );
 
+  const fuseRemoteTokensSearch = useFuse(
+    tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
+    { keys: ['symbol', 'contractAddress'] },
+  );
+
+  const fuseRemoteTokensSearchRef = useRef(fuseRemoteTokensSearch);
+  if (fuseRemoteTokensSearchRef.current !== fuseRemoteTokensSearch) {
+    fuseRemoteTokensSearchRef.current = fuseRemoteTokensSearch;
+  }
+
   useEffect(() => {
     if (
       tokenFetchParams.accountNetworkId &&
-      tokenFetchParams.networkId !== 'all' &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId
     ) {
       // current network is not the same as account network skip fetch
@@ -278,15 +291,18 @@ export function useSwapTokenList(
   useEffect(() => {
     if (
       tokenFetchParams.accountNetworkId &&
-      tokenFetchParams.networkId !== 'all' &&
       tokenFetchParams.networkId !== tokenFetchParams.accountNetworkId
     ) {
       return;
     }
-    setCurrentTokens(
-      tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
-    );
-  }, [tokenCatch, tokenFetchParams, currentNetworkId]);
+    if (keywords && fuseRemoteTokensSearchRef.current) {
+      setCurrentTokens(fuseRemoteTokensSearchRef.current.search(keywords));
+    } else {
+      setCurrentTokens(
+        tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
+      );
+    }
+  }, [tokenCatch, tokenFetchParams, currentNetworkId, keywords]);
 
   return {
     fetchLoading: swapTokenFetching && currentTokens.length === 0,
