@@ -187,7 +187,7 @@ const SwapProviderSelectModal = () => {
 const SwapProviderSelectModalWithProvider = () => {
   const route =
     useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapProviderSelect>
     >();
   const { storeName } = route.params;
   return (
