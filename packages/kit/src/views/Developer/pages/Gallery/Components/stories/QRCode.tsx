@@ -68,7 +68,27 @@ const QRCodeGallery = () => (
             <QRCode
               value="https://onekey.so/"
               logoSvg="OnekeyBrand"
-              logoSvgColor="$bgStrongActive"
+              logoSvgColor="$bgCriticalStrong"
+              size={200}
+            />
+          </YStack>
+        ),
+      },
+      {
+        title: 'DrawType',
+        element: (
+          <YStack justifyContent="center" flex={1} space="$4">
+            <QRCode
+              drawType="line"
+              value="https://onekey.so/"
+              logoSvg="OnekeyBrand"
+              size={200}
+            />
+            <QRCode
+              drawType="line"
+              value="https://onekey.so/"
+              logoSvg="OnekeyBrand"
+              logoSvgColor="$bgCriticalStrong"
               size={200}
             />
           </YStack>
