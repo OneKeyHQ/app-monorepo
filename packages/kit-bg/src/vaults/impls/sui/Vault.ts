@@ -307,16 +307,8 @@ export default class Vault extends VaultBase {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     const client = await this.getClient();
-    const { unsignedTx, feeInfo, nativeAmountInfo } = params;
+    const { unsignedTx, nativeAmountInfo } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSui;
-
-    // Initial transaction conversion to generate rawTxUnsigned
-    const initialTransaction = await toTransaction(
-      client,
-      encodedTx.sender,
-      encodedTx,
-    );
-    const rawTxUnsigned = Buffer.from(initialTransaction).toString('hex');
 
     if (nativeAmountInfo?.maxSendAmount) {
       const { rawTx } = encodedTx;
@@ -347,26 +339,13 @@ export default class Vault extends VaultBase {
         ...encodedTx,
         rawTx: newTx.serialize(),
       };
-      const newProcessedTransaction = await toTransaction(
-        client,
-        encodedTx.sender,
-        newEncodedTx,
-      );
-      const newRawTxUnsigned = Buffer.from(newProcessedTransaction).toString(
-        'hex',
-      );
-
       return {
         ...unsignedTx,
         encodedTx: newEncodedTx,
-        rawTxUnsigned: newRawTxUnsigned,
       };
     }
 
-    return Promise.resolve({
-      ...unsignedTx,
-      rawTxUnsigned,
-    });
+    return Promise.resolve(unsignedTx);
   }
 
   override broadcastTransaction(
