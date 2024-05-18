@@ -157,13 +157,19 @@ export function AmountInput({
       >
         <Stack>
           <Image height="$7" width="$7" borderRadius="$full">
-            {tokenSelectorTriggerProps?.selectedTokenImageUri ? (
-              <Image.Source
-                source={{
-                  uri: tokenSelectorTriggerProps?.selectedTokenImageUri,
-                }}
-              />
-            ) : null}
+            <Image.Source
+              source={{
+                uri: tokenSelectorTriggerProps?.selectedTokenImageUri,
+              }}
+            />
+            <Image.Fallback
+              alignItems="center"
+              justifyContent="center"
+              bg="$bgStrong"
+              delayMs={1000}
+            >
+              <Icon size="$6" name="CoinOutline" color="$iconDisabled" />
+            </Image.Fallback>
           </Image>
           <Stack
             position="absolute"
@@ -180,6 +186,9 @@ export function AmountInput({
                     uri: tokenSelectorTriggerProps?.selectedNetworkImageUri,
                   }}
                 />
+                <Image.Fallback bg="$bgStrong" delayMs={1000}>
+                  <Icon size="$3" name="QuestionmarkSolid" />
+                </Image.Fallback>
               </Image>
             ) : null}
           </Stack>
