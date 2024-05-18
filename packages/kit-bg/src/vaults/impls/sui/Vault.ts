@@ -368,22 +368,8 @@ export default class Vault extends VaultBase {
   override async broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
-    const client = await this.getClient();
     try {
-      const { signature, signatureScheme, publicKey, rawTx, encodedTx } =
-        params.signedTx;
-
-      // let scheme: SignatureScheme = 'ED25519';
-      // switch (signatureScheme) {
-      //   case 'ed25519':
-      //     scheme = 'ED25519';
-      //     break;
-      //   case 'secp256k1':
-      //     scheme = 'Secp256k1';
-      //     break;
-      //   default:
-      //     throw new OneKeyInternalError('Unsupported signature scheme');
-      // }
+      const { signature, publicKey, rawTx, encodedTx } = params.signedTx;
 
       if (!signature) {
         throw new Error('signature is empty');
@@ -399,18 +385,9 @@ export default class Vault extends VaultBase {
         signature,
       });
 
-      // const transactionResponse = await client.executeTransactionBlock({
-      //   transactionBlock: rawTx,
-      //   signature,
-      //   requestType: (encodedTx as IEncodedTxSui).requestType,
-      // });
-
-      // const txid = getTransactionDigest(transactionResponse);
-
       console.log('broadcastTransaction Done:', {
         txid,
         rawTx,
-        // transactionResponse,
       });
 
       return {
