@@ -350,6 +350,7 @@ export interface IBroadcastTransactionParams {
   networkId: string;
   accountAddress: string;
   signedTx: ISignedTxPro;
+  signature?: string;
 }
 
 export interface ISignTransactionParamsBase {

@@ -3,6 +3,7 @@ import {
   SUI_TYPE_ARG,
   TransactionBlock,
   builder,
+  getTransactionDigest,
   isValidSuiAddress,
 } from '@mysten/sui.js';
 import BigNumber from 'bignumber.js';
@@ -67,6 +68,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type {
+  SignatureScheme,
   SuiGasData,
   TransactionBlockInput,
   TransferObjectsTransaction,
@@ -348,10 +350,72 @@ export default class Vault extends VaultBase {
     return Promise.resolve(unsignedTx);
   }
 
-  override broadcastTransaction(
+  override async broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    const client = await this.getClient();
+    try {
+      const { signature, signatureScheme, publicKey, rawTx, encodedTx } =
+        params.signedTx;
+
+      // let scheme: SignatureScheme = 'ED25519';
+      // switch (signatureScheme) {
+      //   case 'ed25519':
+      //     scheme = 'ED25519';
+      //     break;
+      //   case 'secp256k1':
+      //     scheme = 'Secp256k1';
+      //     break;
+      //   default:
+      //     throw new OneKeyInternalError('Unsupported signature scheme');
+      // }
+
+      if (!signature) {
+        throw new Error('signature is empty');
+      }
+      if (!publicKey) {
+        throw new Error('publicKey is empty');
+      }
+
+      const txid = await this.backgroundApi.serviceSend.broadcastTransaction({
+        networkId: this.networkId,
+        signedTx: params.signedTx,
+        accountAddress: (await this.getAccount()).address,
+        signature,
+      });
+
+      // const transactionResponse = await client.executeTransactionBlock({
+      //   transactionBlock: rawTx,
+      //   signature,
+      //   requestType: (encodedTx as IEncodedTxSui).requestType,
+      // });
+
+      // const txid = getTransactionDigest(transactionResponse);
+
+      console.log('broadcastTransaction Done:', {
+        txid,
+        rawTx,
+        // transactionResponse,
+      });
+
+      return {
+        ...params.signedTx,
+        txid,
+      };
+    } catch (error: any) {
+      const { errorCode, message }: { errorCode: any; message: string } =
+        error || {};
+
+      // payAllSui problem https://github.com/MystenLabs/sui/issues/6364
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      const errorMessage = `${errorCode ?? ''} ${message}`;
+      if (message.indexOf('Insufficient gas:') !== -1) {
+        // TODO: need to i18n insufficient fee message
+        throw new OneKeyInternalError('msg__broadcast_tx_Insufficient_fee');
+      } else {
+        throw new OneKeyInternalError(errorMessage);
+      }
+    }
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

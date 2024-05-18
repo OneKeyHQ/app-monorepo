@@ -236,7 +236,7 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
-    const { networkId, signedTx, accountAddress } = params;
+    const { networkId, signedTx, accountAddress, signature } = params;
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
@@ -244,6 +244,7 @@ class ServiceSend extends ServiceBase {
       networkId,
       accountAddress,
       tx: signedTx.rawTx,
+      signature,
     });
 
     return resp.data.data.result;
