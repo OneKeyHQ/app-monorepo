@@ -2387,7 +2387,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'impl': 'evm',
     'isTestnet': false,
     'logoURI':
-      'https://nft.onekey-asset.com/admin/upload_1710215845256.0.7011825641467067.0.webp',
+      'https://uni.onekey-asset.com/static/logo/IoTeXNetworkMainnet.webp',
     'name': 'IoTeX Network Mainnet',
     'shortcode': 'iotex',
     'shortname': 'iotex',
@@ -2426,7 +2426,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'impl': 'evm',
     'isTestnet': false,
     'logoURI':
-      'https://nft.onekey-asset.com/admin/upload_1707122414644.0.38264347863462334.0.webp',
+      'https://uni.onekey-asset.com/static/logo/mantaPacificMainnet.webp',
     'name': 'Manta Pacific Mainnet',
     'shortcode': 'mantapacific',
     'shortname': 'mantapacific',
@@ -2466,7 +2466,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'impl': 'evm',
     'isTestnet': false,
     'logoURI':
-      'https://nft.onekey-asset.com/admin/upload_1709276470548.0.0022311721712551247.0.png',
+      'https://uni.onekey-asset.com/static/logo/blast.png',
     'name': 'Blast',
     'shortcode': 'blast',
     'shortname': 'blast',
