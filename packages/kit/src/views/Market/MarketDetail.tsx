@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
-import { Stack } from 'tamagui';
 
 import {
   HeaderIconButton,
   Icon,
+  Stack,
   IconButton,
   Image,
   NumberSizeableText,
@@ -44,7 +44,7 @@ function TokenDetailHeader({
   return (
     <YStack $gtMd={{ minWidth: 296 }}>
       <XStack>
-        <YStack>
+        <YStack  flex={1}>
           <SizableText size="$headingMd" color="$textSubdued">
             Ethereum
           </SizableText>
