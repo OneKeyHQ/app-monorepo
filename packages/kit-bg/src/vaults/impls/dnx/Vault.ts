@@ -264,12 +264,6 @@ export default class Vault extends VaultBase {
     throw new Error('Method not implemented.');
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override validateAddress(address: string): Promise<IAddressValidation> {
     throw new Error('Method not implemented.');
   }

@@ -318,26 +318,15 @@ class ServiceSend extends ServiceBase {
         accountId,
       })
     ) {
-      const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-      let txid: string | undefined;
-      if (vaultSettings.sendTransactionBySelf) {
-        const vault = await vaultFactory.getVault({
-          networkId,
-          accountId,
-        });
-        ({ txid } = await vault.broadcastTransaction({
-          networkId,
-          accountAddress,
-          signedTx,
-        }));
-      } else {
-        txid = await this.broadcastTransaction({
-          networkId,
-          signedTx,
-          accountAddress,
-        });
-      }
+      const vault = await vaultFactory.getVault({
+        networkId,
+        accountId,
+      });
+      const { txid } = await vault.broadcastTransaction({
+        networkId,
+        accountAddress,
+        signedTx,
+      });
       if (!txid) {
         throw new Error('Broadcast transaction failed.');
       }

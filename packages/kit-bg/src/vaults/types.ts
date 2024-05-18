@@ -136,7 +136,6 @@ export type IVaultSettings = {
   validationRequired?: boolean;
   hideAmountInputOnFirstEntry?: boolean;
   allowZeroFee?: boolean;
-  sendTransactionBySelf?: boolean;
 
   onChainHistoryDisabled?: boolean;
 

@@ -439,10 +439,6 @@ export default class VaultCosmos extends VaultBase {
     };
   }
 
-  override async broadcastTransaction(): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const { addressPrefix } = await this.getNetworkInfo();
     return validateCosmosAddress({

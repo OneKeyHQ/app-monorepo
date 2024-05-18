@@ -885,20 +885,6 @@ export default class Vault extends VaultBase {
     return client;
   }
 
-  override async broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    const { signedTx } = params;
-    const client = await this.getEthersClient();
-    const result = await client.sendTransaction(signedTx.rawTx);
-    console.log('evm broadcastTransaction result: ', result);
-    return {
-      encodedTx: signedTx.encodedTx,
-      txid: signedTx.txid,
-      rawTx: signedTx.rawTx,
-    };
-  }
-
   override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {

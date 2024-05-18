@@ -534,12 +534,6 @@ export default class Vault extends VaultBase {
     return Promise.resolve(tx);
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const isValid = confluxAddress.isValidCfxAddress(address);
     const chainId = await this.getNetworkChainId();
