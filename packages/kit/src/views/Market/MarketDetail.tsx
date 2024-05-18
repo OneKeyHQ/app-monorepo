@@ -1,15 +1,14 @@
 import { useCallback, useMemo } from 'react';
 
-
 import {
   HeaderIconButton,
   Icon,
-  Stack,
   IconButton,
   Image,
   NumberSizeableText,
   Page,
   SizableText,
+  Stack,
   Tab,
   XStack,
   YStack,
@@ -28,23 +27,21 @@ import type {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
+import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
 import { TextCell } from './components/TextCell';
 
-function TokenDetailHeader({
-  token: {
+function TokenDetailHeader({ token }: { token: IMarketTokenDetail }) {
+  const {
     stats: { performance, volume24h, marketCap, marketCapRank, fdv },
-  },
-}: {
-  token: IMarketTokenDetail;
-}) {
+  } = token;
   const { gtMd } = useMedia();
   return (
-    <YStack $gtMd={{ minWidth: 296 }}>
+    <YStack $gtMd={{ maxWidth: 296 }}>
       <XStack>
-        <YStack  flex={1}>
+        <YStack flex={1}>
           <SizableText size="$headingMd" color="$textSubdued">
             Ethereum
           </SizableText>
@@ -57,6 +54,7 @@ function TokenDetailHeader({
             2963.6
           </NumberSizeableText>
           <NumberSizeableText
+            pt="$0.5"
             formatter="priceChange"
             formatterOptions={{ showPlusMinusSigns: true }}
             color={
@@ -70,7 +68,9 @@ function TokenDetailHeader({
         </YStack>
         <Icon name="StarOutline" size="$5" />
       </XStack>
-      {gtMd ? null : (
+      {gtMd ? (
+        <MarketDetailOverview token={token} />
+      ) : (
         <XStack pt="$6" flex={1} ai="center" jc="center" space="$2">
           <TextCell title="24H VOL(USD)">{volume24h}</TextCell>
           <TextCell title="Market Cap" rank={marketCapRank}>
@@ -131,7 +131,7 @@ function MarketDetail({
   }
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
