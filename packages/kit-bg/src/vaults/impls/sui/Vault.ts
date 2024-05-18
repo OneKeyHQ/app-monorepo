@@ -309,9 +309,10 @@ export default class Vault extends VaultBase {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     const client = await this.getClient();
-    const { unsignedTx, nativeAmountInfo } = params;
+    const { unsignedTx, nativeAmountInfo, feeInfo } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSui;
 
+    // max send
     if (nativeAmountInfo?.maxSendAmount) {
       const { rawTx } = encodedTx;
       const oldTx = TransactionBlock.from(rawTx);
@@ -337,6 +338,20 @@ export default class Vault extends VaultBase {
         coinType: SUI_TYPE_ARG,
         isPayAllSui: true,
       });
+      const newEncodedTx = {
+        ...encodedTx,
+        rawTx: newTx.serialize(),
+      };
+      return {
+        ...unsignedTx,
+        encodedTx: newEncodedTx,
+      };
+    }
+
+    if (feeInfo?.gas?.gasLimit && feeInfo?.gas?.gasPrice) {
+      const newTx = TransactionBlock.from(encodedTx.rawTx);
+      newTx.blockData.gasConfig.price = feeInfo.gas.gasPrice;
+      newTx.blockData.gasConfig.budget = feeInfo.gas.gasLimit;
       const newEncodedTx = {
         ...encodedTx,
         rawTx: newTx.serialize(),
