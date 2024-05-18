@@ -275,13 +275,6 @@ export default class Vault extends VaultBase {
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
-      // feeInfo: {
-      //   price: chainValueUtils.convertChainValueToGwei({
-      //     value: '1',
-      //     network,
-      //   }),
-      //   limit: gasLimit,
-      // },
       payload: {
         type: EOnChainHistoryTxType.Send,
       },
