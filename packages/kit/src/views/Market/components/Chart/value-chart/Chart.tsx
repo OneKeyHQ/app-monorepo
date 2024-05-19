@@ -7,12 +7,12 @@ import { throttle } from 'lodash';
 import { View } from 'react-native';
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 
-import { Box } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import ExtremeLabels from './ExtremeLabels';
 
-import type { OnHoverFunction } from '../chartService';
+import type { IOnHoverFunction } from '../chartUtils';
 
 export default function ChartWrapper({
   isFetching,
@@ -25,7 +25,7 @@ export default function ChartWrapper({
   isFetching: boolean;
   height: number;
   lineColor: string;
-  onHover: OnHoverFunction;
+  onHover: IOnHoverFunction;
 }) {
   const { isActive, originalX, originalY } = useChartData();
 
@@ -49,7 +49,7 @@ export default function ChartWrapper({
   );
 
   return (
-    <Box position="relative">
+    <YStack position="relative">
       <ExtremeLabels color={lineColor} width={width} />
       <ChartPath
         fill="none"
@@ -89,6 +89,6 @@ export default function ChartWrapper({
           }}
         />
       </ChartDot>
-    </Box>
+    </YStack>
   );
 }
