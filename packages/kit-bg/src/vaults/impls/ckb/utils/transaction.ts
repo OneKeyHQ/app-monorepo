@@ -9,12 +9,12 @@ import { ResultFormatter } from '@ckb-lumos/rpc';
 
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
+import type ClientCkb from '../sdkCkb/ClientCkb';
 import type { Cell, OutPoint, Transaction } from '@ckb-lumos/base';
 import type {
   LiveCellFetcher,
   TransactionSkeletonType,
 } from '@ckb-lumos/helpers';
-import type { RPC } from '@ckb-lumos/rpc';
 
 export const DEFAULT_MIN_INPUT_CAPACITY = 61 * 100000000;
 
@@ -22,7 +22,7 @@ export async function convertTxToTxSkeleton({
   client,
   transaction,
 }: {
-  client: RPC;
+  client: ClientCkb;
   transaction: Transaction;
 }) {
   const fetcher: LiveCellFetcher = async (

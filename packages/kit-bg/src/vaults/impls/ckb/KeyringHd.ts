@@ -8,7 +8,6 @@ import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
-  ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 
@@ -33,8 +32,7 @@ export class KeyringHd extends KeyringHdBase {
     return this.baseSignTransaction(params);
   }
 
-  override async signMessage(params: ISignMessageParams): Promise<string[]> {
-    // throw new Error('Method not implemented.');
-    return this.baseSignMessage(params);
+  override async signMessage(): Promise<string[]> {
+    throw new Error('Method not implemented.');
   }
 }

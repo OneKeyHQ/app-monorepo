@@ -12,6 +12,7 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
+import type { IEncodedTxCkb } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -25,7 +26,6 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -43,19 +43,15 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new Error('Method not implemented.');
     const { unsignedTx } = payload;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxCkb;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
 
-    const { txSkeleton } = unsignedTx.payload as {
-      txSkeleton: TransactionSkeletonType;
-    };
-
     const { txSkeleton: txSkeletonWithMessage, message } =
-      serializeTransactionMessage(txSkeleton);
+      serializeTransactionMessage(encodedTx);
 
     if (!message) {
       throw new OneKeyInternalError('Unable to serialize transaction message.');

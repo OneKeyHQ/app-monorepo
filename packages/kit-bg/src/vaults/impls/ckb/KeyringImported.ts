@@ -8,7 +8,6 @@ import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
-  ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 
@@ -33,10 +32,7 @@ export class KeyringImported extends KeyringImportedBase {
     return this.baseSignTransaction(params);
   }
 
-  override async signMessage(
-    params: ISignMessageParams,
-  ): Promise<ISignedMessagePro> {
-    // throw new Error('Method not implemented.')
-    return this.baseSignMessage(params);
+  override async signMessage(): Promise<ISignedMessagePro> {
+    throw new Error('Method not implemented.');
   }
 }

@@ -1907,6 +1907,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ckb-lumos/ckb-indexer@npm:^0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/ckb-indexer@npm:0.22.2"
+  dependencies:
+    "@ckb-lumos/base": "npm:0.22.2"
+    "@ckb-lumos/bi": "npm:0.22.2"
+    "@ckb-lumos/codec": "npm:0.22.2"
+    "@ckb-lumos/rpc": "npm:0.22.2"
+    "@ckb-lumos/toolkit": "npm:0.22.2"
+    cross-fetch: "npm:^3.1.5"
+    events: "npm:^3.3.0"
+  checksum: 10/c7a4359c754d783427a4402b42a5a74043473e46a2eb47b1f37bff1a71e758a35da5012c683fb4e3b0c5e8ea3456df0f65ee1778d27115c4bc988a691feb1bbf
+  languageName: node
+  linkType: hard
+
 "@ckb-lumos/codec@npm:0.22.2":
   version: 0.22.2
   resolution: "@ckb-lumos/codec@npm:0.22.2"
@@ -5528,6 +5543,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/core@workspace:packages/core"
   dependencies:
+    "@ckb-lumos/ckb-indexer": "npm:^0.22.2"
     "@ckb-lumos/common-scripts": "npm:^0.22.2"
     "@conflux-dev/conflux-address-js": "npm:^1.3.16"
     "@glif/filecoin-address": "npm:^2.0.43"

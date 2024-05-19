@@ -603,3 +603,30 @@ export class MinimumTransferBalanceRequiredForSendingAssetError extends OneKeyEr
     );
   }
 }
+
+export type IMinimumTransferAmountErrorInfo = {
+  amount: string;
+};
+
+export class MinimumTransferAmountError extends OneKeyError<IMinimumTransferAmountErrorInfo> {
+  constructor(props: IOneKeyError<IMinimumTransferAmountErrorInfo>) {
+    super(
+      normalizeErrorProps(
+        {
+          ...props,
+          info: {
+            '0': props.info?.amount,
+          },
+        },
+        {
+          defaultMessage: 'MinimumTransferAmountError',
+          defaultKey: 'form__str_minimum_transfer',
+        },
+      ),
+    );
+  }
+}
+
+export type IChangeLessThanMinInputCapacityError = {
+  amount: string;
+};
