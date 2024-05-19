@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -40,7 +40,7 @@ const options = [
   },
 ];
 
-export function TokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
+function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [days, setDays] = useState<string>(options[0].value);
@@ -85,3 +85,5 @@ export function TokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
     </YStack>
   );
 }
+
+export const TokenPriceChart = memo(BasicTokenPriceChart);

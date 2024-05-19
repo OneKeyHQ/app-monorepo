@@ -32,6 +32,7 @@ import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
 import { TextCell } from './components/TextCell';
+import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
 
 function TokenDetailHeader({ token }: { token: IMarketTokenDetail }) {
@@ -136,7 +137,10 @@ function MarketDetail({
           space="$5"
         >
           <TokenDetailHeader token={tokenDetail} />
-          <TokenPriceChart coinGeckoId={coinGeckoId} />
+          <YStack $gtMd={{ flexGrow: 1 }}>
+            <TokenPriceChart coinGeckoId={coinGeckoId} />
+            <TokenDetailTabs token={tokenDetail} />
+          </YStack>
         </Stack>
       </YStack>
     </Page>
