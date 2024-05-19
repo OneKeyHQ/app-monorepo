@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, Spinner, Stack, useMedia } from '@onekeyhq/components';
+import { Empty, Spinner, Stack, XStack, useMedia } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -113,10 +113,10 @@ export function PriceChart({
   const chartViewWithSpinner = isFetching ? <Spinner /> : chartView;
   return gtMd ? (
     <>
-      <Stack flexDirection="row" justifyContent="space-between">
+      <XStack justifyContent="space-between">
         {priceLabel}
         <Stack w={280}>{data ? children : null}</Stack>
-      </Stack>
+      </XStack>
       <Stack h={240} mt={32} justifyContent="center" alignItems="center">
         {chartViewWithSpinner}
       </Stack>

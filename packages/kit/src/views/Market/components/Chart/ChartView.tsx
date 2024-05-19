@@ -3,7 +3,7 @@ import { memo } from 'react';
 
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
-import ChartViewAdapter from './ChartViewAdapter.native';
+import ChartViewAdapter from './ChartViewAdapter';
 
 import type { BusinessDay, UTCTimestamp } from 'lightweight-charts';
 
