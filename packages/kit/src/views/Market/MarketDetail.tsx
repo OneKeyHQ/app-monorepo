@@ -32,6 +32,7 @@ import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
 import { TextCell } from './components/TextCell';
+import { DetailTokenChart } from './components/DetailTokenChart';
 
 function TokenDetailHeader({ token }: { token: IMarketTokenDetail }) {
   const {
@@ -79,14 +80,6 @@ function TokenDetailHeader({ token }: { token: IMarketTokenDetail }) {
           <TextCell title="FDV">{fdv}</TextCell>
         </XStack>
       )}
-    </YStack>
-  );
-}
-
-function DetailTokenChart() {
-  return (
-    <YStack width="100%" $gtMd={{ px: '$5' }}>
-      <SizableText>chart</SizableText>
     </YStack>
   );
 }
@@ -143,7 +136,7 @@ function MarketDetail({
           space="$5"
         >
           <TokenDetailHeader token={tokenDetail} />
-          <DetailTokenChart />
+          <DetailTokenChart coinGeckoId={coinGeckoId} />
         </Stack>
       </YStack>
     </Page>

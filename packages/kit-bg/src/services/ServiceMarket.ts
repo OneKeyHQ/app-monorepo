@@ -7,6 +7,7 @@ import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
   IMarketCategory,
   IMarketToken,
+  IMarketTokenChart,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
@@ -93,6 +94,24 @@ class ServiceMarket extends ServiceBase {
       params: {
         query,
         network,
+      },
+    });
+    const { code, data } = response.data;
+    return code === 0 ? data : [];
+  }
+
+  @backgroundMethod()
+  async fetchTokenChart(coingeckoId: string, days: number, points: number) {
+    const client = await this.getClient();
+    const response = await client.get<{
+      code: number;
+      data: IMarketTokenChart;
+    }>('/utility/v1/market/token/chart', {
+      headers: await getDevHeaders(),
+      params: {
+        coingeckoId,
+        days,
+        points,
       },
     });
     const { code, data } = response.data;

@@ -83,3 +83,5 @@ export interface IMarketTokenDetail {
   links: IMarketDetailLinks;
   stats: IMarketDetailStats;
 }
+
+export type IMarketTokenChart = [number, number][];
