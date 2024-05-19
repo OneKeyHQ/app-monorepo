@@ -85,3 +85,73 @@ export interface IMarketTokenDetail {
 }
 
 export type IMarketTokenChart = [number, number][];
+
+export interface IMarketDetailPoolPriceChangePercentage {
+  m5: string;
+  h1: string;
+  h6: string;
+  h24: string;
+}
+
+export interface IMarketDetailPoolH1 {
+  buys: number;
+  sells: number;
+  buyers: number | null;
+  sellers: number | null;
+}
+
+export interface IMarketDetailPoolTransactions {
+  m5: IMarketDetailPoolH1;
+  m15: IMarketDetailPoolH1;
+  m30: IMarketDetailPoolH1;
+  h1: IMarketDetailPoolH1;
+  h24: IMarketDetailPoolH1;
+}
+
+export enum EMarketDetailDataType {
+  Dex = 'dex',
+  Token = 'token',
+}
+
+export interface IMarketDetailData {
+  id: string;
+  type: EMarketDetailDataType;
+}
+export interface IMarketDetailPoolBaseToken {
+  data: IMarketDetailData;
+}
+
+export enum EMarketDetailDatumType {
+  Pool = 'pool',
+}
+
+export interface IMarketDetailPoolRelationships {
+  base_token: IMarketDetailPoolBaseToken;
+  quote_token: IMarketDetailPoolBaseToken;
+  dex: IMarketDetailPoolBaseToken;
+}
+
+interface IMarketDetailPoolAttributes {
+  base_token_price_usd: string;
+  base_token_price_native_currency: string;
+  quote_token_price_usd: string;
+  quote_token_price_native_currency: string;
+  base_token_price_quote_token: string;
+  quote_token_price_base_token: string;
+  address: string;
+  name: string;
+  pool_created_at: Date;
+  fdv_usd: string;
+  market_cap_usd: null | string;
+  price_change_percentage: IMarketDetailPoolPriceChangePercentage;
+  transactions: IMarketDetailPoolTransactions;
+  volume_usd: IMarketDetailPoolPriceChangePercentage;
+  reserve_in_usd: string;
+}
+
+export interface IMarketDetailPool {
+  id: string;
+  type: EMarketDetailDatumType;
+  attributes: IMarketDetailPoolAttributes;
+  relationships: IMarketDetailPoolRelationships;
+}

@@ -5,6 +5,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import { MarketDetailLinks } from './MarketDetailLinks';
 import { MarketDetailOverview } from './MarketDetailOverview';
+import { MarketDetailPools } from './MarketDetailPools';
 
 function BasicTokenDetailTabs({ token }: { token: IMarketTokenDetail }) {
   const { md } = useMedia();
@@ -15,7 +16,7 @@ function BasicTokenDetailTabs({ token }: { token: IMarketTokenDetail }) {
         {
           title: 'Pools',
           // eslint-disable-next-line react/no-unstable-nested-components
-          page: () => <MarketDetailOverview token={token} />,
+          page: () => <MarketDetailPools token={token} />,
         },
         md
           ? {
