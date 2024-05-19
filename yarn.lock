@@ -1882,6 +1882,123 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ckb-lumos/base@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/base@npm:0.22.2"
+  dependencies:
+    "@ckb-lumos/bi": "npm:0.22.2"
+    "@ckb-lumos/codec": "npm:0.22.2"
+    "@ckb-lumos/toolkit": "npm:0.22.2"
+    "@types/blake2b": "npm:^2.1.0"
+    "@types/lodash.isequal": "npm:^4.5.5"
+    blake2b: "npm:^2.1.3"
+    js-xxhash: "npm:^1.0.4"
+    lodash.isequal: "npm:^4.5.0"
+  checksum: 10/2812af316a19364028fd049c5d42ecc0c452ea4be4c69e2ee0f56bf66249ce6667f9b08e038cb7eb88b1ac4f00f4cf4c6b83f41f78b4008c89479ff5fd3479e8
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/bi@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/bi@npm:0.22.2"
+  dependencies:
+    jsbi: "npm:^4.1.0"
+  checksum: 10/e71047bbb551ca7e1fd7ff3d9224f6bde2a5e5a69fa9dee90aaf2626e0b019c7c9c38e0511a4bff5d83ddff701f457edd8bba338962413f468fd8b174cdfdba5
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/ckb-indexer@npm:^0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/ckb-indexer@npm:0.22.2"
+  dependencies:
+    "@ckb-lumos/base": "npm:0.22.2"
+    "@ckb-lumos/bi": "npm:0.22.2"
+    "@ckb-lumos/codec": "npm:0.22.2"
+    "@ckb-lumos/rpc": "npm:0.22.2"
+    "@ckb-lumos/toolkit": "npm:0.22.2"
+    cross-fetch: "npm:^3.1.5"
+    events: "npm:^3.3.0"
+  checksum: 10/c7a4359c754d783427a4402b42a5a74043473e46a2eb47b1f37bff1a71e758a35da5012c683fb4e3b0c5e8ea3456df0f65ee1778d27115c4bc988a691feb1bbf
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/codec@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/codec@npm:0.22.2"
+  dependencies:
+    "@ckb-lumos/bi": "npm:0.22.2"
+  checksum: 10/9bc91dfe573dfd864a172cfb9c47f331ec2b8508d7becc7bcd6312e21e452c3559bb7fa63fbb203ff48449ed356d4546b0fb7634d6223693f1f7e6542d817e9a
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/common-scripts@npm:^0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/common-scripts@npm:0.22.2"
+  dependencies:
+    "@ckb-lumos/base": "npm:0.22.2"
+    "@ckb-lumos/bi": "npm:0.22.2"
+    "@ckb-lumos/codec": "npm:0.22.2"
+    "@ckb-lumos/config-manager": "npm:0.22.2"
+    "@ckb-lumos/helpers": "npm:0.22.2"
+    "@ckb-lumos/rpc": "npm:0.22.2"
+    "@ckb-lumos/toolkit": "npm:0.22.2"
+    bech32: "npm:^2.0.0"
+    bs58: "npm:^5.0.0"
+    immutable: "npm:^4.3.0"
+  checksum: 10/533a1a776cac585a21e953d556a3ba7b0baf74bf35c64bec92fc371f5840be0c7778190d7b5925bd03935bd31d7b379e38848967919659c53fff23465c078727
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/config-manager@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/config-manager@npm:0.22.2"
+  dependencies:
+    "@ckb-lumos/base": "npm:0.22.2"
+    "@ckb-lumos/bi": "npm:0.22.2"
+    "@ckb-lumos/codec": "npm:0.22.2"
+    "@ckb-lumos/rpc": "npm:0.22.2"
+    "@types/deep-freeze-strict": "npm:^1.1.0"
+    deep-freeze-strict: "npm:^1.1.1"
+  checksum: 10/6f87644d137525e8cd8234b6e744ff14f917a92c02a93c1d227ce9e3e3ef35be0d6904033efba0eb71d8119f0b37390c03463f2649500e78c8a981ae6826e251
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/helpers@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/helpers@npm:0.22.2"
+  dependencies:
+    "@ckb-lumos/base": "npm:0.22.2"
+    "@ckb-lumos/bi": "npm:0.22.2"
+    "@ckb-lumos/codec": "npm:0.22.2"
+    "@ckb-lumos/config-manager": "npm:0.22.2"
+    "@ckb-lumos/toolkit": "npm:0.22.2"
+    bech32: "npm:^2.0.0"
+    immutable: "npm:^4.3.0"
+  checksum: 10/6176a41891374bd060cbf3d547367acaaffc9ea6d2eba0e64dbd43c26fb9287a808574af682bcd8f485e41412f9aa512434efc0dab7611b7b930fa5cfe4a8f54
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/rpc@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/rpc@npm:0.22.2"
+  dependencies:
+    "@ckb-lumos/base": "npm:0.22.2"
+    "@ckb-lumos/bi": "npm:0.22.2"
+    abort-controller: "npm:^3.0.0"
+    cross-fetch: "npm:^3.1.5"
+  checksum: 10/62ac97e12e9e311e16138289f9dd7883844c2dec79272c1ef81a9eb01391b6d50ec0330e61accd0f517c70a8847695dc833840daf2e400e3230087ece4ab3233
+  languageName: node
+  linkType: hard
+
+"@ckb-lumos/toolkit@npm:0.22.2":
+  version: 0.22.2
+  resolution: "@ckb-lumos/toolkit@npm:0.22.2"
+  dependencies:
+    "@ckb-lumos/bi": "npm:0.22.2"
+  checksum: 10/64f92d00c8d1435f8a92880755a1cb5c85da1a054063bce8d904816d73c3a15799f0f3ac7f63df7c1cac7d112b9f8429a0bb1900b4187fab3c3ad1a28cf9743f
+  languageName: node
+  linkType: hard
+
 "@conflux-dev/conflux-address-js@npm:1.3.16, @conflux-dev/conflux-address-js@npm:^1.3.16":
   version: 1.3.16
   resolution: "@conflux-dev/conflux-address-js@npm:1.3.16"
@@ -5454,6 +5571,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/core@workspace:packages/core"
   dependencies:
+    "@ckb-lumos/ckb-indexer": "npm:^0.22.2"
+    "@ckb-lumos/common-scripts": "npm:^0.22.2"
     "@conflux-dev/conflux-address-js": "npm:^1.3.16"
     "@glif/filecoin-address": "npm:^2.0.43"
     "@glif/filecoin-message": "npm:^2.0.44"
@@ -9498,6 +9617,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/blake2b@npm:^2.1.0":
+  version: 2.1.3
+  resolution: "@types/blake2b@npm:2.1.3"
+  checksum: 10/55a6ed7123a7adc82cc51131644b6c035c28142d028fbc23fe06251c76583ee3303d73204e21de8ea075ef84a04c4ed424754f5035fed20730a85272620a0de3
+  languageName: node
+  linkType: hard
+
 "@types/bn.js@npm:*, @types/bn.js@npm:^5.1.0, @types/bn.js@npm:^5.1.1, @types/bn.js@npm:^5.1.5":
   version: 5.1.5
   resolution: "@types/bn.js@npm:5.1.5"
@@ -9633,6 +9759,13 @@ __metadata:
   dependencies:
     "@types/ms": "npm:*"
   checksum: 10/47876a852de8240bfdaf7481357af2b88cb660d30c72e73789abf00c499d6bc7cd5e52f41c915d1b9cd8ec9fef5b05688d7b7aef17f7f272c2d04679508d1053
+  languageName: node
+  linkType: hard
+
+"@types/deep-freeze-strict@npm:^1.1.0":
+  version: 1.1.2
+  resolution: "@types/deep-freeze-strict@npm:1.1.2"
+  checksum: 10/b6e5b5dd68ce74ae5c2c3a43dce9725c79f0d15895c4db90f878e999b9ba553c2bed3af4806ae0f34b6fc003e71adc094d29664654803f85e70db91d1dd440ba
   languageName: node
   linkType: hard
 
@@ -9885,6 +10018,22 @@ __metadata:
   dependencies:
     "@types/node": "npm:*"
   checksum: 10/e009a2bfb50e90ca9b7c6e8f648f8464067271fd99116f881073fa6fa76dc8d0133181dd65e6614d5fb1220d671d67b0124aef7d97dc02d7e342ab143a47779d
+  languageName: node
+  linkType: hard
+
+"@types/lodash.isequal@npm:^4.5.5":
+  version: 4.5.8
+  resolution: "@types/lodash.isequal@npm:4.5.8"
+  dependencies:
+    "@types/lodash": "npm:*"
+  checksum: 10/f3180c2d2925514fff1908a1303c11468c9f39b47fd7b053416aad3f1447f8e4a9894dd0460187ac9ac19387e25aec8dd8214d13a50a0967e0dc9cca8e4c5353
+  languageName: node
+  linkType: hard
+
+"@types/lodash@npm:*":
+  version: 4.17.1
+  resolution: "@types/lodash@npm:4.17.1"
+  checksum: 10/384bdd29348a000f8e815f94839a1a8c7f5a4ca856b016ade7f2abdc1df0b4e3e009c113b69db320a8fde51d1f38e60c19462b9bf3e82e0e2e32d3ac3e7ba2c4
   languageName: node
   linkType: hard
 
@@ -12965,7 +13114,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"blake2b@npm:^2.1.4":
+"blake2b@npm:^2.1.3, blake2b@npm:^2.1.4":
   version: 2.1.4
   resolution: "blake2b@npm:2.1.4"
   dependencies:
@@ -15471,6 +15620,13 @@ __metadata:
   version: 0.6.0
   resolution: "deep-extend@npm:0.6.0"
   checksum: 10/7be7e5a8d468d6b10e6a67c3de828f55001b6eb515d014f7aeb9066ce36bd5717161eb47d6a0f7bed8a9083935b465bc163ee2581c8b128d29bf61092fdf57a7
+  languageName: node
+  linkType: hard
+
+"deep-freeze-strict@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "deep-freeze-strict@npm:1.1.1"
+  checksum: 10/06e7a740391a09f97c2ff25c8b5fa2caccbab8de0b53db3d40f6aa49c0955366444304044cde3a9a5e7c95e973961ff9d8d05e225e208d69bbefacc38b41097d
   languageName: node
   linkType: hard
 
@@ -20413,6 +20569,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"immutable@npm:^4.3.0":
+  version: 4.3.6
+  resolution: "immutable@npm:4.3.6"
+  checksum: 10/59fedb67f26e265035616b27e33ef90b53b434cf76fb09212ec2d6ae32ee8d2fe2641e6dc32dbc78498c521fbf5f72c6740d39affba63a0a36a3884272371857
+  languageName: node
+  linkType: hard
+
 "import-fresh@npm:^2.0.0":
   version: 2.0.0
   resolution: "import-fresh@npm:2.0.0"
@@ -22167,6 +22330,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"js-xxhash@npm:^1.0.4":
+  version: 1.0.4
+  resolution: "js-xxhash@npm:1.0.4"
+  checksum: 10/990e041f8aee5e412a73e177eabcce5f87d3eff250b934dd45095bc7d5e15b747444187878b2781b7574a6565c3fe2e2f88a288eb4f2902179607f179cac464e
+  languageName: node
+  linkType: hard
+
 "js-yaml@npm:^3.13.1":
   version: 3.14.1
   resolution: "js-yaml@npm:3.14.1"
@@ -22194,6 +22364,13 @@ __metadata:
   version: 3.2.5
   resolution: "jsbi@npm:3.2.5"
   checksum: 10/2cceb3a06dcb16493e936aa22384d912dd5f0a1fd474b97b5c6705011bd0aac8214d9a392a730b3f3ffb61a8fbe910a34d0fe881329be6a02857520d7a61ace6
+  languageName: node
+  linkType: hard
+
+"jsbi@npm:^4.1.0":
+  version: 4.3.0
+  resolution: "jsbi@npm:4.3.0"
+  checksum: 10/c2195d79c1da263d4d00973c1d7c6676678eafd8cf2ef5fa4ffa684ae3e948a2267cb3de213744e767d22a10dcb6266c88320820ec19f11d282e99acb361e4c9
   languageName: node
   linkType: hard
 

@@ -438,6 +438,13 @@ export default class Vault extends VaultBase {
           };
         }
 
+        // token address is required when building erc20 token transfer
+        if (!tokenInfo.address) {
+          throw new Error(
+            'buildEncodedTx ERROR: transferInfo.tokenInfo.address missing',
+          );
+        }
+
         // token transfer
         const data = await this._buildEncodedDataFromTransferToken({
           to,

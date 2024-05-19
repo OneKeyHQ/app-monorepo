@@ -615,6 +615,7 @@ export default class VaultBtc extends VaultBase {
       try {
         const feeInfo = await this.backgroundApi.serviceGas.estimateFee({
           networkId: this.networkId,
+          accountAddress: await this.getAccountAddress(),
         });
         const { feeUTXO } = feeInfo;
         if (!feeUTXO || isEmpty(feeUTXO)) {
