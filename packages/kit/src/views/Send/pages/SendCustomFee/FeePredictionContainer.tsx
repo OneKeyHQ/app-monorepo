@@ -13,17 +13,23 @@ import type { IGasEIP1559 } from '@onekeyhq/shared/types/fee';
 
 type IProps = {
   networkId: string;
+  accountId: string;
   onSelected: (fee: IGasEIP1559) => void;
 };
 
 function FeePredictionContainer(props: IProps) {
-  const { networkId, onSelected } = props;
+  const { accountId, networkId, onSelected } = props;
   const intl = useIntl();
 
   const { gasEIP1559 } =
     usePromiseResult(async () => {
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
       const r = await backgroundApiProxy.serviceGas.estimateFee({
         networkId,
+        accountAddress: account.address,
       });
       return r;
     }, [networkId]).result ?? {};

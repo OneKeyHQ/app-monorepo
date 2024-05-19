@@ -46,6 +46,7 @@ export type IFeeSol = {
 
 export type IEstimateGasParams = {
   networkId: string;
+  accountAddress: string;
   encodedTx?: IEncodedTx;
 };
 

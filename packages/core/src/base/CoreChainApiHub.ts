@@ -4,6 +4,7 @@ import CoreChainAlgo from '../chains/algo';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
 import CoreChainCfx from '../chains/cfx';
+import CoreChainCkb from '../chains/ckb';
 import CoreChainCosmos from '../chains/cosmos';
 import CoreChainDnx from '../chains/dnx';
 import CoreChainDoge from '../chains/doge';
@@ -74,4 +75,6 @@ export class CoreChainApiHub {
   neurai = new CoreChainNeurai();
 
   dnx = new CoreChainDnx();
+
+  ckb = new CoreChainCkb();
 }

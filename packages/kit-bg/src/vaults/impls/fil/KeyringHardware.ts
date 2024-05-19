@@ -74,7 +74,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address || '',
           );
           const addressInfo: ICoreApiGetAddressItem = {
-            address: normalizedAddress || address || '',
+            address: '',
             path,
             publicKey: '',
             addresses: { [this.networkId]: normalizedAddress || address || '' },

@@ -87,8 +87,13 @@ function TxFeeContainer(props: IProps) {
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
         });
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId,
+          networkId,
+        });
         const r = await backgroundApiProxy.serviceGas.estimateFee({
           networkId,
+          accountAddress: account.address,
           encodedTx: await backgroundApiProxy.serviceGas.buildEstimateFeeParams(
             {
               accountId,
