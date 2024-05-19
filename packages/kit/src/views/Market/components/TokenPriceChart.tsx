@@ -17,7 +17,7 @@ export function TokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
       });
   }, [coinGeckoId]);
   return (
-    <YStack width="100%" $gtMd={{ px: '$5' }}>
+    <YStack $gtMd={{ px: '$5', flexGrow: 1 }}>
       <PriceChart data={points}>
         <SizableText>TimeControl</SizableText>
       </PriceChart>
