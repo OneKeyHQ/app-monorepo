@@ -96,6 +96,9 @@ const COINTYPE_NOSTR = '1237';
 const IMPL_DNX = 'dnx';
 const COINTYPE_DNX = '29538';
 
+const IMPL_CKB = 'ckb';
+const COINTYPE_CKB = '309';
+
 const IMPL_ALLNETWORKS = 'all';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -127,6 +130,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_NOSTR,
   IMPL_NEURAI,
   IMPL_DNX,
+  IMPL_CKB,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -158,6 +162,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_NEXA,
   IMPL_NEURAI,
   IMPL_DNX,
+  IMPL_CKB,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -227,6 +232,7 @@ export {
   COINTYPE_XRP,
   COINTYPE_NEURAI,
   COINTYPE_DNX,
+  COINTYPE_CKB,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -255,6 +261,7 @@ export {
   IMPL_XRP,
   IMPL_NEURAI,
   IMPL_DNX,
+  IMPL_CKB,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,
