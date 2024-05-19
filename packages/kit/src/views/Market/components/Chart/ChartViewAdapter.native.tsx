@@ -9,6 +9,7 @@ import ChartWrapper from './value-chart/Chart';
 import useChartThrottledPoints from './value-chart/useChartThrottledPoints';
 
 import type { IChartViewAdapterProps } from './chartUtils';
+import type { LayoutChangeEvent } from 'react-native';
 
 const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
   data,
@@ -29,7 +30,7 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
       nativeEvent: {
         layout: { width: newWidth },
       },
-    }) => {
+    }: LayoutChangeEvent) => {
       setWidth(newWidth);
     },
     [setWidth],
