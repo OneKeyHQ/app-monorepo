@@ -3,7 +3,14 @@ import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, Spinner, Stack, XStack, useMedia } from '@onekeyhq/components';
+import {
+  Empty,
+  Spinner,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -102,7 +109,7 @@ export function PriceChart({
     data && data.length > 0 ? (
       <ChartView
         isFetching={isFetching}
-        height={gtMd ? 240 : 190}
+        height={gtMd ? 346 : 326}
         data={data}
         onHover={onHover}
       />
