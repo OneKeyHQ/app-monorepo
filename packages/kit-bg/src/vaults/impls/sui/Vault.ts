@@ -52,6 +52,7 @@ import {
   moveCallTxnName,
   normalizeSuiCoinType,
   toTransaction,
+  waitPendingTransaction,
 } from './sdkSui/utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -70,6 +71,8 @@ import type {
 import type {
   SignatureScheme,
   SuiGasData,
+  SuiTransactionBlockResponse,
+  SuiTransactionBlockResponseOptions,
   TransactionBlockInput,
   TransferObjectsTransaction,
 } from '@mysten/sui.js';
@@ -583,5 +586,13 @@ export default class Vault extends VaultBase {
         receives: [],
       },
     };
+  }
+
+  async waitPendingTransaction(
+    txId: string,
+    options?: SuiTransactionBlockResponseOptions,
+  ): Promise<SuiTransactionBlockResponse | undefined> {
+    const client = await this.getClient();
+    return waitPendingTransaction(client, txId, options);
   }
 }
