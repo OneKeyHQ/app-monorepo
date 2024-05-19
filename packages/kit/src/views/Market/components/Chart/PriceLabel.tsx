@@ -50,8 +50,7 @@ function calculateGains({
   basePrice?: number;
   price?: number | string | null;
 }) {
-  let gainTextColor = 'text-subdued';
-  let gainTextBg = 'surface-neutral-subdued';
+  let gainTextColor = '$textSubdued';
 
   const priceNum = new BigNumber(
     typeof price === 'string' ? +price : price ?? 0,
@@ -67,7 +66,6 @@ function calculateGains({
       percentageGain: '0.00%',
       isPositive: false,
       gainTextColor,
-      gainTextBg,
     };
   }
   const gainNumber = gain.toNumber();
@@ -84,11 +82,9 @@ function calculateGains({
     : `${percentageGain.toFixed(2)}%`;
 
   if (!isPositive) {
-    gainTextColor = 'text-critical';
-    gainTextBg = 'surface-critical-default';
+    gainTextColor = '$textCritical';
   } else {
-    gainTextColor = 'text-success';
-    gainTextBg = 'surface-success-default';
+    gainTextColor = '$textSuccess';
   }
 
   return {
@@ -96,7 +92,6 @@ function calculateGains({
     gainNumber,
     gainText,
     gainTextColor,
-    gainTextBg,
     percentageGain,
     isPositive,
   };
@@ -130,7 +125,8 @@ export function PriceLabel({ price, basePrice, time }: IPriceLabelProps) {
   return (
     <YStack>
       <NumberSizeableText
-        size="$headingXl"
+        size="$heading3xl"
+        formatter="price"
         formatterOptions={{ currency: '$' }}
       >
         {String(price)}
