@@ -101,7 +101,7 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTokenChart(coingeckoId: string, days: number, points: number) {
+  async fetchTokenChart(coingeckoId: string, days: string, points: number) {
     const client = await this.getClient();
     const response = await client.get<{
       code: number;

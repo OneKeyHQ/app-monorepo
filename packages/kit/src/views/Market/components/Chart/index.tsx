@@ -122,7 +122,7 @@ export function PriceChart({
     <>
       <XStack justifyContent="space-between">
         {priceLabel}
-        <Stack w={280}>{data ? children : null}</Stack>
+        {data ? children : null}
       </XStack>
       <Stack h={240} mt={32} justifyContent="center" alignItems="center">
         {chartViewWithSpinner}
