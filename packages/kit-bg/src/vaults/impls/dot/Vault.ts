@@ -7,10 +7,7 @@ import { isEmpty, isNil } from 'lodash';
 import { serializeUnsignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -467,7 +464,7 @@ export default class VaultDot extends VaultBase {
     if (encodedTx) {
       return {
         encodedTx,
-      }
+      };
     }
     throw new OneKeyInternalError();
   }
@@ -476,7 +473,7 @@ export default class VaultDot extends VaultBase {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     const { unsignedTx } = params;
-    let encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     if (params.nonceInfo) {
       encodedTx.nonce = numberUtils.numberToHex(params.nonceInfo.nonce, {
         prefix0x: true,
