@@ -566,26 +566,23 @@ export default class Vault extends VaultBase {
       tokenIdOnNetwork: coinType,
       accountAddress: sender,
     });
-    return {
-      type: EDecodedTxActionType.ASSET_TRANSFER,
-      assetTransfer: {
-        from: sender,
-        to,
-        sends: [
-          {
-            from: sender,
-            to,
-            amount: amount.shiftedBy(-token.decimals).toFixed(),
-            icon: token.logoURI ?? '',
-            name: token.name,
-            symbol: token.symbol,
-            tokenIdOnNetwork: coinType,
-            isNative,
-          },
-        ],
-        receives: [],
-      },
+
+    const transfer = {
+      from: sender,
+      to,
+      amount: amount.shiftedBy(-token.decimals).toFixed(),
+      icon: token.logoURI ?? '',
+      name: token.name,
+      symbol: token.symbol,
+      tokenIdOnNetwork: coinType,
+      isNative,
     };
+
+    return this.buildTxTransferAssetAction({
+      from: sender,
+      to,
+      transfers: [transfer],
+    });
   }
 
   async waitPendingTransaction(

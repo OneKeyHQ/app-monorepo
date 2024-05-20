@@ -13,6 +13,7 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import HomeSelector from '../components/HomeSelector';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 
@@ -21,8 +22,6 @@ import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
-
-import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
