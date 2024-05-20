@@ -2,7 +2,10 @@ import { useCallback } from 'react';
 
 import { Input, View, XStack } from '@onekeyhq/components';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
+import {
+  EUniversalSearchFilterTypes,
+  EUniversalSearchPages,
+} from '@onekeyhq/shared/src/routes/universalSearch';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 
@@ -11,6 +14,9 @@ export function UniversalSearchInput() {
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
+      params: {
+        filterType: EUniversalSearchFilterTypes.account,
+      },
     });
   }, [navigation]);
   return (

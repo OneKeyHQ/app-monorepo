@@ -2,6 +2,13 @@ export enum EUniversalSearchPages {
   UniversalSearch = 'UniversalSearch',
 }
 
+export enum EUniversalSearchFilterTypes {
+  'account' = 'account',
+  'market' = 'market',
+}
+
 export type IUniversalSearchParamList = {
-  [EUniversalSearchPages.UniversalSearch]: undefined;
+  [EUniversalSearchPages.UniversalSearch]: {
+    filterType?: EUniversalSearchFilterTypes;
+  };
 };
