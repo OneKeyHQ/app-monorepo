@@ -218,7 +218,17 @@ class ServiceApp extends ServiceBase {
       const r = await this.universalSearchOfAddress({ input, networkId });
       result[EUniversalSearchType.Address] = r;
     }
+
+    if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
+      result[EUniversalSearchType.MarketToken] = {
+        items: await this.universalSearchOfMarketToken(input),
+      };
+    }
     return result;
+  }
+
+  async universalSearchOfMarketToken(query: string) {
+    return this.backgroundApi.serviceMarket.searchToken(query);
   }
 
   async universalSearchOfAddress({

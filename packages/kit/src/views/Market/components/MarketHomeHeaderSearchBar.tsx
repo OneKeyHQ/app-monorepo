@@ -3,10 +3,8 @@ import { useCallback } from 'react';
 import { SearchBar, View, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  EUniversalSearchFilterTypes,
-  EUniversalSearchPages,
-} from '@onekeyhq/shared/src/routes/universalSearch';
+import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
+import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 export function MarketHomeHeaderSearchBar() {
   const navigation = useAppNavigation();
@@ -14,7 +12,7 @@ export function MarketHomeHeaderSearchBar() {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
       params: {
-        filterType: EUniversalSearchFilterTypes.market,
+        filterType: EUniversalSearchType.Address,
       },
     });
   }, [navigation]);

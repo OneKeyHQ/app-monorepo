@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useDebouncedCallback } from 'use-debounce';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
   Page,
@@ -14,6 +15,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type {
+  EUniversalSearchPages,
+  IUniversalSearchParamList,
+} from '@onekeyhq/shared/src/routes/universalSearch';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
@@ -52,7 +57,13 @@ const SkeletonItem = () => (
   </XStack>
 );
 
-export function UniversalSearch() {
+export function UniversalSearch({
+  route,
+}: IPageScreenProps<
+  IUniversalSearchParamList,
+  EUniversalSearchPages.UniversalSearch
+>) {
+  const { params } = route || {};
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [sections, setSections] = useState<IUniversalSection[]>([]);
@@ -64,7 +75,7 @@ export function UniversalSearch() {
     const result = await backgroundApiProxy.serviceApp.universalSearch({
       input,
       networkId: activeAccount?.network?.id,
-      searchTypes: [EUniversalSearchType.Address],
+      searchTypes: [params?.filterType || EUniversalSearchType.Address],
     });
     const items = result?.[EUniversalSearchType.Address]?.items;
     if (items?.length) {

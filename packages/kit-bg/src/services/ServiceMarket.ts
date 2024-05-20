@@ -118,6 +118,25 @@ class ServiceMarket extends ServiceBase {
     const { code, data } = response.data;
     return code === 0 ? data : [];
   }
+
+  @backgroundMethod()
+  async searchToken(query: string) {
+    const client = await this.getClient();
+    const response = await client.get<{
+      code: number;
+      data: string[];
+    }>('/utility/v1/market/search', {
+      headers: await getDevHeaders(),
+      params: {
+        query,
+      },
+    });
+    const { code, data } = response.data;
+    if (code === 0) {
+      return this.fetchCategory('all', data, false);
+    }
+    return [];
+  }
 }
 
 export default ServiceMarket;
