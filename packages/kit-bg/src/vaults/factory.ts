@@ -8,6 +8,7 @@ import {
 import {
   IMPL_ADA,
   IMPL_ALGO,
+  IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
@@ -113,6 +114,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
     [IMPL_SUI]: () => import('./impls/sui/Vault') as any,
     [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,
+    [IMPL_APTOS]: () => import('./impls/aptos/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {
