@@ -2460,8 +2460,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--81457',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI':
-      'https://uni.onekey-asset.com/static/logo/blast.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/logo/blast.png',
     'name': 'Blast',
     'shortcode': 'blast',
     'shortname': 'blast',
@@ -2533,6 +2532,41 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'status': ENetworkStatus.LISTED,
     'createdAt': '2024-04-09T00:00:00.001Z',
     'updatedAt': '2024-04-09T00:00:00.001Z',
+  };
+
+  const sui = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'mainnet',
+    'code': 'sui',
+    'decimals': 9,
+    'id': 'sui--mainnet',
+    'impl': 'sui',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
+    'name': 'SUI',
+    'shortcode': 'sui',
+    'shortname': 'SUI',
+    'symbol': 'SUI',
+    'feeMeta': {
+      'code': 'sui',
+      'decimals': 9,
+      'symbol': 'SUI',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address':
+          'https://explorer.sui.io/addresses/{address}/?network=mainnet',
+        'block': 'https://explorer.sui.io/objects/{block}/?network=mainnet',
+        'name': 'https://explorer.sui.io?network=mainnet',
+        'transaction':
+          'https://explorer.sui.io/transactions/{transaction}/?network=mainnet',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
   const fil = {
@@ -2678,6 +2712,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     dnx,
     fil,
     algo,
+    sui,
     ckb,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];

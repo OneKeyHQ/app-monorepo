@@ -1,6 +1,6 @@
 import {
-  COINTYPE_LIGHTNING,
-  IMPL_LIGHTNING,
+  COINTYPE_SUI,
+  IMPL_SUI,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -10,41 +10,40 @@ import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
-    namePrefix: 'Lightning',
-    template: `m/44'/${COINTYPE_LIGHTNING}'/${INDEX_PLACEHOLDER}'/0/0`,
-    coinType: COINTYPE_LIGHTNING,
+    namePrefix: 'SUI',
+    labelKey: 'form__bip44_standard',
+    template: `m/44'/${COINTYPE_SUI}'/${INDEX_PLACEHOLDER}'/0'/0'`,
+    coinType: COINTYPE_SUI,
   },
 };
 
 const settings: IVaultSettings = {
-  impl: IMPL_LIGHTNING,
-  coinTypeDefault: COINTYPE_LIGHTNING,
+  impl: IMPL_SUI,
+  coinTypeDefault: COINTYPE_SUI,
   accountType: EDBAccountType.SIMPLE,
 
-  importedAccountEnabled: false,
+  importedAccountEnabled: true,
   hardwareAccountEnabled: true,
   externalAccountEnabled: false,
-  watchingAccountEnabled: false,
+  watchingAccountEnabled: true,
 
   defaultFeePresetIndex: 0,
 
   isUtxo: false,
-  isSingleToken: true,
+  isSingleToken: false,
   NFTEnabled: false,
-  nonceRequired: false,
+  nonceRequired: true,
   feeUTXORequired: false,
-  editFeeEnabled: false,
+  editFeeEnabled: true,
   replaceTxEnabled: false,
 
   accountDeriveInfo,
   networkInfo: {
     default: {
-      curve: 'secp256k1',
+      curve: 'ed25519',
       addressPrefix: '',
     },
   },
-  validationRequired: true,
-  hideAmountInputOnFirstEntry: true,
 };
 
 export default Object.freeze(settings);

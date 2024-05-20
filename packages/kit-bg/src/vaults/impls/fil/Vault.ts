@@ -324,12 +324,6 @@ export default class Vault extends VaultBase {
     return Promise.resolve(tx);
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   async _getOutputAddress(address: string) {
     const network = await this.getNetwork();
     const addressObj = decode(address);

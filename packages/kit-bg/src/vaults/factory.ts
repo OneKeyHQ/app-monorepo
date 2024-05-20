@@ -25,6 +25,7 @@ import {
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
+  IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
@@ -108,6 +109,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
     [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
+    [IMPL_SUI]: () => import('./impls/sui/Vault') as any,
     [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,
   };
   const loader = vaultsLoader[impl];

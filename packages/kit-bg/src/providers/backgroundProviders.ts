@@ -14,7 +14,7 @@ import ProviderApiNostr from './ProviderApiNostr';
 import ProviderApiPrivate from './ProviderApiPrivate';
 import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
-// import ProviderApiSui from './ProviderApiSui';
+import ProviderApiSui from './ProviderApiSui';
 import ProviderApiTron from './ProviderApiTron';
 import ProviderApiWebln from './ProviderApiWebln';
 
@@ -57,9 +57,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.algo]: new ProviderApiAlgo({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.sui]: new ProviderApiSui({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.sui]: new ProviderApiSui({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.cardano]: new ProviderApiCardano({
       backgroundApi,
     }),
