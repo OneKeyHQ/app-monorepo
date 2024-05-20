@@ -185,7 +185,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       params.messages.map(async (payload) => {
         const response = await HardwareSDK.suiSignMessage(connectId, deviceId, {
           ...params.deviceParams?.deviceCommonParams,
-          messageHex: hexUtils.hexlify(bufferUtils.hexToBytes(payload.payload)),
+          messageHex: hexUtils.hexlify(bufferUtils.hexToBytes(payload.message)),
           path: dbAccount.path,
         });
         if (!response.success) {
