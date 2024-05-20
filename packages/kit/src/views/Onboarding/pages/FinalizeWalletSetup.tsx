@@ -107,7 +107,7 @@ function FinalizeWalletSetupPage({
       setTimeout(() => {
         navigation.navigate(ERootRoutes.Main);
         if (isFirstCreateWallet.current) {
-          void maybeShowBackupToggleDialog(true);
+          // void maybeShowBackupToggleDialog(true);
         }
       }, 1000);
     }

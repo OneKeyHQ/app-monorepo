@@ -57,9 +57,9 @@ function LnurlAuthModal() {
   const [isLoading, setIsLoading] = useState(false);
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
@@ -230,9 +230,9 @@ function LnurlAuthModal() {
           }}
           confirmButtonProps={{
             loading: isLoading,
-            disabled: !canContinueOperate,
+            disabled: !continueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

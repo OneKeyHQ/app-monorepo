@@ -44,9 +44,9 @@ function SignMessageModal() {
   }, [currentNetwork]);
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
@@ -100,9 +100,9 @@ function SignMessageModal() {
           onConfirm={(params) => handleSignMessage(params)}
           onCancel={() => dappApprove.reject()}
           confirmButtonProps={{
-            disabled: !canContinueOperate,
+            disabled: !continueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>
