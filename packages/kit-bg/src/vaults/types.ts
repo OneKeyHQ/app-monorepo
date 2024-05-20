@@ -111,6 +111,7 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+  softwareAccountDisabled?: boolean;
 
   isUtxo: boolean;
   isSingleToken: boolean;
@@ -135,11 +136,16 @@ export type IVaultSettings = {
   validationRequired?: boolean;
   hideAmountInputOnFirstEntry?: boolean;
   allowZeroFee?: boolean;
-  sendTransactionBySelf?: boolean;
 
   onChainHistoryDisabled?: boolean;
 
   cannotSendToSelf?: boolean;
+
+  withPaymentId?: boolean;
+
+  enabledOnClassicOnly?: boolean;
+
+  nativeTokenAddress?: string;
 };
 
 export type IVaultFactoryOptions = {
@@ -263,10 +269,13 @@ export type ITransferInfo = {
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  keepAlive?: boolean; // Polkadot chain keep alive
 
   // Lightning network
   lnurlPaymentInfo?: ILNURLPaymentInfo;
   lightningAddress?: string;
+
+  paymentId?: string; // Dynex chain paymentId
 };
 
 export type IApproveInfo = {
@@ -302,6 +311,10 @@ export type IUtxoInfo = {
   amount?: IAdaAmount[];
   datumHash?: string | null;
   referenceScriptHash?: string | null;
+  scriptPublicKey?: {
+    scriptPublicKey: string;
+    version: number;
+  };
 };
 
 export type INativeAmountInfo = {
@@ -340,6 +353,7 @@ export interface IBroadcastTransactionParams {
   networkId: string;
   accountAddress: string;
   signedTx: ISignedTxPro;
+  signature?: string;
 }
 
 export interface ISignTransactionParamsBase {

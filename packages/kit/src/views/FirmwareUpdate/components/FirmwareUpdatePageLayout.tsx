@@ -7,7 +7,7 @@ export function FirmwareUpdatePageHeader() {
     <Page.Header
       dismissOnOverlayPress={false}
       // disableClose
-      title="Firmware Update"
+      title="Hardware Update"
     />
   );
 }
@@ -27,7 +27,7 @@ export function FirmwareUpdatePageLayout({
     <Stack>
       <FirmwareUpdatePageHeader />
       <Page.Body>
-        <Stack px="$4">{children}</Stack>
+        <Stack p="$5">{children}</Stack>
       </Page.Body>
     </Stack>
   );

@@ -182,7 +182,7 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
 const SwapHistoryListModalWithProvider = () => {
   const route =
     useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
     >();
   const { storeName } = route.params;
   return (

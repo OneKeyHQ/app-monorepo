@@ -126,7 +126,6 @@ export function HomePageView({
     if (!account) {
       return (
         <YStack height="100%">
-          <UpdateReminder />
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             <EmptyAccount
@@ -186,6 +185,7 @@ export function HomePageView({
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
+          <UpdateReminder />
           <HomeFirmwareUpdateReminder />
           {content}
         </Page.Body>

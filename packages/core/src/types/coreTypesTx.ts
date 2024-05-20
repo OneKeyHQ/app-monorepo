@@ -5,12 +5,17 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
+import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from '../chains/algo/types';
 import type { IEncodedTxBtc } from '../chains/btc/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
+import type { IEncodedTxCkb } from '../chains/ckb/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
+import type { IEncodedTxDot } from '../chains/dot/types';
+import type { IEncodedTxDnx } from '../chains/dnx/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
+import type { IEncodedTxNear } from '../chains/near/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxNostr } from '../chains/nostr/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
@@ -34,9 +39,14 @@ export type IEncodedTx =
   | IEncodedTxTron
   | IEncodedTxNexa
   | IEncodedTxLightning
-  | IEncodedTxNostr;
-//   | IEncodedTxAlgo
-//   | IEncodedTxNear
+  | IEncodedTxNostr
+  | IEncodedTxDot
+  | IEncodedTxDnx
+  | IEncodedTxNostr
+  | IEncodedTxAlgo
+  | IEncodedTxGroupAlgo
+  | IEncodedTxCkb
+  | IEncodedTxNear;
 //   | IEncodedTxBtc
 //   | IEncodedTxDot
 //   | IEncodedTxSTC
