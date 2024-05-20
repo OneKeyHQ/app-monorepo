@@ -1,32 +1,9 @@
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
-import {
-  AddressLookupTableAccount,
-  ComputeBudgetInstruction,
-  ComputeBudgetProgram,
-  SYSVAR_INSTRUCTIONS_PUBKEY,
-  SystemInstruction,
-  SystemProgram,
-  Transaction,
-  TransactionMessage,
-  VersionedTransaction,
-} from '@solana/web3.js';
 import { map, max } from 'lodash';
 
-import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import type { OneKeyError } from '@onekeyhq/shared/src/errors';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IAuthResponse,
-  ICreateInvoiceResponse,
-  ICreateUserResponse,
-  IInvoiceConfig,
-} from '@onekeyhq/shared/types/lightning';
-import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import type { AccountInfo, PublicKey } from '@solana/web3.js';
-import type { AxiosInstance } from 'axios';
 
 export enum EParamsEncodings {
   BASE64 = 'base64',

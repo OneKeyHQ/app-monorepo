@@ -629,6 +629,7 @@ export default class VaultBtc extends VaultBase {
       try {
         const feeInfo = await this.backgroundApi.serviceGas.estimateFee({
           networkId: this.networkId,
+          accountAddress: await this.getAccountAddress(),
         });
         const { feeUTXO } = feeInfo;
         if (!feeUTXO || isEmpty(feeUTXO)) {
@@ -713,17 +714,17 @@ export default class VaultBtc extends VaultBase {
   _collectUTXOsInfoByApi = memoizee(
     async () => {
       try {
-        const { utxos } =
+        const { utxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
             accountAddress: await this.getAccountAddress(),
             xpub: await this.getAccountXpub(),
             withUTXOList: true,
           });
-        if (!utxos || isEmpty(utxos)) {
+        if (!utxoList || isEmpty(utxoList)) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
-        return utxos;
+        return utxoList;
       } catch (e) {
         throw new OneKeyInternalError('Failed to get UTXO list.');
       }

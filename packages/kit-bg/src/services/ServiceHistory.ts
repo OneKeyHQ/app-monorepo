@@ -2,12 +2,13 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type {
-  IAccountHistoryTx,
-  IFetchAccountHistoryParams,
-  IFetchAccountHistoryResp,
-  IFetchHistoryTxDetailsParams,
-  IFetchHistoryTxDetailsResp,
+import {
+  EOnChainHistoryTxStatus,
+  type IAccountHistoryTx,
+  type IFetchAccountHistoryParams,
+  type IFetchAccountHistoryResp,
+  type IFetchHistoryTxDetailsParams,
+  type IFetchHistoryTxDetailsResp,
 } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxStatus,
@@ -26,19 +27,81 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountId, networkId, tokenIdOnNetwork, onChainHistoryDisabled } =
+      params;
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         accountId,
         networkId,
       });
-    const onChainHistoryTxs = await this.fetchAccountOnChainHistory({
-      ...params,
-      accountAddress,
-    });
+
+    let onChainHistoryTxs: IAccountHistoryTx[] = [];
+    let localHistoryConfirmedTxs: IAccountHistoryTx[] = [];
+
+    if (onChainHistoryDisabled) {
+      const localHistoryPendingTxs =
+        await this.getAccountLocalHistoryPendingTxs({
+          networkId,
+          accountId,
+          tokenIdOnNetwork,
+        });
+
+      // TODO: batch fetch confirmed txs
+      const confirmedTxs = (
+        await Promise.all(
+          localHistoryPendingTxs.map((tx) =>
+            this.fetchHistoryTxDetails({
+              networkId,
+              accountAddress,
+              txid: tx.decodedTx.txid,
+            }),
+          ),
+        )
+      )
+        .map((tx) => {
+          const confirmedTx = localHistoryPendingTxs.find(
+            (t) => t.decodedTx.txid === tx?.data.tx,
+          );
+
+          if (confirmedTx) {
+            return {
+              ...confirmedTx,
+              decodedTx: {
+                ...confirmedTx.decodedTx,
+                status:
+                  tx?.data.status === EOnChainHistoryTxStatus.Success
+                    ? EDecodedTxStatus.Confirmed
+                    : EDecodedTxStatus.Failed,
+                isFinal: true,
+              },
+            };
+          }
+
+          return null;
+        })
+        .filter(Boolean);
+
+      await this.backgroundApi.simpleDb.localHistory.saveLocalHistoryConfirmedTxs(
+        confirmedTxs,
+      );
+
+      localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
+        networkId,
+        accountId,
+        tokenIdOnNetwork,
+      });
+    } else {
+      onChainHistoryTxs = await this.fetchAccountOnChainHistory({
+        ...params,
+        accountAddress,
+      });
+    }
 
     await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
-      onChainHistoryTxs,
+      {
+        confirmedTxs: localHistoryConfirmedTxs,
+        onChainHistoryTxs,
+      },
     );
 
     const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
@@ -47,13 +110,25 @@ class ServiceHistory extends ServiceBase {
       tokenIdOnNetwork,
     });
 
-    return [...localHistoryPendingTxs, ...onChainHistoryTxs];
+    return [
+      ...localHistoryPendingTxs,
+      ...localHistoryConfirmedTxs,
+      ...onChainHistoryTxs,
+    ];
+  }
+
+  @backgroundMethod()
+  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+    const { networkId, accountId } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.buildFetchHistoryListParams(params);
   }
 
   @backgroundMethod()
   public async fetchAccountOnChainHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId, xpub, tokenIdOnNetwork, accountAddress } =
       params;
+    const extraParams = await this.buildFetchHistoryListParams(params);
     const client = await this.getClient();
     const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
       '/wallet/v1/account/history/list',
@@ -62,6 +137,7 @@ class ServiceHistory extends ServiceBase {
         accountAddress,
         xpub,
         tokenAddress: tokenIdOnNetwork,
+        ...extraParams,
       },
     );
 
@@ -92,20 +168,24 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
-    const { networkId, txid, accountAddress, status } = params;
-    if (status === EDecodedTxStatus.Pending) return;
-    const client = await this.getClient();
-    const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
-      '/wallet/v1/account/history/detail',
-      {
-        params: {
-          networkId,
-          txid,
-          accountAddress,
+    try {
+      const { networkId, txid, accountAddress } = params;
+      const client = await this.getClient();
+      const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
+        '/wallet/v1/account/history/detail',
+        {
+          params: {
+            networkId,
+            txid,
+            accountAddress,
+          },
         },
-      },
-    );
-    return resp.data.data;
+      );
+      return resp.data.data;
+    } catch (e) {
+      console.log(e);
+      return null;
+    }
   }
 
   @backgroundMethod()
@@ -114,7 +194,6 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     tokenIdOnNetwork?: string;
     limit?: number;
-    isPending?: boolean;
   }) {
     const { accountId, networkId, tokenIdOnNetwork } = params;
     const localHistoryPendingTxs =
@@ -138,6 +217,26 @@ class ServiceHistory extends ServiceBase {
     return this.backgroundApi.simpleDb.localHistory.saveLocalHistoryPendingTxs(
       pendingTxs,
     );
+  }
+
+  @backgroundMethod()
+  public async getAccountLocalHistoryConfirmedTxs(params: {
+    networkId: string;
+    accountId: string;
+    tokenIdOnNetwork?: string;
+    limit?: number;
+  }) {
+    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const localHistoryPendingTxs =
+      await this.backgroundApi.simpleDb.localHistory.getAccountLocalHistoryConfirmedTxs(
+        {
+          networkId,
+          accountId,
+          tokenIdOnNetwork,
+        },
+      );
+
+    return localHistoryPendingTxs;
   }
 
   @backgroundMethod()

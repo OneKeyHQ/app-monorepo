@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, max-classes-per-file */
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -21,7 +25,19 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
   }
 
   override async waitRemoteApiReady(): Promise<void> {
-    await timerUtils.wait(0);
+    const ready = await this.isSDKReady();
+    if (!ready) {
+      return new Promise((resolve, reject) => {
+        const timerId = setTimeout(() => {
+          reject(new Error('WebEmbedApi not ready after 5s.'));
+        }, 5000);
+        appEventBus.once(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
+          clearTimeout(timerId);
+          resolve();
+        });
+        appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+      });
+    }
   }
 
   protected override async callRemoteApi(options: {
@@ -38,16 +54,20 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     return backgroundApiProxy.serviceDApp.callWebEmbedApiProxy(message);
   }
 
-  isSDKReady(): Promise<boolean> {
-    return Promise.resolve(
-      !!backgroundApiProxy.serviceDApp.isWebEmbedApiReady(),
-    );
+  async isSDKReady(): Promise<boolean> {
+    const isWebEmbedApiReady =
+      await backgroundApiProxy.serviceDApp.isWebEmbedApiReady();
+    return Promise.resolve(!!isWebEmbedApiReady);
   }
 
   test: WebEmbedApiTest = this._createProxyModule<IWebembedApiKeys>('test');
 
   chainAdaLegacy: WebEmbedApiChainAdaLegacy =
-    this._createProxyModule<IWebembedApiKeys>('chainAdaLegacy');
+    this._createProxyModule<IWebembedApiKeys>('chainAdaLegacy', undefined, {
+      asyncThenSupport: true,
+    });
 }
 
-export default new WebembedApiProxy();
+const webembedApiProxy = new WebembedApiProxy();
+export default webembedApiProxy;
+global.$webembedApiProxy = webembedApiProxy;

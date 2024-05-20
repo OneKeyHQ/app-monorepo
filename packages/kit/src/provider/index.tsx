@@ -1,6 +1,5 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { WebViewWebEmbed } from '@onekeyhq/kit/src/views/Discovery/components/WebView/WebViewWebEmbed';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
@@ -12,6 +11,7 @@ import { Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
+import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
 
 if (platformEnv.isRuntimeBrowser) {
   // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
@@ -39,7 +39,7 @@ export function KitProvider() {
           <LastActivityTracker />
         </ThemeProvider>
         <PasswordVerifyPromptMount />
-        <WebViewWebEmbed />
+        <WebViewWebEmbedProvider />
         <LastActivityTracker />
         <InAppNotification />
       </GestureHandlerRootView>

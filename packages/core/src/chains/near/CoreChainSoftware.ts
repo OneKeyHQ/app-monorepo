@@ -101,14 +101,6 @@ async function signTransaction(
   if (!transaction) {
     throw new Error('nativeTx is null');
   }
-  const { nonce, blockHash } = unsignedTx.payload as {
-    nonce: number;
-    blockHash: string;
-  };
-  checkIsDefined(nonce);
-  checkIsDefined(blockHash);
-  transaction.nonce = new BN(nonce);
-  transaction.blockHash = baseDecode(blockHash);
 
   const txHash: string = serializeTransaction(transaction, {
     encoding: 'sha256_bs58',

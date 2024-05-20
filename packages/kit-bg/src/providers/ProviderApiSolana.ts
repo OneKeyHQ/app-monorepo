@@ -31,17 +31,6 @@ type ISolanaSendOptions = {
 class ProviderApiSolana extends ProviderApiBase {
   public providerName = IInjectedProviderNames.solana;
 
-  _getAccountsInfo = async (request: IJsBridgeMessagePayload) => {
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    if (!accountsInfo) {
-      throw web3Errors.provider.unauthorized();
-    }
-    return accountsInfo;
-  };
-
   _getConnectedAccountsPublicKey = async (
     request: IJsBridgeMessagePayload,
   ): Promise<{ publicKey: string }[]> => {
@@ -62,7 +51,10 @@ class ProviderApiSolana extends ProviderApiBase {
       const result = {
         method: 'wallet_events_accountChanged',
         params: {
-          accounts: await this._getConnectedAccountsPublicKey({ origin }),
+          accounts: await this._getConnectedAccountsPublicKey({
+            origin,
+            scope: this.providerName,
+          }),
         },
       };
       return result;
@@ -79,7 +71,7 @@ class ProviderApiSolana extends ProviderApiBase {
   public async rpcCall(request: IJsBridgeMessagePayload): Promise<any> {
     const { data } = request;
     const { accountInfo: { networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
     const rpcRequest = data as IJsonRpcRequest;
 
@@ -114,7 +106,7 @@ class ProviderApiSolana extends ProviderApiBase {
     params: { message: string },
   ) {
     const { accountInfo: { accountId, networkId } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
 
     if (typeof params.message !== 'string') {
@@ -138,7 +130,7 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { message: string[] },
   ) {
-    // TODO
+    // TODO: need request queue
     throw new Error('Method not implemented.');
   }
 
@@ -154,7 +146,7 @@ class ProviderApiSolana extends ProviderApiBase {
     }
 
     const { accountInfo: { accountId, networkId, address } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
 
     const txid =
@@ -183,7 +175,7 @@ class ProviderApiSolana extends ProviderApiBase {
     const { message, display = 'utf8' } = params;
 
     const { accountInfo: { accountId, networkId, address } = {} } = (
-      await this._getAccountsInfo(request)
+      await this.getAccountsInfo(request)
     )[0];
 
     if (!isString(message) || !['utf8', 'hex'].includes(display)) {

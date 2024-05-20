@@ -26,6 +26,7 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_NEAR,
+  IMPL_NOSTR,
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
@@ -298,11 +299,11 @@ export const scopeNetworks: Record<
   'cosmos': [IMPL_COSMOS],
   'polkadot': [IMPL_DOT],
   'webln': [IMPL_LIGHTNING, IMPL_LIGHTNING_TESTNET],
-  // TODO: add nostr
-  'nostr': undefined,
+  'nostr': [IMPL_NOSTR],
   '$hardware_sdk': undefined,
   '$private': undefined,
   '$walletConnect': undefined,
+  '$privateExternalAccount': undefined,
 };
 
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [

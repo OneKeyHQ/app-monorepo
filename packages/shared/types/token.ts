@@ -4,7 +4,7 @@ export type IToken = {
   symbol: string;
   address: string;
   logoURI?: string;
-  isNative?: boolean;
+  isNative: boolean | undefined;
   riskLevel?: number;
   sendAddress?: string;
 };

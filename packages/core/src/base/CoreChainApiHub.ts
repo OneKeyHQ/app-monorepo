@@ -1,19 +1,23 @@
 import CoreChainAda from '../chains/ada';
-// import CoreChainAlgo from '../chains/algo';
+import CoreChainAlgo from '../chains/algo';
 // import CoreChainApt from '../chains/apt';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
-// import CoreChainCfx from '../chains/cfx';
+import CoreChainCfx from '../chains/cfx';
+import CoreChainCkb from '../chains/ckb';
 import CoreChainCosmos from '../chains/cosmos';
+import CoreChainDnx from '../chains/dnx';
 import CoreChainDoge from '../chains/doge';
 // import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
-// import CoreChainFil from '../chains/fil';
-// import CoreChainKaspa from '../chains/kaspa';
+import CoreChainFil from '../chains/fil';
+import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
-// import CoreChainNear from '../chains/near';
-// import CoreChainNexa from '../chains/nexa';
+import CoreChainNear from '../chains/near';
+import CoreChainNeurai from '../chains/neurai';
+import CoreChainNexa from '../chains/nexa';
+import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
 // import CoreChainStc from '../chains/stc';
 // import CoreChainSui from '../chains/sui';
@@ -38,11 +42,11 @@ export class CoreChainApiHub {
 
   lightning = new CoreChainLightning();
 
-  // algo = new CoreChainAlgo();
+  algo = new CoreChainAlgo();
 
   // apt = new CoreChainApt();
 
-  // cfx = new CoreChainCfx();
+  cfx = new CoreChainCfx();
 
   xrp = new CoreChainXrp();
 
@@ -50,19 +54,27 @@ export class CoreChainApiHub {
 
   sol = new CoreChainSol();
 
-  // near = new CoreChainNear();
+  near = new CoreChainNear();
 
   // stc = new CoreChainStc();
 
-  // kaspa = new CoreChainKaspa();
+  kaspa = new CoreChainKaspa();
 
   // sui = new CoreChainSui();
 
   // dot = new CoreChainDot();
 
-  // fil = new CoreChainFil();
+  fil = new CoreChainFil();
 
   // xmr = new CoreChainXmr();
 
-  // nexa = new CoreChainNexa();
+  nexa = new CoreChainNexa();
+
+  nostr = new CoreChainNostr();
+
+  neurai = new CoreChainNeurai();
+
+  dnx = new CoreChainDnx();
+
+  ckb = new CoreChainCkb();
 }
