@@ -28,6 +28,7 @@
     "@solana/spl-token": "^0.3.7",
     "@solana/web3.js": "^1.87.7",
     "@starcoin/starcoin": "^2.3.7",
+    "@substrate/txwrapper-polkadot": "^7.4.0",
     "@zondax/izari-filecoin": "^1.2.0",
     "algosdk": "^2.6.0",
     "asmcrypto.js": "2.3.2",

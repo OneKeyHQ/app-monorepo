@@ -14,7 +14,8 @@ const hasHexPrefix = (str: string) =>
 const stripHexPrefix = (str: string) =>
   hasHexPrefix(str) ? str.slice(2) : str;
 
-const addHexPrefix = (str: string) => (hasHexPrefix(str) ? str : `0x${str}`);
+const addHexPrefix = (str: string): `0x${string}` =>
+  hasHexPrefix(str) ? (str as `0x${string}`) : `0x${str}`;
 
 const hexlify = (
   value: BytesLike | string | number | bigint,
