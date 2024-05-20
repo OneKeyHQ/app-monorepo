@@ -3,8 +3,8 @@ import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useS
 import type { INetworkExplorerConfig } from '..';
 
 export enum EProtocolOfExchange {
-  SWAP = 'swap',
-  LIMIT = 'limit', // TODO
+  SWAP = 'Swap',
+  LIMIT = 'Limit', // TODO
 }
 
 export enum ESwapReceiveAddressType {
@@ -22,6 +22,14 @@ export enum ESwapRateDifferenceUnit {
   POSITIVE = 'positive',
   NEGATIVE = 'negative',
   DEFAULT = 'default',
+}
+
+export enum ETokenRiskLevel {
+  UNKNOWN = 0,
+  BENIGN = 1,
+  WARNING = 2,
+  SPAM = 1000,
+  MALICIOUS = 1001,
 }
 
 export interface ISwapInitParams {
@@ -47,7 +55,7 @@ export interface ISwapNetwork extends ISwapNetworkBase {
 export interface ISwapToken {
   networkId: string;
   contractAddress: string;
-  isNative?: boolean;
+  isNative: boolean | undefined;
   symbol: string;
   decimals: number;
   name?: string;
@@ -59,6 +67,8 @@ export interface ISwapToken {
 
   accountAddress?: string;
   networkLogoURI?: string;
+
+  riskLevel?: ETokenRiskLevel;
 }
 
 export interface ISwapTokenCatch {

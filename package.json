@@ -71,6 +71,7 @@
     "@walletconnect/universal-provider": "2.11.2",
     "@walletconnect/web3wallet": "1.10.2",
     "bech32": "^2.0.0",
+    "biginteger": "^1.0.3",
     "bignumber.js": "9.1.2",
     "browserify-zlib": "^0.2.0",
     "check-disk-space": "^3.4.0",
