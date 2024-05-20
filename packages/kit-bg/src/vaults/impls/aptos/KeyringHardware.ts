@@ -24,10 +24,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const publicKeys = await this.baseGetDeviceAccountPublicKeys({
+        const list = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
-          sdkGetPublicKeysFn: async ({
+          sdkGetAddressFn: async ({
             connectId,
             deviceId,
             pathPrefix,
@@ -38,25 +38,28 @@ export class KeyringHardware extends KeyringHardwareBase {
             const sdk = await this.getHardwareSDKInstance();
             const response = await sdk.aptosGetAddress(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams, // passpharse params
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${pathSuffix.replace(
+              bundle: usedIndexes.map((index, arrIndex) => {
+                const i = pathSuffix.replace(
                   '{index}',
                   `${index}`,
-                )}`,
-                /**
-                 * Search accounts not show detail at device.Only show on device when add accounts into wallet.
-                 */
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                chainId: Number(chainId),
-              })),
+                );
+                return {
+                  path: `${pathPrefix}/${i}`,
+                  /**
+                   * Search accounts not show detail at device.Only show on device when add accounts into wallet.
+                   */
+                  showOnOneKey: showOnOnekeyFn(arrIndex),
+                  chainId: Number(chainId),
+                };
+              }),
             });
             return response;
           },
         });
 
         const ret: ICoreApiGetAddressItem[] = [];
-        for (let i = 0; i < publicKeys.length; i += 1) {
-          const item = publicKeys[i];
+        for (let i = 0; i < list.length; i += 1) {
+          const item = list[i];
           const { path, address, publicKey } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address || '',
