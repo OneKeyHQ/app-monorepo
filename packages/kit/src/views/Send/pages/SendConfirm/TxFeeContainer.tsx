@@ -87,6 +87,11 @@ function TxFeeContainer(props: IProps) {
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
         });
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            networkId,
+            accountId,
+          });
         const r = await backgroundApiProxy.serviceGas.estimateFee({
           networkId,
           encodedTx: await backgroundApiProxy.serviceGas.buildEstimateFeeParams(
@@ -96,6 +101,7 @@ function TxFeeContainer(props: IProps) {
               encodedTx: unsignedTxs[0].encodedTx,
             },
           ),
+          accountAddress,
         });
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
         // these five levels are also provided as predictions on the custom fee page for users to choose

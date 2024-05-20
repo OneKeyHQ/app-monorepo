@@ -53,7 +53,6 @@ export class KeyringHardware extends KeyringHardwareBase {
             deviceId,
             pathPrefix,
             pathSuffix,
-            coinName,
             showOnOnekeyFn,
           }) => {
             const sdk = await this.getHardwareSDKInstance();
@@ -77,10 +76,11 @@ export class KeyringHardware extends KeyringHardwareBase {
         for (let i = 0; i < nearAddresses.length; i += 1) {
           const item = nearAddresses[i];
           const { path, address } = item;
-          const { normalizedAddress, displayAddress } =
-            await this.vault.validateAddress(address ?? '');
+          const { displayAddress } = await this.vault.validateAddress(
+            address ?? '',
+          );
           const addressInfo: ICoreApiGetAddressItem = {
-            address: normalizedAddress || address || '',
+            address: '',
             path,
             publicKey: '',
             addresses: { [this.networkId]: displayAddress || address || '' },

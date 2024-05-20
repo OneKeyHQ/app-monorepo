@@ -153,7 +153,7 @@ const SwapToAnotherAddressPage = () => {
 const SwapToAnotherAddressPageWithProvider = () => {
   const route =
     useRoute<
-      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapToAnotherAddress>
     >();
   const { storeName } = route.params;
   return (

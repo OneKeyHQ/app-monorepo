@@ -176,7 +176,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const address = newSecp256k1Address(pubUncompressed, coinType).toString();
 
     return Promise.resolve({
-      address,
+      address: '',
       addresses: { [networkInfo.networkId]: address },
       publicKey: pubHex,
     });

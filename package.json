@@ -47,6 +47,7 @@
     "test": "yarn jest"
   },
   "dependencies": {
+    "@mysten/sui.js": "0.33.0",
     "@onekeyfe/cross-inpage-provider-core": "2.0.0-alpha.5",
     "@onekeyfe/cross-inpage-provider-errors": "2.0.0-alpha.5",
     "@onekeyfe/cross-inpage-provider-injected": "2.0.0-alpha.5",
@@ -58,6 +59,7 @@
     "@onekeyfe/hd-transport": "1.0.0-alpha.8",
     "@onekeyfe/hd-web-sdk": "1.0.0-alpha.8",
     "@onekeyfe/onekey-cross-webview": "2.0.0-alpha.5",
+    "@polkadot/util-crypto": "^12.6.2",
     "@tamagui/animations-moti": "1.79.19",
     "@tamagui/config": "1.79.19",
     "@tamagui/static": "1.79.19",

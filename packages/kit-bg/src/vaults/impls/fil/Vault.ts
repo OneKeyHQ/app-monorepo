@@ -43,7 +43,10 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { EProtocolIndicator, ETransferMethod } from './types';
 
-import type { IDBWalletType } from '../../../dbs/local/types';
+import type {
+  IDBVariantAccount,
+  IDBWalletType,
+} from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
@@ -71,9 +74,11 @@ export default class Vault extends VaultBase {
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    const { account, networkId } = params;
+    const { networkId } = params;
 
-    const address = account.address || '';
+    const account = params.account as IDBVariantAccount;
+
+    const address = account.addresses[networkId];
 
     const { normalizedAddress, displayAddress, isValid } =
       await this.validateAddress(address);
@@ -317,12 +322,6 @@ export default class Vault extends VaultBase {
       Value: newValue,
     };
     return Promise.resolve(tx);
-  }
-
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
   }
 
   async _getOutputAddress(address: string) {

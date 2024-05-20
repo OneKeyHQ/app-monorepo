@@ -1,4 +1,4 @@
-import { Icon, Stack } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
@@ -16,7 +16,8 @@ export function FirmwareUpdateDone({
   return (
     <Stack>
       <FirmwareUpdateBaseMessageView
-        icon={<Icon name="CheckLargeOutline" size={56} />}
+        icon="CheckRadioSolid"
+        tone="success"
         title="All updates complete 👏🏻"
       />
       <FirmwareChangeLogContentView result={result} isDone />

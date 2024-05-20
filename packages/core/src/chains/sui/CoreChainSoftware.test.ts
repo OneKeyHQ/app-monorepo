@@ -51,6 +51,7 @@ const {
         'encodedTx': {
           rawTx:
             '{"version":1,"gasConfig":{"payment":[]},"inputs":[{"kind":"Input","value":"0xff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c5","index":0,"type":"pure"}],"transactions":[{"kind":"TransferObjects","objects":[{"kind":"GasCoin"}],"address":{"kind":"Input","value":"0xff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c5","index":0,"type":"pure"}}]}',
+          sender: 'ff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c5'
         },
       },
       signedTx: {
