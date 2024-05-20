@@ -1,3 +1,5 @@
+import { SUI_TYPE_ARG } from '@mysten/sui.js';
+
 import {
   COINTYPE_SUI,
   IMPL_SUI,
@@ -44,6 +46,8 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+
+  nativeTokenAddress: SUI_TYPE_ARG,
 };
 
 export default Object.freeze(settings);
