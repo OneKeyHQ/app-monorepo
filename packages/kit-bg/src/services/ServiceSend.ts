@@ -67,6 +67,7 @@ class ServiceSend extends ServiceBase {
         decimals: 18,
         name: 'Ethereum',
         symbol: 'ETH',
+        isNative: true,
       },
     };
 

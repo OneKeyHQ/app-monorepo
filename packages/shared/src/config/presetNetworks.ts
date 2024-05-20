@@ -1610,10 +1610,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
-  const etf = {
+  const dis = {
     'balance2FeeDecimals': 9,
     'chainId': '513100',
-    'code': 'etf',
+    'code': 'dis',
     'decimals': 18,
     'extensions': {
       'providerOptions': {
@@ -1624,28 +1624,23 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'impl': 'evm',
     'isTestnet': false,
     'logoURI': 'https://uni.onekey-asset.com/static/chain/etf.png',
-    'name': 'Ethereum Fair',
-    'shortcode': 'etf',
-    'shortname': 'ETHF',
-    'symbol': 'ETHF',
+    'name': 'DIS CHAIN',
+    'shortcode': 'dis',
+    'shortname': 'DIS',
+    'symbol': 'DIS',
     'feeMeta': {
-      'code': 'etf',
+      'code': 'dis',
       'decimals': 9,
       'symbol': 'Gwei',
     },
+    'priceConfigs': [],
     'defaultEnabled': true,
-    'priceConfigs': [
-      {
-        'channel': 'coingecko',
-        'native': 'ethereumfair',
-      },
-    ],
     'explorers': [
       {
-        'address': 'https://explorer.etherfair.org/address/{address}',
-        'block': 'https://explorer.etherfair.org/block/{block}',
-        'name': 'https://explorer.etherfair.org',
-        'transaction': 'https://explorer.etherfair.org/tx/{transaction}',
+        'address': 'https://scan.dischain.xyz/address/{address}',
+        'block': 'https://scan.dischain.xyz/block/{block}',
+        'name': 'https://scan.dischain.xyz',
+        'transaction': 'https://scan.dischain.xyz/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,
@@ -2387,7 +2382,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'impl': 'evm',
     'isTestnet': false,
     'logoURI':
-      'https://nft.onekey-asset.com/admin/upload_1710215845256.0.7011825641467067.0.webp',
+      'https://uni.onekey-asset.com/static/logo/IoTeXNetworkMainnet.webp',
     'name': 'IoTeX Network Mainnet',
     'shortcode': 'iotex',
     'shortname': 'iotex',
@@ -2426,7 +2421,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'impl': 'evm',
     'isTestnet': false,
     'logoURI':
-      'https://nft.onekey-asset.com/admin/upload_1707122414644.0.38264347863462334.0.webp',
+      'https://uni.onekey-asset.com/static/logo/mantaPacificMainnet.webp',
     'name': 'Manta Pacific Mainnet',
     'shortcode': 'mantapacific',
     'shortname': 'mantapacific',
@@ -2466,7 +2461,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'impl': 'evm',
     'isTestnet': false,
     'logoURI':
-      'https://nft.onekey-asset.com/admin/upload_1709276470548.0.0022311721712551247.0.png',
+      'https://uni.onekey-asset.com/static/logo/blast.png',
     'name': 'Blast',
     'shortcode': 'blast',
     'shortname': 'blast',
@@ -2579,6 +2574,44 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const ckb = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'ckb',
+    'code': 'ckb',
+    'decimals': 8,
+    'id': 'ckb--mainnet',
+    'impl': 'ckb',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/nervos.png',
+    'name': 'Nervos',
+    'shortcode': 'ckb',
+    'shortname': 'CKB',
+    'symbol': 'CKB',
+    'feeMeta': {
+      'code': 'ckb',
+      'decimals': 8,
+      'symbol': 'CKB',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'nervos-network',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.nervos.org/address/{address}',
+        'block': 'https://explorer.nervos.org/block/{block}',
+        'name': 'https://explorer.nervos.org',
+        'transaction': 'https://explorer.nervos.org/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-03-05T00:00:00.002Z',
+    'updatedAt': '2024-03-05T00:00:00.002Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     tatom, // Cosmos Testnet
     nexaTestnet,
@@ -2611,7 +2644,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     arb,
     celo,
     avax,
-    etf,
+    dis,
     bsc,
     etc,
     okt,
@@ -2645,6 +2678,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     dnx,
     fil,
     algo,
+    ckb,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

@@ -55,7 +55,7 @@ export interface ISwapNetwork extends ISwapNetworkBase {
 export interface ISwapToken {
   networkId: string;
   contractAddress: string;
-  isNative?: boolean;
+  isNative: boolean | undefined;
   symbol: string;
   decimals: number;
   name?: string;
