@@ -144,6 +144,8 @@ export type IVaultSettings = {
   withPaymentId?: boolean;
 
   enabledOnClassicOnly?: boolean;
+
+  nativeTokenAddress?: string;
 };
 
 export type IVaultFactoryOptions = {
