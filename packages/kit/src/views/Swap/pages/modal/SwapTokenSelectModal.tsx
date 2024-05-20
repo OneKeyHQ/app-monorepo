@@ -191,6 +191,8 @@ const SwapTokenSelectPage = () => {
     ],
   );
 
+  const { md } = useMedia();
+
   const renderItem = useCallback(
     ({
       item,
@@ -204,14 +206,17 @@ const SwapTokenSelectPage = () => {
         : (item as ISwapToken);
       const balanceBN = new BigNumber(rawItem.balanceParsed ?? 0);
       const fiatValueBN = new BigNumber(rawItem.fiatValue ?? 0);
+      const contractAddressDisplay = md
+        ? accountUtils.shortenAddress({
+            address: rawItem.contractAddress,
+          })
+        : rawItem.contractAddress;
       const tokenItem: ITokenListItemProps = {
         tokenImageSrc: rawItem.logoURI,
         tokenName: rawItem.name,
         tokenSymbol: rawItem.symbol,
         tokenContrastAddress: searchKeyword
-          ? accountUtils.shortenAddress({
-              address: rawItem.contractAddress,
-            })
+          ? contractAddressDisplay
           : undefined,
         balance: !balanceBN.isZero() ? rawItem.balanceParsed : undefined,
         valueProps:
@@ -245,14 +250,13 @@ const SwapTokenSelectPage = () => {
     },
     [
       alertIndex,
+      md,
       onSelectToken,
       sameTokenDisabled,
       searchKeyword,
       settingsPersistAtom.currencyInfo.symbol,
     ],
   );
-
-  const { md } = useMedia();
 
   const networkFilterData = useMemo(() => {
     let swapNetworksCommon: ISwapNetwork[] = [];
