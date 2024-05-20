@@ -14,8 +14,14 @@ export function FirmwareUpdateWalletProfile({
         console.log('ICheckAllFirmwareReleaseResult', result);
       }}
     >
-      <WalletAvatar img={result?.deviceType || 'unknown'} wallet={undefined} />
-      <SizableText>{result?.deviceName || ''}</SizableText>
+      <WalletAvatar
+        size="$14"
+        img={result?.deviceType || 'unknown'}
+        wallet={undefined}
+      />
+      <SizableText mt="$5" size="$heading2xl">
+        New hardware updates 🎉
+      </SizableText>
     </Stack>
   );
 }

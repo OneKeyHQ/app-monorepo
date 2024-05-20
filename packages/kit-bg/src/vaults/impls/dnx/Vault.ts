@@ -261,13 +261,7 @@ export default class Vault extends VaultBase {
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve(params.unsignedTx);
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

@@ -9,6 +9,7 @@ import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from '../chains/algo/types';
 import type { IEncodedTxAptos } from '../chains/aptos/types';
 import type { IEncodedTxBtc } from '../chains/btc/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
+import type { IEncodedTxCkb } from '../chains/ckb/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
 import type { IEncodedTxDnx } from '../chains/dnx/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
@@ -44,6 +45,7 @@ export type IEncodedTx =
   | IEncodedTxNostr
   | IEncodedTxAlgo
   | IEncodedTxGroupAlgo
+  | IEncodedTxCkb
   | IEncodedTxNear;
 //   | IEncodedTxBtc
 //   | IEncodedTxDot

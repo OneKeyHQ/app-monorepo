@@ -38,9 +38,9 @@ function WeblnMakeInvoiceModal() {
   const makeInvoiceParams = $sourceInfo?.data.params as IRequestInvoiceArgs;
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
@@ -132,9 +132,9 @@ function WeblnMakeInvoiceModal() {
           onCancel={() => dappApprove.reject()}
           confirmButtonProps={{
             loading: isLoading,
-            disabled: !canContinueOperate,
+            disabled: !continueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

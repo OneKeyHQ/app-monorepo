@@ -39,9 +39,9 @@ function WeblnSendPaymentModal() {
   const sendConfirm = useSendConfirm({ accountId, networkId });
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
@@ -175,9 +175,9 @@ function WeblnSendPaymentModal() {
           onCancel={() => dappApprove.reject()}
           confirmButtonProps={{
             loading: isLoading,
-            disabled: !canContinueOperate,
+            disabled: !continueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>
