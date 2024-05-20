@@ -48,7 +48,10 @@ import { conflux as sdkCfx } from './sdkCfx';
 import ClientCfx from './sdkCfx/ClientCfx';
 
 import type { ISdkCfxContract } from './types';
-import type { IDBWalletType } from '../../../dbs/local/types';
+import type {
+  IDBVariantAccount,
+  IDBWalletType,
+} from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
@@ -95,9 +98,10 @@ export default class Vault extends VaultBase {
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    const { account, networkId } = params;
+    const { networkId } = params;
+    const account = params.account as IDBVariantAccount;
 
-    const address = account.address || '';
+    const address = account.addresses[networkId];
 
     const { normalizedAddress, displayAddress, isValid } =
       await this.validateAddress(address);
@@ -532,12 +536,6 @@ export default class Vault extends VaultBase {
       value: newValue,
     };
     return Promise.resolve(tx);
-  }
-
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {

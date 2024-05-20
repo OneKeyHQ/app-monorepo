@@ -11,6 +11,7 @@ import {
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
+  IMPL_CKB,
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_DOT,
@@ -25,6 +26,7 @@ import {
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
+  IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
@@ -101,6 +103,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_TRON]: () => import('./impls/tron/Vault') as any,
     [IMPL_CFX]: () => import('./impls/cfx/Vault') as any,
     [IMPL_NEAR]: () => import('./impls/near/Vault') as any,
+    [IMPL_CKB]: () => import('./impls/ckb/Vault') as any,
     [IMPL_LIGHTNING]: () => import('./impls/lightning/Vault') as any,
     [IMPL_LIGHTNING_TESTNET]: () => import('./impls/lightning/Vault') as any,
     [IMPL_NOSTR]: () => import('./impls/nostr/Vault') as any,
@@ -108,6 +111,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
     [IMPL_DOT]: () => import('./impls/dot/Vault') as any,
     [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
+    [IMPL_SUI]: () => import('./impls/sui/Vault') as any,
     [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,
   };
   const loader = vaultsLoader[impl];

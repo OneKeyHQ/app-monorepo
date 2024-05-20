@@ -4,6 +4,7 @@ import {
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
+  IMPL_CKB,
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_DOT,
@@ -18,6 +19,7 @@ import {
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
+  IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
@@ -75,6 +77,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_TRON]: () => import('./impls/tron/settings'),
     [IMPL_SOL]: () => import('./impls/sol/settings'),
     [IMPL_FIL]: () => import('./impls/fil/settings'),
+    [IMPL_CKB]: () => import('./impls/ckb/settings'),
     [IMPL_LIGHTNING]: () => import('./impls/lightning/settings'),
     [IMPL_LIGHTNING_TESTNET]: () =>
       import('./impls/lightning/settings-testnet'),
@@ -83,6 +86,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_XRP]: () => import('./impls/xrp/settings'),
     [IMPL_DOT]: () => import('./impls/dot/settings'),
     [IMPL_NEXA]: () => import('./impls/nexa/settings'),
+    [IMPL_SUI]: () => import('./impls/sui/settings'),
     [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
   };
   const loader = settingsLoader[impl];
