@@ -168,9 +168,7 @@ export default class VaultDot extends VaultBase {
     const registry = getRegistry(info);
     return {
       ...info,
-      blockNumber: registry
-        .createType('BlockNumber', block.header.number)
-        .toNumber(),
+      blockNumber: block.header.number,
       transactionVersion,
       blockHash,
       genesisHash,
