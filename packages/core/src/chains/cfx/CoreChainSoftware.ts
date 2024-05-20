@@ -4,11 +4,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import {
-  cfxAddressToEthAddress,
-  pubkeyToCfxAddress,
-  signTransactionWithSigner,
-} from './sdkCfx';
+import { pubkeyToCfxAddress, signTransactionWithSigner } from './sdkCfx';
 
 import type {
   ICoreApiGetAddressItem,
@@ -77,9 +73,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       uncompressedPublicKey,
       checkIsDefined(chainId),
     );
-    const ethAddress = await cfxAddressToEthAddress(cfxAddress);
     return Promise.resolve({
-      address: ethAddress,
+      address: '',
       addresses: {
         [checkIsDefined(networkId)]: cfxAddress,
       },
