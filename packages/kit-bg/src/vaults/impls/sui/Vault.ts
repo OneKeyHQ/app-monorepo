@@ -51,7 +51,6 @@ import { SuiJsonRpcClient } from './sdkSui/SuiJsonRpcClient';
 import {
   moveCallTxnName,
   normalizeSuiCoinType,
-  toTransaction,
   waitPendingTransaction,
 } from './sdkSui/utils';
 
