@@ -24,6 +24,8 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../../hooks/usePrevious';
 
+import { FirmwareVersionProgressBar } from './FirmwareVersionProgressBar';
+
 type IProgressType =
   | EFirmwareUpdateTipMessages
   | 'checking'
@@ -73,9 +75,10 @@ export function FirmwareUpdateProgressBarView({
       return <Skeleton width={80} height={16} />;
     }
     return (
-      <SizableText>
-        {versionFrom ? `${versionFrom} - ` : ''} {versionTo}
-      </SizableText>
+      <FirmwareVersionProgressBar
+        fromVersion={versionFrom}
+        toVersion={versionTo}
+      />
     );
   }, [versionFrom, versionTo]);
 
@@ -87,7 +90,7 @@ export function FirmwareUpdateProgressBarView({
       </SizableText>
       {versionView}
       <Stack mt="$12" mb="$3">
-        <Progress value={progress} />
+        <Progress size="medium" value={progress} />
       </Stack>
       <SizableText size="$bodyLg" color="$textSubdued">
         {desc}

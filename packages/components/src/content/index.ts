@@ -7,6 +7,7 @@ export * from './Markdown';
 export * from './LottieView';
 export * from './Video';
 export * from './MatchSizeableText';
+export * from './RichSizeableText';
 export * from './NumberSizeableText';
 export * from './Progress';
 export * from './QRCode';

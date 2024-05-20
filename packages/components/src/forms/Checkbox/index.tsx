@@ -42,6 +42,7 @@ function RawCheckbox({
       opacity={checkboxProps.disabled ? 0.5 : 1}
       userSelect="none"
       onPress={onPress}
+      ai="center"
       {...containerProps}
     >
       <YStack
@@ -61,6 +62,7 @@ function RawCheckbox({
         $platform-native={{
           hitSlop: { top: 8, left: 8, right: 8, bottom: 8 },
         }}
+        maxHeight="$5"
         {...checkboxProps}
       >
         <Icon
