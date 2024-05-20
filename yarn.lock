@@ -5413,6 +5413,7 @@ __metadata:
     "@onekeyfe/onekey-cross-webview": "npm:2.0.0-alpha.5"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
+    "@polkadot/util-crypto": "npm:^12.6.2"
     "@tamagui/animations-moti": "npm:1.79.19"
     "@tamagui/babel-plugin": "npm:1.79.19"
     "@tamagui/config": "npm:1.79.19"
@@ -12346,6 +12347,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"axios@npm:^1.6.2":
+  version: 1.6.8
+  resolution: "axios@npm:1.6.8"
+  dependencies:
+    follow-redirects: "npm:^1.15.6"
+    form-data: "npm:^4.0.0"
+    proxy-from-env: "npm:^1.1.0"
+  checksum: 10/3f9a79eaf1d159544fca9576261ff867cbbff64ed30017848e4210e49f3b01e97cf416390150e6fdf6633f336cd43dc1151f890bbd09c3c01ad60bb0891eee63
+  languageName: node
+  linkType: hard
+
 "axobject-query@npm:^3.2.1":
   version: 3.2.1
   resolution: "axobject-query@npm:3.2.1"
@@ -19041,7 +19053,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"follow-redirects@npm:^1.0.0, follow-redirects@npm:^1.14.8, follow-redirects@npm:^1.14.9, follow-redirects@npm:^1.15.0":
+"follow-redirects@npm:^1.0.0, follow-redirects@npm:^1.14.9, follow-redirects@npm:^1.15.0":
   version: 1.15.3
   resolution: "follow-redirects@npm:1.15.3"
   peerDependenciesMeta:
@@ -19051,7 +19063,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"follow-redirects@npm:^1.14.0, follow-redirects@npm:^1.14.7":
+"follow-redirects@npm:^1.14.0, follow-redirects@npm:^1.14.7, follow-redirects@npm:^1.14.8, follow-redirects@npm:^1.15.6":
   version: 1.15.6
   resolution: "follow-redirects@npm:1.15.6"
   peerDependenciesMeta:
@@ -31137,13 +31149,13 @@ __metadata:
   linkType: hard
 
 "tronweb@npm:^5.3.1":
-  version: 5.3.1
-  resolution: "tronweb@npm:5.3.1"
+  version: 5.3.2
+  resolution: "tronweb@npm:5.3.2"
   dependencies:
     "@babel/runtime": "npm:^7.0.0"
     "@ethersproject/abi": "npm:^5.7.0"
     "@tronweb3/google-protobuf": "npm:^3.21.2"
-    axios: "npm:^0.26.1"
+    axios: "npm:^1.6.2"
     bignumber.js: "npm:^9.0.1"
     ethereum-cryptography: "npm:^2.0.0"
     ethers: "npm:^6.6.0"
@@ -31153,7 +31165,7 @@ __metadata:
     querystring-es3: "npm:^0.2.1"
     semver: "npm:^5.6.0"
     validator: "npm:^13.7.0"
-  checksum: 10/425321caf5b7962fa7590316232d3a618e6fb749f587c4f10c8ce248adbcfd9d7a46e439d3de764f5cd0eab6337662372e0df6bdff93a701fcc30c166b1fbe61
+  checksum: 10/24a3d5bcc99885e6465f397513e6f7633f873b51aad1aa2f97b0481f1f1e24b74c1d1508b0999828375f1615e78a3f18c0254d6757f52af86a1de9bf95de65c8
   languageName: node
   linkType: hard
 
