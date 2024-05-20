@@ -3,6 +3,7 @@ import { BCS, TxnBuilderTypes } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
+import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
@@ -20,6 +21,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -31,7 +33,6 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import { generateTransferCoin } from './utils';
 
-import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -92,14 +93,14 @@ export default class VaultAptos extends VaultBase {
       );
     }
 
-    const { address: from } = await this.getAccount();
+    const { address: sender } = await this.getAccount();
     const amountValue = new BigNumber(amount)
       .shiftedBy(tokenInfo.decimals)
       .toFixed();
 
     const encodedTx: IEncodedTxAptos = {
       ...generateTransferCoin(to, amountValue, tokenInfo.address),
-      sender: from,
+      sender,
     };
 
     return encodedTx;
@@ -108,8 +109,6 @@ export default class VaultAptos extends VaultBase {
   private async _buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxAptos,
   ): Promise<IUnsignedTxPro> {
-    const newEncodedTx = encodedTx;
-
     const expect = BigInt(Math.floor(Date.now() / 1000) + 100);
     if (!isNil(encodedTx.bscTxn) && !isEmpty(encodedTx.bscTxn)) {
       const deserializer = new BCS.Deserializer(
@@ -130,27 +129,17 @@ export default class VaultAptos extends VaultBase {
 
       const serializer = new BCS.Serializer();
       newRawTx.serialize(serializer);
-      newEncodedTx.bscTxn = bufferUtils.bytesToHex(serializer.getBytes());
+      encodedTx.bscTxn = bufferUtils.bytesToHex(serializer.getBytes());
     } else if (
       encodedTx.expiration_timestamp_secs &&
       BigInt(encodedTx.expiration_timestamp_secs) < expect
     ) {
-      newEncodedTx.expiration_timestamp_secs = expect.toString();
+      encodedTx.expiration_timestamp_secs = expect.toString();
     }
 
-    const account = await this.getAccount();
-    return Promise.resolve({
-      inputs: [
-        {
-          address: hexUtils.stripHexPrefix(account.address),
-          value: new BigNumber(0),
-          publicKey: account.pub ? hexUtils.stripHexPrefix(account.pub) : '',
-        },
-      ],
-      outputs: [],
-      payload: { encodedTx: newEncodedTx },
-      encodedTx: newEncodedTx,
-    });
+    return {
+      encodedTx,
+    };
   }
 
   override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
@@ -167,16 +156,64 @@ export default class VaultAptos extends VaultBase {
     throw new OneKeyInternalError();
   }
 
-  override updateUnsignedTx(
-    params: IUpdateUnsignedTxParams,
-  ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+  private async _attachFeeInfoToEncodedTx(params: {
+    encodedTx: IEncodedTxAptos;
+    feeInfo: IFeeInfoUnit;
+  }): Promise<IEncodedTxAptos> {
+    const { gas, common } = params.feeInfo;
+    if (typeof gas?.gasPrice !== 'string') {
+      throw new OneKeyInternalError('Invalid gas price.');
+    }
+    if (typeof gas.gasLimit !== 'string') {
+      throw new OneKeyInternalError('Invalid fee limit');
+    }
+    const gasPrice = new BigNumber(gas.gasPrice)
+      .shiftedBy(-common.feeDecimals)
+      .toFixed();
+
+    let { bscTxn } = params.encodedTx;
+    if (!isNil(bscTxn) && !isEmpty(bscTxn)) {
+      const deserializer = new BCS.Deserializer(bufferUtils.hexToBytes(bscTxn));
+      const rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+      const newRawTx = new TxnBuilderTypes.RawTransaction(
+        rawTx.sender,
+        rawTx.sequence_number,
+        rawTx.payload,
+        BigInt(gas.gasLimit),
+        BigInt(gasPrice),
+        rawTx.expiration_timestamp_secs,
+        rawTx.chain_id,
+      );
+
+      const serializer = new BCS.Serializer();
+      newRawTx.serialize(serializer);
+      bscTxn = bufferUtils.bytesToHex(serializer.getBytes());
+    }
+
+    const encodedTxWithFee = {
+      ...params.encodedTx,
+      gas_unit_price: gasPrice,
+      max_gas_amount: gas.gasLimit,
+      bscTxn,
+    };
+    return Promise.resolve(encodedTxWithFee);
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+  override async updateUnsignedTx(
+    params: IUpdateUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    const { unsignedTx, feeInfo } = params;
+    let encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
+    if (feeInfo) {
+      encodedTx = await this._attachFeeInfoToEncodedTx({
+        encodedTx,
+        feeInfo,
+      });
+    }
+    return {
+      ...unsignedTx,
+      encodedTx,
+    };
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
