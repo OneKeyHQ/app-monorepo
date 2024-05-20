@@ -6,18 +6,22 @@ export enum EUniversalSearchType {
   Address = 'Address',
   MarketToken = 'MarketToken',
 }
-export type IUniversalSearchResultItem = {
+export type IUniversalSearchAddress = {
   type: EUniversalSearchType.Address;
   payload: {
     addressInfo: IAddressValidation;
     network: IServerNetwork;
   };
 };
+
 export type IUniversalSearchSingleResult = {
-  items: IUniversalSearchResultItem[];
+  items: IUniversalSearchAddress[];
 };
 
 export type IUniversalSearchMarketToken = IMarketToken;
+
+export type IUniversalSearchResultItem = IUniversalSearchAddress &
+  IUniversalSearchMarketToken;
 
 export type IUniversalSearchMarketTokenResult = {
   items: IUniversalSearchMarketToken[];
