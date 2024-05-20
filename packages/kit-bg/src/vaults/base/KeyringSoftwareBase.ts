@@ -146,6 +146,40 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     return result;
   }
 
+  async baseSignMessageBtc(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
+
+    const vault = this.vault as VaultBtc;
+
+    const { password, messages } = params;
+
+    const credentials = await this.baseGetCredentialsInfo(params);
+
+    const networkInfo = await this.getCoreApiNetworkInfo();
+
+    const result = await Promise.all(
+      messages.map(async (msg) => {
+        const { account, btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
+          unsignedMessage: msg,
+        });
+
+        return checkIsDefined(this.coreApi).signMessage({
+          networkInfo,
+          unsignedMsg: msg,
+          account,
+          password,
+          credentials,
+          btcExtraInfo,
+        });
+      }),
+    );
+    return result;
+  }
+
   async baseGetPrivateKeys(
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult> {

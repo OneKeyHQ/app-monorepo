@@ -137,16 +137,7 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignMessageParams,
   ) {
     const { message, type } = params;
-    const accountsInfo =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-    if (!accountsInfo) {
-      throw web3Errors.provider.custom({
-        code: 4002,
-        message: `Can not get current account`,
-      });
-    }
+    const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 
     if (type !== 'bip322-simple' && type !== 'ecdsa') {
