@@ -58,12 +58,10 @@ const SkeletonItem = () => (
 );
 
 export function UniversalSearch({
-  route,
-}: IPageScreenProps<
-  IUniversalSearchParamList,
-  EUniversalSearchPages.UniversalSearch
->) {
-  const { params } = route || {};
+  searchType,
+}: {
+  searchType?: EUniversalSearchType;
+}) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [sections, setSections] = useState<IUniversalSection[]>([]);
@@ -75,7 +73,7 @@ export function UniversalSearch({
     const result = await backgroundApiProxy.serviceApp.universalSearch({
       input,
       networkId: activeAccount?.network?.id,
-      searchTypes: [params?.filterType || EUniversalSearchType.Address],
+      searchTypes: [searchType || EUniversalSearchType.Address],
     });
     const items = result?.[EUniversalSearchType.Address]?.items;
     if (items?.length) {
@@ -176,7 +174,12 @@ export function UniversalSearch({
   );
 }
 
-const UniversalSearchProvider = () => (
+const UniversalSearchProvider = ({
+  route,
+}: IPageScreenProps<
+  IUniversalSearchParamList,
+  EUniversalSearchPages.UniversalSearch
+>) => (
   <AccountSelectorProviderMirror
     config={{
       sceneName: EAccountSelectorSceneName.home,
@@ -184,7 +187,9 @@ const UniversalSearchProvider = () => (
     }}
     enabledNum={[0]}
   >
-    <UniversalSearch />
+    <UniversalSearch
+      searchType={route?.params?.filterType || EUniversalSearchType.Address}
+    />
   </AccountSelectorProviderMirror>
 );
 

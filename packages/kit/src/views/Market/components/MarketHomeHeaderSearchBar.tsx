@@ -12,7 +12,7 @@ export function MarketHomeHeaderSearchBar() {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
       params: {
-        filterType: EUniversalSearchType.Address,
+        filterType: EUniversalSearchType.MarketToken,
       },
     });
   }, [navigation]);
