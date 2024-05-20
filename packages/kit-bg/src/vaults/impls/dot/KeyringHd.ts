@@ -1,5 +1,8 @@
+import { serializeUnsignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
+import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -30,7 +33,16 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    return this.baseSignTransaction(params);
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
+    const rawTxUnsigned = await serializeUnsignedTransaction(encodedTx);
+    return this.baseSignTransaction({
+      ...params,
+      unsignedTx: {
+        ...unsignedTx,
+        rawTxUnsigned: bufferUtils.bytesToHex(rawTxUnsigned.rawTx),
+      },
+    });
   }
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {

@@ -27,7 +27,7 @@ import type {
 } from '../../types';
 
 export class KeyringHardware extends KeyringHardwareBase {
-  override coreApi = coreChainApi.evm.hd;
+  override coreApi = coreChainApi.dot.hd;
 
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
@@ -36,10 +36,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const publicKeys = await this.baseGetDeviceAccountPublicKeys({
+        const list = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
-          sdkGetPublicKeysFn: async ({
+          sdkGetAddressFn: async ({
             connectId,
             deviceId,
             pathPrefix,
@@ -49,23 +49,23 @@ export class KeyringHardware extends KeyringHardwareBase {
             const sdk = await this.getHardwareSDKInstance();
             const response = await sdk.polkadotGetAddress(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams, // passpharse params
-              bundle: usedIndexes.map((index, arrIndex) => ({
-                path: `${pathPrefix}/${pathSuffix.replace(
-                  '{index}',
-                  `${index}`,
-                )}`,
-                showOnOneKey: showOnOnekeyFn(arrIndex),
-                prefix: +networkInfo.addressPrefix,
-                network: chainId,
-              })),
+              bundle: usedIndexes.map((index, arrIndex) => {
+                const i = pathSuffix.replace('{index}', `${index}`);
+                return {
+                  path: `${pathPrefix}/${i}`,
+                  showOnOneKey: showOnOnekeyFn(arrIndex),
+                  prefix: +networkInfo.addressPrefix,
+                  network: chainId,
+                };
+              }),
             });
             return response;
           },
         });
 
         const ret: ICoreApiGetAddressItem[] = [];
-        for (let i = 0; i < publicKeys.length; i += 1) {
-          const item = publicKeys[i];
+        for (let i = 0; i < list.length; i += 1) {
+          const item = list[i];
           const { path, address, publicKey } = item;
           const addresses = {
             [this.networkId]:

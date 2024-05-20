@@ -5418,7 +5418,10 @@ __metadata:
     "@onekeyfe/onekey-cross-webview": "npm:2.0.0-alpha.5"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
+    "@polkadot/extension-inject": "npm:^0.47.4"
+    "@polkadot/types": "npm:^11.0.3"
     "@polkadot/util-crypto": "npm:^12.6.2"
+    "@substrate/txwrapper-polkadot": "npm:^7.4.0"
     "@tamagui/animations-moti": "npm:1.79.19"
     "@tamagui/babel-plugin": "npm:1.79.19"
     "@tamagui/config": "npm:1.79.19"
@@ -5585,7 +5588,6 @@ __metadata:
     "@noble/secp256k1": "npm:1.7.1"
     "@onekeyfe/cardano-coin-selection": "npm:1.0.0"
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.0"
-    "@polkadot/types": "npm:^11.0.3"
     "@solana/spl-token": "npm:^0.3.7"
     "@solana/web3.js": "npm:^1.87.7"
     "@starcoin/starcoin": "npm:^2.3.7"
@@ -5667,10 +5669,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/kit-bg@workspace:packages/kit-bg"
   dependencies:
-    "@polkadot/extension-inject": "npm:^0.47.4"
-    "@polkadot/types": "npm:^11.0.3"
-    "@polkadot/util-crypto": "npm:^12.6.2"
-    "@substrate/txwrapper-polkadot": "npm:^7.2.0"
     eth-url-parser: "npm:^1.0.4"
     folderslint: "npm:^1.2.0"
     idb: "npm:^7.1.1"
@@ -8326,7 +8324,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@substrate/txwrapper-polkadot@npm:^7.2.0, @substrate/txwrapper-polkadot@npm:^7.4.0":
+"@substrate/txwrapper-polkadot@npm:^7.4.0":
   version: 7.4.0
   resolution: "@substrate/txwrapper-polkadot@npm:7.4.0"
   dependencies:

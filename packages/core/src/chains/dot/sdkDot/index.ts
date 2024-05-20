@@ -60,7 +60,7 @@ export async function serializeSignedTransaction(
 
   const tx = construct.signedTx(
     encodedTx,
-    hexUtils.addHexPrefix(signature) as unknown as `0x${string}`,
+    hexUtils.addHexPrefix(signature),
     {
       metadataRpc,
       registry,

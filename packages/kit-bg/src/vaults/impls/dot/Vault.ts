@@ -3,19 +3,18 @@ import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
 import { decode, getRegistry, methods } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
-import { hexToBytes, hexToNumber } from 'viem';
 
 import { serializeUnsignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   IEncodedTx,
-  ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -47,7 +46,6 @@ import { getTransactionTypeFromTxInfo } from './utils';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -82,7 +80,9 @@ export default class VaultDot extends VaultBase {
     let address = account.address || externalAccountAddress || '';
     const baseAddress = address;
     if (account.pub) {
-      const pubKeyBytes = hexToBytes(hexUtils.addHexPrefix(account.pub));
+      const pubKeyBytes = bufferUtils.hexToBytes(
+        hexUtils.stripHexPrefix(account.pub),
+      );
       address = encodeAddress(pubKeyBytes, +networkInfo.addressPrefix);
     }
 
@@ -119,35 +119,35 @@ export default class VaultDot extends VaultBase {
         {
           route: 'rpc',
           params: {
-            method: 'state.getRuntimeVersion',
+            method: 'state_getRuntimeVersion',
             params: [],
           },
         },
         {
           route: 'rpc',
           params: {
-            method: 'chain.getBlockHash',
+            method: 'chain_getBlockHash',
             params: [],
           },
         },
         {
           route: 'rpc',
           params: {
-            method: 'chain.getBlockHash',
+            method: 'chain_getBlockHash',
             params: [0],
           },
         },
         {
           route: 'rpc',
           params: {
-            method: 'chain.getBlock',
+            method: 'chain_getBlock',
             params: [],
           },
         },
         {
           route: 'rpc',
           params: {
-            method: 'state.getMetadata',
+            method: 'state_getMetadata',
             params: [],
           },
         },
@@ -272,7 +272,7 @@ export default class VaultDot extends VaultBase {
           option,
         );
       } else {
-        unsigned = methods.balances.transfer(
+        unsigned = methods.balances.transferAllowDeath(
           {
             value: amountValue,
             dest: toAccount,
@@ -307,14 +307,13 @@ export default class VaultDot extends VaultBase {
               {
                 route: 'rpc',
                 params: {
-                  method: 'state.getMetadata',
+                  method: 'state_getMetadata',
                   params: [],
                 },
               },
             ],
           },
         );
-      console.log('state.getMetadata:', res);
       metadataRpcHex = res;
     } else {
       metadataRpcHex = params.metadataRpc;
@@ -338,17 +337,18 @@ export default class VaultDot extends VaultBase {
             {
               route: 'rpc',
               params: {
-                method: 'state.getRuntimeVersion',
+                method: 'state_getRuntimeVersion',
                 params: [],
               },
             },
           ],
         });
-      console.log('state.getRuntimeVersion:', res);
       specVersion = res.specVersion;
       specName = res.specName;
     } else {
-      specVersion = hexToNumber(hexUtils.addHexPrefix(params.specVersion));
+      specVersion = +numberUtils.hexToDecimal(
+        hexUtils.addHexPrefix(params.specVersion),
+      );
       specName = params.specName;
     }
 
@@ -460,30 +460,14 @@ export default class VaultDot extends VaultBase {
     return result;
   }
 
-  private async _buildUnsignedTxFromEncodedTx(
-    encodedTx: IEncodedTxDot,
-  ): Promise<IUnsignedTxPro> {
-    const account = await this.getAccount();
-    return {
-      inputs: [
-        {
-          address: hexUtils.stripHexPrefix(account.address),
-          value: new BigNumber(0),
-          publicKey: hexUtils.stripHexPrefix(account.pub ?? ''),
-        },
-      ],
-      outputs: [],
-      payload: { encodedTx },
-      encodedTx,
-    };
-  }
-
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxDot);
+      return {
+        encodedTx,
+      }
     }
     throw new OneKeyInternalError();
   }
@@ -493,73 +477,14 @@ export default class VaultDot extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const { unsignedTx } = params;
     let encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
-    const decodeUnsignedTx = await this._decodeUnsignedTx(encodedTx);
-    const type = getTransactionTypeFromTxInfo(decodeUnsignedTx);
-    if (type === EDecodedTxActionType.ASSET_TRANSFER) {
-      const chainId = await this.getNetworkChainId();
-      let {
-        dest: { id: toAddress },
-      } = decodeUnsignedTx.method.args as { dest: { id: string } };
-      if (chainId === 'joystream') {
-        toAddress = decodeUnsignedTx.method.args.dest as string;
-      }
-
-      const info: BaseTxInfo = {
-        address: decodeUnsignedTx.address,
-        blockHash: encodedTx.blockHash,
-        blockNumber: hexToNumber(hexUtils.addHexPrefix(encodedTx.blockNumber)),
-        eraPeriod: 64,
-        genesisHash: encodedTx.genesisHash,
-        metadataRpc: encodedTx.metadataRpc,
-        nonce: hexToNumber(hexUtils.addHexPrefix(encodedTx.nonce)),
-        specVersion: hexToNumber(hexUtils.addHexPrefix(encodedTx.specVersion)),
-        tip: 0,
-        transactionVersion: hexToNumber(
-          hexUtils.addHexPrefix(encodedTx.transactionVersion),
-        ),
-      };
-
-      const registry = await this._getRegistry(encodedTx);
-      const option = {
-        metadataRpc: encodedTx.metadataRpc,
-        registry,
-      };
-
-      const network = await this.getNetwork();
-      const amountValue = new BigNumber(
-        decodeUnsignedTx.method.args.value as number,
-      )
-        .shiftedBy(network.decimals)
-        .toFixed();
-
-      if (decodeUnsignedTx.method?.name?.indexOf('KeepAlive') !== -1) {
-        encodedTx = methods.balances.transferKeepAlive(
-          {
-            value: amountValue,
-            dest: {
-              id: toAddress,
-            },
-          },
-          info,
-          option,
-        );
-      } else {
-        encodedTx = methods.balances.transfer(
-          {
-            value: amountValue,
-            dest: {
-              id: toAddress,
-            },
-            keepAlive: false,
-          },
-          info,
-          option,
-        );
-      }
+    if (params.nonceInfo) {
+      encodedTx.nonce = numberUtils.numberToHex(params.nonceInfo.nonce, {
+        prefix0x: true,
+      }) as `0x${string}`;
     }
-
     return {
       encodedTx,
+      feeInfo: params.feeInfo,
     };
   }
 

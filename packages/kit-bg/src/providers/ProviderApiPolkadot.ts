@@ -131,7 +131,9 @@ class ProviderApiPolkadot extends ProviderApiBase {
     }
     await this.backgroundApi.serviceDApp.disconnectWebsite({
       origin,
-      storageType: 'walletConnect',
+      storageType: request.isWalletConnectRequest
+        ? 'walletConnect'
+        : 'injectedProvider',
     });
   }
 

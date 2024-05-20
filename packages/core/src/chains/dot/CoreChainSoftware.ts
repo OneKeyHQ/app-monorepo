@@ -26,7 +26,6 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import { hexToBytes } from 'viem';
 import { serializeMessage, serializeSignedTransaction, serializeUnsignedTransaction } from './sdkDot';
 
 const curve: ICurveName = 'ed25519';
@@ -105,8 +104,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve,
     });
-    const tx = await serializeUnsignedTransaction(unsignedTx.encodedTx as IEncodedTxDot);
-    const [signature] = await signer.sign(bufferUtils.toBuffer(tx.hash));
+    if (!unsignedTx.rawTxUnsigned) {
+      throw new Error('rawTxUnsigned is undefined');
+    }
+    const [signature] = await signer.sign(bufferUtils.toBuffer(bufferUtils.hexToBytes(unsignedTx.rawTxUnsigned)));
     const txSignature = u8aConcat(
       DOT_TYPE_PREFIX.ed25519,
       bufferToU8a(signature),
@@ -153,7 +154,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
     const { publicKey, networkInfo } = query;
-    const pubKeyBytes = hexToBytes(hexUtils.addHexPrefix(publicKey));
+    const pubKeyBytes = bufferUtils.hexToBytes(hexUtils.stripHexPrefix(publicKey));
     return Promise.resolve({
       address: '',
       addresses: {
