@@ -1,25 +1,97 @@
-import { Icon, SizableText, Stack } from '@onekeyhq/components';
+import { useCallback } from 'react';
+
+import {
+  Icon,
+  RichSizeableText,
+  SizableText,
+  Stack,
+} from '@onekeyhq/components';
+import type { IRichSizeableTextProps } from '@onekeyhq/components';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+
+import type { ColorTokens } from 'tamagui';
+
+type IToneType = 'destructive' | 'warning' | 'success';
+
+const getColors = (
+  tone?: IToneType,
+): {
+  iconWrapperBg: ColorTokens;
+  iconColor: ColorTokens;
+} => {
+  switch (tone) {
+    case 'destructive': {
+      return {
+        iconWrapperBg: '$bgCritical',
+        iconColor: '$iconCritical',
+      };
+    }
+    case 'warning': {
+      return {
+        iconWrapperBg: '$bgCaution',
+        iconColor: '$iconCaution',
+      };
+    }
+    case 'success': {
+      return {
+        iconWrapperBg: '$bgSuccess',
+        iconColor: '$iconSuccess',
+      };
+    }
+    default: {
+      return {
+        iconWrapperBg: '$bgStrong',
+        iconColor: '$icon',
+      };
+    }
+  }
+};
 
 export function FirmwareUpdateBaseMessageView({
   icon,
   title,
+  tone,
   message,
+  linkList,
 }: {
-  icon?: React.ReactNode;
+  icon?: IKeyOfIcons;
   title?: string;
-
-  message?: string;
+  tone?: IToneType;
+  message?: IRichSizeableTextProps['children'];
+  linkList?: IRichSizeableTextProps['linkList'];
 }) {
+  const renderIcon = useCallback(
+    () =>
+      icon?.endsWith('Solid') ? (
+        <Icon name={icon} size="$14" color={getColors(tone).iconColor} />
+      ) : (
+        <Stack
+          alignSelf="flex-start"
+          p="$3"
+          borderRadius="$full"
+          bg={getColors(tone).iconWrapperBg}
+        >
+          <Icon name={icon} size="$7" color={getColors(tone).iconColor} />
+        </Stack>
+      ),
+    [icon, tone],
+  );
   return (
     <Stack py="$6">
-      {icon || <Icon name="ErrorOutline" size={56} />}
+      {icon ? renderIcon() : null}
       {title ? (
         <SizableText my="$4" size="$heading2xl">
           {title}
         </SizableText>
       ) : null}
       {message ? (
-        <SizableText color="$textSubdued">{message}</SizableText>
+        <RichSizeableText
+          size="$bodyLg"
+          color="$textSubdued"
+          linkList={linkList}
+        >
+          {message}
+        </RichSizeableText>
       ) : null}
     </Stack>
   );
