@@ -8,7 +8,7 @@ import CoreChainCkb from '../chains/ckb';
 import CoreChainCosmos from '../chains/cosmos';
 import CoreChainDnx from '../chains/dnx';
 import CoreChainDoge from '../chains/doge';
-// import CoreChainDot from '../chains/dot';
+import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
 import CoreChainFil from '../chains/fil';
 import CoreChainKaspa from '../chains/kaspa';
@@ -62,7 +62,7 @@ export class CoreChainApiHub {
 
   sui = new CoreChainSui();
 
-  // dot = new CoreChainDot();
+  dot = new CoreChainDot();
 
   fil = new CoreChainFil();
 

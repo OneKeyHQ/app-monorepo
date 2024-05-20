@@ -272,7 +272,14 @@ export function useSwapTokenList(
 
   const fuseRemoteTokensSearch = useFuse(
     tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || [],
-    { keys: ['symbol', 'contractAddress'] },
+    {
+      keys: ['symbol'].concat(
+        (tokenCatch?.[JSON.stringify(tokenFetchParams)]?.data || []).length ===
+          1
+          ? ['contractAddress']
+          : [],
+      ),
+    },
   );
 
   const fuseRemoteTokensSearchRef = useRef(fuseRemoteTokensSearch);

@@ -2195,6 +2195,221 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const polkadot: IServerNetwork = {
+    'balance2FeeDecimals': 10,
+    'chainId': 'polkadot',
+    'code': 'dot',
+    'decimals': 10,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '0',
+        'addressRegex': '^1[a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--polkadot',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/polkadot.png',
+    'name': 'Polkadot',
+    'shortcode': 'dot',
+    'shortname': 'DOT',
+    'symbol': 'DOT',
+    'feeMeta': {
+      'code': 'dot',
+      'decimals': 10,
+      'symbol': 'DOT',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'polkadot',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://polkadot.subscan.io/account/{address}',
+        'block': 'https://polkadot.subscan.io/block/{block}',
+        'name': 'https://polkadot.subscan.io/',
+        'transaction': 'https://polkadot.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const astar: IServerNetwork = {
+    'balance2FeeDecimals': 18,
+    'chainId': 'astar',
+    'code': 'astar',
+    'decimals': 18,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '5',
+        'addressRegex': '^[a-bV-Z][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--astar',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/astar.png',
+    'name': 'Astar',
+    'shortcode': 'astar',
+    'shortname': 'ASTR',
+    'symbol': 'ASTR',
+    'feeMeta': {
+      'code': 'astar',
+      'decimals': 18,
+      'symbol': '18',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'astar',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://astar.subscan.io/account/{address}',
+        'block': 'https://astar.subscan.io/block/{block}',
+        'name': 'https://astar.subscan.io/',
+        'transaction': 'https://astar.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const kusama: IServerNetwork = {
+    'balance2FeeDecimals': 12,
+    'chainId': 'kusama',
+    'code': 'ksm',
+    'decimals': 12,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '2',
+        'addressRegex': '^[C-HJ][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--kusama',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/kusama.png',
+    'name': 'Kusama',
+    'shortcode': 'ksm',
+    'shortname': 'KSM',
+    'symbol': 'KSM',
+    'feeMeta': {
+      'code': 'dot',
+      'decimals': 12,
+      'symbol': 'KSM',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'kusama',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://kusama.subscan.io/account/{address}',
+        'block': 'https://kusama.subscan.io/block/{block}',
+        'name': 'https://kusama.subscan.io/',
+        'transaction': 'https://kusama.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const manta: IServerNetwork = {
+    'balance2FeeDecimals': 18,
+    'chainId': 'manta',
+    'code': 'dot-manta',
+    'decimals': 18,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '77',
+        'addressRegex': '^df[a-cW-Z][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--manta',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/manta.png',
+    'name': 'Manta Atlantic',
+    'shortcode': 'manta',
+    'shortname': 'MANTA',
+    'symbol': 'MANTA',
+    'feeMeta': {
+      'code': 'manta',
+      'decimals': 18,
+      'symbol': 'MANTA',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://manta.subscan.io/account/{address}',
+        'block': 'https://manta.subscan.io/block/{block}',
+        'name': 'https://manta.subscan.io/',
+        'transaction': 'https://manta.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-01-20T00:30:24.951Z',
+    'updatedAt': '2024-01-20T00:30:24.951Z',
+  };
+
+  const joystream: IServerNetwork = {
+    'balance2FeeDecimals': 10,
+    'chainId': 'joystream',
+    'code': 'dot-joystream',
+    'decimals': 10,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '126',
+        'addressRegex': '^j4[R-X][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--joystream',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/joystream.png',
+    'name': 'Joystream',
+    'shortcode': 'joy',
+    'shortname': 'JOY',
+    'symbol': 'JOY',
+    'feeMeta': {
+      'code': 'joy',
+      'decimals': 10,
+      'symbol': 'JOY',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'joystream',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://joystream.subscan.io/account/{address}',
+        'block': 'https://joystream.subscan.io/block/{block}',
+        'name': 'https://joystream.subscan.io/',
+        'transaction': 'https://joystream.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const kaspa = {
     'balance2FeeDecimals': 0,
     'chainId': 'kaspa',
@@ -2688,6 +2903,11 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 
   const chainsOnlyEnabledInDev = [
     aptos,
+    polkadot,
+    astar,
+    kusama,
+    manta,
+    joystream,
     tatom, // Cosmos Testnet
     nexaTestnet,
     tlightning,
