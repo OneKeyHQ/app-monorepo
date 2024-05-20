@@ -297,12 +297,6 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const chainId = await this.getNetworkChainId();
     const isValid = isValidAddress(address, chainId);

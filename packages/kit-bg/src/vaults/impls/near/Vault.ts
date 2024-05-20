@@ -448,12 +448,6 @@ export default class Vault extends VaultBase {
     return unsignedTx;
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override validateAddress(address: string): Promise<IAddressValidation> {
     const result = verifyNearAddress(hexUtils.stripHexPrefix(address));
     return Promise.resolve(result);

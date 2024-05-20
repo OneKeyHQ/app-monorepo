@@ -29,7 +29,7 @@ import type {
 
 const curve: ICurveName = 'ed25519';
 
-function handleSignData(txnBytes: Uint8Array, isHardware = false) {
+export function handleSignData(txnBytes: Uint8Array, isHardware = false) {
   const serializeTxn = messageWithIntent(IntentScope.TransactionData, txnBytes);
   if (isHardware) {
     return serializeTxn;

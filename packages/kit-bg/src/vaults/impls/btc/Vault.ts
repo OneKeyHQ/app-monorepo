@@ -201,20 +201,6 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    console.log('VaultBtc broadcastTransaction', params, {
-      rawTxOk:
-        params.signedTx.rawTx ===
-        '0200000000010190ed799b5a2d54a743f8c405615ddada3823b2cc1c178a77a15f5e18de45cb390100000000ffffffff02e80300000000000022512017161c749b810cbd8a2aa7310965b5cb025de7afa2e098a9d3b1aba6424302c6f00e02000000000022512017161c749b810cbd8a2aa7310965b5cb025de7afa2e098a9d3b1aba6424302c601402a5758f1759557b6b7a02900339f5ed83984e26a24e22b642f7a3bcd89a13392cf0848d29eb6be2e18e2c040969c37bd44825f8a343db8c530229c0aceecf88200000000',
-      txidOk:
-        params.signedTx.txid ===
-        '17eafe9b6ca10dbdb70f8f37460db13401cccd9cc2bcb4851a31f01799688dd3',
-    });
-    throw new Error('Method not implemented.');
-  }
-
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxBtc> {

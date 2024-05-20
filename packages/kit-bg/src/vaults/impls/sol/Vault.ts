@@ -940,12 +940,6 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override validateAddress(address: string): Promise<IAddressValidation> {
     try {
       const publicKey = new PublicKey(address);

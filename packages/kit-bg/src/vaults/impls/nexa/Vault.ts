@@ -285,12 +285,6 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override validateAddress(address: string): Promise<IAddressValidation> {
     const { isValid, normalizedAddress } = verifyNexaAddress(address);
     const formattedAddress = isValid ? normalizedAddress || address : '';

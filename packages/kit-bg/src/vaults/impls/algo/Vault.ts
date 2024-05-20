@@ -399,12 +399,6 @@ export default class Vault extends VaultBase {
     return unsignedTx;
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override validateAddress(address: string): Promise<IAddressValidation> {
     if (sdkAlgo.isValidAddress(address)) {
       return Promise.resolve({

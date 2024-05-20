@@ -82,7 +82,7 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('transfersInfo is required');
     }
     if (transfersInfo.length > 1) {
-      throw new OneKeyInternalError('Only one transfer is allowed');
+      throw new OneKeyInternalError('Batch transfer is not supported');
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
@@ -225,10 +225,6 @@ export default class Vault extends VaultBase {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     return Promise.resolve(params.unsignedTx);
-  }
-
-  override broadcastTransaction(): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
