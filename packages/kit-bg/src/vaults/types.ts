@@ -269,6 +269,7 @@ export type ITransferInfo = {
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  keepAlive?: boolean; // Polkadot chain keep alive
 
   // Lightning network
   lnurlPaymentInfo?: ILNURLPaymentInfo;
