@@ -2823,6 +2823,46 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const aptos: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': '1',
+    'code': 'apt',
+    'decimals': 8,
+    'id': 'aptos--1',
+    'impl': 'aptos',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/apt.png',
+    'name': 'Aptos',
+    'shortcode': 'apt',
+    'shortname': 'APT',
+    'symbol': 'APT',
+    'feeMeta': {
+      'code': 'apt',
+      'decimals': 8,
+      'symbol': 'APT',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'aptos',
+      },
+    ],
+    'explorers': [
+      {
+        'address':
+          'https://explorer.aptoslabs.com/account/{address}/?network=mainnet',
+        'block': 'https://explorer.aptoslabs.com/txn/{block}/?network=mainnet',
+        'name': 'https://explorer.aptoslabs.com/?network=mainnet',
+        'transaction':
+          'https://explorer.aptoslabs.com/txn/{transaction}/?network=mainnet',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
   const ckb = {
     'balance2FeeDecimals': 0,
     'chainId': 'ckb',
@@ -2862,6 +2902,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   };
 
   const chainsOnlyEnabledInDev = [
+    aptos,
     polkadot,
     astar,
     kusama,
