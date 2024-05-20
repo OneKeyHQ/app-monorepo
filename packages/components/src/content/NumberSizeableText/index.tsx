@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { getFontSize } from '@onekeyhq/components';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -12,14 +13,6 @@ export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> &
     subTextStyle?: Omit<ISizableTextProps, 'children'>;
     children: string | number | undefined;
   };
-
-const subTextStyles = {
-  sup: undefined,
-  sub: {
-    fontSize: 8,
-    fontWeight: '900',
-  } as ISizableTextProps,
-};
 
 export function NumberSizeableText({
   children,
@@ -36,6 +29,9 @@ export function NumberSizeableText({
     [formatter, formatterOptions, children],
   );
 
+  const scriptFontSize = Math.ceil(
+    props.fontSize || getFontSize(props.size) * 0.6,
+  );
   return typeof result === 'string' ? (
     <SizableText {...props}>{result}</SizableText>
   ) : (
@@ -49,7 +45,7 @@ export function NumberSizeableText({
           <SizableText
             key={index}
             {...props}
-            {...subTextStyles[r.type as keyof typeof subTextStyles]}
+            fontSize={scriptFontSize}
             {...subTextStyle}
           >
             {r.value}
