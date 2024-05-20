@@ -243,8 +243,8 @@ class ServiceCloudBackup extends ServiceBase {
         this.getBackupPath(CLOUD_METADATA_FILE_NAME),
       );
       await RNFS.unlink(localTempFilePath);
-      await this.getDataFromCloud.delete(CLOUD_METADATA_FILE_NAME);
       this.metaDataCache = newMetaData;
+      await this.getDataFromCloud.delete(CLOUD_METADATA_FILE_NAME);
     } catch (e) {
       await this.removeBackup(filename);
       console.error(e);
@@ -668,8 +668,8 @@ class ServiceCloudBackup extends ServiceBase {
 
     const removed = await CloudFs.deleteFile(this.getBackupPath(filename));
     if (removed) {
-      await this.getDataFromCloud.delete(CLOUD_METADATA_FILE_NAME);
       this.metaDataCache = newMetaData;
+      await this.getDataFromCloud.delete(CLOUD_METADATA_FILE_NAME);
     }
   }
 
