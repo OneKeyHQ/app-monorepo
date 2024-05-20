@@ -5,6 +5,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
+  NumberSizeableText,
   Page,
   SearchBar,
   SectionList,
@@ -15,13 +16,18 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
   IUniversalSearchParamList,
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
+import type {
+  IUniversalSearchAddress,
+  IUniversalSearchMarketToken,
+  IUniversalSearchResultItem,
+} from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -76,16 +82,27 @@ export function UniversalSearch({
       searchTypes: [searchType || EUniversalSearchType.Address],
     });
     const items = result?.[EUniversalSearchType.Address]?.items;
-    if (items?.length) {
-      setSections([
-        {
-          title: 'Wallet',
-          data: items,
-        },
-      ]);
-    } else {
-      setSections([]);
+    const searchResultSections: {
+      title: string;
+      data: IUniversalSearchResultItem[];
+    }[] = [];
+    if (result?.[EUniversalSearchType.Address]?.items) {
+      searchResultSections.push({
+        title: 'Wallet',
+        data: result?.[EUniversalSearchType.Address]
+          ?.items as IUniversalSearchResultItem[],
+      });
     }
+
+    if (result?.[EUniversalSearchType.MarketToken]?.items) {
+      searchResultSections.push({
+        title: 'Market Token',
+        data: result?.[EUniversalSearchType.MarketToken]
+          ?.items as IUniversalSearchResultItem[],
+      });
+    }
+
+    setSections(searchResultSections);
     setSearchStatus(ESearchStatus.done);
   }, 1200);
 
@@ -101,6 +118,82 @@ export function UniversalSearch({
   //   ),
   //   [],
   // );
+
+  const renderItem = useCallback(
+    ({ item }: { item: IUniversalSearchResultItem }) => {
+      switch (searchType) {
+        case EUniversalSearchType.Address: {
+          const searchAddressItem = item as IUniversalSearchAddress;
+          return (
+            <ListItem
+              onPress={() => {
+                navigation.pop();
+                setTimeout(() => {
+                  const { network, addressInfo } = searchAddressItem.payload;
+                  urlAccountNavigation.pushUrlAccountPage(navigation, {
+                    address: addressInfo.displayAddress,
+                    networkId: network.id,
+                  });
+                }, 80);
+              }}
+              renderAvatar={
+                <NetworkAvatar
+                  networkId={searchAddressItem.payload.network.id}
+                  size="$10"
+                />
+              }
+              title={searchAddressItem.payload.network.shortname}
+              subtitle={accountUtils.shortenAddress({
+                address: searchAddressItem.payload.addressInfo.displayAddress,
+              })}
+            />
+          );
+        }
+        case EUniversalSearchType.MarketToken: {
+          const { image, coingeckoId, price, symbol, name } =
+            item as IUniversalSearchMarketToken;
+          return (
+            <XStack
+              jc="space-between"
+              ai="center"
+              onPress={() => {
+                navigation.pop();
+                setTimeout(() => {
+                  navigation.push(ETabMarketRoutes.MarketDetail, {
+                    coinGeckoId: coingeckoId,
+                    icon: image,
+                    symbol,
+                  });
+                }, 80);
+              }}
+            >
+              <ListItem
+                avatarProps={{
+                  src: decodeURIComponent(image),
+                  size: '$10',
+                }}
+                title={symbol.toUpperCase()}
+                subtitle={name}
+              />
+              <XStack pr="$5">
+                <NumberSizeableText
+                  size="$bodyLgMedium"
+                  formatter="price"
+                  formatterOptions={{ currency: '$' }}
+                >
+                  {price}
+                </NumberSizeableText>
+              </XStack>
+            </XStack>
+          );
+        }
+        default: {
+          return null;
+        }
+      }
+    },
+    [navigation, searchType],
+  );
 
   const renderResult = useCallback(() => {
     switch (searchStatus) {
@@ -124,30 +217,7 @@ export function UniversalSearch({
             ListEmptyComponent={
               <Empty icon="SearchOutline" title="No Results" />
             }
-            renderItem={({ item }: { item: IUniversalSearchResultItem }) => (
-              <ListItem
-                onPress={() => {
-                  navigation.pop();
-                  setTimeout(() => {
-                    const { network, addressInfo } = item.payload;
-                    urlAccountNavigation.pushUrlAccountPage(navigation, {
-                      address: addressInfo.displayAddress,
-                      networkId: network.id,
-                    });
-                  }, 80);
-                }}
-                renderAvatar={
-                  <NetworkAvatar
-                    networkId={item.payload.network.id}
-                    size="$10"
-                  />
-                }
-                title={item.payload.network.shortname}
-                subtitle={accountUtils.shortenAddress({
-                  address: item.payload.addressInfo.displayAddress,
-                })}
-              />
-            )}
+            renderItem={renderItem}
             estimatedItemSize="$16"
           />
         );
