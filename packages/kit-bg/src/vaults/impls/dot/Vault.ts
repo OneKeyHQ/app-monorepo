@@ -565,12 +565,6 @@ export default class VaultDot extends VaultBase {
     };
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const networkInfo = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId: this.networkId,
