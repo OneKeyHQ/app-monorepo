@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
 
 import { EPageType, usePageType } from '@onekeyhq/components';
@@ -96,20 +95,15 @@ export function useSwapFromAccountNetworkSync() {
     },
   );
 
-  const isFocused = useIsFocused();
   useEffect(() => {
     void (async () => {
-      if (pageType === EPageType.modal && isFocused) {
-        await checkTokenForAccountNetworkDebounce();
-      }
+      await checkTokenForAccountNetworkDebounce();
     })();
   }, [
     checkTokenForAccountNetworkDebounce,
     fromToken,
     toToken,
     swapProviderSupportReceiveAddress,
-    isFocused,
-    pageType,
   ]);
 }
 

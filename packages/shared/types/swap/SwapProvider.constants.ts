@@ -12,7 +12,7 @@ export const swapSlippageItems: {
   },
 ];
 
-export const swapSlippageAutoValue = 0.5;
+export const swapSlippageAutoValue = 1;
 
 export const swapSlippageMaxValue = 50;
 

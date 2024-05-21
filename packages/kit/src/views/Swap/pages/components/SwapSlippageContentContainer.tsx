@@ -50,9 +50,9 @@ const BaseSlippageInput = ({
 
   useEffect(() => {
     if (swapSlippage.key === ESwapSlippageSegmentKey.AUTO) {
-      setInputValue(swapSlippageAutoValue.toString());
+      setInputValue(swapSlippage.value.toString());
     }
-  }, [swapSlippage.key]);
+  }, [swapSlippage.key, swapSlippage.value]);
 
   return (
     <Input

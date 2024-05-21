@@ -113,7 +113,7 @@ const SwapProviderListItem = ({
 
   const leftMainLabel = useMemo(() => {
     if (disabled) {
-      return 'Unable to fetch the price';
+      return providerResult?.errorMessage || 'Unable to fetch the price';
     }
     if (providerResult.limit) {
       const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
@@ -150,6 +150,7 @@ const SwapProviderListItem = ({
     disabled,
     fromToken?.symbol,
     fromTokenAmount,
+    providerResult?.errorMessage,
     providerResult.limit,
     providerResult.toAmount,
     toToken?.symbol,

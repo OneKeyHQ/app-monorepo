@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  ESwapProviderSort,
+  swapSlippageAutoValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
@@ -230,7 +233,7 @@ export const {
   use: useSwapSlippagePercentageAtom,
 } = contextAtom<ISwapSlippageSegmentItem>({
   key: ESwapSlippageSegmentKey.AUTO,
-  value: 0.5,
+  value: swapSlippageAutoValue,
 });
 
 export const {
