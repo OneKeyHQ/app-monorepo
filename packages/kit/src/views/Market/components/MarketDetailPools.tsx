@@ -134,14 +134,14 @@ export function MarketDetailPools({
             >
               <ItemColumn>
                 <XStack space="$2.5" ai="center">
-                  <View>
+                  {relationships.dex.data.id.includes('uniswap') ? (
                     <Icon
                       name="UniswapBrand"
                       size="$5"
                       borderRadius="100%"
                       color={'#ff007a' as IIconProps['color']}
                     />
-                  </View>
+                  ) : null}
                   <YStack flexShrink={1}>
                     <SizableText size="$bodySmMedium">
                       {attributes.name}
