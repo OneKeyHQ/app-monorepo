@@ -12,6 +12,7 @@ import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCkb } from '../chains/ckb/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
 import type { IEncodedTxDnx } from '../chains/dnx/types';
+import type { IEncodedTxDot } from '../chains/dot/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
@@ -41,6 +42,7 @@ export type IEncodedTx =
   | IEncodedTxNexa
   | IEncodedTxLightning
   | IEncodedTxNostr
+  | IEncodedTxDot
   | IEncodedTxDnx
   | IEncodedTxNostr
   | IEncodedTxAlgo

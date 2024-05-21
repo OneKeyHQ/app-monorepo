@@ -484,67 +484,67 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
-      if (
-        fromToken &&
-        !swapFromAddressInfo.address &&
-        (accountUtils.isHdWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }) ||
-          accountUtils.isHwWallet({
-            walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-          }))
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `${
-              swapFromAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
-            } - ${
-              swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
-            } lacks ${
-              swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
-            } address. Please try to create one.`,
-            alertLevel: ESwapAlertLevel.ERROR,
-          },
-        ];
-      }
+      // if (
+      //   fromToken &&
+      //   !swapFromAddressInfo.address &&
+      //   (accountUtils.isHdWallet({
+      //     walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      //   }) ||
+      //     accountUtils.isHwWallet({
+      //       walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      //     }))
+      // ) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       message: `${
+      //         swapFromAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
+      //       } - ${
+      //         swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
+      //       } lacks ${
+      //         swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
+      //       } address. Please try to create one.`,
+      //       alertLevel: ESwapAlertLevel.ERROR,
+      //     },
+      //   ];
+      // }
 
-      if (
-        toToken &&
-        !swapToAddressInfo.address &&
-        (accountUtils.isHdWallet({
-          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-        }) ||
-          accountUtils.isHwWallet({
-            walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-          })) &&
-        swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `${
-              swapToAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
-            } - ${
-              swapToAddressInfo.accountInfo?.accountName ?? 'unknown'
-            } lacks ${
-              swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
-            } address. Please try to create one.`,
-            alertLevel: ESwapAlertLevel.ERROR,
-          },
-        ];
-      }
+      // if (
+      //   toToken &&
+      //   !swapToAddressInfo.address &&
+      //   (accountUtils.isHdWallet({
+      //     walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+      //   }) ||
+      //     accountUtils.isHwWallet({
+      //       walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+      //     })) &&
+      //   swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
+      // ) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       message: `${
+      //         swapToAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
+      //       } - ${
+      //         swapToAddressInfo.accountInfo?.accountName ?? 'unknown'
+      //       } lacks ${
+      //         swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
+      //       } address. Please try to create one.`,
+      //       alertLevel: ESwapAlertLevel.ERROR,
+      //     },
+      //   ];
+      // }
 
       // provider toAmount check
-      if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: 'No provider supports this trade.',
-            alertLevel: ESwapAlertLevel.ERROR,
-          },
-        ];
-      }
+      // if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       message: 'No provider supports this trade.',
+      //       alertLevel: ESwapAlertLevel.ERROR,
+      //     },
+      //   ];
+      // }
 
       // provider best check
       if (quoteResult?.toAmount && !quoteResult.isBest) {
@@ -559,23 +559,23 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
 
       // price check
-      if (
-        (fromToken &&
-          (!fromToken?.price || new BigNumber(fromToken.price).isZero())) ||
-        (toToken && (!toToken?.price || new BigNumber(toToken.price).isZero()))
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `Failed to fetch ${
-              !fromToken?.price
-                ? fromToken?.name ?? fromToken?.symbol ?? 'unknown'
-                : toToken?.name ?? toToken?.symbol ?? 'unknown'
-            } price.You can still proceed with the trade.`,
-            alertLevel: ESwapAlertLevel.WARNING,
-          },
-        ];
-      }
+      // if (
+      //   (fromToken &&
+      //     (!fromToken?.price || new BigNumber(fromToken.price).isZero())) ||
+      //   (toToken && (!toToken?.price || new BigNumber(toToken.price).isZero()))
+      // ) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       message: `Failed to fetch ${
+      //         !fromToken?.price
+      //           ? fromToken?.name ?? fromToken?.symbol ?? 'unknown'
+      //           : toToken?.name ?? toToken?.symbol ?? 'unknown'
+      //       } price.You can still proceed with the trade.`,
+      //       alertLevel: ESwapAlertLevel.WARNING,
+      //     },
+      //   ];
+      // }
 
       // market rate check
       if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
@@ -787,6 +787,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 }
               }
             }
+          } catch (e) {
+            balanceDisplay = '0.0';
           } finally {
             set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
               ...pre,

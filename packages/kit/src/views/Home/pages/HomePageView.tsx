@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -13,6 +13,7 @@ import { TabPageHeader } from '../../../components/TabPageHeader';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import HomeSelector from '../components/HomeSelector';
 import useHomePageWidth from '../hooks/useHomePageWidth';
 
@@ -21,8 +22,6 @@ import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
-
-import { HomeFirmwareUpdateReminder } from '../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 
 let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
@@ -51,7 +50,15 @@ export function HomePageView({
   }, [pageWidth]);
   const intl = useIntl();
   const {
-    activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
+    activeAccount: {
+      account,
+      accountName,
+      network,
+      deriveInfo,
+      wallet,
+      ready,
+      device,
+    },
   } = useActiveAccount({ num: 0 });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -77,6 +84,7 @@ export function HomePageView({
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
   const isRequiredValidation = vaultSettings?.validationRequired;
+  const enabledOnClassicOnly = vaultSettings?.enabledOnClassicOnly;
 
   const tabs = useMemo(
     () =>
@@ -124,6 +132,21 @@ export function HomePageView({
   );
 
   const renderHomePageContent = useCallback(() => {
+    if (enabledOnClassicOnly && device?.deviceType !== 'classic') {
+      return (
+        <YStack height="100%">
+          <HomeSelector createAddressDisabled padding="$5" />
+          <Stack flex={1} justifyContent="center">
+            <Empty
+              icon="LinkSolid"
+              title="Selected network supports only 「Classic」"
+            />
+            ;
+          </Stack>
+        </YStack>
+      );
+    }
+
     if (!account) {
       return (
         <YStack height="100%">
@@ -157,15 +180,17 @@ export function HomePageView({
 
     return <>{renderTabs()}</>;
   }, [
+    enabledOnClassicOnly,
+    device?.deviceType,
     account,
+    isRequiredValidation,
+    renderTabs,
     accountName,
-    network?.id,
     network?.name,
+    network?.id,
     deriveInfo?.labelKey,
     deriveInfo?.label,
     intl,
-    isRequiredValidation,
-    renderTabs,
   ]);
 
   const renderHomePage = useCallback(() => {
