@@ -129,6 +129,14 @@ export function useSwapActionState() {
               quoteCurrentSelect?.info.providerName ?? ''
             }`;
       }
+      if (
+        quoteCurrentSelect &&
+        !quoteCurrentSelect.toAmount &&
+        !quoteCurrentSelect.limit
+      ) {
+        infoRes.label = 'No liquidity for this trade';
+        infoRes.disable = true;
+      }
       const fromTokenAmountBN = new BigNumber(fromTokenAmount);
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
       if (

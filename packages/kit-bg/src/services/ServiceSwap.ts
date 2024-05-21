@@ -403,14 +403,10 @@ export default class ServiceSwap extends ServiceBase {
         method:
           item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
         title:
-          item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
-        message: `${item.baseInfo.fromToken.symbol} -> ${
-          item.baseInfo.toToken.symbol
-        } ${
           item.status === ESwapTxHistoryStatus.SUCCESS
-            ? `swap success, received ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`
-            : 'swap failed'
-        }`,
+            ? 'Swap successful'
+            : 'Swap failed',
+        message: `${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toToken.symbol}`,
       });
     }
   }
