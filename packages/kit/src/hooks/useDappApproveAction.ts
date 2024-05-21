@@ -24,6 +24,7 @@ function useDappApproveAction({
   // TODO ignore multiple times reject/resolve
   const reject = useCallback(
     ({ close, error }: { close?: () => void; error?: Error } = {}) => {
+      if (!id) return;
       // eslint-disable-next-line no-param-reassign
       const newError =
         error || rejectError || web3Errors.provider.userRejectedRequest();
@@ -46,6 +47,7 @@ function useDappApproveAction({
 
   const resolve = useCallback(
     async ({ close, result }: { close?: () => void; result?: any } = {}) => {
+      if (!id) return;
       try {
         setRejectError(null);
         const data = result ?? (await getResolveData?.());

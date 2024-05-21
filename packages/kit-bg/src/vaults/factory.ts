@@ -14,6 +14,7 @@ import {
   IMPL_CFX,
   IMPL_CKB,
   IMPL_COSMOS,
+  IMPL_DNX,
   IMPL_DOGE,
   IMPL_DOT,
   IMPL_EVM,
@@ -115,6 +116,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_SUI]: () => import('./impls/sui/Vault') as any,
     [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,
     [IMPL_APTOS]: () => import('./impls/aptos/Vault') as any,
+    [IMPL_DNX]: () => import('./impls/dnx/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

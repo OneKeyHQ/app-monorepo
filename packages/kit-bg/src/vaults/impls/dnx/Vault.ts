@@ -61,10 +61,20 @@ export default class Vault extends VaultBase {
     external: KeyringExternal,
   };
 
-  override buildAccountAddressDetail(
+  override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    throw new Error('Method not implemented.');
+    const { account, networkId } = params;
+    const { address } = account;
+    return {
+      networkId,
+      normalizedAddress: address,
+      displayAddress: address,
+      address,
+      baseAddress: address,
+      isValid: true,
+      allowEmptyAddress: false,
+    };
   }
 
   override buildEncodedTx(

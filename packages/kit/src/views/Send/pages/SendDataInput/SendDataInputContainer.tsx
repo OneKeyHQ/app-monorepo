@@ -137,7 +137,7 @@ function SendDataInputContainer() {
       token,
       tokenInfo,
     ],
-    { watchLoading: true },
+    { watchLoading: true, alwaysSetState: true },
   );
 
   if (tokenDetails && isNil(tokenDetails?.balanceParsed)) {

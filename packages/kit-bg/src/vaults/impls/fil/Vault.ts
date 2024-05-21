@@ -49,7 +49,6 @@ import type {
 } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -264,23 +263,19 @@ export default class Vault extends VaultBase {
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxFil> {
     const { encodedTx, feeInfo } = params;
-    const gasInfo = feeInfo.gasEIP1559 ?? feeInfo.gas;
     const { feeDecimals } = feeInfo.common;
 
     const encodedTxWithFee = { ...encodedTx };
 
-    if (!isNil(gasInfo?.gasLimit)) {
-      encodedTxWithFee.GasLimit = new BigNumber(gasInfo.gasLimit).toNumber();
-    }
-
-    if (feeInfo.gasEIP1559) {
-      encodedTxWithFee.GasFeeCap = new BigNumber(
-        feeInfo.gasEIP1559.maxFeePerGas ?? 0,
-      )
+    if (feeInfo.gasFil) {
+      encodedTxWithFee.GasLimit = new BigNumber(
+        feeInfo.gasFil.gasLimit ?? 0,
+      ).toNumber();
+      encodedTxWithFee.GasFeeCap = new BigNumber(feeInfo.gasFil.gasFeeCap ?? 0)
         .shiftedBy(feeDecimals)
         .toFixed();
       encodedTxWithFee.GasPremium = new BigNumber(
-        feeInfo.gasEIP1559.maxPriorityFeePerGas ?? 0,
+        feeInfo.gasFil.gasPremium ?? 0,
       )
         .shiftedBy(feeDecimals)
         .toFixed();

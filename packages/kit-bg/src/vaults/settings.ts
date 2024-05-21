@@ -7,6 +7,7 @@ import {
   IMPL_CFX,
   IMPL_CKB,
   IMPL_COSMOS,
+  IMPL_DNX,
   IMPL_DOGE,
   IMPL_DOT,
   IMPL_EVM,
@@ -90,6 +91,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_SUI]: () => import('./impls/sui/settings'),
     [IMPL_KASPA]: () => import('./impls/kaspa/settings'),
     [IMPL_APTOS]: () => import('./impls/aptos/settings'),
+    [IMPL_DNX]: () => import('./impls/dnx/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

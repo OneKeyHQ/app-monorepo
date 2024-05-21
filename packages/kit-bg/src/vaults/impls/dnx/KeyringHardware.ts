@@ -31,7 +31,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<IDBAccount[]> {
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const nearAddresses = await this.baseGetDeviceAccountAddresses({
+        const dnxAddresses = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
           sdkGetAddressFn: async ({
@@ -59,8 +59,8 @@ export class KeyringHardware extends KeyringHardwareBase {
 
         const ret: ICoreApiGetAddressItem[] = [];
         const addressRelPath = '0/0';
-        for (let i = 0; i < nearAddresses.length; i += 1) {
-          const item = nearAddresses[i];
+        for (let i = 0; i < dnxAddresses.length; i += 1) {
+          const item = dnxAddresses[i];
           const { path, address } = item;
           const addressInfo: ICoreApiGetAddressItem = {
             address: address ?? '',

@@ -2708,10 +2708,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   const dnx = {
     'balance2FeeDecimals': 0,
     'chainId': '0',
-    'code': 'dynex',
+    'code': 'dnx',
     'decimals': 9,
-    'id': 'dynex--0',
-    'impl': 'dynex',
+    'id': 'dnx--0',
+    'impl': 'dnx',
     'isTestnet': false,
     'logoURI': 'https://uni.onekey-asset.com/static/chain/dynex.png',
     'name': 'Dynex',

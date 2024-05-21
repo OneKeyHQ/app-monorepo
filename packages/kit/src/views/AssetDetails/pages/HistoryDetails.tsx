@@ -418,7 +418,7 @@ function HistoryDetails() {
       from: txDetails?.from,
       to: txDetails?.to,
     };
-  }, [historyTx, txDetails, vaultSettings?.isUtxo]);
+  }, [accountAddress, historyTx, txDetails, vaultSettings?.isUtxo]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,

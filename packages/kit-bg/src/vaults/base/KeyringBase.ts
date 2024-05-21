@@ -89,7 +89,8 @@ export abstract class KeyringBase extends VaultContext {
     });
     const ret: Array<IDBSimpleAccount | IDBVariantAccount> = [];
     for (let idx = 0; idx < addressInfos.length; idx += 1) {
-      const { path, publicKey, address, addresses } = addressInfos[idx];
+      const { path, publicKey, address, addresses, relPath } =
+        addressInfos[idx];
       if (!path) {
         throw new Error('KeyringHD prepareAccounts ERROR: path not found');
       }
@@ -125,6 +126,7 @@ export abstract class KeyringBase extends VaultContext {
         type: accountType,
         path,
         pathIndex,
+        relPath,
         indexedAccountId,
         coinType, // TODO save deriveType to account
         impl: settings.impl,

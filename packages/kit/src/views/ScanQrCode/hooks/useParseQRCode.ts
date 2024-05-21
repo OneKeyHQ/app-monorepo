@@ -102,9 +102,9 @@ const useParseQRCode = () => {
           break;
         case EQRCodeHandlerType.ANIMATION_CODE: {
           const animationValue = result.data as IAnimationValue;
-          //if (animationValue.fullData) {
-            console.log('🥺', animationValue);
-          //}
+          // if (animationValue.fullData) {
+          console.log('🥺', animationValue);
+          // }
           break;
         }
         default: {

@@ -42,7 +42,6 @@ import { VaultBase } from '../../base/VaultBase';
 import {
   EWrappedType,
   type IApproveInfo,
-  type IBroadcastTransactionParams,
   type IBuildAccountAddressDetailParams,
   type IBuildDecodedTxParams,
   type IBuildEncodedTxParams,
