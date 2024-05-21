@@ -67,7 +67,12 @@ function PoolDetailsItem({
 export function PoolDetails({
   item: {
     attributes,
+    id: pairAddress,
+    baseTokenUrl,
+    quoteTokenUrl,
     relationships: {
+      base_token: baseToken,
+      quote_token: quoteToken,
       dex: {
         data: { id },
       },
@@ -76,6 +81,7 @@ export function PoolDetails({
 }: {
   item: IMarketDetailPool;
 }) {
+  const [baseTokenName, quoteTokenName] = attributes.name.split('/');
   return (
     <YStack space="$3">
       <XStack space="$4">
@@ -118,11 +124,20 @@ export function PoolDetails({
         </PoolDetailsItem>
       </XStack>
       <YStack space="$6" pt="$6" pb="$10">
-        <MarketTokenAddress tokenName="WETH" address="0x12340x12341234" />
-        <MarketTokenAddress tokenName="USDT" address="0x12340x12341234" />
+        <MarketTokenAddress
+          tokenName={baseTokenName.trim()}
+          address={baseToken.data.id.split('_').pop() as string}
+          url={baseTokenUrl}
+        />
+        <MarketTokenAddress
+          tokenName={quoteTokenName.trim()}
+          address={quoteToken.data.id.split('_').pop() as string}
+          url={quoteTokenUrl}
+        />
         <MarketTokenAddress
           tokenName="Pair Contract"
-          address="0x12340x12341234"
+          address={pairAddress.split('_').pop() as string}
+          url={baseTokenUrl}
         />
       </YStack>
     </YStack>
