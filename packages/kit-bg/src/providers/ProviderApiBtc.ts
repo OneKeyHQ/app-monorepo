@@ -1,13 +1,19 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
+import { Psbt } from 'bitcoinjs-lib';
 import { isNil } from 'lodash';
 
+import {
+  formatPsbtHex,
+  toPsbtNetwork,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ISendBitcoinParams,
@@ -20,8 +26,9 @@ import { vaultFactory } from '../vaults/factory';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
-import type { IPushTxParams } from '../vaults/types';
+import type { IPushTxParams, ISignPsbtParams } from '../vaults/types';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type * as BitcoinJS from 'bitcoinjs-lib';
 
 @backgroundClass()
 class ProviderApiBtc extends ProviderApiBase {
@@ -112,14 +119,19 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getNetwork(request: IJsBridgeMessagePayload) {
-    const networks = await this.backgroundApi.serviceDApp.getConnectedNetworks({
-      origin: request.origin ?? '',
-      scope: request.scope ?? this.providerName,
-    });
-    if (Array.isArray(networks) && networks.length) {
-      return networkUtils.getBtcDappNetworkName(networks[0]);
+    try {
+      const networks =
+        await this.backgroundApi.serviceDApp.getConnectedNetworks({
+          origin: request.origin ?? '',
+          scope: request.scope ?? this.providerName,
+        });
+      if (Array.isArray(networks) && networks.length) {
+        return await networkUtils.getBtcDappNetworkName(networks[0]);
+      }
+      return '';
+    } catch {
+      return '';
     }
-    return '';
   }
 
   @providerApiMethod()
@@ -308,6 +320,69 @@ class ProviderApiBtc extends ProviderApiBase {
     });
 
     return result.txid;
+  }
+
+  @providerApiMethod()
+  public async signPsbt(
+    request: IJsBridgeMessagePayload,
+    params: ISignPsbtParams,
+  ) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    if (accountUtils.isHwAccount({ accountId })) {
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message:
+          'Partially signed bitcoin transactions is not supported on hardware.',
+      });
+    }
+
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    if (!network) return null;
+
+    const { psbtHex, options } = params;
+    const formattedPsbtHex = formatPsbtHex(psbtHex);
+    const psbtNetwork = toPsbtNetwork(network);
+    const psbt = Psbt.fromHex(formattedPsbtHex, { network: psbtNetwork });
+    const respPsbtHex = await this._signPsbt(request, {
+      psbt,
+      psbtNetwork,
+      options,
+    });
+
+    return respPsbtHex;
+  }
+
+  private async _signPsbt(
+    request: IJsBridgeMessagePayload,
+    params: {
+      psbt: Psbt;
+      psbtNetwork: BitcoinJS.networks.Network;
+      options: ISignPsbtParams['options'];
+    },
+  ) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+    return 'x';
   }
 }
 
