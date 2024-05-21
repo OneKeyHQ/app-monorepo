@@ -89,7 +89,7 @@ class ServiceMarket extends ServiceBase {
     const client = await this.getClient();
     const response = await client.get<{
       code: number;
-      data: { data: IMarketDetailPool[] };
+      data: IMarketDetailPool[];
     }>('/utility/v1/market/pools', {
       headers: await getDevHeaders(),
       params: {
@@ -98,7 +98,7 @@ class ServiceMarket extends ServiceBase {
       },
     });
     const { code, data } = response.data;
-    return code === 0 ? data.data : [];
+    return code === 0 ? data : [];
   }
 
   @backgroundMethod()
