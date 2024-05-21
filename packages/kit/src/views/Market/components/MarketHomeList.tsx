@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import type {
   INumberSizeableTextProps,
@@ -38,18 +38,25 @@ import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
 
 function Column({
-  key,
   alignLeft,
   alignRight,
   children,
   width,
+  sortType,
+  order,
+  onPress,
+  cursor,
+  name,
   ...props
 }: PropsWithChildren<
   {
-    key: string;
+    name: string;
+    sortType?: string;
     alignLeft?: boolean;
     alignRight?: boolean;
-  } & IStackProps
+    order?: 'asc' | 'desc' | undefined;
+    onPress?: (key: string) => void;
+  } & Omit<IStackProps, 'onPress'>
 >) {
   const jc = useMemo(() => {
     if (alignLeft) {
@@ -59,22 +66,44 @@ function Column({
       return 'flex-end';
     }
   }, [alignLeft, alignRight]);
+  const showSortIcon = sortType === name && order;
+  const handlePress = useCallback(() => {
+    onPress?.(name);
+  }, [name, onPress]);
   return (
     <XStack
-      key={key}
-      testID={`list-column-${key}`}
+      key={name}
+      testID={`list-column-${name}`}
       jc={jc}
       alignItems="center"
       width={width}
+      onPress={handlePress}
       {...props}
     >
       {typeof children === 'string' ? (
-        <SizableText color="$textSubdued" size="$bodySmMedium">
+        <SizableText
+          cursor={cursor}
+          color="$textSubdued"
+          size="$bodySmMedium"
+          selectable={false}
+        >
           {children}
         </SizableText>
       ) : (
         children
       )}
+      {showSortIcon ? (
+        <Icon
+          cursor={cursor}
+          name={
+            order === 'desc'
+              ? 'ChevronDownSmallOutline'
+              : 'ChevronTopSmallOutline'
+          }
+          color="$iconSubdued"
+          size="$5"
+        />
+      ) : null}
     </XStack>
   );
 }
@@ -177,7 +206,7 @@ const useBuildTableRowConfig = () => {
       ),
       'priceChangePercentage1H': (item) => (
         <PriceChangePercentage>
-          {item.priceChangePercentage24H}
+          {item.priceChangePercentage1H}
         </PriceChangePercentage>
       ),
       'priceChangePercentage24H': (item) => (
@@ -187,7 +216,7 @@ const useBuildTableRowConfig = () => {
       ),
       'priceChangePercentage7D': (item) => (
         <PriceChangePercentage>
-          {item.priceChangePercentage24H}
+          {item.priceChangePercentage7D}
         </PriceChangePercentage>
       ),
       'totalVolume': (item) => (
@@ -228,10 +257,7 @@ const useBuildTableRowConfig = () => {
         />
       ),
       'actions': (item) => (
-        <XStack space="$6">
-          <Icon name="StarOutline" size="$5" />
-          <Icon name="DotVerSolid" size="$5" />
-        </XStack>
+        <IconButton icon="StarOutline" variant="tertiary" iconSize="$5" />
       ),
     };
     return tableRowConfig;
@@ -243,11 +269,18 @@ function TableRow({
   tableConfig,
   minHeight = 60,
   onPress,
+  sortType,
+  onSortTypeChange,
 }: {
   item?: IMarketToken;
   tableConfig: ITableColumnConfig;
   minHeight?: IStackProps['height'];
   onPress?: (item: IMarketToken) => void;
+  sortType?: { columnName: string; order: 'asc' | 'desc' | undefined };
+  onSortTypeChange?: (options: {
+    columnName: string;
+    order: 'asc' | 'desc' | undefined;
+  }) => void;
 }) {
   const {
     serialNumber,
@@ -264,36 +297,143 @@ function TableRow({
   const handlePress = useCallback(() => {
     onPress?.(item);
   }, [item, onPress]);
+  const useSortFunc = !!(sortType || onSortTypeChange);
+  const handleColumnPress = useCallback(
+    (key: string) => {
+      if (!useSortFunc) {
+        return;
+      }
+      if (key === sortType?.columnName) {
+        let order: 'asc' | 'desc' | undefined = 'desc';
+        if (sortType?.order === 'desc') {
+          order = 'asc';
+        } else if (sortType?.order === 'asc') {
+          order = undefined;
+        }
+        onSortTypeChange?.({
+          columnName: key,
+          order,
+        });
+        return;
+      }
+      onSortTypeChange?.({
+        columnName: key,
+        order: 'desc',
+      });
+    },
+    [onSortTypeChange, sortType?.columnName, sortType?.order, useSortFunc],
+  );
+  const cursor = useSortFunc ? 'pointer' : undefined;
   return (
     <XStack space="$3" minHeight={minHeight} onPress={handlePress}>
-      <Column key="serialNumber" alignLeft width={40}>
+      <Column
+        name="serialNumber"
+        alignLeft
+        width={40}
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {serialNumber?.(item)}
       </Column>
-      <Column key="name" alignLeft width={261}>
+      <Column
+        name="name"
+        alignLeft
+        width={261}
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {name?.(item)}
       </Column>
-      <Column key="price" alignRight width={85}>
+      <Column
+        name="price"
+        alignRight
+        width={85}
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {price?.(item)}
       </Column>
-      <Column key="priceChangePercentage1H" alignRight width={75}>
+      <Column
+        name="priceChangePercentage1H"
+        alignRight
+        width={75}
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {priceChangePercentage1H?.(item)}
       </Column>
-      <Column key="priceChangePercentage24H" alignRight width={75}>
+      <Column
+        name="priceChangePercentage24H"
+        alignRight
+        width={75}
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {priceChangePercentage24H?.(item)}
       </Column>
-      <Column key="priceChangePercentage7D" alignRight width={75}>
+      <Column
+        name="priceChangePercentage7D"
+        alignRight
+        width={75}
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {priceChangePercentage7D?.(item)}
       </Column>
-      <Column key="totalVolume" alignRight width={75}>
+      <Column
+        name="totalVolume"
+        alignRight
+        width={75}
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {totalVolume?.(item)}
       </Column>
-      <Column key="marketCap" alignRight width={75}>
+      <Column
+        name="marketCap"
+        alignRight
+        width={75}
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {marketCap?.(item)}
       </Column>
-      <Column key="sparkline" alignRight width={100} pl="$4">
+      <Column
+        name="sparkline"
+        alignRight
+        width={100}
+        pl="$4"
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {sparkline?.(item)}
       </Column>
-      <Column key="action" alignLeft width={200} pl="$4">
+      <Column
+        name="action"
+        alignLeft
+        width={200}
+        pl="$4"
+        onPress={handleColumnPress}
+        cursor={cursor}
+      >
         {actions?.(item)}
       </Column>
     </XStack>
@@ -377,7 +517,7 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
   const navigation = useAppNavigation();
   const selectOptions = useMemo(
     () => [
-      { label: 'Default', value: 'Default' },
+      { label: 'Default', value: 'default' },
       { label: 'Last price', value: 'Last price' },
       { label: 'Most 24h volume', value: 'Most 24h volume' },
       { label: 'Most market cap', value: 'Most market cap' },
@@ -385,11 +525,6 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
       { label: 'Price change down', value: 'Price change down' },
     ],
     [],
-  );
-  const tableHeaderConfig = useBuildTableHeaderConfig();
-  const HeaderColumns = useMemo(
-    () => <TableRow tableConfig={tableHeaderConfig} minHeight="$4" />,
-    [tableHeaderConfig],
   );
 
   const { result: listData } = usePromiseResult(
@@ -402,6 +537,12 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
     [category.categoryId, category.coingeckoIds],
   );
 
+  const listDataRef = useRef<typeof listData | undefined>();
+
+  if (!listDataRef.current && listData?.length) {
+    listDataRef.current = listData;
+  }
+
   const tableRowConfig = useBuildTableRowConfig();
 
   const toDetailPage = useCallback(
@@ -413,6 +554,35 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
       });
     },
     [navigation],
+  );
+
+  const { gtMd } = useMedia();
+  const [sortByType, setSortByType] = useState<{
+    columnName: string;
+    order: 'asc' | 'desc' | undefined;
+  }>({
+    columnName: 'default',
+    order: 'desc',
+  });
+
+  const handleSortTypeChange = useCallback(
+    (options: { columnName: string; order: 'asc' | 'desc' | undefined }) => {
+      setSortByType(options);
+    },
+    [],
+  );
+
+  const tableHeaderConfig = useBuildTableHeaderConfig();
+  const HeaderColumns = useMemo(
+    () => (
+      <TableRow
+        tableConfig={tableHeaderConfig}
+        minHeight="$4"
+        sortType={sortByType}
+        onSortTypeChange={handleSortTypeChange}
+      />
+    ),
+    [handleSortTypeChange, sortByType, tableHeaderConfig],
   );
 
   const renderItem = useCallback(
@@ -497,8 +667,6 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
     ),
     [mdColumnKeys, toDetailPage],
   );
-  const { gtMd } = useMedia();
-  const [sortByType, setSortByType] = useState('Default');
 
   const renderSelectTrigger = useCallback(
     ({ label }: { label?: string }) => (
@@ -522,6 +690,43 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
     },
     [],
   );
+
+  const sortedListData = useMemo(() => {
+    const columnValue =
+      listDataRef.current?.[0]?.[sortByType.columnName as IKeyOfMarketToken];
+    if (columnValue) {
+      if (sortByType.order) {
+        if (typeof columnValue === 'number')
+          return listDataRef.current?.slice().sort((a, b) => {
+            const numberA = a[
+              sortByType.columnName as IKeyOfMarketToken
+            ] as number;
+            const numberB = b[
+              sortByType.columnName as IKeyOfMarketToken
+            ] as number;
+            return sortByType.order === 'desc'
+              ? numberB - numberA
+              : numberA - numberB;
+          });
+        if (typeof columnValue === 'string') {
+          return listDataRef.current?.slice().sort((a, b) => {
+            const stringA = a[
+              sortByType.columnName as IKeyOfMarketToken
+            ] as string;
+            const stringB = b[
+              sortByType.columnName as IKeyOfMarketToken
+            ] as string;
+            return sortByType.order === 'desc'
+              ? stringA.charCodeAt(0) - stringB.charCodeAt(0)
+              : stringB.charCodeAt(0) - stringA.charCodeAt(0);
+          });
+        }
+        return listData;
+      }
+    }
+
+    return listData;
+  }, [listData, sortByType.columnName, sortByType.order]);
 
   return (
     <>
@@ -570,7 +775,7 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
         <ListView
           stickyHeaderHiddenOnScroll
           estimatedItemSize={60}
-          data={listData}
+          data={sortedListData}
           renderItem={gtMd ? renderItem : renderMdItem}
         />
       </YStack>
