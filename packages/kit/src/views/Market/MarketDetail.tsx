@@ -37,6 +37,8 @@ import { TokenPriceChart } from './components/TokenPriceChart';
 
 function TokenDetailHeader({ token }: { token: IMarketTokenDetail }) {
   const {
+    name,
+    price,
     stats: { performance, volume24h, marketCap, marketCapRank, fdv },
   } = token;
   const { gtMd } = useMedia();
@@ -45,7 +47,7 @@ function TokenDetailHeader({ token }: { token: IMarketTokenDetail }) {
       <XStack>
         <YStack flex={1}>
           <SizableText size="$headingMd" color="$textSubdued">
-            Ethereum
+            {name}
           </SizableText>
           <NumberSizeableText
             pt="$2"
@@ -53,7 +55,7 @@ function TokenDetailHeader({ token }: { token: IMarketTokenDetail }) {
             formatterOptions={{ currency: '$' }}
             formatter="price"
           >
-            2963.6
+            {price || 0}
           </NumberSizeableText>
           <NumberSizeableText
             pt="$0.5"

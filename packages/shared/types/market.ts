@@ -78,6 +78,10 @@ export interface IMarketDetailLinks {
 }
 
 export interface IMarketTokenDetail {
+  name: string;
+  image: string;
+  price: string;
+  symbol: string;
   about: string;
   explorers: IMarketTokenExplorer[];
   links: IMarketDetailLinks;
