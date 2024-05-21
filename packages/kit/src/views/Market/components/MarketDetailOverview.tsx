@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import type {
   INumberSizeableTextProps,
   ISizableTextProps,
@@ -10,7 +12,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketDetailPool,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/market';
 
 function OverviewPriceChange({
   title,
@@ -133,6 +138,7 @@ function OverviewMarketVOL({
   maxSupply,
   totalSupply,
   circulatingSupply,
+  pools,
 }: {
   fdv: number;
   volume24h: number;
@@ -141,6 +147,7 @@ function OverviewMarketVOL({
   maxSupply: number;
   totalSupply: number;
   circulatingSupply: number;
+  pools: IMarketDetailPool[];
 }) {
   return (
     <YStack py="$10">
@@ -177,26 +184,28 @@ function OverviewMarketVOL({
           </OverviewMarketVOLItem>
         </XStack>
       </YStack>
-      <SizableText color="$textSubdued" size="$bodySm">
-        Contract
-      </SizableText>
+      <YStack pt="$3">
+        <SizableText color="$textSubdued" size="$bodySm">
+          Contract
+        </SizableText>
+      </YStack>
     </YStack>
   );
 }
 
-function GoPlus() {
-  return (
-    <XStack jc="space-between" ai="center">
-      <YStack space="$1">
-        <SizableText size="$headingMd">GoPlus</SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          No risk detected
-        </SizableText>
-      </YStack>
-      <Button h={38}>View</Button>
-    </XStack>
-  );
-}
+// function GoPlus() {
+//   return (
+//     <XStack jc="space-between" ai="center">
+//       <YStack space="$1">
+//         <SizableText size="$headingMd">GoPlus</SizableText>
+//         <SizableText size="$bodyMd" color="$textSubdued">
+//           No risk detected
+//         </SizableText>
+//       </YStack>
+//       <Button h={38}>View</Button>
+//     </XStack>
+//   );
+// }
 
 function About({ children }: { children: ISizableTextProps['children'] }) {
   return (
@@ -225,8 +234,10 @@ export function MarketDetailOverview({
     },
     about,
   },
+  pools,
 }: {
   token: IMarketTokenDetail;
+  pools: IMarketDetailPool[];
 }) {
   return (
     <YStack>
@@ -259,8 +270,9 @@ export function MarketDetailOverview({
         maxSupply={maxSupply}
         totalSupply={totalSupply}
         circulatingSupply={circulatingSupply}
+        pools={pools}
       />
-      <GoPlus />
+      {/* <GoPlus /> */}
       <About>{about}</About>
     </YStack>
   );

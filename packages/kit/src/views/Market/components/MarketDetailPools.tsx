@@ -53,21 +53,14 @@ function ItemColumn({ children }: PropsWithChildren) {
   );
 }
 
-export function MarketDetailPools({ token }: { token: IMarketTokenDetail }) {
-  const [pools, setPools] = useState<IMarketDetailPool[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
+export function MarketDetailPools({
+  token,
+  pools,
+}: {
+  token: IMarketTokenDetail;
+  pools: IMarketDetailPool[];
+}) {
   const { gtMd } = useMedia();
-
-  useEffect(() => {
-    setIsLoading(true);
-    void backgroundApiProxy.serviceMarket
-      .fetchPools('ETH', 'eth')
-      .then((response) => {
-        setPools(response);
-        setIsLoading(false);
-      });
-  }, []);
   return (
     <ListView
       data={pools}

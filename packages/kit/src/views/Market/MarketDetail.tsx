@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   HeaderIconButton,
@@ -20,6 +20,7 @@ import type {
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
 import type {
+  IMarketDetailPool,
   IMarketToken,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
@@ -35,7 +36,13 @@ import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
 
-function TokenDetailHeader({ token }: { token: IMarketTokenDetail }) {
+function TokenDetailHeader({
+  token,
+  pools,
+}: {
+  token: IMarketTokenDetail;
+  pools: IMarketDetailPool[];
+}) {
   const {
     name,
     price,
@@ -73,7 +80,7 @@ function TokenDetailHeader({ token }: { token: IMarketTokenDetail }) {
         <Icon name="StarOutline" size="$5" />
       </XStack>
       {gtMd ? (
-        <MarketDetailOverview token={token} />
+        <MarketDetailOverview token={token} pools={pools} />
       ) : (
         <XStack pt="$6" flex={1} ai="center" jc="center" space="$2">
           <TextCell title="24H VOL(USD)">{volume24h}</TextCell>
@@ -91,12 +98,35 @@ function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
   const { icon, coinGeckoId, symbol } = route.params;
-  const { result: tokenDetail } = usePromiseResult(
-    async () => backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId),
-    [coinGeckoId],
-  );
+  // const { result: tokenDetail } = usePromiseResult(
+  //   async () => ,
+  //   [coinGeckoId],
+  // );
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [tokenDetail, setTokenDetail] = useState<
+    IMarketTokenDetail | undefined
+  >();
+  const [pools, setPools] = useState<IMarketDetailPool[]>([]);
 
   const { gtMd } = useMedia();
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    const responseToken =
+      await backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId);
+    const responsePools = await backgroundApiProxy.serviceMarket.fetchPools(
+      responseToken.name,
+      responseToken.symbol,
+    );
+    setTokenDetail(responseToken);
+    setPools(responsePools);
+    setIsLoading(false);
+  }, [coinGeckoId]);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
 
   const renderHeaderTitle = useCallback(
     () => (
@@ -140,10 +170,10 @@ function MarketDetail({
           $gtMd={{ flexDirection: 'row' }}
           space="$5"
         >
-          <TokenDetailHeader token={tokenDetail} />
+          <TokenDetailHeader token={tokenDetail} pools={pools} />
           <YStack flex={1}>
             <TokenPriceChart coinGeckoId={coinGeckoId} />
-            <TokenDetailTabs token={tokenDetail} />
+            <TokenDetailTabs token={tokenDetail} pools={pools} />
           </YStack>
         </Stack>
       </YStack>

@@ -1,28 +1,39 @@
 import { memo, useMemo } from 'react';
 
 import { Stack, Tab, useMedia } from '@onekeyhq/components';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+import type {
+  IMarketDetailPool,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/market';
 
 import { MarketDetailLinks } from './MarketDetailLinks';
 import { MarketDetailOverview } from './MarketDetailOverview';
 import { MarketDetailPools } from './MarketDetailPools';
 
-function BasicTokenDetailTabs({ token }: { token: IMarketTokenDetail }) {
+function BasicTokenDetailTabs({
+  token,
+  pools,
+}: {
+  token: IMarketTokenDetail;
+  pools: IMarketDetailPool[];
+}) {
   const { md } = useMedia();
 
   const tabConfig = useMemo(
     () =>
       [
-        {
-          title: 'Pools',
-          // eslint-disable-next-line react/no-unstable-nested-components
-          page: () => <MarketDetailPools token={token} />,
-        },
+        pools?.length
+          ? {
+              title: 'Pools',
+              // eslint-disable-next-line react/no-unstable-nested-components
+              page: () => <MarketDetailPools token={token} pools={pools} />,
+            }
+          : undefined,
         md
           ? {
               title: 'Overview',
               // eslint-disable-next-line react/no-unstable-nested-components
-              page: () => <MarketDetailOverview token={token} />,
+              page: () => <MarketDetailOverview token={token} pools={pools} />,
             }
           : undefined,
         {
@@ -31,7 +42,7 @@ function BasicTokenDetailTabs({ token }: { token: IMarketTokenDetail }) {
           page: () => <MarketDetailLinks token={token} />,
         },
       ].filter(Boolean),
-    [md, token],
+    [md, pools, token],
   );
   return (
     <Stack mt={100}>
