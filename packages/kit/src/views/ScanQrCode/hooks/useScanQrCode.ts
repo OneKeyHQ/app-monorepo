@@ -23,7 +23,7 @@ export default function useScanQrCode() {
   const parseQRCode = useParseQRCode();
   const start = useCallback(
     ({
-      autoHandleResult = true,
+      autoHandleResult = false,
       accountId,
       mask = false,
     }: IQRCodeHandlerParseOutsideOptions) =>
