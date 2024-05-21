@@ -9,12 +9,12 @@ import ProviderApiConflux from './ProviderApiConflux';
 import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiNear from './ProviderApiNear';
-// import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiNostr from './ProviderApiNostr';
+import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
 import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
-// import ProviderApiSui from './ProviderApiSui';
+import ProviderApiSui from './ProviderApiSui';
 import ProviderApiTron from './ProviderApiTron';
 import ProviderApiWebln from './ProviderApiWebln';
 
@@ -57,18 +57,18 @@ function createBackgroundProviders({
     [IInjectedProviderNames.algo]: new ProviderApiAlgo({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.sui]: new ProviderApiSui({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.sui]: new ProviderApiSui({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.cardano]: new ProviderApiCardano({
       backgroundApi,
     }),
     [IInjectedProviderNames.cosmos]: new ProviderApiCosmos({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.polkadot]: new ProviderApiPolkadot({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.polkadot]: new ProviderApiPolkadot({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.webln]: new ProviderApiWebln({ backgroundApi }),
     [IInjectedProviderNames.nostr]: new ProviderApiNostr({ backgroundApi }),
     [IInjectedProviderNames.btc]: new ProviderApiBtc({

@@ -237,7 +237,7 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
-    const { networkId, signedTx, accountAddress } = params;
+    const { networkId, signedTx, accountAddress, signature } = params;
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
@@ -245,6 +245,7 @@ class ServiceSend extends ServiceBase {
       networkId,
       accountAddress,
       tx: signedTx.rawTx,
+      signature,
     });
 
     return resp.data.data.result;
@@ -319,26 +320,15 @@ class ServiceSend extends ServiceBase {
         accountId,
       })
     ) {
-      const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-      let txid: string | undefined;
-      if (vaultSettings.sendTransactionBySelf) {
-        const vault = await vaultFactory.getVault({
-          networkId,
-          accountId,
-        });
-        ({ txid } = await vault.broadcastTransaction({
-          networkId,
-          accountAddress,
-          signedTx,
-        }));
-      } else {
-        txid = await this.broadcastTransaction({
-          networkId,
-          signedTx,
-          accountAddress,
-        });
-      }
+      const vault = await vaultFactory.getVault({
+        networkId,
+        accountId,
+      });
+      const { txid } = await vault.broadcastTransaction({
+        networkId,
+        accountAddress,
+        signedTx,
+      });
       if (!txid) {
         throw new Error('Broadcast transaction failed.');
       }

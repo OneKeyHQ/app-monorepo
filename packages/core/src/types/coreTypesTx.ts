@@ -10,6 +10,7 @@ import type { IEncodedTxBtc } from '../chains/btc/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCkb } from '../chains/ckb/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
+import type { IEncodedTxDot } from '../chains/dot/types';
 import type { IEncodedTxDnx } from '../chains/dnx/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
@@ -39,6 +40,7 @@ export type IEncodedTx =
   | IEncodedTxNexa
   | IEncodedTxLightning
   | IEncodedTxNostr
+  | IEncodedTxDot
   | IEncodedTxDnx
   | IEncodedTxNostr
   | IEncodedTxAlgo

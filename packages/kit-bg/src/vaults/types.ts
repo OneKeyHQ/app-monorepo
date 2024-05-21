@@ -136,7 +136,6 @@ export type IVaultSettings = {
   validationRequired?: boolean;
   hideAmountInputOnFirstEntry?: boolean;
   allowZeroFee?: boolean;
-  sendTransactionBySelf?: boolean;
 
   onChainHistoryDisabled?: boolean;
 
@@ -145,6 +144,8 @@ export type IVaultSettings = {
   withPaymentId?: boolean;
 
   enabledOnClassicOnly?: boolean;
+
+  nativeTokenAddress?: string;
 };
 
 export type IVaultFactoryOptions = {
@@ -268,6 +269,7 @@ export type ITransferInfo = {
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  keepAlive?: boolean; // Polkadot chain keep alive
 
   // Lightning network
   lnurlPaymentInfo?: ILNURLPaymentInfo;
@@ -351,6 +353,7 @@ export interface IBroadcastTransactionParams {
   networkId: string;
   accountAddress: string;
   signedTx: ISignedTxPro;
+  signature?: string;
 }
 
 export interface ISignTransactionParamsBase {
