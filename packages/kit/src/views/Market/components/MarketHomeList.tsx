@@ -521,17 +521,6 @@ function PopoverSettingsContent({
 type IKeyOfMarketToken = keyof IMarketToken;
 export function MarketHomeList({ category }: { category: IMarketCategory }) {
   const navigation = useAppNavigation();
-  const selectOptions = useMemo(
-    () => [
-      { label: 'Default', value: 'default' },
-      { label: 'Last price', value: 'Last price' },
-      { label: 'Most 24h volume', value: 'Most 24h volume' },
-      { label: 'Most market cap', value: 'Most market cap' },
-      { label: 'Price change up', value: 'Price change up' },
-      { label: 'Price change down', value: 'Price change down' },
-    ],
-    [],
-  );
 
   const { result: listData } = usePromiseResult(
     async () =>
@@ -734,6 +723,49 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
     return listData;
   }, [listData, sortByType.columnName, sortByType.order]);
 
+  const [mdSortByType, setMdSortByType] = useState<string | undefined>();
+  const selectOptions = useMemo(
+    () => [
+      {
+        label: 'Last price',
+        value: 'last_price',
+        options: { columnName: 'price', order: 'desc' },
+      },
+      {
+        label: 'Most 24h volume',
+        value: 'Most 24h volume',
+        options: { columnName: 'totalVolume', order: 'desc' },
+      },
+      {
+        label: 'Most market cap',
+        value: 'Most market cap',
+        options: { columnName: 'marketCap', order: 'desc' },
+      },
+      {
+        label: 'Price change up',
+        value: 'Price change up',
+        options: { columnName: mdColumnKeys[1], order: 'desc' },
+      },
+      {
+        label: 'Price change down',
+        value: 'Price change down',
+        options: { columnName: mdColumnKeys[1], order: 'desc' },
+      },
+    ],
+    [mdColumnKeys],
+  );
+
+  const handleMdSortByTypeChange = useCallback(
+    (value: string) => {
+      setMdSortByType(value);
+      const item = selectOptions.find((v) => v.value === value);
+      if (item?.options) {
+        setSortByType(item?.options as typeof sortByType);
+      }
+    },
+    [selectOptions],
+  );
+
   return (
     <>
       {gtMd ? undefined : (
@@ -748,8 +780,8 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
               <Select
                 items={selectOptions}
                 title="Sort by"
-                value={sortByType}
-                onChange={setSortByType}
+                value={mdSortByType}
+                onChange={handleMdSortByTypeChange}
                 renderTrigger={renderSelectTrigger}
               />
             </XStack>
