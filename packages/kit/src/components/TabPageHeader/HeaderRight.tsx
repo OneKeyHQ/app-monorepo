@@ -29,7 +29,7 @@ export function HeaderRight({
     });
   }, [navigation]);
   const onScanButtonPressed = useCallback(
-    () => scanQrCode.start(),
+    () => scanQrCode.start({ autoHandleResult: true }),
     [scanQrCode],
   );
 

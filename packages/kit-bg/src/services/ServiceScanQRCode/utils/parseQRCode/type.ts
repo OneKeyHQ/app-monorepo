@@ -107,9 +107,13 @@ export type IQRCodeHandler<T extends IBaseValue> = (
 export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
 
-export type IQRCodeHandlerParseOptions = {
+export type IQRCodeHandlerParseOutsideOptions = {
   autoHandleResult?: boolean;
-} & IQRCodeHandlerOptions;
+  accountId?: string;
+};
+
+export type IQRCodeHandlerParseOptions = IQRCodeHandlerParseOutsideOptions &
+  IQRCodeHandlerOptions;
 
 export type IQRCodeHandlerParse<T extends IBaseValue> = (
   value: string,

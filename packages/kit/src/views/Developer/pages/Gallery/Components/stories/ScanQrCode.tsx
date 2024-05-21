@@ -30,10 +30,13 @@ const ScanQrCameraDemo = () => {
 
 const ScanQRCodeGallery = () => {
   const scanQrCode = useScanQrCode();
-  const openScanQrCodeModal = useCallback(async () => {
-    const result = await scanQrCode.start(true);
-    console.log(result);
-  }, [scanQrCode]);
+  const openScanQrCodeModal = useCallback(
+    async (autoHandleResult: boolean) => {
+      const result = await scanQrCode.start({ autoHandleResult });
+      console.log(result);
+    },
+    [scanQrCode],
+  );
   return (
     <Layout
       description=".."
@@ -41,8 +44,16 @@ const ScanQRCodeGallery = () => {
       boundaryConditions={['...']}
       elements={[
         {
+          title: '命令式弹出 Modal(自动处理)',
+          element: (
+            <Button onPress={() => openScanQrCodeModal(true)}>打开</Button>
+          ),
+        },
+        {
           title: '命令式弹出 Modal',
-          element: <Button onPress={openScanQrCodeModal}>打开</Button>,
+          element: (
+            <Button onPress={() => openScanQrCodeModal(false)}>打开</Button>
+          ),
         },
         {
           title: '单独测试 Camera 权限等',
