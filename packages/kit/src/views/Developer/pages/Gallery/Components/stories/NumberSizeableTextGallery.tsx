@@ -146,6 +146,34 @@ const NumberSizeableTextGallery = () => (
               0.00000000000000009
             </NumberSizeableText>
             <NumberSizeableText
+              size="$bodySm"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+            >
+              0.00000000000000009
+            </NumberSizeableText>
+            <NumberSizeableText
+              size="$headingXl"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+            >
+              0.00000000000000009
+            </NumberSizeableText>
+            <NumberSizeableText
+              size="$heading3xl"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+            >
+              0.00000000000000009
+            </NumberSizeableText>
+            <NumberSizeableText
+              size="$heading5xl"
+              formatter="price"
+              formatterOptions={{ currency: '$' }}
+            >
+              0.00000000000000009
+            </NumberSizeableText>
+            <NumberSizeableText
               formatter="price"
               formatterOptions={{ currency: '$' }}
             >
