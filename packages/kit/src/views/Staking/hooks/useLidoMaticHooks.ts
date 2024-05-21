@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import {
   EModalRoutes,
   EModalSendRoutes,
@@ -54,18 +55,20 @@ export function useLidoMaticStake() {
   );
 }
 
-export function useLidoMaticWithdraw() {
-  const navigation = useAppNavigation();
+export function useLidoMaticWithdraw({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
   return useCallback(
     async ({
-      accountId,
-      networkId,
       amount,
       onSuccess,
       onFail,
     }: {
-      accountId: string;
-      networkId: string;
       amount: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -81,27 +84,26 @@ export function useLidoMaticWithdraw() {
             amount,
           },
         );
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendConfirm,
-        params: {
-          accountId,
-          networkId,
-          unsignedTxs: [{ encodedTx: { ...serverTx, from: accountAddress } }],
-          onSuccess,
-          onFail,
-        },
+      await navigationToSendConfirm({
+        encodedTx: { ...serverTx, from: accountAddress },
+        onSuccess,
+        onFail,
       });
     },
-    [navigation],
+    [accountId, networkId, navigationToSendConfirm],
   );
 }
 
-export function useLidoMaticClaim() {
-  const navigation = useAppNavigation();
+export function useLidoMaticClaim({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
+  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
   return useCallback(
     async ({
-      accountId,
-      networkId,
       tokenId,
       onSuccess,
       onFail,
@@ -121,17 +123,12 @@ export function useLidoMaticClaim() {
         await backgroundApiProxy.serviceStaking.buildLidoMaticClaimTransaction({
           tokenId,
         });
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendConfirm,
-        params: {
-          accountId,
-          networkId,
-          unsignedTxs: [{ encodedTx: { ...serverTx, from: accountAddress } }],
-          onSuccess,
-          onFail,
-        },
+      await navigationToSendConfirm({
+        encodedTx: { ...serverTx, from: accountAddress },
+        onSuccess,
+        onFail,
       });
     },
-    [navigation],
+    [navigationToSendConfirm, accountId, networkId],
   );
 }

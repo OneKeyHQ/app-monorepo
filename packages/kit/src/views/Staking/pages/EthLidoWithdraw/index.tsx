@@ -19,18 +19,15 @@ const EthLidoWithdraw = () => {
     EModalStakingRoutes.EthLidoStake
   >();
   const { accountId, networkId, balance, token } = route.params;
-  const lidoWithdraw = useLidoWithdraw();
+  const lidoWithdraw = useLidoWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
     async (value: string) => {
-      console.log('value', value);
       const amount = new BigNumber(value).shiftedBy(token.decimals).toFixed();
       await lidoWithdraw({
-        accountId,
-        networkId,
         amount,
       });
     },
-    [accountId, networkId, lidoWithdraw, token],
+    [lidoWithdraw, token],
   );
   return (
     <LidoWithdraw

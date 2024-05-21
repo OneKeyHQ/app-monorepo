@@ -115,10 +115,10 @@ const ListItemClaim = ({
     () => requests.reduce((a, b) => a + Number(b.amountOfStETH), 0),
     [requests],
   );
-  const lidoClaim = useLidoClaim();
+  const lidoClaim = useLidoClaim({ accountId, networkId });
   const onClaim = useCallback(async () => {
-    await lidoClaim({ accountId, networkId, requestIds });
-  }, [accountId, networkId, lidoClaim, requestIds]);
+    await lidoClaim({ requestIds });
+  }, [lidoClaim, requestIds]);
   if (requests.length === 0) {
     return null;
   }
@@ -175,9 +175,9 @@ const EthLidoOverviewContent = ({
   );
 
   const nfts = useMemo(() => {
-    const unfinished = requests.filter((o) => !o.isFinalized);
-    const finished = requests.filter((o) => o.isFinalized);
-    return { pending: unfinished, finished };
+    const pending = requests.filter((o) => !o.isFinalized);
+    const finished = requests.filter((o) => o.isFinalized && !o.isClaimed);
+    return { pending, finished };
   }, [requests]);
 
   return (
@@ -197,7 +197,7 @@ const EthLidoOverviewContent = ({
         </XStack>
         <YStack space="$2" mt="$5">
           <ListItemStaked amount={stETH.balanceParsed} />
-          <ListItemPending requests={nfts.finished} />
+          <ListItemPending requests={nfts.pending} />
           <ListItemClaim
             accountId={accountId}
             networkId={networkId}
@@ -256,7 +256,7 @@ const EthLidoOverview = () => {
         {result ? (
           <EthLidoOverviewContent
             overview={result.overview}
-            apr={result.apr.find((o) => o.protocol === 'Lido')?.apr}
+            apr={result.apr.find((o) => o.protocol === 'lido')?.apr}
             networkId={networkId}
             accountId={accountId}
           />

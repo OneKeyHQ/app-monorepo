@@ -20,17 +20,15 @@ const EthLidoStake = () => {
     EModalStakingRoutes.EthLidoStake
   >();
   const { accountId, networkId, balance, price, token } = route.params;
-  const lidoStake = useLidoStake();
+  const lidoStake = useLidoStake({ accountId, networkId });
   const onConfirm = useCallback(
     async (value: string) => {
       const amount = BigNumber(value).shiftedBy(token.decimals).toFixed(0);
       await lidoStake({
-        accountId,
-        networkId,
         amount,
       });
     },
-    [lidoStake, accountId, networkId, token.decimals],
+    [lidoStake, token.decimals],
   );
   return (
     <Page>

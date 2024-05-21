@@ -1,26 +1,24 @@
 import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  EModalRoutes,
-  EModalSendRoutes,
-  type IModalSendParamList,
-} from '@onekeyhq/shared/src/routes';
+import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
-export function useLidoStake() {
-  const navigation = useAppNavigation();
+export function useLidoStake({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
   return useCallback(
     async ({
-      accountId,
-      networkId,
       amount,
       onSuccess,
       onFail,
     }: {
-      accountId: string;
-      networkId: string;
       amount: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -34,33 +32,30 @@ export function useLidoStake() {
         await backgroundApiProxy.serviceStaking.buildLidoEthStakingTransaction({
           amount,
         });
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendConfirm,
-        params: {
-          accountId,
-          networkId,
-          unsignedTxs: [{ encodedTx: { ...serverTx, from: accountAddress } }],
-          onSuccess,
-          onFail,
-        },
+      await navigationToSendConfirm({
+        encodedTx: { ...serverTx, from: accountAddress },
+        onSuccess,
+        onFail,
       });
     },
-    [navigation],
+    [navigationToSendConfirm, accountId, networkId],
   );
 }
 
-export function useLidoWithdraw() {
-  const navigation = useAppNavigation();
+export function useLidoWithdraw({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
   return useCallback(
     async ({
-      accountId,
-      networkId,
       amount,
       onSuccess,
       onFail,
     }: {
-      accountId: string;
-      networkId: string;
       amount: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -98,33 +93,31 @@ export function useLidoWithdraw() {
             deadline,
           },
         );
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendConfirm,
-        params: {
-          accountId,
-          networkId,
-          unsignedTxs: [{ encodedTx: { ...serverTx, from: accountAddress } }],
-          onSuccess,
-          onFail,
-        },
+
+      await navigationToSendConfirm({
+        encodedTx: { ...serverTx, from: accountAddress },
+        onSuccess,
+        onFail,
       });
     },
-    [navigation],
+    [accountId, networkId, navigationToSendConfirm],
   );
 }
 
-export function useLidoClaim() {
-  const navigation = useAppNavigation();
+export function useLidoClaim({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
   return useCallback(
     async ({
-      accountId,
-      networkId,
       requestIds,
       onSuccess,
       onFail,
     }: {
-      accountId: string;
-      networkId: string;
       requestIds: number[];
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -138,17 +131,12 @@ export function useLidoClaim() {
         await backgroundApiProxy.serviceStaking.buildLidoEthClaimTransaction({
           requestIds,
         });
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendConfirm,
-        params: {
-          accountId,
-          networkId,
-          unsignedTxs: [{ encodedTx: { ...serverTx, from: accountAddress } }],
-          onSuccess,
-          onFail,
-        },
+      await navigationToSendConfirm({
+        encodedTx: { ...serverTx, from: accountAddress },
+        onSuccess,
+        onFail,
       });
     },
-    [navigation],
+    [navigationToSendConfirm, accountId, networkId],
   );
 }

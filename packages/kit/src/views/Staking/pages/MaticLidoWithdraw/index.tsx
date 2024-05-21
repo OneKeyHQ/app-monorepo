@@ -20,17 +20,15 @@ const MaticLidoWithdraw = () => {
   >();
   const { accountId, networkId, balance, token } = route.params;
 
-  const lidoWithdraw = useLidoMaticWithdraw();
+  const lidoWithdraw = useLidoMaticWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
     async (value: string) => {
       const amount = BigNumber(value).shiftedBy(token.decimals).toFixed(0);
       await lidoWithdraw({
-        accountId,
-        networkId,
         amount,
       });
     },
-    [accountId, networkId, token, lidoWithdraw],
+    [token, lidoWithdraw],
   );
   return (
     <LidoWithdraw
