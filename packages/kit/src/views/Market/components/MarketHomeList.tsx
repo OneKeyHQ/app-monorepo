@@ -8,6 +8,7 @@ import type {
 import {
   Button,
   Icon,
+  IconButton,
   Image,
   ListView,
   NumberSizeableText,
@@ -540,7 +541,13 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
             <Popover
               title="Settings"
               renderTrigger={
-                <Icon name="SliderVerOutline" color="$iconSubdued" size="$5" />
+                <IconButton
+                  icon="SliderVerOutline"
+                  color="$iconSubdued"
+                  size="small"
+                  variant="tertiary"
+                  iconSize="$5"
+                />
               }
               renderContent={
                 <PopoverSettingsContent
