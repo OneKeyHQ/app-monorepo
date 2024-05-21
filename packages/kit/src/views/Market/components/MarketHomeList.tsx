@@ -305,9 +305,12 @@ function PopoverSettingsContent({
   priceChange: defaultPriceChange,
   onConfirm,
 }: {
-  dataDisplay: string;
-  priceChange: string;
-  onConfirm: (value: { dataDisplay: string; priceChange: string }) => void;
+  dataDisplay: IKeyOfMarketToken;
+  priceChange: IKeyOfMarketToken;
+  onConfirm: (value: {
+    dataDisplay: IKeyOfMarketToken;
+    priceChange: IKeyOfMarketToken;
+  }) => void;
 }) {
   const { closePopover } = usePopoverContext();
   const [dataDisplay, setDataDisplay] = useState(defaultDataDisplay);
@@ -317,7 +320,7 @@ function PopoverSettingsContent({
       <ToggleButton
         title="Data Display"
         value={dataDisplay}
-        onChange={setDataDisplay}
+        onChange={setDataDisplay as (v: string) => void}
         options={[
           {
             label: 'Price',
@@ -336,7 +339,7 @@ function PopoverSettingsContent({
       <ToggleButton
         title="Price Change"
         value={priceChange}
-        onChange={setPriceChange}
+        onChange={setPriceChange as (v: string) => void}
         options={[
           {
             label: '1 hour',
@@ -369,6 +372,7 @@ function PopoverSettingsContent({
   );
 }
 
+type IKeyOfMarketToken = keyof IMarketToken;
 export function MarketHomeList({ category }: { category: IMarketCategory }) {
   const navigation = useAppNavigation();
   const selectOptions = useMemo(
@@ -423,7 +427,7 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
     [tableRowConfig, toDetailPage],
   );
 
-  const [mdColumnKeys, setMdColumnKeys] = useState([
+  const [mdColumnKeys, setMdColumnKeys] = useState<IKeyOfMarketToken[]>([
     'price',
     'priceChangePercentage24H',
   ]);
@@ -466,7 +470,7 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
             formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
             formatterOptions={{ currency: '$' }}
           >
-            {item[mdColumnKeys[0]]}
+            {item[mdColumnKeys[0]] as string}
           </NumberSizeableText>
           <XStack
             width="$20"
@@ -485,7 +489,7 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
               color="white"
               formatter="priceChange"
             >
-              {item[mdColumnKeys[1]]}
+              {item[mdColumnKeys[1]] as string}
             </NumberSizeableText>
           </XStack>
         </XStack>
@@ -511,8 +515,8 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
       dataDisplay,
       priceChange,
     }: {
-      dataDisplay: string;
-      priceChange: string;
+      dataDisplay: IKeyOfMarketToken;
+      priceChange: IKeyOfMarketToken;
     }) => {
       setMdColumnKeys([dataDisplay, priceChange]);
     },
