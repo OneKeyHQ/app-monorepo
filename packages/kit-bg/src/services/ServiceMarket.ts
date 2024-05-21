@@ -10,7 +10,10 @@ import type {
   IMarketToken,
   IMarketTokenChart,
   IMarketTokenDetail,
+  IMarketWatchListItem,
 } from '@onekeyhq/shared/types/market';
+
+import { marketWatchListPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -84,6 +87,32 @@ class ServiceMarket extends ServiceBase {
     });
     const { code, data } = response.data;
     return code === 0 ? data : ({} as IMarketTokenDetail);
+  }
+
+  @backgroundMethod()
+  async fetchWatchList() {
+    const watchList = await marketWatchListPersistAtom.get();
+    return watchList.items;
+  }
+
+  @backgroundMethod()
+  async addIntoWatchList(items: IMarketWatchListItem | IMarketWatchListItem[]) {
+    await marketWatchListPersistAtom.set((prev) => {
+      const params = !Array.isArray(items) ? [items] : items;
+      const newItems = params.filter(
+        (item) => !prev.items.find((i) => i.coingeckoId === item.coingeckoId),
+      );
+      return {
+        items: [...prev.items, ...newItems],
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async removeFormWatchList(item: IMarketWatchListItem) {
+    await marketWatchListPersistAtom.set((prev) => ({
+      items: prev.items.filter((i) => i.coingeckoId !== item.coingeckoId),
+    }));
   }
 
   @backgroundMethod()

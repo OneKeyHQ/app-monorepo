@@ -8,6 +8,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeList } from './components/MarketHomeList';
+import { MarketWatchList } from './components/MarketWatchList';
 
 function MarketHome() {
   const [categories, setCategories] = useState<IMarketCategory[]>([]);
@@ -24,7 +25,12 @@ function MarketHome() {
       categories?.map((category) => ({
         title: category.name,
         // eslint-disable-next-line react/no-unstable-nested-components
-        page: () => <MarketHomeList category={category} />,
+        page: () =>
+          category.categoryId === 'favorites' ? (
+            <MarketWatchList category={categories[1]} />
+          ) : (
+            <MarketHomeList category={category} />
+          ),
       })) || [],
     [categories],
   );

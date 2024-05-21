@@ -164,3 +164,7 @@ export interface IMarketDetailPool {
   attributes: IMarketDetailPoolAttributes;
   relationships: IMarketDetailPoolRelationships;
 }
+
+export interface IMarketWatchListItem {
+  coingeckoId: string;
+}
