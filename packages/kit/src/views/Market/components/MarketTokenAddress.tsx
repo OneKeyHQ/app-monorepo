@@ -14,7 +14,7 @@ export function MarketTokenAddress({
   url,
   networkId,
 }: {
-  networkId: string;
+  networkId?: string;
   tokenName: string;
   address: string;
   url: string;
@@ -22,7 +22,7 @@ export function MarketTokenAddress({
   const { copyText } = useClipboard();
   return (
     <XStack space="$1.5" ai="center">
-      <NetworkAvatar networkId={networkId} size="$5" />
+      {networkId ? <NetworkAvatar networkId={networkId} size="$5" /> : null}
       <XStack space="$2">
         <SizableText size="$bodyMdMedium">{`${tokenName}:`}</SizableText>
         <SizableText size="$bodyMd">{`${address.slice(0, 6)}...${address.slice(
