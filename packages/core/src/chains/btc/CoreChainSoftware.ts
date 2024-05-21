@@ -502,6 +502,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       psbt: psbtToSign,
       psbtNetwork,
       account,
+      isBtcWalletProvider: false
     });
 
     await this.signPsbt({

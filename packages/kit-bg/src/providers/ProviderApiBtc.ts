@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { Psbt } from 'bitcoinjs-lib';
 import { isNil } from 'lodash';
 
+import { getInputsToSignFromPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
   formatPsbtHex,
   toPsbtNetwork,
@@ -20,13 +21,18 @@ import type {
   ISignMessageParams,
   ISwitchNetworkParams,
 } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
+import type {
+  IPushPsbtParams,
+  IPushTxParams,
+  ISignPsbtParams,
+  ISignPsbtsParams,
+} from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
 
 import { vaultFactory } from '../vaults/factory';
 
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
-import type { IPushTxParams, ISignPsbtParams } from '../vaults/types';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type * as BitcoinJS from 'bitcoinjs-lib';
 
@@ -328,8 +334,7 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignPsbtParams,
   ) {
     const accountsInfo = await this.getAccountsInfo(request);
-    const { accountInfo: { accountId, networkId, address } = {} } =
-      accountsInfo[0];
+    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 
     if (!networkId || !accountId) {
       throw web3Errors.provider.custom({
@@ -364,6 +369,53 @@ class ProviderApiBtc extends ProviderApiBase {
     return respPsbtHex;
   }
 
+  @providerApiMethod()
+  public async signPsbts(
+    request: IJsBridgeMessagePayload,
+    params: ISignPsbtsParams,
+  ) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    if (accountUtils.isHwAccount({ accountId })) {
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message:
+          'Partially signed bitcoin transactions is not supported on hardware.',
+      });
+    }
+
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    if (!network) return null;
+
+    const { psbtHexs, options } = params;
+
+    const psbtNetwork = toPsbtNetwork(network);
+    const result: string[] = [];
+
+    for (let i = 0; i < psbtHexs.length; i += 1) {
+      const formattedPsbtHex = formatPsbtHex(psbtHexs[i]);
+      const psbt = Psbt.fromHex(formattedPsbtHex, { network: psbtNetwork });
+      const respPsbtHex = await this._signPsbt(request, {
+        psbt,
+        psbtNetwork,
+        options,
+      });
+      result.push(respPsbtHex);
+    }
+
+    return result;
+  }
+
   private async _signPsbt(
     request: IJsBridgeMessagePayload,
     params: {
@@ -371,6 +423,86 @@ class ProviderApiBtc extends ProviderApiBase {
       psbtNetwork: BitcoinJS.networks.Network;
       options: ISignPsbtParams['options'];
     },
+  ) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    const { psbt, psbtNetwork, options } = params;
+
+    // TODO: decode psbt
+    const decodedPsbt = {
+      inputInfos: [],
+      outputInfos: [],
+      fee: '8556',
+    };
+
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+
+    const inputsToSign = getInputsToSignFromPsbt({
+      psbt,
+      psbtNetwork,
+      account,
+      isBtcWalletProvider: options.isBtcWalletProvider,
+    });
+
+    const resp =
+      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        accountId,
+        networkId,
+        encodedTx: {
+          inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
+            'txid':
+              '38c6a272599c060397a2a8cada8e154c7a36a2d465e555d599e6a82cbe2a3aba',
+            'vout': 5,
+            'address': 'bc1q0kxtfptx0ejkhmkmtuvu5xly6hy82s8yh7u97y',
+            'value': '300',
+            path: '',
+          })),
+          outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
+            'address': 'bc1q0kxtfptx0ejkhmkmtuvu5xly6hy82s8yh7u97y',
+            'value': '600',
+          })),
+          inputsForCoinSelect: [],
+          outputsForCoinSelect: [],
+          fee: decodedPsbt.fee,
+          inputsToSign,
+          psbtHex: psbt.toHex(),
+          disabledCoinSelect: true,
+        },
+        signOnly: true,
+      })) as { psbtHex: string };
+
+    const respPsbt = Psbt.fromHex(resp.psbtHex, { network: psbtNetwork });
+
+    if (options && options.autoFinalized === false) {
+      // do not finalize
+    } else {
+      inputsToSign.forEach((v) => {
+        respPsbt.finalizeInput(v.index);
+      });
+    }
+
+    if (options.isBtcWalletProvider) {
+      return respPsbt.extractTransaction().toHex();
+    }
+    return respPsbt.toHex();
+  }
+
+  @providerApiMethod()
+  public async pushPsbt(
+    request: IJsBridgeMessagePayload,
+    params: IPushPsbtParams,
   ) {
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId, address } = {} } =
@@ -382,7 +514,29 @@ class ProviderApiBtc extends ProviderApiBase {
         message: `Can not get account`,
       });
     }
-    return 'x';
+
+    const { psbtHex } = params;
+
+    const formattedPsbtHex = formatPsbtHex(psbtHex);
+    const psbt = Psbt.fromHex(formattedPsbtHex);
+    const tx = psbt.extractTransaction();
+    const rawTx = tx.toHex();
+
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    const result = await vault.broadcastTransaction({
+      accountAddress: address ?? '',
+      networkId,
+      signedTx: {
+        txid: '',
+        rawTx,
+        encodedTx: null,
+      },
+    });
+
+    return result.txid;
   }
 }
 
