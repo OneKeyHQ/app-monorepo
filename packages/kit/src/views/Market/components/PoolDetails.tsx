@@ -12,12 +12,10 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
-import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type {
-  IMarketDetailPool,
-  IMarketTokenDetail,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
+
+import { MarketTokenAddress } from './MarketTokenAddress';
 
 function PoolDetailsItem({
   title,
@@ -63,41 +61,6 @@ function PoolDetailsItem({
       </SizableText>
       {renderChildren}
     </YStack>
-  );
-}
-
-function TokenAddress({
-  tokenName,
-  address,
-}: {
-  tokenName: string;
-  address: string;
-}) {
-  const { copyText } = useClipboard();
-  return (
-    <XStack space="$1.5" ai="center">
-      <XStack space="$2">
-        <SizableText size="$bodyMdMedium">{`${tokenName}:`}</SizableText>
-        <SizableText size="$bodyMd">{`${address.slice(0, 6)}...${address.slice(
-          address.length - 4,
-          address.length,
-        )}`}</SizableText>
-      </XStack>
-      <IconButton
-        variant="tertiary"
-        color="$iconSubdued"
-        icon="Copy1Outline"
-        size="small"
-        onPress={() => copyText(address)}
-      />
-      <IconButton
-        variant="tertiary"
-        color="$iconSubdued"
-        icon="OpenOutline"
-        size="small"
-        onPress={() => openUrlExternal(address)}
-      />
-    </XStack>
   );
 }
 
@@ -155,9 +118,12 @@ export function PoolDetails({
         </PoolDetailsItem>
       </XStack>
       <YStack space="$6" pt="$6" pb="$10">
-        <TokenAddress tokenName="WETH" address="0x12340x12341234" />
-        <TokenAddress tokenName="USDT" address="0x12340x12341234" />
-        <TokenAddress tokenName="Pair Contract" address="0x12340x12341234" />
+        <MarketTokenAddress tokenName="WETH" address="0x12340x12341234" />
+        <MarketTokenAddress tokenName="USDT" address="0x12340x12341234" />
+        <MarketTokenAddress
+          tokenName="Pair Contract"
+          address="0x12340x12341234"
+        />
       </YStack>
     </YStack>
   );

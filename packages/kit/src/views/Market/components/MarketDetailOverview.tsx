@@ -17,6 +17,8 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
+import { MarketTokenAddress } from './MarketTokenAddress';
+
 function OverviewPriceChange({
   title,
   children,
@@ -188,6 +190,20 @@ function OverviewMarketVOL({
         <SizableText color="$textSubdued" size="$bodySm">
           Contract
         </SizableText>
+        <YStack space="$1" pt="$1">
+          {pools.map((pool) => {
+            const [tokeName, address] = pool.id.split('_');
+            return (
+              <MarketTokenAddress
+                key={address}
+                networkId={pool.onekeyNetworkId}
+                tokenName={tokeName}
+                address={address}
+                url={pool.baseTokenUrl}
+              />
+            );
+          })}
+        </YStack>
       </YStack>
     </YStack>
   );

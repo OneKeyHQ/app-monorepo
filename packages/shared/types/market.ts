@@ -155,6 +155,9 @@ interface IMarketDetailPoolAttributes {
 
 export interface IMarketDetailPool {
   id: string;
+  baseTokenUrl: string;
+  onekeyNetworkId: string;
+  quoteTokenUrl: string;
   type: EMarketDetailDatumType;
   attributes: IMarketDetailPoolAttributes;
   relationships: IMarketDetailPoolRelationships;
