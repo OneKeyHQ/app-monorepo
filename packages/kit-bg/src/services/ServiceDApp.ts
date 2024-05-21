@@ -41,6 +41,7 @@ import ServiceBase from './ServiceBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
+import type { ITransferInfo } from '../vaults/types';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -250,12 +251,14 @@ class ServiceDApp extends ServiceBase {
     encodedTx,
     accountId,
     networkId,
+    transfersInfo,
     signOnly,
   }: {
     request: IJsBridgeMessagePayload;
     encodedTx: IEncodedTx;
     accountId: string;
     networkId: string;
+    transfersInfo?: ITransferInfo[];
     signOnly?: boolean;
   }) {
     return this.openModal({
@@ -263,6 +266,7 @@ class ServiceDApp extends ServiceBase {
       screens: [EModalRoutes.SendModal, EModalSendRoutes.SendConfirmFromDApp],
       params: {
         encodedTx,
+        transfersInfo,
         accountId,
         networkId,
         signOnly,
@@ -658,12 +662,18 @@ class ServiceDApp extends ServiceBase {
         storageType,
       );
     console.log('====> accountSelectorNum: ', accountSelectorNum);
-    const selectedAccount =
-      await this.backgroundApi.simpleDb.accountSelector.getSelectedAccount({
-        sceneName: EAccountSelectorSceneName.discover,
+    const map =
+      await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorMap({
         sceneUrl: params.origin,
-        num: accountSelectorNum,
       });
+    console.log('====> map: ', map);
+    // const selectedAccount =
+    //   await this.backgroundApi.simpleDb.accountSelector.getSelectedAccount({
+    //     sceneName: EAccountSelectorSceneName.discover,
+    //     sceneUrl: params.origin,
+    //     num: accountSelectorNum,
+    //   });
+    const selectedAccount = map?.[accountSelectorNum];
     if (selectedAccount) {
       const { selectedAccount: newSelectedAccount } =
         await this.backgroundApi.serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(

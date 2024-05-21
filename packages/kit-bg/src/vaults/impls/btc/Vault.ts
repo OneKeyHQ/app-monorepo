@@ -219,11 +219,11 @@ export default class VaultBtc extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = await this.buildEncodedTx(params);
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
 
     if (encodedTx) {
       return this._buildUnsignedTxFromEncodedTx({
-        encodedTx,
+        encodedTx: encodedTx as IEncodedTxBtc,
         transfersInfo: params.transfersInfo ?? [],
       });
     }

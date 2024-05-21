@@ -145,7 +145,7 @@ export function getInputsToSignFromPsbt({
     if (script && !isSigned) {
       const address = BitcoinJsAddress.fromOutputScript(script, psbtNetwork);
       if (account.address === address) {
-        const pubKeyStr = account.pubKey as string;
+        const pubKeyStr = account.pub as string;
         if (!pubKeyStr) {
           throw new Error('pubKey is empty');
         }

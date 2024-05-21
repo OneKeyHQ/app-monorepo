@@ -1,5 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import {
   backgroundClass,
@@ -8,9 +10,12 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
+  ISendBitcoinParams,
   ISignMessageParams,
   ISwitchNetworkParams,
 } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
+
+import { vaultFactory } from '../vaults/factory';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -39,12 +44,24 @@ class ProviderApiBtc extends ProviderApiBase {
     info.send(data, info.targetOrigin);
   }
 
-  public override notifyDappChainChanged(): void {
-    throw new Error('Method not implemented.');
+  public override notifyDappChainChanged(
+    info: IProviderBaseBackgroundNotifyInfo,
+  ): void {
+    const data = async ({ origin }: { origin: string }) => {
+      const params = await this.getNetwork({
+        origin,
+        scope: this.providerName,
+      });
+      const result = {
+        method: 'wallet_events_networkChanged',
+        params,
+      };
+      return result;
+    };
+    info.send(data, info.targetOrigin);
   }
 
-  public async rpcCall(args: any): Promise<any> {
-    console.log('===>args: ', args);
+  public async rpcCall(): Promise<any> {
     throw web3Errors.rpc.methodNotSupported();
   }
 
@@ -129,6 +146,95 @@ class ProviderApiBtc extends ProviderApiBase {
       scope: request.scope ?? this.providerName,
       newNetworkId: networkId,
     });
+    // TODO: use real data
+    return 'testnet';
+  }
+
+  @providerApiMethod()
+  public async getBalance(request: IJsBridgeMessagePayload) {
+    const { accountInfo: { networkId, accountId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
+      });
+    const { balance } =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId: networkId ?? '',
+        xpub: await this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId: accountId ?? '',
+          networkId: networkId ?? '',
+        }),
+        accountAddress,
+      });
+    return {
+      confirmed: balance,
+      unconfirmed: 0,
+      total: balance,
+    };
+  }
+
+  @providerApiMethod()
+  public async getInscriptions() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  public async sendBitcoin(
+    request: IJsBridgeMessagePayload,
+    params: ISendBitcoinParams,
+  ) {
+    const { toAddress, satoshis, feeRate } = params;
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    const amountBN = new BigNumber(satoshis);
+
+    if (amountBN.isNaN() || amountBN.isNegative()) {
+      throw web3Errors.rpc.invalidParams('Invalid satoshis');
+    }
+
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+
+    const transfersInfo = [
+      {
+        from: address ?? '',
+        to: toAddress,
+        amount: amountBN.shiftedBy(-network.decimals).toFixed(),
+      },
+    ];
+    const encodedTx = await vault.buildEncodedTx({
+      transfersInfo,
+      specifiedFeeRate: isNil(feeRate)
+        ? undefined
+        : new BigNumber(feeRate).shiftedBy(-network.feeMeta.decimals).toFixed(),
+    });
+
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+        transfersInfo,
+      });
+    return result;
   }
 
   @providerApiMethod()
@@ -157,7 +263,6 @@ class ProviderApiBtc extends ProviderApiBase {
         payload: {
           isFromDApp: true,
         },
-        // signOnly: true,
       },
     });
     return Buffer.from(result as string, 'hex').toString('base64');
