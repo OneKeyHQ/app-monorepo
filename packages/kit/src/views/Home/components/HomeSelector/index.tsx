@@ -6,21 +6,29 @@ import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/A
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 
-type IProps = IXStackProps;
+type IProps = { createAddressDisabled?: boolean } & IXStackProps;
 
 function HomeSelector(props: IProps) {
   const num = 0;
+
+  const { createAddressDisabled, ...rest } = props;
 
   return (
     <XStack
       testID="Wallet-Address-Generator"
       alignItems="center"
       space="$3"
-      {...props}
+      {...rest}
     >
-      <NetworkSelectorTriggerHome num={num} />
-      <AccountSelectorActiveAccountHome num={num} />
-      <DeriveTypeSelectorTrigger miniMode num={num} />
+      {createAddressDisabled ? (
+        <NetworkSelectorTriggerHome num={num} />
+      ) : (
+        <>
+          <NetworkSelectorTriggerHome num={num} />
+          <AccountSelectorActiveAccountHome num={num} />
+          <DeriveTypeSelectorTrigger miniMode num={num} />
+        </>
+      )}
     </XStack>
   );
 }
