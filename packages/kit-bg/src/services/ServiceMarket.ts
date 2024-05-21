@@ -38,7 +38,9 @@ class ServiceMarket extends ServiceBase {
       headers: await getDevHeaders(),
     });
     const { code, data } = response.data;
-    return code === 0 ? data : [];
+    return code === 0
+      ? data.filter((i) => i.categoryId !== 'onekey-search-trending')
+      : [];
   }
 
   @backgroundMethod()
