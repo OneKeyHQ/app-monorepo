@@ -787,6 +787,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 }
               }
             }
+          } catch (e) {
+            balanceDisplay = '0.0';
           } finally {
             set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
               ...pre,
