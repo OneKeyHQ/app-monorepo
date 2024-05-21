@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { partition } from 'lodash';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
+import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -23,7 +23,6 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 import { PoolDetails } from './PoolDetails';
@@ -136,14 +135,25 @@ export function MarketDetailPools({
               <ItemColumn>
                 <XStack space="$2.5" ai="center">
                   <View>
-                    <Icon name="TelegramBrand" size="$5" borderRadius="100%" />
+                    <Icon
+                      name="UniswapBrand"
+                      size="$5"
+                      borderRadius="100%"
+                      color={'#ff007a' as IIconProps['color']}
+                    />
                   </View>
                   <YStack flexShrink={1}>
                     <SizableText size="$bodySmMedium">
                       {attributes.name}
                     </SizableText>
                     <SizableText size="$bodySm" color="$textSubdued">
-                      {relationships.dex.data.id}
+                      {relationships.dex.data.id
+                        .split('_')
+                        .map(
+                          (word) =>
+                            `${word.charAt(0).toUpperCase()}${word.slice(1)}`,
+                        )
+                        .join(' ')}
                     </SizableText>
                   </YStack>
                 </XStack>
