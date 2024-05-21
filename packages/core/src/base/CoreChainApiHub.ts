@@ -1,6 +1,6 @@
 import CoreChainAda from '../chains/ada';
 import CoreChainAlgo from '../chains/algo';
-// import CoreChainApt from '../chains/apt';
+import CoreChainAptos from '../chains/aptos';
 import CoreChainBch from '../chains/bch';
 import CoreChainBtc from '../chains/btc';
 import CoreChainCfx from '../chains/cfx';
@@ -8,7 +8,7 @@ import CoreChainCkb from '../chains/ckb';
 import CoreChainCosmos from '../chains/cosmos';
 import CoreChainDnx from '../chains/dnx';
 import CoreChainDoge from '../chains/doge';
-// import CoreChainDot from '../chains/dot';
+import CoreChainDot from '../chains/dot';
 import CoreChainEvm from '../chains/evm';
 import CoreChainFil from '../chains/fil';
 import CoreChainKaspa from '../chains/kaspa';
@@ -44,7 +44,7 @@ export class CoreChainApiHub {
 
   algo = new CoreChainAlgo();
 
-  // apt = new CoreChainApt();
+  aptos = new CoreChainAptos();
 
   cfx = new CoreChainCfx();
 
@@ -62,7 +62,7 @@ export class CoreChainApiHub {
 
   sui = new CoreChainSui();
 
-  // dot = new CoreChainDot();
+  dot = new CoreChainDot();
 
   fil = new CoreChainFil();
 

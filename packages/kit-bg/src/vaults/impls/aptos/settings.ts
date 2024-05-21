@@ -1,8 +1,6 @@
-import { SUI_TYPE_ARG } from '@mysten/sui.js';
-
 import {
-  COINTYPE_SUI,
-  IMPL_SUI,
+  COINTYPE_APTOS,
+  IMPL_APTOS,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -12,16 +10,16 @@ import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
-    namePrefix: 'SUI',
+    namePrefix: 'APT',
     labelKey: 'form__bip44_standard',
-    template: `m/44'/${COINTYPE_SUI}'/${INDEX_PLACEHOLDER}'/0'/0'`,
-    coinType: COINTYPE_SUI,
+    template: `m/44'/${COINTYPE_APTOS}'/${INDEX_PLACEHOLDER}'/0'/0'`,
+    coinType: COINTYPE_APTOS,
   },
 };
 
 const settings: IVaultSettings = {
-  impl: IMPL_SUI,
-  coinTypeDefault: COINTYPE_SUI,
+  impl: IMPL_APTOS,
+  coinTypeDefault: COINTYPE_APTOS,
   accountType: EDBAccountType.SIMPLE,
 
   importedAccountEnabled: true,
@@ -46,8 +44,6 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
-
-  nativeTokenAddress: SUI_TYPE_ARG,
 };
 
 export default Object.freeze(settings);
