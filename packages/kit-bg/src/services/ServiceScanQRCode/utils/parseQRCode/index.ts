@@ -34,7 +34,7 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
         break;
       }
     } catch (e) {
-      console.log('parse next');
+      console.warn('parse next', e);
     }
   }
   if (!result) {

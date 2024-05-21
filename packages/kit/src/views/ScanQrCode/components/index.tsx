@@ -18,7 +18,7 @@ export type IScanQrCodeProps = {
 
 export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
   const intl = useIntl();
-  const scanned = useRef(false);
+  const scanned = useRef<string | undefined>(undefined);
   const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
     PermissionStatus.UNDETERMINED,
   );
@@ -28,15 +28,18 @@ export function ScanQrCode({ handleBarCodeScanned }: IScanQrCodeProps) {
     If other hooks cause scanned to be refreshed to false, please add useEffect back.
   */
   if (isFocused) {
-    scanned.current = false;
+    scanned.current = undefined;
   }
 
   const reloadHandleBarCodeScanned = useCallback(
     (data?: string | null) => {
-      if (scanned.current || !data) {
+      if (!data) {
         return;
       }
-      scanned.current = true;
+      if (scanned.current === data) {
+        return;
+      }
+      scanned.current = data;
       handleBarCodeScanned?.(data);
     },
     [handleBarCodeScanned],

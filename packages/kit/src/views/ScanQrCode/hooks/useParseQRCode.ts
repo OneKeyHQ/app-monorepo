@@ -100,6 +100,13 @@ const useParseQRCode = () => {
             void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
           }
           break;
+        case EQRCodeHandlerType.ANIMATION_CODE: {
+          const animationValue = result.data as IAnimationValue;
+          //if (animationValue.fullData) {
+            console.log('🥺', animationValue);
+          //}
+          break;
+        }
         default: {
           Dialog.confirm({
             title: intl.formatMessage({ id: 'content__info' }),

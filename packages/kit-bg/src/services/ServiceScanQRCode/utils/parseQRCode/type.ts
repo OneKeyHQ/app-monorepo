@@ -73,9 +73,8 @@ export interface IMigrateValue extends IBaseValue {
   address?: string;
 }
 export interface IAnimationValue extends IBaseValue {
-  partIndex: number;
+  partIndexes: number[];
   partSize: number;
-  partData: string;
   fullData?: string;
 }
 export interface IUrlValue extends IBaseValue {
