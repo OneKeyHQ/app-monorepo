@@ -240,7 +240,7 @@ const useBuildTableRowConfig = () => {
       'sparkline': (item) => (
         <SparklineChart
           data={item.sparkline}
-          width={100}
+          width={144}
           height={40}
           lineColor={
             item.priceChangePercentage24H &&
@@ -340,7 +340,7 @@ function TableRow({
       <Column
         name="name"
         alignLeft
-        width={261}
+        width={140}
         sortType={sortType?.columnName}
         order={sortType?.order}
         onPress={handleColumnPress}
@@ -351,7 +351,8 @@ function TableRow({
       <Column
         name="price"
         alignRight
-        width={85}
+        flexGrow={1}
+        flexBasis={0}
         sortType={sortType?.columnName}
         order={sortType?.order}
         onPress={handleColumnPress}
@@ -362,7 +363,8 @@ function TableRow({
       <Column
         name="priceChangePercentage1H"
         alignRight
-        width={75}
+        flexGrow={1}
+        flexBasis={0}
         sortType={sortType?.columnName}
         order={sortType?.order}
         onPress={handleColumnPress}
@@ -373,7 +375,8 @@ function TableRow({
       <Column
         name="priceChangePercentage24H"
         alignRight
-        width={75}
+        flexGrow={1}
+        flexBasis={0}
         sortType={sortType?.columnName}
         order={sortType?.order}
         onPress={handleColumnPress}
@@ -382,9 +385,10 @@ function TableRow({
         {priceChangePercentage24H?.(item)}
       </Column>
       <Column
+        flexGrow={1}
+        flexBasis={0}
         name="priceChangePercentage7D"
         alignRight
-        width={75}
         sortType={sortType?.columnName}
         order={sortType?.order}
         onPress={handleColumnPress}
@@ -393,9 +397,10 @@ function TableRow({
         {priceChangePercentage7D?.(item)}
       </Column>
       <Column
+        flexGrow={1}
+        flexBasis={0}
         name="totalVolume"
         alignRight
-        width={75}
         sortType={sortType?.columnName}
         order={sortType?.order}
         onPress={handleColumnPress}
@@ -404,9 +409,10 @@ function TableRow({
         {totalVolume?.(item)}
       </Column>
       <Column
+        flexGrow={1}
+        flexBasis={0}
         name="marketCap"
         alignRight
-        width={75}
         sortType={sortType?.columnName}
         order={sortType?.order}
         onPress={handleColumnPress}
@@ -415,9 +421,9 @@ function TableRow({
         {marketCap?.(item)}
       </Column>
       <Column
+        minWidth={160}
         name="sparkline"
         alignRight
-        width={100}
         pl="$4"
         sortType={sortType?.columnName}
         order={sortType?.order}
@@ -428,9 +434,9 @@ function TableRow({
       </Column>
       <Column
         name="action"
-        alignLeft
-        width={200}
-        pl="$4"
+        width={64}
+        jc="center"
+        px="$3"
         onPress={handleColumnPress}
         cursor={cursor}
       >
