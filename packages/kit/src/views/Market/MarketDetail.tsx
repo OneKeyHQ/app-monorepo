@@ -105,12 +105,14 @@ function MarketDetail({
           width="$6"
           height="$6"
           borderRadius="100%"
-          src={decodeURIComponent(icon || '')}
+          src={decodeURIComponent(tokenDetail?.image || icon || '')}
         />
-        <SizableText>{symbol?.toUpperCase()}</SizableText>
+        <SizableText>
+          {(tokenDetail?.symbol || symbol)?.toUpperCase()}
+        </SizableText>
       </XStack>
     ),
-    [icon, symbol],
+    [icon, symbol, tokenDetail?.image, tokenDetail?.symbol],
   );
   const renderHeaderRight = useCallback(
     () => (
