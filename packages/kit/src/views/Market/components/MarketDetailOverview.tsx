@@ -192,7 +192,7 @@ function OverviewMarketVOL({
         </SizableText>
         <YStack space="$1" pt="$1">
           {pools.map((pool) => {
-            const [tokeName, address] = pool.id.split('_');
+            const [tokeName, address] = pool.relationships.base_token.data.id.split('_');
             return (
               <MarketTokenAddress
                 key={address}
