@@ -96,17 +96,18 @@ type ITableColumnConfig = Record<
   (item: IMarketToken) => ReactElement | string
 >;
 
-const TableHeaderConfig: ITableColumnConfig = {
-  'serialNumber': () => '#',
-  'name': () => 'Name',
-  'price': () => 'Price',
-  'priceChangePercentage1H': () => '1h%',
-  'priceChangePercentage24H': () => '24h%',
-  'priceChangePercentage7D': () => '7d%',
-  'totalVolume': () => '24h volume',
-  'marketCap': () => 'Market cap',
-  'sparkline': () => 'Last 7 days',
-};
+const useBuildTableHeaderConfig = () =>
+  ({
+    'serialNumber': () => '#',
+    'name': () => 'Name',
+    'price': () => 'Price',
+    'priceChangePercentage1H': () => '1h%',
+    'priceChangePercentage24H': () => '24h%',
+    'priceChangePercentage7D': () => '7d%',
+    'totalVolume': () => '24h volume',
+    'marketCap': () => 'Market cap',
+    'sparkline': () => 'Last 7 days',
+  } as ITableColumnConfig);
 
 const useBuildTableRowConfig = () => {
   const navigation = useAppNavigation();
@@ -132,7 +133,7 @@ const useBuildTableRowConfig = () => {
               {item.name}
             </SizableText>
           </YStack>
-          <Button
+          {/* <Button
             size="small"
             onPress={async () => {
               console.log('----log', item);
@@ -142,26 +143,26 @@ const useBuildTableRowConfig = () => {
                   item.symbol,
                 );
 
-              // navigation.pushModal(EModalRoutes.SwapModal, {
-              //   screen: EModalSwapRoutes.SwapMainLand,
-              //   params: {
-              //     importNetworkId: networkId,
-              //     importFromToken: {
-              //       contractAddress: tokenInfo.address,
-              //       symbol: tokenInfo.symbol,
-              //       networkId,
-              //       isNative: tokenInfo.isNative,
-              //       decimals: tokenInfo.decimals,
-              //       name: tokenInfo.name,
-              //       logoURI: tokenInfo.logoURI,
-              //       networkLogoURI: network?.logoURI,
-              //     },
-              //   },
-              // });
+              navigation.pushModal(EModalRoutes.SwapModal, {
+                screen: EModalSwapRoutes.SwapMainLand,
+                params: {
+                  importNetworkId: networkId,
+                  importFromToken: {
+                    contractAddress: tokenInfo.address,
+                    symbol: tokenInfo.symbol,
+                    networkId,
+                    isNative: tokenInfo.isNative,
+                    decimals: tokenInfo.decimals,
+                    name: tokenInfo.name,
+                    logoURI: tokenInfo.logoURI,
+                    networkLogoURI: network?.logoURI,
+                  },
+                },
+              });
             }}
           >
             Swap
-          </Button>
+          </Button> */}
         </XStack>
       ),
       'price': (item) => (
@@ -318,6 +319,10 @@ function PopoverSettingsContent({
         onChange={setDataDisplay}
         options={[
           {
+            label: 'Price',
+            value: 'price',
+          },
+          {
             label: '24h volume',
             value: 'totalVolume',
           },
@@ -376,9 +381,10 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
     ],
     [],
   );
+  const tableHeaderConfig = useBuildTableHeaderConfig();
   const HeaderColumns = useMemo(
-    () => <TableRow tableConfig={TableHeaderConfig} minHeight={16} />,
-    [],
+    () => <TableRow tableConfig={tableHeaderConfig} minHeight="$4" />,
+    [tableHeaderConfig],
   );
 
   const { result: listData } = usePromiseResult(
@@ -416,6 +422,11 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
     [tableRowConfig, toDetailPage],
   );
 
+  const [mdColumnKeys, setMdColumnKeys] = useState([
+    'price',
+    'priceChangePercentage24H',
+  ]);
+
   const renderMdItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
       <XStack
@@ -451,10 +462,10 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
             flexShrink={1}
             numberOfLines={1}
             size="$bodyLgMedium"
-            formatter="price"
+            formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
             formatterOptions={{ currency: '$' }}
           >
-            {item.price}
+            {item[mdColumnKeys[0]]}
           </NumberSizeableText>
           <XStack
             width="$20"
@@ -472,15 +483,14 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
               size="$bodyMdMedium"
               color="white"
               formatter="priceChange"
-              formatterOptions={{ currency: '$' }}
             >
-              {item.priceChangePercentage24H}
+              {item[mdColumnKeys[1]]}
             </NumberSizeableText>
           </XStack>
         </XStack>
       </XStack>
     ),
-    [toDetailPage],
+    [mdColumnKeys, toDetailPage],
   );
   const { gtMd } = useMedia();
   const [sortByType, setSortByType] = useState('Default');
@@ -492,6 +502,19 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
         <Icon name="ChevronBottomSolid" size="$4" />
       </XStack>
     ),
+    [],
+  );
+
+  const handleSettingsContentChange = useCallback(
+    ({
+      dataDisplay,
+      priceChange,
+    }: {
+      dataDisplay: string;
+      priceChange: string;
+    }) => {
+      setMdColumnKeys([dataDisplay, priceChange]);
+    },
     [],
   );
 
@@ -521,9 +544,9 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
               }
               renderContent={
                 <PopoverSettingsContent
-                  dataDisplay=""
-                  priceChange=""
-                  onConfirm={console.log}
+                  dataDisplay={mdColumnKeys[0]}
+                  priceChange={mdColumnKeys[1]}
+                  onConfirm={handleSettingsContentChange}
                 />
               }
             />
