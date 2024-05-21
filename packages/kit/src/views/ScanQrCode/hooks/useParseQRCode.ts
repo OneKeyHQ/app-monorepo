@@ -61,7 +61,8 @@ const useParseQRCode = () => {
         case EQRCodeHandlerType.ETHEREUM:
         case EQRCodeHandlerType.SOLANA:
           {
-            if (!account) {
+            const accountId = options?.accountId && account?.id;
+            if (!accountId) {
               break;
             }
             const chainValue = result.data as IChainValue;
@@ -73,7 +74,7 @@ const useParseQRCode = () => {
               screen: EAssetSelectorRoutes.TokenSelector,
               params: {
                 networkId: network.id,
-                accountId: account.id,
+                accountId,
                 networkName: network.name,
                 // tokens,
                 onSelect: async (token) => {
@@ -81,7 +82,7 @@ const useParseQRCode = () => {
                   navigation.pushModal(EModalRoutes.SendModal, {
                     screen: EModalSendRoutes.SendDataInput,
                     params: {
-                      accountId: account.id,
+                      accountId,
                       networkId: network.id,
                       isNFT: false,
                       token,
@@ -102,9 +103,9 @@ const useParseQRCode = () => {
           break;
         case EQRCodeHandlerType.ANIMATION_CODE: {
           const animationValue = result.data as IAnimationValue;
-          // if (animationValue.fullData) {
-          console.log('🥺', animationValue);
-          // }
+          if (animationValue.fullData) {
+            console.log('🥺', animationValue);
+          }
           break;
         }
         default: {
