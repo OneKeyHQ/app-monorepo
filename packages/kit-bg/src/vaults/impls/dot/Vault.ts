@@ -287,6 +287,25 @@ export default class VaultDot extends VaultBase {
     };
   }
 
+  private async _getMetadataRpc(): Promise<`0x${string}`> {
+    const [res] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
+        {
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'state_getMetadata',
+                params: [],
+              },
+            },
+          ],
+        },
+      );
+    return res;
+  }
+
   private async _getRegistry(params: {
     metadataRpc?: `0x${string}`;
     specVersion?: string;
@@ -296,22 +315,7 @@ export default class VaultDot extends VaultBase {
 
     let metadataRpcHex: `0x${string}`;
     if (isNil(params.metadataRpc) || isEmpty(params.metadataRpc)) {
-      const [res] =
-        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
-          {
-            networkId: this.networkId,
-            body: [
-              {
-                route: 'rpc',
-                params: {
-                  method: 'state_getMetadata',
-                  params: [],
-                },
-              },
-            ],
-          },
-        );
-      metadataRpcHex = res;
+      metadataRpcHex = await this._getMetadataRpc();
     } else {
       metadataRpcHex = params.metadataRpc;
     }
@@ -360,7 +364,10 @@ export default class VaultDot extends VaultBase {
   private async _decodeUnsignedTx(unsigned: IEncodedTxDot) {
     const registry = await this._getRegistry(unsigned);
 
-    const { metadataRpc } = unsigned;
+    let { metadataRpc } = unsigned;
+    if (!metadataRpc) {
+      metadataRpc = await this._getMetadataRpc();
+    }
     const decodedUnsigned = decode(unsigned, {
       metadataRpc,
       registry,
@@ -404,7 +411,7 @@ export default class VaultDot extends VaultBase {
         accountAddress: account.address,
       });
 
-      const { amount: tokenAmount } = decodeUnsignedTx.method.args;
+      const { value: tokenAmount } = decodeUnsignedTx.method.args;
       to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
 
       amount = tokenAmount?.toString() ?? '0';
@@ -460,8 +467,12 @@ export default class VaultDot extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
+    const encodedTx = (params.encodedTx ??
+      (await this.buildEncodedTx(params))) as IEncodedTxDot;
     if (encodedTx) {
+      if (!encodedTx.metadataRpc) {
+        encodedTx.metadataRpc = await this._getMetadataRpc();
+      }
       return {
         encodedTx,
       };
@@ -475,8 +486,8 @@ export default class VaultDot extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     if (params.nonceInfo) {
-      encodedTx.nonce = numberUtils.numberToHex(params.nonceInfo.nonce, {
-        prefix0x: true,
+      encodedTx.nonce = hexUtils.hexlify(params.nonceInfo.nonce, {
+        hexPad: 'left',
       }) as `0x${string}`;
     }
     return {

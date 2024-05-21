@@ -33,6 +33,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  signOnlyFullTxRequired: true,
 
   defaultFeePresetIndex: 0,
 

@@ -1,9 +1,8 @@
-import { bufferToU8a, u8aConcat, u8aToU8a, u8aWrapBytes } from '@polkadot/util';
+import { bufferToU8a, u8aConcat } from '@polkadot/util';
 import { hdLedger, encodeAddress } from '@polkadot/util-crypto';
 import { merge } from 'lodash';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -26,7 +25,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import { serializeMessage, serializeSignedTransaction, serializeUnsignedTransaction } from './sdkDot';
+import { serializeMessage, serializeSignedTransaction } from './sdkDot';
 
 const curve: ICurveName = 'ed25519';
 

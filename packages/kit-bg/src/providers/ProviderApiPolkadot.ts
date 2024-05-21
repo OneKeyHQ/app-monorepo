@@ -89,11 +89,11 @@ class ProviderApiPolkadot extends ProviderApiBase {
       return true;
     }
 
-    const [address] = (await this.backgroundApi.serviceDApp.openConnectionModal(
+    const res = await this.backgroundApi.serviceDApp.openConnectionModal(
       request,
-    )) as string[];
+    );
 
-    return !!address;
+    return !!res;
   }
 
   @permissionRequired()
