@@ -39,10 +39,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             const response = await sdk.aptosGetAddress(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams, // passpharse params
               bundle: usedIndexes.map((index, arrIndex) => {
-                const i = pathSuffix.replace(
-                  '{index}',
-                  `${index}`,
-                );
+                const i = pathSuffix.replace('{index}', `${index}`);
                 return {
                   path: `${pathPrefix}/${i}`,
                   /**
