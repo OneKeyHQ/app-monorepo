@@ -137,7 +137,7 @@ function MarketDetail({
           space="$5"
         >
           <TokenDetailHeader token={tokenDetail} />
-          <YStack $gtMd={{ flexGrow: 1 }}>
+          <YStack flex={1}>
             <TokenPriceChart coinGeckoId={coinGeckoId} />
             <TokenDetailTabs token={tokenDetail} />
           </YStack>

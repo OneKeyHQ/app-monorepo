@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 
-import { Tab, useMedia } from '@onekeyhq/components';
+import { Stack, Tab, useMedia } from '@onekeyhq/components';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import { MarketDetailLinks } from './MarketDetailLinks';
@@ -34,12 +34,14 @@ function BasicTokenDetailTabs({ token }: { token: IMarketTokenDetail }) {
     [md, token],
   );
   return (
-    <Tab.Page
-      data={tabConfig}
-      onSelectedPageIndex={(index: number) => {
-        console.log('选中', index);
-      }}
-    />
+    <Stack mt={100}>
+      <Tab.Page
+        data={tabConfig}
+        onSelectedPageIndex={(index: number) => {
+          console.log('选中', index);
+        }}
+      />
+    </Stack>
   );
 }
 
