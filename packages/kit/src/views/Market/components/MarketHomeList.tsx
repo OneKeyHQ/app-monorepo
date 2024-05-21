@@ -34,6 +34,7 @@ import type {
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
+import { MarketStar } from './MarketStar';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
 
@@ -256,9 +257,7 @@ const useBuildTableRowConfig = () => {
           }
         />
       ),
-      'actions': (item) => (
-        <IconButton icon="StarOutline" variant="tertiary" iconSize="$5" />
-      ),
+      'actions': (item) => <MarketStar coingeckoId={item.coingeckoId} />,
     };
     return tableRowConfig;
   }, []);
