@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -14,14 +14,31 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import type { ILidoMaticOverview } from '@onekeyhq/shared/types/staking';
 
+import { NftListItemStatus } from '../../components/NftListItemStatus';
+import { PageSkeleton } from '../../components/PageSkeleton';
 import { ProtocolIntro } from '../../components/ProtocolIntro';
 import { StakingProfit } from '../../components/StakingProfit';
+import {
+  LIDO_LOGO_URI,
+  LIDO_MATIC_LOGO_URI,
+  LIDO_OFFICIAL_URL,
+} from '../../utils/const';
+
+const ListItemStaked = ({ amount }: { amount: string }) => (
+  <NftListItemStatus
+    amount={amount}
+    symbol="MATIC"
+    status="staked"
+    tokenImageUri={LIDO_MATIC_LOGO_URI}
+  />
+);
 
 type IMaticLidoOverviewContentProps = {
   networkId: string;
@@ -45,8 +62,9 @@ const MaticLidoOverviewContent = ({
       balance: matic.balanceParsed,
       price: matic.price,
       token: matic.info,
+      apr,
     });
-  }, [appNavigation, accountId, networkId, matic]);
+  }, [appNavigation, accountId, networkId, matic, apr]);
   const onRedeem = useCallback(async () => {
     appNavigation.push(EModalStakingRoutes.MaticLidoWithdraw, {
       accountId,
@@ -67,12 +85,22 @@ const MaticLidoOverviewContent = ({
     [stMatic],
   );
 
+  const [
+    {
+      currencyInfo: { symbol },
+    },
+  ] = useSettingsPersistAtom();
+
   return (
     <Stack px="$5">
       <YStack>
         <Stack>
           <SizableText size="$headingLg">Staked Value</SizableText>
-          <NumberSizeableText size="$heading3xl" formatter="value">
+          <NumberSizeableText
+            size="$heading3xl"
+            formatter="value"
+            formatterOptions={{ currency: symbol }}
+          >
             {totalFiatValue}
           </NumberSizeableText>
         </Stack>
@@ -84,14 +112,18 @@ const MaticLidoOverviewContent = ({
             {matic.info.symbol} available to stake
           </SizableText>
         </XStack>
+        <YStack space="$2" mt="$5">
+          <ListItemStaked amount={stMatic.balanceParsed} />
+        </YStack>
         <ProtocolIntro
           protocolText="Lido"
-          protocolLogoUrl="https://uni.onekey-asset.com/static/logo/Lido.png"
+          protocolLogoUrl={LIDO_LOGO_URI}
+          externalUrl={LIDO_OFFICIAL_URL}
         />
         <StakingProfit
           apr={apr}
-          tokenImageUrl="https://uni.onekey-asset.com/static/chain/polygon.png"
-          tokenSymbol="Matic"
+          tokenImageUrl={matic.info.logoURI}
+          tokenSymbol={matic.info.symbol}
         />
       </YStack>
       <Page.Footer
@@ -119,28 +151,41 @@ const MaticLidoOverview = () => {
     EModalStakingRoutes.EthLidoOverview
   >();
   const { accountId, networkId } = appRoute.params;
-  const { result } = usePromiseResult(async () => {
-    const overviewPromise =
-      backgroundApiProxy.serviceStaking.fetchLidoMaticOverview({
-        accountId,
-        networkId,
-      });
-    const aprPromise = backgroundApiProxy.serviceStaking.getApr('matic');
-    const [overview, apr] = await Promise.all([overviewPromise, aprPromise]);
-    return { overview, apr };
-  }, [accountId, networkId]);
+  const [refreshValue, setRefreshValue] = useState(1);
+  const onRefresh = useCallback(() => setRefreshValue((v) => v + 1), []);
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      const overviewPromise =
+        backgroundApiProxy.serviceStaking.fetchLidoMaticOverview({
+          accountId,
+          networkId,
+        });
+      const aprPromise = backgroundApiProxy.serviceStaking.getApr('matic');
+      const [overview, apr] = await Promise.all([overviewPromise, aprPromise]);
+      return { overview, apr };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, networkId, refreshValue],
+    { watchLoading: true },
+  );
   return (
     <Page scrollEnabled>
-      <Page.Header title="Stake Matic" />
+      <Page.Header title="Stake MATIC" />
       <Page.Body>
-        {result ? (
-          <MaticLidoOverviewContent
-            accountId={accountId}
-            networkId={networkId}
-            overview={result.overview}
-            apr={result.apr[0]?.apr}
-          />
-        ) : null}
+        <PageSkeleton
+          loading={Boolean(result === undefined && isLoading === true)}
+          error={Boolean(result === undefined && isLoading === false)}
+          onRefresh={onRefresh}
+        >
+          {result ? (
+            <MaticLidoOverviewContent
+              accountId={accountId}
+              networkId={networkId}
+              overview={result.overview}
+              apr={result.apr[0]?.apr}
+            />
+          ) : null}
+        </PageSkeleton>
       </Page.Body>
     </Page>
   );

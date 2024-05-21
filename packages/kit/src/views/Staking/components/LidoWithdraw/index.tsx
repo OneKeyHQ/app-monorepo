@@ -17,6 +17,8 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
+import { LIDO_LOGO_URI } from '../../utils/const';
+
 type ILidoWithdrawProps = {
   balance: string;
   tokenImageUri: string;
@@ -132,10 +134,7 @@ export const LidoWithdraw = ({
           <YStack>
             <ListItem title="Protocol">
               <XStack space="$2" alignItems="center">
-                <Token
-                  size="sm"
-                  tokenImageUri="https://uni.onekey-asset.com/static/logo/Lido.png"
-                />
+                <Token size="sm" tokenImageUri={LIDO_LOGO_URI} />
                 <SizableText size="$bodyMdMedium">Lido</SizableText>
               </XStack>
             </ListItem>

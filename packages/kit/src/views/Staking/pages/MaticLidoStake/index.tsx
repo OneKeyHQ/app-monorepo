@@ -11,22 +11,21 @@ import type {
 
 import { LidoStake } from '../../components/LidoStake';
 import { useLidoMaticStake } from '../../hooks/useLidoMaticHooks';
-
-const tokenImageUri = 'https://uni.onekey-asset.com/static/chain/polygon.png';
+import { LIDO_MATIC_LOGO_URI } from '../../utils/const';
 
 const MaticLidoStake = () => {
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.MaticLidoStake
   >();
-  const { networkId, accountId, token, balance, price } = route.params;
-  const lidoStake = useLidoMaticStake();
+  const { networkId, accountId, token, balance, price, apr } = route.params;
+  const lidoStake = useLidoMaticStake({ networkId, accountId });
   const onConfirm = useCallback(
     async (value: string) => {
       const amount = BigNumber(value).shiftedBy(token.decimals).toFixed(0);
-      await lidoStake({ networkId, accountId, amount });
+      await lidoStake({ amount });
     },
-    [lidoStake, accountId, networkId, token],
+    [lidoStake, token],
   );
   return (
     <Page>
@@ -35,9 +34,10 @@ const MaticLidoStake = () => {
         <LidoStake
           price={price}
           balance={balance}
-          tokenImageUri={tokenImageUri}
+          tokenImageUri={LIDO_MATIC_LOGO_URI}
           tokenSymbol={token.symbol.toLowerCase()}
           onConfirm={onConfirm}
+          apr={apr}
         />
       </Page.Body>
     </Page>

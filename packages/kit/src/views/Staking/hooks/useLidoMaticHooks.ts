@@ -9,18 +9,20 @@ import {
   type IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
 
-export function useLidoMaticStake() {
+export function useLidoMaticStake({
+  accountId,
+  networkId,
+}: {
+  accountId: string;
+  networkId: string;
+}) {
   const navigation = useAppNavigation();
   return useCallback(
     async ({
-      accountId,
-      networkId,
       amount,
       onSuccess,
       onFail,
     }: {
-      accountId: string;
-      networkId: string;
       amount: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -51,7 +53,7 @@ export function useLidoMaticStake() {
         },
       });
     },
-    [navigation],
+    [navigation, accountId, networkId],
   );
 }
 

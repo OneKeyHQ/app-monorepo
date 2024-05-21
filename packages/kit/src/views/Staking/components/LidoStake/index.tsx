@@ -17,6 +17,8 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { LIDO_LOGO_URI } from '../../utils/const';
+
 type ILidoStakeProps = {
   price: string;
   balance: string;
@@ -172,10 +174,7 @@ export const LidoStake = ({
           </ListItem>
           <ListItem title="Protocol" titleProps={{ color: '$textSubdued' }}>
             <XStack space="$2" alignItems="center">
-              <Token
-                size="sm"
-                tokenImageUri="https://uni.onekey-asset.com/static/logo/Lido.png"
-              />
+              <Token size="sm" tokenImageUri={LIDO_LOGO_URI} />
               <SizableText size="$bodyMdMedium">Lido</SizableText>
             </XStack>
           </ListItem>

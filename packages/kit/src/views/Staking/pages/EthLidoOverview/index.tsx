@@ -1,9 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import {
-  Button,
   NumberSizeableText,
   Page,
   SizableText,
@@ -12,10 +11,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalStakingRoutes,
   type IModalStakingParamList,
@@ -25,54 +24,16 @@ import type {
   ILidoEthRequest,
 } from '@onekeyhq/shared/types/staking';
 
+import { NftListItemStatus } from '../../components/NftListItemStatus';
+import { PageSkeleton } from '../../components/PageSkeleton';
 import { ProtocolIntro } from '../../components/ProtocolIntro';
 import { StakingProfit } from '../../components/StakingProfit';
 import { useLidoClaim } from '../../hooks/useLidoEthHooks';
-
-type INftStatus = 'pending' | 'claimable' | 'staked';
-
-type INftListItemStatusProps = {
-  symbol: string;
-  amount: string;
-  tokenImageUri: string;
-  confirmText?: string;
-  status: INftStatus;
-  onClaim?: () => void;
-};
-
-const NftListItemStatus = ({
-  amount,
-  symbol,
-  tokenImageUri,
-  onClaim,
-  status,
-}: INftListItemStatusProps) => {
-  const statusText = useMemo(() => {
-    const statuses: Record<INftStatus, string> = {
-      'claimable': 'claimable',
-      'pending': 'pending',
-      'staked': 'staked',
-    };
-    return statuses[status];
-  }, [status]);
-  return (
-    <XStack justifyContent="space-between">
-      <XStack space="$1">
-        <Token size="sm" tokenImageUri={tokenImageUri} />
-        <NumberSizeableText size="$bodyLgMedium" formatter="balance">
-          {amount}
-        </NumberSizeableText>
-        <SizableText size="$bodyLgMedium">{symbol}</SizableText>
-        <SizableText size="$bodyLg">is {statusText}</SizableText>
-      </XStack>
-      {onClaim ? (
-        <Button size="small" onPress={onClaim}>
-          Claim
-        </Button>
-      ) : null}
-    </XStack>
-  );
-};
+import {
+  LIDO_ETH_LOGO_URI,
+  LIDO_LOGO_URI,
+  LIDO_OFFICIAL_URL,
+} from '../../utils/const';
 
 const ListItemPending = ({ requests }: { requests: ILidoEthRequest[] }) => {
   const amount = useMemo(
@@ -84,9 +45,9 @@ const ListItemPending = ({ requests }: { requests: ILidoEthRequest[] }) => {
   }
   return (
     <NftListItemStatus
-      symbol="stETH"
+      symbol="ETH"
       status="pending"
-      tokenImageUri="https://uni.onekey-asset.com/static/chain/eth.png"
+      tokenImageUri={LIDO_ETH_LOGO_URI}
       amount={String(amount)}
     />
   );
@@ -97,7 +58,7 @@ const ListItemStaked = ({ amount }: { amount: string }) => (
     amount={amount}
     symbol="ETH"
     status="staked"
-    tokenImageUri="https://uni.onekey-asset.com/static/chain/eth.png"
+    tokenImageUri={LIDO_ETH_LOGO_URI}
   />
 );
 
@@ -125,9 +86,9 @@ const ListItemClaim = ({
   return (
     <NftListItemStatus
       onClaim={onClaim}
-      symbol="stETH"
+      symbol="ETH"
       status="claimable"
-      tokenImageUri="https://uni.onekey-asset.com/static/chain/eth.png"
+      tokenImageUri={LIDO_ETH_LOGO_URI}
       amount={String(amount)}
     />
   );
@@ -153,8 +114,9 @@ const EthLidoOverviewContent = ({
       balance: eth.balanceParsed,
       price: eth.price,
       token: eth.info,
+      apr,
     });
-  }, [appNavigation, accountId, networkId, eth]);
+  }, [appNavigation, accountId, networkId, eth, apr]);
   const onWithdraw = useCallback(async () => {
     appNavigation.push(EModalStakingRoutes.EthLidoWithdraw, {
       accountId,
@@ -180,11 +142,21 @@ const EthLidoOverviewContent = ({
     return { pending, finished };
   }, [requests]);
 
+  const [
+    {
+      currencyInfo: { symbol },
+    },
+  ] = useSettingsPersistAtom();
+
   return (
     <Stack px="$5">
       <YStack>
         <SizableText size="$headingLg">Staked Value</SizableText>
-        <NumberSizeableText size="$heading3xl" formatter="value">
+        <NumberSizeableText
+          size="$heading3xl"
+          formatter="value"
+          formatterOptions={{ currency: symbol }}
+        >
           {totalFiatValue}
         </NumberSizeableText>
         <XStack mt="$2" space="$1">
@@ -206,12 +178,13 @@ const EthLidoOverviewContent = ({
         </YStack>
         <ProtocolIntro
           protocolText="Lido"
-          protocolLogoUrl="https://uni.onekey-asset.com/static/logo/Lido.png"
+          protocolLogoUrl={LIDO_LOGO_URI}
+          externalUrl={LIDO_OFFICIAL_URL}
         />
         <StakingProfit
           apr={apr}
-          tokenImageUrl="https://uni.onekey-asset.com/static/chain/eth.png"
-          tokenSymbol="ETH"
+          tokenImageUrl={eth.info.logoURI}
+          tokenSymbol={eth.info.symbol}
         />
       </YStack>
       <Page.Footer
@@ -239,28 +212,41 @@ const EthLidoOverview = () => {
     EModalStakingRoutes.EthLidoOverview
   >();
   const { accountId, networkId } = appRoute.params;
-  const { result } = usePromiseResult(async () => {
-    const overviewPromise =
-      backgroundApiProxy.serviceStaking.fetchLidoEthOverview({
-        accountId,
-        networkId,
-      });
-    const aprPromise = backgroundApiProxy.serviceStaking.getApr('eth');
-    const [overview, apr] = await Promise.all([overviewPromise, aprPromise]);
-    return { overview, apr };
-  }, [accountId, networkId]);
+  const [refreshValue, setRefreshValue] = useState(1);
+  const onRefresh = useCallback(() => setRefreshValue((v) => v + 1), []);
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      const overviewPromise =
+        backgroundApiProxy.serviceStaking.fetchLidoEthOverview({
+          accountId,
+          networkId,
+        });
+      const aprPromise = backgroundApiProxy.serviceStaking.getApr('eth');
+      const [overview, apr] = await Promise.all([overviewPromise, aprPromise]);
+      return { overview, apr };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, networkId, refreshValue],
+    { watchLoading: true },
+  );
   return (
     <Page scrollEnabled>
       <Page.Header title="Stake ETH" />
       <Page.Body>
-        {result ? (
-          <EthLidoOverviewContent
-            overview={result.overview}
-            apr={result.apr.find((o) => o.protocol === 'lido')?.apr}
-            networkId={networkId}
-            accountId={accountId}
-          />
-        ) : null}
+        <PageSkeleton
+          loading={Boolean(result === undefined && isLoading === true)}
+          error={Boolean(result === undefined && isLoading === false)}
+          onRefresh={onRefresh}
+        >
+          {result ? (
+            <EthLidoOverviewContent
+              overview={result.overview}
+              apr={result.apr.find((o) => o.protocol === 'lido')?.apr}
+              networkId={networkId}
+              accountId={accountId}
+            />
+          ) : null}
+        </PageSkeleton>
       </Page.Body>
     </Page>
   );

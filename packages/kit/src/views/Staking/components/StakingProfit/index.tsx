@@ -1,4 +1,10 @@
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
 const ProfitContentItem = ({
@@ -24,7 +30,7 @@ export const StakingProfit = ({
   tokenSymbol,
 }: {
   apr: number;
-  tokenImageUrl: string;
+  tokenImageUrl?: string;
   tokenSymbol: string;
 }) => (
   <YStack mt="$12">
@@ -34,6 +40,9 @@ export const StakingProfit = ({
       <SizableText size="$bodyLgMedium">
         {tokenSymbol.toUpperCase()}
       </SizableText>
+      <Badge badgeType="default" badgeSize="sm">
+        Updated daily
+      </Badge>
     </XStack>
     <Stack mt="$5" flexDirection="row" flexWrap="wrap">
       <ProfitContentItem value={apr / 365} title="Daily" />

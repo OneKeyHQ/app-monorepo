@@ -10,8 +10,7 @@ import type {
 
 import { LidoWithdraw } from '../../components/LidoWithdraw';
 import { useLidoMaticWithdraw } from '../../hooks/useLidoMaticHooks';
-
-const tokenImageUri = 'https://uni.onekey-asset.com/static/chain/polygon.png';
+import { LIDO_MATIC_LOGO_URI } from '../../utils/const';
 
 const MaticLidoWithdraw = () => {
   const route = useAppRoute<
@@ -34,7 +33,7 @@ const MaticLidoWithdraw = () => {
     <LidoWithdraw
       balance={balance}
       tokenSymbol={token.symbol}
-      tokenImageUri={tokenImageUri}
+      tokenImageUri={LIDO_MATIC_LOGO_URI}
       onConfirm={onConfirm}
     />
   );
