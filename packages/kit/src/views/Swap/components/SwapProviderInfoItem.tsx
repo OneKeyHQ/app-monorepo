@@ -39,7 +39,7 @@ const SwapProviderInfoItem = ({
     return !rateBN.isZero();
   }, [rate]);
   const rateContent = useMemo(() => {
-    if (!rateIsExit || !fromToken || !toToken) return '-';
+    if (!rateIsExit || !fromToken || !toToken) return 'Insufficient liquidity';
     const rateBN = new BigNumber(rate ?? 0);
     const formatRate = numberFormat(rateBN.toFixed(), {
       formatter: 'balance',
@@ -72,12 +72,14 @@ const SwapProviderInfoItem = ({
               Best
             </Badge>
           ) : null}
-          <Image
-            source={{ uri: providerIcon }}
-            w="$5"
-            h="$5"
-            borderRadius="$1"
-          />
+          {!rateIsExit || !fromToken || !toToken ? null : (
+            <Image
+              source={{ uri: providerIcon }}
+              w="$5"
+              h="$5"
+              borderRadius="$1"
+            />
+          )}
           <SizableText size="$bodyMdMedium" pl="$1">
             {rateContent}
           </SizableText>

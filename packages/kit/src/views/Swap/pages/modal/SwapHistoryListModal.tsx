@@ -187,7 +187,7 @@ const SwapHistoryListModalWithProvider = () => {
   const { storeName } = route.params;
   return (
     <SwapProviderMirror storeName={storeName}>
-      <SwapHistoryListModal />
+      <SwapHistoryListModal storeName={storeName} />
     </SwapProviderMirror>
   );
 };
