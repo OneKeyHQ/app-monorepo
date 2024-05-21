@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil, random } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -525,7 +526,7 @@ class ServiceSend extends ServiceBase {
       })
     ).nonceRequired;
 
-    if (isNonceRequired && isNil(newUnsignedTx.nonce)) {
+    if (isNonceRequired && new BigNumber(newUnsignedTx.nonce ?? 0).isZero()) {
       const nonce = await this.backgroundApi.serviceSend.getNextNonce({
         accountId,
         networkId,

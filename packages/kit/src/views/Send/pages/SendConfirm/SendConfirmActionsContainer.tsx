@@ -132,6 +132,8 @@ function SendConfirmActionsContainer(props: IProps) {
       dappApprove.reject();
       if (!sourceInfo) {
         closePageStack();
+      } else {
+        close();
       }
       onCancel?.();
     },
@@ -166,9 +168,9 @@ function SendConfirmActionsContainer(props: IProps) {
           flex: 0,
           disabled: isSubmitting,
         }}
-        onConfirmText="Sign and Broadcast"
+        onConfirmText={signOnly ? 'Sign' : 'Sign and Broadcast'}
         onConfirm={handleOnConfirm}
-        onCancel={() => navigation.popStack()}
+        onCancel={handleOnCancel}
       />
     );
   }
