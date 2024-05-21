@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useMarketWatchListPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import { MarketHomeList } from './MarketHomeList';
@@ -79,10 +80,8 @@ function RecommendItem({
 
 const maxSize = 8;
 export function MarketWatchList({ category }: { category: IMarketCategory }) {
-  const { result: watchListData, run } = usePromiseResult(
-    async () => backgroundApiProxy.serviceMarket.fetchWatchList(),
-    [],
-  );
+  const [{ items: watchListCoingeckoIds }] = useMarketWatchListPersistAtom();
+
   const { result: listData } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceMarket.fetchCategory(
@@ -112,8 +111,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
         coingeckoId,
       })),
     );
-    await run();
-  }, [coingeckoIds, run]);
+  }, [coingeckoIds]);
 
   const renderRecommend = useCallback(() => {
     if (listData?.length) {
@@ -166,14 +164,16 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     }
     return null;
   }, [coingeckoIds, handleAddTokens, handleRecommendItemChange, listData]);
-  return watchListData?.length === 0 ? (
+  return watchListCoingeckoIds?.length === 0 ? (
     renderRecommend()
   ) : (
     <MarketHomeList
       category={
         {
           categoryId: 'all',
-          coingeckoIds: watchListData?.map(({ coingeckoId }) => coingeckoId),
+          coingeckoIds: watchListCoingeckoIds?.map(
+            ({ coingeckoId }) => coingeckoId,
+          ),
         } as IMarketCategory
       }
     />
