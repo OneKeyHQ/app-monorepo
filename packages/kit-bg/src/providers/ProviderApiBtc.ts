@@ -20,6 +20,7 @@ import { vaultFactory } from '../vaults/factory';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IPushTxParams } from '../vaults/types';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
@@ -266,6 +267,47 @@ class ProviderApiBtc extends ProviderApiBase {
       },
     });
     return Buffer.from(result as string, 'hex').toString('base64');
+  }
+
+  @providerApiMethod()
+  public async sendInscription() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  public async inscribeTransfer() {
+    throw web3Errors.rpc.methodNotSupported();
+  }
+
+  @providerApiMethod()
+  public async pushTx(request: IJsBridgeMessagePayload, params: IPushTxParams) {
+    const { rawTx } = params;
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    const result = await vault.broadcastTransaction({
+      accountAddress: address ?? '',
+      networkId,
+      signedTx: {
+        txid: '',
+        rawTx,
+        encodedTx: null,
+      },
+    });
+
+    return result.txid;
   }
 }
 
