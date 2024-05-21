@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   HeaderIconButton,
   Icon,
-  IconButton,
   Image,
   NumberSizeableText,
   Page,
   SizableText,
   Stack,
-  Tab,
   XStack,
   YStack,
   useMedia,
@@ -21,16 +19,12 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import type {
   IMarketDetailPool,
-  IMarketToken,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
-import { MarketHomeHeader } from './components/MarketHomeHeader';
-import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
