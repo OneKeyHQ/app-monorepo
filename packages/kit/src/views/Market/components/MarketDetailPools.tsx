@@ -1,5 +1,7 @@
 import type { PropsWithChildren } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { partition } from 'lodash';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
 import {
@@ -22,6 +24,7 @@ import type {
 } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 import { PoolDetails } from './PoolDetails';
 
@@ -53,6 +56,33 @@ function ItemColumn({ children }: PropsWithChildren) {
   );
 }
 
+function NetworkIdSelect({
+  value,
+  onChange,
+  options,
+}: {
+  options: string[];
+  value: number;
+  onChange: (selectedIndex: number) => void;
+}) {
+  return (
+    <XStack space="$2">
+      {options.map((networkId, index) => (
+        <Stack
+          key={networkId}
+          px="$3"
+          py="$2"
+          bg={value === index ? '$bgPrimary' : '$bgStrong'}
+          borderRadius="$2"
+          onPress={() => onChange(index)}
+        >
+          <NetworkAvatar networkId={networkId} size="$5" />
+        </Stack>
+      ))}
+    </XStack>
+  );
+}
+
 export function MarketDetailPools({
   token,
   pools,
@@ -61,99 +91,115 @@ export function MarketDetailPools({
   pools: IMarketDetailPool[];
 }) {
   const { gtMd } = useMedia();
-  return (
-    <ListView
-      data={pools}
-      ListHeaderComponent={
-        <XStack py="$2.5">
-          <HeaderColumn textAlign="left">Pair</HeaderColumn>
-          {gtMd ? <HeaderColumn textAlign="right">Price</HeaderColumn> : null}
-          {gtMd ? (
-            <HeaderColumn textAlign="right">24H Txns</HeaderColumn>
-          ) : null}
-          <HeaderColumn textAlign="right">24H Volume</HeaderColumn>
-          <HeaderColumn textAlign="right">Liquidity</HeaderColumn>
-          <Stack h="$4" w="$4" pl="$3" />
-        </XStack>
-      }
-      renderItem={({ item }: { item: IMarketDetailPool }) => {
-        const { attributes, relationships } = item;
-        return (
-          <XStack
-            py="$2"
-            onPress={() => {
-              Dialog.confirm({
-                title: 'Pool Details',
-                renderContent: <PoolDetails item={item} />,
-              });
-            }}
-          >
-            <ItemColumn>
-              <XStack space="$2.5" ai="center">
-                <View>
-                  <Icon name="TelegramBrand" size="$5" borderRadius="100%" />
-                </View>
-                <YStack flexShrink={1}>
-                  <SizableText size="$bodySmMedium">
-                    {attributes.name}
-                  </SizableText>
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    {relationships.dex.data.id}
-                  </SizableText>
-                </YStack>
-              </XStack>
-            </ItemColumn>
+  const partitions = partition(pools, 'onekeyNetworkId').filter(
+    (i) => i.length > 0,
+  );
+  const onekeyNetworkIds = partitions.map((p) => p[0].onekeyNetworkId);
 
+  const [index, selectIndex] = useState(0);
+  const handleChange = useCallback((selectedIndex: number) => {
+    selectIndex(selectedIndex);
+  }, []);
+  return (
+    <YStack px="$5" pb="$2" pt="$5">
+      <NetworkIdSelect
+        options={onekeyNetworkIds}
+        value={index}
+        onChange={handleChange}
+      />
+      <ListView
+        data={pools}
+        ListHeaderComponent={
+          <XStack py="$2.5">
+            <HeaderColumn textAlign="left">Pair</HeaderColumn>
+            {gtMd ? <HeaderColumn textAlign="right">Price</HeaderColumn> : null}
             {gtMd ? (
-              <ItemColumn>
-                <NumberSizeableText
-                  size="$bodyMd"
-                  formatter="price"
-                  formatterOptions={{ currency: '$' }}
-                  textAlign="right"
-                >
-                  {attributes.base_token_price_usd}
-                </NumberSizeableText>
-              </ItemColumn>
+              <HeaderColumn textAlign="right">24H Txns</HeaderColumn>
             ) : null}
-            {gtMd ? (
+            <HeaderColumn textAlign="right">24H Volume</HeaderColumn>
+            <HeaderColumn textAlign="right">Liquidity</HeaderColumn>
+            <Stack h="$4" w="$4" pl="$3" />
+          </XStack>
+        }
+        renderItem={({ item }: { item: IMarketDetailPool }) => {
+          const { attributes, relationships } = item;
+          return (
+            <XStack
+              py="$2"
+              onPress={() => {
+                Dialog.confirm({
+                  title: 'Pool Details',
+                  renderContent: <PoolDetails item={item} />,
+                });
+              }}
+            >
+              <ItemColumn>
+                <XStack space="$2.5" ai="center">
+                  <View>
+                    <Icon name="TelegramBrand" size="$5" borderRadius="100%" />
+                  </View>
+                  <YStack flexShrink={1}>
+                    <SizableText size="$bodySmMedium">
+                      {attributes.name}
+                    </SizableText>
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {relationships.dex.data.id}
+                    </SizableText>
+                  </YStack>
+                </XStack>
+              </ItemColumn>
+
+              {gtMd ? (
+                <ItemColumn>
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    formatter="price"
+                    formatterOptions={{ currency: '$' }}
+                    textAlign="right"
+                  >
+                    {attributes.base_token_price_usd}
+                  </NumberSizeableText>
+                </ItemColumn>
+              ) : null}
+              {gtMd ? (
+                <ItemColumn>
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    formatter="marketCap"
+                    textAlign="right"
+                  >
+                    {String(
+                      attributes.transactions.h24.buys +
+                        attributes.transactions.h24.sells,
+                    )}
+                  </NumberSizeableText>
+                </ItemColumn>
+              ) : null}
               <ItemColumn>
                 <NumberSizeableText
                   size="$bodyMd"
                   formatter="marketCap"
                   textAlign="right"
                 >
-                  {String(
-                    attributes.transactions.h24.buys +
-                      attributes.transactions.h24.sells,
-                  )}
+                  {attributes.volume_usd.h24}
                 </NumberSizeableText>
               </ItemColumn>
-            ) : null}
-            <ItemColumn>
-              <NumberSizeableText
-                size="$bodyMd"
-                formatter="marketCap"
-                textAlign="right"
-              >
-                {attributes.volume_usd.h24}
-              </NumberSizeableText>
-            </ItemColumn>
-            <ItemColumn>
-              <NumberSizeableText
-                size="$bodyMd"
-                formatter="marketCap"
-                textAlign="right"
-              >
-                {attributes.reserve_in_usd}
-              </NumberSizeableText>
-            </ItemColumn>
-            <View jc="center">
-              <Icon name="ChevronRightSmallOutline" size="$4" pl="$3" />
-            </View>
-          </XStack>
-        );
-      }}
-    />
+              <ItemColumn>
+                <NumberSizeableText
+                  size="$bodyMd"
+                  formatter="marketCap"
+                  textAlign="right"
+                >
+                  {attributes.reserve_in_usd}
+                </NumberSizeableText>
+              </ItemColumn>
+              <View jc="center">
+                <Icon name="ChevronRightSmallOutline" size="$4" pl="$3" />
+              </View>
+            </XStack>
+          );
+        }}
+      />
+    </YStack>
   );
 }
