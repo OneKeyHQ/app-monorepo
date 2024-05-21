@@ -26,14 +26,17 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
+import { MarketStar } from './components/MarketStar';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
 
 function TokenDetailHeader({
+  coinGeckoId,
   token,
   pools,
 }: {
+  coinGeckoId: string;
   token: IMarketTokenDetail;
   pools: IMarketDetailPool[];
 }) {
@@ -71,7 +74,7 @@ function TokenDetailHeader({
             {performance.priceChangePercentage24h}
           </NumberSizeableText>
         </YStack>
-        <Icon name="StarOutline" size="$5" />
+        <MarketStar coingeckoId={coinGeckoId} />
       </XStack>
       {gtMd ? (
         <MarketDetailOverview token={token} pools={pools} />
@@ -164,7 +167,11 @@ function MarketDetail({
           $gtMd={{ flexDirection: 'row' }}
           space="$5"
         >
-          <TokenDetailHeader token={tokenDetail} pools={pools} />
+          <TokenDetailHeader
+            coinGeckoId={coinGeckoId}
+            token={tokenDetail}
+            pools={pools}
+          />
           <YStack flex={1}>
             <TokenPriceChart coinGeckoId={coinGeckoId} />
             <TokenDetailTabs token={tokenDetail} pools={pools} />
