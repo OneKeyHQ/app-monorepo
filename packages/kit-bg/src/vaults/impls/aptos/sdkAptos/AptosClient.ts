@@ -46,6 +46,10 @@ export class AptosClient extends BaseAptosClient {
     return this.aptosRequest('getAccount', [accountAddress]);
   }
 
+  override getTransactionByHash(txnHash: string): Promise<Types.Transaction> {
+    return this.aptosRequest('getTransactionByHash', [txnHash]);
+  }
+
   async aptosRequest<T>(method: string, args: any): Promise<T> {
     const res: T[] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest({

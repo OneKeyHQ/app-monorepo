@@ -158,6 +158,10 @@ export default class VaultAptos extends VaultBase {
       encodedTx.expiration_timestamp_secs = expect.toString();
     }
 
+    if (!encodedTx.sender) {
+      encodedTx.sender = (await this.getAccount()).address;
+    }
+
     return {
       encodedTx,
     };
@@ -396,5 +400,9 @@ export default class VaultAptos extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  async getTransactionByHash(txId: string) {
+    return this.client.getTransactionByHash(txId);
   }
 }
