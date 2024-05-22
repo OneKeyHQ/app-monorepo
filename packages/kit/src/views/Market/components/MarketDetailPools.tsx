@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { partition } from 'lodash';
 
@@ -94,11 +94,12 @@ export function MarketDetailPools({
     (i) => i.length > 0,
   );
   const onekeyNetworkIds = partitions.map((p) => p[0].onekeyNetworkId);
-
+  const [showAll, setIsShowAll] = useState<boolean[]>([]);
   const [index, selectIndex] = useState(0);
   const handleChange = useCallback((selectedIndex: number) => {
     selectIndex(selectedIndex);
   }, []);
+  const isShowAllData = showAll[index] || pools.length < 6;
   return (
     <YStack px="$5" pb="$2" pt="$5">
       <NetworkIdSelect
@@ -107,7 +108,7 @@ export function MarketDetailPools({
         onChange={handleChange}
       />
       <ListView
-        data={pools}
+        data={isShowAllData ? pools : pools.slice(0, 5)}
         estimatedItemSize={38}
         ListHeaderComponent={
           <XStack py="$2.5">
@@ -120,6 +121,21 @@ export function MarketDetailPools({
             <HeaderColumn textAlign="right">Liquidity</HeaderColumn>
             <Stack h="$4" w="$4" pl="$3" />
           </XStack>
+        }
+        ListFooterComponent={
+          isShowAllData ? null : (
+            <Button
+              my="$5"
+              onPress={() => {
+                setIsShowAll((prev) => {
+                  prev[index] = true;
+                  return prev.slice();
+                });
+              }}
+            >
+              View More
+            </Button>
+          )
         }
         renderItem={
           (({ item }: { item: IMarketDetailPool }) => {
