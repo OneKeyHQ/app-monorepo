@@ -1,28 +1,44 @@
+import { useCallback, useMemo } from 'react';
+
 import {
   IconButton,
+  Image,
   SizableText,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { NetworkAvatar } from '../../../components/NetworkAvatar';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 export function MarketTokenAddress({
   tokenName,
   address,
-  url,
+  uri,
   networkId,
 }: {
   networkId?: string;
   tokenName: string;
   address: string;
-  url: string;
+  uri?: string;
 }) {
   const { copyText } = useClipboard();
+  const handleOpenUrl = useCallback(async () => {
+    const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+      networkId,
+    });
+    console.log('---network', network);
+    if (network.explorers[0].address) {
+      openUrlExternal(
+        network.explorers[0].address.replace('{address}', address),
+      );
+    }
+  }, [address, networkId]);
   return (
     <XStack space="$1.5" ai="center">
-      {networkId ? <NetworkAvatar networkId={networkId} size="$5" /> : null}
+      {uri ? (
+        <Image size="$5" src={decodeURIComponent(uri)} borderRadius="$full" />
+      ) : null}
       <XStack space="$2">
         <SizableText size="$bodyMdMedium">{`${tokenName}:`}</SizableText>
         <SizableText size="$bodyMd">{`${address.slice(0, 6)}...${address.slice(
@@ -44,7 +60,7 @@ export function MarketTokenAddress({
         icon="OpenOutline"
         size="small"
         iconSize="$4"
-        onPress={() => openUrlExternal(url)}
+        onPress={handleOpenUrl}
       />
     </XStack>
   );

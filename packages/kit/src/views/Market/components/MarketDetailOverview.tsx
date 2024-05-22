@@ -17,6 +17,9 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+
 import { MarketTokenAddress } from './MarketTokenAddress';
 import { PriceChangePercentage } from './PriceChangePercentage';
 
@@ -147,6 +150,13 @@ function OverviewMarketVOL({
   circulatingSupply: number;
   pools: IMarketDetailPool[];
 }) {
+  const { serviceNetwork } = backgroundApiProxy;
+  const res = usePromiseResult(
+    () => serviceNetwork.getNetwork({ networkId: 'evm--1' }),
+    [serviceNetwork],
+  );
+  const network = res.result;
+  console.log(network);
   return (
     <YStack pt="$10">
       <YStack space="$3">

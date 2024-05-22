@@ -49,7 +49,7 @@ function PoolDetailsItem({
     ) : (
       children
     );
-  }, [children, currency, isNumeric]);
+  }, [children, currency, formatter, isNumeric]);
   return (
     <YStack
       pb="$3"
@@ -70,9 +70,10 @@ function PoolDetailsItem({
 export function PoolDetails({
   item: {
     attributes,
+    onekeyNetworkId,
     id: pairAddress,
-    baseTokenUrl,
-    quoteTokenUrl,
+    baseTokenImageUrl,
+    quoteTokenImageUrl,
     relationships: {
       base_token: baseToken,
       quote_token: quoteToken,
@@ -128,19 +129,21 @@ export function PoolDetails({
       </XStack>
       <YStack space="$6" pt="$6" pb="$10">
         <MarketTokenAddress
+          networkId={onekeyNetworkId}
           tokenName={baseTokenName.trim()}
           address={baseToken.data.id.split('_').pop() as string}
-          url={baseTokenUrl}
+          uri={baseTokenImageUrl}
         />
         <MarketTokenAddress
+          networkId={onekeyNetworkId}
           tokenName={quoteTokenName.trim()}
           address={quoteToken.data.id.split('_').pop() as string}
-          url={quoteTokenUrl}
+          uri={quoteTokenImageUrl}
         />
         <MarketTokenAddress
+          networkId={onekeyNetworkId}
           tokenName="Pair Contract"
           address={pairAddress.split('_').pop() as string}
-          url={baseTokenUrl}
         />
       </YStack>
     </YStack>
