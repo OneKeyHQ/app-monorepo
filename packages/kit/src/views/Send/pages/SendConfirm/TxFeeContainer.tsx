@@ -146,7 +146,7 @@ function TxFeeContainer(props: IProps) {
         txFee.gas?.length ||
         txFee.feeUTXO?.length ||
         txFee.feeTron?.length ||
-        txFee.feeSol?.length ||
+        txFee.gasFil?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -156,7 +156,7 @@ function TxFeeContainer(props: IProps) {
           gasEIP1559: txFee.gasEIP1559?.[i],
           feeUTXO: txFee.feeUTXO?.[i],
           feeTron: txFee.feeTron?.[i],
-          feeSol: txFee.feeSol?.[i],
+          gasFil: txFee.gasFil?.[i],
         };
 
         items.push({

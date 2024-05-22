@@ -154,6 +154,7 @@ export interface IQuoteRoutePath {
 }
 export interface IFetchQuoteResult {
   info: IFetchQuoteInfo;
+  errorMessage?: string;
   toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
   fee?: IFetchQuoteFee;
   instantRate?: string;
