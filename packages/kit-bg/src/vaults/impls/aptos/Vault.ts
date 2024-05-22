@@ -22,7 +22,13 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+  type IDecodedTx,
+  type IDecodedTxAction,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -31,7 +37,12 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import { generateTransferCoin } from './utils';
+import { AptosClient } from './sdkAptos/AptosClient';
+import {
+  APTOS_NATIVE_COIN,
+  generateTransferCoin,
+  getTransactionTypeByPayload,
+} from './utils';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -58,6 +69,11 @@ export default class VaultAptos extends VaultBase {
     watching: KeyringWatching,
     external: KeyringExternal,
   };
+
+  client = new AptosClient({
+    backgroundApi: this.backgroundApi,
+    networkId: this.networkId,
+  });
 
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
@@ -94,12 +110,17 @@ export default class VaultAptos extends VaultBase {
     }
 
     const { address: sender } = await this.getAccount();
+
     const amountValue = new BigNumber(amount)
       .shiftedBy(tokenInfo.decimals)
       .toFixed();
 
     const encodedTx: IEncodedTxAptos = {
-      ...generateTransferCoin(to, amountValue, tokenInfo.address),
+      ...generateTransferCoin(
+        to,
+        amountValue,
+        tokenInfo.isNative ? '' : tokenInfo.address,
+      ),
       sender,
     };
 
@@ -142,8 +163,127 @@ export default class VaultAptos extends VaultBase {
     };
   }
 
-  override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new Error('Method not implemented.');
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const network = await this.getNetwork();
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
+    const { type, function: fun } = encodedTx;
+    const account = await this.getAccount();
+    if (!encodedTx?.sender) {
+      encodedTx.sender = account.address;
+    }
+    let action: IDecodedTxAction | null = null;
+    const actionType = getTransactionTypeByPayload({
+      type: type ?? 'entry_function_payload',
+      function_name: fun,
+    });
+
+    if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
+      const { sender } = encodedTx;
+      const [coinType] = encodedTx.type_arguments || [];
+      const [to, amountValue] = encodedTx.arguments || [];
+      const tokenInfo = await this.backgroundApi.serviceToken.getToken({
+        networkId: network.id,
+        tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
+        accountAddress: account.address,
+      });
+      const amount = new BigNumber(amountValue)
+        .shiftedBy(-tokenInfo.decimals)
+        .toFixed();
+
+      const transferAction = {
+        tokenInfo,
+        from: sender ?? '',
+        to,
+        amount,
+        amountValue,
+        extraInfo: null,
+        sends: [
+          {
+            from: sender ?? '',
+            to,
+            amount,
+            icon: tokenInfo.logoURI ?? '',
+            name: tokenInfo.symbol,
+            symbol: tokenInfo.symbol,
+            tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
+          },
+        ],
+        receives: [],
+      };
+
+      action = {
+        type: actionType,
+        assetTransfer: transferAction,
+      };
+    } else if (actionType === EDecodedTxActionType.FUNCTION_CALL) {
+      action = {
+        type: EDecodedTxActionType.FUNCTION_CALL,
+        direction: EDecodedTxDirection.OTHER,
+        functionCall: {
+          from: encodedTx.sender,
+          to: '',
+          functionName: fun ?? '',
+          args:
+            encodedTx.arguments?.map((a) => {
+              if (
+                typeof a === 'string' ||
+                typeof a === 'number' ||
+                typeof a === 'boolean' ||
+                typeof a === 'bigint'
+              ) {
+                return a.toString();
+              }
+              if (a instanceof Array) {
+                try {
+                  return bufferUtils.bytesToHex(a as unknown as Uint8Array);
+                } catch (e) {
+                  return JSON.stringify(a);
+                }
+              }
+              return '';
+            }) ?? [],
+        },
+      };
+    } else {
+      action = {
+        type: EDecodedTxActionType.UNKNOWN,
+        direction: EDecodedTxDirection.OTHER,
+        unknownAction: {
+          from: encodedTx.sender,
+          to: '',
+        },
+      };
+    }
+
+    const result: IDecodedTx = {
+      txid: '',
+      owner: account.address,
+      signer: account.address,
+      nonce: 0,
+      actions: [action],
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      feeInfo: {
+        common: {
+          feeDecimals: network.decimals,
+          feeSymbol: network.symbol,
+          nativeDecimals: network.decimals,
+          nativeSymbol: network.symbol,
+        },
+        gas: {
+          gasPrice: encodedTx.gas_unit_price ?? '1',
+          gasLimit: encodedTx.max_gas_amount ?? '0',
+        },
+      },
+      extraInfo: null,
+      encodedTx,
+    };
+
+    return Promise.resolve(result);
   }
 
   override async buildUnsignedTx(
@@ -168,7 +308,7 @@ export default class VaultAptos extends VaultBase {
       throw new OneKeyInternalError('Invalid fee limit');
     }
     const gasPrice = new BigNumber(gas.gasPrice)
-      .shiftedBy(-common.feeDecimals)
+      .shiftedBy(common.feeDecimals)
       .toFixed();
 
     let { bscTxn } = params.encodedTx;

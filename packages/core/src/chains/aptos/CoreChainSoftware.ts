@@ -73,7 +73,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    const { unsignedTx } = payload;
+    const { unsignedTx, account } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve: curveName,
@@ -82,7 +82,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (!rawTxUnsigned) {
       throw new Error('rawTxUnsigned is undefined');
     }
-    const senderPublicKey = unsignedTx.inputs?.[0]?.publicKey;
+    const senderPublicKey = account.pub;
     if (!senderPublicKey) {
       throw new OneKeyInternalError('Unable to get sender public key.');
     }

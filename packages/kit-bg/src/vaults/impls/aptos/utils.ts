@@ -22,8 +22,9 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import { TypeTagParser } from './builder_utils';
 
+import type { AptosClient } from './sdkAptos/AptosClient';
 import type { IBuildUnsignedTxParams } from '../../types';
-import type { AptosClient, MaybeHexString, Types } from 'aptos';
+import type { MaybeHexString, Types } from 'aptos';
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
 
