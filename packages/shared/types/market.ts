@@ -51,7 +51,14 @@ export interface IMarketPerformance {
   priceChangePercentage1y: number;
 }
 
+export interface IMarketDetailPlatform {
+  [key: string]: {
+    contract_address: string;
+  };
+}
+
 export interface IMarketDetailStats {
+  detail_platforms: IMarketDetailPlatform;
   performance: IMarketPerformance;
   marketCap: number;
   marketCapRank: number;
