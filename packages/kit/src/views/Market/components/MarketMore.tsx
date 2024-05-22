@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList, IconButton } from '@onekeyhq/components';
 
 import { useWatchListAction } from './wachListHooks';
@@ -23,11 +24,11 @@ function BasicMarketMore({ coingeckoId }: { coingeckoId: string }) {
             onPress: handleRemove,
           },
           {
-            icon: 'ChevronTopSmallOutline',
+            icon: 'ArrowTopOutline',
             label: 'Move to Top',
             onPress: MoveToTop,
           },
-        ],
+        ] as IActionListItemProps[],
       },
     ],
     [MoveToTop, handleRemove],
@@ -37,7 +38,7 @@ function BasicMarketMore({ coingeckoId }: { coingeckoId: string }) {
       title=""
       renderTrigger={
         <IconButton
-          icon="DotHorOutline"
+          icon="DotVerSolid"
           variant="tertiary"
           mx="$3"
           iconSize="$5"
