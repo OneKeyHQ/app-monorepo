@@ -6,6 +6,7 @@ import { isNil } from 'lodash';
 
 import { getInputsToSignFromPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
+  decodedPsbt as decodedPsbtFN,
   formatPsbtHex,
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
@@ -436,12 +437,7 @@ class ProviderApiBtc extends ProviderApiBase {
 
     const { psbt, psbtNetwork, options } = params;
 
-    // TODO: decode psbt
-    const decodedPsbt = {
-      inputInfos: [],
-      outputInfos: [],
-      fee: '8556',
-    };
+    const decodedPsbt = decodedPsbtFN({ psbt, psbtNetwork });
 
     const account = await this.backgroundApi.serviceAccount.getAccount({
       accountId,
@@ -462,20 +458,17 @@ class ProviderApiBtc extends ProviderApiBase {
         networkId,
         encodedTx: {
           inputs: (decodedPsbt.inputInfos ?? []).map((v) => ({
-            'txid':
-              '38c6a272599c060397a2a8cada8e154c7a36a2d465e555d599e6a82cbe2a3aba',
-            'vout': 5,
-            'address': 'bc1q0kxtfptx0ejkhmkmtuvu5xly6hy82s8yh7u97y',
-            'value': '300',
+            ...v,
             path: '',
+            value: new BigNumber(v.value).toFixed(),
           })),
           outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
-            'address': 'bc1q0kxtfptx0ejkhmkmtuvu5xly6hy82s8yh7u97y',
-            'value': '600',
+            ...v,
+            value: new BigNumber(v.value).toFixed(),
           })),
           inputsForCoinSelect: [],
           outputsForCoinSelect: [],
-          fee: decodedPsbt.fee,
+          fee: new BigNumber(decodedPsbt.fee).toFixed(),
           inputsToSign,
           psbtHex: psbt.toHex(),
           disabledCoinSelect: true,

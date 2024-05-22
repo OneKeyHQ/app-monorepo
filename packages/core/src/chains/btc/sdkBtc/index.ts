@@ -176,7 +176,7 @@ export function getInputsToSignFromPsbt({
   return inputsToSign;
 }
 
-function scriptPkToAddress(
+export function scriptPkToAddress(
   scriptPk: string | Buffer,
   psbtNetwork: networks.Network,
 ) {
