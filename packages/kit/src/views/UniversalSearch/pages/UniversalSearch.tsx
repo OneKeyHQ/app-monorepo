@@ -140,14 +140,14 @@ export function UniversalSearch({
     setSearchStatus(ESearchStatus.loading);
   }, []);
 
-  // const renderSectionHeader = useCallback(
-  //   ({ section }: { section: IUniversalSection }) => (
-  //     <SizableText px="$5" pb={0} size="$headingSm">
-  //       {section.title}
-  //     </SizableText>
-  //   ),
-  //   [],
-  // );
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: IUniversalSection }) => (
+      <SizableText px="$5" pb={0} size="$headingSm">
+        {section.title}
+      </SizableText>
+    ),
+    [],
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: IUniversalSearchResultItem }) => {
@@ -228,14 +228,15 @@ export function UniversalSearch({
     switch (searchStatus) {
       case ESearchStatus.init:
         return (
-          <YStack>
+          <>
             <RecentSearched />
             <SectionList
+              renderSectionHeader={renderSectionHeader}
               sections={recommendSections}
               renderItem={renderItem}
               estimatedItemSize="$16"
             />
-          </YStack>
+          </>
         );
 
       case ESearchStatus.loading:
@@ -262,7 +263,13 @@ export function UniversalSearch({
       default:
         break;
     }
-  }, [navigation, searchStatus, sections]);
+  }, [
+    recommendSections,
+    renderItem,
+    renderSectionHeader,
+    searchStatus,
+    sections,
+  ]);
 
   return (
     <Page>
