@@ -51,7 +51,7 @@ export default function ScanQrCodeModal() {
         EScanQrCodeModalPages.ScanQrCodeStack
       >
     >();
-  const { callback } = route.params;
+  const { callback, mask } = route.params;
 
   const pickImage = useCallback(async () => {
     const result = await launchImageLibraryAsync({
@@ -109,7 +109,7 @@ export default function ScanQrCodeModal() {
         headerRight={headerRightCall}
       />
       <Page.Body>
-        <ScanQrCode handleBarCodeScanned={callback} />
+        <ScanQrCode handleBarCodeScanned={callback} mask={mask} />
       </Page.Body>
       {platformEnv.isDev ? (
         <Page.Footer>

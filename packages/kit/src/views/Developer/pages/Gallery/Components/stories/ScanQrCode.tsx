@@ -18,8 +18,9 @@ const ScanQrCameraDemo = () => {
       {isShow ? (
         <Stack mt={20} w={360} h={600}>
           <ScanQrCode
-            handleBarCodeScanned={(value) => {
+            handleBarCodeScanned={async (value) => {
               alert(value);
+              return {};
             }}
           />
         </Stack>
@@ -31,9 +32,13 @@ const ScanQrCameraDemo = () => {
 const ScanQRCodeGallery = () => {
   const scanQrCode = useScanQrCode();
   const openScanQrCodeModal = useCallback(
-    async (autoHandleResult: boolean) => {
-      const result = await scanQrCode.start({ autoHandleResult });
-      console.log(result);
+    async (values: { autoHandleResult: boolean; mask?: boolean }) => {
+      try {
+        const result = await scanQrCode.start(values);
+        console.log(result);
+      } catch (e) {
+        console.log('用户取消扫描');
+      }
     },
     [scanQrCode],
   );
@@ -46,13 +51,23 @@ const ScanQRCodeGallery = () => {
         {
           title: '命令式弹出 Modal(自动处理)',
           element: (
-            <Button onPress={() => openScanQrCodeModal(true)}>打开</Button>
+            <Button
+              onPress={() => openScanQrCodeModal({ autoHandleResult: true })}
+            >
+              打开
+            </Button>
           ),
         },
         {
-          title: '命令式弹出 Modal',
+          title: '命令式弹出 Modal(不自动处理，但是带有遮罩)',
           element: (
-            <Button onPress={() => openScanQrCodeModal(false)}>打开</Button>
+            <Button
+              onPress={() =>
+                openScanQrCodeModal({ autoHandleResult: false, mask: true })
+              }
+            >
+              打开
+            </Button>
           ),
         },
         {
