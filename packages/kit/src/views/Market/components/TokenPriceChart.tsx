@@ -2,7 +2,7 @@ import { memo, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SegmentControl, YStack } from '@onekeyhq/components';
+import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -56,32 +56,47 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
         setIsLoading(false);
       });
   }, [coinGeckoId, days]);
+  const { gtMd } = useMedia();
   return (
-    <YStack h={326} $gtMd={{ pl: '$5', h: 346 }}>
-      <PriceChart
-        isFetching={isLoading}
-        data={points}
-        timeDefaultLabel={
-          intlId
-            ? intl.formatMessage(
-                {
-                  id: intlId,
-                },
-                {
-                  0: points?.[0]?.[0]
-                    ? formatDate(new Date(points[0][0])).split(',')?.[0]
-                    : '',
-                },
-              )
-            : ''
-        }
-      >
-        <SegmentControl
-          value={days}
-          onChange={setDays as ISegmentControlProps['onChange']}
-          options={options}
-        />
-      </PriceChart>
+    <YStack>
+      <YStack h={326} $gtMd={{ pl: '$5', h: 346 }}>
+        <PriceChart
+          isFetching={isLoading}
+          data={points}
+          timeDefaultLabel={
+            intlId
+              ? intl.formatMessage(
+                  {
+                    id: intlId,
+                  },
+                  {
+                    0: points?.[0]?.[0]
+                      ? formatDate(new Date(points[0][0])).split(',')?.[0]
+                      : '',
+                  },
+                )
+              : ''
+          }
+        >
+          {gtMd ? (
+            <SegmentControl
+              value={days}
+              onChange={setDays as ISegmentControlProps['onChange']}
+              options={options}
+            />
+          ) : null}
+        </PriceChart>
+      </YStack>
+      {gtMd ? null : (
+        <Stack mt="$5">
+          <SegmentControl
+            fullWidth
+            value={days}
+            onChange={setDays as ISegmentControlProps['onChange']}
+            options={options}
+          />
+        </Stack>
+      )}
     </YStack>
   );
 }

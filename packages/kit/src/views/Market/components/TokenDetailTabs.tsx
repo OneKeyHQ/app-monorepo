@@ -45,7 +45,7 @@ function BasicTokenDetailTabs({
     [md, pools, token],
   );
   return (
-    <Stack pt="$10">
+    <Stack $gtMd={{ pt: '$10' }} pt="$5">
       <Tab.Page
         data={tabConfig}
         onSelectedPageIndex={(index: number) => {
