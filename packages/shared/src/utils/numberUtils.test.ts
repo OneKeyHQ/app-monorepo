@@ -614,10 +614,17 @@ test('formatMarketCap', () => {
     '235B',
   );
 
+  expect(
+    formatDisplayNumber(
+      formatMarketCap('235002184512.1242', { currency: '$' }),
+    ),
+  ).toEqual('$235B');
+
   // more then 1 trillion, but less then 1 quadrillion
   expect(formatDisplayNumber(formatMarketCap('564200002184512.1242'))).toEqual(
     '564.2T',
   );
+
   expect(
     formatDisplayNumber(
       formatMarketCap(
