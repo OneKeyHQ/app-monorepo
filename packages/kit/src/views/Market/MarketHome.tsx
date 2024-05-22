@@ -22,11 +22,11 @@ function MarketHome() {
 
   const tabConfig = useMemo(
     () =>
-      categories?.map((category) => ({
+      categories?.map((category, index) => ({
         title: category.name,
         // eslint-disable-next-line react/no-unstable-nested-components
         page: () =>
-          category.categoryId === 'favorites' ? (
+          index === 0 ? (
             <MarketWatchList category={categories[1]} />
           ) : (
             <MarketHomeList category={category} />
@@ -43,7 +43,7 @@ function MarketHome() {
           headerProps={{
             contentContainerStyle: { paddingRight: '$5' },
             renderItem: (item, index, titleStyle) =>
-              index === 0 ? (
+              index === 0 && !gtMd ? (
                 <Icon name="StarOutline" />
               ) : (
                 <Tab.SelectedLabel {...titleStyle} />
