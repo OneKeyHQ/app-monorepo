@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type {
+  IMarketDetailPlatform,
   IMarketDetailPool,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
@@ -136,7 +137,7 @@ function OverviewMarketVOL({
   maxSupply,
   totalSupply,
   circulatingSupply,
-  pools,
+  detailPlatforms,
 }: {
   fdv: number;
   volume24h: number;
@@ -145,8 +146,9 @@ function OverviewMarketVOL({
   maxSupply: number;
   totalSupply: number;
   circulatingSupply: number;
-  pools: IMarketDetailPool[];
+  detailPlatforms: IMarketDetailPlatform;
 }) {
+  const keys = Object.keys(detailPlatforms).filter((i) => !!i);
   return (
     <YStack pt="$10">
       <YStack space="$3">
@@ -182,25 +184,19 @@ function OverviewMarketVOL({
           </OverviewMarketVOLItem>
         </XStack>
       </YStack>
-      {pools.length ? (
+      {keys.length ? (
         <YStack pt="$3">
           <SizableText color="$textSubdued" size="$bodySm">
             Contract
           </SizableText>
           <YStack space="$1" pt="$1">
-            {pools.map((pool) => {
-              const [tokeName, address] =
-                pool.relationships.base_token.data.id.split('_');
-              return (
-                <MarketTokenAddress
-                  key={address}
-                  networkId={pool.onekeyNetworkId}
-                  tokenName={tokeName}
-                  address={address}
-                  url={pool.baseTokenUrl}
-                />
-              );
-            })}
+            {keys.map((tokenName) => (
+              <MarketTokenAddress
+                key={tokenName}
+                tokenName={`${tokenName[0].toUpperCase()}${tokenName.slice(1)}`}
+                address={detailPlatforms[tokenName].contract_address}
+              />
+            ))}
           </YStack>
         </YStack>
       ) : null}
@@ -235,6 +231,7 @@ function About({ children }: { children: ISizableTextProps['children'] }) {
 
 export function MarketDetailOverview({
   token: {
+    detail_platforms: detailPlatforms,
     stats: {
       maxSupply,
       totalSupply,
@@ -249,7 +246,6 @@ export function MarketDetailOverview({
     },
     about,
   },
-  pools,
 }: {
   token: IMarketTokenDetail;
   pools: IMarketDetailPool[];
@@ -285,7 +281,7 @@ export function MarketDetailOverview({
         maxSupply={maxSupply}
         totalSupply={totalSupply}
         circulatingSupply={circulatingSupply}
-        pools={pools}
+        detailPlatforms={detailPlatforms}
       />
       {/* <GoPlus /> */}
       <About>{about}</About>
