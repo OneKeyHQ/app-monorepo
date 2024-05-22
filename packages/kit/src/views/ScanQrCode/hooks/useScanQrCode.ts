@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { Vibration } from 'react-native';
+
 import type {
   IAnimationValue,
   IBaseValue,
@@ -41,6 +43,7 @@ export default function useScanQrCode() {
                   if (animationValue.fullData) {
                     resolve(parseValue);
                   }
+                  Vibration.vibrate(1);
                   return {
                     progress: animationValue.progress,
                   };
