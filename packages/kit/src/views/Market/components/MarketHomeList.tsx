@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import type {
+  IActionListItemProps,
   INumberSizeableTextProps,
   IStackProps,
 } from '@onekeyhq/components';
@@ -634,7 +635,7 @@ export function MarketHomeList({
                         await actions.MoveToTop(coingeckoId);
                       },
                     },
-                  ].filter(Boolean),
+                  ].filter(Boolean) as IActionListItemProps[],
                 },
               ],
             }

@@ -58,7 +58,6 @@ export interface IMarketDetailPlatform {
 }
 
 export interface IMarketDetailStats {
-  detail_platforms: IMarketDetailPlatform;
   performance: IMarketPerformance;
   marketCap: number;
   marketCapRank: number;
@@ -97,6 +96,7 @@ export interface IMarketTokenDetail {
   explorers: IMarketTokenExplorer[];
   links: IMarketDetailLinks;
   stats: IMarketDetailStats;
+  detail_platforms: IMarketDetailPlatform;
 }
 
 export type IMarketTokenChart = [number, number][];
