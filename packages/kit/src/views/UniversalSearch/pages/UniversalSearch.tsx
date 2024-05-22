@@ -38,6 +38,8 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 
+import { RecentSearched } from './components/RecentSearched';
+
 interface IUniversalSection {
   title: string;
   data: IUniversalSearchResultItem[];
@@ -81,7 +83,6 @@ export function UniversalSearch({
       networkId: activeAccount?.network?.id,
       searchTypes: [searchType || EUniversalSearchType.Address],
     });
-    const items = result?.[EUniversalSearchType.Address]?.items;
     const searchResultSections: {
       title: string;
       data: IUniversalSearchResultItem[];
@@ -121,9 +122,9 @@ export function UniversalSearch({
 
   const renderItem = useCallback(
     ({ item }: { item: IUniversalSearchResultItem }) => {
-      switch (searchType) {
+      switch (item.type) {
         case EUniversalSearchType.Address: {
-          const searchAddressItem = item as IUniversalSearchAddress;
+          const searchAddressItem = item;
           return (
             <ListItem
               onPress={() => {
@@ -150,8 +151,7 @@ export function UniversalSearch({
           );
         }
         case EUniversalSearchType.MarketToken: {
-          const { image, coingeckoId, price, symbol, name } =
-            item as IUniversalSearchMarketToken;
+          const { image, coingeckoId, price, symbol, name } = item.payload;
           return (
             <XStack
               jc="space-between"
@@ -192,21 +192,27 @@ export function UniversalSearch({
         }
       }
     },
-    [navigation, searchType],
+    [navigation],
   );
+
+  const renderInintResult = useCallback(() => {}, []);
 
   const renderResult = useCallback(() => {
     switch (searchStatus) {
       case ESearchStatus.init:
-        return null;
+        return (
+          <YStack>
+            <RecentSearched />
+          </YStack>
+        );
 
       case ESearchStatus.loading:
         return (
-          <View>
+          <YStack>
             <SkeletonItem />
             <SkeletonItem />
             <SkeletonItem />
-          </View>
+          </YStack>
         );
 
       case ESearchStatus.done:

@@ -220,8 +220,12 @@ class ServiceApp extends ServiceBase {
     }
 
     if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
+      const items = await this.universalSearchOfMarketToken(input);
       result[EUniversalSearchType.MarketToken] = {
-        items: await this.universalSearchOfMarketToken(input),
+        items: items.map((item) => ({
+          type: EUniversalSearchType.MarketToken,
+          payload: item,
+        })),
       };
     }
     return result;

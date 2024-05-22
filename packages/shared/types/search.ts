@@ -18,10 +18,14 @@ export type IUniversalSearchSingleResult = {
   items: IUniversalSearchAddress[];
 };
 
-export type IUniversalSearchMarketToken = IMarketToken;
+export type IUniversalSearchMarketToken = {
+  type: EUniversalSearchType.MarketToken;
+  payload: IMarketToken;
+};
 
-export type IUniversalSearchResultItem = IUniversalSearchAddress &
-  IUniversalSearchMarketToken;
+export type IUniversalSearchResultItem =
+  | IUniversalSearchAddress
+  | IUniversalSearchMarketToken;
 
 export type IUniversalSearchMarketTokenResult = {
   items: IUniversalSearchMarketToken[];
