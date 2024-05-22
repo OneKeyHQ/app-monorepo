@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -23,11 +23,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IUniversalSearchAddress,
-  IUniversalSearchMarketToken,
-  IUniversalSearchResultItem,
-} from '@onekeyhq/shared/types/search';
+import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -35,7 +31,6 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { ListItem } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 
@@ -185,14 +180,22 @@ export function UniversalSearch({
             <XStack
               jc="space-between"
               ai="center"
-              onPress={() => {
+              onPress={async () => {
                 navigation.pop();
-                setTimeout(() => {
+                setTimeout(async () => {
                   navigation.push(ETabMarketRoutes.MarketDetail, {
                     coinGeckoId: coingeckoId,
                     icon: image,
                     symbol,
                   });
+                  await backgroundApiProxy.serviceUniversalSearch.addIntoRecentSearch(
+                    {
+                      id: coingeckoId,
+                      text: symbol.toUpperCase(),
+                      type: item.type,
+                      timestamp: Date.now(),
+                    },
+                  );
                 }, 80);
               }}
             >

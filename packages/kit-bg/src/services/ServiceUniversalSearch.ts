@@ -22,6 +22,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  IIUniversalRecentSearchItem,
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
   IUniversalSearchResultItem,
@@ -31,11 +32,15 @@ import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
-import { settingsPersistAtom } from '../states/jotai/atoms';
+import {
+  settingsPersistAtom,
+  universalSearchPersistAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
+const MAX_RECENT_SEARCH_SIZE = 10;
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -167,6 +172,30 @@ class ServiceUniversalSearch extends ServiceBase {
     return {
       items,
     } as IUniversalSearchSingleResult;
+  }
+
+  @backgroundMethod()
+  async addIntoRecentSearch(item: IIUniversalRecentSearchItem, delay = 10) {
+    setTimeout(async () => {
+      await universalSearchPersistAtom.set((prev) => {
+        const newItems = prev.recentSearch.filter(
+          (recentSearchItem) =>
+            !!prev.recentSearch.find((i) => i.text === recentSearchItem.text),
+        );
+        return {
+          ...prev,
+          recentSearch: [item, ...newItems].slice(0, MAX_RECENT_SEARCH_SIZE),
+        };
+      });
+    }, delay);
+  }
+
+  @backgroundMethod()
+  async clearAllRecentSearch() {
+    await universalSearchPersistAtom.set((prev) => ({
+      ...prev,
+      recentSearch: [],
+    }));
   }
 }
 

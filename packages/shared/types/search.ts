@@ -37,6 +37,7 @@ export type IUniversalSearchBatchResult = {
 };
 
 export interface IIUniversalRecentSearchItem {
+  id: string;
   text: string;
   timestamp: number;
   type: EUniversalSearchType;
