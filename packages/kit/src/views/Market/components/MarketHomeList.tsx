@@ -35,6 +35,7 @@ import type {
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { MarketStar } from './MarketStar';
+import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
 
@@ -106,19 +107,6 @@ function Column({
         />
       ) : null}
     </XStack>
-  );
-}
-
-function PriceChangePercentage({ children }: INumberSizeableTextProps) {
-  return (
-    <NumberSizeableText
-      size="$bodyMd"
-      formatter="priceChange"
-      color={Number(children) > 0 ? '$textSuccess' : '$textCritical'}
-      formatterOptions={{ currency: '$' }}
-    >
-      {children}
-    </NumberSizeableText>
   );
 }
 
@@ -293,6 +281,7 @@ function TableRow({
     sparkline,
     actions,
   } = tableConfig;
+  const { gtLg } = useMedia();
   const handlePress = useCallback(() => {
     onPress?.(item);
   }, [item, onPress]);
@@ -419,18 +408,20 @@ function TableRow({
       >
         {marketCap?.(item)}
       </Column>
-      <Column
-        minWidth={160}
-        name="sparkline"
-        alignRight
-        pl="$4"
-        sortType={sortType?.columnName}
-        order={sortType?.order}
-        onPress={handleColumnPress}
-        cursor={cursor}
-      >
-        {sparkline?.(item)}
-      </Column>
+      {gtLg ? (
+        <Column
+          minWidth={160}
+          name="sparkline"
+          alignRight
+          pl="$4"
+          sortType={sortType?.columnName}
+          order={sortType?.order}
+          onPress={handleColumnPress}
+          cursor={cursor}
+        >
+          {sparkline?.(item)}
+        </Column>
+      ) : null}
       <Column
         name="action"
         width={64}

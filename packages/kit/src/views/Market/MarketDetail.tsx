@@ -27,6 +27,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
 import { MarketStar } from './components/MarketStar';
+import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
@@ -61,18 +62,9 @@ function TokenDetailHeader({
           >
             {price || 0}
           </NumberSizeableText>
-          <NumberSizeableText
-            pt="$0.5"
-            formatter="priceChange"
-            formatterOptions={{ showPlusMinusSigns: true }}
-            color={
-              Number(performance.priceChangePercentage24h) > 0
-                ? '$textSuccess'
-                : '$textCritical'
-            }
-          >
+          <PriceChangePercentage pt="$0.5">
             {performance.priceChangePercentage24h}
-          </NumberSizeableText>
+          </PriceChangePercentage>
         </YStack>
         <MarketStar coingeckoId={coinGeckoId} />
       </XStack>

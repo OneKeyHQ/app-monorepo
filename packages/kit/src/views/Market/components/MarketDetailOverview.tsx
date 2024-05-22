@@ -18,6 +18,7 @@ import type {
 } from '@onekeyhq/shared/types/market';
 
 import { MarketTokenAddress } from './MarketTokenAddress';
+import { PriceChangePercentage } from './PriceChangePercentage';
 
 function OverviewPriceChange({
   title,
@@ -31,14 +32,9 @@ function OverviewPriceChange({
       <SizableText color="$textSubdued" size="$bodySm">
         {title}
       </SizableText>
-      <NumberSizeableText
-        size="$bodyMdMedium"
-        formatter="priceChange"
-        formatterOptions={{ showPlusMinusSigns: true }}
-        color={Number(children) > 0 ? '$textCritical' : '$textSuccess'}
-      >
+      <PriceChangePercentage size="$bodyMdMedium">
         {children}
-      </NumberSizeableText>
+      </PriceChangePercentage>
     </YStack>
   );
 }
