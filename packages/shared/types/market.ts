@@ -85,6 +85,7 @@ export interface IMarketDetailLinks {
   homePageUrl: string;
   discordUrl: string;
   twitterUrl: string;
+  whitepaper: string;
   telegramUrl: string;
 }
 
