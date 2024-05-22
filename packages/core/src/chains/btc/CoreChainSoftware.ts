@@ -69,6 +69,7 @@ import type {
   IBtcForkTransactionMixin,
   IEncodedTxBtc,
 } from './types';
+import { isTaprootInput } from 'bitcoinjs-lib/src/psbt/bip371';
 
 const curveName: ICurveName = 'secp256k1';
 // const a  = tweakSigner()
@@ -213,15 +214,28 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const publicKey = await signer.getPubkey(true);
 
     // P2TR taproot
-    if (input && input.tapInternalKey) {
-      const privateKey = await signer.getPrvkey();
-      const privateKeyHex = await signer.getPrvkeyHex();
-      const publicKeyHex = await signer.getPubkeyHex();
-      const tweakedSigner = tweakSigner(privateKey, publicKey, {
-        network,
-      });
-
-      return tweakedSigner;
+    if (isTaprootInput(input)) {
+      let needTweak = true;
+      // script path spend
+      if (
+        input.tapLeafScript &&
+        input.tapLeafScript?.length > 0 &&
+        !input.tapMerkleRoot
+      ) {
+        input.tapLeafScript.forEach((e) => {
+          if (e.controlBlock && e.script) {
+            needTweak = false;
+          }
+        });
+      }
+      if (input.tapInternalKey) {
+        const privateKey = await signer.getPrvkey();
+        const tweakedSigner = tweakSigner(privateKey, publicKey, {
+          network,
+          needTweak,
+        });
+        return tweakedSigner;
+      }
     }
 
     // For other encoding (other btc fork chain)
