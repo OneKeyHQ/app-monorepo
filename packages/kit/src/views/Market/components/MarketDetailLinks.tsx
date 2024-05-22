@@ -64,13 +64,14 @@ export function MarketDetailLinks({
           ) : null}
         </XStack>
       </YStack>
-      <YStack py="$5" space="$2">
+      <YStack py="$5">
         <SizableText size="$headingSm" color="$textSubdued">
           Explorers
         </SizableText>
         <XStack flexWrap="wrap" space="$3">
           {explorers.map(({ url, name }) => (
             <Button
+              mt="$2"
               key={url}
               iconAfter="OpenOutline"
               onPress={() => openUrlExternal(url)}
