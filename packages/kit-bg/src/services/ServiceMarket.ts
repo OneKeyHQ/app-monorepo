@@ -123,6 +123,14 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
+  async isInWatchList(coingeckoId: string) {
+    const watchList = await this.fetchWatchList();
+    return !!watchList.find(
+      (i: { coingeckoId: string }) => i.coingeckoId === coingeckoId,
+    );
+  }
+
+  @backgroundMethod()
   async addIntoWatchList(items: IMarketWatchListItem | IMarketWatchListItem[]) {
     await marketWatchListPersistAtom.set((prev) => {
       const params = !Array.isArray(items) ? [items] : items;
