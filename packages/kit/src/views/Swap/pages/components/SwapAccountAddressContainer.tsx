@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useSwapProviderSupportReceiveAddressAtom,
@@ -110,6 +110,7 @@ const SwapAccountAddressContainer = ({
       deriveType: swapAddressInfo.accountInfo.deriveType,
       networkId: swapAddressInfo.accountInfo.network?.id,
     });
+    Toast.success({ title: 'Address generated' });
   }, [swapAddressInfo.accountInfo]);
 
   const addressComponent = useMemo(() => {

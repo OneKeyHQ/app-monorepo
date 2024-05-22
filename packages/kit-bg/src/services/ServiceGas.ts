@@ -26,21 +26,21 @@ class ServiceGas extends ServiceBase {
       '/wallet/v1/account/estimate-fee',
       params,
     );
-    const gasFee = resp.data.data;
+    const feeInfo = resp.data.data;
     return {
       common: {
-        baseFee: gasFee.baseFee,
-        feeDecimals: gasFee.feeDecimals,
-        feeSymbol: gasFee.feeSymbol,
-        nativeDecimals: gasFee.nativeDecimals,
-        nativeSymbol: gasFee.nativeSymbol,
-        nativeTokenPrice: gasFee.nativeTokenPrice?.price,
+        baseFee: feeInfo.baseFee,
+        feeDecimals: feeInfo.feeDecimals,
+        feeSymbol: feeInfo.feeSymbol,
+        nativeDecimals: feeInfo.nativeDecimals,
+        nativeSymbol: feeInfo.nativeSymbol,
+        nativeTokenPrice: feeInfo.nativeTokenPrice?.price,
       },
-      gas: gasFee.gas,
-      gasEIP1559: gasFee.gasEIP1559,
-      feeUTXO: gasFee.feeUTXO,
-      feeTron: gasFee.feeTron,
-      feeSol: gasFee.feeSol,
+      gas: feeInfo.gas,
+      gasEIP1559: feeInfo.gasEIP1559,
+      feeUTXO: feeInfo.feeUTXO,
+      feeTron: feeInfo.feeTron,
+      gasFil: feeInfo.gasFil,
     };
   }
 
