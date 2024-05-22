@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { Dialog, rootNavigationRef, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type {
   IAnimationValue,
@@ -28,9 +27,6 @@ const useParseQRCode = () => {
   const navigation = useAppNavigation();
   const clipboard = useClipboard();
   const intl = useIntl();
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num: 0 });
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
     async (value, options) => {
       const result = await backgroundApiProxy.serviceScanQRCode.parse(
@@ -61,8 +57,11 @@ const useParseQRCode = () => {
         case EQRCodeHandlerType.ETHEREUM:
         case EQRCodeHandlerType.SOLANA:
           {
-            const accountId = options?.accountId && account?.id;
+            const accountId = options?.accountId;
             if (!accountId) {
+              console.error(
+                'missing the accountId in the useParseQRCode.start',
+              );
               break;
             }
             const chainValue = result.data as IChainValue;
@@ -127,7 +126,7 @@ const useParseQRCode = () => {
       }
       return result;
     },
-    [navigation, clipboard, intl, account],
+    [navigation, clipboard, intl],
   );
   return useMemo(() => ({ parse }), [parse]);
 };
