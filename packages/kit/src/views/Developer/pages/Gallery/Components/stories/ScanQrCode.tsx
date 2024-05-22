@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ScanQrCode } from '@onekeyhq/kit/src/views/ScanQrCode/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -31,16 +32,22 @@ const ScanQrCameraDemo = () => {
 
 const ScanQRCodeGallery = () => {
   const scanQrCode = useScanQrCode();
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
   const openScanQrCodeModal = useCallback(
     async (values: { autoHandleResult: boolean; mask?: boolean }) => {
       try {
-        const result = await scanQrCode.start(values);
+        const result = await scanQrCode.start({
+          ...values,
+          accountId: account?.id,
+        });
         console.log(result);
       } catch (e) {
         console.log('用户取消扫描');
       }
     },
-    [scanQrCode],
+    [scanQrCode, account?.id],
   );
   return (
     <Layout
