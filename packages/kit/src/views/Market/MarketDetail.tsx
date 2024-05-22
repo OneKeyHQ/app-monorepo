@@ -54,7 +54,7 @@ function TokenDetailHeader({
   } = token;
   const { gtMd } = useMedia();
   return (
-    <YStack $gtMd={{ maxWidth: 296 }}>
+    <YStack $gtMd={{ maxWidth: 296 }} px="$5">
       <XStack>
         <YStack flex={1}>
           <SizableText size="$headingMd" color="$textSubdued">
@@ -158,7 +158,7 @@ function MarketDetail({
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
       />
-      <YStack px="$5">
+      <YStack>
         <Stack
           flexDirection="column"
           $gtMd={{ flexDirection: 'row' }}

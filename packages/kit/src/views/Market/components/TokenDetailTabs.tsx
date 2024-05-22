@@ -33,7 +33,11 @@ function BasicTokenDetailTabs({
           ? {
               title: 'Overview',
               // eslint-disable-next-line react/no-unstable-nested-components
-              page: () => <MarketDetailOverview token={token} pools={pools} />,
+              page: () => (
+                <Stack px="$5">
+                  <MarketDetailOverview token={token} pools={pools} />
+                </Stack>
+              ),
             }
           : undefined,
         {
@@ -45,7 +49,7 @@ function BasicTokenDetailTabs({
     [md, pools, token],
   );
   return (
-    <Stack $gtMd={{ pt: '$10' }} pt="$5">
+    <Stack $gtMd={{ pt: '$10', px: '$5' }} pt="$5">
       <Tab.Page
         data={tabConfig}
         onSelectedPageIndex={(index: number) => {
