@@ -23,5 +23,6 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabMarketRoutes.MarketDetail,
     component: MarketDetail,
+    rewrite: '/market_detail',
   },
 ];
