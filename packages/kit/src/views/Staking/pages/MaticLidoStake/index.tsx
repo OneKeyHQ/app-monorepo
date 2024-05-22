@@ -18,7 +18,8 @@ const MaticLidoStake = () => {
     IModalStakingParamList,
     EModalStakingRoutes.MaticLidoStake
   >();
-  const { networkId, accountId, token, balance, price, apr } = route.params;
+  const { networkId, accountId, token, balance, price, apr, stToken } =
+    route.params;
   const lidoStake = useLidoMaticStake({ networkId, accountId });
   const onConfirm = useCallback(
     async (value: string) => {
@@ -35,7 +36,8 @@ const MaticLidoStake = () => {
           price={price}
           balance={balance}
           tokenImageUri={LIDO_MATIC_LOGO_URI}
-          tokenSymbol={token.symbol.toLowerCase()}
+          tokenSymbol={token.symbol.toUpperCase()}
+          stTokenSymbol={stToken.symbol.toUpperCase()}
           onConfirm={onConfirm}
           apr={apr}
         />

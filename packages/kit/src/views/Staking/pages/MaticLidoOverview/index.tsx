@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
+  Dialog,
   NumberSizeableText,
   Page,
   SizableText,
@@ -21,6 +22,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { ILidoMaticOverview } from '@onekeyhq/shared/types/staking';
 
+import {
+  MaticStakeShouldUnderstand,
+  MaticWithdrawShouldUnderstand,
+} from '../../components/LidoShouldUnderstand';
 import { NftListItemStatus } from '../../components/NftListItemStatus';
 import { PageSkeleton } from '../../components/PageSkeleton';
 import { ProtocolIntro } from '../../components/ProtocolIntro';
@@ -56,21 +61,36 @@ const MaticLidoOverviewContent = ({
   const { matic, stMatic } = overview;
   const appNavigation = useAppNavigation();
   const onStake = useCallback(async () => {
-    appNavigation.push(EModalStakingRoutes.MaticLidoStake, {
-      accountId,
-      networkId,
-      balance: matic.balanceParsed,
-      price: matic.price,
-      token: matic.info,
-      apr,
+    Dialog.show({
+      renderContent: <MaticStakeShouldUnderstand />,
+      showCancelButton: false,
+      onConfirmText: 'Got it!',
+      onConfirm: () => {
+        appNavigation.push(EModalStakingRoutes.MaticLidoStake, {
+          accountId,
+          networkId,
+          balance: matic.balanceParsed,
+          price: matic.price,
+          token: matic.info,
+          stToken: stMatic.info,
+          apr,
+        });
+      },
     });
-  }, [appNavigation, accountId, networkId, matic, apr]);
+  }, [appNavigation, accountId, networkId, matic, apr, stMatic]);
   const onRedeem = useCallback(async () => {
-    appNavigation.push(EModalStakingRoutes.MaticLidoWithdraw, {
-      accountId,
-      networkId,
-      balance: stMatic.balanceParsed,
-      token: stMatic.info,
+    Dialog.show({
+      renderContent: <MaticWithdrawShouldUnderstand />,
+      showCancelButton: false,
+      onConfirmText: 'Got it!',
+      onConfirm: () => {
+        appNavigation.push(EModalStakingRoutes.MaticLidoWithdraw, {
+          accountId,
+          networkId,
+          balance: stMatic.balanceParsed,
+          token: stMatic.info,
+        });
+      },
     });
   }, [accountId, networkId, appNavigation, stMatic]);
 

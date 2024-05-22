@@ -27,20 +27,19 @@ export function useLidoMaticStake({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
       const serverTxs =
         await backgroundApiProxy.serviceStaking.buildLidoMaticStakingTransaction(
           {
             amount,
-            accountAddress,
+            accountAddress: account.address,
           },
         );
       const unsignedTxs = serverTxs.map((tx) => ({
-        encodedTx: { ...tx, from: accountAddress },
+        encodedTx: { ...tx, from: account.address },
       }));
       navigation.pushModal(EModalRoutes.SendModal, {
         screen: EModalSendRoutes.SendConfirm,
@@ -75,11 +74,10 @@ export function useLidoMaticWithdraw({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
       const serverTx =
         await backgroundApiProxy.serviceStaking.buildLidoMaticWithdrawalTransaction(
           {
@@ -87,7 +85,7 @@ export function useLidoMaticWithdraw({
           },
         );
       await navigationToSendConfirm({
-        encodedTx: { ...serverTx, from: accountAddress },
+        encodedTx: { ...serverTx, from: account.address },
         onSuccess,
         onFail,
       });
@@ -116,17 +114,16 @@ export function useLidoMaticClaim({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
       const serverTx =
         await backgroundApiProxy.serviceStaking.buildLidoMaticClaimTransaction({
           tokenId,
         });
       await navigationToSendConfirm({
-        encodedTx: { ...serverTx, from: accountAddress },
+        encodedTx: { ...serverTx, from: account.address },
         onSuccess,
         onFail,
       });

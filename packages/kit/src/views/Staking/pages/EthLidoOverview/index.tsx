@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
+  Dialog,
   NumberSizeableText,
   Page,
   SizableText,
@@ -24,6 +25,11 @@ import type {
   ILidoEthRequest,
 } from '@onekeyhq/shared/types/staking';
 
+import { LidoFAQs } from '../../components/LidoFAQs';
+import {
+  EthStakeShouldUnderstand,
+  EthWithdrawShouldUnderstand,
+} from '../../components/LidoShouldUnderstand';
 import { NftListItemStatus } from '../../components/NftListItemStatus';
 import { PageSkeleton } from '../../components/PageSkeleton';
 import { ProtocolIntro } from '../../components/ProtocolIntro';
@@ -108,21 +114,36 @@ const EthLidoOverviewContent = ({
   const { eth, stETH, requests } = overview;
   const appNavigation = useAppNavigation();
   const onStake = useCallback(async () => {
-    appNavigation.push(EModalStakingRoutes.EthLidoStake, {
-      accountId,
-      networkId,
-      balance: eth.balanceParsed,
-      price: eth.price,
-      token: eth.info,
-      apr,
+    Dialog.show({
+      renderContent: <EthStakeShouldUnderstand />,
+      onConfirm: () => {
+        appNavigation.push(EModalStakingRoutes.EthLidoStake, {
+          accountId,
+          networkId,
+          balance: eth.balanceParsed,
+          price: eth.price,
+          token: eth.info,
+          stToken: stETH.info,
+          apr,
+        });
+      },
+      onConfirmText: 'Got it!',
+      showCancelButton: false,
     });
-  }, [appNavigation, accountId, networkId, eth, apr]);
+  }, [appNavigation, accountId, networkId, eth, apr, stETH]);
   const onWithdraw = useCallback(async () => {
-    appNavigation.push(EModalStakingRoutes.EthLidoWithdraw, {
-      accountId,
-      networkId,
-      balance: stETH.balanceParsed,
-      token: stETH.info,
+    Dialog.show({
+      renderContent: <EthWithdrawShouldUnderstand />,
+      showCancelButton: false,
+      onConfirmText: 'Got it!',
+      onConfirm: () => {
+        appNavigation.push(EModalStakingRoutes.EthLidoWithdraw, {
+          accountId,
+          networkId,
+          balance: stETH.balanceParsed,
+          token: stETH.info,
+        });
+      },
     });
   }, [accountId, networkId, appNavigation, stETH]);
 
@@ -186,6 +207,7 @@ const EthLidoOverviewContent = ({
           tokenImageUrl={eth.info.logoURI}
           tokenSymbol={eth.info.symbol}
         />
+        <LidoFAQs />
       </YStack>
       <Page.Footer
         onConfirmText="Stake"

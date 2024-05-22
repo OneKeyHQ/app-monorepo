@@ -19,7 +19,8 @@ const EthLidoStake = () => {
     IModalStakingParamList,
     EModalStakingRoutes.EthLidoStake
   >();
-  const { accountId, networkId, balance, price, token, apr } = route.params;
+  const { accountId, networkId, balance, price, token, apr, stToken } =
+    route.params;
   const lidoStake = useLidoStake({ accountId, networkId });
   const appNavigation = useAppNavigation();
   const onConfirm = useCallback(
@@ -42,6 +43,7 @@ const EthLidoStake = () => {
           balance={balance}
           tokenImageUri={LIDO_ETH_LOGO_URI}
           tokenSymbol={token.symbol.toUpperCase()}
+          stTokenSymbol={stToken.symbol.toUpperCase()}
           onConfirm={onConfirm}
         />
       </Page.Body>

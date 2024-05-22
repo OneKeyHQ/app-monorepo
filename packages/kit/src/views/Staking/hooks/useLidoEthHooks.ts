@@ -23,17 +23,16 @@ export function useLidoStake({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
       const serverTx =
         await backgroundApiProxy.serviceStaking.buildLidoEthStakingTransaction({
           amount,
         });
       await navigationToSendConfirm({
-        encodedTx: { ...serverTx, from: accountAddress },
+        encodedTx: { ...serverTx, from: account.address },
         onSuccess,
         onFail,
       });
@@ -60,11 +59,10 @@ export function useLidoWithdraw({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
       const { message, deadline } =
         await backgroundApiProxy.serviceStaking.buildLidoEthPermitMessage({
           accountId,
@@ -95,7 +93,7 @@ export function useLidoWithdraw({
         );
 
       await navigationToSendConfirm({
-        encodedTx: { ...serverTx, from: accountAddress },
+        encodedTx: { ...serverTx, from: account.address },
         onSuccess,
         onFail,
       });
@@ -122,17 +120,16 @@ export function useLidoClaim({
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
-      const accountAddress =
-        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-          accountId,
-          networkId,
-        });
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
       const serverTx =
         await backgroundApiProxy.serviceStaking.buildLidoEthClaimTransaction({
           requestIds,
         });
       await navigationToSendConfirm({
-        encodedTx: { ...serverTx, from: accountAddress },
+        encodedTx: { ...serverTx, from: account.address },
         onSuccess,
         onFail,
       });

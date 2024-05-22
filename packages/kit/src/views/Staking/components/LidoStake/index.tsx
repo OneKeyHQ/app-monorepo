@@ -25,6 +25,7 @@ type ILidoStakeProps = {
   minAmount?: number;
   tokenImageUri: string;
   tokenSymbol: string;
+  stTokenSymbol: string;
   apr?: number;
   onConfirm?: (amount: string) => Promise<void>;
 };
@@ -36,6 +37,7 @@ export const LidoStake = ({
   minAmount = 0,
   tokenImageUri,
   tokenSymbol,
+  stTokenSymbol,
   onConfirm,
 }: PropsWithChildren<ILidoStakeProps>) => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -162,7 +164,7 @@ export const LidoStake = ({
               titleProps={{ color: '$textSubdued' }}
             >
               <ListItem.Text
-                primary={`${amountValue} ${tokenSymbol.toUpperCase()}`}
+                primary={`${amountValue} ${stTokenSymbol.toUpperCase()}`}
               />
             </ListItem>
           ) : null}

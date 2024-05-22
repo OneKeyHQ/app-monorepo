@@ -699,10 +699,7 @@ module.exports = [
   'neurai',
   'ckb',
   'Xudt',
-  'Kele',
   'Matic',
   'unstake',
   'Unstaking',
-  'withdrawable',
-  'pirvSignRaw',
 ];
