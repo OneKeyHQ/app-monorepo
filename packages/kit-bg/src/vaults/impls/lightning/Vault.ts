@@ -207,6 +207,7 @@ export default class Vault extends VaultBase {
         trailingLength: 33,
       });
     }
+    const amount = new BigNumber(encodedTx.amount).toFixed();
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: account.name,
@@ -226,11 +227,13 @@ export default class Vault extends VaultBase {
                 tokenIdOnNetwork: '',
                 name: nativeToken.name,
                 icon: nativeToken.logoURI ?? '',
-                amount: new BigNumber(encodedTx.amount).toFixed(),
+                amount,
                 symbol: network.symbol,
               },
             ],
             receives: [],
+            nativeAmount: amount,
+            nativeAmountValue: amount,
           },
         },
       ],
