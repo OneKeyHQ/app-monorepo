@@ -41,6 +41,7 @@ class ServiceMarket extends ServiceBase {
       headers: await getDevHeaders(),
     });
     const { code, data } = response.data;
+    data[0].name = 'Watchlist';
     return code === 0
       ? data.filter((i) => i.categoryId !== 'onekey-search-trending')
       : [];
