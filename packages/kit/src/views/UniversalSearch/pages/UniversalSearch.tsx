@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -35,6 +35,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { ListItem } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 
@@ -76,6 +77,34 @@ export function UniversalSearch({
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
     ESearchStatus.init,
   );
+  const [recommendSections, setRecommendSections] = useState<
+    IUniversalSection[]
+  >([]);
+
+  const fetchRecommendList = useCallback(async () => {
+    const searchResultSections: {
+      title: string;
+      data: IUniversalSearchResultItem[];
+    }[] = [];
+    const result = await backgroundApiProxy.serviceApp.universalSearchRecommend(
+      {
+        searchTypes: searchType ? [searchType] : [],
+      },
+    );
+    if (result?.[EUniversalSearchType.MarketToken]?.items) {
+      searchResultSections.push({
+        title: 'Trending',
+        data: result?.[EUniversalSearchType.MarketToken]
+          ?.items as IUniversalSearchResultItem[],
+      });
+    }
+    setRecommendSections(searchResultSections);
+  }, [searchType]);
+
+  useEffect(() => {
+    void fetchRecommendList();
+  }, [fetchRecommendList]);
+
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     const input = val?.trim?.() || '';
     const result = await backgroundApiProxy.serviceApp.universalSearch({
@@ -195,14 +224,17 @@ export function UniversalSearch({
     [navigation],
   );
 
-  const renderInintResult = useCallback(() => {}, []);
-
   const renderResult = useCallback(() => {
     switch (searchStatus) {
       case ESearchStatus.init:
         return (
           <YStack>
             <RecentSearched />
+            <SectionList
+              sections={recommendSections}
+              renderItem={renderItem}
+              estimatedItemSize="$16"
+            />
           </YStack>
         );
 

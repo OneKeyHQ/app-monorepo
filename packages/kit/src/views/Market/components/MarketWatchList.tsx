@@ -82,16 +82,6 @@ const maxSize = 8;
 export function MarketWatchList({ category }: { category: IMarketCategory }) {
   const [{ items: watchListCoingeckoIds }] = useMarketWatchListPersistAtom();
 
-  const { result: listData } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceMarket.fetchCategory(
-        category.categoryId,
-        category.coingeckoIds,
-        true,
-      ),
-    [category.categoryId, category.coingeckoIds],
-  );
-
   const [coingeckoIds, setCoingeckoIds] = useState<string[]>([]);
 
   const handleRecommendItemChange = useCallback(
@@ -114,7 +104,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   }, [coingeckoIds]);
 
   const renderRecommend = useCallback(() => {
-    if (listData?.length) {
+    if (category?.recommendedTokens) {
       return (
         <YStack flex={1} ai="center" jc="center" px="$5" py="$8">
           <SizableText size="$heading3xl">Your watchlist is empty</SizableText>
@@ -131,13 +121,13 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
             {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
               <XStack space="$2.5" key={i}>
                 {new Array(2).fill(0).map((__, j) => {
-                  const item = listData[i * 2 + j];
+                  const item = category?.recommendedTokens[i * 2 + j];
                   return (
                     <RecommendItem
                       key={item.coingeckoId}
                       coingeckoId={item.coingeckoId}
                       checked={coingeckoIds.includes(item.coingeckoId)}
-                      icon={item.image}
+                      icon={item.iconUrl}
                       symbol={item.symbol}
                       tokenName={item.name}
                       onChange={handleRecommendItemChange}
@@ -163,7 +153,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
       );
     }
     return null;
-  }, [coingeckoIds, handleAddTokens, handleRecommendItemChange, listData]);
+  }, [coingeckoIds, handleAddTokens, handleRecommendItemChange]);
   return watchListCoingeckoIds?.length === 0 ? (
     renderRecommend()
   ) : (

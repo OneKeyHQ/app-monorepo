@@ -205,6 +205,29 @@ class ServiceApp extends ServiceBase {
 
   // TODO move to standalone service
   @backgroundMethod()
+  async universalSearchRecommend({
+    searchTypes,
+  }: {
+    searchTypes: EUniversalSearchType[];
+  }): Promise<IUniversalSearchBatchResult> {
+    const result: IUniversalSearchBatchResult = {};
+    if (!searchTypes.length) {
+      return [];
+    }
+    if (searchTypes.includes(EUniversalSearchType.MarketToken)) {
+      const items =
+        await this.backgroundApi.serviceMarket.fetchSearchTrending();
+      result[EUniversalSearchType.MarketToken] = {
+        items: items.map((item) => ({
+          type: EUniversalSearchType.MarketToken,
+          payload: item,
+        })),
+      };
+    }
+    return result;
+  }
+
+  @backgroundMethod()
   async universalSearch({
     input,
     networkId,

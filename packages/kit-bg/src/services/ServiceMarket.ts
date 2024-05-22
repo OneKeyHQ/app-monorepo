@@ -25,6 +25,8 @@ const getDevHeaders = async () =>
       }
     : undefined;
 
+const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
+
 @backgroundClass()
 class ServiceMarket extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -32,7 +34,7 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchCategories() {
+  async fetchCategories(filters = [ONEKEY_SEARCH_TRANDING]) {
     const client = await this.getClient();
     const response = await client.get<{
       code: number;
@@ -42,8 +44,25 @@ class ServiceMarket extends ServiceBase {
     });
     const { code, data } = response.data;
     data[0].name = 'Watchlist';
-    return code === 0
-      ? data.filter((i) => i.categoryId !== 'onekey-search-trending')
+    if (code !== 0) {
+      return [];
+    }
+    return filters.length
+      ? data.filter((i) => !filters.includes(i.categoryId))
+      : data;
+  }
+
+  @backgroundMethod()
+  async fetchSearchTrending() {
+    const categories = await this.fetchCategories([]);
+    const searchTrendingCategory = categories.find(
+      (i) => i.categoryId === ONEKEY_SEARCH_TRANDING,
+    );
+    return searchTrendingCategory
+      ? this.fetchCategory(
+          searchTrendingCategory.categoryId,
+          searchTrendingCategory.coingeckoIds,
+        )
       : [];
   }
 
@@ -51,7 +70,7 @@ class ServiceMarket extends ServiceBase {
   async fetchCategory(
     category: string,
     coingeckoIds: string[],
-    sparkline: boolean,
+    sparkline = false,
   ) {
     const requestParams: {
       category: string;

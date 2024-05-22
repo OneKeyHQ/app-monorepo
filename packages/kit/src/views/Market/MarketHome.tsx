@@ -27,7 +27,7 @@ function MarketHome() {
         // eslint-disable-next-line react/no-unstable-nested-components
         page: () =>
           index === 0 ? (
-            <MarketWatchList category={categories[1]} />
+            <MarketWatchList category={category} />
           ) : (
             <MarketHomeList category={category} />
           ),

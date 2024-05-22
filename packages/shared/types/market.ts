@@ -29,6 +29,7 @@ export interface IMarketToken {
   totalVolume: number;
   marketCap: number;
   symbol: string;
+  iconUrl: string;
   image: string;
   priceChangePercentage1H: number;
   priceChangePercentage24H: number;
