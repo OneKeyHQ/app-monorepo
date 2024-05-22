@@ -22,6 +22,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  IUniversalSearchAddress,
   IUniversalSearchBatchResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
@@ -282,26 +283,29 @@ class ServiceApp extends ServiceBase {
         networkId,
       });
 
-    items = sortBy(items, (item) => {
-      if (currentNetwork?.id) {
-        const currentImpl = networkUtils.getNetworkImpl({
-          networkId: currentNetwork.id,
-        });
-        // use home EVM network as result
-        if (
-          currentImpl === IMPL_EVM &&
-          item.payload.network.impl === currentImpl
-        ) {
-          item.payload.network = currentNetwork;
-          return 0;
+    items = sortBy(
+      items as IUniversalSearchAddress[],
+      (item: IUniversalSearchAddress) => {
+        if (currentNetwork?.id) {
+          const currentImpl = networkUtils.getNetworkImpl({
+            networkId: currentNetwork.id,
+          });
+          // use home EVM network as result
+          if (
+            currentImpl === IMPL_EVM &&
+            item.payload.network.impl === currentImpl
+          ) {
+            item.payload.network = currentNetwork;
+            return 0;
+          }
         }
-      }
-      return 1;
-    });
+        return 1;
+      },
+    );
 
     return {
       items,
-    };
+    } as IUniversalSearchSingleResult;
   }
 }
 
