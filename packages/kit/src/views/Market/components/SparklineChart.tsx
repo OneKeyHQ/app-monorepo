@@ -1,6 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { Stack, View } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Canvas } from './Canvas';
