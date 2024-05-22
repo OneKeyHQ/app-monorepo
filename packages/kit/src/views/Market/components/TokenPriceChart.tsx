@@ -57,7 +57,7 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
       });
   }, [coinGeckoId, days]);
   return (
-    <YStack $gtMd={{ pl: '$5', flexGrow: 1 }}>
+    <YStack h={326} $gtMd={{ pl: '$5', flexGrow: 1, h: 346 }}>
       <PriceChart
         isFetching={isLoading}
         data={points}

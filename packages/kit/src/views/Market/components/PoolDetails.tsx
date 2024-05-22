@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react';
 
 import { differenceInDays } from 'date-fns';
 
+import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import {
   Icon,
   IconButton,
@@ -22,19 +23,21 @@ function PoolDetailsItem({
   children,
   currency,
   isNumeric = false,
+  formatter = 'marketCap',
 }: {
   title: string;
   rank?: number;
   currency?: boolean;
   children: ReactElement | string;
   isNumeric?: boolean;
+  formatter?: INumberSizeableTextProps['formatter'];
 }) {
   const renderChildren = useMemo(() => {
     if (isNumeric) {
       return (
         <NumberSizeableText
           size="$bodyMdMedium"
-          formatter="marketCap"
+          formatter={formatter}
           formatterOptions={currency ? { currency: '$' } : undefined}
         >
           {children as string}
@@ -94,10 +97,10 @@ export function PoolDetails({
         </PoolDetailsItem>
       </XStack>
       <XStack space="$4">
-        <PoolDetailsItem title="Price" currency isNumeric>
+        <PoolDetailsItem title="Price" currency isNumeric formatter="price">
           {attributes.base_token_price_usd}
         </PoolDetailsItem>
-        <PoolDetailsItem title="24H Txns" currency isNumeric>
+        <PoolDetailsItem title="24H Txns" isNumeric>
           {String(
             attributes.transactions.h24.buys +
               attributes.transactions.h24.sells,
@@ -105,18 +108,18 @@ export function PoolDetails({
         </PoolDetailsItem>
       </XStack>
       <XStack space="$4">
-        <PoolDetailsItem title="24H Volume" currency isNumeric>
+        <PoolDetailsItem title="24H Volume" isNumeric>
           {attributes.volume_usd.h24}
         </PoolDetailsItem>
-        <PoolDetailsItem title="Liquidity" currency isNumeric>
+        <PoolDetailsItem title="Liquidity" isNumeric>
           {attributes.reserve_in_usd}
         </PoolDetailsItem>
       </XStack>
       <XStack space="$4">
-        <PoolDetailsItem title="FDV" currency isNumeric>
+        <PoolDetailsItem title="FDV" isNumeric>
           {attributes.fdv_usd}
         </PoolDetailsItem>
-        <PoolDetailsItem title="Age" currency isNumeric>
+        <PoolDetailsItem title="Age">
           {`${differenceInDays(
             new Date(),
             new Date(attributes.pool_created_at),
