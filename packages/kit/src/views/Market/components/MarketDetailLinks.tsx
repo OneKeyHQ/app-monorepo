@@ -10,7 +10,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 export function MarketDetailLinks({
   token: {
-    links: { discordUrl, homePageUrl, telegramUrl, twitterUrl },
+    links: { discordUrl, homePageUrl, telegramUrl, twitterUrl, whitepaper },
     explorers,
   },
 }: {
@@ -25,7 +25,7 @@ export function MarketDetailLinks({
         <XStack space="$3">
           {twitterUrl ? (
             <IconButton
-              icon="TelegramBrand"
+              icon="Xbrand"
               onPress={() => openUrlExternal(twitterUrl)}
             />
           ) : null}
@@ -57,9 +57,11 @@ export function MarketDetailLinks({
               Website
             </Button>
           ) : null}
-          <Button icon="BookOpenOutline" iconAfter="OpenOutline">
-            White Paper
-          </Button>
+          {whitepaper ? (
+            <Button icon="BookOpenOutline" iconAfter="OpenOutline">
+              White Paper
+            </Button>
+          ) : null}
         </XStack>
       </YStack>
       <YStack py="$5" space="$2">
