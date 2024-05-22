@@ -52,17 +52,24 @@ class ServiceMarket extends ServiceBase {
     coingeckoIds: string[],
     sparkline: boolean,
   ) {
+    const requestParams: {
+      category: string;
+      sparkline: boolean;
+      ids?: string;
+    } = {
+      category,
+      sparkline,
+    };
+    if (coingeckoIds.length) {
+      requestParams.ids = encodeURI(coingeckoIds.join(','));
+    }
     const client = await this.getClient();
     const response = await client.get<{
       code: number;
       data: IMarketToken[];
     }>('/utility/v1/market/tokens', {
       headers: await getDevHeaders(),
-      params: {
-        category,
-        ids: encodeURI(coingeckoIds.join(',')),
-        sparkline,
-      },
+      params: requestParams,
       paramsSerializer: (params) => {
         const urlSearchParams = new URLSearchParams(params);
         return urlSearchParams.toString();
