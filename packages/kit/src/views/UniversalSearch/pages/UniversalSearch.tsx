@@ -35,6 +35,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 
 import { RecentSearched } from './components/RecentSearched';
+import { MarketStar } from '../../Market/components/MarketStar';
 
 interface IUniversalSection {
   title: string;
@@ -207,7 +208,7 @@ export function UniversalSearch({
                 title={symbol.toUpperCase()}
                 subtitle={name}
               />
-              <XStack pr="$5">
+              <XStack pr="$5" space="$5">
                 <NumberSizeableText
                   size="$bodyLgMedium"
                   formatter="price"
@@ -215,6 +216,7 @@ export function UniversalSearch({
                 >
                   {price}
                 </NumberSizeableText>
+                <MarketStar coingeckoId={coingeckoId} />
               </XStack>
             </XStack>
           );
