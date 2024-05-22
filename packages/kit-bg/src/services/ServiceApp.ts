@@ -261,7 +261,7 @@ class ServiceApp extends ServiceBase {
               addressInfo: r,
               network,
             },
-          });
+          } as IUniversalSearchResultItem);
         }
       } catch (error) {
         (error as IOneKeyError).$$autoPrintErrorIgnore = true;

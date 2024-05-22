@@ -65,7 +65,7 @@ export default function useChartThrottledPoints({
   originData,
   fetchingCharts,
 }: {
-  originData: MarketApiData[];
+  originData: IMarketTokenChart;
   fetchingCharts?: boolean;
 }) {
   const [throttledPoints, setThrottledPoints] = useState(initData);

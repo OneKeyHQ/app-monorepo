@@ -108,6 +108,7 @@ export function MarketDetailPools({
       />
       <ListView
         data={pools}
+        estimatedItemSize={38}
         ListHeaderComponent={
           <XStack py="$2.5">
             <HeaderColumn textAlign="left">Pair</HeaderColumn>
@@ -120,95 +121,97 @@ export function MarketDetailPools({
             <Stack h="$4" w="$4" pl="$3" />
           </XStack>
         }
-        renderItem={({ item }: { item: IMarketDetailPool }) => {
-          const { attributes, relationships } = item;
-          return (
-            <XStack
-              py="$2"
-              onPress={() => {
-                Dialog.confirm({
-                  title: 'Pool Details',
-                  renderContent: <PoolDetails item={item} />,
-                });
-              }}
-            >
-              <ItemColumn>
-                <XStack space="$2.5" ai="center">
-                  {relationships.dex.data.id.includes('uniswap') ? (
-                    <Icon
-                      name="UniswapBrand"
-                      size="$5"
-                      borderRadius="100%"
-                      color={'#ff007a' as IIconProps['color']}
-                    />
-                  ) : null}
-                  <YStack flexShrink={1}>
-                    <SizableText size="$bodySmMedium">
-                      {attributes.name}
-                    </SizableText>
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      {relationships.dex.data.id
-                        .split('_')
-                        .map(
-                          (word) =>
-                            `${word.charAt(0).toUpperCase()}${word.slice(1)}`,
-                        )
-                        .join(' ')}
-                    </SizableText>
-                  </YStack>
-                </XStack>
-              </ItemColumn>
-
-              {gtMd ? (
+        renderItem={
+          (({ item }: { item: IMarketDetailPool }) => {
+            const { attributes, relationships } = item;
+            return (
+              <XStack
+                py="$2"
+                onPress={() => {
+                  Dialog.confirm({
+                    title: 'Pool Details',
+                    renderContent: <PoolDetails item={item} />,
+                  });
+                }}
+              >
                 <ItemColumn>
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    formatter="price"
-                    formatterOptions={{ currency: '$' }}
-                    textAlign="right"
-                  >
-                    {attributes.base_token_price_usd}
-                  </NumberSizeableText>
+                  <XStack space="$2.5" ai="center">
+                    {relationships.dex.data.id.includes('uniswap') ? (
+                      <Icon
+                        name="UniswapBrand"
+                        size="$5"
+                        borderRadius="100%"
+                        color={'#ff007a' as IIconProps['color']}
+                      />
+                    ) : null}
+                    <YStack flexShrink={1}>
+                      <SizableText size="$bodySmMedium">
+                        {attributes.name}
+                      </SizableText>
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {relationships.dex.data.id
+                          .split('_')
+                          .map(
+                            (word) =>
+                              `${word.charAt(0).toUpperCase()}${word.slice(1)}`,
+                          )
+                          .join(' ')}
+                      </SizableText>
+                    </YStack>
+                  </XStack>
                 </ItemColumn>
-              ) : null}
-              {gtMd ? (
+
+                {gtMd ? (
+                  <ItemColumn>
+                    <NumberSizeableText
+                      size="$bodyMd"
+                      formatter="price"
+                      formatterOptions={{ currency: '$' }}
+                      textAlign="right"
+                    >
+                      {attributes.base_token_price_usd}
+                    </NumberSizeableText>
+                  </ItemColumn>
+                ) : null}
+                {gtMd ? (
+                  <ItemColumn>
+                    <NumberSizeableText
+                      size="$bodyMd"
+                      formatter="marketCap"
+                      textAlign="right"
+                    >
+                      {String(
+                        attributes.transactions.h24.buys +
+                          attributes.transactions.h24.sells,
+                      )}
+                    </NumberSizeableText>
+                  </ItemColumn>
+                ) : null}
                 <ItemColumn>
                   <NumberSizeableText
                     size="$bodyMd"
                     formatter="marketCap"
                     textAlign="right"
                   >
-                    {String(
-                      attributes.transactions.h24.buys +
-                        attributes.transactions.h24.sells,
-                    )}
+                    {attributes.volume_usd.h24}
                   </NumberSizeableText>
                 </ItemColumn>
-              ) : null}
-              <ItemColumn>
-                <NumberSizeableText
-                  size="$bodyMd"
-                  formatter="marketCap"
-                  textAlign="right"
-                >
-                  {attributes.volume_usd.h24}
-                </NumberSizeableText>
-              </ItemColumn>
-              <ItemColumn>
-                <NumberSizeableText
-                  size="$bodyMd"
-                  formatter="marketCap"
-                  textAlign="right"
-                >
-                  {attributes.reserve_in_usd}
-                </NumberSizeableText>
-              </ItemColumn>
-              <View jc="center">
-                <Icon name="ChevronRightSmallOutline" size="$4" pl="$3" />
-              </View>
-            </XStack>
-          );
-        }}
+                <ItemColumn>
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    formatter="marketCap"
+                    textAlign="right"
+                  >
+                    {attributes.reserve_in_usd}
+                  </NumberSizeableText>
+                </ItemColumn>
+                <View jc="center">
+                  <Icon name="ChevronRightSmallOutline" size="$4" pl="$3" />
+                </View>
+              </XStack>
+            );
+          }) as any
+        }
       />
     </YStack>
   );
