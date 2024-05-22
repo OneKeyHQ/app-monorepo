@@ -596,9 +596,15 @@ test('formatMarketCap', () => {
   // more then 1，but less then 1 hundred
   expect(formatDisplayNumber(formatMarketCap('1'))).toEqual('1');
   expect(formatDisplayNumber(formatMarketCap('22.125423'))).toEqual('22.13');
+  expect(
+    formatDisplayNumber(formatMarketCap('22.125423', { currency: '$' })),
+  ).toEqual('$22.13');
 
   // hundred
   expect(formatDisplayNumber(formatMarketCap('4512.1242'))).toEqual('4.51K');
+  expect(
+    formatDisplayNumber(formatMarketCap('4512.1242', { currency: '$' })),
+  ).toEqual('$4.51K');
 
   // thousand
   expect(formatDisplayNumber(formatMarketCap('451200.1242'))).toEqual('451.2K');
@@ -607,6 +613,9 @@ test('formatMarketCap', () => {
   expect(formatDisplayNumber(formatMarketCap('382134512.1242'))).toEqual(
     '382.13M',
   );
+  expect(
+    formatDisplayNumber(formatMarketCap('382134512.1242', { currency: '$' })),
+  ).toEqual('$382.13M');
   expect(formatDisplayNumber(formatMarketCap('882134512'))).toEqual('882.13M');
 
   // more then 1 billion, but less then 1 trillion
@@ -624,6 +633,11 @@ test('formatMarketCap', () => {
   expect(formatDisplayNumber(formatMarketCap('564200002184512.1242'))).toEqual(
     '564.2T',
   );
+  expect(
+    formatDisplayNumber(
+      formatMarketCap('564200002184512.1242', { currency: '$' }),
+    ),
+  ).toEqual('$564.2T');
 
   expect(
     formatDisplayNumber(
