@@ -6,6 +6,7 @@ import type {
   IStackProps,
 } from '@onekeyhq/components';
 import {
+  ActionList,
   Button,
   Icon,
   IconButton,
@@ -39,6 +40,7 @@ import { MarketStar } from './MarketStar';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
+import { useWatchListAction } from './wachListHooks';
 
 function Column({
   alignLeft,
@@ -524,7 +526,7 @@ export function MarketHomeList({
   showMoreAction = false,
 }: {
   category: IMarketCategory;
-  showMoreAction: boolean;
+  showMoreAction?: boolean;
 }) {
   const navigation = useAppNavigation();
 
@@ -597,7 +599,7 @@ export function MarketHomeList({
         onPress={toDetailPage}
       />
     ),
-    [tableRowConfig, toDetailPage],
+    [showMoreAction, tableRowConfig, toDetailPage],
   );
 
   const [mdColumnKeys, setMdColumnKeys] = useState<IKeyOfMarketToken[]>([
@@ -605,12 +607,65 @@ export function MarketHomeList({
     'priceChangePercentage24H',
   ]);
 
+  const actions = useWatchListAction();
+  const handleMdItemAction = useCallback(
+    async ({ coingeckoId, symbol }: IMarketToken) => {
+      const isInWatchList =
+        await backgroundApiProxy.serviceMarket.isInWatchList(coingeckoId);
+      ActionList.show(
+        isInWatchList
+          ? {
+              title: 'Encrypted Backup Contents',
+              sections: [
+                {
+                  items: [
+                    {
+                      destructive: true,
+                      icon: 'DeleteOutline',
+                      label: 'Remove from Favorites',
+                      onPress: async () => {
+                        await actions.removeFormWatchList(coingeckoId);
+                      },
+                    },
+                    showMoreAction && {
+                      icon: 'ArrowTopOutline',
+                      label: 'Move to Top',
+                      onPress: async () => {
+                        await actions.MoveToTop(coingeckoId);
+                      },
+                    },
+                  ].filter(Boolean),
+                },
+              ],
+            }
+          : {
+              title: symbol.toUpperCase(),
+              sections: [
+                {
+                  items: [
+                    {
+                      icon: 'StarOutline',
+                      label: 'Add to Favorites',
+                      onPress: async () => {
+                        await actions.addIntoWatchList(coingeckoId);
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+      );
+    },
+    [actions, showMoreAction],
+  );
+
   const renderMdItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
       <XStack
         height={60}
         justifyContent="space-between"
         onPress={() => toDetailPage(item)}
+        onLongPress={() => handleMdItemAction(item)}
       >
         <XStack space="$3" ai="center">
           <Image
