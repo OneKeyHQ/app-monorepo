@@ -121,8 +121,8 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
             {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
               <XStack space="$2.5" key={i}>
                 {new Array(2).fill(0).map((__, j) => {
-                  const item = category?.recommendedTokens[i * 2 + j];
-                  return (
+                  const item = category.recommendedTokens?.[i * 2 + j];
+                  return item ? (
                     <RecommendItem
                       key={item.coingeckoId}
                       coingeckoId={item.coingeckoId}
@@ -132,7 +132,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
                       tokenName={item.name}
                       onChange={handleRecommendItemChange}
                     />
-                  );
+                  ) : null;
                 })}
               </XStack>
             ))}
