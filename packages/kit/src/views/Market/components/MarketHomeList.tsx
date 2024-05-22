@@ -34,6 +34,7 @@ import type {
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
+import { MarketMore } from './MarketMore';
 import { MarketStar } from './MarketStar';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
@@ -128,7 +129,7 @@ const useBuildTableHeaderConfig = () =>
     'sparkline': () => 'Last 7 days',
   } as ITableColumnConfig);
 
-const useBuildTableRowConfig = () => {
+const useBuildTableRowConfig = (showMoreAction = false) => {
   const navigation = useAppNavigation();
   return useMemo(() => {
     const tableRowConfig: ITableColumnConfig = {
@@ -245,10 +246,17 @@ const useBuildTableRowConfig = () => {
           }
         />
       ),
-      'actions': (item) => <MarketStar coingeckoId={item.coingeckoId} />,
+      'actions': (item) => (
+        <XStack>
+          <MarketStar coingeckoId={item.coingeckoId} />
+          {showMoreAction ? (
+            <MarketMore coingeckoId={item.coingeckoId} />
+          ) : null}
+        </XStack>
+      ),
     };
     return tableRowConfig;
-  }, []);
+  }, [showMoreAction]);
 };
 
 function TableRow({
@@ -258,6 +266,7 @@ function TableRow({
   onPress,
   sortType,
   onSortTypeChange,
+  showMoreAction = false,
 }: {
   item?: IMarketToken;
   tableConfig: ITableColumnConfig;
@@ -268,6 +277,7 @@ function TableRow({
     columnName: string;
     order: 'asc' | 'desc' | undefined;
   }) => void;
+  showMoreAction?: boolean;
 }) {
   const {
     serialNumber,
@@ -424,7 +434,7 @@ function TableRow({
       ) : null}
       <Column
         name="action"
-        width={64}
+        width={showMoreAction ? 88 : 64}
         jc="center"
         px="$3"
         onPress={handleColumnPress}
@@ -509,7 +519,13 @@ function PopoverSettingsContent({
 }
 
 type IKeyOfMarketToken = keyof IMarketToken;
-export function MarketHomeList({ category }: { category: IMarketCategory }) {
+export function MarketHomeList({
+  category,
+  showMoreAction = false,
+}: {
+  category: IMarketCategory;
+  showMoreAction: boolean;
+}) {
   const navigation = useAppNavigation();
 
   const { result: listData } = usePromiseResult(
@@ -528,7 +544,7 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
     listDataRef.current = listData;
   }
 
-  const tableRowConfig = useBuildTableRowConfig();
+  const tableRowConfig = useBuildTableRowConfig(showMoreAction);
 
   const toDetailPage = useCallback(
     (item: IMarketToken) => {
@@ -561,18 +577,20 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
   const HeaderColumns = useMemo(
     () => (
       <TableRow
+        showMoreAction={showMoreAction}
         tableConfig={tableHeaderConfig}
         minHeight="$4"
         sortType={sortByType}
         onSortTypeChange={handleSortTypeChange}
       />
     ),
-    [handleSortTypeChange, sortByType, tableHeaderConfig],
+    [handleSortTypeChange, showMoreAction, sortByType, tableHeaderConfig],
   );
 
   const renderItem = useCallback(
     ({ item }: any) => (
       <TableRow
+        showMoreAction={showMoreAction}
         tableConfig={tableRowConfig}
         item={item}
         minHeight={60}

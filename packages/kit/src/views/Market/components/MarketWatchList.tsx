@@ -8,9 +8,9 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketWatchListPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
@@ -103,6 +103,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     );
   }, [coingeckoIds]);
 
+  const { gtMd } = useMedia();
   const renderRecommend = useCallback(() => {
     if (category?.recommendedTokens) {
       return (
@@ -153,11 +154,17 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
       );
     }
     return null;
-  }, [coingeckoIds, handleAddTokens, handleRecommendItemChange]);
+  }, [
+    category.recommendedTokens,
+    coingeckoIds,
+    handleAddTokens,
+    handleRecommendItemChange,
+  ]);
   return watchListCoingeckoIds?.length === 0 ? (
     renderRecommend()
   ) : (
     <MarketHomeList
+      showMoreAction={gtMd}
       category={
         {
           categoryId: 'all',

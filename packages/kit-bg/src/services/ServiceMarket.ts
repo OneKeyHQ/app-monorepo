@@ -143,6 +143,18 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
+  async moveToTop(item: IMarketWatchListItem) {
+    await marketWatchListPersistAtom.set((prev) => {
+      const newItems = prev.items.filter(
+        (i) => i.coingeckoId !== item.coingeckoId,
+      );
+      return {
+        items: [...newItems, ...prev.items],
+      };
+    });
+  }
+
+  @backgroundMethod()
   async fetchPools(query: string) {
     const client = await this.getClient();
     const response = await client.get<{

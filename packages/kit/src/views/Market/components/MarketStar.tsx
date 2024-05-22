@@ -28,6 +28,7 @@ function BasicMarketStar({ coingeckoId }: { coingeckoId: string }) {
       color="red"
       variant="tertiary"
       iconSize="$5"
+      mx="$3"
       onPress={handlePress}
     />
   );
