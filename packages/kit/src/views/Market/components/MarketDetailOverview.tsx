@@ -251,7 +251,7 @@ export function MarketDetailOverview({
   pools: IMarketDetailPool[];
 }) {
   return (
-    <YStack>
+    <YStack $gtMd={{ pb: '$10' }}>
       <XStack
         borderWidth="$px"
         borderRadius="$2"
