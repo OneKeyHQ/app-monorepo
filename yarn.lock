@@ -5386,21 +5386,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git#f2b637d09b4f25f0a55f181e9ef926e5372bf1b0":
+"@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git#b84b2b2ae57874322e59b9fd387ff17e772b7d57":
   version: 1.0.0
-  resolution: "@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git#commit=f2b637d09b4f25f0a55f181e9ef926e5372bf1b0"
+  resolution: "@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git#commit=b84b2b2ae57874322e59b9fd387ff17e772b7d57"
   dependencies:
     d3-scale: "npm:^4.0.2"
     d3-shape: "npm:^3.0.1"
-    expo-haptics: "npm:^11.2.0"
-    react-native-gesture-handler: "npm:^2.5.0"
-    react-native-reanimated: "npm:^2.4.1"
     react-native-redash: "npm:^16.2.2"
-    react-native-svg: "npm:^12.1.0"
   peerDependencies:
+    expo-haptics: "*"
     react: "*"
     react-native: "*"
-  checksum: 10/c9bd2d13809aafd308777dde75927b0731d86d910c95268389a5bada967e70029f4853d0d549aa898d21d92cf5b8a45abcf71052c43e3ee3e725e05cbfea1c13
+    react-native-gesture-handler: "*"
+    react-native-reanimated: ">=2.0.0"
+    react-native-svg: "*"
+  checksum: 10/e0ded206c3c247c490c1cc612d3752aa26fc1fb347e8f1e86e83847738211b4c7b6ca19930fc5bf6b15be302b50ab08295910edae8bb6b3b5d9d156e5abcd06d
   languageName: node
   linkType: hard
 
@@ -5775,7 +5775,7 @@ __metadata:
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
-    "@onekeyfe/react-native-animated-charts": "https://github.com/OneKeyHQ/react-native-animated-charts.git#f2b637d09b4f25f0a55f181e9ef926e5372bf1b0"
+    "@onekeyfe/react-native-animated-charts": "https://github.com/OneKeyHQ/react-native-animated-charts.git#b84b2b2ae57874322e59b9fd387ff17e772b7d57"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.5"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.3"
@@ -19146,15 +19146,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-haptics@npm:^11.2.0":
-  version: 11.3.0
-  resolution: "expo-haptics@npm:11.3.0"
-  peerDependencies:
-    expo: "*"
-  checksum: 10/dde7b68b3300af6dfe847b2fbf11db29b96300b00f534c24522c392faedfe42e85bd82f7287a2260dc83fc60efe8bcc5034da7ced4c081194238d2f435c1e794
-  languageName: node
-  linkType: hard
-
 "expo-image-loader@npm:~4.4.0":
   version: 4.4.0
   resolution: "expo-image-loader@npm:4.4.0"
@@ -28361,22 +28352,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-gesture-handler@npm:^2.5.0":
-  version: 2.16.2
-  resolution: "react-native-gesture-handler@npm:2.16.2"
-  dependencies:
-    "@egjs/hammerjs": "npm:^2.0.17"
-    hoist-non-react-statics: "npm:^3.3.0"
-    invariant: "npm:^2.2.4"
-    lodash: "npm:^4.17.21"
-    prop-types: "npm:^15.7.2"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/227799f5e16f9725d81db524fc06c1fbef226835a5ee989642d132748832f7543ebc750d4309e49bcaa0fb6d1e7dd6b74028785e4b755978ab7f66f05b414c18
-  languageName: node
-  linkType: hard
-
 "react-native-get-random-values@npm:1.9.0":
   version: 1.9.0
   resolution: "react-native-get-random-values@npm:1.9.0"
@@ -28538,24 +28513,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-reanimated@npm:^2.4.1":
-  version: 2.17.0
-  resolution: "react-native-reanimated@npm:2.17.0"
-  dependencies:
-    "@babel/plugin-transform-object-assign": "npm:^7.16.7"
-    "@babel/preset-typescript": "npm:^7.16.7"
-    invariant: "npm:^2.2.4"
-    lodash.isequal: "npm:^4.5.0"
-    setimmediate: "npm:^1.0.5"
-    string-hash-64: "npm:^1.0.3"
-  peerDependencies:
-    "@babel/core": ^7.0.0-0
-    react: "*"
-    react-native: "*"
-  checksum: 10/d7b8fa2ead25c5da8d92f2e04a6ebc557617b33030b0a8abef497c5f5434a4b674c8076de7c72a18013f13a4108edbd44158ea80624265fa746f85865df67ac7
-  languageName: node
-  linkType: hard
-
 "react-native-redash@npm:^16.2.2":
   version: 16.3.0
   resolution: "react-native-redash@npm:16.3.0"
@@ -28651,19 +28608,6 @@ __metadata:
     react-native-svg:
       optional: false
   checksum: 10/219319ec63a99bb8351e4a2684ace3380dff8de316a59d57d2e5c08c7c59898ecb9a353ced4b0d8fe85ac55f15e2ac83db00f3b6e08e1276231dd6b5c5093532
-  languageName: node
-  linkType: hard
-
-"react-native-svg@npm:^12.1.0":
-  version: 12.5.1
-  resolution: "react-native-svg@npm:12.5.1"
-  dependencies:
-    css-select: "npm:^5.1.0"
-    css-tree: "npm:^1.1.3"
-  peerDependencies:
-    react: "*"
-    react-native: ">=0.50.0"
-  checksum: 10/cb7e56c5034c8e7cfa17cbe4ec6012ac475fbbbd6d565835f7883b1743743a5b66cbefe334c00a31a8c200c0274dafa6e6382048ba63a5506d6fb59e1ed1c373
   languageName: node
   linkType: hard
 
@@ -31164,13 +31108,6 @@ __metadata:
   version: 2.0.0
   resolution: "strict-uri-encode@npm:2.0.0"
   checksum: 10/eaac4cf978b6fbd480f1092cab8b233c9b949bcabfc9b598dd79a758f7243c28765ef7639c876fa72940dac687181b35486ea01ff7df3e65ce3848c64822c581
-  languageName: node
-  linkType: hard
-
-"string-hash-64@npm:^1.0.3":
-  version: 1.0.3
-  resolution: "string-hash-64@npm:1.0.3"
-  checksum: 10/39aab30e05dfe2effe9a0807a4987cedb6c04f4dfcda3c4915add5b90d68676a6c583d2ad51683932ac3546a4f64a5e99136521b8f2eb1956d581bd2947a96a9
   languageName: node
   linkType: hard
 
