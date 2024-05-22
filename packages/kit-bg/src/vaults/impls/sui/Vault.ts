@@ -3,7 +3,6 @@ import {
   SUI_TYPE_ARG,
   TransactionBlock,
   builder,
-  getTransactionDigest,
   isValidSuiAddress,
 } from '@mysten/sui.js';
 import BigNumber from 'bignumber.js';
@@ -11,14 +10,9 @@ import { get, isEmpty } from 'lodash';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -51,7 +45,6 @@ import { SuiJsonRpcClient } from './sdkSui/SuiJsonRpcClient';
 import {
   moveCallTxnName,
   normalizeSuiCoinType,
-  toTransaction,
   waitPendingTransaction,
 } from './sdkSui/utils';
 
@@ -69,7 +62,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type {
-  SignatureScheme,
   SuiGasData,
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,

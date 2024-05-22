@@ -3,10 +3,7 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
-import type {
-  IKaspaUTXO,
-  UnspentOutputInfo,
-} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import type { UnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
   CONFIRMATION_COUNT,
   DUST_AMOUNT,
@@ -59,7 +56,6 @@ import { KeyringWatching } from './KeyringWatching';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -69,7 +65,6 @@ import type {
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 
 export default class Vault extends VaultBase {
