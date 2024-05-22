@@ -36,6 +36,7 @@ export const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   }
   if (decoder.isSuccess()) {
     const ur = decoder.resultUR();
+    animationData.fullUr = ur;
     const decoded = ur.decodeCBOR();
     if (Buffer.isBuffer(decoded)) {
       animationData.fullData = decoded.toString();

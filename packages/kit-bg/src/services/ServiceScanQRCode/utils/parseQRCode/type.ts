@@ -1,6 +1,8 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import type { UR } from '@ngraveio/bc-ur';
+
 export enum EQRCodeHandlerType {
   UNKNOWN = 'UNKNOWN',
   BITCOIN = 'BITCOIN',
@@ -76,6 +78,7 @@ export interface IAnimationValue extends IBaseValue {
   partIndexes: number[];
   partSize: number;
   fullData?: string;
+  fullUr?: UR;
   progress: number;
 }
 export interface IUrlValue extends IBaseValue {
