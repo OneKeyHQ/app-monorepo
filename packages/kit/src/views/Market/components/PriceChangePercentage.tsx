@@ -9,7 +9,7 @@ export function PriceChangePercentage({ children }: INumberSizeableTextProps) {
       size="$bodyMd"
       formatter="priceChange"
       color={Number(children) > 0 ? '$textSuccess' : '$textCritical'}
-      formatterOptions={{ currency: '$' }}
+      formatterOptions={{ showPlusMinusSigns: true }}
     >
       {children}
     </NumberSizeableText>
