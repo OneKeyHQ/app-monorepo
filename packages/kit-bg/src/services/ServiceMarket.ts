@@ -149,7 +149,7 @@ class ServiceMarket extends ServiceBase {
         (i) => i.coingeckoId !== item.coingeckoId,
       );
       return {
-        items: [...newItems, ...prev.items],
+        items: [item, ...newItems],
       };
     });
   }
