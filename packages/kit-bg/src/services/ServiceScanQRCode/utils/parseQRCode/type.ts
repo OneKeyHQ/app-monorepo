@@ -76,6 +76,7 @@ export interface IAnimationValue extends IBaseValue {
   partIndexes: number[];
   partSize: number;
   fullData?: string;
+  progress: number;
 }
 export interface IUrlValue extends IBaseValue {
   url: string;
@@ -110,6 +111,7 @@ export type IQRCodeHandlerParseResult<T extends IBaseValue> =
 export type IQRCodeHandlerParseOutsideOptions = {
   autoHandleResult?: boolean;
   accountId?: string;
+  mask?: boolean;
 };
 
 export type IQRCodeHandlerParseOptions = IQRCodeHandlerParseOutsideOptions &

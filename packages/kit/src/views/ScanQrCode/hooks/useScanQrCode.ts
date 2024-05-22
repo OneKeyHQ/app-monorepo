@@ -23,26 +23,33 @@ export default function useScanQrCode() {
     ({
       autoHandleResult = true,
       accountId,
+      mask = false,
     }: IQRCodeHandlerParseOutsideOptions) =>
       new Promise<IQRCodeHandlerParseResult<IBaseValue>>((resolve, reject) => {
         navigation.pushFullModal(EModalRoutes.ScanQrCodeModal, {
           screen: EScanQrCodeModalPages.ScanQrCodeStack,
           params: {
+            mask,
             callback: async (value: string) => {
               if (value?.length > 0) {
                 const parseValue = await parseQRCode.parse(value, {
                   autoHandleResult,
                   accountId,
                 });
-                if (
-                  parseValue.type !== EQRCodeHandlerType.ANIMATION_CODE ||
-                  (parseValue.data as IAnimationValue).fullData
-                ) {
-                  resolve(parseValue);
+                if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
+                  const animationValue = parseValue.data as IAnimationValue;
+                  if (animationValue.fullData) {
+                    resolve(parseValue);
+                  }
+                  return {
+                    progress: animationValue.progress,
+                  };
                 }
-              } else {
-                reject();
+                resolve(parseValue);
+                return {};
               }
+              reject(new Error('cancel'));
+              return {};
             },
           },
         });

@@ -20,11 +20,13 @@ export const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   }
   const partSize = decoder.expectedPartCount();
   const partIndexes = decoder.lastPartIndexes();
+  const progress = decoder.estimatedPercentComplete();
 
   const animationData: IAnimationValue = {
     fullData: undefined,
     partSize,
     partIndexes,
+    progress,
   };
   if (!decoder.isComplete()) {
     return {
