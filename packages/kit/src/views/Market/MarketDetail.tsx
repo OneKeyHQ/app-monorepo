@@ -111,8 +111,7 @@ function MarketDetail({
     const responseToken =
       await backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId);
     const responsePools = await backgroundApiProxy.serviceMarket.fetchPools(
-      responseToken.name,
-      responseToken.symbol,
+      coinGeckoId,
     );
     setTokenDetail(responseToken);
     setPools(responsePools);

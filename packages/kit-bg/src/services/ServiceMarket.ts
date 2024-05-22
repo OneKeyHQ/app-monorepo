@@ -143,7 +143,7 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchPools(query: string, network: string) {
+  async fetchPools(query: string) {
     const client = await this.getClient();
     const response = await client.get<{
       code: number;
@@ -152,7 +152,6 @@ class ServiceMarket extends ServiceBase {
       headers: await getDevHeaders(),
       params: {
         query,
-        network,
       },
     });
     const { code, data } = response.data;
