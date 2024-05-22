@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { Page, Tab, useMedia } from '@onekeyhq/components';
+import { Icon, Page, Tab, useMedia } from '@onekeyhq/components';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -40,6 +40,15 @@ function MarketHome() {
       <Page.Body>
         <Tab.Page
           data={tabConfig}
+          headerProps={{
+            contentContainerStyle: { paddingRight: '$5' },
+            renderItem: (item, index, titleStyle) =>
+              index === 0 ? (
+                <Icon name="StarOutline" />
+              ) : (
+                <Tab.SelectedLabel {...titleStyle} />
+              ),
+          }}
           onSelectedPageIndex={(index: number) => {
             console.log('选中', index);
           }}
