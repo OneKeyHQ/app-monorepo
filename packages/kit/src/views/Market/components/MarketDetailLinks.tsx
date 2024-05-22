@@ -11,6 +11,7 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 export function MarketDetailLinks({
   token: {
     links: { discordUrl, homePageUrl, telegramUrl, twitterUrl },
+    explorers,
   },
 }: {
   token: IMarketTokenDetail;
@@ -65,8 +66,16 @@ export function MarketDetailLinks({
         <SizableText size="$headingSm" color="$textSubdued">
           Explorers
         </SizableText>
-        <XStack>
-          <Button iconAfter="OpenOutline">Etherscan</Button>
+        <XStack flexWrap="wrap" space="$3">
+          {explorers.map(({ url, name }) => (
+            <Button
+              key={url}
+              iconAfter="OpenOutline"
+              onPress={() => openUrlExternal(url)}
+            >
+              {name}
+            </Button>
+          ))}
         </XStack>
       </YStack>
     </YStack>

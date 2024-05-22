@@ -43,8 +43,14 @@ function TokenDetailHeader({
 }) {
   const {
     name,
-    price,
-    stats: { performance, volume24h, marketCap, marketCapRank, fdv },
+    stats: {
+      performance,
+      volume24h,
+      marketCap,
+      marketCapRank,
+      fdv,
+      currentPrice,
+    },
   } = token;
   const { gtMd } = useMedia();
   return (
@@ -60,7 +66,7 @@ function TokenDetailHeader({
             formatterOptions={{ currency: '$' }}
             formatter="price"
           >
-            {price || 0}
+            {currentPrice || 0}
           </NumberSizeableText>
           <PriceChangePercentage pt="$0.5">
             {performance.priceChangePercentage24h}

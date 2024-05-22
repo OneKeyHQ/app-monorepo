@@ -65,6 +65,7 @@ export interface IMarketDetailStats {
   circulatingSupply: number;
   totalSupply: number;
   maxSupply: number;
+  currentPrice: string;
 }
 
 export interface IMarketTokenExplorer {
@@ -83,7 +84,6 @@ export interface IMarketDetailLinks {
 export interface IMarketTokenDetail {
   name: string;
   image: string;
-  price: string;
   symbol: string;
   about: string;
   explorers: IMarketTokenExplorer[];
