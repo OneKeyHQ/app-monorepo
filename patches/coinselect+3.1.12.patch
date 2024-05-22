@@ -1,0 +1,13 @@
+diff --git a/node_modules/coinselect/utils.js b/node_modules/coinselect/utils.js
+index 687fe66..b5e79b3 100644
+--- a/node_modules/coinselect/utils.js
++++ b/node_modules/coinselect/utils.js
+@@ -15,7 +15,7 @@ function outputBytes (output) {
+ 
+ function dustThreshold (output, feeRate) {
+   /* ... classify the output for input estimate  */
+-  return inputBytes({}) * feeRate
++  return inputBytes({}) * 3
+ }
+ 
+ function transactionBytes (inputs, outputs) {

@@ -166,35 +166,30 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Native token not found');
     }
 
+    const transfer = {
+      from: encodedTx.Account,
+      to: encodedTx.Destination,
+      amount: new BigNumber(encodedTx.Amount)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      tokenIdOnNetwork: nativeToken.address,
+      icon: nativeToken.logoURI ?? '',
+      name: nativeToken.name,
+      symbol: nativeToken.symbol,
+      isNFT: false,
+      isNative: true,
+    };
+    const action = await this.buildTxTransferAssetAction({
+      from: encodedTx.Account,
+      to: encodedTx.Destination,
+      transfers: [transfer],
+    });
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: encodedTx.Account,
       signer: encodedTx.Account,
       nonce: 0,
-      actions: [
-        {
-          type: EDecodedTxActionType.ASSET_TRANSFER,
-          assetTransfer: {
-            from: encodedTx.Account,
-            to: encodedTx.Destination,
-            sends: [
-              {
-                from: encodedTx.Account,
-                to: encodedTx.Destination,
-                isNative: true,
-                tokenIdOnNetwork: '',
-                name: nativeToken.name,
-                icon: nativeToken.logoURI ?? '',
-                amount: new BigNumber(encodedTx.Amount)
-                  .shiftedBy(-network.decimals)
-                  .toFixed(),
-                symbol: network.symbol,
-              },
-            ],
-            receives: [],
-          },
-        },
-      ],
+      actions: [action],
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
