@@ -49,7 +49,7 @@ function RecommendItem({
       ai="center"
     >
       <XStack space="$3" ai="center" flexShrink={1}>
-        <Image src={decodeURIComponent(icon)} size="$8" borderRadius="100%" />
+        <Image src={decodeURIComponent(icon)} size="$8" borderRadius="$full" />
         <YStack flexShrink={1}>
           <SizableText
             selectable={false}

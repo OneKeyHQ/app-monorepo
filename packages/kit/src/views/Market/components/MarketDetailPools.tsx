@@ -140,7 +140,7 @@ export function MarketDetailPools({
                       <Icon
                         name="UniswapBrand"
                         size="$5"
-                        borderRadius="100%"
+                        borderRadius="$full"
                         color={'#ff007a' as IIconProps['color']}
                       />
                     ) : null}

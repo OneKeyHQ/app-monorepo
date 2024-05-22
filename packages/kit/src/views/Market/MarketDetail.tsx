@@ -131,7 +131,7 @@ function MarketDetail({
         <Image
           width="$6"
           height="$6"
-          borderRadius="100%"
+          borderRadius="$full"
           src={decodeURIComponent(tokenDetail?.image || icon || '')}
         />
         <SizableText>

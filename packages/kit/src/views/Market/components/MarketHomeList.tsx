@@ -154,7 +154,7 @@ const useBuildTableRowConfig = () => {
           <Image
             src={decodeURIComponent(item.image)}
             size="$8"
-            borderRadius="100%"
+            borderRadius="$full"
           />
           <YStack width="$20">
             <SizableText size="$bodyLgMedium">
@@ -607,7 +607,7 @@ export function MarketHomeList({ category }: { category: IMarketCategory }) {
           <Image
             src={decodeURIComponent(item.image)}
             size="$10"
-            borderRadius="100%"
+            borderRadius="$full"
           />
           <YStack>
             <SizableText size="$bodyLgMedium">
