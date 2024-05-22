@@ -220,9 +220,12 @@ class ProviderApiConflux extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  cfx_signTypedData_v4() {
-    // Temporarily not supported
-    throw web3Errors.provider.unsupportedMethod();
+  cfx_signTypedData_v4(request: IJsBridgeMessagePayload, ...messages: any[]) {
+    return this._showSignMessageModal(request, {
+      type: EMessageTypesEth.TYPED_DATA_V4,
+      message: messages[1],
+      payload: messages,
+    });
   }
 
   @providerApiMethod()

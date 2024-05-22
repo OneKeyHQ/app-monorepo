@@ -1,7 +1,5 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
-import type { ISdkCfxContract } from '../types';
-
 class ClientCfx {
   private backgroundApi: IBackgroundApi;
 
@@ -20,7 +18,7 @@ class ClientCfx {
 
   async getStatus() {
     const [result] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      await this.backgroundApi.serviceAccountProfile.sendRpcProxyRequest<{
         epochNumber: number;
         chainId: number;
         networkId: number;
@@ -28,10 +26,10 @@ class ClientCfx {
         networkId: this.networkId,
         body: [
           {
-            route: 'conflux',
+            route: 'rpc',
             params: {
-              method: 'getStatus',
-              params: {},
+              method: 'cfx_getStatus',
+              params: [],
             },
           },
         ],
@@ -46,53 +44,42 @@ class ClientCfx {
     value: string;
     data: string;
   }) {
-    const [result] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
-        storageCollateralized: number;
-      }>({
-        networkId: this.networkId,
-        body: [
-          {
-            route: 'conflux',
-            params: {
-              method: 'estimateGasAndCollateral',
-              params,
+    try {
+      const [result] =
+        await this.backgroundApi.serviceAccountProfile.sendRpcProxyRequest<{
+          storageCollateralized: number;
+        }>({
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'cfx_estimateGasAndCollateral',
+                params: [params],
+              },
             },
-          },
-        ],
-      });
+          ],
+        });
 
-    return result;
+      return result;
+    } catch (e) {
+      console.log(e);
+      return {
+        storageCollateralized: 0,
+      };
+    }
   }
 
   async getCode(address: string) {
     const [result] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>({
-        networkId: this.networkId,
-        body: [
-          {
-            route: 'conflux',
-            params: {
-              method: 'getCode',
-              params: [address],
-            },
-          },
-        ],
-      });
-
-    return result;
-  }
-
-  async CRC20(address: string) {
-    const [result] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<ISdkCfxContract>(
+      await this.backgroundApi.serviceAccountProfile.sendRpcProxyRequest<string>(
         {
           networkId: this.networkId,
           body: [
             {
-              route: 'conflux',
+              route: 'rpc',
               params: {
-                method: 'CRC20',
+                method: 'cfx_getCode',
                 params: [address],
               },
             },
