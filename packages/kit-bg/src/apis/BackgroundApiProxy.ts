@@ -45,6 +45,7 @@ import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 
@@ -185,6 +186,10 @@ class BackgroundApiProxy
   ) as ServiceSignature;
 
   serviceNostr = this._createProxyService('serviceNostr') as ServiceNostr;
+
+  serviceUniversalSearch = this._createProxyService(
+    'serviceUniversalSearch',
+  ) as ServiceUniversalSearch;
 }
 
 export default BackgroundApiProxy;

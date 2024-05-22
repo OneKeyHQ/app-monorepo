@@ -35,3 +35,9 @@ export type IUniversalSearchBatchResult = {
   [EUniversalSearchType.Address]?: IUniversalSearchSingleResult;
   [EUniversalSearchType.MarketToken]?: IUniversalSearchMarketTokenResult;
 };
+
+export interface IIUniversalRecentSearchItem {
+  text: string;
+  timestamp: number;
+  type: EUniversalSearchType;
+}

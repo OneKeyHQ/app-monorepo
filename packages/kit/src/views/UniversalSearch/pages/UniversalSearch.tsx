@@ -86,11 +86,10 @@ export function UniversalSearch({
       title: string;
       data: IUniversalSearchResultItem[];
     }[] = [];
-    const result = await backgroundApiProxy.serviceApp.universalSearchRecommend(
-      {
+    const result =
+      await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
         searchTypes: searchType ? [searchType] : [],
-      },
-    );
+      });
     if (result?.[EUniversalSearchType.MarketToken]?.items) {
       searchResultSections.push({
         title: 'Trending',
@@ -107,11 +106,12 @@ export function UniversalSearch({
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     const input = val?.trim?.() || '';
-    const result = await backgroundApiProxy.serviceApp.universalSearch({
-      input,
-      networkId: activeAccount?.network?.id,
-      searchTypes: [searchType || EUniversalSearchType.Address],
-    });
+    const result =
+      await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+        input,
+        networkId: activeAccount?.network?.id,
+        searchTypes: [searchType || EUniversalSearchType.Address],
+      });
     const searchResultSections: {
       title: string;
       data: IUniversalSearchResultItem[];

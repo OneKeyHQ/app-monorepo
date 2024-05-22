@@ -48,6 +48,7 @@ import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type { EAtomNames } from '../states/jotai/atomNames';
@@ -151,4 +152,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceFiatCrypto: ServiceFiatCrypto;
   serviceSignature: ServiceSignature;
   serviceNostr: ServiceNostr;
+  serviceUniversalSearch: ServiceUniversalSearch;
 }

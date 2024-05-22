@@ -433,5 +433,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceNostr', { value });
     return value;
   }
+
+  get serviceUniversalSearch() {
+    const ServiceUniversalSearch =
+      require('../services/ServiceUniversalSearch') as typeof import('../services/ServiceUniversalSearch');
+    const value = new ServiceUniversalSearch.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceUniversalSearch', { value });
+    return value;
+  }
 }
 export default BackgroundApi;
