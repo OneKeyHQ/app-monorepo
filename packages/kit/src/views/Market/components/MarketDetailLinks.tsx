@@ -16,7 +16,7 @@ export function MarketDetailLinks({
   token: IMarketTokenDetail;
 }) {
   return (
-    <YStack>
+    <YStack px="$5">
       <YStack py="$5" space="$2">
         <SizableText size="$headingSm" color="$textSubdued">
           Community

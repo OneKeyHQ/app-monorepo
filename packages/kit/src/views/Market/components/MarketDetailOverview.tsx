@@ -104,7 +104,7 @@ function OverviewMarketVOLItem({
       <SizableText color="$textSubdued" size="$bodySm">
         {title}
       </SizableText>
-      <XStack space="$1" ai="center" pt="$0.5" pb="$3">
+      <XStack space="$1" ai="center" pt="$0.5">
         <NumberSizeableText
           size="$bodyMdMedium"
           formatter="marketCap"
@@ -148,7 +148,7 @@ function OverviewMarketVOL({
   pools: IMarketDetailPool[];
 }) {
   return (
-    <YStack py="$10">
+    <YStack pt="$10">
       <YStack space="$3">
         <XStack space="$4">
           <OverviewMarketVOLItem currency title="24H VOL(USD)">
@@ -182,26 +182,28 @@ function OverviewMarketVOL({
           </OverviewMarketVOLItem>
         </XStack>
       </YStack>
-      <YStack pt="$3">
-        <SizableText color="$textSubdued" size="$bodySm">
-          Contract
-        </SizableText>
-        <YStack space="$1" pt="$1">
-          {pools.map((pool) => {
-            const [tokeName, address] =
-              pool.relationships.base_token.data.id.split('_');
-            return (
-              <MarketTokenAddress
-                key={address}
-                networkId={pool.onekeyNetworkId}
-                tokenName={tokeName}
-                address={address}
-                url={pool.baseTokenUrl}
-              />
-            );
-          })}
+      {pools.length ? (
+        <YStack pt="$3">
+          <SizableText color="$textSubdued" size="$bodySm">
+            Contract
+          </SizableText>
+          <YStack space="$1" pt="$1">
+            {pools.map((pool) => {
+              const [tokeName, address] =
+                pool.relationships.base_token.data.id.split('_');
+              return (
+                <MarketTokenAddress
+                  key={address}
+                  networkId={pool.onekeyNetworkId}
+                  tokenName={tokeName}
+                  address={address}
+                  url={pool.baseTokenUrl}
+                />
+              );
+            })}
+          </YStack>
         </YStack>
-      </YStack>
+      ) : null}
     </YStack>
   );
 }
