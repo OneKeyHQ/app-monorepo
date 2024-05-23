@@ -50,7 +50,7 @@ export default function ChartWrapper({
 
   return (
     <YStack position="relative">
-      <ExtremeLabels color={lineColor} width={width} />
+      {/* <ExtremeLabels color={lineColor} width={width} /> */}
       <ChartPath
         fill="none"
         gestureEnabled={!isFetching}
