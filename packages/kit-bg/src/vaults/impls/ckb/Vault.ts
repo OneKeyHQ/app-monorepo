@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { BI } from '@ckb-lumos/bi';
-import { CellCollector } from '@ckb-lumos/ckb-indexer';
+import { CellCollector, TerminableCellAdapter } from '@ckb-lumos/ckb-indexer';
 import { common, secp256k1Blake160 } from '@ckb-lumos/common-scripts';
 import {
   TransactionSkeleton,
@@ -49,7 +49,10 @@ import { getConfig } from './utils/config';
 import { convertTokenHistoryUtxos } from './utils/history';
 import {
   DEFAULT_MIN_INPUT_CAPACITY,
+  convertTxSkeletonToTransaction,
+  convertTxToTxSkeleton,
   getTransactionSizeByTxSkeleton,
+  serializeTransactionMessage,
 } from './utils/transaction';
 import { transfer as xUDTTransafer } from './utils/xudt';
 
@@ -96,6 +99,21 @@ export default class Vault extends VaultBase {
         networkId: this.networkId,
       }),
     {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  getIndexer = memoizee(
+    async () => {
+      const client = await this.getClient();
+      const indexer = new TerminableCellAdapter({
+        getCells: client.getCells.bind(client),
+      });
+      return indexer;
+    },
+    {
+      promise: true,
+      max: 1,
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
@@ -157,6 +175,7 @@ export default class Vault extends VaultBase {
     }
 
     const client = await this.getClient();
+    const indexer = await this.getIndexer();
     const accountAddress = await this.getAccountAddress();
     const network = await this.getNetwork();
     const { median } = await client.getFeeRateStatistics();
@@ -166,9 +185,7 @@ export default class Vault extends VaultBase {
         collector: (query) => {
           const queries = { type: 'empty', data: '0x', ...query };
           const cellCollector = new CellCollector(
-            {
-              getCells: client.getCells.bind(client),
-            } as TerminableCellFetcher,
+            indexer,
             queries as CKBIndexerQueryOptions,
           );
 
@@ -293,7 +310,15 @@ export default class Vault extends VaultBase {
       );
     }
 
-    return txSkeleton;
+    const tx = convertTxSkeletonToTransaction(txSkeleton);
+
+    return {
+      tx,
+      feeInfo: {
+        limit,
+        price: '1',
+      },
+    };
   }
 
   override async buildDecodedTx(
@@ -302,8 +327,14 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxCkb;
 
-    const inputs = encodedTx.get('inputs').toArray();
-    const outputs = encodedTx.get('outputs').toArray();
+    const client = await this.getClient();
+    const txs = await convertTxToTxSkeleton({
+      client,
+      transaction: encodedTx.tx,
+    });
+
+    const inputs = txs.get('inputs').toArray();
+    const outputs = txs.get('outputs').toArray();
 
     const config = await this._getCurrentConfig();
     const network = await this.getNetwork();
@@ -366,7 +397,7 @@ export default class Vault extends VaultBase {
     let existsToken = false;
     for (const tokenAddress of tokens) {
       const tokenActions = await this._decodeTokenActions({
-        txSkeleton: encodedTx,
+        txSkeleton: txs,
         config,
         tokenAddress,
       });
@@ -559,7 +590,41 @@ export default class Vault extends VaultBase {
   }
 
   async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxCkb) {
-    return { encodedTx };
+    const client = await this.getClient();
+    const txs = await convertTxToTxSkeleton({
+      client,
+      transaction: encodedTx.tx,
+    });
+
+    // check fee is too high
+    const allInputAmount = txs
+      .get('inputs')
+      .toArray()
+      .reduce(
+        (acc, cur) => acc.plus(new BigNumber(cur.cellOutput.capacity, 16)),
+        new BigNumber(0),
+      );
+    const allOutputAmount = txs
+      .get('outputs')
+      .toArray()
+      .reduce(
+        (acc, cur) => acc.plus(new BigNumber(cur.cellOutput.capacity, 16)),
+        new BigNumber(0),
+      );
+
+    if (
+      allInputAmount
+        .minus(allOutputAmount)
+        .isGreaterThan(new BigNumber(1.5 * 100000000))
+    ) {
+      console.log('Fee is too high, transaction: ', txs);
+
+      throw new OneKeyInternalError('Fee is too high');
+    }
+
+    return {
+      encodedTx,
+    };
   }
 
   override updateUnsignedTx(

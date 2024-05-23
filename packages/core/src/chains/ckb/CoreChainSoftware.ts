@@ -3,9 +3,14 @@ import { blockchain } from '@ckb-lumos/base';
 import { sealTransaction } from '@ckb-lumos/helpers';
 import { bytesToHex } from '@noble/hashes/utils';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import ClientCkb from '@onekeyhq/kit-bg/src/vaults/impls/ckb/sdkCkb/ClientCkb';
 import { pubkeyToAddress } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/address';
 import { getConfig } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/config';
-import { serializeTransactionMessage } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/transaction';
+import {
+  convertTxToTxSkeleton,
+  serializeTransactionMessage,
+} from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/transaction';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -50,8 +55,18 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
 
+    const client = new ClientCkb({
+      backgroundApi: backgroundApiProxy,
+      networkId: payload.networkInfo.networkId,
+    });
+
+    const txSkeleton = await convertTxToTxSkeleton({
+      client,
+      transaction: encodedTx.tx,
+    });
+
     const { txSkeleton: txSkeletonWithMessage, message } =
-      serializeTransactionMessage(encodedTx);
+      serializeTransactionMessage(txSkeleton);
 
     if (!message) {
       throw new OneKeyInternalError('Unable to serialize transaction message.');

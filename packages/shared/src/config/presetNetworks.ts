@@ -2865,11 +2865,11 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 
   const ckb = {
     'balance2FeeDecimals': 0,
-    'chainId': 'ckb',
-    'code': 'ckb',
+    'chainId': 'nervos',
+    'code': 'nervos',
     'decimals': 8,
-    'id': 'ckb--mainnet',
-    'impl': 'ckb',
+    'id': 'nervos--mainnet',
+    'impl': 'nervos',
     'isTestnet': false,
     'logoURI': 'https://uni.onekey-asset.com/static/chain/nervos.png',
     'name': 'Nervos',
