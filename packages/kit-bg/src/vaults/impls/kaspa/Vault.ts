@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
@@ -19,12 +17,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  ITxInput,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { ITxInput, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -38,12 +31,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
-import {
-  EDecodedTxActionType,
-  EDecodedTxStatus,
-  type IDecodedTx,
-  type IDecodedTxAction,
-} from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, type IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -106,7 +94,6 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
     }
-    const { to, amount } = transferInfo;
     const dbAccount = await this.getAccount();
     const confirmUtxos = await this._collectUTXOsInfoByApi({
       address: dbAccount.address,
@@ -195,25 +182,28 @@ export default class Vault extends VaultBase {
       isMine: false, // output.address === dbAccount.address,
     }));
 
-    const actions: IDecodedTxAction[] = [
-      {
-        type: EDecodedTxActionType.ASSET_TRANSFER,
-        assetTransfer: {
-          from: account.address,
-          to: utxoTo[0].address,
-          sends,
-          receives: [],
-          utxoFrom,
-          utxoTo,
-        },
-      },
-    ];
+    const transfer = {
+      from: account.address,
+      to: utxoTo[0].address,
+      amount: new BigNumber(utxoTo[0].balance).toFixed(),
+      tokenIdOnNetwork: nativeToken.address,
+      icon: nativeToken.logoURI ?? '',
+      name: nativeToken.name,
+      symbol: nativeToken.symbol,
+      isNFT: false,
+      isNative: true,
+    };
+    const action = await this.buildTxTransferAssetAction({
+      from: account.address,
+      to: utxoTo[0].address,
+      transfers: [transfer],
+    });
     return {
       txid: '',
       owner: account.address,
       signer: account.address,
       nonce: 0,
-      actions,
+      actions: [action],
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -302,7 +292,7 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
+  override validateXpub(): Promise<IXpubValidation> {
     throw new Error('Method not implemented.');
   }
 
@@ -331,7 +321,7 @@ export default class Vault extends VaultBase {
     throw new Error('Invalid private key');
   }
 
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+  override validateXprvt(): Promise<IXprvtValidation> {
     return Promise.resolve({
       isValid: false,
     });
