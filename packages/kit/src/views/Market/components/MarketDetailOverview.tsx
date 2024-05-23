@@ -168,9 +168,7 @@ function OverviewMarketVOL({
           <OverviewMarketVOLItem currency title="FDV">
             {fdv}
           </OverviewMarketVOLItem>
-          <OverviewMarketVOLItem
-            title="Circulating Supply"
-          >
+          <OverviewMarketVOLItem title="Circulating Supply">
             {circulatingSupply}
           </OverviewMarketVOLItem>
         </XStack>

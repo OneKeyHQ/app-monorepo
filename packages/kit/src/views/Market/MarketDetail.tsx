@@ -54,7 +54,7 @@ function TokenDetailHeader({
   } = token;
   const { gtMd } = useMedia();
   return (
-    <YStack $gtMd={{ maxWidth: 296 }} px="$5">
+    <YStack $gtMd={{ maxWidth: 336 }} px="$5">
       <XStack>
         <YStack flex={1}>
           <SizableText size="$headingMd" color="$textSubdued">
@@ -162,7 +162,7 @@ function MarketDetail({
         <Stack
           flexDirection="column"
           $gtMd={{ flexDirection: 'row' }}
-          space="$5"
+          $md={{ space: '$5' }}
         >
           <TokenDetailHeader
             coinGeckoId={coinGeckoId}
