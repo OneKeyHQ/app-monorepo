@@ -58,4 +58,3 @@ module.exports = {
   },
   'afterSign': 'scripts/notarize.js',
 };
-
