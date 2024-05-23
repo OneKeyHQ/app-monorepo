@@ -267,6 +267,7 @@ function TableRow({
   sortType,
   onSortTypeChange,
   showMoreAction = false,
+  showListItemPressStyle = false,
 }: {
   item?: IMarketToken;
   tableConfig: ITableColumnConfig;
@@ -278,6 +279,7 @@ function TableRow({
     order: 'asc' | 'desc' | undefined;
   }) => void;
   showMoreAction?: boolean;
+  showListItemPressStyle?: boolean;
 }) {
   const {
     serialNumber,
@@ -327,7 +329,7 @@ function TableRow({
       space="$3"
       minHeight={minHeight}
       onPress={handlePress}
-      {...listItemPressStyle}
+      {...(showListItemPressStyle && listItemPressStyle)}
     >
       <Column
         name="serialNumber"
@@ -595,6 +597,7 @@ export function MarketHomeList({
   const renderItem = useCallback(
     ({ item }: any) => (
       <TableRow
+        showListItemPressStyle
         showMoreAction={showMoreAction}
         tableConfig={tableRowConfig}
         item={item}
