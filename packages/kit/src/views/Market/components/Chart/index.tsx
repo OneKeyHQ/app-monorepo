@@ -3,14 +3,7 @@ import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  Empty,
-  Spinner,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Empty, Spinner, Stack, XStack, useMedia } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -86,6 +79,7 @@ export function PriceChart({
 
   const priceLabel = (
     <PriceLabel
+      opacity={time ? 1 : 0}
       price={currentPrice}
       time={time || timeDefaultLabel}
       basePrice={basePrice}
