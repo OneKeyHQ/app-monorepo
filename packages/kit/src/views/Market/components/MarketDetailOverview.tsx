@@ -170,7 +170,6 @@ function OverviewMarketVOL({
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem
             title="Circulating Supply"
-            rank={marketCapRank}
           >
             {circulatingSupply}
           </OverviewMarketVOLItem>
