@@ -54,6 +54,7 @@ export interface IMarketPerformance {
 export interface IMarketDetailPlatform {
   [key: string]: {
     contract_address: string;
+    onekeyNetworkId?: string;
   };
 }
 

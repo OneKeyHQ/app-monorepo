@@ -190,13 +190,19 @@ function OverviewMarketVOL({
             Contract
           </SizableText>
           <YStack space="$1" pt="$1">
-            {keys.map((tokenName) => (
-              <MarketTokenAddress
-                key={tokenName}
-                tokenName={`${tokenName[0].toUpperCase()}${tokenName.slice(1)}`}
-                address={detailPlatforms[tokenName].contract_address}
-              />
-            ))}
+            {keys.map((tokenName) => {
+              const platform = detailPlatforms[tokenName];
+              return (
+                <MarketTokenAddress
+                  key={tokenName}
+                  networkId={platform.onekeyNetworkId}
+                  tokenName={`${tokenName[0].toUpperCase()}${tokenName.slice(
+                    1,
+                  )}`}
+                  address={platform.contract_address}
+                />
+              );
+            })}
           </YStack>
         </YStack>
       ) : null}

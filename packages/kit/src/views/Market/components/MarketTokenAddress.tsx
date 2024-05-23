@@ -10,6 +10,7 @@ import {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 export function MarketTokenAddress({
   tokenName,
@@ -27,7 +28,6 @@ export function MarketTokenAddress({
     const network = await backgroundApiProxy.serviceNetwork.getNetwork({
       networkId,
     });
-    console.log('---network', network);
     if (network.explorers[0].address) {
       openUrlExternal(
         network.explorers[0].address.replace('{address}', address),
@@ -36,6 +36,7 @@ export function MarketTokenAddress({
   }, [address, networkId]);
   return (
     <XStack space="$1.5" ai="center">
+      {networkId ? <NetworkAvatar size="$5" networkId={networkId} /> : null}
       {uri ? (
         <Image size="$5" src={decodeURIComponent(uri)} borderRadius="$full" />
       ) : null}
