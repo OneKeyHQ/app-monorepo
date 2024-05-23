@@ -2,8 +2,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
   IMarketCategory,
   IMarketDetailPool,
@@ -16,14 +14,6 @@ import type {
 import { marketWatchListPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
-
-const getDevHeaders = async () =>
-  platformEnv.isDev
-    ? {
-        'x-proxy': 'http://114.132.73.185',
-        ...(await getRequestHeaders()),
-      }
-    : undefined;
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
 
@@ -39,9 +29,7 @@ class ServiceMarket extends ServiceBase {
     const response = await client.get<{
       code: number;
       data: IMarketCategory[];
-    }>('/utility/v1/market/category/list', {
-      headers: await getDevHeaders(),
-    });
+    }>('/utility/v1/market/category/list');
     const { code, data } = response.data;
     data[0].name = 'Watchlist';
     if (code !== 0) {
@@ -88,7 +76,6 @@ class ServiceMarket extends ServiceBase {
       code: number;
       data: IMarketToken[];
     }>('/utility/v1/market/tokens', {
-      headers: await getDevHeaders(),
       params: requestParams,
       paramsSerializer: (params) => {
         const urlSearchParams = new URLSearchParams(params);
@@ -106,7 +93,6 @@ class ServiceMarket extends ServiceBase {
       code: number;
       data: IMarketTokenDetail;
     }>('/utility/v1/market/detail', {
-      headers: await getDevHeaders(),
       params: {
         id: coingeckoId,
         explorer_platforms: explorerPlatforms,
@@ -169,7 +155,6 @@ class ServiceMarket extends ServiceBase {
       code: number;
       data: IMarketDetailPool[];
     }>('/utility/v1/market/pools', {
-      headers: await getDevHeaders(),
       params: {
         query,
       },
@@ -185,7 +170,6 @@ class ServiceMarket extends ServiceBase {
       code: number;
       data: IMarketTokenChart;
     }>('/utility/v1/market/token/chart', {
-      headers: await getDevHeaders(),
       params: {
         coingeckoId,
         days,
@@ -203,7 +187,6 @@ class ServiceMarket extends ServiceBase {
       code: number;
       data: string[];
     }>('/utility/v1/market/search', {
-      headers: await getDevHeaders(),
       params: {
         query,
       },
