@@ -613,10 +613,11 @@ export function MarketHomeList({
     async ({ coingeckoId, symbol }: IMarketToken) => {
       const isInWatchList =
         await backgroundApiProxy.serviceMarket.isInWatchList(coingeckoId);
+      const title = symbol.toUpperCase();
       ActionList.show(
         isInWatchList
           ? {
-              title: 'Encrypted Backup Contents',
+              title,
               sections: [
                 {
                   items: [
@@ -640,7 +641,7 @@ export function MarketHomeList({
               ],
             }
           : {
-              title: symbol.toUpperCase(),
+              title,
               sections: [
                 {
                   items: [
