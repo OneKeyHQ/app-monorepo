@@ -23,6 +23,7 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
+import { listItemPressStyle } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 import { PoolDetails } from './PoolDetails';
@@ -143,6 +144,7 @@ export function MarketDetailPools({
             return (
               <XStack
                 py="$2"
+                {...listItemPressStyle}
                 onPress={() => {
                   Dialog.confirm({
                     title: 'Pool Details',

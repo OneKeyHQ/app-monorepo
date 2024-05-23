@@ -1,11 +1,7 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import type {
-  IActionListItemProps,
-  INumberSizeableTextProps,
-  IStackProps,
-} from '@onekeyhq/components';
+import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
@@ -34,6 +30,7 @@ import type {
   IMarketToken,
 } from '@onekeyhq/shared/types/market';
 
+import { listItemPressStyle } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 import { MarketMore } from './MarketMore';
@@ -326,7 +323,12 @@ function TableRow({
   );
   const cursor = useSortFunc ? 'pointer' : undefined;
   return (
-    <XStack space="$3" minHeight={minHeight} onPress={handlePress}>
+    <XStack
+      space="$3"
+      minHeight={minHeight}
+      onPress={handlePress}
+      {...listItemPressStyle}
+    >
       <Column
         name="serialNumber"
         alignLeft
@@ -668,6 +670,7 @@ export function MarketHomeList({
         justifyContent="space-between"
         onPress={() => toDetailPage(item)}
         onLongPress={() => handleMdItemAction(item)}
+        {...listItemPressStyle}
       >
         <XStack space="$3" ai="center">
           <Image
