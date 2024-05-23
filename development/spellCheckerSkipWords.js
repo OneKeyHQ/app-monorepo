@@ -699,4 +699,7 @@ module.exports = [
   'neurai',
   'ckb',
   'Xudt',
+  'Matic',
+  'unstake',
+  'Unstaking',
 ];

@@ -1,13 +1,11 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { StyleSheet } from 'react-native';
 
 import {
   ActionList,
   Alert,
   Divider,
-  Icon,
   NumberSizeableText,
   Page,
   Skeleton,
@@ -18,13 +16,13 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
+import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalReceiveRoutes,
@@ -402,31 +400,11 @@ export function TokenDetails() {
                   </RawActions>
                 </Stack>
 
-                {/* Banner – if this token can be staked */}
-                <ListItem
-                  drillIn
-                  onPress={() => console.log('clicked')}
-                  py="$3"
-                  px="$5"
-                  mx="$0"
-                  bg="$bgSuccessSubdued"
-                  borderTopWidth={StyleSheet.hairlineWidth}
-                  borderColor="$borderSubdued"
-                  borderRadius="$0"
-                >
-                  <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
-                    <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
-                  </Stack>
-                  <ListItem.Text
-                    flex={1}
-                    primary="Stake and Earn"
-                    secondary="Up to 3.77% in Annual Rewards"
-                    secondaryTextProps={{
-                      size: '$bodyMdMedium',
-                      color: '$textSuccess',
-                    }}
-                  />
-                </ListItem>
+                <StakingApr
+                  networkId={networkId}
+                  accountId={accountId}
+                  tokenAddress={tokenInfo.address}
+                />
 
                 {/* History */}
                 <Divider />

@@ -19,6 +19,7 @@ import { OnboardingRouter } from '../../views/Onboarding/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
+import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
 import { UniversalSearchRouter } from '../../views/UniversalSearch/router';
@@ -110,6 +111,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.UniversalSearchModal,
     children: UniversalSearchRouter,
+  },
+  {
+    name: EModalRoutes.StakingModal,
+    children: StakingModalRouter,
   },
 ];
 
