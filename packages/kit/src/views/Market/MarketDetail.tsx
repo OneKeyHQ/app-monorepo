@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { CommonActions } from '@react-navigation/native';
+
 import {
   HeaderIconButton,
-  Icon,
   Image,
+  NavBackButton,
   NumberSizeableText,
   Page,
   SizableText,
@@ -13,16 +15,15 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IPageScreenProps } from '@onekeyhq/components';
-import type {
-  ETabMarketRoutes,
-  ITabMarketParamList,
-} from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
 import type {
   IMarketDetailPool,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../hooks/useAppNavigation';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
@@ -124,7 +125,7 @@ function MarketDetail({
 
   const renderHeaderTitle = useCallback(
     () => (
-      <XStack space="$2">
+      <XStack space="$2" $gtMd={{ ml: '$4' }}>
         <Image
           width="$6"
           height="$6"
@@ -148,6 +149,32 @@ function MarketDetail({
     [gtMd],
   );
 
+  const navigation = useAppNavigation();
+
+  const renderHeaderLeft = useCallback(
+    () => (
+      <NavBackButton
+        onPress={() => {
+          navigation.dispatch((state) => {
+            console.log(state);
+            if (state.routes.length > 1) {
+              return CommonActions.goBack();
+            }
+            return CommonActions.reset({
+              index: 0,
+              routes: [
+                {
+                  name: ETabMarketRoutes.TabMarket,
+                },
+              ],
+            });
+          });
+        }}
+      />
+    ),
+    [navigation],
+  );
+
   if (!tokenDetail) {
     return null;
   }
@@ -155,8 +182,10 @@ function MarketDetail({
   return (
     <Page scrollEnabled>
       <Page.Header
+        disableClose
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
+        headerLeft={renderHeaderLeft}
       />
       <YStack>
         <Stack
