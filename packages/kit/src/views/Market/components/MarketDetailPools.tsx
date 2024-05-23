@@ -102,7 +102,7 @@ export function MarketDetailPools({
   }, []);
   const isShowAllData = showAll[index] || pools.length < 6;
   return (
-    <YStack px="$5" pb="$2" pt="$5">
+    <YStack pb="$2" pt="$5">
       <NetworkIdSelect
         options={onekeyNetworkIds}
         value={index}
@@ -112,7 +112,7 @@ export function MarketDetailPools({
         data={isShowAllData ? pools : pools.slice(0, 5)}
         estimatedItemSize={38}
         ListHeaderComponent={
-          <XStack py="$2.5">
+          <XStack py="$2.5" px="$5">
             <HeaderColumn textAlign="left">Pair</HeaderColumn>
             {gtMd ? <HeaderColumn textAlign="right">Price</HeaderColumn> : null}
             {gtMd ? (
@@ -143,6 +143,7 @@ export function MarketDetailPools({
             const { attributes, relationships } = item;
             return (
               <XStack
+                px="$5"
                 py="$2"
                 {...listItemPressStyle}
                 onPress={() => {
