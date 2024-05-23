@@ -182,25 +182,24 @@ function OverviewMarketVOL({
         </XStack>
       </YStack>
       {keys.length ? (
-        <YStack pt="$3">
+        <YStack pt="$3" space="$2">
           <SizableText color="$textSubdued" size="$bodySm">
             Contract
           </SizableText>
-          <YStack space="$1" pt="$1">
-            {keys.map((tokenName) => {
-              const platform = detailPlatforms[tokenName];
-              return (
-                <MarketTokenAddress
-                  key={tokenName}
-                  networkId={platform.onekeyNetworkId}
-                  tokenName={`${tokenName[0].toUpperCase()}${tokenName.slice(
-                    1,
-                  )}`}
-                  address={platform.contract_address}
-                />
-              );
-            })}
-          </YStack>
+          {keys.map((tokenName) => {
+            const platform = detailPlatforms[tokenName];
+            return (
+              <MarketTokenAddress
+                key={tokenName}
+                tokenNameSize="$bodyMd"
+                tokenNameColor="$textSubdued"
+                addressSize="$bodyMdMedium"
+                networkId={platform.onekeyNetworkId}
+                tokenName={`${tokenName[0].toUpperCase()}${tokenName.slice(1)}`}
+                address={platform.contract_address}
+              />
+            );
+          })}
         </YStack>
       ) : null}
     </YStack>
