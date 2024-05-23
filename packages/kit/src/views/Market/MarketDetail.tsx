@@ -161,8 +161,8 @@ function MarketDetail({
       <YStack>
         <Stack
           flexDirection="column"
-          $gtMd={{ flexDirection: 'row' }}
-          $md={{ space: '$5' }}
+          $gtMd={{ flexDirection: 'row', pt: '$5' }}
+          $md={{ space: '$5', pt: '$3' }}
         >
           <TokenDetailHeader
             coinGeckoId={coinGeckoId}
