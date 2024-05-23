@@ -90,6 +90,7 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+  signOnlyFullTxRequired: true,
 };
 
 export default Object.freeze(settings);
