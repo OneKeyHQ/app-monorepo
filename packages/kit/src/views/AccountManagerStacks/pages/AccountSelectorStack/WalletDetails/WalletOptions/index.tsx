@@ -17,7 +17,11 @@ import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/c
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EModalKeyTagRoutes,
+  EModalRoutes,
+  EOnboardingPages,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -58,6 +62,24 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
   const handleBackupLiteCard = useCallback(() => {
     void liteCard.backupWallet(wallet?.id);
   }, [liteCard, wallet?.id]);
+
+  const handleBackupKeyTag = useCallback(async () => {
+    if (wallet) {
+      const { mnemonic: encodedText } =
+        await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
+          walletId: wallet.id,
+          reason: EReasonForNeedPassword.Security,
+        });
+      if (encodedText) ensureSensitiveTextEncoded(encodedText);
+      navigation.pushModal(EModalRoutes.KeyTagModal, {
+        screen: EModalKeyTagRoutes.BackupDotMap,
+        params: {
+          encodedText,
+          title: wallet.name,
+        },
+      });
+    }
+  }, [navigation, wallet]);
 
   const [editMode] = useAccountSelectorEditModeAtom();
 
@@ -103,7 +125,7 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
           {
             label: 'OneKey KeyTag',
             icon: 'OnekeyKeytagOutline',
-            onPress: () => console.log('clicked'),
+            onPress: () => void handleBackupKeyTag(),
           },
         ]}
         renderTrigger={
@@ -111,7 +133,14 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
         }
       />
     );
-  }, [device, handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
+  }, [
+    device,
+    handleBackupLiteCard,
+    handleBackupPhrase,
+    handleBackupKeyTag,
+    intl,
+    wallet,
+  ]);
 
   return (
     <HeightTransition>
