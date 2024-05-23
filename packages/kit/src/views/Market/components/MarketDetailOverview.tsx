@@ -177,7 +177,7 @@ function OverviewMarketVOL({
             {totalSupply}
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem title="Max Supply">
-            {maxSupply}
+            {maxSupply || '∞'}
           </OverviewMarketVOLItem>
         </XStack>
       </YStack>
