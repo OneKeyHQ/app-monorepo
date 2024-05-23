@@ -17,6 +17,7 @@ import type { IModalReceiveParamList } from './receive';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
+import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
 import type { IUniversalSearchParamList } from './universalSearch';
@@ -45,6 +46,7 @@ export enum EModalRoutes {
   FiatCryptoModal = 'FiatCryptoModal',
   KeyTagModal = 'KeyTagModal',
   UniversalSearchModal = 'UniversalSearchModal',
+  StakingModal = 'StakingModal',
 }
 
 export type IModalParamList = {
@@ -71,4 +73,5 @@ export type IModalParamList = {
   [EModalRoutes.FiatCryptoModal]: IModalFiatCryptoParamList;
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
   [EModalRoutes.UniversalSearchModal]: IUniversalSearchParamList;
+  [EModalRoutes.StakingModal]: IModalStakingParamList;
 };
