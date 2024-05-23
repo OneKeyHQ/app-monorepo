@@ -66,7 +66,7 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack space="$2">
+    <XStack space="$2" px="$5">
       {options.map((networkId, index) => (
         <Stack
           key={networkId}
