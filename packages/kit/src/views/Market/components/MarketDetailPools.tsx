@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { partition } from 'lodash';
+import { groupBy } from 'lodash';
 
 import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
 import {
@@ -91,16 +91,18 @@ export function MarketDetailPools({
   pools: IMarketDetailPool[];
 }) {
   const { gtMd } = useMedia();
-  const partitions = partition(pools, 'onekeyNetworkId').filter(
-    (i) => i.length > 0,
-  );
-  const onekeyNetworkIds = partitions.map((p) => p[0].onekeyNetworkId);
+  const partitions = useMemo(() => groupBy(pools, 'onekeyNetworkId'), [pools]);
+  const onekeyNetworkIds = useMemo(() => Object.keys(partitions), [partitions]);
   const [showAll, setIsShowAll] = useState<boolean[]>([]);
   const [index, selectIndex] = useState(0);
+  const listData = useMemo(
+    () => partitions[onekeyNetworkIds[index]],
+    [index, onekeyNetworkIds, partitions],
+  );
   const handleChange = useCallback((selectedIndex: number) => {
     selectIndex(selectedIndex);
   }, []);
-  const isShowAllData = showAll[index] || pools.length < 6;
+  const isShowAllData = showAll[index] || listData.length < 6;
   return (
     <YStack pb="$2" pt="$5">
       <NetworkIdSelect
@@ -109,7 +111,7 @@ export function MarketDetailPools({
         onChange={handleChange}
       />
       <ListView
-        data={isShowAllData ? pools : pools.slice(0, 5)}
+        data={isShowAllData ? listData : listData.slice(0, 5)}
         estimatedItemSize={38}
         ListHeaderComponent={
           <XStack py="$2.5" px="$5">
