@@ -2,7 +2,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 import { Psbt } from 'bitcoinjs-lib';
-import { isNil } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import { getInputsToSignFromPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
@@ -570,6 +570,86 @@ class ProviderApiBtc extends ProviderApiBase {
       code: 4001,
       message: 'Failed to get network fees',
     });
+  }
+
+  @providerApiMethod()
+  public async getUtxos(
+    request: IJsBridgeMessagePayload,
+    params: {
+      address: string;
+      amount: number;
+    },
+  ) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { networkId, accountId } = {} } = accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
+      accountId,
+      networkId,
+    });
+    const { utxoList } =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId,
+        accountAddress,
+        xpub,
+        withUTXOList: true,
+      });
+    if (!utxoList || isEmpty(utxoList)) {
+      throw web3Errors.provider.custom({
+        code: 4001,
+        message: 'Failed to get UTXO list',
+      });
+    }
+    const utxos = utxoList;
+    const confirmedUtxos = utxos.filter(
+      (v) => v.address === params.address && Number(v?.confirmations ?? 0) > 0,
+    );
+    let sum = 0;
+    let index = 0;
+    for (const utxo of confirmedUtxos) {
+      sum += new BigNumber(utxo.value).toNumber();
+      index += 1;
+      if (sum > params.amount) {
+        break;
+      }
+    }
+    if (sum < params.amount) {
+      return [];
+    }
+    const sliced = confirmedUtxos.slice(0, index);
+    const result = [];
+    for (const utxo of sliced) {
+      // TODO: get scriptPubKey from txDetails by Api
+      const txDetails = {} as any;
+      result.push({
+        txid: utxo.txid,
+        vout: utxo.vout,
+        value: new BigNumber(utxo.value).toNumber(),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        scriptPubKey: txDetails?.vout?.[utxo.vout].hex ?? '',
+      });
+    }
+
+    return result;
+  }
+
+  @providerApiMethod()
+  public async getBTCTipHeight(request: IJsBridgeMessagePayload) {
+    await this.getAccountsInfo(request);
+    // TODO: get tip height from btc node
+    const blockHeight = 100;
+    return blockHeight;
   }
 }
 
