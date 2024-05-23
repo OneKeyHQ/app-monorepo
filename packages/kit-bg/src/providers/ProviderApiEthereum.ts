@@ -128,7 +128,9 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!accountsInfo) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(accountsInfo.map((i) => i.account?.address));
+    return Promise.resolve(
+      accountsInfo.map((i) => i.account?.addressDetail.normalizedAddress),
+    );
   }
 
   @providerApiMethod()
