@@ -1,11 +1,5 @@
-import { useEffect, useState } from 'react';
-
-import type {
-  INumberSizeableTextProps,
-  ISizableTextProps,
-} from '@onekeyhq/components';
+import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import {
-  Button,
   NumberSizeableText,
   Progress,
   SizableText,
@@ -18,6 +12,7 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
+import { MarketAbout } from './MarketAbout';
 import { MarketTokenAddress } from './MarketTokenAddress';
 import { PriceChangePercentage } from './PriceChangePercentage';
 
@@ -220,17 +215,6 @@ function OverviewMarketVOL({
 //   );
 // }
 
-function About({ children }: { children: ISizableTextProps['children'] }) {
-  return (
-    <YStack space="$3" pt="$10">
-      <SizableText size="$headingSm">About</SizableText>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {children}
-      </SizableText>
-    </YStack>
-  );
-}
-
 export function MarketDetailOverview({
   token: {
     detail_platforms: detailPlatforms,
@@ -286,7 +270,7 @@ export function MarketDetailOverview({
         detailPlatforms={detailPlatforms}
       />
       {/* <GoPlus /> */}
-      <About>{about}</About>
+      <MarketAbout>{about}</MarketAbout>
     </YStack>
   );
 }
