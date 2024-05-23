@@ -327,6 +327,7 @@ function TableRow({
   return (
     <XStack
       space="$3"
+      px="$5"
       minHeight={minHeight}
       onPress={handlePress}
       {...(showListItemPressStyle && listItemPressStyle)}
@@ -669,6 +670,7 @@ export function MarketHomeList({
   const renderMdItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
       <XStack
+        px="$5"
         height={60}
         justifyContent="space-between"
         onPress={() => toDetailPage(item)}
@@ -879,7 +881,7 @@ export function MarketHomeList({
         </YStack>
       )}
 
-      <YStack flex={1} px="$5" py="$3">
+      <YStack flex={1} py="$3">
         {gtMd ? HeaderColumns : undefined}
         <ListView
           stickyHeaderHiddenOnScroll
