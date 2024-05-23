@@ -33,9 +33,9 @@ import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
+import { MarketStar } from '../../Market/components/MarketStar';
 
 import { RecentSearched } from './components/RecentSearched';
-import { MarketStar } from '../../Market/components/MarketStar';
 
 interface IUniversalSection {
   title: string;
