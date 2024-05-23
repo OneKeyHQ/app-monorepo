@@ -234,7 +234,7 @@ export function UniversalSearch({
       case ESearchStatus.init:
         return (
           <>
-            <RecentSearched />
+            <RecentSearched searchType={searchType} />
             <SectionList
               renderSectionHeader={renderSectionHeader}
               sections={recommendSections}

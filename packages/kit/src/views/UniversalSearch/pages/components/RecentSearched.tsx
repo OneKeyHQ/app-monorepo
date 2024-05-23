@@ -44,7 +44,11 @@ function SearchTextItem({
   );
 }
 
-export function RecentSearched() {
+export function RecentSearched({
+  searchType,
+}: {
+  searchType?: EUniversalSearchType;
+}) {
   const [{ recentSearch }] = useUniversalSearchPersistAtom();
 
   const navigation = useAppNavigation();
@@ -70,7 +74,8 @@ export function RecentSearched() {
     await backgroundApiProxy.serviceUniversalSearch.clearAllRecentSearch();
   }, []);
 
-  return recentSearch.length ? (
+  return recentSearch.length &&
+    searchType === EUniversalSearchType.MarketToken ? (
     <YStack px="$5" pb="$5">
       <XStack jc="space-between">
         <SizableText size="$headingSm" color="$textSubdued">
