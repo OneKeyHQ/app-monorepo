@@ -28,6 +28,11 @@ export const BtcDappNetworkTypes: {
 ];
 
 export type ISwitchNetworkParams = { network: IBtcDappNetworkName };
+export type ISendBitcoinParams = {
+  toAddress: string;
+  satoshis: string;
+  feeRate?: string;
+};
 
 export type ISignMessageParams = {
   message: string;

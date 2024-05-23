@@ -70,7 +70,6 @@ import type {
 } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -106,7 +105,12 @@ export default class VaultBtc extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
-    const { inputs, outputs } = encodedTx;
+    const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
+
+    // if (psbtHex && inputsToSign) {
+    //   return this.buildPsbtDecodedTx(params);
+    // }
+
     const network = await this.getNetwork();
     const account = await this.getAccount();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
@@ -201,6 +205,26 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
+  // async buildPsbtDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
+  //   const { unsignedTx } = params;
+  //   const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
+  //   const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
+
+  //   const network = await this.getNetwork();
+  //   const account = await this.getAccount();
+  //   const nativeToken = await this.backgroundApi.serviceToken.getToken({
+  //     networkId: this.networkId,
+  //     tokenIdOnNetwork: '',
+  //     accountAddress: account.address,
+  //   });
+
+  //   if (!nativeToken) {
+  //     throw new OneKeyInternalError('Native token not found');
+  //   }
+
+  //   const actions: IDecodedTxAction[] = [];
+  // }
+
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxBtc> {
@@ -219,11 +243,11 @@ export default class VaultBtc extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = await this.buildEncodedTx(params);
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
 
     if (encodedTx) {
       return this._buildUnsignedTxFromEncodedTx({
-        encodedTx,
+        encodedTx: encodedTx as IEncodedTxBtc,
         transfersInfo: params.transfersInfo ?? [],
       });
     }
@@ -236,7 +260,9 @@ export default class VaultBtc extends VaultBase {
   }): Promise<IUnsignedTxPro> {
     const { unsignedTx, feeInfo } = options;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxBtc;
-    if (feeInfo) {
+    const { psbtHex, inputsToSign } = encodedTxNew;
+    const isPsbtTx = psbtHex && inputsToSign;
+    if (feeInfo && !isPsbtTx) {
       if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
         throw new OneKeyInternalError('transfersInfo is required');
       }
@@ -567,7 +593,8 @@ export default class VaultBtc extends VaultBase {
     encodedTx: IEncodedTxBtc;
     transfersInfo: ITransferInfo[];
   }): Promise<IUnsignedTxPro> {
-    const { inputs, outputs, inputsForCoinSelect } = encodedTx;
+    const { inputs, outputs, inputsForCoinSelect, inputsToSign, psbtHex } =
+      encodedTx;
 
     let txSize = BTC_TX_PLACEHOLDER_VSIZE;
     const inputsInUnsignedTx: ITxInput[] = [];
@@ -605,6 +632,8 @@ export default class VaultBtc extends VaultBase {
       txSize,
       encodedTx,
       transfersInfo,
+      inputsToSign,
+      psbtHex,
     };
 
     return Promise.resolve(ret);
