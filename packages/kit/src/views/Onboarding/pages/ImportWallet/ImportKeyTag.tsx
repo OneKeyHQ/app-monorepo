@@ -30,16 +30,19 @@ const KeyTagFooterComponent = () => {
           color="$textSubdued"
           px="$1"
         >
-          BIP39-DotMap
+          {' '}
+          BIP39-DotMap{' '}
         </SizableText>
         website to find the corresponding word for this position.
       </SizableText>
       <Stack borderRadius={12} mt="$5" overflow="hidden">
-        <Image
-          width="100%"
-          height="300px"
-          source={require('@onekeyhq/kit/assets/keytag/bip39-dotmap.png')}
-        />
+        <Stack width="100%" height={300} bg="red">
+          <Image
+            width="100%"
+            height="100%"
+            source={require('@onekeyhq/kit/assets/keytag/bip39-dotmap.png')}
+          />
+        </Stack>
       </Stack>
     </YStack>
   );

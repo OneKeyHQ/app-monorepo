@@ -8,14 +8,32 @@ const BackupStep = ({
   title,
   desc,
   image,
+  index,
 }: {
+  index: number;
   title: string;
   desc: string[];
   image: ComponentProps<typeof RatioImage>;
 }) => (
-  <Stack>
+  <Stack position="relative">
     <Stack borderRadius={12} overflow="hidden" mb="$5">
       <RatioImage {...image} />
+    </Stack>
+    <Stack
+      width="$5"
+      height="$5"
+      backgroundColor="$bgInfo"
+      position="absolute"
+      top={10}
+      left={10}
+      justifyContent="center"
+      alignItems="center"
+      display="flex"
+      borderRadius={5}
+    >
+      <SizableText size="$bodySmMedium" color="$textInfo">
+        {index}
+      </SizableText>
     </Stack>
     <SizableText size="$headingMd">{title}</SizableText>
     <YStack mt="$1">
@@ -32,8 +50,9 @@ const BackupDocs = () => (
   <Page scrollEnabled>
     <Page.Header title="Back Up with OneKey KeyTag" />
     <Page.Body>
-      <YStack p="$5" separator={<Stack h="$5" />}>
+      <YStack p="$5" separator={<Stack h="$10" />}>
         <BackupStep
+          index={1}
           image={{
             sm: {
               ratio: 353 / 224,
@@ -50,6 +69,7 @@ const BackupDocs = () => (
           ]}
         />
         <BackupStep
+          index={2}
           image={{
             sm: {
               ratio: 353 / 224,
@@ -66,6 +86,7 @@ const BackupDocs = () => (
           ]}
         />
         <BackupStep
+          index={3}
           image={{
             sm: {
               ratio: 353 / 224,

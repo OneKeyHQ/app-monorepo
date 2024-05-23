@@ -5,10 +5,10 @@ import { ImageBackground } from 'react-native';
 import {
   Button,
   Dialog,
+  Icon,
   Page,
   SizableText,
   Stack,
-  XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -65,7 +65,7 @@ const UserOptions = () => {
     <Page>
       <Page.Header title="OneKey KeyTag" />
       <Page.Body>
-        <Stack px="$5" pb="$5">
+        <Stack mx="$5" mt="$2" mb="$5" borderRadius="$3">
           <Stack borderRadius={12} overflow="hidden">
             <ImageBackground
               resizeMode="stretch"
@@ -75,36 +75,28 @@ const UserOptions = () => {
                   : require('@onekeyhq/kit/assets/keytag/keytag_banner0.png')
               }
             >
-              <YStack borderRadius={12} px="$5" py="$6">
+              <Stack px="$5" pt="$9" pb="$6">
                 <SizableText size="$headingXl" color="rgba(0, 0, 0, 0.95)">
                   OneKey KeyTag
                 </SizableText>
-                <Stack maxWidth={md.md ? 170 : undefined}>
-                  <SizableText size="$bodyMd" color="rgba(0, 0, 0, 0.6)">
-                    Powerful wallet backup kit made of titanium alloy
-                  </SizableText>
-                </Stack>
-                <XStack>
-                  <Button
-                    size="small"
-                    variant="primary"
-                    backgroundColor="black"
-                    color="white"
-                    iconColor="white"
-                    hoverStyle={{
-                      backgroundColor: 'black',
-                    }}
-                    pressStyle={{
-                      backgroundColor: 'black',
-                    }}
-                    mt="$6"
-                    iconAfter="OpenSolid"
-                    onPress={onGetOne}
-                  >
-                    Get One
-                  </Button>
-                </XStack>
-              </YStack>
+                <SizableText size="$bodyMd" color="rgba(0, 0, 0, 0.6)" pr={130}>
+                  Powerful wallet backup kit made of titanium alloy
+                </SizableText>
+                <Button
+                  bg="rgba(0, 0, 0, 0.95)"
+                  mt="$6"
+                  alignSelf="flex-start"
+                  size="small"
+                  color="white"
+                  iconAfter="OpenOutline"
+                  iconColor="white"
+                  focusStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
+                  hoverStyle={{ bg: 'rgba(0, 0, 0, 0.75)' }}
+                  onPress={onGetOne}
+                >
+                  Buy One
+                </Button>
+              </Stack>
             </ImageBackground>
           </Stack>
         </Stack>
@@ -115,6 +107,11 @@ const UserOptions = () => {
             subtitle="Backup your recovery phrase to OneKey KeyTag"
             drillIn
             onPress={onBackup}
+            renderIcon={
+              <Stack bg="$bgStrong" p="$2" borderRadius="$3">
+                <Icon name="FolderUploadOutline" size="$6" color="$icon" />
+              </Stack>
+            }
           />
           <ListItem
             icon="FolderDownloadOutline"
@@ -122,6 +119,11 @@ const UserOptions = () => {
             subtitle="Import recovery phrase from your OneKey KeyTag"
             drillIn
             onPress={onImport}
+            renderIcon={
+              <Stack bg="$bgStrong" p="$2" borderRadius="$3">
+                <Icon name="FolderDownloadOutline" size="$6" color="$icon" />
+              </Stack>
+            }
           />
         </YStack>
       </Page.Body>
