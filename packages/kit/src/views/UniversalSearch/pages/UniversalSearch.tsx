@@ -178,9 +178,11 @@ export function UniversalSearch({
         case EUniversalSearchType.MarketToken: {
           const { image, coingeckoId, price, symbol, name } = item.payload;
           return (
-            <XStack
+            <ListItem
               jc="space-between"
-              ai="center"
+              mx={0}
+              pl="$4"
+              pr={0}
               onPress={async () => {
                 navigation.pop();
                 setTimeout(async () => {
@@ -199,16 +201,14 @@ export function UniversalSearch({
                   );
                 }, 80);
               }}
+              avatarProps={{
+                src: decodeURIComponent(image),
+                size: '$10',
+              }}
+              title={symbol.toUpperCase()}
+              subtitle={name}
             >
-              <ListItem
-                avatarProps={{
-                  src: decodeURIComponent(image),
-                  size: '$10',
-                }}
-                title={symbol.toUpperCase()}
-                subtitle={name}
-              />
-              <XStack pr="$5" space="$5">
+              <XStack>
                 <NumberSizeableText
                   size="$bodyLgMedium"
                   formatter="price"
@@ -218,7 +218,7 @@ export function UniversalSearch({
                 </NumberSizeableText>
                 <MarketStar coingeckoId={coingeckoId} />
               </XStack>
-            </XStack>
+            </ListItem>
           );
         }
         default: {
