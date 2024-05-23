@@ -124,23 +124,19 @@ export class KeyringHardware extends KeyringHardwareBase {
     const sdk = await this.getHardwareSDKInstance();
     const account = await this.vault.getAccount();
     return Promise.all(
-      messages.map(async (message) => {
-        const res = await convertDeviceResponse(() => {
-          const messageRequest: ISignMessageRequest = JSON.parse(
-            message.message,
-          );
-          return sdk.aptosSignMessage(connectId, deviceId, {
+      messages.map(async (e) => {
+        const payload = e.payload as ISignMessageRequest;
+        const res = await convertDeviceResponse(() =>
+          sdk.aptosSignMessage(connectId, deviceId, {
             ...deviceCommonParams,
             path: account.path,
             payload: {
-              message: messageRequest.message,
-              address: messageRequest.address,
-              application: messageRequest.application,
-              chainId: messageRequest?.chainId?.toString(),
-              nonce: messageRequest?.nonce?.toString(),
+              ...payload,
+              chainId: payload.chainId?.toString(),
+              nonce: payload.nonce.toString(),
             },
-          });
-        });
+          }),
+        );
         return res.signature;
       }),
     );

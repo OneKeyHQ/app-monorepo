@@ -247,7 +247,10 @@ export default class VaultAptos extends VaultBase {
                   return JSON.stringify(a);
                 }
               }
-              return '';
+              if (!a) {
+                return '';
+              }
+              return JSON.stringify(a);
             }) ?? [],
         },
       };

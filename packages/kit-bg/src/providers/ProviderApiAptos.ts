@@ -67,8 +67,8 @@ class ProviderApiAptos extends ProviderApiBase {
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const data = async ({ origin }: { origin: string }) => {
-      const params = await this.account({ origin });
+    const data = async ({ origin, ...ext }: { origin: string }) => {
+      const params = await this.account({ origin, scope: 'aptos' });
       const result = {
         method: 'wallet_events_accountChanged',
         params,
@@ -347,7 +347,8 @@ class ProviderApiAptos extends ProviderApiBase {
       request,
       unsignedMessage: {
         type: EMessageTypesAptos.SIGN_MESSAGE,
-        message: JSON.stringify(format),
+        message: format.fullMessage,
+        payload: format,
       },
       accountId: account.id ?? '',
       networkId: accountInfo?.networkId ?? '',
