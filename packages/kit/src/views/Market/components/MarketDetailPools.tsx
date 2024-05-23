@@ -26,6 +26,7 @@ import type {
 import { listItemPressStyle } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
+import { MarketPoolIcon } from './MarketPoolIcon';
 import { PoolDetails } from './PoolDetails';
 
 function HeaderColumn({
@@ -157,14 +158,7 @@ export function MarketDetailPools({
               >
                 <ItemColumn>
                   <XStack space="$2.5" ai="center">
-                    {relationships.dex.data.id.includes('uniswap') ? (
-                      <Icon
-                        name="UniswapBrand"
-                        size="$5"
-                        borderRadius="$full"
-                        color={'#ff007a' as IIconProps['color']}
-                      />
-                    ) : null}
+                    <MarketPoolIcon id={relationships.dex.data.id} />
                     <YStack flexShrink={1}>
                       <SizableText size="$bodySmMedium">
                         {attributes.name}
