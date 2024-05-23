@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import {
@@ -639,6 +640,7 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async switchConnectedNetwork(
     params: IGetDAppAccountInfoParams & {
+      oldNetworkId?: string;
       newNetworkId: string;
     },
   ) {
@@ -650,7 +652,9 @@ class ServiceDApp extends ServiceBase {
     if (!containsNetwork) {
       throw new Error('Network not found');
     }
-    if (!(await this.shouldSwitchNetwork(params))) {
+    const { shouldSwitchNetwork, isDifferentNetworkImpl } =
+      await this.getSwitchNetworkInfo(params);
+    if (!shouldSwitchNetwork) {
       return;
     }
 
@@ -666,32 +670,51 @@ class ServiceDApp extends ServiceBase {
       await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorMap({
         sceneUrl: params.origin,
       });
-    console.log('====> map: ', map);
-    // const selectedAccount =
-    //   await this.backgroundApi.simpleDb.accountSelector.getSelectedAccount({
-    //     sceneName: EAccountSelectorSceneName.discover,
-    //     sceneUrl: params.origin,
-    //     num: accountSelectorNum,
-    //   });
-    const selectedAccount = map?.[accountSelectorNum];
-    if (selectedAccount) {
-      const { selectedAccount: newSelectedAccount } =
+    const existSelectedAccount = map?.[accountSelectorNum];
+    let updatedAccountInfo: IConnectionAccountInfo | null = null;
+    if (existSelectedAccount) {
+      const { selectedAccount, activeAccount } =
         await this.backgroundApi.serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
           {
-            selectedAccount: { ...selectedAccount, networkId: newNetworkId },
+            selectedAccount: {
+              ...existSelectedAccount,
+              networkId: newNetworkId,
+            },
           },
         );
-      console.log('===>newSelectedAccount: ', newSelectedAccount);
+
+      if (!activeAccount.account) {
+        throw new Error('Switch network failed, account not found');
+      }
+
+      updatedAccountInfo = {
+        ...selectedAccount,
+        accountId: activeAccount?.account.id,
+        address: activeAccount?.account.address,
+        networkImpl: activeAccount?.account.impl,
+      };
     }
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId: newNetworkId,
     });
-    await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
-      params.origin,
-      network.impl,
-      newNetworkId,
-      storageType,
-    );
+    // update account info if network impl is different, tbtc !== btc
+    if (isDifferentNetworkImpl && updatedAccountInfo) {
+      await this.backgroundApi.simpleDb.dappConnection.updateConnectionAccountInfo(
+        {
+          origin: params.origin,
+          accountSelectorNum,
+          updatedAccountInfo,
+          storageType,
+        },
+      );
+    } else {
+      await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
+        params.origin,
+        network.impl,
+        newNetworkId,
+        storageType,
+      );
+    }
 
     setTimeout(() => {
       appEventBus.emit(EAppEventBusNames.DAppNetworkUpdate, {
@@ -704,19 +727,43 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async shouldSwitchNetwork(
+  async getSwitchNetworkInfo(
     params: IGetDAppAccountInfoParams & {
       newNetworkId: string;
+      oldNetworkId?: string;
     },
   ) {
+    const { newNetworkId, oldNetworkId } = params;
     const accountsInfo = await this.getConnectedAccountsInfo(params);
+    let shouldSwitchNetwork = false;
+    let isDifferentNetworkImpl = false;
     if (
       !accountsInfo ||
       (Array.isArray(accountsInfo) && !accountsInfo.length)
     ) {
-      return false;
+      return {
+        shouldSwitchNetwork,
+        isDifferentNetworkImpl,
+      };
     }
-    return accountsInfo.some((a) => a.networkId !== params.newNetworkId);
+    const newNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: newNetworkId,
+    });
+    for (const accountInfo of accountsInfo) {
+      if (oldNetworkId) {
+        // tbtc !== btc
+        if (oldNetworkId === accountInfo.networkId) {
+          shouldSwitchNetwork = accountInfo.networkId !== newNetworkId;
+          isDifferentNetworkImpl = accountInfo.networkImpl !== newNetwork.impl;
+        }
+      } else if (accountInfo.networkId !== newNetworkId) {
+        shouldSwitchNetwork = true;
+      }
+    }
+    return {
+      shouldSwitchNetwork,
+      isDifferentNetworkImpl,
+    };
   }
 
   @backgroundMethod()
