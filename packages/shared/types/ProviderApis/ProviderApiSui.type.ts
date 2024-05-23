@@ -44,3 +44,58 @@ export type ISignMessageInput = {
   walletSerialize: string;
   account: IWalletAccount;
 };
+
+export type IPushTxParams = {
+  rawTx: string;
+};
+export type ISignPsbtParams = {
+  psbtHex: string;
+  options: { autoFinalized: boolean; isBtcWalletProvider: boolean };
+};
+
+export type ISignPsbtsParams = {
+  psbtHexs: string[];
+  options: { autoFinalized: boolean; isBtcWalletProvider: boolean };
+};
+
+export type IPushPsbtParams = {
+  psbtHex: string;
+};
+
+export type ITxInscription = {
+  inscriptionId: string;
+  inscriptionNumber: number;
+  address: string;
+  outputValue: number;
+  preview: string;
+  content: string;
+  contentLength: number;
+  contentType: string;
+  contentBody: string;
+  timestamp: number;
+  genesisTransaction: string;
+  location: string;
+  output: string;
+  offset: number;
+};
+
+export type IDecodedPsbt = {
+  inputInfos: {
+    txid: string;
+    vout: number;
+    address: string;
+    value: number;
+    sighashType?: number;
+    inscriptions: ITxInscription[];
+  }[];
+  outputInfos: {
+    address: string;
+    value: number;
+    inscriptions: ITxInscription[];
+  }[];
+  inscriptions: Record<string, ITxInscription>;
+  feeRate: string;
+  fee: string;
+  hasScammerAddress: boolean;
+  warning: string;
+};

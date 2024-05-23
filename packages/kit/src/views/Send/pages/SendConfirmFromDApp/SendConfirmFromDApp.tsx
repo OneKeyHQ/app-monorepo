@@ -7,6 +7,7 @@ import { Page, Spinner, Stack } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
@@ -18,12 +19,14 @@ function SendConfirmFromDApp() {
   const {
     $sourceInfo,
     encodedTx,
+    transfersInfo,
     signOnly = false,
     accountId,
     networkId,
     _$t = undefined,
   } = useDappQuery<{
     encodedTx: IEncodedTx;
+    transfersInfo: ITransferInfo[];
     accountId: string;
     networkId: string;
     signOnly: boolean;
@@ -52,6 +55,7 @@ function SendConfirmFromDApp() {
             accountId,
             networkId,
             encodedTx,
+            transfersInfo,
           });
         const params: IModalSendParamList[EModalSendRoutes.SendConfirm] = {
           networkId,

@@ -49,6 +49,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const utxo of utxosInfo) {
       const { address, path } = utxo;
       if (addresses.includes(address)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         signers[address] = path;
       }
     }

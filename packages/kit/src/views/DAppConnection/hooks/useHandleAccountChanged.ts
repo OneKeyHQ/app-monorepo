@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -33,6 +33,13 @@ export function useHandleDiscoveryAccountChanged({
   const debouncedActiveAccount = useDebounce(activeAccount, 200);
   const debouncedSelectedAccount = useDebounce(selectedAccount, 200);
 
+  const activeAccountRef = useRef(activeAccount);
+  const selectedAccountRef = useRef(selectedAccount);
+  useEffect(() => {
+    activeAccountRef.current = activeAccount;
+    selectedAccountRef.current = selectedAccount;
+  }, [activeAccount, selectedAccount]);
+
   useEffect(() => {
     if (handleAccountChanged) {
       // ensure the selected account is the same as the active account
@@ -45,8 +52,8 @@ export function useHandleDiscoveryAccountChanged({
       ) {
         handleAccountChanged(
           {
-            activeAccount: debouncedActiveAccount,
-            selectedAccount: debouncedSelectedAccount,
+            activeAccount: activeAccountRef.current,
+            selectedAccount: selectedAccountRef.current,
           },
           num,
         );
