@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Button,
@@ -82,7 +82,15 @@ const maxSize = 8;
 export function MarketWatchList({ category }: { category: IMarketCategory }) {
   const [{ items: watchListCoingeckoIds }] = useMarketWatchListPersistAtom();
 
-  const [coingeckoIds, setCoingeckoIds] = useState<string[]>([]);
+  const defaultCoingeckoIds = useMemo(
+    () =>
+      category?.recommendedTokens
+        ?.slice(0, maxSize)
+        ?.map((i) => i.coingeckoId) || [],
+    [category.recommendedTokens],
+  );
+  const [coingeckoIds, setCoingeckoIds] =
+    useState<string[]>(defaultCoingeckoIds);
 
   const handleRecommendItemChange = useCallback(
     (checked: boolean, coingeckoId: string) => {
