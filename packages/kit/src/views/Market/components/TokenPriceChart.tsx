@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -59,7 +60,7 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
   const { gtMd } = useMedia();
   return (
     <YStack px="$5">
-      <YStack h={326} $gtMd={{ pl: '$5', h: 346 }}>
+      <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ pl: '$5', h: 346 }}>
         <PriceChart
           isFetching={isLoading}
           data={points}
@@ -88,7 +89,7 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
         </PriceChart>
       </YStack>
       {gtMd ? null : (
-        <Stack mt="$5">
+        <Stack mt={platformEnv.isNative ? 0 : '$5'}>
           <SegmentControl
             fullWidth
             value={days}

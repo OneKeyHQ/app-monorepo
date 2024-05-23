@@ -131,10 +131,15 @@ export function PriceChart({
   ) : (
     <>
       {priceLabel}
-      <Stack h={190} mt={24} justifyContent="center" alignItems="center">
+      <Stack
+        h={190}
+        mt={platformEnv.isNative ? 68 : 24}
+        justifyContent="center"
+        alignItems="center"
+      >
         {platformEnv.isNative ? chartView : chartViewWithSpinner}
       </Stack>
-      <Stack mt="8px">{children}</Stack>
+      <Stack mt={8}>{children}</Stack>
     </>
   );
 }

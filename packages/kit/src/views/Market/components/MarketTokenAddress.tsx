@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import {
   IconButton,
@@ -34,12 +34,19 @@ export function MarketTokenAddress({
       );
     }
   }, [address, networkId]);
+  const renderIcon = useCallback(() => {
+    if (uri) {
+      return (
+        <Image size="$5" src={decodeURIComponent(uri)} borderRadius="$full" />
+      );
+    }
+    if (networkId) {
+      return <NetworkAvatar size="$5" networkId={networkId} />;
+    }
+  }, [networkId, uri]);
   return (
     <XStack space="$1.5" ai="center">
-      {networkId ? <NetworkAvatar size="$5" networkId={networkId} /> : null}
-      {uri ? (
-        <Image size="$5" src={decodeURIComponent(uri)} borderRadius="$full" />
-      ) : null}
+      {renderIcon()}
       <XStack space="$2">
         <SizableText size="$bodyMdMedium">{`${tokenName}:`}</SizableText>
         <SizableText size="$bodyMd">{`${address.slice(0, 6)}...${address.slice(
