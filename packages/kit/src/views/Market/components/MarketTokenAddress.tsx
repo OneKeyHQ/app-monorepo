@@ -1,9 +1,12 @@
 import { useCallback } from 'react';
 
+import type { ISizableTextProps } from '@onekeyhq/components';
 import {
+  Icon,
   IconButton,
   Image,
   SizableText,
+  Stack,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
@@ -17,11 +20,17 @@ export function MarketTokenAddress({
   address,
   uri,
   networkId,
+  tokenNameColor,
+  tokenNameSize = '$bodyMdMedium',
+  addressSize = '$bodyMd',
 }: {
   networkId?: string;
   tokenName: string;
   address: string;
   uri?: string;
+  tokenNameColor?: ISizableTextProps['color'];
+  tokenNameSize?: ISizableTextProps['size'];
+  addressSize?: ISizableTextProps['size'];
 }) {
   const { copyText } = useClipboard();
   const handleOpenUrl = useCallback(async () => {
@@ -43,13 +52,32 @@ export function MarketTokenAddress({
     if (networkId) {
       return <NetworkAvatar size="$5" networkId={networkId} />;
     }
+
+    return (
+      <Stack
+        width="$5"
+        height="$5"
+        ai="center"
+        jc="center"
+        bg="$bgStrong"
+        borderRadius="$full"
+      >
+        <Icon size="$2.5" name="PlaceholderSolid" />
+      </Stack>
+    );
   }, [networkId, uri]);
   return (
     <XStack space="$1.5" ai="center">
       {renderIcon()}
       <XStack space="$2">
-        <SizableText size="$bodyMdMedium">{`${tokenName}:`}</SizableText>
-        <SizableText size="$bodyMd">{`${address.slice(0, 6)}...${address.slice(
+        <SizableText
+          color={tokenNameColor}
+          size={tokenNameSize}
+        >{`${tokenName}:`}</SizableText>
+        <SizableText size={addressSize}>{`${address.slice(
+          0,
+          6,
+        )}...${address.slice(
           address.length - 4,
           address.length,
         )}`}</SizableText>
