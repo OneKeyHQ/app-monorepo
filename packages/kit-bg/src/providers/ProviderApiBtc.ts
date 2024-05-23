@@ -10,6 +10,7 @@ import {
   formatPsbtHex,
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   providerApiMethod,
@@ -485,10 +486,6 @@ class ProviderApiBtc extends ProviderApiBase {
         respPsbt.finalizeInput(v.index);
       });
     }
-
-    if (options.isBtcWalletProvider) {
-      return respPsbt.extractTransaction().toHex();
-    }
     return respPsbt.toHex();
   }
 
@@ -530,6 +527,49 @@ class ProviderApiBtc extends ProviderApiBase {
     });
 
     return result.txid;
+  }
+
+  @providerApiMethod()
+  public async getNetworkFees(request: IJsBridgeMessagePayload) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { networkId, accountId } = {} } = accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    const result = await this.backgroundApi.serviceGas.estimateFee({
+      networkId,
+      encodedTx: await this.backgroundApi.serviceGas.buildEstimateFeeParams({
+        accountId,
+        networkId,
+        encodedTx: {} as IEncodedTx,
+      }),
+      accountAddress,
+    });
+    if (result.feeUTXO && result.feeUTXO.length === 3) {
+      const fastestFee = Number(result.feeUTXO[0].feeRate);
+      const halfHourFee = Number(result.feeUTXO[1].feeRate);
+      const hourFee = Number(result.feeUTXO[2].feeRate);
+      return {
+        fastestFee,
+        halfHourFee,
+        hourFee,
+        economyFee: hourFee,
+        minimumFee: hourFee,
+      };
+    }
+    throw web3Errors.provider.custom({
+      code: 4001,
+      message: 'Failed to get network fees',
+    });
   }
 }
 
