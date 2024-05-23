@@ -151,16 +151,20 @@ class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async fetchPools(query: string) {
     const client = await this.getClient();
-    const response = await client.get<{
-      code: number;
-      data: IMarketDetailPool[];
-    }>('/utility/v1/market/pools', {
-      params: {
-        query,
-      },
-    });
-    const { code, data } = response.data;
-    return code === 0 ? data : [];
+    try {
+      const response = await client.get<{
+        code: number;
+        data: IMarketDetailPool[];
+      }>('/utility/v1/market/pools', {
+        params: {
+          query,
+        },
+      });
+      const { code, data } = response.data;
+      return code === 0 ? data : [];
+    } catch {
+      return [];
+    }
   }
 
   @backgroundMethod()
