@@ -215,6 +215,7 @@ const SwapTokenSelectPage = () => {
         tokenImageSrc: rawItem.logoURI,
         tokenName: rawItem.name,
         tokenSymbol: rawItem.symbol,
+        networkImageSrc: rawItem.networkLogoURI,
         tokenContrastAddress: searchKeyword
           ? contractAddressDisplay
           : undefined,
