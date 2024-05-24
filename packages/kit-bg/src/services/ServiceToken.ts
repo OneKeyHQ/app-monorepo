@@ -100,6 +100,20 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getNativeTokenAddress({ networkId }: { networkId: string }) {
+    const vaultSettings = await getVaultSettings({ networkId });
+    let tokenAddress = vaultSettings.networkInfo[networkId]?.nativeTokenAddress;
+    if (typeof tokenAddress === 'string') {
+      return tokenAddress;
+    }
+    tokenAddress = vaultSettings.networkInfo.default.nativeTokenAddress;
+    if (typeof tokenAddress === 'string') {
+      return tokenAddress;
+    }
+    return vaultSettings.nativeTokenAddress;
+  }
+
+  @backgroundMethod()
   public async getNativeToken({
     networkId,
     accountAddress,
@@ -111,8 +125,7 @@ class ServiceToken extends ServiceBase {
   }) {
     let tokenAddress = tokenIdOnNetwork;
     if (isNil(tokenAddress)) {
-      const vaultSettings = await getVaultSettings({ networkId });
-      tokenAddress = vaultSettings.nativeTokenAddress;
+      tokenAddress = await this.getNativeTokenAddress({ networkId });
     }
 
     return this.getToken({

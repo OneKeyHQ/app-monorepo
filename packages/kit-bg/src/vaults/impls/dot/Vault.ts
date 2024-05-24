@@ -2,7 +2,7 @@
 import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
 import { decode, getRegistry, methods } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, isObject } from 'lodash';
 
 import { serializeUnsignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
@@ -52,11 +52,8 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import type {
-  Args,
-  BaseTxInfo,
-  TypeRegistry,
-} from '@substrate/txwrapper-polkadot';
+import type { Type } from '@polkadot/types';
+import type { Args, TypeRegistry } from '@substrate/txwrapper-polkadot';
 
 export default class VaultDot extends VaultBase {
   override coreApi = coreChainApi.dot.hd;
@@ -403,11 +400,21 @@ export default class VaultDot extends VaultBase {
       let to = '';
       let amount = '';
 
+      const networkInfo = await this.getNetworkInfo();
+      let assetId = '';
+      if (decodeUnsignedTx.assetId) {
+        if (isObject(decodeUnsignedTx.assetId)) {
+          const assetIdInst = decodeUnsignedTx.assetId as Type;
+          if (!assetIdInst.isEmpty) {
+            assetId = assetIdInst.toHex();
+          }
+        } else {
+          assetId = decodeUnsignedTx.assetId.toString();
+        }
+      }
       const tokenInfo = await this.backgroundApi.serviceToken.getToken({
         networkId: this.networkId,
-        tokenIdOnNetwork: decodeUnsignedTx.assetId
-          ? decodeUnsignedTx.assetId.toString()
-          : '',
+        tokenIdOnNetwork: assetId || (networkInfo.nativeTokenAddress ?? ''),
         accountAddress: account.address,
       });
 

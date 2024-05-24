@@ -128,7 +128,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
     throw new Error('Method not implemented.');
   }
 }
