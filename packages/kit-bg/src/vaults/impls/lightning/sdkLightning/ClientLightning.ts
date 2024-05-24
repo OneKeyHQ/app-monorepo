@@ -82,22 +82,38 @@ class ClientLightning {
     networkId: string;
     address?: string;
   }) {
-    const usedAddress =
-      address ||
-      (await this.backgroundApi.serviceLightning.getLightningAddress({
-        accountId,
-        networkId,
-      }));
-    try {
-      const credential =
-        await this.backgroundApi.simpleDb.lightning.getCredential({
-          address: usedAddress,
+    return this.retryOperation(
+      async () => {
+        const usedAddress =
+          address ||
+          (await this.backgroundApi.serviceLightning.getLightningAddress({
+            accountId,
+            networkId,
+          }));
+        let credential: string | undefined = '';
+        try {
+          const token =
+            await this.backgroundApi.simpleDb.lightning.getCredential({
+              address: usedAddress,
+            });
+          credential = token;
+        } catch (e) {
+          console.error('=====>>>getAuthorization failed: ', e);
+          credential = '';
+        }
+        if (!credential) {
+          throw new Error('No credential');
+        }
+        return credential;
+      },
+      (error: unknown) => (error as Error).message === 'No credential',
+      async () => {
+        await this.backgroundApi.serviceLightning.exchangeToken({
+          accountId,
+          networkId,
         });
-      return credential;
-    } catch (e) {
-      console.error('=====>>>getAuthorization failed: ', e);
-      return '';
-    }
+      },
+    );
   }
 
   async checkAccountExist(address: string) {
