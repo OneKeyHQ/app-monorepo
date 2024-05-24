@@ -1,17 +1,15 @@
 import { useMemo } from 'react';
 
-import type { IIconProps } from '@onekeyhq/components';
 import { Icon, Image } from '@onekeyhq/components';
 
-import type { ImageURISource } from 'react-native';
-
-const imageIcons: Record<string, ImageURISource> = {
-  pancakeswap: require('@onekeyhq/kit/assets/brand/pancakeswap.png'),
-  jupiter: require('@onekeyhq/kit/assets/brand/jupiter.png'),
-  raydium: require('@onekeyhq/kit/assets/brand/raydium.png'),
-  meteora: require('@onekeyhq/kit/assets/brand/meteora.png'),
-  curve: require('@onekeyhq/kit/assets/brand/curve.png'),
-  orca: require('@onekeyhq/kit/assets/brand/orca.png'),
+const imageIcons: Record<string, string> = {
+  uniswap: 'https://uni.onekey-asset.com/static/logo/Uniswap_V3.png',
+  pancakeswap: require('https://uni.onekey-asset.com/static/logo/PancakeSwap.png'),
+  jupiter: require('https://uni.onekey-asset.com/static/logo/Jupiter.png'),
+  raydium: require('https://uni.onekey-asset.com/static/logo/Raydium.png'),
+  meteora: require('https://uni.onekey-asset.com/static/logo//Meteora.png'),
+  curve: require('https://uni.onekey-asset.com/static/logo/Curve.png'),
+  orca: require('https://uni.onekey-asset.com/static/logo/orca.png'),
 };
 export function MarketPoolIcon({ id }: { id: string }) {
   const idName = id.toLowerCase();
@@ -19,28 +17,9 @@ export function MarketPoolIcon({ id }: { id: string }) {
     const iconKey = Object.keys(imageIcons).find((key) => idName.includes(key));
     return iconKey ? imageIcons[iconKey] : undefined;
   }, [idName]);
-  const iconProps: IIconProps | undefined = useMemo(() => {
-    if (imageSource) {
-      return undefined;
-    }
-    if (idName.includes('uniswap')) {
-      return {
-        name: 'UniswapBrand',
-        color: '#ff007a' as IIconProps['color'],
-      };
-    }
-    if (idName.includes('pancakeswap')) {
-      return {
-        name: 'SwitchHorOutline',
-      };
-    }
 
-    return {
-      name: 'SwitchHorOutline',
-    };
-  }, [idName, imageSource]);
   if (imageSource) {
-    return <Image size="$5" borderRadius="$full" source={imageSource} />;
+    return <Image size="$5" borderRadius="$full" src={imageSource} />;
   }
-  return <Icon size="$5" borderRadius="$full" {...iconProps} />;
+  return <Icon size="$5" borderRadius="$full" name="SwitchHorOutline" />;
 }
