@@ -12,8 +12,8 @@ export { ProviderJotaiContextMarketWatchList, contextAtomMethod };
 export const { atom: marketWatchListAtom, use: useMarketWatchListAtom } =
   contextAtom<IMarketWatchListData>({ data: [] });
 
-marketWatchListAtom().onMount = async (set) => {
-  const data =
-    await backgroundApiProxy.simpleDb.marketWatchList.getMarketWatchList();
-  set(data);
+marketWatchListAtom().onMount = (set) => {
+  void backgroundApiProxy.simpleDb.marketWatchList
+    .getMarketWatchList()
+    .then((data) => set(data));
 };
