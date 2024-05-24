@@ -43,12 +43,12 @@ export type PushTxParams = {
 };
 export type SignPsbtParams = {
   psbtHex: string;
-  options: { autoFinalized: boolean };
+  options: { autoFinalized: boolean; isBtcWalletProvider: boolean };
 };
 
 export type SignPsbtsParams = {
   psbtHexs: string[];
-  options: { autoFinalized: boolean };
+  options: { autoFinalized: boolean; isBtcWalletProvider: boolean };
 };
 
 export type PushPsbtParams = {

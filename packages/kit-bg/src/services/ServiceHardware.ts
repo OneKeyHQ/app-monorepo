@@ -42,6 +42,7 @@ import {
 import { isPassphraseWallet } from '@onekeyhq/shared/src/engine/engineUtils';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { createPromiseWithTimeout } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   EOnekeyDomain,
@@ -413,7 +414,7 @@ class ServiceHardware extends ServiceBase {
 
       // update bootloader
       if (
-        deviceType === 'touch' &&
+        (deviceType === 'touch' || deviceType === 'pro') &&
         response.success &&
         firmwareType === 'firmware'
       ) {
@@ -433,10 +434,11 @@ class ServiceHardware extends ServiceBase {
     maxTryCount = 10,
     bootloaderMode = false,
   ) {
+    const hardwareSDK = await this.getSDKInstance();
     return new Promise((resolve) => {
       let tryCount = 0;
       deviceUtils.startDeviceScan(
-        (response) => {
+        async (response) => {
           tryCount += 1;
           if (tryCount > maxTryCount) {
             deviceUtils.stopScan();
@@ -451,9 +453,16 @@ class ServiceHardware extends ServiceBase {
             : (response.payload ?? []).find((d) =>
                 equalsIgnoreCase(d.connectId, connectId),
               );
+
           if (deviceExist) {
-            deviceUtils.stopScan();
-            resolve(true);
+            const res = await createPromiseWithTimeout(
+              hardwareSDK.getFeatures(connectId),
+              2000,
+            );
+            if (res?.success) {
+              deviceUtils.stopScan();
+              resolve(true);
+            }
           }
         },
         () => {},
@@ -470,7 +479,6 @@ class ServiceHardware extends ServiceBase {
     // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve) => {
       const hardwareSDK = await this.getSDKInstance();
-      // restart count down
       await wait(8000);
       let tryCount = 0;
       //  polling device when restart success

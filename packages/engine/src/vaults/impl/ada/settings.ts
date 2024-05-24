@@ -29,7 +29,7 @@ const settings: IVaultSettings = Object.freeze({
       template: `m/1852'/${COINTYPE_ADA}'/${INDEX_PLACEHOLDER}'/0/0`,
       coinType: COINTYPE_ADA,
       label: 'Shelley',
-      subDesc: `m/1852'/${COINTYPE_ADA}'/x'/0/0`,
+      subDesc: `m/1852'/${COINTYPE_ADA}'/*'/0/0`,
     },
   },
 });

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { Wallet } from '@onekeyhq/engine/src/types/wallet';
+import { IMPL_DYNEX } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import { useAccount, useNetwork } from '../../../hooks';
 

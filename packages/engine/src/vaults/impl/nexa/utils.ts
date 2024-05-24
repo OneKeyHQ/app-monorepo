@@ -142,14 +142,17 @@ const DEFAULT_SEQNUMBER = MAXINT;
 const FEE_PER_KB = 1000 * 3;
 const CHANGE_OUTPUT_MAX_SIZE = 1 + 8 + 1 + 23;
 
-export function estimateSize(encodedTx: IEncodedTxNexa) {
+export function estimateSize(
+  vinlength: number,
+  vouts: IEncodedTxNexa['outputs'],
+) {
   let estimatedSize = 4 + 1; // locktime + version
-  estimatedSize += encodedTx.inputs.length < 253 ? 1 : 3;
-  encodedTx.inputs.forEach(() => {
+  estimatedSize += vinlength < 253 ? 1 : 3;
+  new Array(vinlength).fill(0).forEach(() => {
     // type + outpoint + scriptlen + script + sequence + amount
     estimatedSize += 1 + 32 + 1 + 100 + 4 + 8;
   });
-  encodedTx.outputs.forEach((output) => {
+  vouts.forEach((output) => {
     const bfr = getScriptBufferFromScriptTemplateOut(output.address);
     estimatedSize += convertScriptToPushBuffer(bfr).length + 1 + 8 + 1;
   });
@@ -157,10 +160,11 @@ export function estimateSize(encodedTx: IEncodedTxNexa) {
 }
 
 export function estimateFee(
-  encodedTx: IEncodedTxNexa,
+  vinlength: number,
+  vouts: IEncodedTxNexa['outputs'],
   feeRate = FEE_PER_KB / 1000,
 ): number {
-  const size = estimateSize(encodedTx);
+  const size = estimateSize(vinlength, vouts);
   const feeWithChange = Math.ceil(
     size * feeRate + CHANGE_OUTPUT_MAX_SIZE * feeRate,
   );
@@ -292,7 +296,7 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
     new BN(0),
   );
 
-  const fee = new BN(gas || estimateFee(encodedTx));
+  const fee = new BN(gas || estimateFee(inputs.length, outputs));
   const available = inputAmount.sub(fee);
   if (available.lt(new BN(0))) {
     console.error(inputAmount.toString(), fee.toString());

@@ -51,9 +51,14 @@ import type {
 } from '../../../types/provider';
 import type { Token } from '../../../types/token';
 import type { KeyringSoftwareBase } from '../../keyring/KeyringSoftwareBase';
-import type { IDecodedTxLegacy, IHistoryTx, ISignedTxPro } from '../../types';
+import type {
+  IDecodedTxLegacy,
+  IHistoryTx,
+  ISignCredentialOptions,
+  ISignedTxPro,
+} from '../../types';
 import type { EVMDecodedItem } from '../evm/decoder/types';
-import type { IEncodedTxNexa, INexaTransaction } from './types';
+import type { IEncodedTxNexa, IListUTXO, INexaTransaction } from './types';
 
 export default class Vault extends VaultBase {
   keyringMap = {
@@ -238,18 +243,49 @@ export default class Vault extends VaultBase {
     return Promise.resolve({} as IDecodedTxLegacy);
   }
 
+  getConfirmedUTXOs<T extends { value: string | number }>(
+    utxos: T[],
+    amount: string,
+    fee: string,
+    minTransferAmount = '0',
+  ): T[] {
+    const transactionAmount = new BigNumber(amount)
+      .plus(fee)
+      .plus(minTransferAmount);
+    const confirmedUTXOs = utxos.sort((a, b) =>
+      new BigNumber(b.value).gt(a.value) ? 1 : -1,
+    );
+    let sum = new BigNumber(0);
+    let i = 0;
+    for (i = 0; i < confirmedUTXOs.length; i += 1) {
+      sum = sum.plus(confirmedUTXOs[i].value);
+      if (sum.gt(transactionAmount)) {
+        break;
+      }
+    }
+
+    // all amount
+    if (sum.eq(amount) && i === confirmedUTXOs.length) {
+      return utxos;
+    }
+    if (sum.lt(transactionAmount)) {
+      return [];
+    }
+
+    return confirmedUTXOs.slice(0, i + 1);
+  }
+
   override async buildEncodedTxFromTransfer(
     transferInfo: ITransferInfo,
   ): Promise<IEncodedTxNexa> {
     const client = await this.getSDKClient();
     const fromNexaAddress = transferInfo.from;
-    const utxos = (await client.getNexaUTXOs(fromNexaAddress)).filter(
+    const uxtos = (await client.getNexaUTXOs(fromNexaAddress)).filter(
       (value) => !value.has_token,
     );
-
     const network = await this.getNetwork();
     return {
-      inputs: utxos.map((utxo) => ({
+      inputs: uxtos.map((utxo) => ({
         txId: utxo.outpoint_hash,
         outputIndex: utxo.tx_pos,
         satoshis: new BigNumber(utxo.value).toFixed(),
@@ -284,15 +320,51 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
-  override buildUnsignedTxFromEncodedTx(
+  async getMinTransferAmount() {
+    const network = await this.getNetwork();
+    return network.settings.minTransferAmount
+      ? new BigNumber(network.settings.minTransferAmount)
+          .shiftedBy(network.decimals)
+          .toFixed()
+      : undefined;
+  }
+
+  override async buildUnsignedTxFromEncodedTx(
     encodedTx: IEncodedTxNexa,
   ): Promise<IUnsignedTxPro> {
-    return Promise.resolve({
+    const client = await this.getSDKClient();
+    const network = await this.getNetwork();
+    const confirmedUTXOs = this.getConfirmedUTXOs(
+      encodedTx.inputs.map((input) => ({
+        ...input,
+        value: input.satoshis,
+      })),
+      new BigNumber(encodedTx.transferInfo?.amount || 0)
+        .shiftedBy(network.decimals)
+        .toFixed(),
+      new BigNumber(encodedTx?.gas || 0).toFixed(),
+      await this.getMinTransferAmount(),
+    );
+
+    if (confirmedUTXOs.length > client.MAX_TX_NUM_VIN) {
+      const maximumAmount = confirmedUTXOs
+        .slice(0, client.MAX_TX_NUM_VIN)
+        .reduce((acc, cur) => acc.plus(cur.value), new BigNumber(0));
+      throw new OneKeyInternalError(
+        `Too many vins, The maximum amount for this transfer is ${maximumAmount
+          .shiftedBy(-network.decimals)
+          .toFixed()} ${network.symbol}.`,
+      );
+    }
+    encodedTx.inputs = confirmedUTXOs;
+    return {
       inputs: [],
       outputs: [],
-      payload: { encodedTx },
+      payload: {
+        encodedTx,
+      },
       encodedTx,
-    });
+    };
   }
 
   override async getTransactionStatuses(
@@ -309,11 +381,22 @@ export default class Vault extends VaultBase {
   ): Promise<IFeeInfo> {
     const network = await this.getNetwork();
     const client = await this.getSDKClient();
-    const estimateSizedSize = estimateSize(encodedTx);
+    const vinLength = this.getConfirmedUTXOs(
+      encodedTx.inputs.map((input) => ({
+        ...input,
+        value: input.satoshis,
+      })),
+      new BigNumber(encodedTx.transferInfo?.amount || 0)
+        .shiftedBy(network.decimals)
+        .toFixed(),
+      '0',
+      await this.getMinTransferAmount(),
+    ).length;
+    const estimateSizedSize = estimateSize(vinLength, encodedTx.outputs);
     const remoteEstimateFee = await client.estimateFee(estimateSizedSize);
-    const localEstimateFee = estimateFee(encodedTx);
+    const localEstimateFee = estimateFee(vinLength, encodedTx.outputs);
     const feeInfo = specifiedFeeRate
-      ? estimateFee(encodedTx, Number(specifiedFeeRate))
+      ? estimateFee(vinLength, encodedTx.outputs, Number(specifiedFeeRate))
       : Math.max(remoteEstimateFee, localEstimateFee);
     return {
       nativeSymbol: network.symbol,

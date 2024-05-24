@@ -48,6 +48,7 @@ export const getManageAccountOptions: (
       key: 'action__export_private_key',
     },
   },
+
   [ManageAccountKeys.ExportPrivateViewKey]: {
     label: intl.formatMessage({ id: 'action__export_private_view_key' }),
     description: intl.formatMessage({

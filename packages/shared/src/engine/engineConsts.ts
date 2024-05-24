@@ -89,6 +89,9 @@ const COINTYPE_NERVOS = '309';
 const IMPL_NEURAI = 'neurai';
 const COINTYPE_NEURAI = '1900';
 
+const IMPL_DYNEX = 'dynex';
+const COINTYPE_DYNEX = '29538';
+
 const IMPL_ALLNETWORKS = 'all';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -127,6 +130,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_LIGHTNING_TESTNET,
   IMPL_NERVOS,
   IMPL_NEURAI,
+  IMPL_DYNEX,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -157,6 +161,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_NEXA,
   IMPL_NERVOS,
   IMPL_NEURAI,
+  IMPL_DYNEX,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -226,6 +231,7 @@ export {
   COINTYPE_NOSTR,
   COINTYPE_NERVOS,
   COINTYPE_NEURAI,
+  COINTYPE_DYNEX,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -254,6 +260,7 @@ export {
   IMPL_NOSTR,
   IMPL_NERVOS,
   IMPL_NEURAI,
+  IMPL_DYNEX,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,
@@ -285,4 +292,6 @@ export const isLightningNetworkByNetworkId = (networkId?: string) =>
   networkId === OnekeyNetwork.lightning ||
   networkId === OnekeyNetwork.tlightning;
 export const isBTCNetwork = (networkId?: string) =>
-  networkId === OnekeyNetwork.btc || networkId === OnekeyNetwork.tbtc;
+  networkId === OnekeyNetwork.btc ||
+  networkId === OnekeyNetwork.tbtc ||
+  networkId === OnekeyNetwork.sbtc;

@@ -7,6 +7,7 @@ import { cloneDeep, last } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Box,
   Button,
   Center,
@@ -137,18 +138,24 @@ function ScreenSendEditFee({ ...rest }) {
     }
     return encodedTx as IEncodedTxEvm;
   }, [autoConfirmAfterFeeSaved, encodedTx]);
-  const { feeInfoPayload, feeInfoLoading, getSelectedFeeInfoUnit } =
-    useFeeInfoPayload({
-      networkId,
-      accountId,
-      encodedTx: encodedTxForFeeInfo,
-      fetchAnyway: true,
-      ignoreFetchFeeCalling: oldSendConfirmParams?.ignoreFetchFeeCalling,
-      useFeeInTx: oldSendConfirmParams?.feeInfoUseFeeInTx,
-      forBatchSend,
-      pollingInterval: FEE_INFO_POLLING_INTERVAL,
-      shouldStopPolling: feeType === ESendEditFeeTypes.advanced,
-    });
+  const {
+    feeInfoPayload,
+    feeInfoLoading,
+    getSelectedFeeInfoUnit,
+    feeInfoError,
+  } = useFeeInfoPayload({
+    networkId,
+    accountId,
+    encodedTx: encodedTxForFeeInfo,
+    fetchAnyway: true,
+    ignoreFetchFeeCalling: autoConfirmAfterFeeSaved
+      ? false
+      : oldSendConfirmParams?.ignoreFetchFeeCalling,
+    useFeeInTx: oldSendConfirmParams?.feeInfoUseFeeInTx,
+    forBatchSend,
+    pollingInterval: FEE_INFO_POLLING_INTERVAL,
+    shouldStopPolling: feeType === ESendEditFeeTypes.advanced,
+  });
 
   const isEIP1559Fee = feeInfoPayload?.info?.eip1559;
   const isBtcForkChain = feeInfoPayload?.info?.isBtcForkChain;
@@ -419,6 +426,35 @@ function ScreenSendEditFee({ ...rest }) {
     ],
   );
 
+  const errorHint = useMemo(() => {
+    if (!feeInfoError) {
+      return null;
+    }
+
+    // @ts-expect-error
+    const { className, key }: { className?: string; key?: string } =
+      feeInfoError;
+
+    let message: string | null = null;
+    if (className === 'OneKeyError') {
+      if (key !== 'onekey_error') {
+        message = intl.formatMessage({
+          // @ts-expect-error
+          id: feeInfoError.key,
+        });
+      } else {
+        message = feeInfoError.message;
+      }
+    } else {
+      message = feeInfoError.message;
+    }
+    if (message && message.length > 350) {
+      message = `${message.slice(0, 350)}...`;
+    }
+
+    return <Alert alertType="error" title={message} dismiss={false} />;
+  }, [feeInfoError, intl]);
+
   useEffect(() => {
     if (
       !feeInfoPayload ||
@@ -651,8 +687,17 @@ function ScreenSendEditFee({ ...rest }) {
     if (isBtcForkChain || feeType === ESendEditFeeTypes.advanced) {
       return !formState.isValid;
     }
+
+    if (feeInfoError) return true;
+
     return false;
-  }, [isBtcForkChain, formState.isValid, feeType, feeInfoLoading]);
+  }, [
+    feeInfoLoading,
+    isBtcForkChain,
+    feeType,
+    feeInfoError,
+    formState.isValid,
+  ]);
 
   return (
     <BaseSendModal
@@ -715,7 +760,7 @@ function ScreenSendEditFee({ ...rest }) {
       scrollViewProps={{
         children: (
           <>
-            {content}
+            {errorHint || content}
             <DecodeTxButtonTest
               networkId={networkId}
               accountId={accountId}

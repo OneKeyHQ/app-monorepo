@@ -11,7 +11,10 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { formatBytes } from './homescreens';
 
-import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
+import type {
+  DeviceUploadResourceParams,
+  IDeviceType,
+} from '@onekeyfe/hd-core';
 import type { Action } from 'expo-image-manipulator';
 
 export type NFTMetaData = {
@@ -19,6 +22,10 @@ export type NFTMetaData = {
   subheader: string;
   network: string;
   owner: string;
+};
+
+export type DeviceInfo = {
+  deviceType?: IDeviceType | string;
 };
 
 const getImageSize: (
@@ -176,13 +183,25 @@ export const compressNFT = async (
 export const generateUploadNFTParams = async (
   imageUri: string,
   metadata: NFTMetaData,
+  deviceInfo: DeviceInfo,
 ) => {
+  const { deviceType } = deviceInfo;
   const { width, height } = await getImageSize(imageUri);
   debugLogger.hardwareSDK.info('image size: ', { width, height });
   const base64 = await imageToBase64(imageUri);
   debugLogger.hardwareSDK.info(base64);
   const data = await compressNFT(base64, 480, 800, width, height, false);
-  const zoomData = await compressNFT(base64, 238, 238, width, height, true);
+
+  const zoomWidth = deviceType === 'touch' ? 238 : 226;
+  const zoomHeight = deviceType === 'touch' ? 238 : 226;
+  const zoomData = await compressNFT(
+    base64,
+    zoomWidth,
+    zoomHeight,
+    width,
+    height,
+    true,
+  );
 
   if (!data?.arrayBuffer && !zoomData?.arrayBuffer) return;
 

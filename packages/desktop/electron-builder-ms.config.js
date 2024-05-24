@@ -57,7 +57,7 @@ module.exports = {
     'icon': 'build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-win-store-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
-    'target': ['nsis'],
+    'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
   'afterSign': 'scripts/notarize.js',
 };

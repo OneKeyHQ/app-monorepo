@@ -293,4 +293,19 @@ export default class ServiceTransaction extends ServiceBase {
     const vault = await engine.getChainOnlyVault(networkId);
     return vault.getTransactionDetail(txId);
   }
+
+  @backgroundMethod()
+  async isEarliestPendingTx({
+    accountId,
+    networkId,
+    encodedTx,
+  }: {
+    accountId: string;
+    networkId: string;
+    encodedTx: IEncodedTx;
+  }) {
+    const { engine } = this.backgroundApi;
+    const vault = await engine.getVault({ accountId, networkId });
+    return vault.isEarliestPendingTx({ encodedTx });
+  }
 }

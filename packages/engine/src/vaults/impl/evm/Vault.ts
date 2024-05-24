@@ -42,6 +42,7 @@ import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import simpleDb from '../../../dbs/simple/simpleDb';
 import { NotImplemented, OneKeyInternalError } from '../../../errors';
 import * as covalentApi from '../../../managers/covalent';
 import { getAccountNameInfoByImpl } from '../../../managers/impl';
@@ -139,9 +140,17 @@ import type {
 import type { IRpcTxEvm } from './types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
-const OPTIMISM_NETWORKS: string[] = [
+const BASE_SEPOLIA = 'evm--84532';
+const ARB_SEPOLIA = 'evm--421614';
+
+const EVM_L2_NETWORKS_REQUIRE_L1_FEE: string[] = [
   OnekeyNetwork.optimism,
   OnekeyNetwork.toptimism,
+  OnekeyNetwork.base,
+  OnekeyNetwork.arbitrum,
+  OnekeyNetwork.tarbitrum,
+  BASE_SEPOLIA,
+  ARB_SEPOLIA,
 ];
 
 const ERC721 = ERC721MetadataArtifact.abi;
@@ -184,13 +193,14 @@ export enum IDecodedTxEvmType {
 
 function decodeUnsignedTxFeeData(unsignedTx: UnsignedTx) {
   return {
-    feeLimit: unsignedTx.feeLimit?.toFixed(),
-    feePricePerUnit: unsignedTx.feePricePerUnit?.toFixed(),
-    maxPriorityFeePerGas:
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-      unsignedTx.payload?.maxPriorityFeePerGas?.toFixed(),
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    maxFeePerGas: unsignedTx.payload?.maxFeePerGas?.toFixed(),
+    feeLimit: new BigNumber(unsignedTx.feeLimit ?? 0).toFixed(),
+    feePricePerUnit: new BigNumber(unsignedTx.feePricePerUnit ?? 0).toFixed(),
+    maxPriorityFeePerGas: new BigNumber(
+      unsignedTx.payload?.maxPriorityFeePerGas ?? 0,
+    ).toFixed(),
+    maxFeePerGas: new BigNumber(
+      unsignedTx.payload?.maxFeePerGas ?? 0,
+    ).toFixed(),
   };
 }
 
@@ -806,6 +816,19 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async isEarliestPendingTx({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxEvm;
+  }): Promise<boolean> {
+    const minPendingNonce = await simpleDb.history.getMinPendingNonce({
+      accountId: this.accountId,
+      networkId: this.networkId,
+    });
+
+    return new BigNumber(encodedTx.nonce ?? 0).isEqualTo(minPendingNonce ?? 0);
+  }
+
   buildEncodedTxFromWrapperTokenDeposit({
     amount,
     from,
@@ -1256,38 +1279,50 @@ export default class Vault extends VaultBase {
 
     // For L2 networks with L1 fee.
     let baseFeeValue = '0';
-    if (OPTIMISM_NETWORKS.includes(this.networkId)) {
-      // Optimism & Optimism Kovan
-      // call gasL1Fee(bytes) of GasPriceOracle at 0x420000000000000000000000000000000000000F
-      const txData = ethers.utils.serializeTransaction({
-        value: encodedTx.value,
-        data: encodedTx.data,
-        gasLimit: `0x${(unsignedTx?.feeLimit ?? new BigNumber('0')).toString(
-          16,
-        )}`,
-        to: encodedTx.to,
-        chainId: 10, // any number other than 0 will lead to fixed length of data
-        gasPrice: '0xf4240', // 0.001 Gwei
-        nonce: 1,
-      });
-
-      // keccak256(Buffer.from('getL1Fee(bytes)')) => '0x49948e0e...'
-      const data = `0x49948e0e${defaultAbiCoder
-        .encode(['bytes'], [txData])
-        .slice(2)}`;
+    if (EVM_L2_NETWORKS_REQUIRE_L1_FEE.includes(this.networkId)) {
       const client = await this.getJsonRPCClient();
+      if (
+        this.networkId === OnekeyNetwork.arbitrum ||
+        this.networkId === ARB_SEPOLIA
+      ) {
+        // keccak256(Buffer.from('getL1BaseFeeEstimate()')) => '0xf5d6ded7...'
+        const data = '0xf5d6ded7';
+        const l1FeeHex = await client.rpc.call('eth_call', [
+          { to: '0x000000000000000000000000000000000000006C', data },
+          'latest',
+        ]);
 
-      // RPC: eth_call
-      const l1FeeHex = await client.rpc.call('eth_call', [
-        { to: '0x420000000000000000000000000000000000000F', data },
-        'latest',
-      ]);
-      // RPC: eth_getBlockByNumber (rpc status check?)
-      // RPC: eth_getBalance useManageTokensOfAccount/useReloadAccountBalance
-      //          may call multiple times
-      baseFeeValue = new BigNumber(l1FeeHex as string)
-        .shiftedBy(-network.feeDecimals)
-        .toFixed();
+        baseFeeValue = new BigNumber(l1FeeHex as string)
+          .shiftedBy(-network.feeDecimals)
+          .toFixed();
+      } else {
+        const txData = ethers.utils.serializeTransaction({
+          value: encodedTx.value,
+          data: encodedTx.data,
+          gasLimit: `0x${(unsignedTx?.feeLimit ?? new BigNumber('0')).toString(
+            16,
+          )}`,
+          to: encodedTx.to,
+          chainId: 10, // any number other than 0 will lead to fixed length of data
+          gasPrice: '0xf4240', // 0.001 Gwei
+          nonce: 1,
+        });
+
+        // keccak256(Buffer.from('getL1Fee(bytes)')) => '0x49948e0e...'
+        const data = `0x49948e0e${defaultAbiCoder
+          .encode(['bytes'], [txData])
+          .slice(2)}`;
+
+        // RPC: eth_call
+        const l1FeeHex = await client.rpc.call('eth_call', [
+          { to: '0x420000000000000000000000000000000000000F', data },
+          'latest',
+        ]);
+
+        baseFeeValue = new BigNumber(l1FeeHex as string)
+          .shiftedBy(-network.feeDecimals)
+          .toFixed();
+      }
     }
 
     const eip1559 = Boolean(
