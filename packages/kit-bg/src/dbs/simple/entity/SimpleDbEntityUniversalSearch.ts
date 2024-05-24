@@ -4,7 +4,7 @@ import type { IUniversalSearchAtomData } from '@onekeyhq/shared/types/search';
 import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 
 export class SimpleDbEntityUniversalSearch extends SimpleDbEntityBase<IUniversalSearchAtomData> {
-  entityName = 'marketWatchList';
+  entityName = 'universalSearch';
 
   override enableCache = false;
 
