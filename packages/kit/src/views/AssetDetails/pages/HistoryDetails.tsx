@@ -18,7 +18,6 @@ import {
   Spinner,
   Stack,
   XStack,
-  YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -83,12 +82,17 @@ export function InfoItem({
   label,
   renderContent,
   compact = false,
+  showCopy = false,
+  showOpenWithUrl = undefined,
   ...rest
 }: {
   label: string;
   renderContent: ReactNode;
   compact?: boolean;
+  showCopy?: boolean;
+  showOpenWithUrl?: string;
 } & IStackProps) {
+  const { copyText } = useClipboard();
   return (
     <Stack
       flex={1}
@@ -104,9 +108,31 @@ export function InfoItem({
     >
       <SizableText size="$bodyMdMedium">{label}</SizableText>
       {typeof renderContent === 'string' ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {renderContent}
-        </SizableText>
+        <Stack
+          alignItems="flex-start"
+          gap="$1.5"
+          onPress={() => copyText(renderContent)}
+        >
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {renderContent}
+          </SizableText>
+          <XStack space="$2">
+            {showCopy ? (
+              <IconButton
+                icon="Copy2Outline"
+                size="small"
+                pointerEvents="none"
+              />
+            ) : null}
+            {showOpenWithUrl ? (
+              <IconButton
+                icon="OpenOutline"
+                size="small"
+                onPress={() => openUrl(showOpenWithUrl)}
+              />
+            ) : null}
+          </XStack>
+        </Stack>
       ) : (
         renderContent
       )}
@@ -188,8 +214,6 @@ function HistoryDetails() {
       >
     >();
 
-  const { copyText } = useClipboard();
-
   const { networkId, accountAddress, historyTx } = route.params;
 
   const navigation = useAppNavigation();
@@ -203,19 +227,13 @@ function HistoryDetails() {
           networkId,
           accountAddress,
           txid: historyTx.decodedTx.txid,
-          status: historyTx.decodedTx.status,
         }),
         backgroundApiProxy.serviceToken.getNativeToken({
           networkId,
           accountAddress,
         }),
       ]),
-    [
-      accountAddress,
-      historyTx.decodedTx.status,
-      historyTx.decodedTx.txid,
-      networkId,
-    ],
+    [accountAddress, historyTx.decodedTx.txid, networkId],
     { watchLoading: true },
   );
 
@@ -320,36 +338,6 @@ function HistoryDetails() {
     );
   }, [historyTx.decodedTx.status, intl, vaultSettings?.replaceTxEnabled]);
 
-  const renderTxId = useCallback(
-    (txid: string) => (
-      <YStack space="$2">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {txid}
-        </SizableText>
-        <XStack space="$2">
-          <IconButton
-            icon="Copy2Outline"
-            size="small"
-            onPress={() => copyText(txid)}
-          />
-          <IconButton
-            icon="OpenOutline"
-            size="small"
-            onPress={() =>
-              openUrl(
-                buildTransactionDetailsUrl({
-                  network,
-                  txid,
-                }),
-              )
-            }
-          />
-        </XStack>
-      </YStack>
-    ),
-    [copyText, network],
-  );
-
   const transfersToRender = useMemo(() => {
     let transfers: {
       transfers?: IOnChainHistoryTxTransfer[];
@@ -402,21 +390,27 @@ function HistoryDetails() {
 
       return {
         from: decodedTx.signer,
-        to: decodedTx.to,
+        to: decodedTx.to ?? decodedTx.actions[0].assetTransfer?.to,
       };
     }
 
     if (vaultSettings?.isUtxo) {
+      const utxoSends = txDetails.sends.filter(
+        (send) => send.from !== accountAddress,
+      );
+      const utxoReceives = txDetails.receives.filter(
+        (receive) => receive.to !== accountAddress,
+      );
       return {
         from:
-          txDetails.sends.length > 1
-            ? `${txDetails.sends.length} addresses`
-            : txDetails.sends[0].from,
+          utxoSends.length > 1
+            ? `${utxoSends.length} addresses`
+            : utxoSends[0]?.from ?? txDetails.sends[0]?.from ?? txDetails.from,
 
         to:
-          txDetails.receives.length > 1
-            ? `${txDetails.receives.length} addresses`
-            : txDetails.receives[0].to,
+          utxoReceives.length > 1
+            ? `${utxoReceives.length} addresses`
+            : utxoReceives[0]?.to ?? txDetails.receives[0]?.to ?? txDetails.to,
       };
     }
 
@@ -424,7 +418,7 @@ function HistoryDetails() {
       from: txDetails?.from,
       to: txDetails?.to,
     };
-  }, [historyTx, txDetails, vaultSettings?.isUtxo]);
+  }, [accountAddress, historyTx, txDetails, vaultSettings?.isUtxo]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,
@@ -452,7 +446,7 @@ function HistoryDetails() {
             size="$bodyMd"
             color="$textSubdued"
           >
-            {txInfo?.gasFeeFiatValue}
+            {txInfo?.gasFeeFiatValue ?? '0'}
           </NumberSizeableText>
           )
         </SizableText>
@@ -498,11 +492,16 @@ function HistoryDetails() {
           {/* Secondary */}
           <Divider mx="$5" />
           <InfoItemGroup>
-            <InfoItem label="From" renderContent={txAddresses.from} />
-            <InfoItem label="To" renderContent={txAddresses.to} />
+            <InfoItem label="From" renderContent={txAddresses.from} showCopy />
+            <InfoItem label="To" renderContent={txAddresses.to} showCopy />
             <InfoItem
               label="Transaction ID"
-              renderContent={renderTxId(txInfo.txid)}
+              renderContent={txInfo.txid}
+              showCopy
+              showOpenWithUrl={buildTransactionDetailsUrl({
+                network,
+                txid: txInfo.txid,
+              })}
             />
             <InfoItem
               label="Network Fee"
@@ -569,7 +568,6 @@ function HistoryDetails() {
   }, [
     renderAssetsChange,
     renderFeeInfo,
-    renderTxId,
     renderTxStatus,
     resp.isLoading,
     transfersToRender,
@@ -580,6 +578,7 @@ function HistoryDetails() {
     txInfo.nonce,
     txInfo.swapInfo,
     txInfo.txid,
+    network,
     vaultSettings?.nonceRequired,
   ]);
 

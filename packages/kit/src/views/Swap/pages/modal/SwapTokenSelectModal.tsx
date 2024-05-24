@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  Alert,
   Empty,
   Image,
   ListView,
@@ -16,6 +17,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenListItem';
@@ -29,11 +31,10 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  EModalSwapRoutes,
-  IModalSwapParamList,
-} from '@onekeyhq/shared/src/routes/swap';
+import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -42,6 +43,7 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapDirectionType,
+  ETokenRiskLevel,
   type ISwapNetwork,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -49,7 +51,7 @@ import {
 import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainSelector';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -89,22 +91,75 @@ const SwapTokenSelectPage = () => {
     searchKeyword,
   );
 
-  const onSelectToken = useCallback(
-    async (item: ISwapToken) => {
+  const alertIndex = useMemo(
+    () =>
+      currentTokens.findIndex((item) => {
+        const rawItem = (item as IFuseResult<ISwapToken>).item
+          ? (item as IFuseResult<ISwapToken>).item
+          : (item as ISwapToken);
+        return (
+          !rawItem.price ||
+          new BigNumber(rawItem.price).isZero() ||
+          rawItem.riskLevel === ETokenRiskLevel.SPAM ||
+          rawItem.riskLevel === ETokenRiskLevel.MALICIOUS
+        );
+      }),
+    [currentTokens],
+  );
+
+  const checkRiskToken = useCallback(
+    async (token: ISwapToken) => {
+      const isRiskLevel =
+        !token.price ||
+        new BigNumber(token.price).isZero() ||
+        token.riskLevel === ETokenRiskLevel.SPAM ||
+        token.riskLevel === ETokenRiskLevel.MALICIOUS;
+      if (isRiskLevel) {
+        if (!settingsPersistAtom.tokenRiskReminder) return false;
+        const checkConfirmRiskToken =
+          await backgroundApiProxy.serviceSetting.checkConfirmedRiskToken(
+            `${token.networkId}_${token.contractAddress}`,
+          );
+        return !checkConfirmRiskToken;
+      }
+      return isRiskLevel;
+    },
+    [settingsPersistAtom.tokenRiskReminder],
+  );
+
+  const selectTokenHandler = useCallback(
+    (token: ISwapToken) => {
       navigation.popStack();
       if (type === ESwapDirectionType.FROM) {
-        void selectFromToken(item);
+        void selectFromToken(token);
       } else {
-        void selectToToken(item);
+        void selectToToken(token);
       }
     },
     [navigation, selectFromToken, selectToToken, type],
   );
 
+  const onSelectToken = useCallback(
+    async (item: ISwapToken) => {
+      if (await checkRiskToken(item)) {
+        navigation.push(EModalSwapRoutes.TokenRiskReminder, {
+          storeName: route.params.storeName,
+          token: item,
+          onConfirm: () => {
+            selectTokenHandler(item);
+          },
+        });
+      } else {
+        selectTokenHandler(item);
+      }
+    },
+    [checkRiskToken, navigation, route.params.storeName, selectTokenHandler],
+  );
+
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
       setCurrentSelectNetwork(network);
-      if (type === ESwapDirectionType.FROM && network.networkId !== 'all') {
+      if (type === ESwapDirectionType.FROM) {
         void updateSelectedAccountNetwork({
           num: 0,
           networkId: network.networkId,
@@ -136,46 +191,72 @@ const SwapTokenSelectPage = () => {
     ],
   );
 
+  const { md } = useMedia();
+
   const renderItem = useCallback(
-    ({ item }: { item: ISwapToken }) => {
-      const balanceBN = new BigNumber(item.balanceParsed ?? 0);
-      const fiatValueBN = new BigNumber(item.fiatValue ?? 0);
+    ({
+      item,
+      index,
+    }: {
+      item: ISwapToken | IFuseResult<ISwapToken>;
+      index: number;
+    }) => {
+      const rawItem = (item as IFuseResult<ISwapToken>).item
+        ? (item as IFuseResult<ISwapToken>).item
+        : (item as ISwapToken);
+      const balanceBN = new BigNumber(rawItem.balanceParsed ?? 0);
+      const fiatValueBN = new BigNumber(rawItem.fiatValue ?? 0);
+      const contractAddressDisplay = md
+        ? accountUtils.shortenAddress({
+            address: rawItem.contractAddress,
+          })
+        : rawItem.contractAddress;
       const tokenItem: ITokenListItemProps = {
-        tokenImageSrc: item.logoURI,
-        tokenName: item.name,
-        tokenSymbol: item.symbol,
-        tokenContrastAddress:
-          searchKeyword || currentSelectNetwork?.networkId === 'all'
-            ? accountUtils.shortenAddress({
-                address: item.contractAddress,
-              })
-            : undefined,
-        networkImageSrc: item.networkLogoURI,
-        balance: !balanceBN.isZero() ? item.balanceParsed : undefined,
+        tokenImageSrc: rawItem.logoURI,
+        tokenName: rawItem.name,
+        tokenSymbol: rawItem.symbol,
+        tokenContrastAddress: searchKeyword
+          ? contractAddressDisplay
+          : undefined,
+        balance: !balanceBN.isZero() ? rawItem.balanceParsed : undefined,
         valueProps:
-          item.fiatValue && !fiatValueBN.isZero()
+          rawItem.fiatValue && !fiatValueBN.isZero()
             ? {
-                value: item.fiatValue,
+                value: rawItem.fiatValue,
                 currency: settingsPersistAtom.currencyInfo.symbol,
               }
             : undefined,
-        onPress: !sameTokenDisabled(item)
-          ? () => onSelectToken(item)
+        onPress: !sameTokenDisabled(rawItem)
+          ? () => onSelectToken(rawItem)
           : undefined,
-        disabled: sameTokenDisabled(item),
+        disabled: sameTokenDisabled(rawItem),
+        titleMatch: (item as IFuseResult<ISwapToken>).matches?.find(
+          (v) => v.key === 'symbol',
+        ),
       };
-      return <TokenListItem {...tokenItem} />;
+      return (
+        <>
+          {alertIndex === index ? (
+            <Alert
+              fullBleed
+              type="default"
+              title="Unverified Token below. Proceed with caution."
+              icon="InfoCircleOutline"
+            />
+          ) : null}
+          <TokenListItem {...tokenItem} />
+        </>
+      );
     },
     [
+      alertIndex,
+      md,
       onSelectToken,
       sameTokenDisabled,
       searchKeyword,
-      currentSelectNetwork,
       settingsPersistAtom.currencyInfo.symbol,
     ],
   );
-
-  const { md } = useMedia();
 
   const networkFilterData = useMemo(() => {
     let swapNetworksCommon: ISwapNetwork[] = [];
@@ -246,15 +327,13 @@ const SwapTokenSelectPage = () => {
             {`${intl.formatMessage({ id: 'network__network' })}:`}
           </SizableText>
           <XStack>
-            {currentSelectNetwork?.networkId !== 'all' ? (
-              <Image height="$5" width="$5" borderRadius="$full" mr="$2">
-                <Image.Source
-                  source={{
-                    uri: currentSelectNetwork?.logoURI,
-                  }}
-                />
-              </Image>
-            ) : null}
+            <Image height="$5" width="$5" borderRadius="$full" mr="$2">
+              <Image.Source
+                source={{
+                  uri: currentSelectNetwork?.logoURI,
+                }}
+              />
+            </Image>
             <SizableText size="$bodyMd">
               {currentSelectNetwork?.name ??
                 currentSelectNetwork?.symbol ??
@@ -299,9 +378,18 @@ const SwapTokenSelectPage = () => {
   );
 };
 
-const SwapTokenSelectPageWithProvider = memo(
-  withSwapProvider(SwapTokenSelectPage),
-);
+const SwapTokenSelectPageWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapTokenSelect>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapTokenSelectPage />
+    </SwapProviderMirror>
+  );
+};
 export default function SwapTokenSelectModal() {
   return (
     <AccountSelectorProviderMirror

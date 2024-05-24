@@ -40,7 +40,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProviderMirror';
+import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -91,10 +91,15 @@ function SendDataInputContainer() {
           } & ITokenFiat)[]
         | undefined;
 
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
       if (isNFT && nft) {
         nftResp = await serviceNFT.fetchNFTDetails({
           networkId,
-          accountAddress: account.address,
+          accountAddress,
           nfts: [
             {
               collectionAddress: nft.collectionAddress,
@@ -105,7 +110,7 @@ function SendDataInputContainer() {
       } else if (!isNFT && tokenInfo) {
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
-          accountAddress: account.address,
+          accountAddress,
           xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
             accountId,
             networkId,
@@ -132,7 +137,7 @@ function SendDataInputContainer() {
       token,
       tokenInfo,
     ],
-    { watchLoading: true },
+    { watchLoading: true, alwaysSetState: true },
   );
 
   if (tokenDetails && isNil(tokenDetails?.balanceParsed)) {
@@ -156,6 +161,7 @@ function SendDataInputContainer() {
   // token amount or fiat amount
   const amount = form.watch('amount');
   const toPending = form.watch('to.pending');
+  const toResolved = form.watch('to.resolved');
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount ?? 0);
@@ -182,6 +188,33 @@ function SendDataInputContainer() {
       amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
     };
   }, [amount, isUseFiat, tokenDetails?.price]);
+
+  const {
+    result: { displayAmountFormItem } = { displayAmountFormItem: false },
+  } = usePromiseResult(async () => {
+    const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId,
+    });
+    if (!vs?.hideAmountInputOnFirstEntry) {
+      return {
+        displayAmountFormItem: true,
+      };
+    }
+    if (toResolved) {
+      const toRaw = form.getValues('to').raw;
+      const validation =
+        await backgroundApiProxy.serviceValidator.validateAmountInputShown({
+          networkId,
+          toAddress: toRaw ?? '',
+        });
+      return {
+        displayAmountFormItem: validation.isValid,
+      };
+    }
+    return {
+      displayAmountFormItem: false,
+    };
+  }, [toResolved, networkId, form]);
 
   const handleOnChangeAmountMode = useCallback(() => {
     setIsUseFiat((prev) => !prev);
@@ -321,7 +354,11 @@ function SendDataInputContainer() {
       return true;
     }
 
-    if ((!isNFT || nft?.collectionType === ENFTType.ERC1155) && !amount) {
+    if (
+      (!isNFT || nft?.collectionType === ENFTType.ERC1155) &&
+      !amount &&
+      displayAmountFormItem
+    ) {
       return true;
     }
   }, [
@@ -332,6 +369,7 @@ function SendDataInputContainer() {
     isSubmitting,
     nft?.collectionType,
     toPending,
+    displayAmountFormItem,
   ]);
 
   const maxAmount = useMemo(
@@ -468,6 +506,21 @@ function SendDataInputContainer() {
     return null;
   }, [intl, nft?.collectionType]);
 
+  const renderDataInput = useCallback(() => {
+    if (isNFT) {
+      return renderNFTDataInputForm();
+    }
+    if (displayAmountFormItem) {
+      return renderTokenDataInputForm();
+    }
+    return null;
+  }, [
+    displayAmountFormItem,
+    isNFT,
+    renderNFTDataInputForm,
+    renderTokenDataInputForm,
+  ]);
+
   return (
     <Page scrollEnabled>
       <Page.Header title="Send" />
@@ -536,12 +589,13 @@ function SendDataInputContainer() {
                 networkId={networkId}
                 enableAddressBook
                 enableWalletName
+                enableVerifySendFundToSelf
                 enableAddressInteractionStatus
                 contacts
                 accountSelector={{ num: 0 }}
               />
             </Form.Field>
-            {isNFT ? renderNFTDataInputForm() : renderTokenDataInputForm()}
+            {renderDataInput()}
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>

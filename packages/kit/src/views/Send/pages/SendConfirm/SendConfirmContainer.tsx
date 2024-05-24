@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, XStack, YStack } from '@onekeyhq/components';
+import { Page, XStack, YStack, usePageUnMounted } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -42,26 +42,36 @@ function SendConfirmContainer() {
     sourceInfo,
     signOnly,
   } = route.params;
-
+  usePageUnMounted(onCancel);
   usePromiseResult(async () => {
     updateUnsignedTxs(unsignedTxs);
     updateNativeTokenInfo({
       isLoading: true,
       balance: '0',
+      logoURI: '',
     });
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      networkId,
-      accountId,
-    });
+    const [accountAddress, xpub, vaultSettings] = await Promise.all([
+      backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      }),
+      backgroundApiProxy.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+    ]);
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
-      accountAddress: account.address,
-      contractList: [''],
+      accountAddress,
+      contractList: [vaultSettings.nativeTokenAddress ?? ''],
+      xpub,
     });
 
     updateNativeTokenInfo({
       isLoading: false,
       balance: r[0].balanceParsed,
+      logoURI: r[0].info.logoURI ?? '',
     });
   }, [
     accountId,
@@ -90,10 +100,7 @@ function SendConfirmContainer() {
                 justifyContent: 'space-between',
               }}
             >
-              <TxSimulationContainer
-                networkId={networkId}
-                tableLayout={tableLayout}
-              />
+              <TxSimulationContainer tableLayout={tableLayout} />
             </Container.Box>
             <YStack flex={1} justifyContent="space-between" mr="$-5">
               <TxActionsContainer
@@ -130,7 +137,7 @@ function SendConfirmContainer() {
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer accountId={accountId} networkId={networkId} />
           <TxFeeContainer accountId={accountId} networkId={networkId} />
-          <TxSimulationContainer networkId={networkId} />
+          <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer
           sourceInfo={sourceInfo}

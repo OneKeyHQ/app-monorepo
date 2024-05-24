@@ -28,6 +28,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
 import {
+  firmwareUpdateWorkflowRunningAtom,
   settingsLastActivityAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
@@ -150,6 +151,31 @@ export default class ServicePassword extends ServiceBase {
     }
     this.cachedPasswordActivityTimeStep = now;
     return this.cachedPassword;
+  }
+
+  @backgroundMethod()
+  async getCachedPasswordOrDeviceParams({ walletId }: { walletId: string }) {
+    const isHardware = accountUtils.isHwWallet({ walletId });
+    let password: string | undefined = '';
+    let deviceParams: IDeviceSharedCallParams | undefined;
+
+    if (isHardware) {
+      deviceParams =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId,
+        });
+    }
+    if (
+      accountUtils.isHdWallet({ walletId }) ||
+      accountUtils.isImportedWallet({ walletId })
+    ) {
+      password = await this.getCachedPassword();
+    }
+    return {
+      password,
+      isHardware,
+      deviceParams,
+    };
   }
 
   // biologyAuth&WebAuth ------------------------------
@@ -475,6 +501,11 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async lockApp() {
+    const isRunning = await firmwareUpdateWorkflowRunningAtom.get();
+    if (isRunning) {
+      return;
+    }
+
     await passwordPersistAtom.set((v) => ({ ...v, manualLocking: true }));
     await passwordAtom.set((v) => ({ ...v, unLock: false }));
   }

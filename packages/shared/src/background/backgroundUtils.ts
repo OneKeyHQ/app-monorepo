@@ -26,6 +26,7 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_NEAR,
+  IMPL_NOSTR,
   IMPL_SOL,
   IMPL_STC,
   IMPL_SUI,
@@ -36,6 +37,7 @@ import { NotAutoPrintError } from '../errors';
 // import debugLogger from '../logger/debugLogger';
 import platformEnv from '../platformEnv';
 
+import type { OneKeyError } from '../errors';
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { Method } from 'axios';
 
@@ -99,6 +101,10 @@ export function warningIfNotRunInBackground({
     }
     if (platformEnv.isWebEmbed) {
       // web-embed error.stack data is not reliable, missing background keywords
+      return;
+    }
+    if (platformEnv.isWebMobileIOS || platformEnv.isWebSafari) {
+      // iOS safari get wrong error.stack
       return;
     }
     try {
@@ -169,37 +175,48 @@ export function waitAsync(timeout: number) {
   });
 }
 
-export function makeTimeoutPromise<T>({
+export function makeTimeoutPromise<T, TParams = undefined>({
   asyncFunc,
-  timeout,
-  timeoutResult,
+  timeout, // ms
+  timeoutRejectError,
 }: {
-  asyncFunc: () => Promise<T>;
+  asyncFunc: (params: TParams) => Promise<T>;
   timeout: number;
-  timeoutResult: T;
+  timeoutRejectError: OneKeyError | Error;
 }) {
-  return new Promise<T>((resolve) => {
-    let isResolved = false;
-    const timer = setTimeout(() => {
-      if (isResolved) {
-        return;
-      }
-      isResolved = true;
-      resolve(timeoutResult);
-      // console.log('makeTimeoutPromise timeout result >>>>> ', timeoutResult);
-    }, timeout);
+  return (params: TParams) =>
+    new Promise<T>((resolve, reject) => {
+      let isCompleted = false;
+      const timer = setTimeout(() => {
+        if (isCompleted) {
+          return;
+        }
+        isCompleted = true;
+        clearTimeout(timer);
+        reject(timeoutRejectError);
+        // console.log('makeTimeoutPromise timeout result >>>>> ', timeoutResult);
+      }, timeout);
 
-    const p = asyncFunc();
-    void p.then((result) => {
-      if (isResolved) {
-        return;
-      }
-      isResolved = true;
-      clearTimeout(timer);
-      resolve(result);
-      // console.log('makeTimeoutPromise correct result >>>>> ', result);
+      const p = asyncFunc(params);
+      void p
+        .then((result) => {
+          if (isCompleted) {
+            return;
+          }
+          resolve(result);
+          // console.log('makeTimeoutPromise correct result >>>>> ', result);
+        })
+        .catch((error) => {
+          if (isCompleted) {
+            return;
+          }
+          reject(error);
+        })
+        .finally(() => {
+          isCompleted = true;
+          clearTimeout(timer);
+        });
     });
-  });
 }
 
 export async function waitForDataLoaded({
@@ -282,12 +299,12 @@ export const scopeNetworks: Record<
   'cosmos': [IMPL_COSMOS],
   'polkadot': [IMPL_DOT],
   'webln': [IMPL_LIGHTNING, IMPL_LIGHTNING_TESTNET],
-  // TODO: add nostr
-  'nostr': undefined,
+  'nostr': [IMPL_NOSTR],
   '$hardware_sdk': undefined,
   '$private': undefined,
   '$privateExternalAccount': [IMPL_BTC, IMPL_TBTC],
   '$walletConnect': undefined,
+  '$privateExternalAccount': undefined,
 };
 
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [

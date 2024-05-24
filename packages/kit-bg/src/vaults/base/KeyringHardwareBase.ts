@@ -4,7 +4,11 @@ import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
-import type { IDeviceResponse } from '@onekeyhq/shared/types/device';
+import {
+  EConfirmOnDeviceType,
+  type IDeviceResponse,
+  type IGetDeviceAccountDataParams,
+} from '@onekeyhq/shared/types/device';
 
 import { EVaultKeyringTypes } from '../types';
 
@@ -31,21 +35,18 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     return (sdk as typeof HardwareSDK) ?? HardwareSDK;
   }
 
-  async baseGetDeviceAccountPublicKeys<T>({
+  async baseGetDeviceAccountData<T>({
     params,
     usedIndexes,
-    sdkGetPublicKeysFn,
+    sdkGetDataFn,
+    errorMessage,
   }: {
     params: IPrepareHardwareAccountsParams;
     usedIndexes: number[];
-    sdkGetPublicKeysFn: (option: {
-      connectId: string;
-      deviceId: string;
-      pathPrefix: string;
-      pathSuffix: string;
-      coinName: string | undefined;
-      showOnOnekeyFn: (index: number) => boolean | undefined;
-    }) => IDeviceResponse<Array<T>>;
+    sdkGetDataFn: (
+      option: IGetDeviceAccountDataParams,
+    ) => IDeviceResponse<Array<T>>;
+    errorMessage: string;
   }): Promise<T[]> {
     const { deriveInfo, deviceParams } = params;
     const { dbDevice, confirmOnDevice } = deviceParams;
@@ -53,14 +54,20 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     const { template, coinName } = deriveInfo;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
 
-    const showOnOnekeyFn = (arrIndex: number) =>
-      !confirmOnDevice
-        ? false
-        : // confirm on last index account create
-          arrIndex === usedIndexes[usedIndexes.length - 1];
+    const showOnOnekeyFn = (arrIndex: number) => {
+      if (confirmOnDevice === EConfirmOnDeviceType.EveryItem) {
+        return true;
+      }
+
+      if (confirmOnDevice === EConfirmOnDeviceType.LastItem) {
+        return arrIndex === usedIndexes[usedIndexes.length - 1];
+      }
+
+      return false;
+    };
 
     const result = await convertDeviceResponse(async () =>
-      sdkGetPublicKeysFn({
+      sdkGetDataFn({
         connectId,
         deviceId,
         pathPrefix,
@@ -71,8 +78,46 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     );
 
     if (!result || result.length !== usedIndexes.length) {
-      throw new OneKeyInternalError('Unable to get publick key.');
+      throw new OneKeyInternalError(errorMessage);
     }
     return result;
+  }
+
+  async baseGetDeviceAccountPublicKeys<T>({
+    params,
+    usedIndexes,
+    sdkGetPublicKeysFn,
+  }: {
+    params: IPrepareHardwareAccountsParams;
+    usedIndexes: number[];
+    sdkGetPublicKeysFn: (
+      option: IGetDeviceAccountDataParams,
+    ) => IDeviceResponse<Array<T>>;
+  }): Promise<T[]> {
+    return this.baseGetDeviceAccountData({
+      params,
+      usedIndexes,
+      sdkGetDataFn: sdkGetPublicKeysFn,
+      errorMessage: 'Unable to get public keys.',
+    });
+  }
+
+  async baseGetDeviceAccountAddresses<T>({
+    params,
+    usedIndexes,
+    sdkGetAddressFn,
+  }: {
+    params: IPrepareHardwareAccountsParams;
+    usedIndexes: number[];
+    sdkGetAddressFn: (
+      option: IGetDeviceAccountDataParams,
+    ) => IDeviceResponse<Array<T>>;
+  }): Promise<T[]> {
+    return this.baseGetDeviceAccountData({
+      params,
+      usedIndexes,
+      sdkGetDataFn: sdkGetAddressFn,
+      errorMessage: 'Unable to get addresses.',
+    });
   }
 }

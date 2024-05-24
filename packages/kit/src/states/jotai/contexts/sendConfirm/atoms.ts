@@ -29,7 +29,7 @@ export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
     presetIndex: number;
   }>({
     feeType: EFeeType.Standard,
-    presetIndex: 1,
+    presetIndex: 0,
   });
 
 export const { atom: customFeeAtom, use: useCustomFeeAtom } = contextAtom<
@@ -70,9 +70,11 @@ export const { atom: nativeTokenInfoAtom, use: useNativeTokenInfoAtom } =
   contextAtom<{
     isLoading: boolean;
     balance: string;
+    logoURI: string;
   }>({
     isLoading: false,
     balance: '0',
+    logoURI: '',
   });
 
 export const { atom: sendTxStatusAtom, use: useSendTxStatusAtom } =

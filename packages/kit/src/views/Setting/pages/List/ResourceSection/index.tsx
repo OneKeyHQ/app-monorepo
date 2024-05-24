@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Badge } from '@onekeyhq/components';
@@ -11,6 +9,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { UrlExternalListItem } from '../../../components/UrlExternalListItem';
 import { Section } from '../Section';
 
+import { RateAppItem } from './RateAppItem';
 import { StateLogsItem } from './StateLogsItem';
 
 function ListVersionItem() {
@@ -49,27 +48,23 @@ export const ResourceSection = () => {
   const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
   const requestUrl = useHelpLink({ path: 'requests/new' });
-  const onPress = useCallback(() => {}, []);
+  const helpCenterUrl = useHelpLink({ path: '' });
   const intl = useIntl();
 
   return (
     <Section title="Resources">
       <ListVersionItem />
-      <ListItem
-        onPress={onPress}
+      <UrlExternalListItem
         icon="HelpSupportOutline"
         title="Help Center"
+        url={helpCenterUrl}
       />
       <UrlExternalListItem
         icon="EditOutline"
         title="Submit a Request"
         url={requestUrl}
       />
-      <ListItem
-        onPress={onPress}
-        icon="StarOutline"
-        title={intl.formatMessage({ id: 'form__rate_our_app' })}
-      />
+      <RateAppItem />
       <UrlExternalListItem
         icon="PeopleOutline"
         title={intl.formatMessage({ id: 'form__user_agreement' })}

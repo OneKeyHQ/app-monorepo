@@ -41,12 +41,13 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
-import localDb from '../../dbs/local/localDbInstance';
+import localDb from '../../dbs/local/localDb';
 import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 
@@ -262,14 +263,14 @@ class ServiceAccount extends ServiceBase {
     indexes,
     indexedAccountId,
     deriveType,
-    confirmOnDevice = false,
+    confirmOnDevice,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
     indexes?: Array<number>;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
-    confirmOnDevice?: boolean;
+    confirmOnDevice?: EConfirmOnDeviceType;
   }) {
     if (!walletId) {
       throw new Error('walletId is required');
@@ -387,7 +388,7 @@ class ServiceAccount extends ServiceBase {
       walletId,
     });
 
-    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         // addHDOrHWAccounts
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
@@ -1038,7 +1039,7 @@ class ServiceAccount extends ServiceBase {
     const wallet = await this.getWallet({ walletId });
     const dbDevice = await this.getWalletDevice({ walletId });
     return {
-      confirmOnDevice: true,
+      confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
@@ -1062,7 +1063,7 @@ class ServiceAccount extends ServiceBase {
     const { connectId } = dbDevice;
 
     // createHWHiddenWallet
-    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const passphraseState =
           await this.backgroundApi.serviceHardware.getPassphraseState({
@@ -1101,7 +1102,7 @@ class ServiceAccount extends ServiceBase {
   @toastIfError()
   async createHWWallet(params: IDBCreateHWWalletParamsBase) {
     // createHWWallet
-    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () => this.createHWWalletBase(params),
       {
         deviceParams: {
@@ -1225,9 +1226,10 @@ class ServiceAccount extends ServiceBase {
         accountId: account.id,
       });
     }
-    await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-      walletId,
-    });
+    // await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+    //   walletId,
+    // });
+    //  OK-26980 remove account without password
     if (account) {
       const accountId = account.id;
       await localDb.removeAccount({ accountId, walletId });
@@ -1330,7 +1332,7 @@ class ServiceAccount extends ServiceBase {
     indexes?: Array<number>;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
-    confirmOnDevice?: boolean;
+    confirmOnDevice?: EConfirmOnDeviceType;
   }) {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -1339,7 +1341,8 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
     });
-    return this.backgroundApi.serviceHardware.withHardwareProcessing(
+    // getHWAccountAddresses
+    return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
         return accounts.map((account) => account.address);

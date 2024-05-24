@@ -3,10 +3,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
 
+import { useWindowDimensions } from 'react-native';
 import { Popover as TMPopover, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -20,6 +22,7 @@ import { Trigger } from '../Trigger';
 
 import { PopoverContent } from './PopoverContent';
 
+import type { LayoutChangeEvent } from 'react-native';
 import type {
   PopoverContentTypeProps,
   SheetProps,
@@ -82,6 +85,25 @@ const usePopoverValue = (
   };
 };
 
+const useContentDisplay = platformEnv.isNative
+  ? () => undefined
+  : (isOpen?: boolean, keepChildrenMounted?: boolean) => {
+      const [display, setDisplay] = useState<'none' | undefined>(undefined);
+      useEffect(() => {
+        if (!keepChildrenMounted) {
+          return;
+        }
+        if (isOpen) {
+          setDisplay(undefined);
+        } else {
+          setTimeout(() => {
+            setDisplay('none');
+          }, 250);
+        }
+      }, [isOpen, keepChildrenMounted]);
+      return display;
+    };
+
 export const usePopoverContext = () => {
   const { closePopover } = useContext(PopoverContext);
   return {
@@ -99,13 +121,15 @@ function RawPopover({
   onOpenChange,
   openPopover,
   closePopover,
+  placement = 'bottom-end',
   usingSheet = true,
+  allowFlip = true,
   ...props
 }: IPopoverProps) {
   const { bottom } = useSafeAreaInsets();
   let transformOrigin;
 
-  switch (props.placement) {
+  switch (placement) {
     case 'top':
       transformOrigin = 'bottom center';
       break;
@@ -165,6 +189,31 @@ function RawPopover({
 
   useBackHandler(handleBackPress);
 
+  const [maxScrollViewHeight, setMaxScrollViewHeight] = useState<
+    number | undefined
+  >(undefined);
+  const { height: windowHeight } = useWindowDimensions();
+  const handleLayout = useCallback(
+    ({ nativeEvent }: LayoutChangeEvent) => {
+      if (!platformEnv.isNative && !allowFlip) {
+        const { top, height } = nativeEvent.layout as unknown as {
+          top: number;
+          height: number;
+        };
+        let contentHeight = 0;
+        if (placement.startsWith('bottom')) {
+          contentHeight = windowHeight - top - height - 20;
+        } else if (placement.startsWith('top')) {
+          contentHeight = top - 20;
+        } else {
+          contentHeight = windowHeight;
+        }
+        setMaxScrollViewHeight(Math.max(contentHeight, 0));
+      }
+    },
+    [allowFlip, placement, windowHeight],
+  );
+
   const RenderContent =
     typeof renderContent === 'function' ? renderContent : null;
   const popoverContextValue = useMemo(
@@ -173,6 +222,7 @@ function RawPopover({
     }),
     [handleClosePopover],
   );
+  const display = useContentDisplay(isOpen, props.keepChildrenMounted);
   const content = (
     <PopoverContext.Provider value={popoverContextValue}>
       <PopoverContent isOpen={isOpen} closePopover={handleClosePopover}>
@@ -190,14 +240,16 @@ function RawPopover({
   return (
     <TMPopover
       offset={8}
-      allowFlip
-      placement="bottom-end"
+      allowFlip={allowFlip}
+      placement={placement}
       onOpenChange={onOpenChange}
       open={isOpen}
       {...props}
     >
       <TMPopover.Trigger asChild>
-        <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
+        <Trigger onLayout={handleLayout} onPress={openPopover}>
+          {renderTrigger}
+        </Trigger>
       </TMPopover.Trigger>
       {/* floating panel */}
       <TMPopover.Content
@@ -205,6 +257,7 @@ function RawPopover({
         outlineColor="$neutral3"
         outlineStyle="solid"
         outlineWidth="$px"
+        display={display}
         style={{
           transformOrigin,
         }}
@@ -227,7 +280,12 @@ function RawPopover({
         ]}
         {...floatingPanelProps}
       >
-        <TMPopover.ScrollView>{content}</TMPopover.ScrollView>
+        <TMPopover.ScrollView
+          testID="TMPopover-ScrollView"
+          style={{ maxHeight: maxScrollViewHeight }}
+        >
+          {content}
+        </TMPopover.ScrollView>
       </TMPopover.Content>
       {/* sheet */}
       {usingSheet ? (
@@ -290,7 +348,7 @@ function RawPopover({
                 marginBottom={bottom || '$5'}
                 borderCurve="continuous"
               >
-                <TMPopover.Adapt.Contents />
+                {content}
               </TMPopover.Sheet.ScrollView>
             </TMPopover.Sheet.Frame>
           </TMPopover.Sheet>

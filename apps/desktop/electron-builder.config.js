@@ -93,10 +93,7 @@ module.exports = {
     'icon': 'build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
-    'target': ['nsis'],
-  },
-  'snap': {
-    'grade': 'stable',
+    'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
   },
   'linux': {
     'extraResources': [
@@ -109,7 +106,7 @@ module.exports = {
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
-    'target': ['AppImage', 'snap'],
+    'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
   },
   'afterSign': 'scripts/notarize.js',
 };

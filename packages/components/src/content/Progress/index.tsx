@@ -4,7 +4,7 @@ import type { ProgressProps as TMProgressProps } from 'tamagui';
 
 export type IProgressProps = {
   size?: 'small' | 'medium';
-} & TMProgressProps;
+} & Omit<TMProgressProps, 'size'>;
 
 export const Progress = ({ size, ...props }: IProgressProps) => (
   <TMProgress

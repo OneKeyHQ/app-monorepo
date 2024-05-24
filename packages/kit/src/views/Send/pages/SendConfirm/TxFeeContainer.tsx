@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -29,6 +29,7 @@ import {
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
@@ -80,12 +81,17 @@ function TxFeeContainer(props: IProps) {
       ]);
     }, [accountId, networkId]);
 
-  const { result: gasFee } = usePromiseResult(
+  const { result: txFee } = usePromiseResult(
     async () => {
       try {
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
         });
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            networkId,
+            accountId,
+          });
         const r = await backgroundApiProxy.serviceGas.estimateFee({
           networkId,
           encodedTx: await backgroundApiProxy.serviceGas.buildEstimateFeeParams(
@@ -95,8 +101,8 @@ function TxFeeContainer(props: IProps) {
               encodedTx: unsignedTxs[0].encodedTx,
             },
           ),
+          accountAddress,
         });
-
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
         // these five levels are also provided as predictions on the custom fee page for users to choose
         if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
@@ -114,7 +120,10 @@ function TxFeeContainer(props: IProps) {
       } catch (e) {
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
-          errMessage: (e as Error)?.message ?? e,
+          errMessage:
+            (e as { data: { data: IOneKeyRpcError } }).data?.data?.message ??
+            (e as Error).message ??
+            e,
         });
       }
     },
@@ -126,21 +135,28 @@ function TxFeeContainer(props: IProps) {
     },
   );
 
+  const openFeeEditorEnabled =
+    !!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled;
+
   const feeSelectorItems: IFeeSelectorItem[] = useMemo(() => {
     const items = [];
-    if (gasFee) {
+    if (txFee) {
       const feeLength =
-        gasFee.gasEIP1559?.length ||
-        gasFee.gas?.length ||
-        gasFee.feeUTXO?.length ||
+        txFee.gasEIP1559?.length ||
+        txFee.gas?.length ||
+        txFee.feeUTXO?.length ||
+        txFee.feeTron?.length ||
+        txFee.gasFil?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
         const feeInfo: IFeeInfoUnit = {
-          common: gasFee?.common,
-          gas: gasFee.gas?.[i],
-          gasEIP1559: gasFee.gasEIP1559?.[i],
-          feeUTXO: gasFee.feeUTXO?.[i],
+          common: txFee?.common,
+          gas: txFee.gas?.[i],
+          gasEIP1559: txFee.gasEIP1559?.[i],
+          feeUTXO: txFee.feeUTXO?.[i],
+          feeTron: txFee.feeTron?.[i],
+          gasFil: txFee.gasFil?.[i],
         };
 
         items.push({
@@ -153,36 +169,50 @@ function TxFeeContainer(props: IProps) {
         });
       }
 
+      // only have base fee fallback
+      if (items.length === 0) {
+        items.push({
+          label: intl.formatMessage({
+            id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: 0 }),
+          }),
+          value: 1,
+          feeInfo: {
+            common: txFee.common,
+          },
+          type: EFeeType.Standard,
+        });
+      }
+
       if (vaultSettings?.editFeeEnabled) {
         const customFeeInfo: IFeeInfoUnit = {
-          common: gasFee.common,
+          common: txFee.common,
         };
 
-        if (customFee?.gas && gasFee.gas) {
+        if (customFee?.gas && txFee.gas) {
           customFeeInfo.gas = {
             ...customFee.gas,
             gasLimit:
               customFee.gas.gasLimit ??
-              gasFee.gas[sendSelectedFee.presetIndex].gasLimit,
+              txFee.gas[sendSelectedFee.presetIndex].gasLimit,
             gasLimitForDisplay:
               customFee.gas.gasLimitForDisplay ??
-              gasFee.gas[sendSelectedFee.presetIndex].gasLimitForDisplay,
+              txFee.gas[sendSelectedFee.presetIndex].gasLimitForDisplay,
           };
         }
 
-        if (customFee?.gasEIP1559 && gasFee.gasEIP1559) {
+        if (customFee?.gasEIP1559 && txFee.gasEIP1559) {
           customFeeInfo.gasEIP1559 = {
             ...customFee.gasEIP1559,
             gasLimit:
               customFee.gasEIP1559.gasLimit ??
-              gasFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimit,
+              txFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimit,
             gasLimitForDisplay:
               customFee.gasEIP1559.gasLimitForDisplay ??
-              gasFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimitForDisplay,
+              txFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimitForDisplay,
           };
         }
 
-        if (customFee?.feeUTXO && gasFee.feeUTXO) {
+        if (customFee?.feeUTXO && txFee.feeUTXO) {
           customFeeInfo.feeUTXO = customFee.feeUTXO;
         }
 
@@ -204,7 +234,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.feeUTXO,
     customFee?.gas,
     customFee?.gasEIP1559,
-    gasFee,
+    txFee,
     intl,
     sendSelectedFee.presetIndex,
     vaultSettings?.editFeeEnabled,
@@ -218,7 +248,12 @@ function TxFeeContainer(props: IProps) {
     if (sendSelectedFee.feeType === EFeeType.Custom) {
       selectedFeeInfo = feeSelectorItems[feeSelectorItems.length - 1].feeInfo;
     } else {
-      selectedFeeInfo = feeSelectorItems[sendSelectedFee.presetIndex].feeInfo;
+      let feeSelectorItem =
+        feeSelectorItems[sendSelectedFee.presetIndex] ?? feeSelectorItems[0];
+      if (feeSelectorItem.type === EFeeType.Custom) {
+        feeSelectorItem = feeSelectorItems[0];
+      }
+      selectedFeeInfo = feeSelectorItem.feeInfo;
     }
 
     const {
@@ -229,7 +264,7 @@ function TxFeeContainer(props: IProps) {
       totalFiatForDisplay,
     } = calculateFeeForSend({
       feeInfo: selectedFeeInfo,
-      nativeTokenPrice: gasFee?.common.nativeTokenPrice ?? 0,
+      nativeTokenPrice: txFee?.common.nativeTokenPrice ?? 0,
       txSize: unsignedTxs[0]?.txSize,
     });
 
@@ -247,7 +282,7 @@ function TxFeeContainer(props: IProps) {
     feeSelectorItems,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
-    gasFee?.common.nativeTokenPrice,
+    txFee?.common.nativeTokenPrice,
     unsignedTxs,
   ]);
 
@@ -272,9 +307,13 @@ function TxFeeContainer(props: IProps) {
           feeType,
           presetIndex,
         });
+        void backgroundApiProxy.serviceGas.updateFeePresetIndex({
+          networkId,
+          presetIndex,
+        });
       }
     },
-    [updateCustomFee, updateSendSelectedFee],
+    [networkId, updateCustomFee, updateSendSelectedFee],
   );
 
   useEffect(() => {
@@ -282,6 +321,21 @@ function TxFeeContainer(props: IProps) {
       updateSendSelectedFeeInfo(selectedFee);
     }
   }, [selectedFee, updateSendSelectedFeeInfo]);
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceGas
+      .getFeePresetIndex({
+        networkId,
+      })
+      .then((presetIndex) => {
+        const index = presetIndex ?? vaultSettings?.defaultFeePresetIndex;
+        if (!isNil(index)) {
+          updateSendSelectedFee({
+            presetIndex: index,
+          });
+        }
+      });
+  }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
     if (!txFeeInit.current || nativeTokenInfo.isLoading) return;
@@ -302,6 +356,67 @@ function TxFeeContainer(props: IProps) {
     updateSendTxStatus,
   ]);
 
+  const renderFeeEditor = useCallback(() => {
+    if (!txFeeInit.current) {
+      return <Skeleton height="$5" width="$12" />;
+    }
+
+    if (!openFeeEditorEnabled) {
+      return (
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: getFeeLabel({
+              feeType: sendSelectedFee.feeType,
+              presetIndex: sendSelectedFee.presetIndex,
+            }),
+          })}
+        </SizableText>
+      );
+    }
+
+    return (
+      <Popover
+        title={intl.formatMessage({ id: 'title__edit_fee' })}
+        open={isEditFeeActive}
+        onOpenChange={setIsEditFeeActive}
+        allowFlip={false}
+        renderContent={
+          <FeeEditor
+            networkId={networkId}
+            feeSelectorItems={feeSelectorItems}
+            setIsEditFeeActive={setIsEditFeeActive}
+            selectedFee={selectedFee}
+            sendSelectedFee={sendSelectedFee}
+            unsignedTxs={unsignedTxs}
+            originalCustomFee={customFee}
+            onApplyFeeInfo={handleApplyFeeInfo}
+          />
+        }
+        renderTrigger={
+          <FeeSelectorTrigger
+            onPress={() => setIsEditFeeActive(true)}
+            disabled={
+              sendFeeStatus.status === ESendFeeStatus.Error ||
+              !txFeeInit.current
+            }
+          />
+        }
+      />
+    );
+  }, [
+    customFee,
+    feeSelectorItems,
+    handleApplyFeeInfo,
+    intl,
+    isEditFeeActive,
+    networkId,
+    openFeeEditorEnabled,
+    selectedFee,
+    sendFeeStatus.status,
+    sendSelectedFee,
+    unsignedTxs,
+  ]);
+
   return (
     <Container.Box>
       <Container.Item
@@ -311,7 +426,7 @@ function TxFeeContainer(props: IProps) {
             <NumberSizeableText
               formatter="balance"
               formatterOptions={{
-                tokenSymbol: gasFee?.common.nativeSymbol,
+                tokenSymbol: txFee?.common.nativeSymbol,
               }}
               size="$bodyMdMedium"
               color="$text"
@@ -336,38 +451,7 @@ function TxFeeContainer(props: IProps) {
             ''
           )
         }
-        contentAdd={
-          txFeeInit.current ? (
-            <Popover
-              title={intl.formatMessage({ id: 'title__edit_fee' })}
-              open={isEditFeeActive}
-              onOpenChange={setIsEditFeeActive}
-              renderContent={
-                <FeeEditor
-                  networkId={networkId}
-                  feeSelectorItems={feeSelectorItems}
-                  setIsEditFeeActive={setIsEditFeeActive}
-                  selectedFee={selectedFee}
-                  sendSelectedFee={sendSelectedFee}
-                  unsignedTxs={unsignedTxs}
-                  originalCustomFee={customFee}
-                  onApplyFeeInfo={handleApplyFeeInfo}
-                />
-              }
-              renderTrigger={
-                <FeeSelectorTrigger
-                  onPress={() => setIsEditFeeActive(true)}
-                  disabled={
-                    sendFeeStatus.status === ESendFeeStatus.Error ||
-                    !txFeeInit.current
-                  }
-                />
-              }
-            />
-          ) : (
-            <Skeleton height="$5" width="$12" />
-          )
-        }
+        contentAdd={renderFeeEditor()}
         description={{
           content: (
             <YStack flex={1}>

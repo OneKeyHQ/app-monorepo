@@ -1,11 +1,18 @@
 import punycode from 'punycode';
 
+import type { IUrlValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+
+import { ONEKEY_APP_DEEP_LINK_NAME } from '../consts/deeplinkConsts';
 import {
   PROTOCOLS_SUPPORTED_TO_OPEN,
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
 
 import type { IServerNetwork } from '../../types';
+import type {
+  EOneKeyDeepLinkPath,
+  IEOneKeyDeepLinkParams,
+} from '../consts/deeplinkConsts';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
@@ -82,7 +89,7 @@ export function checkOneKeyCardGoogleOauthUrl({
   ].includes(origin);
 }
 
-export function parseUrl(url: string) {
+export function parseUrl(url: string): IUrlValue | null {
   try {
     let formatUrl = url;
     if (url.includes('&')) {
@@ -97,6 +104,9 @@ export function parseUrl(url: string) {
     const urlObject = new URL(formatUrl);
     return {
       url,
+      hostname: urlObject.hostname,
+      origin: urlObject.origin,
+      pathname: urlObject.pathname,
       urlSchema: urlObject.protocol.replace(/(:)$/, ''),
       urlPathList: `${urlObject.hostname}${urlObject.pathname}`
         .replace(/^\/\//, '')
@@ -105,7 +115,14 @@ export function parseUrl(url: string) {
       urlParamList: Array.from(urlObject.searchParams.entries()).reduce<{
         [key: string]: any;
       }>((paramList, [paramKey, paramValue]) => {
-        paramList[paramKey] = paramValue;
+        if (paramKey in paramList) {
+          if (!Array.isArray(paramList[paramKey])) {
+            paramList[paramKey] = [paramList[paramKey]];
+          }
+          (paramList[paramKey] as Array<any>).push(paramValue);
+        } else {
+          paramList[paramKey] = paramValue;
+        }
         return paramList;
       }, {}),
     };
@@ -180,6 +197,57 @@ export const containsPunycode = (url: string) => {
   return hostname !== unicodeHostname;
 };
 
+function buildUrl({
+  protocol = '',
+  hostname = '',
+  path = '',
+  query = {},
+}: {
+  protocol?: string;
+  hostname?: string;
+  path?: string;
+  query?: Record<string, string>;
+}) {
+  // eslint-disable-next-line no-param-reassign
+  protocol = protocol.replace(/:+$/, '');
+  // eslint-disable-next-line no-param-reassign
+  protocol = protocol.replace(/^\/+/, '');
+  // eslint-disable-next-line no-param-reassign
+  protocol = protocol.replace(/\/+$/, '');
+
+  // eslint-disable-next-line no-param-reassign
+  hostname = hostname.replace(/^\/+/, '');
+  // eslint-disable-next-line no-param-reassign
+  hostname = hostname.replace(/\/+$/, '');
+
+  // eslint-disable-next-line no-param-reassign
+  path = path.replace(/^\/+/, '');
+  // eslint-disable-next-line no-param-reassign
+  path = path.replace(/\/+$/, '');
+
+  const url = new URL(
+    `${protocol}://${[hostname, path].filter(Boolean).join('/')}`,
+  );
+  if (query) {
+    url.search = new URLSearchParams(query).toString();
+  }
+  return url.toString();
+}
+
+function buildDeepLinkUrl<T extends EOneKeyDeepLinkPath>({
+  path,
+  query,
+}: {
+  path: T;
+  query?: IEOneKeyDeepLinkParams[T];
+}) {
+  return buildUrl({
+    protocol: ONEKEY_APP_DEEP_LINK_NAME,
+    path,
+    query,
+  });
+}
+
 export default {
   getOriginFromUrl,
   getHostNameFromUrl,
@@ -188,4 +256,6 @@ export default {
   EDAppOpenActionEnum,
   validateUrl,
   containsPunycode,
+  buildUrl,
+  buildDeepLinkUrl,
 };

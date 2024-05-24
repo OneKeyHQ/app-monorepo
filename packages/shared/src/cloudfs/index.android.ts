@@ -19,10 +19,14 @@ export function backupPlatform() {
 }
 
 export async function isAvailable(): Promise<boolean> {
-  const hasPlayServices = await GoogleSignin.hasPlayServices({
-    showPlayServicesUpdateDialog: false,
-  });
-  return Promise.resolve(hasPlayServices);
+  try {
+    const hasPlayServices = await GoogleSignin.hasPlayServices({
+      showPlayServicesUpdateDialog: false,
+    });
+    return hasPlayServices;
+  } catch (e) {
+    return false;
+  }
 }
 
 async function checkInternet() {
@@ -74,9 +78,9 @@ export function sync(): Promise<boolean> {
 }
 
 export async function listFiles(target: string) {
-  if ((await checkInternet()) === false) {
-    return [];
-  }
+  // if ((await checkInternet()) === false) {
+  //   return [];
+  // }
   await loginIfNeeded(false);
   const { files }: { files: Array<{ isFile: boolean; name: string }> } =
     await RNCloudFs.listFiles({ scope: 'hidden', targetPath: target });
@@ -86,9 +90,9 @@ export async function listFiles(target: string) {
 async function getFileObject(
   target: string,
 ): Promise<{ id: string; name: string } | undefined> {
-  if ((await checkInternet()) === false) {
-    return undefined;
-  }
+  // if ((await checkInternet()) === false) {
+  //   return undefined;
+  // }
   const { files }: { files: Array<{ id: string; name: string }> } =
     await RNCloudFs.listFiles({
       scope: 'hidden',
@@ -111,9 +115,9 @@ export async function deleteFile(target: string): Promise<boolean> {
 }
 
 export async function downloadFromCloud(target: string): Promise<string> {
-  if ((await checkInternet()) === false) {
-    return Promise.resolve('');
-  }
+  // if ((await checkInternet()) === false) {
+  //   return Promise.resolve('');
+  // }
   await loginIfNeeded(false);
   const file = await getFileObject(target);
   if (file) {
@@ -126,6 +130,9 @@ export async function uploadToCloud(
   source: string,
   target: string,
 ): Promise<void> {
+  if ((await checkInternet()) === false) {
+    throw new Error('NETWORK');
+  }
   await loginIfNeeded(false);
   await RNCloudFs.copyToCloud({
     mimeType: null,

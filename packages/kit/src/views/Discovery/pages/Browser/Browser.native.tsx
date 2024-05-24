@@ -23,6 +23,7 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
@@ -51,6 +52,10 @@ function MobileBrowser() {
   const { handleScroll, toolbarRef, toolbarAnimatedStyle } =
     useMobileBottomBarAnimation(activeTabId);
   useDAppNotifyChanges({ tabId: activeTabId });
+
+  useDebugComponentRemountLog({
+    name: 'MobileBrowser3864',
+  });
 
   const { displayHomePage } = useDisplayHomePageFlag();
 
@@ -124,7 +129,7 @@ function MobileBrowser() {
   const { top } = useSafeAreaInsets();
 
   return (
-    <Page skipLoading={platformEnv.isNativeIOS}>
+    <Page>
       <Page.Header headerShown={false} />
       {/* custom header */}
       <XStack

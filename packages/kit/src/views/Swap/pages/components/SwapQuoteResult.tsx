@@ -1,12 +1,15 @@
 import { memo } from 'react';
 
-import { NumberSizeableText, YStack } from '@onekeyhq/components';
+import { EPageType, NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSlippagePopoverOpeningAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -22,11 +25,13 @@ interface ISwapQuoteResultProps {
   receivedAddress?: string;
   quoteResult: IFetchQuoteResult;
   onOpenProviderList?: () => void;
+  pageType?: EPageType.modal;
 }
 
 const SwapQuoteResult = ({
   onOpenProviderList,
   quoteResult,
+  pageType,
 }: ISwapQuoteResultProps) => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -58,11 +63,17 @@ const SwapQuoteResult = ({
           }}
         />
       ) : null}
-      {!quoteResult.allowanceResult ? (
+      {quoteResult.toAmount && !quoteResult.allowanceResult ? (
         <SwapSlippageTriggerContainer
           isLoading={swapQuoteLoading}
           renderPopoverContent={() => (
-            <SwapProviderMirror>
+            <SwapProviderMirror
+              storeName={
+                pageType === EPageType.modal
+                  ? EJotaiContextStoreNames.swapModal
+                  : EJotaiContextStoreNames.swap
+              }
+            >
               <SwapSlippageContentContainer />
             </SwapProviderMirror>
           )}

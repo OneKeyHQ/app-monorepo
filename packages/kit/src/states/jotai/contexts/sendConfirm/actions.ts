@@ -32,8 +32,15 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
   );
 
   updateSendSelectedFee = contextAtomMethod(
-    (get, set, sendSelectedFee: { feeType: EFeeType; presetIndex: number }) => {
-      set(sendSelectedFeeAtom(), sendSelectedFee);
+    (
+      get,
+      set,
+      sendSelectedFee: { feeType?: EFeeType; presetIndex?: number },
+    ) => {
+      set(sendSelectedFeeAtom(), {
+        ...get(sendSelectedFeeAtom()),
+        ...sendSelectedFee,
+      });
     },
   );
 
@@ -80,6 +87,7 @@ class ContextJotaiActionsSendConfirm extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
+        logoURI: string;
         balance: string;
         isLoading: boolean;
       },

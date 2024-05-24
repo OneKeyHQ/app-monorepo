@@ -39,6 +39,19 @@ class ServiceValidator extends ServiceBase {
     const validation = await vault.validateSendAmount();
     return validation;
   }
+
+  @backgroundMethod()
+  async validateAmountInputShown({
+    networkId,
+    toAddress,
+  }: {
+    networkId: string;
+    toAddress: string;
+  }) {
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const validation = await vault.validateAmountInputShown({ toAddress });
+    return validation;
+  }
 }
 
 export default ServiceValidator;

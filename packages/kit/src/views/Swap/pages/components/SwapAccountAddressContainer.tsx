@@ -1,20 +1,14 @@
 import { useCallback, useMemo } from 'react';
 
-import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
+import { Icon, SizableText, Toast, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapProviderSupportReceiveAddressAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSwapToAnotherAccountSwitchOnAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  EModalSwapRoutes,
-  type IModalSwapParamList,
-} from '@onekeyhq/shared/src/routes/swap';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
@@ -94,20 +88,19 @@ function AddressButton({
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
+  onToAnotherAddressModal?: () => void;
 }
 const SwapAccountAddressContainer = ({
   type,
+  onToAnotherAddressModal,
 }: ISwapAccountAddressContainerProps) => {
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-
   const swapAddressInfo = useSwapAddressInfo(type);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
 
-  const [swapToAnotherAddressSwitch] = useSwapToAnotherAccountSwitchOnAtom();
+  const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
 
   const handleOnCreateAddress = useCallback(async () => {
     if (!swapAddressInfo.accountInfo) return;
@@ -117,6 +110,7 @@ const SwapAccountAddressContainer = ({
       deriveType: swapAddressInfo.accountInfo.deriveType,
       networkId: swapAddressInfo.accountInfo.network?.id,
     });
+    Toast.success({ title: 'Address generated' });
   }, [swapAddressInfo.accountInfo]);
 
   const addressComponent = useMemo(() => {
@@ -128,6 +122,7 @@ const SwapAccountAddressContainer = ({
     }
     if (
       !swapAddressInfo.accountInfo?.wallet ||
+      !swapAddressInfo.accountInfo.indexedAccount ||
       (type === ESwapDirectionType.FROM &&
         !swapAddressInfo.address &&
         !accountUtils.isHdWallet({
@@ -162,25 +157,21 @@ const SwapAccountAddressContainer = ({
     // to address
     return (
       <AddressButton
-        onPress={() => {
-          navigation.pushModal(EModalRoutes.SwapModal, {
-            screen: EModalSwapRoutes.SwapToAnotherAddress,
-            params: { address: swapAddressInfo.address },
-          });
-        }}
+        onPress={onToAnotherAddressModal}
         address={`${accountUtils.shortenAddress({
           address: swapAddressInfo.address ?? '',
-        })} ${swapToAnotherAddressSwitch ? '(Edited)' : ''}`}
+        })} ${swapToAnotherAccountSwitchOn ? '(Edited)' : ''}`}
       />
     );
   }, [
     fromToken,
     handleOnCreateAddress,
-    navigation,
-    swapAddressInfo.accountInfo,
+    onToAnotherAddressModal,
+    swapAddressInfo.accountInfo?.indexedAccount,
+    swapAddressInfo.accountInfo?.wallet,
     swapAddressInfo.address,
     swapSupportReceiveAddress,
-    swapToAnotherAddressSwitch,
+    swapToAnotherAccountSwitchOn,
     toToken,
     type,
   ]);

@@ -5,6 +5,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { swapHistoryStateFetchInterval } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
@@ -16,12 +17,15 @@ import type {
   ISwapNetwork,
   ISwapNetworkBase,
   ISwapToken,
+  ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapFetchCancelCause,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
+
+import { inAppNotificationAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -30,6 +34,9 @@ export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
 
   private _tokenListAbortController?: AbortController;
+
+  private historyStateIntervals: Record<string, ReturnType<typeof setTimeout>> =
+    {};
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -82,14 +89,6 @@ export default class ServiceSwap extends ServiceBase {
             explorers: clientNetwork.explorers,
           };
         }
-        if (network.networkId === 'all') {
-          return {
-            ...network,
-            name: 'All Network',
-            symbol: 'All Net',
-            shortcode: 'All',
-          };
-        }
         return null;
       })
       .filter(Boolean);
@@ -108,7 +107,7 @@ export default class ServiceSwap extends ServiceBase {
     await this.cancelFetchTokenList();
     const params = {
       protocol: EProtocolOfExchange.SWAP,
-      networkId: networkId === 'all' ? undefined : networkId,
+      networkId,
       keywords,
       limit,
       accountAddress,
@@ -210,6 +209,7 @@ export default class ServiceSwap extends ServiceBase {
         },
       );
       this._quoteAbortController = undefined;
+
       if (data?.code === 0 && data?.data) {
         return data?.data;
       }
@@ -264,12 +264,21 @@ export default class ServiceSwap extends ServiceBase {
       receivingAddress,
       slippagePercentage,
     };
-    const client = await this.getClient();
-    const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
-      '/swap/v1/build-tx',
-      { params },
-    );
-    return data?.data;
+    try {
+      const client = await this.getClient();
+      const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
+        '/swap/v1/build-tx',
+        { params },
+      );
+      return data?.data;
+    } catch (e) {
+      const error = e as { code: number; message: string };
+      void this.backgroundApi.serviceApp.showToast({
+        method: 'error',
+        title: 'error',
+        message: error?.message,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -332,5 +341,160 @@ export default class ServiceSwap extends ServiceBase {
       { params },
     );
     return data?.data;
+  }
+
+  // --- swap history
+  @backgroundMethod()
+  async fetchSwapHistoryListFromSimple() {
+    const histories =
+      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
+    return histories.sort((a, b) => b.date.created - a.date.created);
+  }
+
+  @backgroundMethod()
+  async syncSwapHistoryPendingList() {
+    const histories = await this.fetchSwapHistoryListFromSimple();
+    const pendingHistories = histories.filter(
+      (history) => history.status === ESwapTxHistoryStatus.PENDING,
+    );
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [...pendingHistories],
+    }));
+  }
+
+  @backgroundMethod()
+  async addSwapHistoryItem(item: ISwapTxHistory) {
+    await this.backgroundApi.simpleDb.swapHistory.addSwapHistoryItem(item);
+    await inAppNotificationAtom.set((pre) => {
+      if (
+        !pre.swapHistoryPendingList.find(
+          (i) => i.txInfo.txId === item.txInfo.txId,
+        )
+      ) {
+        return {
+          ...pre,
+          swapHistoryPendingList: [...pre.swapHistoryPendingList, item],
+        };
+      }
+      return pre;
+    });
+  }
+
+  @backgroundMethod()
+  async updateSwapHistoryItem(item: ISwapTxHistory) {
+    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+    const index = swapHistoryPendingList.findIndex(
+      (i) => i.txInfo.txId === item.txInfo.txId,
+    );
+    if (index !== -1) {
+      const updated = Date.now();
+      item.date = { ...item.date, updated };
+      await this.backgroundApi.simpleDb.swapHistory.updateSwapHistoryItem(item);
+      await inAppNotificationAtom.set((pre) => {
+        const newPendingList = [...pre.swapHistoryPendingList];
+        newPendingList[index] = item;
+        return {
+          ...pre,
+          swapHistoryPendingList: [...newPendingList],
+        };
+      });
+      void this.backgroundApi.serviceApp.showToast({
+        method:
+          item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
+        title:
+          item.status === ESwapTxHistoryStatus.SUCCESS
+            ? 'Swap successful'
+            : 'Swap failed',
+        message: `${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toToken.symbol}`,
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async cleanSwapHistoryItems() {
+    await this.backgroundApi.simpleDb.swapHistory.setRawData({ histories: [] });
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapHistoryPendingList: [],
+    }));
+  }
+
+  async cleanHistoryStateIntervals(historyId?: string) {
+    if (!historyId) {
+      Object.values(this.historyStateIntervals).forEach((interval) => {
+        clearInterval(interval);
+      });
+      this.historyStateIntervals = {};
+    } else if (this.historyStateIntervals[historyId]) {
+      clearInterval(this.historyStateIntervals[historyId]);
+      delete this.historyStateIntervals[historyId];
+    }
+  }
+
+  async swapHistoryStatusRunFetch(swapTxHistory: ISwapTxHistory) {
+    let enableInterval = true;
+    try {
+      const txStatusRes = await this.fetchTxState({
+        txId: swapTxHistory.txInfo.txId,
+        provider: swapTxHistory.swapInfo.provider.provider,
+        protocol: EProtocolOfExchange.SWAP,
+        networkId: swapTxHistory.baseInfo.fromToken.networkId,
+        ctx: swapTxHistory.ctx,
+        toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
+        receivedAddress: swapTxHistory.txInfo.receiver,
+      });
+      if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
+        enableInterval = false;
+        await this.updateSwapHistoryItem({
+          ...swapTxHistory,
+          status: txStatusRes.state,
+          txInfo: {
+            ...swapTxHistory.txInfo,
+            receiverTransactionId: txStatusRes.crossChainReceiveTxHash || '',
+            gasFeeInNative: txStatusRes.gasFee
+              ? txStatusRes.gasFee
+              : swapTxHistory.txInfo.gasFeeInNative,
+            gasFeeFiatValue: txStatusRes.gasFeeFiatValue
+              ? txStatusRes.gasFeeFiatValue
+              : swapTxHistory.txInfo.gasFeeFiatValue,
+          },
+          baseInfo: {
+            ...swapTxHistory.baseInfo,
+            toAmount: txStatusRes.dealReceiveAmount
+              ? txStatusRes.dealReceiveAmount
+              : swapTxHistory.baseInfo.toAmount,
+          },
+        });
+        await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+      }
+    } catch (e) {
+      const error = e as { message?: string };
+      console.error('Swap History Status Fetch Error', error?.message);
+    } finally {
+      if (enableInterval) {
+        this.historyStateIntervals[swapTxHistory.txInfo.txId] = setTimeout(
+          () => {
+            void this.swapHistoryStatusRunFetch(swapTxHistory);
+          },
+          swapHistoryStateFetchInterval,
+        );
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async swapHistoryStatusFetchLoop() {
+    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+    const statusPendingList = swapHistoryPendingList.filter(
+      (item) => item.status === ESwapTxHistoryStatus.PENDING,
+    );
+    await this.cleanHistoryStateIntervals();
+    if (!statusPendingList.length) return;
+    await Promise.all(
+      statusPendingList.map(async (swapTxHistory) => {
+        await this.swapHistoryStatusRunFetch(swapTxHistory);
+      }),
+    );
   }
 }

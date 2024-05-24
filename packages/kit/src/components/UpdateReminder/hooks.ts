@@ -1,32 +1,22 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IChangeLog } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import {
   downloadPackage,
   installPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { useLocaleVariant } from '../../hooks/useLocaleVariant';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
-const getLocalVariantChangeLog = (
-  changeLog: IChangeLog,
-  localVariant: ILocaleSymbol,
-) => changeLog?.[localVariant] || changeLog?.['en-US'];
-
 export const useAppChangeLog = (version?: string) => {
-  const localVariant = useLocaleVariant();
   const response = usePromiseResult(
     () =>
       version
@@ -34,13 +24,7 @@ export const useAppChangeLog = (version?: string) => {
         : Promise.resolve(null),
     [version],
   );
-  return useMemo(
-    () =>
-      response.result
-        ? getLocalVariantChangeLog(response.result, localVariant)
-        : '',
-    [localVariant, response.result],
-  );
+  return useMemo(() => response.result, [response.result]);
 };
 
 export const useAppUpdateInfo = (isFullModal = false) => {
@@ -58,6 +42,35 @@ export const useAppUpdateInfo = (isFullModal = false) => {
     });
   }, [isFullModal, navigation.pushFullModal, navigation.pushModal]);
 
+  const toUpdatePreviewPage = useCallback(
+    (
+      isFull = false,
+      params?: {
+        latestVersion?: string;
+        isForceUpdate?: boolean;
+      },
+    ) => {
+      const pushModal = isFull
+        ? navigation.pushFullModal
+        : navigation.pushModal;
+      pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.UpdatePreview,
+        params: {
+          latestVersion: appUpdateInfo.latestVersion,
+          isForceUpdate: appUpdateInfo.isForceUpdate,
+          autoClose: isFull,
+          ...params,
+        },
+      });
+    },
+    [
+      appUpdateInfo.isForceUpdate,
+      appUpdateInfo.latestVersion,
+      navigation.pushFullModal,
+      navigation.pushModal,
+    ],
+  );
+
   // run only once
   useEffect(() => {
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
@@ -72,31 +85,18 @@ export const useAppUpdateInfo = (isFullModal = false) => {
           void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
         });
     }
-    void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo();
+    void backgroundApiProxy.serviceAppUpdate
+      .fetchAppUpdateInfo()
+      .then((response) => {
+        if (
+          response?.isForceUpdate &&
+          isNeedUpdate(response.latestVersion, response.status)
+        ) {
+          toUpdatePreviewPage(true, response);
+        }
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const toUpdatePreviewPage = useCallback(
-    (isFull = false) => {
-      const pushModal = isFull
-        ? navigation.pushFullModal
-        : navigation.pushModal;
-      pushModal(EModalRoutes.AppUpdateModal, {
-        screen: EAppUpdateRoutes.UpdatePreview,
-        params: {
-          latestVersion: appUpdateInfo.latestVersion,
-          isForceUpdate: appUpdateInfo.isForceUpdate,
-          autoClose: isFull,
-        },
-      });
-    },
-    [
-      appUpdateInfo.isForceUpdate,
-      appUpdateInfo.latestVersion,
-      navigation.pushFullModal,
-      navigation.pushModal,
-    ],
-  );
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {

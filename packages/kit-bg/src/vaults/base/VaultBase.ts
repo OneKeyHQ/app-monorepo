@@ -17,12 +17,14 @@ import type {
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { buildTxActionDirection } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IAddressValidation,
@@ -34,6 +36,7 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
+  IFetchAccountHistoryParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
@@ -41,8 +44,16 @@ import type {
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
-import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
-import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionAssetTransfer,
+  IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+} from '@onekeyhq/shared/types/tx';
 
 import { VaultContext } from './VaultContext';
 
@@ -207,6 +218,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   abstract getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult>;
+
+  async validateAmountInputShown({ toAddress }: { toAddress: string }) {
+    return Promise.resolve({
+      isValid: true,
+    });
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -244,9 +261,19 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
 
-  abstract broadcastTransaction(
+  async broadcastTransaction(
     params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro>;
+  ): Promise<ISignedTxPro> {
+    const { signedTx } = params;
+    const txid = await this.backgroundApi.serviceSend.broadcastTransaction(
+      params,
+    );
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
+  }
 
   async validateSendAmount() {
     return Promise.resolve(true);
@@ -258,6 +285,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     encodedTx: IEncodedTx | undefined;
   }) {
     return Promise.resolve(encodedTx);
+  }
+
+  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+    return Promise.resolve({});
   }
 
   async buildHistoryTx({
@@ -513,6 +544,59 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           .toFixed(),
         isInfiniteAmount: tokenApprove.isInfiniteAmount,
       },
+    };
+  }
+
+  async buildTxTransferAssetAction(params: {
+    from: string;
+    to: string;
+    transfers: IDecodedTxTransferInfo[];
+  }): Promise<IDecodedTxAction> {
+    const { from, to, transfers } = params;
+    const [accountAddress, network] = await Promise.all([
+      this.getAccountAddress(),
+      this.getNetwork(),
+    ]);
+
+    let sendNativeTokenAmountBN = new BigNumber(0);
+
+    const assetTransfer: IDecodedTxActionAssetTransfer = {
+      from,
+      to,
+      sends: [],
+      receives: [],
+    };
+
+    transfers.forEach((transfer) => {
+      if (
+        buildTxActionDirection({
+          from: transfer.from,
+          to: transfer.to,
+          accountAddress,
+        }) === EDecodedTxDirection.OUT
+      ) {
+        assetTransfer.sends.push(transfer);
+        if (transfer.isNative) {
+          sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(
+            new BigNumber(transfer.amount),
+          );
+        }
+      } else {
+        assetTransfer.receives.push(transfer);
+      }
+    });
+
+    assetTransfer.nativeAmount = sendNativeTokenAmountBN.toFixed();
+    assetTransfer.nativeAmountValue = chainValueUtils.convertAmountToChainValue(
+      {
+        value: sendNativeTokenAmountBN,
+        network,
+      },
+    );
+
+    return {
+      type: EDecodedTxActionType.ASSET_TRANSFER,
+      assetTransfer,
     };
   }
 

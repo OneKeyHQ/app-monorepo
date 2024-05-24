@@ -13,17 +13,26 @@ import {
   useJotaiContextStoreMapAtom,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
-import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListRootProvider';
-import { SwapRootProvider } from '../../../views/Swap/pages/SwapRootProvider';
+import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
+import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
+import {
+  SwapModalRootProvider,
+  SwapRootProvider,
+} from '../../../views/Swap/pages/SwapRootProvider';
 
 import { buildJotaiContextStoreId } from './jotaiContextStore';
 
 // AccountSelectorMapTracker
 export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
   const { storeName, accountSelectorInfo } = data;
+  useDebugComponentRemountLog({
+    name: `JotaiContextStoreMirrorTracker`,
+    payload: data,
+  });
   const { setMap } = useJotaiContextTrackerMap();
   const storeId = buildJotaiContextStoreId(data);
   useEffect(() => {
@@ -119,11 +128,17 @@ function JotaiContextRootProvidersAutoMountCmp() {
           case EJotaiContextStoreNames.homeTokenList: {
             return <HomeTokenListRootProvider key={key} />;
           }
+          case EJotaiContextStoreNames.urlAccountHomeTokenList: {
+            return <UrlAccountHomeTokenListProvider key={key} />;
+          }
           case EJotaiContextStoreNames.discoveryBrowser: {
             return <DiscoveryBrowserRootProvider key={key} />;
           }
           case EJotaiContextStoreNames.swap: {
             return <SwapRootProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.swapModal: {
+            return <SwapModalRootProvider key={key} />;
           }
           default: {
             const exhaustiveCheck: never = storeName;

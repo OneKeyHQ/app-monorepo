@@ -1,12 +1,15 @@
 import BigNumber from 'bignumber.js';
 
-import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  ESwapProviderSort,
+  swapSlippageAutoValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapReceiveAddressType,
   ESwapSlippageSegmentKey,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
+  ESwapDirectionType,
   ESwapRateDifferenceUnit,
   IFetchQuoteResult,
   ISwapAlertState,
@@ -15,7 +18,6 @@ import type {
   ISwapSlippageSegmentItem,
   ISwapToken,
   ISwapTokenCatch,
-  ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -64,6 +66,16 @@ export const {
 
 export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
   contextAtom<ISwapToken | undefined>(undefined);
+
+export const {
+  atom: swapSwapModalSelectFromTokenAtom,
+  use: useSwapModalSelectFromTokenAtom,
+} = contextAtom<ISwapToken | undefined>(undefined);
+
+export const {
+  atom: swapSwapModalSelectToTokenAtom,
+  use: useSwapModalSelectToTokenAtom,
+} = contextAtom<ISwapToken | undefined>(undefined);
 
 export const {
   atom: swapFromTokenAmountAtom,
@@ -164,6 +176,14 @@ export const { atom: swapQuoteFetchingAtom, use: useSwapQuoteFetchingAtom } =
   contextAtom<boolean>(false);
 
 export const {
+  atom: swapSelectTokenDetailFetchingAtom,
+  use: useSwapSelectTokenDetailFetchingAtom,
+} = contextAtom<Record<ESwapDirectionType, boolean>>({
+  'from': false,
+  'to': false,
+});
+
+export const {
   atom: swapSilenceQuoteLoading,
   use: useSwapSilenceQuoteLoading,
 } = contextAtom<boolean>(false);
@@ -213,7 +233,7 @@ export const {
   use: useSwapSlippagePercentageAtom,
 } = contextAtom<ISwapSlippageSegmentItem>({
   key: ESwapSlippageSegmentKey.AUTO,
-  value: 0.5,
+  value: swapSlippageAutoValue,
 });
 
 export const {
@@ -242,20 +262,3 @@ export const {
   atom: swapReceiverAddressBookValueAtom,
   use: useSwapReceiverAddressBookValueAtom,
 } = contextAtom<string>('');
-
-// swap tx history
-export const { atom: swapTxHistoryAtom, use: useSwapTxHistoryAtom } =
-  contextAtom<ISwapTxHistory[]>([]);
-
-export const {
-  atom: swapTxHistoryStatusChangeAtom,
-  use: useSwapTxHistoryStatusChangeAtom,
-} = contextAtom<ISwapTxHistory[]>([]);
-
-export const {
-  atom: swapTxHistoryPendingAtom,
-  use: useSwapTxHistoryPendingAtom,
-} = contextAtomComputed<ISwapTxHistory[]>((get) => {
-  const list = get(swapTxHistoryAtom());
-  return list.filter((item) => item.status === ESwapTxHistoryStatus.PENDING);
-});

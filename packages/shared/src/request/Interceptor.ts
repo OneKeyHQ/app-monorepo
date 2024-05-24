@@ -8,17 +8,42 @@ import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import type { InternalAxiosRequestConfig } from 'axios';
+
 export function normalizeHeaderKey(key: string) {
   return key?.toLowerCase() ?? key;
 }
 
-export async function checkRequestIsOneKeyDomain(url: string) {
+export async function checkRequestIsOneKeyDomain({
+  config,
+}: {
+  config: InternalAxiosRequestConfig;
+}) {
   let isOneKeyDomain = false;
 
-  try {
-    isOneKeyDomain = await checkIsOneKeyDomain(url ?? '');
-  } catch (error) {
-    isOneKeyDomain = false;
+  const check = async (url: string | undefined) => {
+    try {
+      if (url) {
+        isOneKeyDomain = await checkIsOneKeyDomain(url ?? '');
+      }
+    } catch (error) {
+      isOneKeyDomain = false;
+    }
+  };
+
+  const baseUrl = config?.baseURL || '';
+  await check(baseUrl);
+
+  if (!isOneKeyDomain) {
+    if (platformEnv.isDev && process.env.ONEKEY_PROXY) {
+      const proxyUrl =
+        config?.headers?.['X-Proxy'] || config?.headers?.['x-proxy'];
+      await check(proxyUrl);
+    }
+  }
+
+  if (!isOneKeyDomain) {
+    await check(config?.url);
   }
 
   return isOneKeyDomain;

@@ -51,7 +51,7 @@ const GalleryLayout = () => (
               }}
               tokenSelectorTriggerProps={{
                 selectedTokenImageUri:
-                  'https://onekey-asset.com/assets/btc/btc.png',
+                  'https://uni.onekey-asset.com/static/chain/btc.png',
                 selectedTokenSymbol: 'BTC',
               }}
               enableMaxAmount
@@ -67,7 +67,7 @@ const GalleryLayout = () => (
           const [tokenSelectorTriggerProps, setTokenSelectorTriggerProps] =
             useState({
               selectedTokenImageUri:
-                'https://onekey-asset.com/assets/btc/btc.png',
+                'https://uni.onekey-asset.com/static/chain/btc.png',
               selectedTokenSymbol: 'BTC',
             });
           const [balanceProps, setBalanceProps] = useState({

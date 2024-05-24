@@ -17,12 +17,13 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
-import { swapToAnotherAccountSwitchOnAtom } from '../states/jotai/atoms';
+import { settingsAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
 import type {
   IDBAccount,
+  IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
 } from '../dbs/local/types';
@@ -64,8 +65,7 @@ class ServiceAccountSelector extends ServiceBase {
       },
     ];
 
-    const swapToAnotherAccountSwitchOn =
-      await swapToAnotherAccountSwitchOnAtom.get();
+    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
     if (!swapToAnotherAccountSwitchOn) {
       syncScenes.push({
         sceneName: EAccountSelectorSceneName.swap,
@@ -106,8 +106,8 @@ class ServiceAccountSelector extends ServiceBase {
         });
         if (swapDataMerged) {
           const usedNetworkId =
-            swapDataMerged.networkId ??
-            swapMap[num]?.networkId ??
+            // swapDataMerged.networkId ??
+            // swapMap[num]?.networkId ??
             homeData?.networkId;
           swapMap[num] = swapDataMerged;
           if (swapMap && swapMap[num]) {
@@ -119,8 +119,7 @@ class ServiceAccountSelector extends ServiceBase {
 
       updateSwapMap(0);
 
-      const swapToAnotherAccountSwitchOn =
-        await swapToAnotherAccountSwitchOnAtom.get();
+      const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
       if (!swapToAnotherAccountSwitchOn) {
         updateSwapMap(1);
       }
@@ -153,6 +152,7 @@ class ServiceAccountSelector extends ServiceBase {
     // in this case, we should use dbAccount
     let dbAccount: IDBAccount | undefined;
     let wallet: IDBWallet | undefined;
+    let device: IDBDevice | undefined;
     let network: IServerNetwork | undefined;
     let indexedAccount: IDBIndexedAccount | undefined;
     let deriveInfo: IAccountDeriveInfo | undefined;
@@ -250,12 +250,28 @@ class ServiceAccountSelector extends ServiceBase {
       return '';
     })();
 
+    if (
+      accountUtils.isHwWallet({
+        walletId: wallet?.id,
+      }) &&
+      wallet?.associatedDevice
+    ) {
+      try {
+        device = await serviceAccount.getDevice({
+          dbDeviceId: wallet?.associatedDevice,
+        });
+      } catch (e) {
+        //
+      }
+    }
+
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,
       indexedAccount,
       accountName: universalAccountName,
       wallet,
+      device,
       network,
       deriveType,
       deriveInfo,

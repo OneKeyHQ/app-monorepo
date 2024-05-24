@@ -55,6 +55,7 @@ function FinalizeWalletSetupPage({
   useEffect(() => {
     void (async () => {
       try {
+        // **** hd wallet case
         if (mnemonic && !created.current) {
           await withPromptPasswordVerify({
             run: async () => {
@@ -65,7 +66,8 @@ function FinalizeWalletSetupPage({
           });
           created.current = true;
         } else {
-          // createHWWallet is called before this page loaded
+          // **** hardware wallet case
+          // createHWWallet() is called before this page loaded
         }
         setShowStep(true);
       } catch (error) {
@@ -105,7 +107,7 @@ function FinalizeWalletSetupPage({
       setTimeout(() => {
         navigation.navigate(ERootRoutes.Main);
         if (isFirstCreateWallet.current) {
-          void maybeShowBackupToggleDialog(true);
+          // void maybeShowBackupToggleDialog(true);
         }
       }, 1000);
     }

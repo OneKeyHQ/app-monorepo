@@ -4,12 +4,16 @@ import type {
   IUtxoInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 
+import type { IInvoiceDecodedResponse, ILNURLDetails } from './lightning';
+
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
 export type IAddressValidation = {
   isValid: boolean;
   normalizedAddress: string; // lowercase address saved to db in EVM
   displayAddress: string; // checksum address in EVM
   encoding?: EAddressEncodings;
+  lnurlDetails?: ILNURLDetails;
+  decodedInvoice?: IInvoiceDecodedResponse;
   // baseAddress
   // fetchBalanceAddress
   // address of sub networkId
@@ -19,10 +23,12 @@ export type IFetchAccountDetailsParams = {
   networkId: string;
   accountAddress: string;
   xpub?: string;
+  cardanoPubKey?: string;
   withUTXOList?: boolean;
   withNetWorth?: boolean;
   withBalance?: boolean;
   withValidate?: boolean;
+  withNonce?: boolean;
 };
 
 export type IFetchAccountDetailsResp = {
@@ -32,6 +38,7 @@ export type IFetchAccountDetailsResp = {
   labels?: [];
   balanceParsed?: string;
   nonce?: number;
+  accountNumber?: number;
   isContract?: boolean;
   netWorth?: string;
   utxoList?: IUtxoInfo[];
@@ -82,4 +89,19 @@ export type IAddressInteractionStatus =
   | 'not-interacted'
   | 'unknown';
 
-export type IAddressValidateStatus = 'valid' | 'invalid' | 'unknown';
+export type IAddressValidateStatus =
+  | 'valid'
+  | 'invalid'
+  | 'unknown'
+  | 'prohibit-send-to-self';
+
+export type IQueryCheckAddressArgs = {
+  networkId: string;
+  address: string;
+  accountId?: string;
+  enableNameResolve?: boolean;
+  enableAddressBook?: boolean;
+  enableWalletName?: boolean;
+  enableAddressInteractionStatus?: boolean;
+  enableVerifySendFundToSelf?: boolean;
+};

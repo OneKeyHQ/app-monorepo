@@ -3,7 +3,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EOnekeyDomain } from '@onekeyhq/shared/types';
 
 import { EAtomNames } from '../atomNames';
-import { globalAtom, globalAtomComputed } from '../utils';
+import { globalAtom } from '../utils';
 
 export type IEndpointType = 'prod' | 'test';
 
@@ -18,6 +18,7 @@ export type ISettingsPersistAtom = {
   isBiologyAuthSwitchOn: boolean;
   protectCreateTransaction: boolean;
   protectCreateOrRemoveWallet: boolean;
+  tokenRiskReminder: boolean;
   spendDustUTXO: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
@@ -25,7 +26,6 @@ export type ISettingsPersistAtom = {
     symbol: string;
     id: string;
   };
-  swapToAnotherAccountSwitchOn: boolean;
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -39,10 +39,10 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       buildNumber: process.env.BUILD_NUMBER ?? '2022010100',
       instanceId: generateUUID(),
       sensitiveEncodeKey: generateUUID(),
-      swapToAnotherAccountSwitchOn: false,
       isBiologyAuthSwitchOn: true,
       protectCreateTransaction: false,
       protectCreateOrRemoveWallet: false,
+      tokenRiskReminder: true,
       spendDustUTXO: false,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
       currencyInfo: {
@@ -66,12 +66,16 @@ export const {
   },
 });
 
-// extract high frequency refresh data to another atom
+type ISettingsAtom = {
+  swapToAnotherAccountSwitchOn: boolean;
+};
 
-export const {
-  target: swapToAnotherAccountSwitchOnAtom,
-  use: useSwapToAnotherAccountSwitchOnAtom,
-} = globalAtomComputed<boolean>((get) => {
-  const settings = get(settingsPersistAtom.atom());
-  return Boolean(settings.swapToAnotherAccountSwitchOn);
-});
+export const { target: settingsAtom, use: useSettingsAtom } =
+  globalAtom<ISettingsAtom>({
+    name: EAtomNames.settingsAtom,
+    initialValue: {
+      swapToAnotherAccountSwitchOn: false,
+    },
+  });
+
+// extract high frequency refresh data to another atom

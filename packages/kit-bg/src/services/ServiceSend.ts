@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil, random } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -67,6 +68,7 @@ class ServiceSend extends ServiceBase {
         decimals: 18,
         name: 'Ethereum',
         symbol: 'ETH',
+        isNative: true,
       },
     };
 
@@ -187,8 +189,16 @@ class ServiceSend extends ServiceBase {
     });
 
     if (feeInfo) {
-      decodedTx.totalFeeInNative = feeInfo.totalNative;
-      decodedTx.totalFeeFiatValue = feeInfo.totalFiat;
+      decodedTx.totalFeeInNative =
+        feeInfo.totalNativeForDisplay ?? feeInfo.totalNative;
+      decodedTx.totalFeeFiatValue =
+        feeInfo.totalFiatForDisplay ?? feeInfo.totalFiat;
+      decodedTx.feeInfo = feeInfo.feeInfo;
+    }
+
+    if (unsignedTx.swapInfo) {
+      decodedTx.swapProvider =
+        unsignedTx.swapInfo.swapBuildResData?.result?.info?.providerName;
     }
 
     return decodedTx;
@@ -228,7 +238,7 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
-    const { networkId, signedTx, accountAddress } = params;
+    const { networkId, signedTx, accountAddress, signature } = params;
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
@@ -236,6 +246,7 @@ class ServiceSend extends ServiceBase {
       networkId,
       accountAddress,
       tx: signedTx.rawTx,
+      signature,
     });
 
     return resp.data.data.result;
@@ -263,19 +274,20 @@ class ServiceSend extends ServiceBase {
         reason: EReasonForNeedPassword.CreateTransaction,
       });
     // signTransaction
-    const tx = await this.backgroundApi.serviceHardware.withHardwareProcessing(
-      async () => {
-        const signedTx = await vault.signTransaction({
-          unsignedTx,
-          password,
-          deviceParams,
-          signOnly,
-        });
-        console.log('signTx@vault.signTransaction', signedTx);
-        return signedTx;
-      },
-      { deviceParams },
-    );
+    const tx =
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          const signedTx = await vault.signTransaction({
+            unsignedTx,
+            password,
+            deviceParams,
+            signOnly,
+          });
+          console.log('signTx@vault.signTransaction', signedTx);
+          return signedTx;
+        },
+        { deviceParams },
+      );
 
     console.log('signTx@serviceSend.signTransaction', tx);
 
@@ -289,10 +301,11 @@ class ServiceSend extends ServiceBase {
   ) {
     const { networkId, accountId, unsignedTx, signOnly } = params;
 
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
 
     const signedTx = await this.signTransaction({
       networkId,
@@ -308,11 +321,18 @@ class ServiceSend extends ServiceBase {
         accountId,
       })
     ) {
-      const txid = await this.broadcastTransaction({
+      const vault = await vaultFactory.getVault({
         networkId,
-        signedTx,
-        accountAddress: account.address,
+        accountId,
       });
+      const { txid } = await vault.broadcastTransaction({
+        networkId,
+        accountAddress,
+        signedTx,
+      });
+      if (!txid) {
+        throw new Error('Broadcast transaction failed.');
+      }
       return { ...signedTx, txid };
     }
 
@@ -372,19 +392,14 @@ class ServiceSend extends ServiceBase {
         unsignedTx,
         feeInfo: sendSelectedFeeInfo,
       });
-      await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
-        networkId,
-        accountId,
-        data: {
-          signedTx,
-          decodedTx,
-        },
-      });
+
       const data = {
         signedTx,
         decodedTx,
       };
+
       result.push(data);
+
       if (!signOnly) {
         await this.backgroundApi.serviceSignature.addItemFromSendProcess(
           data,
@@ -397,11 +412,7 @@ class ServiceSend extends ServiceBase {
           accountId,
           data: {
             signedTx,
-            decodedTx: await this.buildDecodedTx({
-              networkId,
-              accountId,
-              unsignedTx,
-            }),
+            decodedTx,
           },
         });
       }
@@ -424,6 +435,7 @@ class ServiceSend extends ServiceBase {
       await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
         networkId,
         accountAddress,
+        withNonce: true,
       });
     if (isNil(onChainNextNonce)) {
       throw new Error('Get on-chain nonce failed.');
@@ -514,7 +526,7 @@ class ServiceSend extends ServiceBase {
       })
     ).nonceRequired;
 
-    if (isNonceRequired && isNil(newUnsignedTx.nonce)) {
+    if (isNonceRequired && new BigNumber(newUnsignedTx.nonce ?? 0).isZero()) {
       const nonce = await this.backgroundApi.serviceSend.getNextNonce({
         accountId,
         networkId,
@@ -558,15 +570,23 @@ class ServiceSend extends ServiceBase {
       throw new Error('Invalid unsigned message');
     }
 
-    const { password } =
+    const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
       });
-    const [signedMessage] = await vault.keyring.signMessage({
-      messages: [validUnsignedMessage],
-      password,
-    });
+    const signedMessage =
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          const [_signedMessage] = await vault.keyring.signMessage({
+            messages: [validUnsignedMessage as IUnsignedMessage],
+            password,
+            deviceParams,
+          });
+          return _signedMessage;
+        },
+        { deviceParams },
+      );
 
     return signedMessage;
   }

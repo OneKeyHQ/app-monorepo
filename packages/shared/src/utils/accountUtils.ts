@@ -24,10 +24,15 @@ import {
   INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '../engine/engineConsts';
+import { CoreSDKLoader } from '../hardware/instance';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import deviceUtils from './deviceUtils';
 import networkUtils from './networkUtils';
 
+import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -102,6 +107,10 @@ function isHwAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isHwWallet({ walletId });
 }
+const URL_ACCOUNT_ID = `${WALLET_TYPE_WATCHING}--global-url-account`;
+function isUrlAccountFn({ accountId }: { accountId: string | undefined }) {
+  return accountId === URL_ACCOUNT_ID;
+}
 
 function buildWatchingAccountId({
   coinType,
@@ -117,7 +126,7 @@ function buildWatchingAccountId({
   isUrlAccount?: boolean;
 }) {
   if (isUrlAccount) {
-    return `${WALLET_TYPE_WATCHING}--global-url-account`;
+    return URL_ACCOUNT_ID;
   }
   const pubOrAddress = xpub || address;
   if (!pubOrAddress) {
@@ -507,6 +516,52 @@ function buildLightningAccountId({
   return `${parts[0]}--${newPath}`;
 }
 
+function formatUtxoPath(path: string): string {
+  // Split the path into an array by '/'
+  const parts = path.split('/');
+
+  // Check if the path starts with 'm'
+  if (parts[0] !== 'm') {
+    throw new Error('Invalid UTXO path: path should start with "m"');
+  }
+
+  // Check if the path has at least three hardened levels
+  if (parts.length < 4) {
+    throw new Error(
+      'Invalid UTXO path: path should have at least three hardened levels',
+    );
+  }
+
+  // Check if the first three levels are hardened
+  for (let i = 1; i <= 3; i += 1) {
+    if (!parts[i].endsWith("'")) {
+      throw new Error(`Invalid UTXO path: level ${i} should be hardened`);
+    }
+  }
+
+  // Extract the first three levels and recombine them into a new path
+  const newPath = parts.slice(0, 4).join('/');
+
+  return newPath;
+}
+
+async function buildDeviceName({
+  device,
+  features,
+}: {
+  device?: SearchDevice;
+  features: IOneKeyDeviceFeatures;
+}) {
+  const { getDeviceUUID } = await CoreSDKLoader();
+  // const deviceType =
+  //   device?.deviceType ||
+  //   (await deviceUtils.getDeviceTypeFromFeatures({ features }));
+  const deviceUUID = device?.uuid || getDeviceUUID(features);
+  return (
+    features.label ?? features.ble_name ?? `OneKey ${deviceUUID.slice(-4)}`
+  );
+}
+
 export default {
   buildBaseAccountName,
   buildHDAccountName,
@@ -538,8 +593,11 @@ export default {
   isAccountCompatibleWithNetwork,
   getAccountCompatibleNetwork,
   isOthersWallet,
+  isUrlAccountFn,
   buildBtcToLnPath,
   buildLnToBtcPath,
   buildLightningAccountId,
+  buildDeviceName,
   getWalletConnectMergedNetwork,
+  formatUtxoPath,
 };

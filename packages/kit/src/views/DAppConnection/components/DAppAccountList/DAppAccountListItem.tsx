@@ -212,6 +212,24 @@ function DAppAccountListStandAloneItem({
   );
 }
 
+function DAppAccountListStandAloneItemForHomeScene() {
+  return (
+    <YStack space="$2" testID="DAppAccountListStandAloneItem">
+      <SizableText size="$headingMd" color="$text">
+        Accounts
+      </SizableText>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+        }}
+        enabledNum={[0]}
+      >
+        <DAppAccountListItem initFromHome={false} num={0} readonly />
+      </AccountSelectorProviderMirror>
+    </YStack>
+  );
+}
+
 function WalletConnectAccountTriggerList({
   sceneUrl,
   sessionAccountsInfo,
@@ -270,5 +288,6 @@ function WalletConnectAccountTriggerList({
 export {
   DAppAccountListItem,
   DAppAccountListStandAloneItem,
+  DAppAccountListStandAloneItemForHomeScene,
   WalletConnectAccountTriggerList,
 };

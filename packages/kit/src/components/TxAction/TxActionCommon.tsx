@@ -277,13 +277,15 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
       <Container.Item
         title={overview.title}
         content={
-          <XStack alignItems="center" space="$1">
+          <XStack alignItems="center" space="$1" flex={1}>
             <Token
               size="md"
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />
-            <SizableText size="$headingLg">{overview.content}</SizableText>
+            <SizableText size="$headingLg" flex={1} numberOfLines={2}>
+              {overview.content}
+            </SizableText>
           </XStack>
         }
       />
@@ -291,6 +293,7 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
         <Container.Item
           title={target.title ?? intl.formatMessage({ id: 'content__to' })}
           content={target.content}
+          description={target.description}
         />
       ) : null}
 

@@ -2,15 +2,17 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 export enum EQRCodeHandlerType {
-  UNKNOWN,
-  BITCOIN,
-  ETHEREUM,
-  LIGHTNING_NETWORK,
-  URL,
-  WALLET_CONNECT,
-  MIGRATE,
-  ANIMATION_CODE,
-  DEEPLINK,
+  UNKNOWN = 'UNKNOWN',
+  BITCOIN = 'BITCOIN',
+  ETHEREUM = 'ETHEREUM',
+  SOLANA = 'SOLANA',
+  LIGHTNING_NETWORK = 'LIGHTNING_NETWORK',
+  URL = 'URL',
+  WALLET_CONNECT = 'WALLET_CONNECT',
+  MIGRATE = 'MIGRATE',
+  ANIMATION_CODE = 'ANIMATION_CODE',
+  DEEPLINK = 'DEEPLINK',
+  URL_ACCOUNT = 'URL_ACCOUNT',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -27,6 +29,7 @@ export interface IBitcoinValue extends IChainValue {
   // message that describes the transaction to the user
   message?: string;
 }
+
 export interface IEthereumValue extends IChainValue {
   // Label for that address (e.g. name of receiver)
   label?: string;
@@ -44,6 +47,15 @@ export interface IEthereumValue extends IChainValue {
   // byte code data for transaction
   code?: string;
 }
+export interface ISolanaValue extends Omit<IChainValue, 'address'> {
+  recipient?: string;
+  // eslint-disable-next-line spellcheck/spell-checker
+  splToken?: string;
+  reference?: string[];
+  label?: string;
+  message?: string;
+  memo?: string;
+}
 export interface ILightningNetworkValue extends IBaseValue {
   tag?: string;
   k1?: string;
@@ -52,17 +64,24 @@ export interface IWalletConnectValue extends IBaseValue {
   version: string;
   wcUri: string;
 }
+export interface IUrlAccountValue extends IBaseValue {
+  origin: string;
+  networkId: string;
+  address: string;
+}
 export interface IMigrateValue extends IBaseValue {
   address?: string;
 }
 export interface IAnimationValue extends IBaseValue {
-  partIndex: number;
+  partIndexes: number[];
   partSize: number;
-  partData: string;
   fullData?: string;
 }
 export interface IUrlValue extends IBaseValue {
   url: string;
+  hostname: string;
+  origin: string;
+  pathname: string;
   urlSchema: string;
   urlPathList: string[];
   urlParamList: { [key: string]: string };

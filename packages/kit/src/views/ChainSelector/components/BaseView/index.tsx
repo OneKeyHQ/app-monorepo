@@ -1,6 +1,10 @@
 import { Empty, ListView, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import {
+  AllNetworksAvatar,
+  NetworkAvatar,
+} from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 const ListEmptyComponent = () => (
@@ -38,10 +42,17 @@ export const BaseListView = ({
     ListFooterComponent={<Stack h="$2" />}
     estimatedItemSize={48}
     data={networks}
+    keyExtractor={(item) => item.id}
     renderItem={({ item }) => (
       <ListItem
         h={48}
-        renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
+        renderAvatar={
+          item.id === dangerAllNetworkRepresent.id ? (
+            <AllNetworksAvatar size="$8" />
+          ) : (
+            <NetworkAvatar networkId={item?.id} size="$8" />
+          )
+        }
         title={item.name}
         onPress={() => onPressItem?.(item)}
         testID={`select-item-${item.id}`}

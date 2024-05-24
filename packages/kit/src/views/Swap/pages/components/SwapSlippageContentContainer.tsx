@@ -40,7 +40,7 @@ const BaseSlippageInput = ({
   const [inputValue, setInputValue] = useState('');
   const handleTextChange = useCallback(
     (text: string) => {
-      if (validateAmountInput(text)) {
+      if (validateAmountInput(text, 2)) {
         setInputValue(text);
         onChangeText(text);
       }
@@ -50,9 +50,9 @@ const BaseSlippageInput = ({
 
   useEffect(() => {
     if (swapSlippage.key === ESwapSlippageSegmentKey.AUTO) {
-      setInputValue(swapSlippageAutoValue.toString());
+      setInputValue(swapSlippage.value.toString());
     }
-  }, [swapSlippage.key]);
+  }, [swapSlippage.key, swapSlippage.value]);
 
   return (
     <Input

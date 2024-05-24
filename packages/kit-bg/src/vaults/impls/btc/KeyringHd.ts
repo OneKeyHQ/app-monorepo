@@ -40,7 +40,6 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {
-    // throw new Error('Method not implemented.');
-    return this.baseSignMessage(params);
+    return this.baseSignMessageBtc(params);
   }
 }

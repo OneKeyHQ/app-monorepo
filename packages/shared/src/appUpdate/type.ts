@@ -1,76 +1,4 @@
-import type { ILocaleSymbol } from '../locale';
-
-export interface IIOS {
-  url: string;
-  version: number[];
-  miniVersion?: number[];
-  minVersion?: number[];
-}
-
-export interface IChannelInfo {
-  url: string;
-  sha256?: string;
-  version: number[];
-}
-
-export interface IAndroid extends IChannelInfo {
-  googlePlay: string;
-  miniVersion?: number[];
-  minVersion?: number[];
-  google: IChannelInfo;
-  huawei: IChannelInfo;
-}
-
-export interface IExt {
-  chrome: string;
-  firefox: string;
-  edge: string;
-  miniVersion?: number[];
-  minVersion?: number[];
-}
-
-export type IChangeLog = Record<ILocaleSymbol, string>;
-
-export interface IDesktop {
-  sha256sumAsc: string;
-  version: number[];
-  miniVersion?: number[];
-  minVersion?: number[];
-  linux: string;
-  macX64: string;
-  macARM: string;
-  win: string;
-  changelog: IChangeLog[];
-  mas: {
-    url: string;
-    version: number[];
-  };
-  msStore: {
-    url: string;
-    version: number[];
-  };
-  snapStore: {
-    url: string;
-    version: number[];
-  };
-}
-
-export interface IPackageChangelog {
-  version: string;
-  locale: IChangeLog;
-}
-
-export interface IAppUpdateInfoData {
-  ios: IIOS;
-  android: IAndroid;
-  ext: IExt;
-  desktop: IDesktop;
-  changelog: IPackageChangelog[];
-}
-
 export interface IBasicAppUpdateInfo {
-  // the latest version of remote server
-  latestVersion?: string;
   // app store url
   storeUrl?: string;
   // app download url
@@ -78,12 +6,18 @@ export interface IBasicAppUpdateInfo {
   // is force update required
   isForceUpdate: boolean;
   // change log text
-  changeLog?: IChangeLog;
+  changeLog?: string;
   // sha256 for downloaded package
   sha256?: string;
 }
 
+export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
+  version?: string;
+}
+
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
+  // the latest version of remote server
+  latestVersion?: string;
   // the last time the app update info was fetched
   updateAt: number;
   // App from app Store
@@ -102,7 +36,3 @@ export enum EAppUpdateStatus {
   failed = 'failed',
   done = 'done',
 }
-
-export type IHandleReleaseInfo = (
-  releaseInfo: IAppUpdateInfoData,
-) => IBasicAppUpdateInfo;

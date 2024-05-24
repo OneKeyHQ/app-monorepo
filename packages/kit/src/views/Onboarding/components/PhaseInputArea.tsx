@@ -1,4 +1,9 @@
-import type { ComponentType, PropsWithChildren, RefObject } from 'react';
+import type {
+  ComponentType,
+  PropsWithChildren,
+  ReactElement,
+  RefObject,
+} from 'react';
 import {
   forwardRef,
   useCallback,
@@ -34,6 +39,7 @@ import {
   XStack,
   useForm,
   useIsKeyboardShown,
+  useKeyboardEvent,
   useMedia,
   usePage,
 } from '@onekeyhq/components';
@@ -41,9 +47,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSuggestion } from './hooks';
-import { Tutorials } from './Tutorials';
 
-import type { ITutorialsListItemProps } from './Tutorials';
 import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
 
 const KeyDownView = View as unknown as ComponentType<
@@ -199,6 +203,7 @@ function BasicPhaseInput(
     index,
     onChange,
     value,
+    isShowError = false,
     onInputChange,
     onInputFocus,
     onInputBlur,
@@ -214,6 +219,7 @@ function BasicPhaseInput(
   }: IPropsWithTestId<{
     value?: string;
     index: number;
+    isShowError: boolean;
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
@@ -259,7 +265,6 @@ function BasicPhaseInput(
           pageY: number,
         ) => {
           const contentOffset = getContentOffset();
-          console.log(x, y, pageX, pageY, contentOffset);
           if (pageY > visibleHeight) {
             setTimeout(() => {
               pageRef.scrollTo({
@@ -273,6 +278,7 @@ function BasicPhaseInput(
       );
     }
   }, [getContentOffset, index, onInputFocus, pageRef]);
+
   const handleInputBlur = useCallback(() => {
     onInputBlur(index);
   }, [index, onInputBlur]);
@@ -341,7 +347,8 @@ function BasicPhaseInput(
     onReturnKeyPressed(index);
   }, [index, onReturnKeyPressed]);
 
-  const isShowValue = selectInputIndex !== index && value?.length;
+  const isShowValue =
+    selectInputIndex !== index && value?.length && !isShowError;
   const displayValue = isShowValue ? '••••' : value;
   const suggestions = suggestionsRef.current ?? [];
 
@@ -360,6 +367,7 @@ function BasicPhaseInput(
       minWidth: '$10',
       justifyContent: 'center',
     },
+    error: isShowError,
     onChangeText: handleChangeText,
     onFocus: handleInputFocus,
     onBlur: handleInputBlur,
@@ -431,7 +439,7 @@ const PhaseInput = forwardRef(BasicPhaseInput);
 
 export function PhaseInputArea({
   onConfirm,
-  tutorials,
+  FooterComponent,
   showPhraseLengthSelector = true,
   showClearAllButton = true,
   defaultPhrases = [],
@@ -439,7 +447,7 @@ export function PhaseInputArea({
   onConfirm: (mnemonic: string) => void;
   showPhraseLengthSelector?: boolean;
   showClearAllButton?: boolean;
-  tutorials: ITutorialsListItemProps[];
+  FooterComponent?: ReactElement;
   defaultPhrases?: string[];
 }) {
   const [phraseLength, setPhraseLength] = useState(
@@ -489,6 +497,7 @@ export function PhaseInputArea({
     closePopover,
     focusNextInput,
     onPasteMnemonic,
+    isShowErrors,
   } = useSuggestion(form, Number(phraseLength));
 
   const handleReturnKeyPressed = useCallback(
@@ -501,6 +510,10 @@ export function PhaseInputArea({
     },
     [focusNextInput, handlePageFooterConfirm, phraseLength],
   );
+
+  useKeyboardEvent({
+    keyboardWillHide: closePopover,
+  });
 
   const getReturnKeyLabel: (index: number) => ReturnKeyTypeOptions =
     useCallback(
@@ -572,6 +585,7 @@ export function PhaseInputArea({
                   <Form.Field name={`phrase${index + 1}`}>
                     <PhaseInput
                       index={index}
+                      isShowError={isShowErrors[index]}
                       onInputBlur={onInputBlur}
                       onInputChange={onInputChange}
                       onInputFocus={onInputFocus}
@@ -610,7 +624,7 @@ export function PhaseInputArea({
             </XStack>
           ) : null}
         </HeightTransition>
-        <Tutorials px="$5" list={tutorials} />
+        {FooterComponent}
       </Page.Body>
       <PageFooter
         suggestions={suggestions}

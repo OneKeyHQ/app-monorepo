@@ -53,13 +53,23 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getNetwork({
     networkId,
+    code,
   }: {
-    networkId: string;
+    networkId?: string;
+    code?: string;
   }): Promise<IServerNetwork> {
     const { networks } = await this.getAllNetworks();
-    const network = networks.find((n) => n.id === networkId);
+    let network: IServerNetwork | undefined;
+    if (!network && networkId) {
+      network = networks.find((n) => n.id === networkId);
+    }
+    if (!network && code) {
+      network = networks.find((n) => n.code === code);
+    }
     if (!network) {
-      throw new Error(`getNetwork ERROR: Network not found: ${networkId}`);
+      throw new Error(
+        `getNetwork ERROR: Network not found: ${networkId || ''} ${code || ''}`,
+      );
     }
     return network;
   }
@@ -67,11 +77,13 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getNetworkSafe({
     networkId,
+    code,
   }: {
-    networkId: string;
+    networkId?: string;
+    code?: string;
   }): Promise<IServerNetwork | undefined> {
     try {
-      return await this.getNetwork({ networkId });
+      return await this.getNetwork({ networkId, code });
     } catch (error) {
       return undefined;
     }
@@ -147,15 +159,6 @@ class ServiceNetwork extends ServiceBase {
       );
     }
     return networks;
-  }
-
-  @backgroundMethod()
-  async getNetworkNames() {
-    const { networks: allNetworks } = await this.getAllNetworks();
-    return allNetworks.reduce((acc, item) => {
-      acc[item.id] = item.name;
-      return acc;
-    }, {} as Record<string, string>);
   }
 
   async containsNetwork({

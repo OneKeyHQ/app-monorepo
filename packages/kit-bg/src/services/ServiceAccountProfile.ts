@@ -8,6 +8,9 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IAddressInteractionStatus,
@@ -15,23 +18,22 @@ import type {
   IAddressValidation,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
+  IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IProxyRequest,
+  IProxyRequestItem,
+  IProxyResponse,
+  IRpcProxyResponse,
+} from '@onekeyhq/shared/types/proxy';
+
+import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
 type IAddressNetworkIdParams = {
   networkId: string;
   address: string;
-};
-
-type IQueryAddressArgs = {
-  networkId: string;
-  address: string;
-  accountId?: string;
-  enableNameResolve?: boolean;
-  enableAddressBook?: boolean;
-  enableWalletName?: boolean;
-  enableAddressInteractionStatus?: boolean;
 };
 
 @backgroundClass()
@@ -57,12 +59,7 @@ class ServiceAccountProfile extends ServiceBase {
   ): Promise<IAddressValidateStatus> {
     const { networkId, address } = params;
     try {
-      const client = await this.getClient();
-      const resp = await client.get<{
-        data: IAddressValidation;
-      }>('/wallet/v1/account/validate-address', {
-        params: { networkId, accountAddress: address },
-      });
+      const resp = await this.fetchValidateAddressResult(params);
       return resp.data.data.isValid ? 'valid' : 'invalid';
     } catch (serverError) {
       try {
@@ -84,6 +81,22 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
   }
+
+  fetchValidateAddressResult = memoizee(
+    async (params: IAddressNetworkIdParams) => {
+      const { networkId, address } = params;
+      const client = await this.getClient();
+      const resp = await client.get<{
+        data: IAddressValidation;
+      }>('/wallet/v1/account/validate-address', {
+        params: { networkId, accountAddress: address },
+      });
+      return resp;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
 
   private async getAddressInteractionStatus({
     networkId,
@@ -135,6 +148,30 @@ class ServiceAccountProfile extends ServiceBase {
     }
   }
 
+  private async verifyCannotSendToSelf({
+    networkId,
+    accountId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountId: string;
+    accountAddress: string;
+  }): Promise<boolean> {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const vaultSettings = await vault.getVaultSettings();
+    if (!vaultSettings.cannotSendToSelf) {
+      return false;
+    }
+    const acc = await this.backgroundApi.serviceAccount.getAccount({
+      networkId,
+      accountId,
+    });
+    const addressValidation = await vault.validateAddress(accountAddress);
+    return (
+      acc.addressDetail.displayAddress === addressValidation.displayAddress
+    );
+  }
+
   @backgroundMethod()
   public async queryAddress({
     networkId,
@@ -144,7 +181,8 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
-  }: IQueryAddressArgs) {
+    enableVerifySendFundToSelf,
+  }: IQueryCheckAddressArgs) {
     const result: IAddressQueryResult = { input: address };
     if (!networkId) {
       return result;
@@ -161,6 +199,18 @@ class ServiceAccountProfile extends ServiceBase {
       return result;
     }
     const resolveAddress = result.resolveAddress ?? result.input;
+    if (enableVerifySendFundToSelf && accountId && resolveAddress) {
+      const disableFundToSelf = await this.verifyCannotSendToSelf({
+        networkId,
+        accountId,
+        accountAddress: resolveAddress,
+      });
+      if (disableFundToSelf) {
+        result.validStatus = 'prohibit-send-to-self';
+        return result;
+      }
+    }
+
     if (enableAddressBook && resolveAddress) {
       // handleAddressBookName
       const addressBookItem =
@@ -215,6 +265,46 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
     return result;
+  }
+
+  @backgroundMethod()
+  async sendProxyRequest<T>({
+    networkId,
+    body,
+  }: {
+    networkId: string;
+    body: IProxyRequestItem[];
+  }): Promise<T[]> {
+    const client = await this.getClient();
+    const request: IProxyRequest = { networkId, body };
+    const resp = await client.post<IProxyResponse<T>>(
+      '/wallet/v1/proxy/wallet',
+      request,
+    );
+    const data = resp.data.data.data;
+    if (data.some((item) => !item.success)) {
+      throw new Error('Failed to send proxy request');
+    }
+    return data.map((item) => item.data);
+  }
+
+  async sendRpcProxyRequest<T>({
+    networkId,
+    body,
+  }: {
+    networkId: string;
+    body: IProxyRequestItem[];
+  }): Promise<T[]> {
+    const client = await this.getClient();
+    const request: IProxyRequest = { networkId, body };
+    const resp = await client.post<IRpcProxyResponse<T>>(
+      '/wallet/v1/proxy/wallet',
+      request,
+    );
+
+    const data = resp.data.data.data;
+
+    return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
   }
 }
 

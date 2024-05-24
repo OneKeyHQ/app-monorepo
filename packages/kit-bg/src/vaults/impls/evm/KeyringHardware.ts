@@ -3,6 +3,8 @@
 import { splitSignature } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
 import { serialize } from '@ethersproject/transactions';
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { TypedDataUtils } from 'eth-sig-util';
 import { omit } from 'lodash';
 
 import type { UnsignedTransaction } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
@@ -10,23 +12,30 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
+  ISignedMessagePro,
   ISignedTxPro,
+  IUnsignedMessageEth,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  convertDeviceError,
+  convertDeviceResponse,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IDeviceResponseResult,
   IDeviceSharedCallParams,
 } from '@onekeyhq/shared/types/device';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
-  IGetAddressParams,
   IPrepareHardwareAccountsParams,
+  ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 import type {
@@ -145,8 +154,113 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  async signMessage(): Promise<string[]> {
-    throw new Error('Method not implemented.');
+  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+    const { messages, deviceParams } = params;
+    checkIsDefined(deviceParams);
+    return Promise.all(
+      messages.map(async (message) =>
+        this.handleSignMessage({
+          message: message as IUnsignedMessageEth,
+          deviceParams: deviceParams as IDeviceSharedCallParams,
+        }),
+      ),
+    );
+  }
+
+  async handleSignMessage(params: {
+    message: IUnsignedMessageEth;
+    deviceParams: IDeviceSharedCallParams;
+  }): Promise<string> {
+    const { message, deviceParams } = params;
+    const { dbDevice, deviceCommonParams } = deviceParams;
+    const { connectId, deviceId } = dbDevice;
+
+    const sdk = await this.getHardwareSDKInstance();
+    const path = await this.vault.getAccountPath();
+
+    const chainId = Number(await this.getNetworkChainId());
+
+    if (message.type === EMessageTypesEth.TYPED_DATA_V1) {
+      throw web3Errors.provider.unsupportedMethod(
+        `Sign message method=${message.type} not supported for this device`,
+      );
+    }
+
+    if (
+      message.type === EMessageTypesEth.ETH_SIGN ||
+      message.type === EMessageTypesEth.PERSONAL_SIGN
+    ) {
+      let messageBuffer: Buffer;
+      try {
+        if (!hexUtils.isHexString(message.message))
+          throw new Error('not hex string');
+
+        messageBuffer = Buffer.from(message.message.replace('0x', ''), 'hex');
+      } catch (error) {
+        messageBuffer = Buffer.from('');
+      }
+
+      let messageHex = message.message;
+      if (messageBuffer.length === 0) {
+        messageHex = Buffer.from(message.message, 'utf-8').toString('hex');
+      }
+
+      const res = await sdk.evmSignMessage(connectId, deviceId, {
+        path,
+        messageHex,
+        chainId,
+        ...deviceCommonParams,
+      });
+
+      if (!res.success) {
+        throw convertDeviceError(res.payload);
+      }
+
+      return hexUtils.addHexPrefix(res?.payload?.signature || '');
+    }
+
+    if (
+      message.type === EMessageTypesEth.TYPED_DATA_V3 ||
+      message.type === EMessageTypesEth.TYPED_DATA_V4
+    ) {
+      const useV4 = message.type === EMessageTypesEth.TYPED_DATA_V4;
+      const data = JSON.parse(message.message);
+      const typedData = TypedDataUtils.sanitizeData(data);
+      const domainHash = TypedDataUtils.hashStruct(
+        'EIP712Domain',
+        typedData.domain,
+        typedData.types,
+        useV4,
+      ).toString('hex');
+      const messageHash = TypedDataUtils.hashStruct(
+        // @ts-expect-error
+        typedData.primaryType,
+        typedData.message,
+        typedData.types,
+        useV4,
+      ).toString('hex');
+
+      const res = await sdk.evmSignTypedData(connectId, deviceId, {
+        path,
+        metamaskV4Compat: !!useV4,
+        data,
+        domainHash,
+        messageHash,
+        chainId,
+        ...deviceCommonParams,
+      });
+
+      if (!res.success) {
+        throw convertDeviceError(res.payload);
+      }
+
+      return hexUtils.addHexPrefix(res?.payload?.signature || '');
+    }
+
+    throw web3Errors.rpc.methodNotFound(
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      `Sign message method=${message.type} not found`,
+    );
   }
 
   override async prepareAccounts(
@@ -169,6 +283,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           }) => {
             const sdk = await this.getHardwareSDKInstance();
 
+            console.log('evm-getAddress', { connectId, deviceId });
             const response = await sdk.evmGetAddress(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams, // passpharse params
               bundle: usedIndexes.map((index, arrIndex) => ({

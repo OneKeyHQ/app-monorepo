@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
-import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -32,9 +31,9 @@ function ConnectionModal() {
     closeWindowAfterResolved: true,
   });
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
@@ -68,14 +67,17 @@ function ConnectionModal() {
   }, [selectedAccount?.network?.name]);
 
   const confirmDisabled = useMemo(() => {
-    if (!canContinueOperate) {
+    if (!continueOperate) {
       return true;
     }
     if (!selectedAccount?.account?.address) {
+      if (selectedAccount?.account?.addressDetail.isValid) {
+        return false;
+      }
       return true;
     }
     return false;
-  }, [selectedAccount, canContinueOperate]);
+  }, [selectedAccount, continueOperate]);
 
   const onApproval = useCallback(
     async (close: () => void) => {
@@ -174,9 +176,7 @@ function ConnectionModal() {
           confirmButtonProps={{
             disabled: confirmDisabled,
           }}
-          showContinueOperateCheckbox={
-            riskLevel !== EHostSecurityLevel.Security
-          }
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

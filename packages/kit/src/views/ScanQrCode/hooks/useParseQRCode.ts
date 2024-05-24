@@ -12,6 +12,7 @@ import type {
   IBaseValue,
   IChainValue,
   IQRCodeHandlerParse,
+  IUrlAccountValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import {
@@ -20,6 +21,8 @@ import {
   EModalSendRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
@@ -45,8 +48,18 @@ const useParseQRCode = () => {
         return result;
       }
       switch (result.type) {
+        case EQRCodeHandlerType.URL_ACCOUNT: {
+          const urlAccountData = result.data as IUrlAccountValue;
+          urlAccountNavigation.pushUrlAccountPage(navigation, {
+            networkId: urlAccountData.networkId,
+            address: urlAccountData.address,
+          });
+          break;
+        }
+
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:
+        case EQRCodeHandlerType.SOLANA:
           {
             if (!account) {
               break;
@@ -87,6 +100,13 @@ const useParseQRCode = () => {
             void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
           }
           break;
+        case EQRCodeHandlerType.ANIMATION_CODE: {
+          const animationValue = result.data as IAnimationValue;
+          // if (animationValue.fullData) {
+          console.log('🥺', animationValue);
+          // }
+          break;
+        }
         default: {
           Dialog.confirm({
             title: intl.formatMessage({ id: 'content__info' }),

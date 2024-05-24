@@ -7,7 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
-import localDb from '../dbs/local/localDbInstance';
+import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
 import { passwordPersistAtom } from '../states/jotai/atoms/password';
@@ -65,13 +65,8 @@ class ServiceE2E extends ServiceBase {
 
   @backgroundMethodForDev()
   async clearDiscoveryPageData() {
-    const { simpleDb } = this.backgroundApi;
-    await Promise.all([
-      simpleDb.browserTabs.clearRawData(),
-      simpleDb.browserBookmarks.clearRawData(),
-      simpleDb.browserHistory.clearRawData(),
-      simpleDb.dappConnection.clearRawData(),
-    ]);
+    const { serviceDiscovery } = this.backgroundApi;
+    await serviceDiscovery.clearDiscoveryPageData();
   }
 }
 

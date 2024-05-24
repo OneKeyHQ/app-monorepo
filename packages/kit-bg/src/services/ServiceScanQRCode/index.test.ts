@@ -1,6 +1,7 @@
 import { parseQRCode as parse } from './utils/parseQRCode';
 import { EQRCodeHandlerType } from './utils/parseQRCode/type';
 
+// yarn jest packages/kit-bg/src/services/ServiceScanQRCode/index.test.ts
 describe('useParseQRCode', () => {
   it('should parse as migrate', async () => {
     expect(await parse('onekey-wallet://migrate/192.168.1.2')).toEqual(
@@ -11,39 +12,6 @@ describe('useParseQRCode', () => {
     );
   });
   it('should parse as animation qrcode', async () => {
-    expect(await parse('ur://bytes/1-3/1FGsdfSEFASDFA')).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ANIMATION_CODE,
-        data: expect.objectContaining({
-          partIndex: 1,
-          partSize: 3,
-          partData: '1FGsdfSEFASDFA',
-          fullData: undefined,
-        }),
-      }),
-    );
-    expect(await parse('ur://bytes/2-3/2FGsdfSEFASDFA')).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ANIMATION_CODE,
-        data: expect.objectContaining({
-          partIndex: 2,
-          partSize: 3,
-          partData: '2FGsdfSEFASDFA',
-          fullData: undefined,
-        }),
-      }),
-    );
-    expect(await parse('ur://bytes/3-3/3FGsdfSEFASDFA')).toEqual(
-      expect.objectContaining({
-        type: EQRCodeHandlerType.ANIMATION_CODE,
-        data: expect.objectContaining({
-          partIndex: 3,
-          partSize: 3,
-          partData: '3FGsdfSEFASDFA',
-          fullData: '1FGsdfSEFASDFA2FGsdfSEFASDFA3FGsdfSEFASDFA',
-        }),
-      }),
-    );
     expect(
       await parse(
         'ur:bytes/1-9/lpadascfadaxcywenbpljkhdcahkadaemejtswhhylkepmykhhtsytsnoyoyaxaedsuttydmmhhpktpmsrjtdkgslpgh',
@@ -52,11 +20,52 @@ describe('useParseQRCode', () => {
       expect.objectContaining({
         type: EQRCodeHandlerType.ANIMATION_CODE,
         data: expect.objectContaining({
-          partIndex: 1,
+          partIndexes: [0],
           partSize: 9,
-          partData:
-            'lpadascfadaxcywenbpljkhdcahkadaemejtswhhylkepmykhhtsytsnoyoyaxaedsuttydmmhhpktpmsrjtdkgslpgh',
           fullData: undefined,
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'ur:bytes/201-3/lpcssoaxcfadwycynbnllocahdonecemdwecetdwecesdwendydwenehdweneydweneodweneedwenecdwenendwenemdwenetdwenesdwemdydwemehdwemeydwemeodwemeedwemecdwemendwememdwemetdwemesdwetdydwetehdweteydweteodweteedwetecdwetendwetemdwetetdwetesdwesdydwesehdweseydweseodweseedwesecdwesendwesemdwesetdwesesdwehdydydwehdyehdwehdyeydwehdyeodwehdyeedwehdyecdwehdyendwehdyemdwehdyetdwemjzhhlf',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ANIMATION_CODE,
+        data: expect.objectContaining({
+          partIndexes: [1],
+          partSize: 3,
+          fullData: undefined,
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'ur:bytes/202-3/lpcssgaxcfadwycynbnllocahdonehdyesdwehehdydwehehehdweheheydweheheodweheheedwehehecdwehehendwehehemdwehehetdwehehesdweheydydweheyehdweheyeydweheyeodweheyeedweheyecdweheyendweheyemdweheyetdweheyesdweheodydweheoehdweheoeydweheoeodweheoeedweheoecdweheoendweheoemdweheoetdweheoesdweheedydweheeehdweheeeydweheeeodweheeeedweheeecdweheeendweheeemdweheeetdweheeeshlaebbcfdiia',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ANIMATION_CODE,
+        data: expect.objectContaining({
+          partIndexes: [2],
+          partSize: 3,
+          fullData: undefined,
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'ur:bytes/204-3/lpcssfaxcfadwycynbnllocahdonhlamzefweseheeesdldneydweodwdneneceheyeodadnesdweneeecdnenehehdtehenfndwenfnetdreeehfhdneheeecdwemesehdrfneyemdtehemeedweeemeedtfteydycleheteodwfrecemdseeeyeydieheteedwftendydieneoftdtehetesdwftfmeodseeeofmdnehesdydwfretendsfneoftdtehfmfhdwfnenesclfteefscleheheedydteodmdtdrdtemdsehehfseodeecdtdpdwdteodnehdyeeendeehdkdmdedtfnguaednprmtns',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ANIMATION_CODE,
+        data: expect.objectContaining({
+          partIndexes: [0, 1, 2],
+          partSize: 3,
+          fullData:
+            '[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,148,149]',
         }),
       }),
     );
@@ -295,11 +304,77 @@ describe('useParseQRCode', () => {
       }),
     );
   });
+  it('should parse as solana', async () => {
+    expect(
+      await parse(
+        'solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=1&label=Michael&message=Thanks%20for%20all%20the%20fish&memo=OrderId12345',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SOLANA,
+        data: expect.objectContaining({
+          recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+          amount: '1',
+          label: 'Michael',
+          message: 'Thanks for all the fish',
+          memo: 'OrderId12345',
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&spl-token=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SOLANA,
+        data: expect.objectContaining({
+          recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+          amount: '0.01',
+          // eslint-disable-next-line spellcheck/spell-checker
+          splToken: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&reference=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&reference=HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SOLANA,
+        data: expect.objectContaining({
+          recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+          amount: '0.01',
+          reference: [
+            'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+            'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH',
+          ],
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?label=Michael',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SOLANA,
+        data: expect.objectContaining({
+          recipient: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+          label: 'Michael',
+        }),
+      }),
+    );
+  });
   it('should parse as url', async () => {
     expect(await parse('https://www.google.com/search?q=onekey')).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.URL,
         data: {
+          'hostname': 'www.google.com',
+          'origin': 'https://www.google.com',
+          'pathname': '/search',
           url: 'https://www.google.com/search?q=onekey',
           urlSchema: 'https',
           urlPathList: ['www.google.com', 'search'],
@@ -313,6 +388,9 @@ describe('useParseQRCode', () => {
       expect.objectContaining({
         type: EQRCodeHandlerType.DEEPLINK,
         data: {
+          'hostname': 'search',
+          'origin': 'null',
+          'pathname': '/list',
           url: 'onekey-wallet://search/list?q=onekey',
           urlSchema: 'onekey-wallet',
           urlPathList: ['search', 'list'],

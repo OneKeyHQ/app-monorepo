@@ -4,9 +4,7 @@
 import axios from 'axios';
 import { forEach } from 'lodash';
 
-import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import { checkRequestIsOneKeyDomain, getRequestHeaders } from './Interceptor';
@@ -15,21 +13,7 @@ import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 axios.interceptors.request.use(async (config) => {
   try {
-    let isOneKeyDomain = await checkRequestIsOneKeyDomain(config.baseURL ?? '');
-
-    if (!isOneKeyDomain) {
-      if (platformEnv.isDev && process.env.ONEKEY_PROXY) {
-        const proxyHeader =
-          config?.headers?.['X-Proxy'] || config?.headers?.['x-proxy'];
-        if (proxyHeader) {
-          try {
-            isOneKeyDomain = await checkIsOneKeyDomain(proxyHeader);
-          } catch (error) {
-            isOneKeyDomain = false;
-          }
-        }
-      }
-    }
+    const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
     if (!isOneKeyDomain) return config;
   } catch (e) {
     return config;
@@ -45,10 +29,9 @@ axios.interceptors.request.use(async (config) => {
 
 axios.interceptors.response.use(async (response) => {
   const { config } = response;
+
   try {
-    const isOneKeyDomain = await checkRequestIsOneKeyDomain(
-      config.baseURL ?? '',
-    );
+    const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
     if (!isOneKeyDomain) return response;
   } catch (e) {
     return response;
@@ -57,7 +40,7 @@ axios.interceptors.response.use(async (response) => {
   const data = response.data as IOneKeyAPIBaseResponse;
 
   if (data.code !== 0) {
-    throw new OneKeyError({
+    throw new OneKeyServerApiError({
       autoToast: false,
       message: data.message,
       code: data.code,

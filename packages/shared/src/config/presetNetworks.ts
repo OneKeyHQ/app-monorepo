@@ -6,7 +6,32 @@ import { ENetworkStatus } from '@onekeyhq/shared/types';
 
 import platformEnv from '../platformEnv';
 
-// export const NETWORK_ID_ETC = 'evm--61'; // move to networkIds
+// dangerNetwork represents a virtual network
+export const dangerAllNetworkRepresent: IServerNetwork = {
+  'balance2FeeDecimals': 0,
+  'chainId': '0',
+  'code': '',
+  'decimals': 0,
+  'id': 'all--0',
+  'impl': 'all',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/all.png',
+  'name': 'All Networks',
+  'shortcode': '',
+  'shortname': '',
+  'symbol': '',
+  'feeMeta': {
+    'code': '',
+    'decimals': 0,
+    'symbol': '0',
+  },
+  'defaultEnabled': true,
+  'priceConfigs': [],
+  'explorers': [],
+  'status': ENetworkStatus.LISTED,
+  'createdAt': '2023-05-31T00:29:24.951Z',
+  'updatedAt': '2023-05-31T00:29:24.951Z',
+};
 
 export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   // shortcode
@@ -31,7 +56,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--1',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/eth/eth.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     'name': 'Ethereum',
     'shortcode': 'eth',
     'shortname': 'ETH',
@@ -92,7 +117,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--11155111',
     'impl': 'evm',
     'isTestnet': true,
-    'logoURI': 'https://onekey-asset.com/assets/teth/teth.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/teth.png',
     'name': 'Ethereum Sepolia Testnet',
     'shortcode': 'sepolia',
     'shortname': 'Sepolia',
@@ -131,7 +156,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'btc--0',
     'impl': 'btc',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/btc/btc.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/btc.png',
     'name': 'Bitcoin',
     'shortcode': 'btc',
     'shortname': 'BTC',
@@ -170,7 +195,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'tbtc--0',
     'impl': 'tbtc',
     'isTestnet': true,
-    'logoURI': 'https://onekey-asset.com/assets/tbtc/tbtc.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/tbtc.png',
     'name': 'Bitcoin Testnet',
     'shortcode': 'tbtc',
     'shortname': 'TBTC',
@@ -203,7 +228,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'doge--0',
     'impl': 'doge',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/doge/doge.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/doge.png',
     'name': 'Dogecoin',
     'shortcode': 'doge',
     'shortname': 'DOGE',
@@ -247,7 +272,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'bch--0',
     'impl': 'bch',
     'isTestnet': false,
-    'logoURI': 'https://common.onekey-asset.com/chain/bch.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/bch.png',
     'name': 'Bitcoin Cash',
     'shortcode': 'bch',
     'shortname': 'BCH',
@@ -294,7 +319,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'ltc--0',
     'impl': 'ltc',
     'isTestnet': false,
-    'logoURI': 'https://common.onekey-asset.com/chain/ltc.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/ltc.png',
     'name': 'Litecoin',
     'shortcode': 'ltc',
     'shortname': 'LTC',
@@ -332,6 +357,44 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const neurai: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'neurai',
+    'decimals': 8,
+    'id': 'neurai--0',
+    'impl': 'neurai',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/neurai.png',
+    'name': 'Neurai',
+    'shortcode': 'xna',
+    'shortname': 'XNA',
+    'symbol': 'XNA',
+    'feeMeta': {
+      'code': 'xna',
+      'decimals': 8,
+      'symbol': 'XNA',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'neurai',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://neuraiexplorer.com/address/{address}',
+        'block': 'https://neuraiexplorer.com/block/{block}',
+        'name': 'https://neuraiexplorer.com',
+        'transaction': 'https://neuraiexplorer.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-03-10T00:00:00.001Z',
+    'updatedAt': '2024-03-10T00:00:00.001Z',
+  };
+
   const tatom: IServerNetwork = {
     'balance2FeeDecimals': 0,
     'chainId': 'theta-testnet-001',
@@ -350,7 +413,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'cosmos--theta-testnet-001',
     'impl': 'cosmos',
     'isTestnet': true,
-    'logoURI': 'https://onekey-asset.com/assets/cosmos/cosmos.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/cosmos.png',
     'name': 'Cosmos Testnet',
     'shortcode': 'tatom',
     'shortname': 'TCosmos',
@@ -395,7 +458,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'cosmos--cosmoshub-4',
     'impl': 'cosmos',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/cosmos/cosmos.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/cosmos.png',
     'name': 'Cosmos',
     'shortcode': 'cosmoshub',
     'shortname': 'Cosmos',
@@ -450,7 +513,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'cosmos--osmosis-1',
     'impl': 'cosmos',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/osmosis/osmosis.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/osmosis.png',
     'name': 'Osmosis',
     'shortcode': 'osmosis',
     'shortname': 'Osmosis',
@@ -484,6 +547,319 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const akash: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'akashnet-2',
+    'code': 'akash',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'akash',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'min': '0',
+        },
+        'mainCoinDenom': 'uakt',
+      },
+    },
+    'id': 'cosmos--akashnet-2',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/akash.png',
+    'name': 'Akash',
+    'shortcode': 'akash',
+    'shortname': 'Akash',
+    'symbol': 'AKT',
+    'feeMeta': {
+      'code': 'akash',
+      'decimals': 6,
+      'symbol': 'AKT',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'akash-network',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'AKT',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/akash/account/{address}',
+        'block': 'https://www.mintscan.io/akash/blocks/{block}',
+        'name': 'https://www.mintscan.io/akash/',
+        'transaction': 'https://www.mintscan.io/akash/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const cryptoorgchain: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'crypto-org-chain-mainnet-1',
+    'code': 'cryptoorgchain',
+    'decimals': 8,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'cro',
+        'curve': 'secp256k1',
+        'mainCoinDenom': 'basecro',
+        'gasPriceStep': {
+          'high': '0.04',
+          'low': '0.025',
+          'normal': '0.03',
+        },
+      },
+    },
+    'id': 'cosmos--crypto-org-chain-mainnet-1',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/cryptoorg.png',
+    'name': 'Crypto.org',
+    'shortcode': 'cryptoorgchain',
+    'shortname': 'Crypto.org',
+    'symbol': 'CRO',
+    'feeMeta': {
+      'code': 'cryptoorgchain',
+      'decimals': 8,
+      'symbol': 'CRO',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'crypto-com-chain',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'CRO',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/crypto-org/account/{address}',
+        'block': 'https://www.mintscan.io/crypto-org/blocks/{block}',
+        'name': 'https://www.mintscan.io/crypto-org/',
+        'transaction': 'https://www.mintscan.io/crypto-org/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const fetchai: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'fetchhub-4',
+    'code': 'fetch',
+    'decimals': 18,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'fetch',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'high': '0.035',
+          'low': '0.025',
+          'normal': '0.025',
+        },
+        'mainCoinDenom': 'afet',
+      },
+    },
+    'id': 'cosmos--fetchhub-4',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/fetch.png',
+    'name': 'Fetch.ai',
+    'shortcode': 'fetch',
+    'shortname': 'Fetch.ai',
+    'symbol': 'FET',
+    'feeMeta': {
+      'code': 'fetch',
+      'decimals': 18,
+      'symbol': 'FET',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'fetch-ai',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/fetchai/account/{address}',
+        'block': 'https://www.mintscan.io/fetchai/blocks/{block}',
+        'name': 'https://www.mintscan.io/fetchai/',
+        'transaction': 'https://www.mintscan.io/fetchai/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const juno: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'juno-1',
+    'code': 'juno',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'juno',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'high': '0.125',
+          'low': '0.075',
+          'min': '0.075',
+          'normal': '0.1',
+        },
+        'mainCoinDenom': 'ujuno',
+      },
+    },
+    'id': 'cosmos--juno-1',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/juno.png',
+    'name': 'Juno',
+    'shortcode': 'juno',
+    'shortname': 'Juno',
+    'symbol': 'JUNO',
+    'feeMeta': {
+      'code': 'juno',
+      'decimals': 6,
+      'symbol': 'JUNO',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'juno-network',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/juno/account/{address}',
+        'block': 'https://www.mintscan.io/juno/blocks/{block}',
+        'name': 'https://www.mintscan.io/juno/',
+        'transaction': 'https://www.mintscan.io/juno/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const secret: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'secret-4',
+    'code': 'secretnetwork',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'secret',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'min': '0.0125',
+          'high': '0.25',
+          'low': '0.0125',
+          'normal': '0.1',
+        },
+        'mainCoinDenom': 'uscrt',
+      },
+    },
+    'id': 'cosmos--secret-4',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/secret.png',
+    'name': 'Secret Network',
+    'shortcode': 'secretnetwork',
+    'shortname': 'Secret Network',
+    'symbol': 'SCRT',
+    'feeMeta': {
+      'code': 'secretnetwork',
+      'decimals': 6,
+      'symbol': 'SCRT',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'secret',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'SCRT',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/secret/account/{address}',
+        'block': 'https://www.mintscan.io/secret/blocks/{block}',
+        'name': 'https://www.mintscan.io/secret/',
+        'transaction': 'https://www.mintscan.io/secret/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const celestia: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'celestia',
+    'code': 'celestia',
+    'decimals': 6,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': 'celestia',
+        'curve': 'secp256k1',
+        'gasPriceStep': {
+          'high': '0.1',
+          'low': '0.01',
+          'min': '0.002',
+          'normal': '0.02',
+        },
+        'mainCoinDenom': 'utia',
+      },
+    },
+    'id': 'cosmos--celestia',
+    'impl': 'cosmos',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/celestia.png',
+    'name': 'Celestia',
+    'shortcode': 'celestia',
+    'shortname': 'Celestia',
+    'symbol': 'Tia',
+    'feeMeta': {
+      'code': 'tia',
+      'decimals': 6,
+      'symbol': 'Tia',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'celestia',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://www.mintscan.io/celestia/account/{address}',
+        'block': 'https://www.mintscan.io/celestia/blocks/{block}',
+        'name': 'https://www.mintscan.io/celestia/',
+        'transaction': 'https://www.mintscan.io/celestia/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-12-05T00:00:24.951Z',
+    'updatedAt': '2023-12-05T00:00:24.951Z',
+  };
+
   const polygon: IServerNetwork = {
     'balance2FeeDecimals': 9,
     'chainId': '137',
@@ -505,7 +881,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--137',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/polygon/polygon.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
     'name': 'Polygon',
     'shortcode': 'polygon',
     'shortname': 'Polygon',
@@ -557,7 +933,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--56',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/bsc/bsc.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
     'name': 'BNB Smart Chain',
     'shortcode': 'bsc',
     'shortname': 'BSC',
@@ -608,7 +984,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--250',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/fantom/fantom.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/fantom.png',
     'name': 'Fantom',
     'shortcode': 'fantom',
     'shortname': 'FTM',
@@ -659,7 +1035,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--42161',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/arbitrum/arbitrum.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     'name': 'Arbitrum',
     'shortcode': 'arbitrum',
     'shortname': 'Arbitrum',
@@ -711,7 +1087,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--43114',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/avalanche/avalanche.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/avalanche.png',
     'name': 'Avalanche',
     'shortcode': 'avalanche',
     'shortname': 'Avalanche',
@@ -761,7 +1137,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--128',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/heco/heco.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/heco.png',
     'name': 'Huobi ECO Chain',
     'shortcode': 'heco',
     'shortname': 'HECO',
@@ -808,7 +1184,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--66',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/okt/okt.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/okt.png',
     'name': 'OKX Chain',
     'shortcode': 'okt',
     'shortname': 'OKC',
@@ -858,7 +1234,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--10',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/optimism/optimism.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/optimism.png',
     'name': 'Optimism',
     'shortcode': 'optimism',
     'shortname': 'Optimism',
@@ -908,7 +1284,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--100',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/xdai/gno.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/gno.png',
     'name': 'Gnosis Chain',
     'shortcode': 'xdai',
     'shortname': 'GNO',
@@ -955,7 +1331,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--42220',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/celo/celo.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/celo.png',
     'name': 'Celo',
     'shortcode': 'celo',
     'shortname': 'CELO',
@@ -994,7 +1370,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'chainId': '8453',
     'code': 'base',
     'id': 'evm--8453',
-    'logoURI': 'https://onekey-asset.com/assets/base/base.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     'name': 'Base',
     'shortcode': 'base',
     'shortname': 'Base',
@@ -1037,7 +1413,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--1313161554',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/aurora/aurora.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/aurora.png',
     'name': 'Aurora',
     'shortcode': 'aurora',
     'shortname': 'Aurora',
@@ -1076,7 +1452,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--288',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/boba/boba_1.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/boba_1.png',
     'name': 'Boba Network',
     'shortcode': 'boba',
     'shortname': 'Boba',
@@ -1119,7 +1495,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--1030',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/cfx/cfx.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/cfx.png',
     'name': 'Conflux eSpace',
     'shortcode': 'cfxespace',
     'shortname': 'CFXESPACE',
@@ -1161,7 +1537,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--25',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/cronos/cronos.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/cronos.png',
     'name': 'Cronos',
     'shortcode': 'cronos',
     'shortname': 'CRO',
@@ -1204,7 +1580,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--61',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/etc/etc.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/etc.png',
     'name': 'Ethereum Classic',
     'shortcode': 'etc',
     'shortname': 'ETC',
@@ -1234,10 +1610,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
-  const etf = {
+  const dis = {
     'balance2FeeDecimals': 9,
     'chainId': '513100',
-    'code': 'etf',
+    'code': 'dis',
     'decimals': 18,
     'extensions': {
       'providerOptions': {
@@ -1247,29 +1623,24 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--513100',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/etf/etf.png',
-    'name': 'Ethereum Fair',
-    'shortcode': 'etf',
-    'shortname': 'ETHF',
-    'symbol': 'ETHF',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/etf.png',
+    'name': 'DIS CHAIN',
+    'shortcode': 'dis',
+    'shortname': 'DIS',
+    'symbol': 'DIS',
     'feeMeta': {
-      'code': 'etf',
+      'code': 'dis',
       'decimals': 9,
       'symbol': 'Gwei',
     },
+    'priceConfigs': [],
     'defaultEnabled': true,
-    'priceConfigs': [
-      {
-        'channel': 'coingecko',
-        'native': 'ethereumfair',
-      },
-    ],
     'explorers': [
       {
-        'address': 'https://explorer.etherfair.org/address/{address}',
-        'block': 'https://explorer.etherfair.org/block/{block}',
-        'name': 'https://explorer.etherfair.org',
-        'transaction': 'https://explorer.etherfair.org/tx/{transaction}',
+        'address': 'https://scan.dischain.xyz/address/{address}',
+        'block': 'https://scan.dischain.xyz/block/{block}',
+        'name': 'https://scan.dischain.xyz',
+        'transaction': 'https://scan.dischain.xyz/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,
@@ -1290,7 +1661,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--10001',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/ethw/ethw.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/ethw.png',
     'name': 'EthereumPoW',
     'shortcode': 'ethw',
     'shortname': 'ETHW',
@@ -1324,7 +1695,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'chainId': '59144',
     'code': 'linea',
     'id': 'evm--59144',
-    'logoURI': 'https://onekey-asset.com/assets/linea/linea.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/linea.png',
     'name': 'Linea',
     'shortcode': 'linea',
     'shortname': 'Linea',
@@ -1363,7 +1734,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'chainId': '5000',
     'code': 'mantle',
     'id': 'evm--5000',
-    'logoURI': 'https://onekey-asset.com/assets/mantle/mantle.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/mantle.png',
     'name': 'Mantle',
     'shortcode': 'mantle',
     'shortname': 'Mantle',
@@ -1405,7 +1776,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--73927',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/mvn/mvm.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/mvm.png',
     'name': 'Mixin Virtual Machine',
     'shortcode': 'mvm',
     'shortname': 'MVM',
@@ -1444,7 +1815,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'evm--314',
     'impl': 'evm',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/fil/fil.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/fil.png',
     'name': 'Filecoin FEVM',
     'shortcode': 'fevm',
     'shortname': 'FEVM',
@@ -1485,7 +1856,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'lightning--0',
     'impl': 'lightning',
     'isTestnet': false,
-    'logoURI': 'https://onekey-asset.com/assets/lnd/lnd.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/lnd.png',
     'name': 'Lightning Network',
     'shortcode': 'lightning',
     'shortname': 'Lightning',
@@ -1516,7 +1887,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'id': 'tlightning--0',
     'impl': 'tlightning',
     'isTestnet': true,
-    'logoURI': 'https://onekey-asset.com/assets/lnd/lnd.png',
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/lnd.png',
     'name': 'Lightning Network Testnet',
     'shortcode': 'tlightning',
     'shortname': 'LightningTestnet',
@@ -1539,28 +1910,1071 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const algo = {
+    'balance2FeeDecimals': 0,
+    'chainId': '4160',
+    'code': 'algo',
+    'decimals': 6,
+    'extensions': {
+      'position': 15,
+    },
+    'id': 'algo--4160',
+    'impl': 'algo',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/algo.png',
+    'name': 'Algorand',
+    'shortcode': 'algo',
+    'shortname': 'ALGO',
+    'symbol': 'ALGO',
+    'feeMeta': {
+      'code': 'algo',
+      'decimals': 6,
+      'symbol': 'ALGO',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'algorand',
+        'platform': 'algorand',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'ALGO',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://algoexplorer.io/address/{address}',
+        'block': 'https://algoexplorer.io/block/{block}',
+        'name': 'https://algoexplorer.io/',
+        'transaction': 'https://algoexplorer.io/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const cardano = {
+    'balance2FeeDecimals': 6,
+    'chainId': '0',
+    'code': 'ada',
+    'decimals': 6,
+    'id': 'ada--0',
+    'impl': 'ada',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/ada.png',
+    'name': 'Cardano',
+    'shortcode': 'ada',
+    'shortname': 'Cardano',
+    'symbol': 'ADA',
+    'feeMeta': {
+      'code': 'ada',
+      'decimals': 6,
+      'symbol': 'ada',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'cardano',
+        'platform': 'cardano',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://cardanoscan.io/address/{address}',
+        'block': 'https://cardanoscan.io/block/{block}',
+        'name': 'https://cardanoscan.io/',
+        'transaction': 'https://cardanoscan.io/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const nostr = {
+    id: 'nostr--0',
+    impl: 'nostr',
+    chainId: '0',
+    code: 'nostr',
+    defaultEnabled: true,
+    isTestnet: false,
+    priceConfigs: [],
+    explorers: [],
+    rpcURLs: [],
+    feeMeta: {
+      symbol: 'nostr',
+      decimals: 0,
+      code: 'nostr',
+    },
+    balance2FeeDecimals: 0,
+    decimals: 0,
+    'status': ENetworkStatus.LISTED,
+    name: 'Nostr',
+    symbol: 'Nostr',
+    shortname: 'Nostr',
+    shortcode: 'nostr',
+    extensions: {},
+    clientApi: {},
+    logoURI: 'https://uni.onekey-asset.com/static/chain/nostr.png',
+  } as unknown as IServerNetwork;
+
+  const ripple = {
+    'balance2FeeDecimals': 6,
+    'chainId': '0',
+    'code': 'xrp',
+    'decimals': 6,
+    'id': 'xrp--0',
+    'impl': 'xrp',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/xrp.png',
+    'name': 'Ripple',
+    'shortcode': 'xrp',
+    'shortname': 'Ripple',
+    'symbol': 'XRP',
+    'feeMeta': {
+      'code': 'xrp',
+      'decimals': 6,
+      'symbol': 'xrp',
+      'native': 'ripple',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ripple',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://xrpscan.com/account/{address}',
+        'block': 'https://xrpscan.com/ledger/{block}',
+        'name': 'https://xrpscan.com/',
+        'transaction': 'https://xrpscan.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const tron = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0x2b6653dc',
+    'code': 'trx',
+    'decimals': 6,
+    'id': 'tron--0x2b6653dc',
+    'impl': 'tron',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/trx.png',
+    'name': 'Tron',
+    'shortcode': 'trx',
+    'shortname': 'TRX',
+    'symbol': 'TRX',
+    'feeMeta': {
+      'code': 'trx',
+      'decimals': 6,
+      'symbol': 'TRX',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'tron',
+        'platform': 'tron',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://tronscan.org/#/address/{address}',
+        'block': 'https://tronscan.org/#/block/{block}',
+        'name': 'https://tronscan.org/',
+        'transaction': 'https://tronscan.org/#/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const near = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'near',
+    'decimals': 24,
+    'id': 'near--0',
+    'impl': 'near',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/near.png',
+    'name': 'Near',
+    'shortcode': 'near',
+    'shortname': 'Near',
+    'symbol': 'NEAR',
+    'feeMeta': {
+      'code': 'near',
+      'decimals': 24,
+      'symbol': 'NEAR',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'near',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'NEAR',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.mainnet.near.org/accounts/{address}',
+        'block': 'https://explorer.mainnet.near.org/blocks/{block}',
+        'name': 'https://explorer.mainnet.near.org/',
+        'transaction':
+          'https://explorer.mainnet.near.org/transactions/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const sol = {
+    'balance2FeeDecimals': 0,
+    'chainId': '101',
+    'code': 'sol',
+    'decimals': 9,
+    'extensions': {
+      'defaultStableTokens': [
+        'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+        'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        'FR87nWEUxVgerFGhZM8Y4AggKGLnaXswr1Pd8wZ4kZcp',
+        '9mWRABuz2x6koTPCWiCPM49WUbcrNqGTHBV9T9k7y1o7',
+      ],
+      'position': 4,
+    },
+    'id': 'sol--101',
+    'impl': 'sol',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
+    'name': 'Solana',
+    'shortcode': 'sol',
+    'shortname': 'SOL',
+    'symbol': 'SOL',
+    'feeMeta': {
+      'code': 'sol',
+      'decimals': 9,
+      'symbol': 'SOL',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'solana',
+        'platform': 'solana',
+      },
+      {
+        'channel': 'yahoo',
+        'native': 'SOL1',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.solana.com/address/{address}',
+        'block': 'https://explorer.solana.com/block/{block}',
+        'name': 'https://explorer.solana.com/',
+        'transaction': 'https://explorer.solana.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const polkadot: IServerNetwork = {
+    'balance2FeeDecimals': 10,
+    'chainId': 'polkadot',
+    'code': 'dot',
+    'decimals': 10,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '0',
+        'addressRegex': '^1[a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--polkadot',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/polkadot.png',
+    'name': 'Polkadot',
+    'shortcode': 'dot',
+    'shortname': 'DOT',
+    'symbol': 'DOT',
+    'feeMeta': {
+      'code': 'dot',
+      'decimals': 10,
+      'symbol': 'DOT',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'polkadot',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://polkadot.subscan.io/account/{address}',
+        'block': 'https://polkadot.subscan.io/block/{block}',
+        'name': 'https://polkadot.subscan.io/',
+        'transaction': 'https://polkadot.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const astar: IServerNetwork = {
+    'balance2FeeDecimals': 18,
+    'chainId': 'astar',
+    'code': 'astar',
+    'decimals': 18,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '5',
+        'addressRegex': '^[a-bV-Z][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--astar',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/astar.png',
+    'name': 'Astar',
+    'shortcode': 'astar',
+    'shortname': 'ASTR',
+    'symbol': 'ASTR',
+    'feeMeta': {
+      'code': 'astar',
+      'decimals': 18,
+      'symbol': '18',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'astar',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://astar.subscan.io/account/{address}',
+        'block': 'https://astar.subscan.io/block/{block}',
+        'name': 'https://astar.subscan.io/',
+        'transaction': 'https://astar.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const kusama: IServerNetwork = {
+    'balance2FeeDecimals': 12,
+    'chainId': 'kusama',
+    'code': 'ksm',
+    'decimals': 12,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '2',
+        'addressRegex': '^[C-HJ][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--kusama',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/kusama.png',
+    'name': 'Kusama',
+    'shortcode': 'ksm',
+    'shortname': 'KSM',
+    'symbol': 'KSM',
+    'feeMeta': {
+      'code': 'dot',
+      'decimals': 12,
+      'symbol': 'KSM',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'kusama',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://kusama.subscan.io/account/{address}',
+        'block': 'https://kusama.subscan.io/block/{block}',
+        'name': 'https://kusama.subscan.io/',
+        'transaction': 'https://kusama.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const manta: IServerNetwork = {
+    'balance2FeeDecimals': 18,
+    'chainId': 'manta',
+    'code': 'dot-manta',
+    'decimals': 18,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '77',
+        'addressRegex': '^df[a-cW-Z][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--manta',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/manta.png',
+    'name': 'Manta Atlantic',
+    'shortcode': 'manta',
+    'shortname': 'MANTA',
+    'symbol': 'MANTA',
+    'feeMeta': {
+      'code': 'manta',
+      'decimals': 18,
+      'symbol': 'MANTA',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://manta.subscan.io/account/{address}',
+        'block': 'https://manta.subscan.io/block/{block}',
+        'name': 'https://manta.subscan.io/',
+        'transaction': 'https://manta.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-01-20T00:30:24.951Z',
+    'updatedAt': '2024-01-20T00:30:24.951Z',
+  };
+
+  const joystream: IServerNetwork = {
+    'balance2FeeDecimals': 10,
+    'chainId': 'joystream',
+    'code': 'dot-joystream',
+    'decimals': 10,
+    'extensions': {
+      'providerOptions': {
+        'addressPrefix': '126',
+        'addressRegex': '^j4[R-X][a-km-zA-HJ-NP-Z1-9]+$',
+      },
+    },
+    'id': 'dot--joystream',
+    'impl': 'dot',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/joystream.png',
+    'name': 'Joystream',
+    'shortcode': 'joy',
+    'shortname': 'JOY',
+    'symbol': 'JOY',
+    'feeMeta': {
+      'code': 'joy',
+      'decimals': 10,
+      'symbol': 'JOY',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'joystream',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://joystream.subscan.io/account/{address}',
+        'block': 'https://joystream.subscan.io/block/{block}',
+        'name': 'https://joystream.subscan.io/',
+        'transaction': 'https://joystream.subscan.io/extrinsic/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const kaspa = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'kaspa',
+    'code': 'kaspa',
+    'decimals': 8,
+    'id': 'kaspa--kaspa',
+    'impl': 'kaspa',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/kas.png',
+    'name': 'Kaspa',
+    'shortcode': 'kaspa',
+    'shortname': 'KAS',
+    'symbol': 'KAS',
+    'feeMeta': {
+      'code': 'kaspa',
+      'decimals': 8,
+      'symbol': 'KAS',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'kaspa',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.kaspa.org/addresses/{address}',
+        'block': 'https://explorer.kaspa.org/blocks/{block}',
+        'name': 'https://explorer.kaspa.org',
+        'transaction': 'https://explorer.kaspa.org/txs/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const cfx = {
+    'balance2FeeDecimals': 0,
+    'chainId': '1029',
+    'code': 'cfx',
+    'decimals': 18,
+    'extensions': {
+      'position': 14,
+    },
+    'id': 'cfx--1029',
+    'impl': 'cfx',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/cfx.png',
+    'name': 'Conflux',
+    'shortcode': 'cfx',
+    'shortname': 'CFX',
+    'symbol': 'CFX',
+    'feeMeta': {
+      'code': 'cfx',
+      'decimals': 18,
+      'symbol': 'CFX',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'conflux',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://confluxscan.io/address/{address}',
+        'block': 'https://confluxscan.io/block/{block}',
+        'name': 'https://confluxscan.io/',
+        'transaction': 'https://confluxscan.io/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const zksyncera = {
+    'balance2FeeDecimals': 9,
+    'chainId': '324',
+    'code': 'zksyncera',
+    'decimals': 18,
+    'id': 'evm--324',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/zksyncera.png',
+    'name': 'zkSync Era Mainnet',
+    'shortcode': 'zksyncera',
+    'shortname': 'ZKSYNCERA',
+    'symbol': 'ETH',
+    'feeMeta': {
+      'code': 'zksyncera',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://explorer.zksync.io/address/{address}',
+        'block': 'https://explorer.zksync.io/block/{block}',
+        'name': 'https://explorer.zksync.io/',
+        'transaction': 'https://explorer.zksync.io/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const nexa = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'nexa',
+    'decimals': 2,
+    'id': 'nexa--0',
+    'impl': 'nexa',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/nexa.png',
+    'name': 'Nexa',
+    'shortcode': 'nexa',
+    'shortname': 'Nexa',
+    'symbol': 'NEX',
+    'feeMeta': {
+      'code': 'nexa',
+      'decimals': 2,
+      'symbol': 'NEX',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://explorer.nexa.org/address/{address}',
+        'block': 'https://explorer.nexa.org/block-height/{block}',
+        'name': 'https://explorer.nexa.org',
+        'transaction': 'https://explorer.nexa.org/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-06-19T00:29:24.951Z',
+    'updatedAt': '2023-06-19T00:29:24.951Z',
+  };
+
+  const nexaTestnet = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'testnet',
+    'code': 'nexatest',
+    'decimals': 2,
+    'id': 'nexa--testnet',
+    'impl': 'nexa',
+    'isTestnet': true,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/nexa.png',
+    'name': 'Nexa Testnet',
+    'shortcode': 'nexatest',
+    'shortname': 'NexaTest',
+    'symbol': 'TNEX',
+    'feeMeta': {
+      'code': 'nexatest',
+      'decimals': 2,
+      'symbol': 'TNEX',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://testnet-explorer.nexa.org/address/{address}',
+        'block': 'https://testnet-explorer.nexa.org/block-height/{block}',
+        'name': 'https://testnet-explorer.nexa.org',
+        'transaction': 'https://testnet-explorer.nexa.org/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-06-19T00:29:24.951Z',
+    'updatedAt': '2023-06-19T00:29:24.951Z',
+  };
+
+  const iotex = {
+    'balance2FeeDecimals': 9,
+    'chainId': '4689',
+    'code': 'iotex',
+    'decimals': 18,
+    'id': 'evm--4689',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI':
+      'https://uni.onekey-asset.com/static/logo/IoTeXNetworkMainnet.webp',
+    'name': 'IoTeX Network Mainnet',
+    'shortcode': 'iotex',
+    'shortname': 'iotex',
+    'symbol': 'IOTX',
+    'feeMeta': {
+      'code': 'iotex',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'iotex',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://iotexscan.io/address/{address}',
+        'block': 'https://iotexscan.io/block/{block}',
+        'name': 'https://iotexscan.io/',
+        'transaction': 'https://iotexscan.io/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-03-19T00:29:24.951Z',
+    'updatedAt': '2024-03-19T00:29:24.951Z',
+  };
+
+  const mantapacific = {
+    'balance2FeeDecimals': 9,
+    'chainId': '169',
+    'code': 'mantapacific',
+    'decimals': 18,
+    'id': 'evm--169',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI':
+      'https://uni.onekey-asset.com/static/logo/mantaPacificMainnet.webp',
+    'name': 'Manta Pacific Mainnet',
+    'shortcode': 'mantapacific',
+    'shortname': 'mantapacific',
+    'symbol': 'MANTASPACIFIC',
+    'feeMeta': {
+      'code': 'eth',
+      'decimals': 9,
+      'symbol': 'ETH',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://pacific-explorer.manta.network/address/{address}',
+        'block': 'https://pacific-explorer.manta.network/block/{block}',
+        'name': 'https://pacific-explorer.manta.network/',
+        'transaction':
+          'https://pacific-explorer.manta.network/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-02-05T00:29:24.951Z',
+    'updatedAt': '2024-02-05T00:29:24.951Z',
+  };
+
+  const blast = {
+    'balance2FeeDecimals': 9,
+    'chainId': '81457',
+    'code': 'blast',
+    'decimals': 18,
+    'id': 'evm--81457',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/logo/blast.png',
+    'name': 'Blast',
+    'shortcode': 'blast',
+    'shortname': 'blast',
+    'symbol': 'BLAST',
+    'feeMeta': {
+      'code': 'eth',
+      'decimals': 9,
+      'symbol': 'ETH',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://blastscan.io/address/{address}',
+        'block': 'https://blastscan.io/block/{block}',
+        'name': 'https://blastscan.io/',
+        'transaction': 'https://blastscan.io/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-03-10T00:29:24.951Z',
+    'updatedAt': '2024-03-10T00:29:24.951Z',
+  };
+
+  const dnx = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'dnx',
+    'decimals': 9,
+    'id': 'dnx--0',
+    'impl': 'dnx',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/dynex.png',
+    'name': 'Dynex',
+    'rpcURLs': [
+      {
+        'url':
+          'https://node-fra-infra-01.dynexcoin.org/rpc/34e68104-238a-43ad-953d-83e9ea76c810',
+      },
+    ],
+    'shortcode': 'dnx',
+    'shortname': 'DNX',
+    'symbol': 'DNX',
+    'feeMeta': {
+      'code': 'dnx',
+      'decimals': 9,
+      'symbol': 'DNX',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'dynex',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://blockexplorer.dynexcoin.org/?wallet={address}',
+        'block': 'https://blockexplorer.dynexcoin.org/?block={block}',
+        'name': 'https://blockexplorer.dynexcoin.org',
+        'transaction': 'https://blockexplorer.dynexcoin.org/?tx={transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-04-09T00:00:00.001Z',
+    'updatedAt': '2024-04-09T00:00:00.001Z',
+  };
+
+  const sui = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'mainnet',
+    'code': 'sui',
+    'decimals': 9,
+    'id': 'sui--mainnet',
+    'impl': 'sui',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
+    'name': 'SUI',
+    'shortcode': 'sui',
+    'shortname': 'SUI',
+    'symbol': 'SUI',
+    'feeMeta': {
+      'code': 'sui',
+      'decimals': 9,
+      'symbol': 'SUI',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address':
+          'https://explorer.sui.io/addresses/{address}/?network=mainnet',
+        'block': 'https://explorer.sui.io/objects/{block}/?network=mainnet',
+        'name': 'https://explorer.sui.io?network=mainnet',
+        'transaction':
+          'https://explorer.sui.io/transactions/{transaction}/?network=mainnet',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const fil = {
+    'balance2FeeDecimals': 0,
+    'chainId': '314',
+    'code': 'fil',
+    'decimals': 18,
+    'id': 'fil--314',
+    'impl': 'fil',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/fil.png',
+    'name': 'Filecoin',
+    'shortcode': 'fil',
+    'shortname': 'FIL',
+    'symbol': 'FIL',
+    'feeMeta': {
+      'code': 'fil',
+      'decimals': 18,
+      'symbol': 'FIL',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'filecoin',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://filscan.io/address/general?address={address}',
+        'block': 'https://filscan.io/tipset/chain?hash={block}',
+        'name': 'https://filscan.io/',
+        'transaction':
+          'https://filscan.io/tipset/message-detail?cid={transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const aptos: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': '1',
+    'code': 'apt',
+    'decimals': 8,
+    'id': 'aptos--1',
+    'impl': 'aptos',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/apt.png',
+    'name': 'Aptos',
+    'shortcode': 'apt',
+    'shortname': 'APT',
+    'symbol': 'APT',
+    'feeMeta': {
+      'code': 'apt',
+      'decimals': 8,
+      'symbol': 'APT',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'aptos',
+      },
+    ],
+    'explorers': [
+      {
+        'address':
+          'https://explorer.aptoslabs.com/account/{address}/?network=mainnet',
+        'block': 'https://explorer.aptoslabs.com/txn/{block}/?network=mainnet',
+        'name': 'https://explorer.aptoslabs.com/?network=mainnet',
+        'transaction':
+          'https://explorer.aptoslabs.com/txn/{transaction}/?network=mainnet',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2023-05-31T00:29:24.951Z',
+    'updatedAt': '2023-05-31T00:29:24.951Z',
+  };
+
+  const ckb = {
+    'balance2FeeDecimals': 0,
+    'chainId': 'ckb',
+    'code': 'ckb',
+    'decimals': 8,
+    'id': 'ckb--mainnet',
+    'impl': 'ckb',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/nervos.png',
+    'name': 'Nervos',
+    'shortcode': 'ckb',
+    'shortname': 'CKB',
+    'symbol': 'CKB',
+    'feeMeta': {
+      'code': 'ckb',
+      'decimals': 8,
+      'symbol': 'CKB',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'nervos-network',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://explorer.nervos.org/address/{address}',
+        'block': 'https://explorer.nervos.org/block/{block}',
+        'name': 'https://explorer.nervos.org',
+        'transaction': 'https://explorer.nervos.org/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-03-05T00:00:00.002Z',
+    'updatedAt': '2024-03-05T00:00:00.002Z',
+  };
+
   const chainsOnlyEnabledInDev = [
-    osmosis,
-    cosmoshub,
+    aptos,
+    polkadot,
+    astar,
+    kusama,
+    manta,
+    joystream,
     tatom, // Cosmos Testnet
-    lightning,
+    nexaTestnet,
     tlightning,
   ];
 
   return [
+    // btc & btc fork
     btc,
     doge,
     bch,
     ltc,
+    neurai,
     tbtc,
+    // evm
     eth,
     sepolia,
-    base,
-    bsc,
     op,
-    arb,
-    avax,
+    xdai,
+    ethw,
+    cfxespace,
+    heco,
+    aurora,
     polygon,
+    cronos,
+    ftm,
+    boba,
+    fevm,
+    zksyncera,
+    arb,
+    celo,
+    avax,
+    dis,
+    bsc,
+    etc,
+    okt,
+    mvm,
+    linea,
+    base,
+    mnt,
+    iotex,
+    mantapacific,
+    blast,
+    // cosmos
+    celestia,
+    secret,
+    juno,
+    fetchai,
+    cryptoorgchain,
+    akash,
+    osmosis,
+    cosmoshub,
+
+    lightning,
+    cardano,
+    ripple,
+    nostr,
+    near,
+    tron,
+    cfx,
+    sol,
+    nexa,
+    kaspa,
+    dnx,
+    fil,
+    algo,
+    sui,
+    ckb,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
 });

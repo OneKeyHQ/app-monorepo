@@ -85,7 +85,28 @@ export function mergeAssetTransferActions(actions: IDecodedTxAction[]) {
   return [mergedAssetTransferAction, ...otherActions].filter(Boolean);
 }
 
-export function isSendNativeToken(action: IDecodedTxAction) {
+export function calculateNativeAmountInActions(actions: IDecodedTxAction[]) {
+  let nativeAmount = '0';
+  let nativeAmountValue = '0';
+
+  actions.forEach((item) => {
+    if (item.type === EDecodedTxActionType.ASSET_TRANSFER) {
+      nativeAmount = new BigNumber(nativeAmount)
+        .plus(item.assetTransfer?.nativeAmount ?? 0)
+        .toFixed();
+      nativeAmountValue = new BigNumber(nativeAmountValue)
+        .plus(item.assetTransfer?.nativeAmountValue ?? 0)
+        .toFixed();
+    }
+  });
+
+  return {
+    nativeAmount,
+    nativeAmountValue,
+  };
+}
+
+export function isSendNativeTokenAction(action: IDecodedTxAction) {
   return (
     action.type === EDecodedTxActionType.ASSET_TRANSFER &&
     action.assetTransfer?.sends.every((send) => send.isNative)

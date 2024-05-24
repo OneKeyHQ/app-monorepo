@@ -11,6 +11,7 @@ function DAppRequestFooter({
   onCancel,
   confirmButtonProps,
   riskLevel,
+  confirmText,
 }: {
   continueOperate: boolean;
   setContinueOperate: (checked: ICheckedState) => void;
@@ -19,6 +20,7 @@ function DAppRequestFooter({
   onCancel: IFooterActionsProps['onCancel'];
   confirmButtonProps?: IFooterActionsProps['confirmButtonProps'];
   riskLevel: EHostSecurityLevel;
+  confirmText?: string;
 }) {
   const media = useMedia();
   return (
@@ -31,7 +33,7 @@ function DAppRequestFooter({
       space="$2.5"
       onConfirm={onConfirm}
       onCancel={onCancel}
-      onConfirmText="Approve"
+      onConfirmText={confirmText ?? 'Approve'}
       confirmButtonProps={{
         variant:
           riskLevel === EHostSecurityLevel.High ? 'destructive' : 'primary',

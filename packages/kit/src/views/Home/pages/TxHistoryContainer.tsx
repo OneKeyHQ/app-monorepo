@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
@@ -17,10 +17,16 @@ import { TxHistoryListView } from '../../../components/TxHistoryListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useHistoryListActions,
+  withHistoryListProvider,
+} from '../../../states/jotai/contexts/historyList';
 
 function TxHistoryListContainer(props: ITabPageProps) {
   const { onContentSizeChange } = props;
   const { isFocused } = useTabIsRefreshingFocused();
+
+  const { updateSearchKey } = useHistoryListActions().current;
 
   const [historyState, setHistoryState] = useState({
     initialized: false,
@@ -50,11 +56,21 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const history = usePromiseResult(
     async () => {
       if (!account || !network) return;
-
+      const [xpub, vaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId: account.id,
+          networkId: network.id,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        }),
+      ]);
       const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
         accountId: account.id,
         networkId: network.id,
         accountAddress: account.address,
+        xpub,
+        onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
       });
       setHistoryState({
         initialized: true,
@@ -76,8 +92,9 @@ function TxHistoryListContainer(props: ITabPageProps) {
         initialized: false,
         isRefreshing: true,
       });
+      updateSearchKey('');
     }
-  }, [account?.id, network?.id, wallet?.id]);
+  }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
 
   return (
     <TxHistoryListView
@@ -95,4 +112,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
   );
 }
 
-export { TxHistoryListContainer };
+const TxHistoryListContainerWithProvider = memo(
+  withHistoryListProvider(TxHistoryListContainer),
+);
+
+export { TxHistoryListContainerWithProvider };

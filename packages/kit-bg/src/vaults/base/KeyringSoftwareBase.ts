@@ -7,6 +7,7 @@ import type {
   ICoreImportedCredentialEncryptHex,
   ISignedMessagePro,
   ISignedTxPro,
+  IVerifiedMessagePro,
 } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -145,6 +146,40 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     return result;
   }
 
+  async baseSignMessageBtc(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    if (!this.coreApi) {
+      throw new Error('coreApi is not defined');
+    }
+
+    const vault = this.vault as VaultBtc;
+
+    const { password, messages } = params;
+
+    const credentials = await this.baseGetCredentialsInfo(params);
+
+    const networkInfo = await this.getCoreApiNetworkInfo();
+
+    const result = await Promise.all(
+      messages.map(async (msg) => {
+        const { account, btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
+          unsignedMessage: msg,
+        });
+
+        return checkIsDefined(this.coreApi).signMessage({
+          networkInfo,
+          unsignedMsg: msg,
+          account,
+          password,
+          credentials,
+          btcExtraInfo,
+        });
+      }),
+    );
+    return result;
+  }
+
   async baseGetPrivateKeys(
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult> {
@@ -248,7 +283,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     const networkInfo = await this.getCoreApiNetworkInfo();
 
     const privateKeyRaw = privateKey;
-    const { address, addresses, publicKey, xpub, relPath, xpubSegwit } =
+    const { address, addresses, publicKey, xpub, relPath, xpubSegwit, path } =
       await this.coreApi.getAddressFromPrivate({
         networkInfo,
         privateKeyRaw,
@@ -261,7 +296,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
 
     const accountId = accountUtils.buildImportedAccountId({
       coinType,
-      xpub,
+      xpub: xpub || publicKey,
       addressEncoding,
     });
     return Promise.resolve([
@@ -269,7 +304,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         id: accountId,
         name: name || '',
         type: accountType,
-        path: '',
+        path: path || '',
         relPath,
         coinType,
         impl: settings.impl,
@@ -320,7 +355,9 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
         const { password, indexes, deriveInfo, names, skipCheckAccountExist } =
           params;
         const addressEncoding = params?.deriveInfo?.addressEncoding;
-        checkIsDefined(addressEncoding);
+        // FIXME: addressEncoding is only required for BTC
+        // checkIsDefined(addressEncoding);
+
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { coinType, template, namePrefix } = deriveInfo;
         const credentials = await this.baseGetCredentialsInfo({ password });

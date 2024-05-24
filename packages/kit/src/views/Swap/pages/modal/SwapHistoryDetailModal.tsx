@@ -32,7 +32,7 @@ import {
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
 import { getSwapHistoryStatusTextProps } from '../../utils/utils';
-import { withSwapProvider } from '../WithSwapProvider';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -82,7 +82,7 @@ const SwapHistoryDetailModal = () => {
       icon: txHistory.baseInfo.fromToken.logoURI ?? '',
       isNFT: false,
       isNative: !!txHistory.baseInfo.fromToken.isNative,
-      price: txHistory.baseInfo.fromToken.price.toString(),
+      price: txHistory.baseInfo.fromToken?.price ?? '0',
     };
 
     const toAsset = {
@@ -91,7 +91,7 @@ const SwapHistoryDetailModal = () => {
       icon: txHistory.baseInfo.toToken.logoURI ?? '',
       isNFT: false,
       isNative: !!txHistory.baseInfo.toToken.isNative,
-      price: txHistory.baseInfo.toToken.price.toString(),
+      price: txHistory.baseInfo.toToken?.price ?? '0',
     };
 
     return (
@@ -289,4 +289,17 @@ const SwapHistoryDetailModal = () => {
   );
 };
 
-export default withSwapProvider(SwapHistoryDetailModal);
+const SwapHistoryDetailModalWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapHistoryDetailModal />
+    </SwapProviderMirror>
+  );
+};
+
+export default SwapHistoryDetailModalWithProvider;

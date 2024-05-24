@@ -199,6 +199,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
       {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
+            {...leftAddOnProps}
             size={size}
             error={error}
             loading={leftAddOnProps.loading}
@@ -240,6 +241,7 @@ function BaseInput(inputProps: IInputProps, ref: ForwardedRef<IInputRef>) {
           value={value}
           onFocus={handleFocus}
           selectTextOnFocus={selectTextOnFocus}
+          editable={editable}
           {...readOnlyStyle}
           {...props}
         />
