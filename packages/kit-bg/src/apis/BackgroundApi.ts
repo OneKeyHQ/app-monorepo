@@ -441,6 +441,8 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceUniversalSearch', { value });
+    return value;
+  }
 
   get serviceStaking() {
     const ServiceStaking =
