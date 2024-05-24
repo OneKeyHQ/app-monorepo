@@ -1,6 +1,9 @@
 import type { IUnionMsgType } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import type { OneKeyError } from '@onekeyhq/shared/src/errors';
+import type {
+  OneKeyError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
@@ -14,6 +17,7 @@ import type {
 import type { ICheckPaymentResponse } from '@onekeyhq/shared/types/lightning/payments';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
+import type { IBroadcastTransactionParams } from '../../../types';
 import type { AxiosInstance } from 'axios';
 
 function isAuthError(error: unknown): boolean {
@@ -41,14 +45,21 @@ class ClientLightning {
     this.backgroundApi = backgroundApi;
   }
 
-  retryOperation = async <T>(
-    fn: () => Promise<T>,
-    shouldRetry: (error: unknown) => boolean,
-    onRetry: () => Promise<void>,
+  retryOperation = async <T>({
+    fn,
+    shouldRetry,
+    onRetry,
     retryCount = 0,
-    maxRetryCount = 3,
+    maxRetryCount = this.maxRetryCount,
     waitTime = 1000,
-  ): Promise<T> => {
+  }: {
+    fn: () => Promise<T>;
+    shouldRetry: (error: unknown) => boolean;
+    onRetry: () => Promise<void>;
+    retryCount?: number;
+    maxRetryCount?: number;
+    waitTime?: number;
+  }): Promise<T> => {
     try {
       return await fn();
     } catch (error) {
@@ -62,14 +73,14 @@ class ClientLightning {
         await timerUtils.wait(waitTime);
       }
 
-      return this.retryOperation(
+      return this.retryOperation({
         fn,
         shouldRetry,
         onRetry,
-        retryCount + 1,
+        retryCount: retryCount + 1,
         maxRetryCount,
         waitTime,
-      );
+      });
     }
   };
 
@@ -82,8 +93,8 @@ class ClientLightning {
     networkId: string;
     address?: string;
   }) {
-    return this.retryOperation(
-      async () => {
+    return this.retryOperation({
+      fn: async () => {
         const usedAddress =
           address ||
           (await this.backgroundApi.serviceLightning.getLightningAddress({
@@ -106,14 +117,15 @@ class ClientLightning {
         }
         return credential;
       },
-      (error: unknown) => (error as Error).message === 'No credential',
-      async () => {
+      shouldRetry: (error: unknown) =>
+        (error as Error).message === 'No credential',
+      onRetry: async () => {
         await this.backgroundApi.serviceLightning.exchangeToken({
           accountId,
           networkId,
         });
       },
-    );
+    });
   }
 
   async checkAccountExist(address: string) {
@@ -227,15 +239,15 @@ class ClientLightning {
   );
 
   async checkAuthWithRefresh(params: { accountId: string; networkId: string }) {
-    return this.retryOperation(
-      async () => {
+    return this.retryOperation({
+      fn: async () => {
         await this.checkAuth(params);
       },
-      isAuthError,
-      async () => {
+      shouldRetry: isAuthError,
+      onRetry: async () => {
         await this.backgroundApi.serviceLightning.exchangeToken(params);
       },
-    );
+    });
   }
 
   getConfig = memoizee(
@@ -265,8 +277,8 @@ class ClientLightning {
     amount: string;
     description?: string;
   }): Promise<ICreateInvoiceResponse['data']> {
-    return this.retryOperation(
-      async () => {
+    return this.retryOperation({
+      fn: async () => {
         const res = await this.request.post<ICreateInvoiceResponse>(
           `${this.prefix}/invoices/create`,
           {
@@ -285,14 +297,14 @@ class ClientLightning {
         );
         return res.data.data;
       },
-      isAuthError,
-      async () => {
+      shouldRetry: isAuthError,
+      onRetry: async () => {
         await this.backgroundApi.serviceLightning.exchangeToken({
           accountId,
           networkId,
         });
       },
-    );
+    });
   }
 
   async decodedInvoice(invoice: string) {
@@ -358,6 +370,39 @@ class ClientLightning {
         },
       )
       .then((i) => i.data.data);
+  }
+
+  async broadcastTransaction(
+    params: IBroadcastTransactionParams & { accountId: string },
+  ) {
+    return this.retryOperation({
+      fn: async () => {
+        const { signedTx, accountId, networkId, accountAddress } = params;
+        console.log('broadcastTransaction START:', {
+          rawTx: signedTx.rawTx,
+        });
+        const sign = await this.getAuthorization({
+          networkId,
+          accountId,
+        });
+        const rawTx = JSON.parse(signedTx.rawTx);
+        const newRawTx = { ...rawTx, sign };
+        const newSignedTx = { ...signedTx, rawTx: JSON.stringify(newRawTx) };
+        await this.backgroundApi.serviceSend.broadcastTransaction({
+          networkId,
+          accountAddress,
+          signedTx: newSignedTx,
+        });
+      },
+      shouldRetry: (e) => {
+        const error = e as OneKeyServerApiError;
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        return error.data?.data?.code === 50401;
+      },
+      onRetry: async () => {
+        await this.backgroundApi.serviceLightning.exchangeToken(params);
+      },
+    });
   }
 }
 
