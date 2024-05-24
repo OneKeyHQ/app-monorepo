@@ -1,4 +1,5 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { Semaphore } from 'async-mutex';
 import { debounce } from 'lodash';
 
 import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -21,7 +22,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import {
@@ -95,6 +95,8 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
 
 @backgroundClass()
 class ServiceDApp extends ServiceBase {
+  private semaphore = new Semaphore(1);
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -111,58 +113,61 @@ class ServiceDApp extends ServiceBase {
     params?: any;
     fullScreen?: boolean;
   }) {
-    return new Promise((resolve, reject) => {
-      if (!request.origin) {
-        throw new Error('origin is required');
-      }
-      if (!request.scope) {
-        throw new Error('scope is required');
-      }
-      const id = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-      const modalScreens = screens;
-      const routeNames = [
-        fullScreen ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
-        ...modalScreens,
-      ];
-      const $sourceInfo: IDappSourceInfo = {
-        id,
-        origin: request.origin,
-        hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
-        scope: request.scope,
-        data: request.data as any,
-        isWalletConnectRequest: !!request.isWalletConnectRequest,
-      };
+    return this.semaphore.runExclusive(
+      () =>
+        new Promise((resolve, reject) => {
+          if (!request.origin) {
+            throw new Error('origin is required');
+          }
+          if (!request.scope) {
+            throw new Error('scope is required');
+          }
+          const id = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          const modalScreens = screens;
+          const routeNames = [
+            fullScreen ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
+            ...modalScreens,
+          ];
+          const $sourceInfo: IDappSourceInfo = {
+            id,
+            origin: request.origin,
+            hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
+            scope: request.scope,
+            data: request.data as any,
+            isWalletConnectRequest: !!request.isWalletConnectRequest,
+          };
 
-      const routeParams = {
-        // stringify required, nested object not working with Ext route linking
-        query: JSON.stringify(
-          {
-            $sourceInfo,
-            ...params,
-            _$t: Date.now(),
-          },
-          (key, value) =>
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            typeof value === 'bigint' ? value.toString() : value,
-        ),
-      };
+          const routeParams = {
+            // stringify required, nested object not working with Ext route linking
+            query: JSON.stringify(
+              {
+                $sourceInfo,
+                ...params,
+                _$t: Date.now(),
+              },
+              (key, value) =>
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                typeof value === 'bigint' ? value.toString() : value,
+            ),
+          };
 
-      const modalParams = buildModalRouteParams({
-        screens: routeNames,
-        routeParams,
-      });
+          const modalParams = buildModalRouteParams({
+            screens: routeNames,
+            routeParams,
+          });
 
-      ensureSerializable(modalParams);
+          ensureSerializable(modalParams);
 
-      this._openModalByRouteParamsDebounced({
-        routeNames,
-        routeParams,
-        modalParams,
-      });
-    });
+          this._openModalByRouteParamsDebounced({
+            routeNames,
+            routeParams,
+            modalParams,
+          });
+        }),
+    );
   }
 
   _openModalByRouteParams = ({
