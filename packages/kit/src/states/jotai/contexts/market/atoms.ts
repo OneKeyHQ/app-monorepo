@@ -10,10 +10,15 @@ const {
 export { ProviderJotaiContextMarketWatchList, contextAtomMethod };
 
 export const { atom: marketWatchListAtom, use: useMarketWatchListAtom } =
-  contextAtom<IMarketWatchListData>({ data: [] });
+  contextAtom<IMarketWatchListData>({ data: [], loading: true });
 
 marketWatchListAtom().onMount = (set) => {
   void backgroundApiProxy.simpleDb.marketWatchList
     .getMarketWatchList()
-    .then((data) => set(data));
+    .then((data) =>
+      set({
+        ...data,
+        loading: false,
+      }),
+    );
 };

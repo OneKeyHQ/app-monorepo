@@ -14,7 +14,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     if (!Array.isArray(payload)) {
       throw new Error('buildBookmarkData: payload must be an array');
     }
-    const result = { data: payload };
+    const result = { data: payload, loading: false };
     set(marketWatchListAtom(), result);
     void backgroundApiProxy.simpleDb.marketWatchList.setRawData(result);
   });
