@@ -25,7 +25,6 @@ const icons = {
   TelegramBrand: () => import("./react/brand/Telegram"),
   ThreadsBrand: () => import("./react/brand/Threads"),
   TiktokBrand: () => import("./react/brand/Tiktok"),
-  UniswapBrand: () => import("./react/brand/Uniswap"),
   WhatsappBrand: () => import("./react/brand/Whatsapp"),
   Xbrand: () => import("./react/brand/X"),
   YoutubeBrand: () => import("./react/brand/Youtube"),
