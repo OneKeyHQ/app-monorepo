@@ -15,9 +15,6 @@ export const homeResettingFlags: Record<string, number> = {};
 const MAX_RECENT_SEARCH_SIZE = 10;
 class ContextJotaiActionsRecentSearch extends ContextJotaiActionsBase {
   syncToDb = contextAtomMethod((_, set, payload: IUniversalSearchAtomData) => {
-    if (!Array.isArray(payload)) {
-      throw new Error('buildBookmarkData: payload must be an array');
-    }
     set(universalSearchAtom(), payload);
     void backgroundApiProxy.simpleDb.universalSearch.setRawData(payload);
   });

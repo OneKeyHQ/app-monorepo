@@ -11,9 +11,6 @@ export const homeResettingFlags: Record<string, number> = {};
 
 class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
   syncToDb = contextAtomMethod((_, set, payload: IMarketWatchListItem[]) => {
-    if (!Array.isArray(payload)) {
-      throw new Error('buildBookmarkData: payload must be an array');
-    }
     const result = { data: payload, loading: false };
     set(marketWatchListAtom(), result);
     void backgroundApiProxy.simpleDb.marketWatchList.setRawData(result);

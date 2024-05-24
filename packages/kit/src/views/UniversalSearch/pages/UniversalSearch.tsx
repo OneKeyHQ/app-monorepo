@@ -36,6 +36,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { MarketStar } from '../../Market/components/MarketStar';
+import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
@@ -73,7 +74,7 @@ export function UniversalSearch({
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
-  const actions = useUniversalSearchActions();
+  const universalSearchActions = useUniversalSearchActions();
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
     ESearchStatus.init,
@@ -197,7 +198,7 @@ export function UniversalSearch({
                     symbol,
                   });
                   setTimeout(() => {
-                    actions.current.addIntoRecentSearchList({
+                    universalSearchActions.current.addIntoRecentSearchList({
                       id: coingeckoId,
                       text: symbol.toUpperCase(),
                       type: item.type,
@@ -231,7 +232,7 @@ export function UniversalSearch({
         }
       }
     },
-    [navigation],
+    [universalSearchActions, navigation],
   );
 
   const renderResult = useCallback(() => {
@@ -313,13 +314,17 @@ const UniversalSearchWithProvider = ({
     }}
     enabledNum={[0]}
   >
-    <UniversalSearchProviderMirror
-      storeName={EJotaiContextStoreNames.universalSearch}
+    <MarketWatchListProviderMirror
+      storeName={EJotaiContextStoreNames.marketWatchList}
     >
-      <UniversalSearch
-        searchType={route?.params?.filterType || EUniversalSearchType.Address}
-      />
-    </UniversalSearchProviderMirror>
+      <UniversalSearchProviderMirror
+        storeName={EJotaiContextStoreNames.universalSearch}
+      >
+        <UniversalSearch
+          searchType={route?.params?.filterType || EUniversalSearchType.Address}
+        />
+      </UniversalSearchProviderMirror>
+    </MarketWatchListProviderMirror>
   </AccountSelectorProviderMirror>
 );
 
