@@ -6,7 +6,7 @@ import type {
   WitnessUtxo,
 } from 'bip174/src/lib/interfaces';
 import type { Network, Signer } from 'bitcoinjs-lib';
-import type { EAddressEncodings } from '../../types';
+import type { EAddressEncodings, ITxInputToSign } from '../../types';
 import { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 export interface IBtcForkNetwork extends Network {
@@ -79,6 +79,9 @@ export type IEncodedTxBtc = {
   inputsForCoinSelect: IInputsForCoinSelect;
   outputsForCoinSelect: IOutputsForCoinSelect;
   fee: string;
+  psbtHex?: string;
+  inputsToSign?: ITxInputToSign[];
+  disabledCoinSelect?: boolean;
 };
 
 export type ITxInput = {

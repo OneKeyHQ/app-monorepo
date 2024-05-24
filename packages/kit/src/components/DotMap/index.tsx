@@ -135,7 +135,7 @@ export const DotMapBase = ({ items }: { items: IDotMapValues[] }) => {
       p="$4"
       borderRadius={14}
       borderWidth="$1.5"
-      borderColor="borderSubdued"
+      borderColor="$borderSubdued"
     >
       <YStack>
         <DotMapBaseHeader />

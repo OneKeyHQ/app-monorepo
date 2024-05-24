@@ -304,6 +304,7 @@ module.exports = [
   'Authenticator',
   'bcs',
   'Psbt',
+  'Psbts',
   'bs58check',
   'Varuint',
   'Deriver',
@@ -699,4 +700,8 @@ module.exports = [
   'neurai',
   'ckb',
   'Xudt',
+  'Hexs',
+  'Matic',
+  'unstake',
+  'Unstaking',
 ];
