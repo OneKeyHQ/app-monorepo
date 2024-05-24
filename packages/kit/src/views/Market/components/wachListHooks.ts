@@ -30,12 +30,18 @@ export const useWatchListAction = () => {
     },
     [actions],
   );
+
+  const isInWatchList = useCallback(
+    (coingeckoId: string) => actions.current.isInWatchList(coingeckoId),
+    [actions],
+  );
   return useMemo(
     () => ({
       removeFormWatchList,
       addIntoWatchList,
       MoveToTop,
+      isInWatchList,
     }),
-    [MoveToTop, addIntoWatchList, removeFormWatchList],
+    [MoveToTop, addIntoWatchList, isInWatchList, removeFormWatchList],
   );
 };
