@@ -46,7 +46,7 @@ function MarketHome() {
               index === 0 && !gtMd ? (
                 <Icon name="StarOutline" />
               ) : (
-                <Tab.SelectedLabel {...titleStyle} />
+                <Tab.SelectedLabel {...(titleStyle as any)} />
               ),
           }}
           onSelectedPageIndex={(index: number) => {
