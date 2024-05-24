@@ -18,17 +18,11 @@ export function useMarketWatchListContextStoreInitData(
   return data;
 }
 
-export const MarketWatchListProvider = memo(
-  ({ children }: PropsWithChildren) => {
-    const data = useMarketWatchListContextStoreInitData(
-      EJotaiContextStoreNames.marketWatchList,
-    );
-    const store = useJotaiContextRootStore(data);
-    return (
-      <ProviderJotaiContextMarketWatchList store={store}>
-        {children}
-      </ProviderJotaiContextMarketWatchList>
-    );
-  },
-);
+export const MarketWatchListProvider = memo(() => {
+  const data = useMarketWatchListContextStoreInitData(
+    EJotaiContextStoreNames.marketWatchList,
+  );
+  const store = useJotaiContextRootStore(data);
+  return <ProviderJotaiContextMarketWatchList store={store} />;
+});
 MarketWatchListProvider.displayName = 'MarketWatchListProvider';

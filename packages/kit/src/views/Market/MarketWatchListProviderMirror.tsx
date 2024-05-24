@@ -4,10 +4,9 @@ import { jotaiContextStore } from '@onekeyhq/kit/src/states/jotai/utils/jotaiCon
 import { JotaiContextStoreMirrorTracker } from '@onekeyhq/kit/src/states/jotai/utils/JotaiContextStoreMirrorTracker';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import {
-  MarketWatchListProvider,
-  useMarketWatchListContextStoreInitData,
-} from './MarketWatchListProvider';
+import { ProviderJotaiContextMarketWatchList } from '../../states/jotai/contexts/market';
+
+import { useMarketWatchListContextStoreInitData } from './MarketWatchListProvider';
 
 export const MarketWatchListProviderMirror = memo(
   (props: PropsWithChildren & { storeName: EJotaiContextStoreNames }) => {
@@ -19,9 +18,9 @@ export const MarketWatchListProviderMirror = memo(
     return (
       <>
         <JotaiContextStoreMirrorTracker {...data} />
-        <MarketWatchListProvider store={store}>
+        <ProviderJotaiContextMarketWatchList store={store}>
           {children}
-        </MarketWatchListProvider>
+        </ProviderJotaiContextMarketWatchList>
       </>
     );
   },
