@@ -16,6 +16,7 @@ import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
+import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 
 export class SimpleDb {
   browserTabs = new SimpleDbEntityBrowserTabs();
@@ -53,4 +54,6 @@ export class SimpleDb {
   feeInfo = new SimpleDbEntityFeeInfo();
 
   marketWatchList = new SimpleDbEntityMarketWatchList();
+
+  universalSearch = new SimpleDbEntityUniversalSearch();
 }

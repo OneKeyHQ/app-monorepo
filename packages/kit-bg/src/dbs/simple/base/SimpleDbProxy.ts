@@ -20,6 +20,7 @@ import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTok
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
 import type { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
 import type { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
+import type { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 
 export class SimpleDbProxy
   extends BackgroundServiceProxyBase
@@ -106,4 +107,8 @@ export class SimpleDbProxy
   marketWatchList = this._createProxyService(
     'marketWatchList',
   ) as SimpleDbEntityMarketWatchList;
+
+  universalSearch = this._createProxyService(
+    'universalSearch',
+  ) as SimpleDbEntityUniversalSearch;
 }

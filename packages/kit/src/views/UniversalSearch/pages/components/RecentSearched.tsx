@@ -7,9 +7,11 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useUniversalSearchPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useUniversalSearchActions,
+  useUniversalSearchAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EUniversalSearchType,
@@ -49,7 +51,8 @@ export function RecentSearched({
 }: {
   searchType?: EUniversalSearchType;
 }) {
-  const [{ recentSearch }] = useUniversalSearchPersistAtom();
+  const [{ recentSearch }] = useUniversalSearchAtom();
+  const actions = useUniversalSearchActions();
 
   const navigation = useAppNavigation();
   const handlePress = useCallback(
@@ -70,9 +73,9 @@ export function RecentSearched({
     [navigation],
   );
 
-  const handleDeleteAll = useCallback(async () => {
-    await backgroundApiProxy.serviceUniversalSearch.clearAllRecentSearch();
-  }, []);
+  const handleDeleteAll = useCallback(() => {
+    actions.current.clearAllRecentSearch();
+  }, [actions]);
 
   return recentSearch.length &&
     searchType === EUniversalSearchType.MarketToken ? (

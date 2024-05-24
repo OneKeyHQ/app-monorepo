@@ -617,8 +617,7 @@ export function MarketHomeList({
   const actions = useWatchListAction();
   const handleMdItemAction = useCallback(
     async ({ coingeckoId, symbol }: IMarketToken) => {
-      const isInWatchList =
-        await backgroundApiProxy.serviceMarket.isInWatchList(coingeckoId);
+      const isInWatchList = actions.isInWatchList(coingeckoId);
       const title = symbol.toUpperCase();
       ActionList.show(
         isInWatchList
@@ -631,15 +630,15 @@ export function MarketHomeList({
                       destructive: true,
                       icon: 'DeleteOutline',
                       label: 'Remove from Favorites',
-                      onPress: async () => {
-                        await actions.removeFormWatchList(coingeckoId);
+                      onPress: () => {
+                        actions.removeFormWatchList(coingeckoId);
                       },
                     },
                     showMoreAction && {
                       icon: 'ArrowTopOutline',
                       label: 'Move to Top',
-                      onPress: async () => {
-                        await actions.MoveToTop(coingeckoId);
+                      onPress: () => {
+                        actions.MoveToTop(coingeckoId);
                       },
                     },
                   ].filter(Boolean) as IActionListItemProps[],
@@ -654,8 +653,8 @@ export function MarketHomeList({
                     {
                       icon: 'StarOutline',
                       label: 'Add to Favorites',
-                      onPress: async () => {
-                        await actions.addIntoWatchList(coingeckoId);
+                      onPress: () => {
+                        actions.addIntoWatchList(coingeckoId);
                       },
                     },
                   ],

@@ -42,3 +42,7 @@ export interface IIUniversalRecentSearchItem {
   timestamp: number;
   type: EUniversalSearchType;
 }
+
+export type IUniversalSearchAtomData = {
+  recentSearch: IIUniversalRecentSearchItem[];
+};

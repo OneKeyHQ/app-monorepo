@@ -22,5 +22,4 @@ export enum EAtomNames {
   appUpdatePersistAtom = 'appUpdatePersistAtom',
   onboardingConnectWalletLoadingAtom = 'onboardingConnectWalletLoadingAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
-  universalSearchPersistAtom = 'universalSearchPersistAtom',
 }

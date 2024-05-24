@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -16,6 +16,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
@@ -69,6 +70,8 @@ export function UniversalSearch({
 }) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const actions = useUniversalSearchActions();
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
     ESearchStatus.init,
@@ -191,14 +194,14 @@ export function UniversalSearch({
                     icon: image,
                     symbol,
                   });
-                  await backgroundApiProxy.serviceUniversalSearch.addIntoRecentSearch(
-                    {
+                  setTimeout(() => {
+                    actions.current.addIntoRecentSearchList({
                       id: coingeckoId,
                       text: symbol.toUpperCase(),
                       type: item.type,
                       timestamp: Date.now(),
-                    },
-                  );
+                    });
+                  }, 10);
                 }, 80);
               }}
               avatarProps={{

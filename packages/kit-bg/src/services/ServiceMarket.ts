@@ -8,7 +8,6 @@ import type {
   IMarketToken,
   IMarketTokenChart,
   IMarketTokenDetail,
-  IMarketWatchListItem,
 } from '@onekeyhq/shared/types/market';
 
 // import { marketWatchListPersistAtom } from '../states/jotai/atoms';
@@ -100,52 +99,6 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchWatchList() {
-    const watchList = await marketWatchListPersistAtom.get();
-    return watchList.items;
-  }
-
-  @backgroundMethod()
-  async isInWatchList(coingeckoId: string) {
-    const watchList = await this.fetchWatchList();
-    return !!watchList.find(
-      (i: { coingeckoId: string }) => i.coingeckoId === coingeckoId,
-    );
-  }
-
-  // @backgroundMethod()
-  // async addIntoWatchList(items: IMarketWatchListItem | IMarketWatchListItem[]) {
-  //   await marketWatchListPersistAtom.set((prev) => {
-  //     const params = !Array.isArray(items) ? [items] : items;
-  //     const newItems = params.filter(
-  //       (item) => !prev.items.find((i) => i.coingeckoId === item.coingeckoId),
-  //     );
-  //     return {
-  //       items: [...prev.items, ...newItems],
-  //     };
-  //   });
-  // }
-
-  // @backgroundMethod()
-  // async removeFormWatchList(item: IMarketWatchListItem) {
-  //   await marketWatchListPersistAtom.set((prev) => ({
-  //     items: prev.items.filter((i) => i.coingeckoId !== item.coingeckoId),
-  //   }));
-  // }
-
-  // @backgroundMethod()
-  // async moveToTop(item: IMarketWatchListItem) {
-  //   await marketWatchListPersistAtom.set((prev) => {
-  //     const newItems = prev.items.filter(
-  //       (i) => i.coingeckoId !== item.coingeckoId,
-  //     );
-  //     return {
-  //       items: [item, ...newItems],
-  //     };
-  //   });
-  // }
-
-  @backgroundMethod()
   async fetchPools(query: string) {
     const client = await this.getClient();
     try {
@@ -157,7 +110,7 @@ class ServiceMarket extends ServiceBase {
           query,
         },
       });
-      const { code, data } = response.data;
+      const { data } = response.data;
       return data;
     } catch {
       return [];
