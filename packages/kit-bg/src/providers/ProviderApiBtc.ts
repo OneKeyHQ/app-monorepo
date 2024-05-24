@@ -6,6 +6,7 @@ import { isNil } from 'lodash';
 
 import { getFiatEndpoint } from '@onekeyhq/engine/src/endpoint';
 import type { NFTBTCAssetModel } from '@onekeyhq/engine/src/types/nft';
+import type { IBtcUTXO } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import type VaultBtcFork from '@onekeyhq/engine/src/vaults/utils/btcForkChain/VaultBtcFork';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
 import {

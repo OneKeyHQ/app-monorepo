@@ -88,6 +88,7 @@ import {
   coinSelectForOrdinal,
   getAccountDefaultByPurpose,
   getBIP44Path,
+  initBitcoinEcc,
 } from './utils';
 
 import type { ExportedPrivateKeyCredential } from '../../../dbs/base';
@@ -1062,30 +1063,31 @@ export default class VaultBtcFork extends VaultBase {
   override async broadcastTransaction(
     signedTx: ISignedTxPro,
   ): Promise<ISignedTxPro> {
-    debugLogger.engine.info('broadcastTransaction START:', {
-      rawTx: signedTx.rawTx,
-    });
-    const provider = await this.getProvider();
-    const txid = await provider.broadcastTransaction(signedTx.rawTx);
-    debugLogger.engine.info('broadcastTransaction END:', {
-      txid,
-      rawTx: signedTx.rawTx,
-    });
+    throw new NotImplemented();
+    // debugLogger.engine.info('broadcastTransaction START:', {
+    //   rawTx: signedTx.rawTx,
+    // });
+    // const provider = await this.getProvider();
+    // const txid = await provider.broadcastTransaction(signedTx.rawTx);
+    // debugLogger.engine.info('broadcastTransaction END:', {
+    //   txid,
+    //   rawTx: signedTx.rawTx,
+    // });
 
-    const { inputs } = (signedTx.encodedTx as IEncodedTxBtc) ?? { inputs: [] };
+    // const { inputs } = (signedTx.encodedTx as IEncodedTxBtc) ?? { inputs: [] };
 
-    const utoxIds = inputs.map((input) => getUtxoId(this.networkId, input));
+    // const utoxIds = inputs.map((input) => getUtxoId(this.networkId, input));
 
-    try {
-      await simpleDb.utxoAccounts.deleteCoinControlItem(utoxIds);
-    } catch {
-      // pass
-    }
+    // try {
+    //   await simpleDb.utxoAccounts.deleteCoinControlItem(utoxIds);
+    // } catch {
+    //   // pass
+    // }
 
-    return {
-      ...signedTx,
-      txid,
-    };
+    // return {
+    //   ...signedTx,
+    //   txid,
+    // };
   }
 
   override async getTransactionStatuses(
@@ -2208,5 +2210,55 @@ export default class VaultBtcFork extends VaultBase {
       type: NFTAssetType.BTC,
       data: serviceData as NFTBTCAssetModel[],
     });
+  }
+
+  async convertEncodedTxToPsbt(params: { encodedTx: IEncodedTxBtc }) {
+    initBitcoinEcc();
+    const { encodedTx } = params;
+    const { inputs, outputs, totalFee } = encodedTx;
+    const utxos = await this.getAccountUtxos(encodedTx.inputs);
+    const provider = await this.getProvider();
+    const psbt = provider.getPsbt();
+    let inputsSum = 0;
+    for (let i = 0; i < inputs.length; i += 1) {
+      const input = utxos[i];
+      psbt.addInput({
+        hash: input.txid,
+        index: input.vout,
+        witnessUtxo: {
+          script: Buffer.from(input.scriptPubKey, 'hex'),
+          value: input.value,
+        },
+      });
+      inputsSum += input.value;
+    }
+
+    console.log('===>inputsSum: ', inputsSum);
+
+    for (const output of outputs) {
+      const { address, value } = output;
+      psbt.addOutput({
+        address,
+        value: new BigNumber(value).toNumber(),
+      });
+    }
+
+    return psbt.toHex();
+  }
+
+  async getAccountUtxos(utxos: IBtcUTXO[]) {
+    const result = [];
+    const client = await (await this.getProvider()).blockbook;
+    for (const utxo of utxos) {
+      const txDetails = await client.getTransactionDetail(utxo.txid);
+      result.push({
+        txid: utxo.txid,
+        vout: utxo.vout,
+        value: new BigNumber(utxo.value).toNumber(),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        scriptPubKey: txDetails?.vout?.[utxo.vout].hex ?? '',
+      });
+    }
+    return result;
   }
 }

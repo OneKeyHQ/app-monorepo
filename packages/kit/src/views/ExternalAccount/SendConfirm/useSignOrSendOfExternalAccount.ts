@@ -9,15 +9,13 @@ import {
   ETHMessageTypes,
   getEthProviderMethodFromMessageType,
 } from '@onekeyhq/engine/src/types/message';
-import type {
-  IEncodedTxBtc,
-  IUnsignedMessageBtc,
-} from '@onekeyhq/engine/src/vaults/impl/btc/types';
+import type { IUnsignedMessageBtc } from '@onekeyhq/engine/src/vaults/impl/btc/types';
 import type {
   IEncodedTxEvm,
   IUnsignedMessageEvm,
 } from '@onekeyhq/engine/src/vaults/impl/evm/Vault';
 import type { IEncodedTx } from '@onekeyhq/engine/src/vaults/types';
+import type { IEncodedTxBtc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/types';
 import { OnekeyNetwork } from '@onekeyhq/shared/src/config/networkIds';
 import { isBTCNetwork } from '@onekeyhq/shared/src/engine/engineConsts';
 import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
@@ -167,6 +165,7 @@ export function useSignOrSendOfExternalAccount({
 export function useSignOrSendOfBtcExternalAccount({
   encodedTx,
   networkId,
+  accountId,
 }: {
   encodedTx: IEncodedTx | undefined;
   sourceInfo?: IDappSourceInfo | undefined;
@@ -186,17 +185,15 @@ export function useSignOrSendOfBtcExternalAccount({
     if (!tx) {
       throw new Error('encodedTx is missing!');
     }
+    const psbtHex =
+      await backgroundApiProxy.serviceInscribe.convertEncodedTxToPsbt({
+        encodedTx: tx,
+        accountId,
+        networkId,
+      });
     const result =
       await window.$onekey.$privateExternalAccount?.btc_signTransaction({
-        encodedTx: {
-          inputs: tx.inputs,
-          outputs: tx.outputs,
-          // @ts-expect-error
-          inputsForCoinSelect: tx.inputsForCoinSelect,
-          // @ts-expect-error
-          outputsForCoinSelect: tx.outputsForCoinSelect,
-          fee: tx.totalFee,
-        },
+        psbtHex,
         network:
           currentNetwork.id === OnekeyNetwork.btc ? 'mainnet' : 'testnet',
       });
@@ -205,7 +202,7 @@ export function useSignOrSendOfBtcExternalAccount({
       rawTx: result.rawTx,
       encodedTx,
     };
-  }, [encodedTx, networkId, engine]);
+  }, [encodedTx, networkId, accountId, engine]);
 
   return {
     sendTxForBtcExternalAccount,

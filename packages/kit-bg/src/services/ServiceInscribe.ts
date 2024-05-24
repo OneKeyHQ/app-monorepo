@@ -1131,4 +1131,22 @@ export default class ServiceInscribe extends ServiceBase {
       // noop
     }
   }
+
+  @backgroundMethod()
+  async convertEncodedTxToPsbt({
+    encodedTx,
+    networkId,
+    accountId,
+  }: {
+    encodedTx: IEncodedTxBtc;
+    networkId: string;
+    accountId: string;
+  }) {
+    const vault = (await this.backgroundApi.engine.getVault({
+      networkId,
+      accountId,
+    })) as VaultBtcFork;
+    const psbt = vault.convertEncodedTxToPsbt({ encodedTx });
+    return psbt;
+  }
 }
