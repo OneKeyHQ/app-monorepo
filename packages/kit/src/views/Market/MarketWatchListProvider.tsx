@@ -26,8 +26,7 @@ export const MarketWatchListProvider = memo(
     const store = useJotaiContextRootStore(data);
     return (
       <ProviderJotaiContextMarketWatchList store={store}>
-        {' '}
-        {children}{' '}
+        {children}
       </ProviderJotaiContextMarketWatchList>
     );
   },
