@@ -15,6 +15,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { IPageScreenProps } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
 import type {
@@ -32,6 +33,7 @@ import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
+import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 function TokenDetailHeader({
   coinGeckoId,
@@ -235,4 +237,14 @@ function MarketDetail({
   );
 }
 
-export default MarketDetail;
+export default function MarketDetailWithProvider(
+  props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>,
+) {
+  return (
+    <MarketWatchListProviderMirror
+      storeName={EJotaiContextStoreNames.marketWatchList}
+    >
+      <MarketDetail {...props} />
+    </MarketWatchListProviderMirror>
+  );
+}

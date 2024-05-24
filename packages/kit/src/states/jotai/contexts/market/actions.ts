@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/await-thenable */
 import { useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -15,32 +14,28 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     if (!Array.isArray(payload)) {
       throw new Error('buildBookmarkData: payload must be an array');
     }
-    void backgroundApiProxy.simpleDb.marketWatchList.setRawData({
-      data: payload,
-    });
+    const result = { data: payload };
+    set(marketWatchListAtom(), result);
+    void backgroundApiProxy.simpleDb.marketWatchList.setRawData(result);
   });
 
-  isInWatchList = contextAtomMethod(async (get, set, coingeckoId: string) => {
-    const prev = await get(marketWatchListAtom());
+  isInWatchList = contextAtomMethod((get, set, coingeckoId: string) => {
+    const prev = get(marketWatchListAtom());
     return !!prev.data?.find((i) => i.coingeckoId === coingeckoId);
   });
 
   addIntoWatchList = contextAtomMethod(
-    async (
-      get,
-      set,
-      payload: IMarketWatchListItem | IMarketWatchListItem[],
-    ) => {
+    (get, set, payload: IMarketWatchListItem | IMarketWatchListItem[]) => {
       const params = !Array.isArray(payload) ? [payload] : payload;
-      const prev = await get(marketWatchListAtom());
+      const prev = get(marketWatchListAtom());
       const watchList = [...prev.data, ...params];
       this.syncToDb.call(set, watchList);
     },
   );
 
   removeFormWatchList = contextAtomMethod(
-    async (get, set, payload: IMarketWatchListItem) => {
-      const prev = await get(marketWatchListAtom());
+    (get, set, payload: IMarketWatchListItem) => {
+      const prev = get(marketWatchListAtom());
       const watchList = prev.data.filter(
         (i) => i.coingeckoId !== payload.coingeckoId,
       );
@@ -48,16 +43,14 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     },
   );
 
-  moveToTop = contextAtomMethod(
-    async (get, set, payload: IMarketWatchListItem) => {
-      const prev = await get(marketWatchListAtom());
-      const newItems = prev.data.filter(
-        (i) => i.coingeckoId !== payload.coingeckoId,
-      );
-      const watchList = [payload, ...newItems];
-      this.syncToDb.call(set, watchList);
-    },
-  );
+  moveToTop = contextAtomMethod((get, set, payload: IMarketWatchListItem) => {
+    const prev = get(marketWatchListAtom());
+    const newItems = prev.data.filter(
+      (i) => i.coingeckoId !== payload.coingeckoId,
+    );
+    const watchList = [payload, ...newItems];
+    this.syncToDb.call(set, watchList);
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsMarket());

@@ -1,30 +1,28 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { IconButton } from '@onekeyhq/components';
-
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import { useWatchListAction } from './wachListHooks';
 
 function BasicMarketStar({ coingeckoId }: { coingeckoId: string }) {
   const actions = useWatchListAction();
 
-  const { result: isChecked } = usePromiseResult(
-    () => actions.isInWatchList(coingeckoId),
-    [actions, coingeckoId],
+  const [checked, setIsChecked] = useState(() =>
+    actions.isInWatchList(coingeckoId),
   );
 
   const handlePress = useCallback(() => {
-    if (isChecked) {
+    if (checked) {
       actions.removeFormWatchList(coingeckoId);
     } else {
       actions.addIntoWatchList(coingeckoId);
     }
-  }, [actions, coingeckoId, isChecked]);
+    setIsChecked(!checked);
+  }, [actions, coingeckoId, checked]);
 
   return (
     <IconButton
-      icon={isChecked ? 'StarSolid' : 'StarOutline'}
+      icon={checked ? 'StarSolid' : 'StarOutline'}
       color="red"
       variant="tertiary"
       iconSize="$5"
