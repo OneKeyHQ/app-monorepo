@@ -176,13 +176,14 @@ function MarketDetail({
   );
 
   const tokenDetailHeader = useMemo(
-    () => (
-      <TokenDetailHeader
-        coinGeckoId={coinGeckoId}
-        token={tokenDetail}
-        pools={pools}
-      />
-    ),
+    () =>
+      tokenDetail ? (
+        <TokenDetailHeader
+          coinGeckoId={coinGeckoId}
+          token={tokenDetail}
+          pools={pools}
+        />
+      ) : null,
     [coinGeckoId, pools, tokenDetail],
   );
 
