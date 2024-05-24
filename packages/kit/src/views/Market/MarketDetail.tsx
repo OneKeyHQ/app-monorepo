@@ -175,10 +175,6 @@ function MarketDetail({
     [navigation],
   );
 
-  if (!tokenDetail) {
-    return null;
-  }
-
   const tokenDetailHeader = useMemo(
     () => (
       <TokenDetailHeader
@@ -195,6 +191,9 @@ function MarketDetail({
     [coinGeckoId],
   );
 
+  if (!tokenDetail) {
+    return null;
+  }
   return (
     <Page scrollEnabled>
       <Page.Header
