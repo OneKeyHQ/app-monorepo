@@ -157,8 +157,6 @@ class ProviderApiSui extends ProviderApiBase {
         networkId: networkId ?? '',
       })) as string;
 
-    console.log('======>>>>result: ', result);
-
     const vault = (await vaultFactory.getVault({
       accountId: accountId ?? '',
       networkId: networkId ?? '',
@@ -192,7 +190,6 @@ class ProviderApiSui extends ProviderApiBase {
         signOnly: true,
       })) as ISignedTxPro;
 
-    console.log('=====>>>>>: result', result);
     if (!result.signature) throw web3Errors.provider.unauthorized();
 
     return Promise.resolve({
