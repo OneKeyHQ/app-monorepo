@@ -45,10 +45,14 @@ export class KeyringHd extends KeyringHdBase {
       throw new OneKeyInternalError('Software signing requires a password.');
     }
 
+    const dbAccount = (await this.getDbAccount()) as DBUTXOAccount;
     const { transferInfo } = unsignedTx.encodedTx as IEncodedTxBtc;
     const signers = await this.getSigners(
       password,
-      (inputsToSign || unsignedTx.inputs).map((input) => input.address),
+      [
+        ...(inputsToSign || unsignedTx.inputs).map((input) => input.address),
+        ...Object.values(dbAccount.addresses),
+      ],
       transferInfo.useCustomAddressesBalance,
     );
     debugLogger.engine.info('signTransaction', this.networkId, unsignedTx);

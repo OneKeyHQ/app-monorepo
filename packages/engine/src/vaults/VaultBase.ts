@@ -202,6 +202,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     return 0;
   }
 
+  async isEarliestPendingTx({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx;
+  }): Promise<boolean> {
+    return true;
+  }
+
   async fetchBalanceDetails({
     password,
     useRecycleBalance,
@@ -816,5 +824,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   async getAllUsedAddress(): Promise<BtcForkChainUsedAccount[]> {
     return Promise.resolve([]);
+  }
+
+  async attachFeeInfoToDAppEncodedTx(params: {
+    encodedTx: IEncodedTx;
+    feeInfoValue: IFeeInfoUnit;
+  }): Promise<IEncodedTx> {
+    return Promise.resolve(params.encodedTx);
   }
 }

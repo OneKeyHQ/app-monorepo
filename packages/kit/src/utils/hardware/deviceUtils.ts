@@ -461,6 +461,9 @@ class DeviceUtils {
         if (msg.indexOf('Failure_UnexpectedMessage') !== -1) {
           return new Error.UnknownMethod(payload);
         }
+        if (msg.indexOf('string overflow') !== -1) {
+          return new Error.NameExceedingMaximumLimit(payload);
+        }
         return new Error.UnknownHardwareError(payload);
       case HardwareErrorCode.PinInvalid:
         return new Error.InvalidPIN(payload);

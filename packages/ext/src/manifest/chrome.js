@@ -55,7 +55,6 @@ module.exports = {
       'all_frames': true, // including iframe inject
     },
   ],
-
   'permissions': [
     'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
     // 'http://localhost:8545/',

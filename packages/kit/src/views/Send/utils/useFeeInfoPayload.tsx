@@ -182,7 +182,6 @@ export function useFeeInfoPayload({
             };
             info.eip1559 = true;
             info.limit = limit || info.limit;
-            info.prices = [price1559];
             info.tx = {
               eip1559: true,
               limit: limit || info.limit,
@@ -194,7 +193,6 @@ export function useFeeInfoPayload({
               .shiftedBy(-(feeDecimals ?? 0))
               .toFixed();
             info.limit = limit || info.limit;
-            info.prices = [price];
             info.tx = {
               eip1559: false,
               limit: limit || info.limit,
@@ -206,14 +204,16 @@ export function useFeeInfoPayload({
               eip1559: info.eip1559,
               ...(info.eip1559
                 ? {
-                    price1559: info.prices[
-                      Number(info.defaultPresetIndex)
-                    ] as EIP1559Fee,
+                    price1559:
+                      (info.prices[
+                        Number(info.defaultPresetIndex)
+                      ] as EIP1559Fee) ?? info.prices[0],
                   }
                 : {
-                    price: info.prices[
-                      Number(info.defaultPresetIndex)
-                    ] as string,
+                    price:
+                      (info.prices[
+                        Number(info.defaultPresetIndex)
+                      ] as string) ?? info.prices[0],
                   }),
             };
           }

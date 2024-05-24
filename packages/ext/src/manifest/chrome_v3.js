@@ -100,7 +100,9 @@ module.exports = {
         }
       : null,
   ].filter(Boolean),
-
+  'side_panel': {
+    'default_path': 'ui-side-panel.html',
+  },
   'permissions': [
     'offscreen',
     // 'https://dapp-server.onekey.so/*', // allow CORS requests in firefox
@@ -118,5 +120,6 @@ module.exports = {
     'notifications',
     // 'activeTab',
     // 'webRequest',
+    'sidePanel',
   ],
 };

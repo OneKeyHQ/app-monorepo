@@ -18,4 +18,25 @@ const createAnyPromise = <T>(promises: Promise<T>[]): Promise<T> =>
     (val) => Promise.resolve(val),
   );
 
-export { createDelayPromise, createAnyPromise };
+function createPromiseWithTimeout<T>(
+  promise: Promise<T>,
+  timeout: number,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Operation timed out'));
+    }, timeout);
+
+    promise
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+export { createDelayPromise, createAnyPromise, createPromiseWithTimeout };

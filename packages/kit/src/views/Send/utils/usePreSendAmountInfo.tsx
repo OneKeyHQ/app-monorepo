@@ -101,8 +101,14 @@ export function usePreSendAmountInfo({
   );
   const onTextChange = useCallback(
     (text0: string) => {
-      let normalizedText = text0.replace(/。/g, '.');
-      if (platformEnv.isRuntimeBrowser && text0 === '.' && !text) {
+      let amountText = text0;
+      const amountTextBN = new BigNumber(amountText);
+      if (!amountTextBN.isNaN() && amountTextBN.isNegative()) {
+        amountText = amountTextBN.abs().toFixed();
+      }
+
+      let normalizedText = amountText.replace(/。/g, '.');
+      if (platformEnv.isRuntimeBrowser && amountText === '.' && !text) {
         normalizedText = '0.';
       }
       // delete action
@@ -115,10 +121,9 @@ export function usePreSendAmountInfo({
       } else {
         const textBN = new BigNumber(normalizedText);
         if (!textBN.isNaN()) {
-          const textFixed = textBN.toFixed(
-            textInputDecimals,
-            BigNumber.ROUND_FLOOR,
-          );
+          const textFixed = textBN
+            .abs()
+            .toFixed(textInputDecimals, BigNumber.ROUND_FLOOR);
           setText(textFixed);
         }
       }
@@ -127,15 +132,22 @@ export function usePreSendAmountInfo({
   );
   const onAmountChange = useCallback(
     (text0: string) => {
+      let amountText = text0;
+      const amountTextBN = new BigNumber(amountText);
+
+      if (!amountTextBN.isNaN() && amountTextBN.isNegative()) {
+        amountText = amountTextBN.abs().toFixed();
+      }
+
       // delete action
-      if (text0.length < amount.length) {
-        setAmount(text0);
+      if (amountText.length < amount.length) {
+        setAmount(amountText);
         return;
       }
-      if (validAmountRegex.test(text0)) {
-        setAmount(text0);
+      if (validAmountRegex.test(amountText)) {
+        setAmount(amountText);
       } else {
-        const textBN = new BigNumber(text0);
+        const textBN = new BigNumber(amountText);
         if (!textBN.isNaN()) {
           const textFixed = textBN.toFixed(
             amountInputDecimals,

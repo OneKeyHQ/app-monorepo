@@ -276,13 +276,22 @@ class ServiceDapp extends ServiceBase {
     if (!impl) {
       return false;
     }
-    const accounts = this.backgroundApi.serviceDapp?.getActiveConnectedAccounts(
-      {
-        origin: request.origin,
-        impl,
-      },
-    );
-    return Boolean(accounts && accounts.length);
+    // hack for multiple impls detect
+    const impls = [impl];
+    if (impl === IMPL_BTC) {
+      impls.push(IMPL_TBTC);
+    }
+    for (const implItem of impls) {
+      const accounts =
+        this.backgroundApi.serviceDapp?.getActiveConnectedAccounts({
+          origin: request.origin,
+          impl: implItem,
+        });
+      if (accounts && accounts.length) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @backgroundMethod()

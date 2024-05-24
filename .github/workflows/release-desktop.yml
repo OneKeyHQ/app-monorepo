@@ -22,9 +22,6 @@ jobs:
         with:
           lfs: true
 
-      - name: Install Snapcraft
-        uses: samuelmeuli/action-snapcraft@v2
-
       - name: Dotenv Action
         id: dotenv
         uses: OneKeyHQ/actions/dotenv-action@main
@@ -129,6 +126,13 @@ jobs:
           CSC_LINK: './sign.p12'
         run: 'cd packages/desktop && yarn build'
 
+      - name: Upload Artifacts latest.yml
+        uses: actions/upload-artifact@v3
+        with:
+          name: onekey-desktop-yml
+          path: |
+            ./packages/desktop/build-electron/*.yml
+
       - name: Upload Artifacts Mac
         uses: actions/upload-artifact@v3
         with:
@@ -157,17 +161,12 @@ jobs:
           path: |
             ./packages/desktop/build-electron/*
             !./packages/desktop/build-electron/win-unpacked
+            !./apps/desktop/build-electron/win-arm64-unpacked
             !./packages/desktop/build-electron/mac-arm64
             !./packages/desktop/build-electron/mac
             !./packages/desktop/build-electron/linux-unpacked
+            !./apps/desktop/build-electron/linux-arm64-unpacked
             !./packages/desktop/build-electron/builder-debug.yml
-
-      - name: Upload Artifacts to Snap Linux
-        if: ${{ github.event.workflow_run }}
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
-        run: |
-          snapcraft push ./packages/desktop/build-electron/*.snap --release edge
 
       - name: 'Notify to Slack'
         uses: onekeyhq/actions/notice-slack-app-update@main

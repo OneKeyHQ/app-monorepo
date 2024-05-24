@@ -96,7 +96,7 @@ export function FeeSpeedTip({
                 />
                 <FeeInfoItem
                   title={intl.formatMessage({ id: 'content__gas_limit' })}
-                  value={limit}
+                  value={new BigNumber(limit).toFixed()}
                 />
               </Box>
             )}
@@ -108,7 +108,7 @@ export function FeeSpeedTip({
                 />
                 <FeeInfoItem
                   title={intl.formatMessage({ id: 'content__gas_limit' })}
-                  value={limit}
+                  value={new BigNumber(limit).toFixed()}
                 />
               </Box>
             )}

@@ -448,7 +448,9 @@ export const useTokenPositionInfo = ({
         items: [],
       };
     }
-    const { totalBalance, keleStakingBalance, items } = result;
+    const { totalBalance, keleStakingBalance, items: assets } = result;
+
+    const items = [...assets];
 
     if (new B(keleStakingBalance)?.gt(0)) {
       items.push({

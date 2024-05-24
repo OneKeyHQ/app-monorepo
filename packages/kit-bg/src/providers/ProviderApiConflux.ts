@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 
 import { ETHMessageTypes } from '@onekeyhq/engine/src/types/message';
 import type { EvmExtraInfo } from '@onekeyhq/engine/src/types/network';
+import { conflux } from '@onekeyhq/engine/src/vaults/impl/cfx/sdk';
 import type { IEncodedTxCfx } from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
 import type VaultConflux from '@onekeyhq/engine/src/vaults/impl/cfx/Vault';
 import { getActiveWalletAccount } from '@onekeyhq/kit/src/hooks';
@@ -232,6 +233,12 @@ class ProviderApiConflux extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     transaction: IEncodedTxCfx,
   ) {
+    const gasPrice = new BigNumber(transaction.gasPrice ?? 0);
+
+    if (gasPrice.isLessThan(conflux.CONST.MIN_GAS_PRICE)) {
+      delete transaction.gasPrice;
+    }
+
     debugLogger.providerApi.info('cfx_sendTransaction', request, transaction);
     const result = await this.backgroundApi.serviceDapp?.openSignAndSendModal(
       request,

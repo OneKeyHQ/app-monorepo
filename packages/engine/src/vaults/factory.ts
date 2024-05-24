@@ -10,6 +10,7 @@ import {
   IMPL_COSMOS,
   IMPL_DOGE,
   IMPL_DOT,
+  IMPL_DYNEX,
   IMPL_EVM,
   IMPL_FIL,
   IMPL_KASPA,
@@ -50,6 +51,7 @@ import VaultHelperCfx from './impl/cfx/VaultHelper';
 import VaultHelperCosmos from './impl/cosmos/VaultHelper';
 import VaultHelperDoge from './impl/doge/VaultHelper';
 import VaultHelperDot from './impl/dot/VaultHelper';
+import VaultHelperDynex from './impl/dynex/VaultHelper';
 import VaultHelperEvm from './impl/evm/VaultHelper';
 import VaultHelperFil from './impl/fil/VaultHelper';
 import VaultHelperKaspa from './impl/kaspa/VaultHelper';
@@ -161,6 +163,9 @@ export async function createVaultHelperInstance(
   }
   if (impl === IMPL_NEURAI) {
     return new VaultHelperNeurai(options);
+  }
+  if (impl === IMPL_DYNEX) {
+    return new VaultHelperDynex(options);
   }
   throw new OneKeyInternalError(
     `VaultHelper Class not found for: networkId=${options.networkId}, accountId=${options.accountId}`,
@@ -318,6 +323,10 @@ export async function createVaultInstance(options: IVaultOptions) {
   if (network.impl === IMPL_NEURAI) {
     const VaultNeurai = (await import('./impl/neurai/Vault')).default;
     vault = new VaultNeurai(options);
+  }
+  if (network.impl === IMPL_DYNEX) {
+    const VaultDynex = (await import('./impl/dynex/Vault')).default;
+    vault = new VaultDynex(options);
   }
   if (!vault) {
     throw new OneKeyInternalError(

@@ -1,5 +1,5 @@
 import * as BitcoinJS from 'bitcoinjs-lib';
-import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
+import { isTaprootInput, toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
@@ -25,7 +25,9 @@ function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
 export function tweakSigner(
   privKey: Buffer,
   publicKey: Buffer,
-  opts: { tweakHash?: Buffer; network?: Network } = {},
+  opts: { tweakHash?: Buffer; network?: Network; needTweak: boolean } = {
+    needTweak: true,
+  },
 ): BitcoinJS.Signer {
   let privateKey: Uint8Array | null = new Uint8Array(privKey.buffer);
   if (!privateKey) {
@@ -43,13 +45,17 @@ export function tweakSigner(
     privateKey,
     tapTweakHash(toXOnly(publicKey), opts.tweakHash),
   );
+
   if (!tweakedPrivateKey) {
     throw new Error('Invalid tweaked private key!');
   }
 
-  return getBitcoinECPair().fromPrivateKey(Buffer.from(tweakedPrivateKey), {
-    network: opts.network,
-  });
+  return getBitcoinECPair().fromPrivateKey(
+    Buffer.from(opts.needTweak ? tweakedPrivateKey : privateKey),
+    {
+      network: opts.network,
+    },
+  );
 }
 
 export default class Provider extends BaseProvider {
@@ -78,13 +84,28 @@ export default class Provider extends BaseProvider {
     const publicKey = await signer.getPubkey(true);
 
     // P2TR
-    if (input.tapInternalKey) {
-      const privateKey = await signer.getPrvkey();
-      const tweakedSigner = tweakSigner(privateKey, publicKey, {
-        network: this.network,
-      });
-
-      return tweakedSigner;
+    if (isTaprootInput(input)) {
+      let needTweak = true;
+      // script path spend
+      if (
+        input.tapLeafScript &&
+        input.tapLeafScript?.length > 0 &&
+        !input.tapMerkleRoot
+      ) {
+        input.tapLeafScript.forEach((e) => {
+          if (e.controlBlock && e.script) {
+            needTweak = false;
+          }
+        });
+      }
+      if (input.tapInternalKey) {
+        const privateKey = await signer.getPrvkey();
+        const tweakedSigner = tweakSigner(privateKey, publicKey, {
+          network: this.network,
+          needTweak,
+        });
+        return tweakedSigner;
+      }
     }
 
     // For other encoding

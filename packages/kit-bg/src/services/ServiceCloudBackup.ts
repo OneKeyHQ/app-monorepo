@@ -546,10 +546,21 @@ class ServiceCloudBackup extends ServiceBase {
       }
 
       if (notOnDevice.simpleDb?.market.favorites) {
+        const tokenDetails =
+          await this.backgroundApi.serviceMarket.getTokensDetail(
+            notOnDevice.simpleDb?.market.favorites,
+          );
+        const favoriteInfos = notOnDevice.simpleDb.market.favorites.map(
+          (id) => {
+            const token = tokenDetails.find((t) => t.coingeckoId === id);
+            return {
+              coingeckoId: id,
+              symbol: token?.symbol,
+            };
+          },
+        );
         await this.backgroundApi.serviceMarket.saveMarketFavoriteTokens(
-          notOnDevice.simpleDb.market.favorites?.map((id) => ({
-            coingeckoId: id,
-          })),
+          favoriteInfos,
         );
       }
 

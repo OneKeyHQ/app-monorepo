@@ -60,6 +60,12 @@ export class UnknownMethod extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_unknown_message_error';
 }
 
+export class NameExceedingMaximumLimit extends OneKeyHardwareError {
+  override code = HardwareErrorCode.RuntimeError;
+
+  override key: LocaleIds = 'msg__exceeding_the_maximum_word_limit';
+}
+
 export class ConnectTimeout extends OneKeyHardwareError {
   override key: LocaleIds = 'msg__hardware_connect_timeout_error';
 }

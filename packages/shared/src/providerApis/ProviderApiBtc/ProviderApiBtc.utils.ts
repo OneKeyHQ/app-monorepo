@@ -9,12 +9,17 @@ import {
 } from '@onekeyhq/engine/src/types/nft';
 import type { IDecodedTxAction } from '@onekeyhq/engine/src/vaults/types';
 import { IDecodedTxActionType } from '@onekeyhq/engine/src/vaults/types';
+import { initBitcoinEcc } from '@onekeyhq/engine/src/vaults/utils/btcForkChain/utils';
 
 import { isBTCNetwork } from '../../engine/engineConsts';
 
 import { NETWORK_TYPES, NetworkTypeEnum } from './ProviderApiBtc.types';
 
-import type { InputToSign, Inscription } from './ProviderApiBtc.types';
+import type {
+  InputToSign,
+  Inscription,
+  SignPsbtParams,
+} from './ProviderApiBtc.types';
 
 export const OPENAPI_URL_MAINNET = 'https://wallet-api.unisat.io/v5';
 export const OPENAPI_URL_TESTNET = 'https://wallet-api-testnet.unisat.io/v5';
@@ -109,14 +114,32 @@ export function mapInscriptionToNFTBTCAssetModel(inscription: Inscription) {
   return asset;
 }
 
+function scriptPkToAddress(
+  scriptPk: string | Buffer,
+  psbtNetwork: BitcoinJS.networks.Network,
+) {
+  initBitcoinEcc();
+  try {
+    const address = BitcoinJS.address.fromOutputScript(
+      typeof scriptPk === 'string' ? Buffer.from(scriptPk, 'hex') : scriptPk,
+      psbtNetwork,
+    );
+    return address;
+  } catch (e) {
+    return '';
+  }
+}
+
 export function getInputsToSignFromPsbt({
   psbt,
   psbtNetwork,
   account,
+  isBtcWalletProvider,
 }: {
   account: Account;
   psbt: BitcoinJS.Psbt;
   psbtNetwork: BitcoinJS.networks.Network;
+  isBtcWalletProvider: SignPsbtParams['options']['isBtcWalletProvider'];
 }) {
   const inputsToSign: InputToSign[] = [];
   psbt.data.inputs.forEach((v, index) => {
@@ -134,7 +157,7 @@ export function getInputsToSignFromPsbt({
     const isSigned = v.finalScriptSig || v.finalScriptWitness;
 
     if (script && !isSigned) {
-      const address = BitcoinJS.address.fromOutputScript(script, psbtNetwork);
+      const address = scriptPkToAddress(script, psbtNetwork);
       if (account.address === address) {
         inputsToSign.push({
           index,
@@ -147,6 +170,14 @@ export function getInputsToSignFromPsbt({
             Buffer.from(account.pubKey as string, 'hex'),
           );
         }
+      } else if (isBtcWalletProvider) {
+        // handle babylon
+        inputsToSign.push({
+          index,
+          publicKey: account.pubKey as string,
+          address: account.address,
+          sighashTypes: v.sighashType ? [v.sighashType] : undefined,
+        });
       }
     }
   });
