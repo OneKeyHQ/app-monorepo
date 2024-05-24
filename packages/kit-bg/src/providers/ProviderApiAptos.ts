@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
-/* eslint-disable camelcase */
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
@@ -35,7 +33,7 @@ import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type VaultAptos from '../vaults/impls/aptos/Vault';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
-type AccountInfo =
+type IAccountInfo =
   | {
       publicKey: string;
       address: string;
@@ -67,7 +65,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const data = async ({ origin, ...ext }: { origin: string }) => {
+    const data = async ({ origin }: { origin: string }) => {
       const params = await this.account({ origin, scope: 'aptos' });
       const result = {
         method: 'wallet_events_accountChanged',
@@ -100,7 +98,7 @@ class ProviderApiAptos extends ProviderApiBase {
     return NetworkToNodeAPI[Network.MAINNET];
   }
 
-  private wrapperConnectAccount(account: AccountInfo) {
+  private wrapperConnectAccount(account: IAccountInfo) {
     const status = account ? 200 : 4001;
     return {
       ...account,

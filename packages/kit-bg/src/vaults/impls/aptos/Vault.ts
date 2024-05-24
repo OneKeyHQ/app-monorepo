@@ -197,31 +197,22 @@ export default class VaultAptos extends VaultBase {
         .shiftedBy(-tokenInfo.decimals)
         .toFixed();
 
-      const transferAction = {
-        tokenInfo,
-        from: sender ?? '',
+      action = await this.buildTxTransferAssetAction({
+        from: sender,
         to,
-        amount,
-        amountValue,
-        extraInfo: null,
-        sends: [
+        transfers: [
           {
-            from: sender ?? '',
+            from: sender,
             to,
             amount,
             icon: tokenInfo.logoURI ?? '',
             name: tokenInfo.symbol,
             symbol: tokenInfo.symbol,
             tokenIdOnNetwork: coinType ?? APTOS_NATIVE_COIN,
+            isNative: !coinType || coinType === APTOS_NATIVE_COIN,
           },
         ],
-        receives: [],
-      };
-
-      action = {
-        type: actionType,
-        assetTransfer: transferAction,
-      };
+      });
     } else if (actionType === EDecodedTxActionType.FUNCTION_CALL) {
       action = {
         type: EDecodedTxActionType.FUNCTION_CALL,

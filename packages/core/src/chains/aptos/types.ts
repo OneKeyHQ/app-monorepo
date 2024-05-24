@@ -31,10 +31,7 @@ export type IEncodedTxAptos = {
   gas_unit_price?: string;
   expiration_timestamp_secs?: string;
   chain_id?: number;
-
-  // bcs tnx
   bscTxn?: string;
-
   forcePendingTx?: boolean;
 } & ITxPayload;
 
