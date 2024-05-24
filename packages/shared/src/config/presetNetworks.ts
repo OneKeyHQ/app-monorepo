@@ -2901,6 +2901,44 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2024-03-05T00:00:00.002Z',
   };
 
+  const octa = {
+    'balance2FeeDecimals': 9,
+    'chainId': '800001',
+    'code': 'octa',
+    'decimals': 18,
+    'id': 'evm--800001',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/octa.webp',
+    'name': 'OctaSpace',
+    'shortcode': 'octa',
+    'shortname': 'octa',
+    'symbol': 'OCTA',
+    'feeMeta': {
+      'code': 'octa',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'octaspace',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://scan.octa.space/address/{address}',
+        'block': 'https://scan.octa.space/block/{block}',
+        'name': 'https://scan.octa.space/',
+        'transaction': 'https://scan.octa.space/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-05-24T00:29:24.951Z',
+    'updatedAt': '2024-05-24T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     aptos,
     polkadot,
@@ -2950,6 +2988,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     iotex,
     mantapacific,
     blast,
+    octa,
     // cosmos
     celestia,
     secret,
