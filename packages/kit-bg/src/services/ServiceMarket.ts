@@ -32,9 +32,6 @@ class ServiceMarket extends ServiceBase {
     }>('/utility/v1/market/category/list');
     const { code, data } = response.data;
     data[0].name = 'Watchlist';
-    if (code !== 0) {
-      return [];
-    }
     return filters.length
       ? data.filter((i) => !filters.includes(i.categoryId))
       : data;
@@ -82,8 +79,8 @@ class ServiceMarket extends ServiceBase {
         return urlSearchParams.toString();
       },
     });
-    const { code, data } = response.data;
-    return code === 0 ? data : [];
+    const { data } = response.data;
+    return data;
   }
 
   @backgroundMethod()
@@ -98,8 +95,8 @@ class ServiceMarket extends ServiceBase {
         explorer_platforms: explorerPlatforms,
       },
     });
-    const { code, data } = response.data;
-    return code === 0 ? data : ({} as IMarketTokenDetail);
+    const { data } = response.data;
+    return data;
   }
 
   @backgroundMethod()
@@ -161,7 +158,7 @@ class ServiceMarket extends ServiceBase {
         },
       });
       const { code, data } = response.data;
-      return code === 0 ? data : [];
+      return data;
     } catch {
       return [];
     }
@@ -180,8 +177,8 @@ class ServiceMarket extends ServiceBase {
         points,
       },
     });
-    const { code, data } = response.data;
-    return code === 0 ? data : [];
+    const { data } = response.data;
+    return data;
   }
 
   @backgroundMethod()
@@ -195,8 +192,8 @@ class ServiceMarket extends ServiceBase {
         query,
       },
     });
-    const { code, data } = response.data;
-    if (code === 0) {
+    const { data } = response.data;
+    if (data.length) {
       return this.fetchCategory('all', data, false);
     }
     return [];
