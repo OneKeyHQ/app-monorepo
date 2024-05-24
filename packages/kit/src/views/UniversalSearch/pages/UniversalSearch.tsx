@@ -273,6 +273,7 @@ export function UniversalSearch({
     renderItem,
     renderSectionHeader,
     searchStatus,
+    searchType,
     sections,
   ]);
 

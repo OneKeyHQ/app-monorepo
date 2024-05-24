@@ -82,10 +82,11 @@ function UrlAccountAutoCreate({ redirectMode }: { redirectMode?: boolean }) {
         routeAddress = networkId;
         networkId = undefined;
         networkCode = undefined;
-        const result = await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-          input: routeAddress,
-          searchTypes: [EUniversalSearchType.Address],
-        });
+        const result =
+          await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+            input: routeAddress,
+            searchTypes: [EUniversalSearchType.Address],
+          });
         const firstAddressItemPayload =
           result?.[EUniversalSearchType.Address]?.items?.[0]?.payload;
         if (firstAddressItemPayload) {

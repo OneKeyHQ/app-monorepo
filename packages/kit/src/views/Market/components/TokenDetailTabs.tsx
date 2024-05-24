@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
 import { Stack, Tab, useMedia } from '@onekeyhq/components';
@@ -13,9 +14,11 @@ import { MarketDetailPools } from './MarketDetailPools';
 function BasicTokenDetailTabs({
   token,
   pools,
+  listHeaderComponent,
 }: {
   token: IMarketTokenDetail;
   pools: IMarketDetailPool[];
+  listHeaderComponent?: ReactElement;
 }) {
   const { md } = useMedia();
 
@@ -52,6 +55,7 @@ function BasicTokenDetailTabs({
     <Stack $gtMd={{ pt: '$10', px: '$5' }} py="$5">
       <Tab.Page
         data={tabConfig}
+        ListHeaderComponent={listHeaderComponent}
         onSelectedPageIndex={(index: number) => {
           console.log('选中', index);
         }}

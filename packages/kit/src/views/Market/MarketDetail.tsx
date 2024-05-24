@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -179,6 +179,22 @@ function MarketDetail({
     return null;
   }
 
+  const tokenDetailHeader = useMemo(
+    () => (
+      <TokenDetailHeader
+        coinGeckoId={coinGeckoId}
+        token={tokenDetail}
+        pools={pools}
+      />
+    ),
+    [coinGeckoId, pools, tokenDetail],
+  );
+
+  const tokenPriceChart = useMemo(
+    () => <TokenPriceChart coinGeckoId={coinGeckoId} />,
+    [coinGeckoId],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -187,23 +203,34 @@ function MarketDetail({
         headerRight={renderHeaderRight}
         headerLeft={renderHeaderLeft}
       />
-      <YStack>
-        <Stack
-          flexDirection="column"
-          $gtMd={{ flexDirection: 'row', pt: '$5' }}
-          $md={{ space: '$5', pt: '$3' }}
-        >
-          <TokenDetailHeader
-            coinGeckoId={coinGeckoId}
+      <Page.Body>
+        {gtMd ? (
+          <YStack>
+            <Stack
+              flexDirection="column"
+              $gtMd={{ flexDirection: 'row', pt: '$5' }}
+              $md={{ space: '$5', pt: '$3' }}
+            >
+              {tokenDetailHeader}
+              <YStack flex={1}>
+                {tokenPriceChart}
+                <TokenDetailTabs token={tokenDetail} pools={pools} />
+              </YStack>
+            </Stack>
+          </YStack>
+        ) : (
+          <TokenDetailTabs
             token={tokenDetail}
             pools={pools}
+            listHeaderComponent={
+              <YStack>
+                {tokenDetailHeader}
+                {tokenPriceChart}
+              </YStack>
+            }
           />
-          <YStack flex={1}>
-            <TokenPriceChart coinGeckoId={coinGeckoId} />
-            <TokenDetailTabs token={tokenDetail} pools={pools} />
-          </YStack>
-        </Stack>
-      </YStack>
+        )}
+      </Page.Body>
     </Page>
   );
 }
