@@ -10,6 +10,7 @@ import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -50,4 +51,6 @@ export class SimpleDb {
   lightning = new SimpleDbEntityLightning();
 
   feeInfo = new SimpleDbEntityFeeInfo();
+
+  marketWatchList = new SimpleDbEntityMarketWatchList();
 }

@@ -9,5 +9,4 @@ export * from './password';
 export * from './settings';
 export * from './onboarding';
 export * from './InAppNotification';
-export * from './marketWatchList';
 export * from './universalSearch';

@@ -14,6 +14,7 @@ import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
 import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -101,4 +102,8 @@ export class SimpleDbProxy
   lightning = this._createProxyService('lightning') as SimpleDbEntityLightning;
 
   feeInfo = this._createProxyService('feeInfo') as SimpleDbEntityFeeInfo;
+
+  marketWatchList = this._createProxyService(
+    'marketWatchList',
+  ) as SimpleDbEntityMarketWatchList;
 }

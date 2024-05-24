@@ -11,10 +11,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useMarketWatchListPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
+import { useMarketWatchListAtom } from '../../../states/jotai/contexts/market';
+
 import { MarketHomeList } from './MarketHomeList';
+import { useWatchListAction } from './wachListHooks';
 
 function RecommendItem({
   icon,
@@ -80,7 +82,9 @@ function RecommendItem({
 
 const maxSize = 8;
 export function MarketWatchList({ category }: { category: IMarketCategory }) {
-  const [{ items: watchListCoingeckoIds }] = useMarketWatchListPersistAtom();
+  const [{ data: watchListCoingeckoIds }] = useMarketWatchListAtom();
+
+  const actions = useWatchListAction();
 
   const defaultCoingeckoIds = useMemo(
     () =>
@@ -103,13 +107,9 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     [],
   );
 
-  const handleAddTokens = useCallback(async () => {
-    await backgroundApiProxy.serviceMarket.addIntoWatchList(
-      coingeckoIds.map((coingeckoId) => ({
-        coingeckoId,
-      })),
-    );
-  }, [coingeckoIds]);
+  const handleAddTokens = useCallback(() => {
+    actions.addIntoWatchList(coingeckoIds);
+  }, [actions, coingeckoIds]);
 
   const { gtMd } = useMedia();
   const renderRecommend = useCallback(() => {

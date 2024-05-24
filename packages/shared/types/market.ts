@@ -178,3 +178,7 @@ export interface IMarketDetailPool {
 export interface IMarketWatchListItem {
   coingeckoId: string;
 }
+
+export interface IMarketWatchListData {
+  data: IMarketWatchListItem[];
+}

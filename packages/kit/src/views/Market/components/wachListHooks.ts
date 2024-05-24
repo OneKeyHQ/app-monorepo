@@ -1,26 +1,35 @@
 import { useCallback, useMemo } from 'react';
 
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useWatchListActions } from '../../../states/jotai/contexts/market';
 
 export const useWatchListAction = () => {
-  const removeFormWatchList = useCallback(async (coingeckoId: string) => {
-    const item = {
-      coingeckoId,
-    };
-    await backgroundApiProxy.serviceMarket.removeFormWatchList(item);
-  }, []);
-  const addIntoWatchList = useCallback(async (coingeckoId: string) => {
-    const item = {
-      coingeckoId,
-    };
-    await backgroundApiProxy.serviceMarket.addIntoWatchList(item);
-  }, []);
-  const MoveToTop = useCallback(async (coingeckoId: string) => {
-    const item = {
-      coingeckoId,
-    };
-    await backgroundApiProxy.serviceMarket.moveToTop(item);
-  }, []);
+  const actions = useWatchListActions();
+  const removeFormWatchList = useCallback(
+    (coingeckoId: string) => {
+      const item = {
+        coingeckoId,
+      };
+      actions.current.removeFormWatchList(item);
+    },
+    [actions],
+  );
+  const addIntoWatchList = useCallback(
+    (coingeckoIds: string | string[]) => {
+      const ids = Array.isArray(coingeckoIds) ? coingeckoIds : [coingeckoIds];
+
+      actions.current.addIntoWatchList(ids.map((id) => ({ coingeckoId: id })));
+    },
+    [actions],
+  );
+  const MoveToTop = useCallback(
+    (coingeckoId: string) => {
+      const item = {
+        coingeckoId,
+      };
+      actions.current.moveToTop(item);
+    },
+    [actions],
+  );
   return useMemo(
     () => ({
       removeFormWatchList,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Icon, Page, Tab, useMedia } from '@onekeyhq/components';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -9,6 +10,7 @@ import { MarketHomeHeader } from './components/MarketHomeHeader';
 import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeHeader.md';
 import { MarketHomeList } from './components/MarketHomeList';
 import { MarketWatchList } from './components/MarketWatchList';
+import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 function MarketHome() {
   const [categories, setCategories] = useState<IMarketCategory[]>([]);
@@ -34,6 +36,7 @@ function MarketHome() {
       })) || [],
     [categories],
   );
+
   return (
     <Page>
       {gtMd ? <MarketHomeHeader /> : <MDMarketHomeHeader />}
@@ -58,4 +61,12 @@ function MarketHome() {
   );
 }
 
-export default MarketHome;
+export default function MarketHomeWithProvider() {
+  return (
+    <MarketWatchListProviderMirror
+      storeName={EJotaiContextStoreNames.marketWatchList}
+    >
+      <MarketHome />
+    </MarketWatchListProviderMirror>
+  );
+}

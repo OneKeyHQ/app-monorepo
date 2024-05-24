@@ -7,11 +7,11 @@ import { useWatchListAction } from './wachListHooks';
 
 function BasicMarketMore({ coingeckoId }: { coingeckoId: string }) {
   const actions = useWatchListAction();
-  const handleRemove = useCallback(async () => {
-    await actions.removeFormWatchList(coingeckoId);
+  const handleRemove = useCallback(() => {
+    actions.removeFormWatchList(coingeckoId);
   }, [actions, coingeckoId]);
-  const MoveToTop = useCallback(async () => {
-    await actions.MoveToTop(coingeckoId);
+  const MoveToTop = useCallback(() => {
+    actions.MoveToTop(coingeckoId);
   }, [actions, coingeckoId]);
   const sections = useMemo(
     () => [

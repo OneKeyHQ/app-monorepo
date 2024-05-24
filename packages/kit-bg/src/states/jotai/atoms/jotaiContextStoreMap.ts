@@ -13,6 +13,7 @@ export enum EJotaiContextStoreNames {
   discoveryBrowser = 'discoveryBrowser',
   swap = 'swap',
   swapModal = 'swapModal',
+  marketWatchList = 'marketWatchList',
 }
 export type IJotaiContextStoreData = {
   storeName: EJotaiContextStoreNames;

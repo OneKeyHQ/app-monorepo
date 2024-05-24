@@ -19,6 +19,7 @@ import { AccountSelectorRootProvider } from '../../../components/AccountSelector
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
 import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
 import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
+import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
 import {
   SwapModalRootProvider,
   SwapRootProvider,
@@ -133,6 +134,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.discoveryBrowser: {
             return <DiscoveryBrowserRootProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.marketWatchList: {
+            return <MarketWatchListProvider key={key} />;
           }
           case EJotaiContextStoreNames.swap: {
             return <SwapRootProvider key={key} />;
