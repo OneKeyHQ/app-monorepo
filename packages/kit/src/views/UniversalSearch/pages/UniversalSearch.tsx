@@ -17,6 +17,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
@@ -37,6 +38,7 @@ import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtil
 import { MarketStar } from '../../Market/components/MarketStar';
 
 import { RecentSearched } from './components/RecentSearched';
+import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 
 interface IUniversalSection {
   title: string;
@@ -298,7 +300,7 @@ export function UniversalSearch({
   );
 }
 
-const UniversalSearchProvider = ({
+const UniversalSearchWithProvider = ({
   route,
 }: IPageScreenProps<
   IUniversalSearchParamList,
@@ -311,10 +313,14 @@ const UniversalSearchProvider = ({
     }}
     enabledNum={[0]}
   >
-    <UniversalSearch
-      searchType={route?.params?.filterType || EUniversalSearchType.Address}
-    />
+    <UniversalSearchProviderMirror
+      storeName={EJotaiContextStoreNames.universalSearch}
+    >
+      <UniversalSearch
+        searchType={route?.params?.filterType || EUniversalSearchType.Address}
+      />
+    </UniversalSearchProviderMirror>
   </AccountSelectorProviderMirror>
 );
 
-export default UniversalSearchProvider;
+export default UniversalSearchWithProvider;

@@ -24,6 +24,7 @@ import {
   SwapModalRootProvider,
   SwapRootProvider,
 } from '../../../views/Swap/pages/SwapRootProvider';
+import { UniversalSearchProvider } from '../../../views/UniversalSearch/pages/UniversalSearchProvider';
 
 import { buildJotaiContextStoreId } from './jotaiContextStore';
 
@@ -134,6 +135,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.discoveryBrowser: {
             return <DiscoveryBrowserRootProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.universalSearch: {
+            return <UniversalSearchProvider key={key} />;
           }
           case EJotaiContextStoreNames.marketWatchList: {
             return <MarketWatchListProvider key={key} />;

@@ -3,11 +3,11 @@ import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJ
 import type { IUniversalSearchAtomData } from '@onekeyhq/shared/types/search';
 
 const {
-  Provider: ProviderJotaiContextMarketWatchList,
+  Provider: ProviderJotaiContextUniversalSearch,
   contextAtom,
   contextAtomMethod,
 } = createJotaiContext();
-export { ProviderJotaiContextMarketWatchList, contextAtomMethod };
+export { ProviderJotaiContextUniversalSearch, contextAtomMethod };
 
 export const { atom: universalSearchAtom, use: useUniversalSearchAtom } =
   contextAtom<IUniversalSearchAtomData>({ recentSearch: [] });

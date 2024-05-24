@@ -52,6 +52,7 @@ export function RecentSearched({
   searchType?: EUniversalSearchType;
 }) {
   const [{ recentSearch }] = useUniversalSearchAtom();
+
   const actions = useUniversalSearchActions();
 
   const navigation = useAppNavigation();

@@ -14,6 +14,7 @@ export enum EJotaiContextStoreNames {
   swap = 'swap',
   swapModal = 'swapModal',
   marketWatchList = 'marketWatchList',
+  universalSearch = 'universalSearch',
 }
 export type IJotaiContextStoreData = {
   storeName: EJotaiContextStoreNames;
