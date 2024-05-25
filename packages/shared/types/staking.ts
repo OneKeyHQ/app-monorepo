@@ -38,6 +38,11 @@ export type ILidoMaticOverview = {
   requests: ILidoMaticRequest[];
 };
 
+export type IAllowanceOverview = {
+  allowance: string;
+  approveTarget: string;
+};
+
 export type IAprItem = {
   protocol: string;
   apr: number;

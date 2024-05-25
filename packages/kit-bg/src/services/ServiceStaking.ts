@@ -5,6 +5,7 @@ import {
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  IAllowanceOverview,
   IAprItem,
   IAprToken,
   ILidoEthOverview,
@@ -192,6 +193,19 @@ class ServiceStaking extends ServiceBase {
     const resp = await client.post<{
       data: IServerEvmTransaction;
     }>(`/earn/v1/lido-matic/tx/claim`, { tokenId });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async fetchLidoMaticAllowance({
+    accountAddress,
+  }: {
+    accountAddress: string;
+  }) {
+    const client = await this.getClient();
+    const resp = await client.get<{
+      data: IAllowanceOverview;
+    }>(`/earn/v1/lido-matic/allowance`, { params: { accountAddress } });
     return resp.data.data;
   }
 }
