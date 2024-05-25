@@ -1,10 +1,13 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { Psbt } from 'bitcoinjs-lib';
 
-import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import { toPsbtNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import type IProviderApiBtc from '@onekeyhq/kit-bg/src/providers/ProviderApiBtc';
 import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -83,7 +86,7 @@ class ProviderApiPrivateExternalAccount extends ProviderApiBase {
         options: {
           networkImpl:
             // @ts-expect-error
-            request.data?.network === 'testnet' ? IMPL_TBTC : IMPL_BTC,
+            request.data?.params === 'testnet' ? IMPL_TBTC : IMPL_BTC,
         },
       });
     if (
@@ -115,31 +118,51 @@ class ProviderApiPrivateExternalAccount extends ProviderApiBase {
   @providerApiMethod()
   async btc_signTransaction(request: IJsBridgeMessagePayload) {
     console.log('===>sign data: ', request.data);
-    const { encodedTx, network } = (
+    const { psbtHex, network: dAppNetwork } = (
       request.data as {
         method: string;
         params: {
-          encodedTx: IEncodedTxBtc;
+          psbtHex: string;
           network: 'mainnet' | 'testnet';
         };
       }
     ).params;
-    if (!network) {
+    if (!dAppNetwork) {
       throw new Error('network is required');
     }
-    if (!encodedTx) {
-      throw new Error('encodedTx is required');
+    if (!psbtHex) {
+      throw new Error('psbtHex is required');
     }
-    const accountsInfo = await this.getAccounts(request);
-    const connectedAccount = accountsInfo[0];
-    const result =
-      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
-        request,
-        encodedTx,
-        accountId: connectedAccount.accountInfo.accountId,
-        networkId: connectedAccount.accountInfo.networkId ?? '',
-      });
-    return result;
+    //   const accountsInfo = await this.getAccounts(request);
+    //   const connectedAccount = accountsInfo[0];
+    //   const result =
+    //     await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+    //       request,
+    //       encodedTx,
+    //       accountId: connectedAccount.accountInfo.accountId,
+    //       networkId: connectedAccount.accountInfo.networkId ?? '',
+    //     });
+    //   return result;
+    // }
+    const networkId =
+      dAppNetwork === 'testnet'
+        ? getNetworkIdsMap().tbtc
+        : getNetworkIdsMap().btc;
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    const psbt = Psbt.fromHex(psbtHex);
+    const psbtNetwork = toPsbtNetwork(network);
+    const providerApiBtc = this.backgroundApi.providers.btc as IProviderApiBtc;
+    const result = await providerApiBtc._signPsbt(request, {
+      psbt,
+      psbtNetwork,
+      options: {
+        autoFinalized: true,
+        isBtcWalletProvider: true,
+      },
+    });
+    console.log('=====>result: ', result);
   }
 }
 

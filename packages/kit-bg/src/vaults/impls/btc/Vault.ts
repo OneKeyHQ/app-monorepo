@@ -249,7 +249,7 @@ export default class VaultBtc extends VaultBase {
 
     if (encodedTx) {
       return this._buildUnsignedTxFromEncodedTx({
-        encodedTx: encodedTx as IEncodedTxBtc,
+        encodedTx,
         transfersInfo: params.transfersInfo ?? [],
       });
     }

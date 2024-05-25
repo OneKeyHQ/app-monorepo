@@ -428,7 +428,7 @@ class ProviderApiBtc extends ProviderApiBase {
     return result;
   }
 
-  private async _signPsbt(
+  async _signPsbt(
     request: IJsBridgeMessagePayload,
     params: {
       psbt: Psbt;
