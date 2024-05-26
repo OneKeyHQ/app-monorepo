@@ -1,3 +1,4 @@
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Psbt } from 'bitcoinjs-lib';
 
@@ -9,6 +10,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
+
+import { vaultFactory } from '../vaults/factory';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -118,6 +121,16 @@ class ProviderApiPrivateExternalAccount extends ProviderApiBase {
   @providerApiMethod()
   async btc_signTransaction(request: IJsBridgeMessagePayload) {
     console.log('===>sign data: ', request.data);
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, address } = {} } = accountsInfo[0];
+
+    if (!accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
     const { psbtHex, network: dAppNetwork } = (
       request.data as {
         method: string;
@@ -133,17 +146,6 @@ class ProviderApiPrivateExternalAccount extends ProviderApiBase {
     if (!psbtHex) {
       throw new Error('psbtHex is required');
     }
-    //   const accountsInfo = await this.getAccounts(request);
-    //   const connectedAccount = accountsInfo[0];
-    //   const result =
-    //     await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
-    //       request,
-    //       encodedTx,
-    //       accountId: connectedAccount.accountInfo.accountId,
-    //       networkId: connectedAccount.accountInfo.networkId ?? '',
-    //     });
-    //   return result;
-    // }
     const networkId =
       dAppNetwork === 'testnet'
         ? getNetworkIdsMap().tbtc
@@ -162,7 +164,25 @@ class ProviderApiPrivateExternalAccount extends ProviderApiBase {
         isBtcWalletProvider: true,
       },
     });
-    console.log('=====>result: ', result);
+
+    const signedTx = Psbt.fromHex(result).extractTransaction();
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    const broadcastRes = await vault.broadcastTransaction({
+      accountAddress: address ?? '',
+      networkId,
+      signedTx: {
+        txid: '',
+        rawTx: signedTx.toHex(),
+        encodedTx: null,
+      },
+    });
+    return {
+      rawTx: signedTx.toHex(),
+      txid: broadcastRes.txid,
+    };
   }
 }
 
