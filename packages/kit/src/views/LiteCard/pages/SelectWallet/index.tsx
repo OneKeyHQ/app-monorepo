@@ -31,6 +31,7 @@ export default function SelectWalletPage() {
   return (
     <Page>
       <WalletListView
+        walletList={walletList}
         onPick={onPick}
         ListEmptyComponent={
           <Empty
