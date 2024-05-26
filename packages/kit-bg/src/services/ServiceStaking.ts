@@ -158,15 +158,13 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   public async buildLidoMaticStakingTransaction({
     amount,
-    accountAddress,
   }: {
-    accountAddress: string;
     amount: string;
   }) {
     const client = await this.getClient();
     const resp = await client.post<{
-      data: IServerEvmTransaction[];
-    }>(`/earn/v1/lido-matic/tx/stake`, { amount, accountAddress });
+      data: IServerEvmTransaction;
+    }>(`/earn/v1/lido-matic/tx/stake`, { amount });
     return resp.data.data;
   }
 
@@ -197,15 +195,27 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchLidoMaticAllowance({
-    accountAddress,
-  }: {
-    accountAddress: string;
+  public async fetchTokenAllowance(params: {
+    networkId: string;
+    accountId: string;
+    tokenAddress: string;
+    spenderAddress: string;
+    blockNumber?: number;
   }) {
+    const { networkId, accountId, ...rest } = params;
     const client = await this.getClient();
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+
     const resp = await client.get<{
       data: IAllowanceOverview;
-    }>(`/earn/v1/lido-matic/allowance`, { params: { accountAddress } });
+    }>(`/earn/v1/on-chain/allowance`, {
+      params: { accountAddress, networkId, ...rest },
+    });
+
     return resp.data.data;
   }
 }

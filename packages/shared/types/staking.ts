@@ -26,7 +26,7 @@ export type ILidoEthOverview = {
   minWithdrawAmount: string;
 };
 
-type ILidoMaticRequest = {
+export type ILidoMaticRequest = {
   id: number;
   claimable: boolean;
   amount: string;
@@ -40,7 +40,7 @@ export type ILidoMaticOverview = {
 
 export type IAllowanceOverview = {
   allowance: string;
-  approveTarget: string;
+  allowanceParsed: string;
 };
 
 export type IAprItem = {

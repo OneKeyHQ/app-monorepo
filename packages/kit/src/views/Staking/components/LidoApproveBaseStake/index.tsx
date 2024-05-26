@@ -12,35 +12,62 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { useTokenAllowance } from '../../hooks/useUtilsHooks';
 import { LIDO_LOGO_URI } from '../../utils/const';
 
-type ILidoStakeProps = {
+type ILidoApproveBaseStakeProps = {
   price: string;
   balance: string;
-  minAmount?: number;
-  tokenImageUri: string;
-  tokenSymbol: string;
-  stTokenSymbol: string;
+  token: IToken;
+  receivingTokenSymbol: string;
+  approveTarget: {
+    accountId: string;
+    networkId: string;
+    spenderAddress: string;
+    token: IToken;
+  };
+  currentAllowance?: string;
   apr?: number;
+  minAmount?: number;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
-export const LidoStake = ({
+export const LidoApproveBaseStake = ({
   price,
   balance,
+  token,
+  receivingTokenSymbol,
   apr = 4,
   minAmount = 0,
-  tokenImageUri,
-  tokenSymbol,
-  stTokenSymbol,
+  currentAllowance = '0',
   onConfirm,
-}: PropsWithChildren<ILidoStakeProps>) => {
+  approveTarget,
+}: PropsWithChildren<ILidoApproveBaseStakeProps>) => {
+  const { navigationToSendConfirm } = useSendConfirm({
+    accountId: approveTarget.accountId,
+    networkId: approveTarget.networkId,
+  });
   const [loading, setLoading] = useState<boolean>(false);
+  const [approving, setApproving] = useState<boolean>(false);
+  const {
+    allowance,
+    loading: loadingAllowance,
+    refreshAllowance,
+  } = useTokenAllowance({
+    accountId: approveTarget.accountId,
+    networkId: approveTarget.networkId,
+    tokenAddress: approveTarget.token.address,
+    spenderAddress: approveTarget.spenderAddress,
+    initialValue: currentAllowance,
+  });
   const [amountValue, setAmountValue] = useState('');
   const [
     {
@@ -58,15 +85,6 @@ export const LidoStake = ({
     }
     setAmountValue(value);
   }, []);
-
-  const onPress = useCallback(async () => {
-    setLoading(true);
-    try {
-      await onConfirm?.(amountValue);
-    } finally {
-      setLoading(false);
-    }
-  }, [onConfirm, amountValue]);
 
   const currentValue = useMemo<string | undefined>(() => {
     const amountValueBn = new BigNumber(amountValue);
@@ -96,6 +114,55 @@ export const LidoStake = ({
     [amountValue, isInsufficientBalance, isLessThanMinAmount],
   );
 
+  const isApprove = useMemo(() => {
+    const amountValueBN = BigNumber(amountValue);
+    const allowanceBN = new BigNumber(allowance);
+    return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
+  }, [amountValue, allowance]);
+
+  const onConfirmText = useMemo(() => {
+    if (isInsufficientBalance) {
+      return 'Insufficient balance';
+    }
+    if (isApprove) {
+      return `Approve ${amountValue} ${token.symbol.toUpperCase()}`;
+    }
+    return 'Stake';
+  }, [isInsufficientBalance, isApprove, token, amountValue]);
+
+  const onApprove = useCallback(async () => {
+    setApproving(true);
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+    await navigationToSendConfirm({
+      approveInfo: {
+        owner: account.address,
+        spender: approveTarget.spenderAddress,
+        amount: amountValue,
+        tokenInfo: approveTarget.token,
+      },
+      onSuccess(data) {
+        console.log('data', data);
+        refreshAllowance(data[0].decodedTx.txid);
+        setApproving(false);
+      },
+      onFail() {
+        setApproving(false);
+      },
+    });
+  }, [amountValue, approveTarget, navigationToSendConfirm, refreshAllowance]);
+
+  const onSubmit = useCallback(async () => {
+    setLoading(true);
+    try {
+      await onConfirm?.(amountValue);
+    } finally {
+      setLoading(false);
+    }
+  }, [onConfirm, amountValue]);
+
   const estAnnualRewards = useMemo(() => {
     const bn = BigNumber(amountValue);
     if (!amountValue || bn.isNaN()) {
@@ -105,7 +172,7 @@ export const LidoStake = ({
     return (
       <XStack space="$1">
         <SizableText>
-          {amountBN.toFixed()} {tokenSymbol.toUpperCase()} ({' '}
+          {amountBN.toFixed()} {token.symbol.toUpperCase()} ({' '}
           <NumberSizeableText
             formatter="value"
             formatterOptions={{ currency: symbol }}
@@ -116,7 +183,7 @@ export const LidoStake = ({
         </SizableText>
       </XStack>
     );
-  }, [amountValue, apr, price, symbol, tokenSymbol]);
+  }, [amountValue, apr, price, symbol, token.symbol]);
 
   return (
     <YStack>
@@ -126,8 +193,8 @@ export const LidoStake = ({
           value={amountValue}
           onChange={onChangeAmountValue}
           tokenSelectorTriggerProps={{
-            selectedTokenImageUri: tokenImageUri,
-            selectedTokenSymbol: tokenSymbol.toUpperCase(),
+            selectedTokenImageUri: token.logoURI,
+            selectedTokenSymbol: token.symbol.toUpperCase(),
           }}
           balanceProps={{
             value: balance,
@@ -164,7 +231,7 @@ export const LidoStake = ({
               titleProps={{ color: '$textSubdued' }}
             >
               <ListItem.Text
-                primary={`${amountValue} ${stTokenSymbol.toUpperCase()}`}
+                primary={`${amountValue} ${receivingTokenSymbol.toUpperCase()}`}
               />
             </ListItem>
           ) : null}
@@ -189,10 +256,10 @@ export const LidoStake = ({
         </YStack>
       </Stack>
       <Page.Footer
-        onConfirmText={isInsufficientBalance ? 'Insufficient balance' : 'Stake'}
+        onConfirmText={onConfirmText}
         confirmButtonProps={{
-          onPress,
-          loading,
+          onPress: isApprove ? onApprove : onSubmit,
+          loading: loading || loadingAllowance || approving,
           disabled: isDisable,
         }}
       />
