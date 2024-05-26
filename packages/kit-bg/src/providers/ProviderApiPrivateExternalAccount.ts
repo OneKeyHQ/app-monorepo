@@ -56,11 +56,6 @@ class ProviderApiPrivateExternalAccount extends ProviderApiBase {
 
   // Provider API
   @providerApiMethod()
-  async simpleMethod() {
-    return Promise.resolve('Hello World');
-  }
-
-  @providerApiMethod()
   async btc_requestAccount(
     request: IJsBridgeMessagePayload,
   ): Promise<IPrivateBTCExternalAccount> {
