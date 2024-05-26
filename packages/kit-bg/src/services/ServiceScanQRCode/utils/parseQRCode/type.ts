@@ -1,7 +1,6 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-
-import type { UR } from '@ngraveio/bc-ur';
 
 export enum EQRCodeHandlerType {
   UNKNOWN = 'UNKNOWN',
@@ -77,8 +76,9 @@ export interface IMigrateValue extends IBaseValue {
 export interface IAnimationValue extends IBaseValue {
   partIndexes: number[];
   partSize: number;
+  parts: string[];
   fullData?: string;
-  fullUr?: UR;
+  fullUr?: IAirGapUrJson;
   progress: number;
 }
 export interface IUrlValue extends IBaseValue {

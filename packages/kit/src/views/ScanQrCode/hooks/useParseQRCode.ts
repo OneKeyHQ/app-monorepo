@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import { Dialog, rootNavigationRef, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type {
   IAnimationValue,
   IBaseValue,
@@ -14,6 +13,7 @@ import type {
   IUrlAccountValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
@@ -74,6 +74,7 @@ const useParseQRCode = () => {
               params: {
                 networkId: network.id,
                 accountId,
+
                 networkName: network.name,
                 // tokens,
                 onSelect: async (token) => {

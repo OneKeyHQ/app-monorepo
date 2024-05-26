@@ -1,5 +1,9 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -33,6 +37,6 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(): Promise<string[]> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

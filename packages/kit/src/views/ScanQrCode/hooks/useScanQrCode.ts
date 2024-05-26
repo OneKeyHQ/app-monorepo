@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { Vibration } from 'react-native';
 
+import { resetAnimationQrcodeScan } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers';
 import type {
   IAnimationValue,
   IBaseValue,
@@ -28,6 +29,8 @@ export default function useScanQrCode() {
       mask = false,
     }: IQRCodeHandlerParseOutsideOptions) =>
       new Promise<IQRCodeHandlerParseResult<IBaseValue>>((resolve, reject) => {
+        resetAnimationQrcodeScan();
+
         navigation.pushFullModal(EModalRoutes.ScanQrCodeModal, {
           screen: EScanQrCodeModalPages.ScanQrCodeStack,
           params: {
@@ -41,6 +44,7 @@ export default function useScanQrCode() {
                 if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
                   const animationValue = parseValue.data as IAnimationValue;
                   if (animationValue.fullData) {
+                    parseValue.raw = animationValue.fullData;
                     resolve(parseValue);
                   }
                   Vibration.vibrate(1);

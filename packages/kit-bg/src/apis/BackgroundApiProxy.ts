@@ -18,6 +18,7 @@ import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
+import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceE2E from '../services/ServiceE2E';
@@ -117,6 +118,8 @@ class BackgroundApiProxy
   serviceDiscovery = this._createProxyService(
     'serviceDiscovery',
   ) as ServiceDiscovery;
+
+  serviceDemo = this._createProxyService('serviceDemo') as ServiceDemo;
 
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
 

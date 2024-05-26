@@ -6,7 +6,10 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { pubkeyToAddress } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/address';
 import { getConfig } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/config';
 import { serializeTransactionMessage } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/transaction';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
@@ -33,7 +36,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     return this.baseGetPrivateKeys({
       payload,
       curve,
@@ -75,13 +78,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
@@ -94,7 +97,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const { publicKey } = query;
     const chainId = query.networkInfo.chainId;
     const config = getConfig(chainId);
@@ -112,7 +115,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     return this.baseGetAddressesFromHd(query, {
       curve,
     });
