@@ -1,10 +1,12 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
 import { getTokenValue } from '../../hooks';
 import { Button, Stack, XStack } from '../../primitives';
+
+import { PageContext } from './PageContext';
 
 import type { IButtonProps, IStackProps } from '../../primitives';
 import type { IPageNavigationProp } from '../Navigation';
@@ -87,10 +89,31 @@ export function FooterConfirmButton({
   onConfirm: IFooterActionsProps['onConfirm'];
 }) {
   const { pop, popStack } = usePageNavigation();
+  const { confirmedRef } = useContext(PageContext);
+
+  const updateConfirmedRef = useCallback(() => {
+    if (confirmedRef) {
+      confirmedRef.current = true;
+    }
+  }, [confirmedRef]);
+
+  const popCallback = useCallback(() => {
+    pop();
+    updateConfirmedRef();
+  }, [pop, updateConfirmedRef]);
+
+  const popStackCallback = useCallback(() => {
+    popStack();
+    updateConfirmedRef();
+  }, [popStack, updateConfirmedRef]);
 
   const handleConfirm = useCallback(() => {
-    onConfirm?.(pop, popStack);
-  }, [onConfirm, pop, popStack]);
+    onConfirm?.(popCallback, popStackCallback);
+    if (confirmedRef) {
+      confirmedRef.current = true;
+    }
+  }, [confirmedRef, onConfirm, popCallback, popStackCallback]);
+
   return (
     <Button
       $md={
