@@ -21,6 +21,8 @@ export enum EOneKeyErrorClassNames {
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
+  OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
+  OneKeyErrorAirGapAccountNotFound = 'OneKeyErrorAirGapAccountNotFound',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

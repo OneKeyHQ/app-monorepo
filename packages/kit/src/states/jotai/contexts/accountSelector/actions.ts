@@ -8,6 +8,7 @@ import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IDBAccount,
   IDBCreateHWWalletParamsBase,
+  IDBCreateQRWalletParams,
   IDBIndexedAccount,
   IDBWallet,
   IDBWalletIdSingleton,
@@ -601,6 +602,62 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }),
   );
 
+  createQrWallet = contextAtomMethod(
+    async (
+      _,
+      set,
+      params: IDBCreateQRWalletParams & {
+        isOnboarding?: boolean;
+      },
+    ) =>
+      this.withFinalizeWalletSetupStep.call(set, {
+        createWalletFn: async () => {
+          const qrDevice = params?.qrDevice;
+          const airGapAccounts = params?.airGapAccounts;
+          if (!qrDevice) {
+            throw new Error('qrDevice is required');
+          }
+          const result = await serviceAccount.createQrWallet({
+            qrDevice,
+            airGapAccounts,
+          });
+          if (params?.isOnboarding) {
+            await this.autoSelectToCreatedWallet.call(set, result);
+          }
+          return result;
+        },
+        generatingAccountsFn: async ({ wallet, indexedAccount }) => {
+          if (params?.isOnboarding) {
+            const result = await serviceAccount.addDefaultNetworkAccounts({
+              walletId: wallet.id,
+              indexedAccountId: indexedAccount.id,
+            });
+            await this.updateSelectedAccount.call(set, {
+              num: 0, // update home num selector
+              builder: (v) => {
+                const currentNetworkSupport = result?.addedAccounts?.find(
+                  (item) =>
+                    item.networkId === v.networkId &&
+                    item.deriveType === v.deriveType,
+                );
+                const firstAccount = result?.addedAccounts?.[0];
+
+                if (currentNetworkSupport || !firstAccount) {
+                  return v;
+                }
+
+                return {
+                  ...v,
+                  networkId: firstAccount.networkId,
+                  deriveType: firstAccount.deriveType || 'default',
+                };
+              },
+            });
+          }
+        },
+      }),
+  );
+
   removeAccount = contextAtomMethod(
     async (
       get,
@@ -1143,8 +1200,24 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (
       get,
       set,
-      { num, triggerBy }: { num: number; triggerBy?: 'removeWallet' },
+      {
+        sceneName,
+        sceneUrl,
+        num,
+        triggerBy,
+      }: {
+        sceneName?: EAccountSelectorSceneName;
+        sceneUrl?: string;
+        num: number;
+        triggerBy?: 'removeWallet';
+      },
     ) => {
+      console.log('accountSelector actions.autoSelectAccount >>> ', {
+        sceneName,
+        sceneUrl,
+        num,
+        triggerBy,
+      });
       // wait activeAccount build done
       await timerUtils.wait(300);
       const storageReady = get(accountSelectorStorageReadyAtom());
@@ -1347,6 +1420,7 @@ export function useAccountSelectorActions() {
   // const createHWWallet = actions.createHWWallet.use();
   const createHWHiddenWallet = actions.createHWHiddenWallet.use();
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
+  const createQrWallet = actions.createQrWallet.use();
   const autoSelectAccount = actions.autoSelectAccount.use();
   const autoSelectNetworkOfOthersWalletAccount =
     actions.autoSelectNetworkOfOthersWalletAccount.use();
@@ -1378,6 +1452,7 @@ export function useAccountSelectorActions() {
     createHDWallet,
     createHWHiddenWallet,
     createHWWalletWithHidden,
+    createQrWallet,
     autoSelectAccount,
     autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,

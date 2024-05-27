@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import type {
   IExternalConnectResultWalletConnect,
   IExternalConnectWalletResult,
@@ -24,7 +28,7 @@ import type {
 
 export class ExternalControllerWalletConnect extends ExternalControllerBase {
   override listWallets(): Promise<IExternalListWalletsResult> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async createConnector({

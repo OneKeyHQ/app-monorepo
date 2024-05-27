@@ -732,7 +732,7 @@ export function MarketHomeList({
         </XStack>
       </XStack>
     ),
-    [mdColumnKeys, toDetailPage],
+    [handleMdItemAction, mdColumnKeys, toDetailPage],
   );
 
   const renderSelectTrigger = useCallback(

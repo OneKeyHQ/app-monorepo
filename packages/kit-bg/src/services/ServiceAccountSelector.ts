@@ -251,9 +251,12 @@ class ServiceAccountSelector extends ServiceBase {
     })();
 
     if (
-      accountUtils.isHwWallet({
+      (accountUtils.isHwWallet({
         walletId: wallet?.id,
-      }) &&
+      }) ||
+        accountUtils.isQrWallet({
+          walletId: wallet?.id,
+        })) &&
       wallet?.associatedDevice
     ) {
       try {
