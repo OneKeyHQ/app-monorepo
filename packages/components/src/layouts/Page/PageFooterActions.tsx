@@ -14,7 +14,11 @@ import type { IPageNavigationProp } from '../Navigation';
 type IActionButtonProps = Omit<IButtonProps, 'children'>;
 
 export type IFooterActionsProps = {
-  onConfirm?: (close: () => void, closePageStack: () => void) => void;
+  onConfirm?: (
+    close: () => void,
+    closePageStack: () => void,
+    updateConfirmed: (confirmed: boolean) => void,
+  ) => void;
   onCancel?: (
     close: () => void,
     closePageStack: () => void,
@@ -91,11 +95,14 @@ export function FooterConfirmButton({
   const { pop, popStack } = usePageNavigation();
   const { confirmedRef } = useContext(PageContext);
 
-  const updateConfirmedRef = useCallback(() => {
-    if (confirmedRef) {
-      confirmedRef.current = true;
-    }
-  }, [confirmedRef]);
+  const updateConfirmedRef = useCallback(
+    (confirmed = true) => {
+      if (confirmedRef) {
+        confirmedRef.current = confirmed;
+      }
+    },
+    [confirmedRef],
+  );
 
   const popCallback = useCallback(() => {
     pop();
@@ -107,12 +114,21 @@ export function FooterConfirmButton({
     updateConfirmedRef();
   }, [popStack, updateConfirmedRef]);
 
+  const setConfirmed = useCallback(
+    (confirmed: boolean) => {
+      setTimeout(() => {
+        updateConfirmedRef(confirmed);
+      });
+    },
+    [updateConfirmedRef],
+  );
+
   const handleConfirm = useCallback(() => {
-    onConfirm?.(popCallback, popStackCallback);
+    onConfirm?.(popCallback, popStackCallback, setConfirmed);
     if (confirmedRef) {
       confirmedRef.current = true;
     }
-  }, [confirmedRef, onConfirm, popCallback, popStackCallback]);
+  }, [confirmedRef, onConfirm, popCallback, popStackCallback, setConfirmed]);
 
   return (
     <Button
