@@ -259,7 +259,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload: ICoreApiSignTxPayload;
   }) {
     const { unsignedTx, btcExtraInfo } = payload;
-    const { opReturn } = unsignedTx;
     const { inputs, outputs } = unsignedTx.encodedTx as IEncodedTxBtc;
 
     const inputAddressesEncodings = checkIsDefined(
@@ -342,22 +341,27 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
 
     outputs.forEach((output) => {
-      const outputValue: number = new BigNumber(output.value).toNumber();
-      psbt.addOutput({
-        address: output.address,
-        value: outputValue,
-      });
+      const { payload } = output
+      if (
+        payload?.opReturn &&
+        typeof payload?.opReturn === 'string' &&
+        payload?.opReturn.length > 0
+      ) {
+        const embed = payments.embed({
+          data: [loadOPReturn(payload?.opReturn)],
+        });
+        psbt.addOutput({
+          script: checkIsDefined(embed.output),
+          value: 0,
+        });
+      } else {
+        const outputValue: number = new BigNumber(output.value).toNumber();
+        psbt.addOutput({
+          address: output.address,
+          value: outputValue,
+        });
+      }
     });
-
-    if (typeof opReturn === 'string') {
-      const embed = payments.embed({
-        data: [loadOPReturn(opReturn)],
-      });
-      psbt.addOutput({
-        script: checkIsDefined(embed.output),
-        value: 0,
-      });
-    }
 
     return psbt;
   }
