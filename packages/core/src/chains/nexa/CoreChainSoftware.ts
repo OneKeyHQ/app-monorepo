@@ -5,6 +5,7 @@ import { getUtxoAccountPrefixPath } from '../../utils';
 
 import { getDisplayAddress, signEncodedTx } from './sdkNexa';
 
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -41,23 +42,21 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new Error('Method not implemented.');
-    const { unsignedTx } = payload;
+    // throw new NotImplemented();;
+    const { unsignedTx, account } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-    const result = await signEncodedTx(
-      unsignedTx,
-      signer,
-      // @ts-expect-error
-      unsignedTx.payload.address,
-    );
+    if (!account.address) {
+      throw new Error('nexa signTransaction ERROR: account.address is required');
+    }
+    const result = await signEncodedTx(unsignedTx, signer, account.address);
     return result;
   }
 
   override async signMessage(): Promise<string> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(
@@ -97,14 +96,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       xpub: '',
       path,
       addresses: { [networkInfo.networkId]: displayAddress },
-      relPath: '0/0'
+      relPath: '0/0',
     });
   }
 
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     return this.baseGetAddressesFromHd(query, {
       curve,
     });

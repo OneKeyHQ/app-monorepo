@@ -15,8 +15,10 @@ import type {
   ITxOutput,
   ITxUTXO,
 } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -159,7 +161,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   };
 
   async signMessage(): Promise<string[]> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async prepareAccounts(
@@ -172,9 +174,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     return this.basePrepareHdUtxoAccounts(params, {
       checkIsAccountUsed: checkBtcAddressIsUsed,
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const isChange = false;
-        const addressIndex = 0;
-
         const publicKeys = await this.baseGetDeviceAccountPublicKeys({
           params,
           usedIndexes,
@@ -202,7 +201,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
           const { path, xpub, xpubSegwit } = item;
-          const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
+          const addressRelPath = accountUtils.buildUtxoAddressRelPath();
           const { addresses: addressFromXpub } =
             await this.coreApi.getAddressFromXpub({
               network,

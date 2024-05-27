@@ -66,6 +66,14 @@ const EmptyGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Empty'
     ),
 );
+
+const SendGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SendGallery'
+    ),
+);
+
 const ErrorToastGallery = LazyLoadPage(
   () =>
     import(
@@ -79,6 +87,14 @@ const FirmwareUpdateGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/FirmwareUpdateGallery'
     ),
 );
+
+const QRWalletGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/QRWalletGallery'
+    ),
+);
+
 const FormGallery = LazyLoadPage(
   () =>
     import(
@@ -432,6 +448,7 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentInput, component: InputGallery },
   { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: EGalleryRoutes.ComponentEmpty, component: EmptyGallery },
+  { name: EGalleryRoutes.ComponentSend, component: SendGallery },
   { name: EGalleryRoutes.ComponentRadio, component: RadioGallery },
   { name: EGalleryRoutes.ComponentListView, component: ListViewGallery },
   {
@@ -508,6 +525,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentFirmwareUpdate,
     component: FirmwareUpdateGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentQRWallet,
+    component: QRWalletGallery,
   },
   {
     name: EGalleryRoutes.ComponentForm,

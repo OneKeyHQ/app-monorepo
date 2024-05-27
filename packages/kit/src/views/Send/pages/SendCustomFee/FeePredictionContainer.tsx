@@ -32,7 +32,7 @@ function FeePredictionContainer(props: IProps) {
         accountAddress: account.address,
       });
       return r;
-    }, [networkId]).result ?? {};
+    }, [accountId, networkId]).result ?? {};
 
   const renderPrediction = useCallback(
     (item: IGasEIP1559, index: number) => {

@@ -1,18 +1,20 @@
+import { useState } from 'react';
+
+import type { IButtonProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 
-import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
+import { useAccountSelectorCreateAddress } from './hooks/useAccountSelectorCreateAddress';
 
 export function AccountSelectorCreateAddressButton({
   num,
-  children,
+  children, // Button text
   selectAfterCreate,
   account,
-  activeAccount,
+  buttonRender,
 }: {
   num: number;
   children?: React.ReactNode;
@@ -23,48 +25,34 @@ export function AccountSelectorCreateAddressButton({
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
   };
-  activeAccount?: IAccountSelectorActiveAccountInfo;
+  buttonRender?: (props: IButtonProps) => React.ReactNode;
 }) {
   const { serviceAccount } = backgroundApiProxy;
 
-  const actions = useAccountSelectorActions();
-
-  return (
-    <Button
-      size="small"
-      borderWidth={0}
-      variant="tertiary"
-      onPress={async () => {
-        console.log({ account, activeAccount });
-        if (
-          !account ||
-          !account.walletId ||
-          !account.networkId ||
-          !account.indexedAccountId ||
-          !account.deriveType
-        ) {
-          return;
-        }
-        const c = await serviceAccount.addHDOrHWAccounts({
-          walletId: account?.walletId,
-          networkId: account?.networkId,
-          indexedAccountId: account?.indexedAccountId,
-          deriveType: account?.deriveType,
-        });
-        console.log(c);
-        // await refreshCurrentAccount();
-        actions.current.refresh({ num });
-
-        if (selectAfterCreate) {
-          await actions.current.updateSelectedAccountForHdOrHwAccount({
-            num,
-            walletId: c?.walletId,
-            indexedAccountId: c?.indexedAccountId,
+  const { createAddress } = useAccountSelectorCreateAddress();
+  const [isLoading, setIsLoading] = useState(false);
+  // eslint-disable-next-line no-param-reassign
+  buttonRender =
+    buttonRender ||
+    ((props) => (
+      <Button size="small" borderWidth={0} variant="tertiary" {...props} />
+    ));
+  return buttonRender({
+    loading: isLoading,
+    onPress: async () => {
+      setIsLoading(true);
+      try {
+        if (process.env.NODE_ENV !== 'production' && account?.walletId) {
+          const wallet = await serviceAccount.getWallet({
+            walletId: account?.walletId,
           });
+          console.log({ wallet });
         }
-      }}
-    >
-      {children || 'Create Address'}
-    </Button>
-  );
+        await createAddress({ num, selectAfterCreate, account });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    children: children || 'Create Address',
+  });
 }
