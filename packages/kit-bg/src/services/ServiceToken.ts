@@ -110,7 +110,7 @@ class ServiceToken extends ServiceBase {
     if (typeof tokenAddress === 'string') {
       return tokenAddress;
     }
-    return vaultSettings.nativeTokenAddress;
+    return '';
   }
 
   @backgroundMethod()

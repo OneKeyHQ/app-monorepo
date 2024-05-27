@@ -64,7 +64,7 @@ function SendConfirmContainer() {
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
       accountAddress,
-      contractList: [nativeTokenAddress ?? ''],
+      contractList: [nativeTokenAddress],
       xpub,
     });
 
