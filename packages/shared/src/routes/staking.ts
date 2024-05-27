@@ -35,6 +35,7 @@ export type IModalStakingParamList = {
     stToken: IToken;
     currentAllowance: string;
     apr?: number;
+    rate?: string;
   };
   [EModalStakingRoutes.MaticLidoWithdraw]: IBaseRouteParams & {
     balance: string;

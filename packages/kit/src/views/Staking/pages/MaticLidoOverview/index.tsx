@@ -111,7 +111,7 @@ const MaticLidoOverviewContent = ({
   overview,
   apr = 4,
 }: IMaticLidoOverviewContentProps) => {
-  const { matic, stMatic, requests } = overview;
+  const { matic, stMatic, requests, matic2StMatic } = overview;
   const appNavigation = useAppNavigation();
   const [loading, setLoading] = useState<boolean>(false);
   const onStake = useCallback(async () => {
@@ -138,6 +138,7 @@ const MaticLidoOverviewContent = ({
             token: matic.info,
             stToken: stMatic.info,
             currentAllowance: allowanceParsed,
+            rate: matic2StMatic,
             apr,
           });
         } finally {
@@ -145,7 +146,7 @@ const MaticLidoOverviewContent = ({
         }
       },
     });
-  }, [appNavigation, accountId, networkId, matic, apr, stMatic]);
+  }, [appNavigation, accountId, networkId, matic, apr, stMatic, matic2StMatic]);
   const onRedeem = useCallback(async () => {
     Dialog.show({
       renderContent: <MaticWithdrawShouldUnderstand />,

@@ -35,6 +35,7 @@ export type ILidoMaticRequest = {
 export type ILidoMaticOverview = {
   matic: ILidoTokenItem;
   stMatic: ILidoTokenItem;
+  matic2StMatic: string;
   requests: ILidoMaticRequest[];
 };
 

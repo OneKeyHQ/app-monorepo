@@ -20,7 +20,7 @@ import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { useTokenAllowance } from '../../hooks/useUtilsHooks';
+import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { LIDO_LOGO_URI } from '../../utils/const';
 
 type ILidoApproveBaseStakeProps = {
@@ -35,6 +35,7 @@ type ILidoApproveBaseStakeProps = {
     token: IToken;
   };
   currentAllowance?: string;
+  rate?: string;
   apr?: number;
   minAmount?: number;
   onConfirm?: (amount: string) => Promise<void>;
@@ -47,6 +48,7 @@ export const LidoApproveBaseStake = ({
   receivingTokenSymbol,
   apr = 4,
   minAmount = 0,
+  rate = '1',
   currentAllowance = '0',
   onConfirm,
   approveTarget,
@@ -60,8 +62,8 @@ export const LidoApproveBaseStake = ({
   const {
     allowance,
     loading: loadingAllowance,
-    refreshAllowance,
-  } = useTokenAllowance({
+    trackAllowance,
+  } = useTrackTokenAllowance({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
     tokenAddress: approveTarget.token.address,
@@ -144,15 +146,14 @@ export const LidoApproveBaseStake = ({
         tokenInfo: approveTarget.token,
       },
       onSuccess(data) {
-        console.log('data', data);
-        refreshAllowance(data[0].decodedTx.txid);
+        trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
       },
       onFail() {
         setApproving(false);
       },
     });
-  }, [amountValue, approveTarget, navigationToSendConfirm, refreshAllowance]);
+  }, [amountValue, approveTarget, navigationToSendConfirm, trackAllowance]);
 
   const onSubmit = useCallback(async () => {
     setLoading(true);
@@ -184,6 +185,14 @@ export const LidoApproveBaseStake = ({
       </XStack>
     );
   }, [amountValue, apr, price, symbol, token.symbol]);
+
+  const receivingTokenAmount = useMemo<string | undefined>(() => {
+    const amountValueBN = BigNumber(amountValue);
+    if (amountValueBN.isNaN()) {
+      return undefined;
+    }
+    return amountValueBN.multipliedBy(rate).toFixed();
+  }, [amountValue, rate]);
 
   return (
     <YStack>
@@ -225,13 +234,13 @@ export const LidoApproveBaseStake = ({
               {estAnnualRewards}
             </ListItem>
           ) : null}
-          {amountValue ? (
+          {receivingTokenAmount ? (
             <ListItem
               title="Est. receive"
               titleProps={{ color: '$textSubdued' }}
             >
               <ListItem.Text
-                primary={`${amountValue} ${receivingTokenSymbol.toUpperCase()}`}
+                primary={`${receivingTokenAmount} ${receivingTokenSymbol.toUpperCase()}`}
               />
             </ListItem>
           ) : null}

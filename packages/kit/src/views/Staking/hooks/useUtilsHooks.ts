@@ -6,51 +6,52 @@ import type { IFetchHistoryTxDetailsResp } from '@onekeyhq/shared/types/history'
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 function useTxTrack({
-  txid,
+  trackTxId,
   accountId,
   networkId,
   timeout = timerUtils.getTimeDurationMs({ minute: 60 }),
-  ms = timerUtils.getTimeDurationMs({ seconds: 30 }),
+  interval = timerUtils.getTimeDurationMs({ seconds: 30 }),
 }: {
   accountId: string;
   networkId: string;
-  txid?: string;
+  trackTxId?: string;
   timeout?: number;
-  ms?: number;
+  interval?: number;
 }) {
-  const [txStatus, setTxStatus] = useState<IFetchHistoryTxDetailsResp | null>(
+  const [txDetails, setTxDetails] = useState<IFetchHistoryTxDetailsResp | null>(
     null,
   );
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
-    if (!txid) {
+    if (!trackTxId) {
       return;
     }
-    const timerCurrent = timer.current;
-    const now = Date.now();
-    async function main({ trackId }: { trackId: string }) {
-      const txDetails = await backgroundApiProxy.serviceHistory.fetchTxDetails({
-        networkId,
-        accountId,
-        txid: trackId,
-      });
-      if (txDetails) {
-        setTxStatus(txDetails);
-      } else if (Date.now() - now < timeout) {
-        timer.current = setTimeout(() => main({ trackId }), ms);
+    const startAt = Date.now();
+    const checkTxDetails = async (txHash: string) => {
+      const txDetailsResp =
+        await backgroundApiProxy.serviceHistory.fetchTxDetails({
+          networkId,
+          accountId,
+          txid: txHash,
+        });
+      if (txDetailsResp) {
+        setTxDetails(txDetailsResp);
+      } else if (Date.now() - startAt < timeout) {
+        // Continue checking until the timeout is reached
+        timer.current = setTimeout(() => checkTxDetails(txHash), interval);
       } else {
-        setTxStatus(null);
+        setTxDetails(null);
       }
-    }
-    void main({ trackId: txid });
-    return () => {
-      clearTimeout(timerCurrent);
     };
-  }, [txid, networkId, accountId, timeout, ms]);
-  return txStatus;
+    // Start the first check
+    timer.current = setTimeout(() => checkTxDetails(trackTxId), 0);
+    // Clear the timer on cleanup
+    return () => clearTimeout(timer.current);
+  }, [trackTxId, networkId, accountId, timeout, interval]);
+  return txDetails;
 }
 
-export function useTokenAllowance({
+export function useTrackTokenAllowance({
   networkId,
   accountId,
   initialValue,
@@ -64,12 +65,17 @@ export function useTokenAllowance({
   spenderAddress: string;
 }) {
   const [allowance, setAllowance] = useState<string>(initialValue);
-  const [trackingTxId, setTrackingTxId] = useState<string>('');
+  const [trackTxId, setTrackTxId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>();
-  const txDetails = useTxTrack({ accountId, networkId, txid: trackingTxId });
+  const txDetails = useTxTrack({
+    accountId,
+    networkId,
+    trackTxId,
+  });
   useEffect(() => {
-    async function main() {
+    async function fetchAllowance() {
       if (!txDetails) {
+        setLoading(false);
         return;
       }
       try {
@@ -87,14 +93,14 @@ export function useTokenAllowance({
         setLoading(false);
       }
     }
-    void main();
+    void fetchAllowance();
   }, [txDetails, networkId, accountId, spenderAddress, tokenAddress]);
-  const refreshAllowance = useCallback(
+  const trackAllowance = useCallback(
     (txid: string) => {
-      setTrackingTxId(txid);
+      setTrackTxId(txid);
       setLoading(true);
     },
-    [setTrackingTxId],
+    [setTrackTxId],
   );
-  return { allowance, refreshAllowance, loading };
+  return { allowance, trackAllowance, loading };
 }

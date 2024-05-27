@@ -26,6 +26,7 @@ const MaticLidoStake = () => {
     apr,
     stToken,
     currentAllowance,
+    rate,
   } = route.params;
   const lidoStake = useLidoMaticStake({ networkId, accountId });
   const onConfirm = useCallback(
@@ -47,6 +48,7 @@ const MaticLidoStake = () => {
           onConfirm={onConfirm}
           apr={apr}
           currentAllowance={currentAllowance}
+          rate={rate}
           approveTarget={{
             accountId,
             networkId,
