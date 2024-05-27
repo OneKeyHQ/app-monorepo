@@ -24,17 +24,17 @@ export const FIRMWARE_UPDATE_MIN_VERSION_ALLOWED: Partial<
     // bootloader: '0.0.0',
   },
   'classic': {
-    firmware: '2.11.0',
+    firmware: '3.0.0',
     // ble: '0.0.0',
     // bootloader: '0.0.0',
   },
   'classic1s': {
-    firmware: '2.11.0',
+    firmware: '3.0.0',
     // ble: '0.0.0',
     // bootloader: '0.0.0',
   },
   'mini': {
-    firmware: '2.11.0',
+    firmware: '3.0.0',
     // ble: '0.0.0',
     // bootloader: '0.0.0',
   },
