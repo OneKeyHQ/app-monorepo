@@ -6,6 +6,7 @@ import {
 } from '@ckb-lumos/helpers';
 import { bytesToHex } from '@noble/hashes/utils';
 
+import { getConfig } from '@onekeyhq/core/src/chains/ckb/sdkCkb';
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -20,7 +21,6 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import { getConfig } from './utils/config';
 import {
   convertTxToTxSkeleton,
   serializeTransactionMessage,

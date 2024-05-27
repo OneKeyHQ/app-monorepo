@@ -1,11 +1,11 @@
 import { bytesToHex } from '@noble/hashes/utils';
 
-import { pubkeyToAddress } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/address';
-import { getConfig } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/config';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+
+import { getConfig, pubkeyToAddress } from './sdkCkb';
 
 import type {
   ICoreApiGetAddressItem,

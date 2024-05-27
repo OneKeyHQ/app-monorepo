@@ -9,8 +9,12 @@ import {
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
+import {
+  getConfig,
+  scriptToAddress,
+} from '@onekeyhq/core/src/chains/ckb/sdkCkb';
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
   OneKeyInternalError,
@@ -27,12 +31,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import {
-  EDecodedTxActionType,
   EDecodedTxDirection,
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxAction,
-  IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -43,23 +45,20 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import ClientCkb from './sdkCkb/ClientCkb';
-import { isValidateAddress, scriptToAddress } from './utils/address';
+import { isValidateAddress } from './utils/address';
 import { decodeBalanceWithCell, decodeNaiveBalance } from './utils/balance';
-import { getConfig } from './utils/config';
 import { convertTokenHistoryUtxos } from './utils/history';
 import {
   DEFAULT_MIN_INPUT_CAPACITY,
   convertTxSkeletonToTransaction,
   convertTxToTxSkeleton,
   getTransactionSizeByTxSkeleton,
-  serializeTransactionMessage,
 } from './utils/transaction';
 import { transfer as xUDTTransafer } from './utils/xudt';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -69,13 +68,9 @@ import type {
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 import type { Cell } from '@ckb-lumos/base';
-import type {
-  CKBIndexerQueryOptions,
-  TerminableCellFetcher,
-} from '@ckb-lumos/ckb-indexer/src/type';
+import type { CKBIndexerQueryOptions } from '@ckb-lumos/ckb-indexer/src/type';
 import type { Config } from '@ckb-lumos/config-manager';
 import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
 
