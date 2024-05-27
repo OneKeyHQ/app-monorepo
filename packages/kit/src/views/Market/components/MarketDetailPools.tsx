@@ -83,11 +83,7 @@ function NetworkIdSelect({
   );
 }
 
-export function MarketDetailPools({
-  pools,
-}: {
-  pools: IMarketDetailPool[];
-}) {
+export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
   const { gtMd } = useMedia();
   const partitions = useMemo(() => groupBy(pools, 'onekeyNetworkId'), [pools]);
   const onekeyNetworkIds = useMemo(() => Object.keys(partitions), [partitions]);
