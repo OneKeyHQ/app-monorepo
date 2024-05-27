@@ -1,6 +1,6 @@
+import { scriptToAddress } from '@onekeyhq/core/src/chains/ckb/sdkCkb';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { scriptToAddress } from './address';
 import { decodeBalanceWithCell } from './balance';
 
 import type { Cell } from '@ckb-lumos/base';

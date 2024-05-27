@@ -85,7 +85,16 @@ function SendConfirmFromDApp() {
     return () => {
       appStateListener.remove();
     };
-  }, [encodedTx, navigation, signOnly, networkId, accountId, $sourceInfo, _$t]);
+  }, [
+    encodedTx,
+    navigation,
+    signOnly,
+    networkId,
+    accountId,
+    $sourceInfo,
+    _$t,
+    transfersInfo,
+  ]);
 
   return (
     <Page>

@@ -96,7 +96,7 @@ const COINTYPE_NOSTR = '1237';
 const IMPL_DNX = 'dnx';
 const COINTYPE_DNX = '29538';
 
-const IMPL_CKB = 'ckb';
+const IMPL_CKB = 'nervos';
 const COINTYPE_CKB = '309';
 
 const IMPL_ALLNETWORKS = 'all';

@@ -44,6 +44,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -67,6 +68,7 @@ export default class Vault extends VaultBase {
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -238,7 +240,8 @@ export default class Vault extends VaultBase {
         encodedTx,
         txSize: checkIsDefined(encodedTx.estimateTxSize),
         payload: {
-          address: account.address,
+          // core.signTransaction() passed account.address already
+          // address: account.address,
         },
       };
     }

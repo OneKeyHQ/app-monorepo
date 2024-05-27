@@ -11,6 +11,7 @@ import type {
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { decodeAddress, encodeAddress } from '@polkadot/util-crypto/address';
@@ -9,6 +10,10 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -265,7 +270,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcSubscribe,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   @providerApiMethod()
@@ -273,7 +278,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcUnsubscribe,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   @providerApiMethod()
@@ -281,7 +286,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcSend,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   @providerApiMethod()
@@ -289,7 +294,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcSend,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   @providerApiMethod()
@@ -297,7 +302,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcSend,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }
 

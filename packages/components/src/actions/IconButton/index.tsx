@@ -14,6 +14,7 @@ import type { ITooltipProps } from '../Tooltip';
 export interface IIconButtonProps
   extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
   icon: IKeyOfIcons;
+  iconSize?: IIconProps['size'];
   iconProps?: IIconProps;
   title?: ITooltipProps['renderContent'];
 }
@@ -39,6 +40,7 @@ const getSizeStyles = (size: IButtonProps['size']) => {
 
 export const IconButton = (props: IIconButtonProps) => {
   const {
+    iconSize,
     disabled,
     loading,
     title,
@@ -90,7 +92,7 @@ export const IconButton = (props: IIconButtonProps) => {
         <Icon
           color={iconColor}
           name={icon}
-          size={size === 'small' ? '$5' : '$6'}
+          size={iconSize || (size === 'small' ? '$5' : '$6')}
           {...iconProps}
         />
       )}

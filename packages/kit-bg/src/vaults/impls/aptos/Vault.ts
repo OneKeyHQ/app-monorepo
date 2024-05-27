@@ -10,7 +10,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError, NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type {
@@ -36,6 +36,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { AptosClient } from './sdkAptos/AptosClient';
 import {
@@ -64,6 +65,7 @@ export default class VaultAptos extends VaultBase {
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,

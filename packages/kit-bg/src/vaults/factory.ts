@@ -52,6 +52,9 @@ export async function createKeyringInstance(vault: VaultBase) {
   if (walletId.startsWith('hd-')) {
     keyring = new keyringMap.hd(vault);
   }
+  if (walletId.startsWith('qr-')) {
+    keyring = new keyringMap.qr(vault);
+  }
   if (walletId.startsWith('hw-')) {
     keyring = new keyringMap.hw(vault);
   }

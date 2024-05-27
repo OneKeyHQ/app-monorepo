@@ -9,8 +9,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import ServiceBase from './ServiceBase';
 
 export type IPromiseContainerCallbackCreate = {
-  resolve: (value: unknown) => void;
-  reject: (value: unknown) => void;
+  resolve: (value: unknown | any) => void;
+  reject: (value: unknown | any) => void;
   data?: any;
 };
 export type IPromiseContainerCallback = IPromiseContainerCallbackCreate & {
@@ -25,7 +25,7 @@ export type IPromiseContainerResolve = {
 
 export type IPromiseContainerReject = {
   id: number | string;
-  error?: unknown;
+  error?: unknown; // toPlainErrorObject()
 };
 
 let latestId = 1;
@@ -90,11 +90,6 @@ class ServicePromise extends ServiceBase {
       id,
       data,
     });
-  }
-
-  @backgroundMethod()
-  async testHelloWorld(name: string) {
-    return Promise.resolve(`hello world @@@@:   ${name} ${Date.now()}`);
   }
 
   @backgroundMethod()
