@@ -1,3 +1,9 @@
-import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
+import type { Transaction } from '@ckb-lumos/base';
 
-export type IEncodedTxCkb = TransactionSkeletonType;
+export type IEncodedTxCkb = {
+  tx: Transaction;
+  feeInfo: {
+    price: string;
+    limit: string;
+  };
+};

@@ -1,18 +1,12 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { blockchain } from '@ckb-lumos/base';
-import { sealTransaction } from '@ckb-lumos/helpers';
 import { bytesToHex } from '@noble/hashes/utils';
 
-import { pubkeyToAddress } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/address';
-import { getConfig } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/config';
-import { serializeTransactionMessage } from '@onekeyhq/kit-bg/src/vaults/impls/ckb/utils/transaction';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import type { IEncodedTxCkb } from './types';
+import { getConfig, pubkeyToAddress } from './sdkCkb';
+
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -21,7 +15,6 @@ import type {
   ICoreApiGetAddressesResult,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
@@ -44,18 +37,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
     const { unsignedTx } = payload;
-    const encodedTx = unsignedTx.encodedTx as IEncodedTxCkb;
+    const message = unsignedTx.rawTxUnsigned as string;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
-
-    const { txSkeleton: txSkeletonWithMessage, message } =
-      serializeTransactionMessage(encodedTx);
-
-    if (!message) {
-      throw new OneKeyInternalError('Unable to serialize transaction message.');
-    }
 
     const [signature, recoveryParam] = await signer.sign(
       Buffer.from(hexUtils.stripHexPrefix(message), 'hex'),
@@ -64,17 +50,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const recoveryParamHex = recoveryParam.toString(16).padStart(2, '0');
     const sig = hexUtils.addHexPrefix(bytesToHex(signature) + recoveryParamHex);
 
-    const tx = sealTransaction(txSkeletonWithMessage, [sig]);
-    const signedTx = blockchain.Transaction.pack(tx);
-
     return {
       txid: '',
-      rawTx: bytesToHex(signedTx),
+      rawTx: sig,
       encodedTx: unsignedTx.encodedTx,
     };
   }
 
-  override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
+  override async signMessage(): Promise<string> {
     throw new Error('Method not implemented.');
   }
 

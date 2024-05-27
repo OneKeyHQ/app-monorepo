@@ -5,6 +5,7 @@ import {
   WalletConnectUniversalLinkFull,
 } from '../consts/deeplinkConsts';
 import {
+  IMPL_ALGO,
   IMPL_COSMOS,
   IMPL_DOT,
   IMPL_EVM,
@@ -79,6 +80,7 @@ export const namespaceToImplsMap: Record<INamespaceUnion, string> = {
   cosmos: IMPL_COSMOS,
   polkadot: IMPL_DOT,
   tron: IMPL_TRON,
+  algorand: IMPL_ALGO,
 };
 
 export const implToNamespaceMap: {
@@ -89,6 +91,7 @@ export const implToNamespaceMap: {
   [IMPL_COSMOS]: 'cosmos',
   [IMPL_DOT]: 'polkadot',
   [IMPL_TRON]: 'tron',
+  [IMPL_ALGO]: 'algorand',
 };
 
 // https://chainagnostic.org/
@@ -119,6 +122,14 @@ export const caipsToNetworkMap: Record<string, ICaipsInfo[]> = {
       networkId: 'dot--kusama',
       impl: IMPL_DOT,
       namespace: 'polkadot',
+    },
+  ],
+  algorand: [
+    {
+      caipsChainId: 'wGHE2Pwdvd7S12BL5FaOP20EGYesN73k',
+      networkId: 'algo--4160',
+      impl: IMPL_ALGO,
+      namespace: 'algorand',
     },
   ],
 };
@@ -166,12 +177,21 @@ export const COSMOS_SIGNING_METHODS = {
   COSMOS_SIGN_AMINO: 'cosmos_signAmino',
 };
 
+/**
+ * algo
+ */
+
+export const ALGO_SIGNING_METHODS = {
+  ALGO_SIGN_TXN: 'algo_signTxn',
+};
+
 export const supportMethodsMap: Record<INamespaceUnion, string[]> = {
   eip155: Object.values(EIP155_SIGNING_METHODS),
   solana: [],
   cosmos: Object.values(COSMOS_SIGNING_METHODS),
   polkadot: [],
   tron: [],
+  algorand: Object.values(ALGO_SIGNING_METHODS),
 };
 
 export const supportEventsMap: Record<INamespaceUnion, string[]> = {
@@ -180,6 +200,7 @@ export const supportEventsMap: Record<INamespaceUnion, string[]> = {
   cosmos: [],
   polkadot: [],
   tron: [],
+  algorand: ['accountsChanged', 'chainChanged'],
 };
 
 export const WalletConnectAccountSelectorNumStartAt = 1000;

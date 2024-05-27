@@ -1,7 +1,7 @@
 import { getSdkError } from '@walletconnect/utils';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_ALGO, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EWalletConnectSessionEvents } from '@onekeyhq/shared/src/walletConnect/types';
 import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types/dappConnection';
@@ -9,6 +9,7 @@ import type { IWalletConnectSessionProposalResult } from '@onekeyhq/shared/types
 import walletConnectClient from '../../services/ServiceWalletConnect/walletConnectClient';
 import walletConnectStorage from '../../services/ServiceWalletConnect/walletConnectStorage';
 
+import { WalletConnectRequestProxyAlgo } from './WalletConnectRequestProxyAlgo';
 import { WalletConnectRequestProxyEth } from './WalletConnectRequestProxyEth';
 
 import type {
@@ -31,6 +32,9 @@ class ProviderApiWalletConnect {
     [networkImpl: string]: WalletConnectRequestProxy;
   } = {
     [IMPL_EVM]: new WalletConnectRequestProxyEth({
+      client: this,
+    }),
+    [IMPL_ALGO]: new WalletConnectRequestProxyAlgo({
       client: this,
     }),
   };

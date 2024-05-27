@@ -24,7 +24,8 @@ export type INamespaceUnion =
   | 'cosmos'
   | 'solana'
   | 'polkadot'
-  | 'tron';
+  | 'tron'
+  | 'algorand';
 
 export enum EWalletConnectNamespaceType {
   evm = 'eip155',
@@ -32,6 +33,7 @@ export enum EWalletConnectNamespaceType {
   solana = 'solana',
   dot = 'polkadot',
   tron = 'tron',
+  algo = 'algorand',
 }
 
 export const WALLET_CONNECT_SIGN_CLIENT_EVENTS = SIGN_CLIENT_EVENTS;

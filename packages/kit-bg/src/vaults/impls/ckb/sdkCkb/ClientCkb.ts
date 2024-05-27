@@ -1,15 +1,15 @@
+import { ParamsFormatter, ResultFormatter } from '@ckb-lumos/rpc';
+
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
 import type { ECellStatus } from '../types';
 import type { LiveCell, OutPoint } from '@ckb-lumos/base';
 import type {
-  GetCellsResults,
-  SearchKey,
-  SearchKeyFilter,
-  Terminator,
+  GetCellsSearchKey,
+  GetLiveCellsResult,
+  Order,
 } from '@ckb-lumos/ckb-indexer/src/type';
-
-const DefaultTerminator: Terminator = () => ({ stop: false, push: true });
+import type { RPC } from '@ckb-lumos/rpc/lib/types/rpc';
 
 class ClientCkb {
   private backgroundApi: IBackgroundApi;
@@ -27,28 +27,35 @@ class ClientCkb {
     this.backgroundApi = backgroundApi;
   }
 
-  async getCells(
-    searchKey: SearchKey,
-    terminator: Terminator = DefaultTerminator,
-    searchKeyFilter: SearchKeyFilter = {},
-  ) {
+  async getCells<WithData extends boolean = true>(
+    searchKey: GetCellsSearchKey<WithData>,
+    order: Order,
+    limit: string,
+    cursor?: string,
+  ): Promise<GetLiveCellsResult<WithData>> {
+    const params = [
+      ParamsFormatter.toGetCellsSearchKey(searchKey),
+      order,
+      limit,
+      cursor,
+    ];
     const [result] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<GetCellsResults>(
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<RPC.GetLiveCellsResult>(
         {
           networkId: this.networkId,
           body: [
             {
-              route: 'indexer',
+              route: 'rpc',
               params: {
-                method: 'getCells',
-                params: [searchKey, terminator, searchKeyFilter],
+                method: 'get_cells',
+                params,
               },
             },
           ],
         },
       );
 
-    return result;
+    return ResultFormatter.toGetCellsResult<WithData>(result);
   }
 
   async getFeeRateStatistics() {
@@ -62,7 +69,7 @@ class ClientCkb {
           {
             route: 'rpc',
             params: {
-              method: 'getFeeRateStatistics',
+              method: 'get_fee_rate_statistics',
               params: [],
             },
           },
@@ -73,9 +80,11 @@ class ClientCkb {
   }
 
   async getLiveCell(outPoint: OutPoint, withData: boolean) {
+    const params = [ParamsFormatter.toOutPoint(outPoint), withData];
+
     const [result] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
-        cell: LiveCell;
+        cell: RPC.LiveCell;
         status: ECellStatus;
       }>({
         networkId: this.networkId,
@@ -83,14 +92,13 @@ class ClientCkb {
           {
             route: 'rpc',
             params: {
-              method: 'getLiveCell',
-              params: [outPoint, withData],
+              method: 'get_live_cell',
+              params,
             },
           },
         ],
       });
-
-    return result;
+    return ResultFormatter.toLiveCellWithStatus(result);
   }
 }
 

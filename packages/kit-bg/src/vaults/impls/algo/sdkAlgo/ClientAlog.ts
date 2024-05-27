@@ -29,7 +29,7 @@ class ClientAlgo {
           networkId: this.networkId,
           body: [
             {
-              route: 'algod',
+              route: 'client',
               params: {
                 method: EAlgodMethods.GET_TRANSACTION_PARAMS,
                 params: [],
