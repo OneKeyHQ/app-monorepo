@@ -5,6 +5,7 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -23,14 +24,17 @@ export function HeaderRight({
 }) {
   const navigation = useAppNavigation();
   const scanQrCode = useScanQrCode();
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
   const openSettingPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
     });
   }, [navigation]);
   const onScanButtonPressed = useCallback(
-    () => scanQrCode.start(),
-    [scanQrCode],
+    () => scanQrCode.start({ autoHandleResult: true, accountId: account?.id }),
+    [scanQrCode, account?.id],
   );
 
   const openExtensionExpandTab = useCallback(async () => {

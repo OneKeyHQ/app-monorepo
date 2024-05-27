@@ -1,5 +1,5 @@
 import { ed25519 } from '@onekeyhq/core/src/secret';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -99,7 +99,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(): Promise<string> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();;
   }
 
   override async getAddressFromPrivate(

@@ -152,3 +152,20 @@ export function normalizeErrorProps(
     ...(isString(props) ? {} : props),
   };
 }
+
+function autoPrintErrorIgnore(error: unknown | undefined) {
+  const e = error as IOneKeyError | undefined;
+  if (e) {
+    e.$$autoPrintErrorIgnore = true;
+  }
+}
+
+export default {
+  autoPrintErrorIgnore,
+  normalizeErrorProps,
+  safeConsoleLogError,
+  toPlainErrorObject,
+  interceptConsoleErrorWithExtraInfo,
+  errorsIntlFormatter,
+  getDeviceErrorPayloadMessage,
+};

@@ -7,11 +7,19 @@ import type {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_QR,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+import type {
+  INetworkAccount,
+  IQrWalletAirGapAccount,
+  IQrWalletAirGapAccountsInfo,
+} from '@onekeyhq/shared/types/account';
+import type {
+  IOneKeyDeviceFeatures,
+  IQrWalletDevice,
+} from '@onekeyhq/shared/types/device';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 import type {
   IBaseConnectedSite,
@@ -104,6 +112,7 @@ export type IDBWalletIdSingleton =
 export type IDBWalletType =
   | typeof WALLET_TYPE_HD
   | typeof WALLET_TYPE_HW
+  | typeof WALLET_TYPE_QR
   | typeof WALLET_TYPE_IMPORTED
   | typeof WALLET_TYPE_WATCHING
   | typeof WALLET_TYPE_EXTERNAL;
@@ -127,6 +136,9 @@ export type IDBWallet = IDBBaseObjectWithName & {
   passphraseState?: string;
   walletNo: number;
   walletOrder?: number;
+  xfp?: string; // qr wallet only
+  airGapAccountsInfoRaw?: string;
+  airGapAccountsInfo?: IQrWalletAirGapAccountsInfo;
 };
 export type IDBCreateHDWalletParams = {
   password: string;
@@ -145,6 +157,10 @@ export type IDBCreateHWWalletParamsBase = {
 };
 export type IDBCreateHWWalletParams = IDBCreateHWWalletParamsBase & {
   passphraseState?: string;
+};
+export type IDBCreateQRWalletParams = {
+  qrDevice: IQrWalletDevice;
+  airGapAccounts: IQrWalletAirGapAccount[];
 };
 export type IDBSetWalletNameAndAvatarParams = {
   walletId: IDBWalletId;

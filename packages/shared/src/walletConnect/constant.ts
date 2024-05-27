@@ -56,8 +56,9 @@ function getPlatformShortName() {
   return 'Wallet';
 }
 
+export const WALLET_CONNECT_CLIENT_NAME = `OneKey ${getPlatformShortName()}`;
 export const WALLET_CONNECT_CLIENT_META = {
-  name: `OneKey ${getPlatformShortName()}`,
+  name: WALLET_CONNECT_CLIENT_NAME,
   description: 'Connect with OneKey',
   // wallet-connect identify different dApps by url
   url: `https://${platformName}.onekey.so`,

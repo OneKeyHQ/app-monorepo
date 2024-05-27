@@ -1,3 +1,4 @@
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
 
@@ -157,6 +158,6 @@ describe('NEXA Core tests', () => {
   it.skip('signMessage', async () => {
     // const coreApi = new CoreChainHd();
     // coreApi.signMessage
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();;
   });
 });

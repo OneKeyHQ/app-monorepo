@@ -35,6 +35,7 @@ import {
 } from '../engine/engineConsts';
 import { NotAutoPrintError } from '../errors';
 // import debugLogger from '../logger/debugLogger';
+import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 
 import type { OneKeyError } from '../errors';
@@ -111,7 +112,8 @@ export function warningIfNotRunInBackground({
       throw new NotAutoPrintError();
     } catch (error) {
       const err = error as Error;
-      err.$$autoPrintErrorIgnore = true;
+      errorUtils.autoPrintErrorIgnore(err);
+
       if (
         err.stack &&
         !err.stack.includes('backgroundApiInit') &&

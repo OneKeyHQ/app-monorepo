@@ -18,7 +18,10 @@ import {
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type { ITxInput, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -39,6 +42,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -58,6 +62,7 @@ import type {
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -247,7 +252,7 @@ export default class Vault extends VaultBase {
         outputs: outputsInUnsignedTx,
       };
     }
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async updateUnsignedTx(
@@ -293,7 +298,7 @@ export default class Vault extends VaultBase {
   }
 
   override validateXpub(): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override getPrivateKeyFromImported(

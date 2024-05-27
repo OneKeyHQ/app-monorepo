@@ -1,4 +1,4 @@
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -26,7 +26,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     return this.baseGetPrivateKeys({
       payload,
       curve,
@@ -37,7 +37,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
     const moneroApi = await getMoneroApi();
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const { unsignedTx } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
@@ -97,7 +97,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(): Promise<string> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();;
   }
 
   override async getAddressFromPrivate(
@@ -145,7 +145,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     return this.baseGetAddressesFromHd(query, {
       curve,
       generateFrom: 'privateKey',

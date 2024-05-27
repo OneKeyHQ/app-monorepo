@@ -1,4 +1,5 @@
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringWatchingBase } from '../../base/KeyringWatchingBase';
 
@@ -12,6 +13,6 @@ export class KeyringWatching extends KeyringWatchingBase {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: IPrepareWatchingAccountsParams,
   ): Promise<IDBAccount[]> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

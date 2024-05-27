@@ -24,6 +24,7 @@ declare global {
   // var onekey: WindowOneKey;
 
   var $rootAppNavigation: IAppNavigation | undefined;
+  var $$scanNavigation: IAppNavigation | undefined;
   var $appIsReduxReady: boolean;
   var $onekey: IWindowOneKeyHub;
   var $backgroundApiProxy: IBackgroundApi;

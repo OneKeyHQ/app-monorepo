@@ -41,7 +41,8 @@ function bytesToHex(bytes: Buffer | Uint8Array | string): string {
   if (isString(bytes)) {
     return bytes;
   }
-  return bytesToHex0(toBuffer(bytes));
+  const buff = toBuffer(bytes);
+  return bytesToHex0(buff);
 }
 
 function bytesToUtf8(bytes: Buffer | Uint8Array): string {

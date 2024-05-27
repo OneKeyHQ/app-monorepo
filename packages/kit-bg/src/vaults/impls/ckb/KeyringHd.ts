@@ -4,7 +4,10 @@ import { sealTransaction } from '@ckb-lumos/helpers';
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
@@ -76,6 +79,6 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(): Promise<string[]> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

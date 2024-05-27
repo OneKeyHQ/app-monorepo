@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringExternalBase } from '../../base/KeyringExternalBase';
 
@@ -10,12 +11,12 @@ export class KeyringExternal extends KeyringExternalBase {
   override coreApi: CoreChainApiBase | undefined;
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

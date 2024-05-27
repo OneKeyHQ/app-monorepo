@@ -4,6 +4,10 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -30,7 +34,7 @@ class _ProviderApiSample extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

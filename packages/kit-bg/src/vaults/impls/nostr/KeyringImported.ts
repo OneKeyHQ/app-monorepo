@@ -1,5 +1,6 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
@@ -25,7 +26,7 @@ export class KeyringImported extends KeyringImportedBase {
     params: IPrepareImportedAccountsParams,
   ): Promise<IDBAccount[]> {
     // return this.basePrepareAccountsImported(params);
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async signTransaction(
@@ -37,7 +38,7 @@ export class KeyringImported extends KeyringImportedBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    // throw new Error('Method not implemented.')
+    // throw new NotImplemented();
     return this.baseSignMessage(params);
   }
 }

@@ -1,5 +1,6 @@
 import { filter, forEach } from 'lodash';
 
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IEndpointDomainWhiteList } from '@onekeyhq/shared/types/endpoint';
 
 import { devSettingsPersistAtom } from '../states/jotai/atoms';
@@ -24,7 +25,7 @@ export async function getEndpointDomainWhitelist() {
         whitelist.push(url.host);
       }
     } catch (e) {
-      (e as Error).$$autoPrintErrorIgnore = true;
+      errorUtils.autoPrintErrorIgnore(e);
     }
   });
   return filter(whitelist, Boolean);
@@ -35,7 +36,7 @@ export async function checkIsOneKeyDomain(url: string) {
     const whitelist = await getEndpointDomainWhitelist();
     return whitelist.includes(new URL(url).host);
   } catch (e) {
-    (e as Error).$$autoPrintErrorIgnore = true;
+    errorUtils.autoPrintErrorIgnore(e);
     return false;
   }
 }

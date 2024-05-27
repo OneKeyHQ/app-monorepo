@@ -3,12 +3,8 @@
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import type {
   IDBAccount,
-  IDBCreateHWWalletParamsBase,
-  IDBIndexedAccount,
   IDBWallet,
-  IDBWalletIdSingleton,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { IHdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 // export type ISimpleDBBackUp = {
 //   utxoAccounts: Pick<ISimpleDbEntityUtxoData, 'utxos'>;

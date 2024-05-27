@@ -44,6 +44,7 @@ import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
+  qr = 'qr',
   hardware = 'hardware',
   imported = 'imported',
   watching = 'watching',

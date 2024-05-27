@@ -169,6 +169,14 @@ export type IResourceUpdateInfo = {
   limitVersion?: string;
 };
 
+export type IQrWalletDevice = {
+  name: string; // device name like: 'OneKey Pro'
+  // TODO deviceType
+  deviceId: string;
+  version: string;
+  xfp: string;
+};
+
 export type IDeviceFirmwareType = 'firmware' | 'ble' | 'bootloader';
 
 export const CUSTOM_UI_RESPONSE = {

@@ -15,7 +15,7 @@ function LocalDBDemo1() {
     <Stack space="$2">
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceApp.demoGetAllRecords();
+          const ctx = await backgroundApiProxy.serviceDemo.demoGetAllRecords();
           demoLog(ctx);
         }}
       >
@@ -24,7 +24,7 @@ function LocalDBDemo1() {
       <Button
         onPress={async () => {
           const ctx =
-            await backgroundApiProxy.serviceApp.demoGetDbContextWithoutTx();
+            await backgroundApiProxy.serviceDemo.demoGetDbContextWithoutTx();
           demoLog(ctx);
         }}
       >
@@ -32,7 +32,7 @@ function LocalDBDemo1() {
       </Button>
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceApp.demoGetDbContext();
+          const ctx = await backgroundApiProxy.serviceDemo.demoGetDbContext();
           demoLog(ctx);
         }}
       >
@@ -40,7 +40,8 @@ function LocalDBDemo1() {
       </Button>
       <Button
         onPress={async () => {
-          const r = await backgroundApiProxy.serviceApp.demoGetDbContextCount();
+          const r =
+            await backgroundApiProxy.serviceDemo.demoGetDbContextCount();
           demoLog(r);
         }}
       >
@@ -49,7 +50,7 @@ function LocalDBDemo1() {
       <Button
         onPress={async () => {
           const r =
-            await backgroundApiProxy.serviceApp.demoGetDbAccountsCount();
+            await backgroundApiProxy.serviceDemo.demoGetDbAccountsCount();
           demoLog(r);
         }}
       >
@@ -57,7 +58,8 @@ function LocalDBDemo1() {
       </Button>
       <Button
         onPress={async () => {
-          const r = await backgroundApiProxy.serviceApp.demoGetDbWalletsCount();
+          const r =
+            await backgroundApiProxy.serviceDemo.demoGetDbWalletsCount();
           demoLog(r);
         }}
       >
@@ -65,7 +67,7 @@ function LocalDBDemo1() {
       </Button>
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceApp.demoDbUpdateUUID();
+          const ctx = await backgroundApiProxy.serviceDemo.demoDbUpdateUUID();
           demoLog(ctx);
         }}
       >
@@ -74,7 +76,7 @@ function LocalDBDemo1() {
       <Button
         onPress={async () => {
           const ctx =
-            await backgroundApiProxy.serviceApp.demoDbUpdateUUIDFixed();
+            await backgroundApiProxy.serviceDemo.demoDbUpdateUUIDFixed();
           demoLog(ctx);
         }}
       >
@@ -83,7 +85,7 @@ function LocalDBDemo1() {
 
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceApp.demoAddRecord1();
+          const ctx = await backgroundApiProxy.serviceDemo.demoAddRecord1();
           demoLog(ctx);
         }}
       >
@@ -92,7 +94,7 @@ function LocalDBDemo1() {
 
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceApp.demoRemoveRecord1();
+          const ctx = await backgroundApiProxy.serviceDemo.demoRemoveRecord1();
           demoLog(ctx);
         }}
       >
@@ -102,7 +104,7 @@ function LocalDBDemo1() {
       <Button
         onPress={async () => {
           const ctx =
-            await backgroundApiProxy.serviceApp.demoUpdateCredentialRecord();
+            await backgroundApiProxy.serviceDemo.demoUpdateCredentialRecord();
           demoLog(ctx);
         }}
       >

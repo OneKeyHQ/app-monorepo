@@ -10,7 +10,10 @@ import type {
   IQRCodeHandlerParseResult,
 } from './type';
 
-const handlerList = handlers as Record<string, IQRCodeHandler<IBaseValue>>;
+const handlerList = handlers as unknown as Record<
+  string,
+  IQRCodeHandler<IBaseValue>
+>;
 
 export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
   value,

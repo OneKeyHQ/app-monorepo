@@ -29,6 +29,10 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public passphraseState?: string;
 
+  public xfp?: string;
+
+  public airGapAccountsInfoRaw?: string;
+
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Wallet,
     primaryKey: 'id',
@@ -49,6 +53,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       associatedDevice: 'string?',
       isTemp: { type: 'bool', default: false },
       passphraseState: 'string?',
+      xfp: 'string?',
+      airGapAccountsInfoRaw: 'string?',
     },
   };
 
@@ -69,6 +75,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       associatedDevice: this.associatedDevice,
       isTemp: this.isTemp,
       passphraseState: this.passphraseState,
+      xfp: this.xfp,
+      airGapAccountsInfoRaw: this.airGapAccountsInfoRaw,
     };
   }
 }

@@ -1,7 +1,6 @@
 // TODO move to core
-import { hexZeroPad, splitSignature } from '@ethersproject/bytes';
+import { hexZeroPad } from '@ethersproject/bytes';
 import { keccak256 } from '@ethersproject/keccak256';
-import { serialize } from '@ethersproject/transactions';
 import * as ethUtil from 'ethereumjs-util';
 import { isString } from 'lodash';
 
@@ -11,9 +10,12 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import { hashMessage } from './message';
-import { getPublicKeyFromPrivateKey, packTransaction } from './sdkEvm';
+import {
+  buildSignedTxFromSignatureEvm,
+  getPublicKeyFromPrivateKey,
+  packUnsignedTxForSignEvm,
+} from './sdkEvm';
 
-import type { IEncodedTxEvm } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -50,20 +52,30 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
 
-    const tx = packTransaction(unsignedTx.encodedTx as IEncodedTxEvm);
-    const digest = keccak256(serialize(tx));
+    const { digest, tx } = packUnsignedTxForSignEvm(unsignedTx);
+
     const [sig, recoveryParam] = await signer.sign(
       Buffer.from(digest.slice(2), 'hex'),
     );
     const [r, s]: [Buffer, Buffer] = [sig.slice(0, 32), sig.slice(32)];
-    const signature = splitSignature({
-      recoveryParam,
-      r: hexZeroPad(`0x${r.toString('hex')}`, 32),
-      s: hexZeroPad(`0x${s.toString('hex')}`, 32),
-    });
 
-    const rawTx: string = serialize(tx, signature);
-    const txid: string = keccak256(rawTx);
+    // const signature = splitSignature({
+    //   recoveryParam,
+    //   r: hexZeroPad(`0x${r.toString('hex')}`, 32),
+    //   s: hexZeroPad(`0x${s.toString('hex')}`, 32),
+    // });
+
+    // const rawTx: string = serialize(tx, signature);
+    // const txid: string = keccak256(rawTx);
+
+    const { rawTx, txid } = buildSignedTxFromSignatureEvm({
+      tx,
+      signature: {
+        v: recoveryParam,
+        r: hexZeroPad(`0x${r.toString('hex')}`, 32),
+        s: hexZeroPad(`0x${s.toString('hex')}`, 32),
+      },
+    });
     return { encodedTx: unsignedTx.encodedTx, txid, rawTx };
   }
 
@@ -73,7 +85,6 @@ export default abstract class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve,
     });
-
     let finalMessage: any = unsignedMsg.message;
 
     if (isString(unsignedMsg.message)) {

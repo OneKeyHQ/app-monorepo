@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import type { SizeTokens } from '@onekeyhq/components';
 import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -15,7 +17,7 @@ export type IWalletAvatarBaseProps = {
 };
 export type IWalletAvatarProps = IWalletAvatarBaseProps & {
   status?: IWalletProps['status'];
-  badge?: number;
+  badge?: number | string;
 };
 
 export function WalletAvatarBase({
@@ -71,7 +73,7 @@ export function WalletAvatar({
           <Stack borderRadius="$full" w="$2.5" h="$2.5" bg="$bgSuccessStrong" />
         </Stack>
       ) : null}
-      {badge ? (
+      {!isNil(badge) ? (
         <Stack
           position="absolute"
           bottom={-3}

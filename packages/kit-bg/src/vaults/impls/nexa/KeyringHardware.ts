@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/core/src/chains/nexa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -134,6 +135,6 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

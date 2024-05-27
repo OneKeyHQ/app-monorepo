@@ -9,10 +9,15 @@ interface IEmptyProps extends YStackProps {
   title?: string;
   description?: string;
   buttonProps?: IButtonProps;
+  button?: React.ReactNode;
 }
 
+export function EmptyButton(props: IButtonProps) {
+  return <Button variant="primary" size="medium" mt="$6" {...props} />;
+}
 export function Empty(props: IEmptyProps) {
-  const { icon, iconProps, title, description, buttonProps, ...rest } = props;
+  const { icon, iconProps, title, description, buttonProps, button, ...rest } =
+    props;
 
   return (
     <YStack p="$5" alignItems="center" justifyContent="center" {...rest}>
@@ -39,9 +44,9 @@ export function Empty(props: IEmptyProps) {
           ) : null}
         </YStack>
       ) : null}
-      {buttonProps ? (
-        <Button variant="primary" size="medium" mt="$6" {...buttonProps} />
-      ) : null}
+      {buttonProps ? <EmptyButton {...buttonProps} /> : null}
+      {button || null}
     </YStack>
   );
 }
+Empty.Button = EmptyButton;

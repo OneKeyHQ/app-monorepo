@@ -1,8 +1,6 @@
 import type { ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { UR, UREncoder } from '@ngraveio/bc-ur';
-import { values } from 'lodash';
 import QRCodeUtil from 'qrcode';
 import Svg, {
   Circle,
@@ -16,12 +14,16 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 
+import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
+
 import { useThemeValue } from '../../hooks';
 import { Icon } from '../../primitives';
 
 import type { IThemeColorKeys } from '../../hooks';
 import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';
+
+export type IQrcodeDrawType = 'dot' | 'line' | 'animated';
 
 type IBasicQRCodeProps = {
   size: number;
@@ -39,7 +41,7 @@ type IBasicQRCodeProps = {
   gradientDirection?: string[];
   linearGradient?: string[];
   // If drawType is line, the logo will not be displayed
-  drawType?: 'dot' | 'line' | 'animated';
+  drawType?: IQrcodeDrawType;
 };
 
 const generateMatrix = (
@@ -269,28 +271,42 @@ function BasicQRCode({
   );
 }
 export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
-  value: string;
+  value?: string;
+  valueUr?: IAirGapUrJson;
   interval?: number;
 }
 export function QRCode({
   value,
-  interval = 150,
+  valueUr,
+  interval = 100,
   drawType,
   ...props
 }: IQRCodeProps) {
-  const [partValue, setPartValue] = useState<string>(value);
+  const [partValue, setPartValue] = useState<string>(value || '');
 
   useEffect(() => {
     let timerId: ReturnType<typeof setInterval>;
     if (drawType === 'animated') {
-      const urEncoder = new UREncoder(UR.fromBuffer(Buffer.from(value)));
+      if (!valueUr) {
+        throw new Error('valueUr is required for animated QRCode');
+      }
+      const { nextPart } = airGapUrUtils.createAnimatedUREncoder({
+        ur: valueUr,
+        maxFragmentLength: 100,
+        firstSeqNum: 0,
+      });
+      // const urEncoder = new UREncoder(UR.fromBuffer(Buffer.from(value)));
       timerId = setInterval(() => {
-        const part = urEncoder.nextPart();
+        const part = nextPart();
         setPartValue(part);
       }, interval);
     }
     return () => clearInterval(timerId);
-  }, [value, interval, drawType]);
+  }, [value, interval, drawType, valueUr]);
 
+  if (!partValue) {
+    // TODO return Skeleton
+    return null;
+  }
   return <BasicQRCode value={partValue} drawType={drawType} {...props} />;
 }

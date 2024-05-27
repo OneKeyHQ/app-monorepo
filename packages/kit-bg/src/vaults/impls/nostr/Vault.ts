@@ -4,6 +4,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -21,6 +22,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import settings from './settings';
 
@@ -42,6 +44,7 @@ import type {
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -65,59 +68,59 @@ export default class Vault extends VaultBase {
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override buildDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   encrypt(params: {

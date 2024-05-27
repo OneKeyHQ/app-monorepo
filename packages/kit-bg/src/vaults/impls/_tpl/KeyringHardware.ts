@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -17,16 +18,16 @@ export class KeyringHardware extends KeyringHardwareBase {
   override prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

@@ -1,3 +1,4 @@
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
 
@@ -22,7 +23,7 @@ const {
   hdAccountTemplate: "m/44'/118'/0'/0/$$INDEX$$",
   hdAccounts: [
     {
-      address: 'b7ded9bc6b75abab9458df44420c7c5f5457e077',
+      address: '',
       addresses: {
         'cosmos--cosmoshub-4': 'cosmos1kl0dn0rtwk46h9zcmazyyrruta290crh7wt6qp',
       },
@@ -36,16 +37,6 @@ const {
   txSamples: [
     {
       unsignedTx: {
-        inputs: [
-          {
-            address: 'b7ded9bc6b75abab9458df44420c7c5f5457e077',
-            publicKey:
-              '03352ac3058d7f088ae0791044874279340a63d1b7c10fb395db5a48cb9488b744',
-            value: {} as any,
-          },
-        ],
-        outputs: [],
-        payload: {},
         encodedTx: {
           'signDoc': {
             'chain_id': 'cosmoshub-4',
@@ -158,6 +149,6 @@ describe('COSMOS Core tests', () => {
   it.skip('signMessage', async () => {
     // const coreApi = new CoreChainHd();
     // coreApi.signMessage
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   });
 });

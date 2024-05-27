@@ -1,7 +1,7 @@
+import { keccak256 } from '@ethersproject/keccak256';
 import { secp256k1, uncompressPublicKey } from '@onekeyhq/core/src/secret';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { keccak256 } from '@ethersproject/keccak256';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
@@ -11,6 +11,7 @@ import { conflux } from './sdkCfx/conflux';
 
 import { getMessage } from 'cip-23';
 
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -25,7 +26,6 @@ import type {
   ISignedTxPro,
   IUnsignedMessageEth,
 } from '../../types';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 const curve: ICurveName = 'secp256k1';
 

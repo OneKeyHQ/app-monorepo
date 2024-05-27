@@ -14,6 +14,7 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
+import { QrcodeDialogContainer } from './QrcodeDialogContainer';
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
@@ -29,6 +30,7 @@ export function Container() {
         <NavigationContainer>
           <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />
+          <QrcodeDialogContainer />
           <HardwareUiStateContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />

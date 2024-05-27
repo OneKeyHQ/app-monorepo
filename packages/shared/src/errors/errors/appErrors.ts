@@ -39,6 +39,42 @@ export class NotImplemented extends OneKeyError {
       }),
     );
   }
+
+  override className = EOneKeyErrorClassNames.OneKeyErrorNotImplemented;
+}
+
+export class OneKeyErrorAirGapAccountNotFound extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyErrorAirGapAccountNotFound',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound;
+}
+
+export class OneKeyErrorAirGapWalletMismatch extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyErrorAirGapWalletMismatch',
+      }),
+    );
+  }
+
+  override autoToast?: boolean | undefined = true;
+}
+
+export class OneKeyErrorAirGapInvalidQrCode extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyErrorAirGapInvalidQrCode',
+      }),
+    );
+  }
 }
 
 export class OneKeyInternalError extends OneKeyError {

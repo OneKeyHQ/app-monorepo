@@ -17,10 +17,6 @@ import type {
   ISendTxBaseParams,
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
-import {
-  EDecodedTxActionType,
-  EDecodedTxStatus,
-} from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -32,7 +28,6 @@ import type {
   IBuildDecodedTxParams,
   IBuildUnsignedTxParams,
   ISignTransactionParamsBase,
-  ITransferInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
 
@@ -40,142 +35,6 @@ import type {
 class ServiceSend extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  public async demoSend({
-    networkId,
-    accountId,
-  }: {
-    networkId: string;
-    accountId: string;
-  }) {
-    const vault = await vaultFactory.getVault({
-      networkId,
-      accountId,
-    });
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-    const transferInfo: ITransferInfo = {
-      from: account.address,
-      to: account.address,
-      amount: `0.00000${random(1, 20)}`,
-      tokenInfo: {
-        address: '',
-        decimals: 18,
-        name: 'Ethereum',
-        symbol: 'ETH',
-        isNative: true,
-      },
-    };
-
-    // PagePreSend -> TokenInput、AmountInput、ReceiverInput -> unsignedTx
-    // PageSendConfirm
-    let unsignedTx = await vault.buildUnsignedTx({
-      transfersInfo: [transferInfo],
-    });
-
-    // PageSendConfirm -> feeInfoEditor -> rebuild unsignedTx
-    unsignedTx = await vault.updateUnsignedTx({
-      unsignedTx,
-      feeInfo: {
-        common: {
-          nativeDecimals: 18,
-          nativeSymbol: 'ETH',
-          feeDecimals: 9,
-          feeSymbol: 'Gwei',
-          nativeTokenPrice: 2000,
-        },
-        gas: {
-          gasPrice: '0x2a', // 42
-          gasLimit: '0x5208', // 21000
-        },
-      },
-    });
-
-    // @ts-ignore
-    unsignedTx.encodedTx.nonce = '0x817'; // Nonce: 2071
-
-    // PageSendConfirm -> password auth -> send tx
-    const signedTxWithoutBroadcast = await this.signTransaction({
-      networkId,
-      accountId,
-      unsignedTx,
-      signOnly: false,
-    });
-
-    // const txid = await this.broadcastTransaction({
-    //   networkId,
-    //   signedTx: signedTxWithoutBroadcast,
-    // });
-    const txid = await this.broadcastTransactionLegacy({
-      accountId,
-      networkId,
-      accountAddress: '',
-      signedTx: signedTxWithoutBroadcast,
-    });
-
-    const signedTx = {
-      ...signedTxWithoutBroadcast,
-      txid,
-    };
-
-    console.log({
-      vault,
-      unsignedTx,
-      signedTx,
-      transferInfo,
-      signedTxWithoutBroadcast,
-    });
-    return Promise.resolve('hello world');
-  }
-
-  @backgroundMethod()
-  public async demoBuildDecodedTx(): Promise<IDecodedTx> {
-    const networkId = 'evm--5';
-    const accountId = "hd-1--m/44'/60'/0'/0/0";
-    return Promise.resolve({
-      txid: '0x1234567890',
-
-      owner: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-      signer: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-
-      nonce: 1,
-      actions: [
-        {
-          type: EDecodedTxActionType.ASSET_TRANSFER,
-          assetTransfer: {
-            from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-            to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-            label: 'Send',
-            sends: [
-              {
-                from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-                to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-                tokenIdOnNetwork: '',
-                label: '',
-                amount: '1',
-                name: 'Ethereum',
-                symbol: 'ETH',
-                icon: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
-              },
-            ],
-            receives: [],
-          },
-        },
-      ],
-
-      createdAt: new Date().getTime(),
-      updatedAt: new Date().getTime(),
-
-      status: EDecodedTxStatus.Pending,
-      networkId,
-      accountId,
-      extraInfo: null,
-    });
   }
 
   @backgroundMethod()

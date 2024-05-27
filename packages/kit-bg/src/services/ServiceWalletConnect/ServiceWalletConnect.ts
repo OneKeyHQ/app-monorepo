@@ -64,33 +64,6 @@ class ServiceWalletConnect extends ServiceBase {
     await this.dappSide.activateSession({ topic });
   }
 
-  @backgroundMethod()
-  @toastIfError()
-  async testExternalAccountPersonalSign({
-    networkId,
-    accountId,
-  }: {
-    networkId: string;
-    accountId: string;
-  }) {
-    const chainData = await this.getChainDataByNetworkId({
-      networkId,
-    });
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-
-    return this.dappSide.testExternalAccountPersonalSign({
-      address: account.address,
-      wcChain: chainData?.wcChain || '',
-      topic:
-        (account as IDBExternalAccount).connectionInfo?.walletConnect?.topic ||
-        '',
-      account: account as IDBExternalAccount,
-    });
-  }
-
   // chainId: eip155:1, eip155:137
   @backgroundMethod()
   async getWcChainInfo(

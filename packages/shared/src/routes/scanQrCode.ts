@@ -4,6 +4,7 @@ export enum EScanQrCodeModalPages {
 
 export type IScanQrCodeModalParamList = {
   [EScanQrCodeModalPages.ScanQrCodeStack]: {
-    callback: (value: string) => void;
+    callback: (value: string) => Promise<{ progress?: number }>;
+    mask?: boolean;
   };
 };

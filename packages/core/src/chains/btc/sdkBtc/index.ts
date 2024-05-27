@@ -19,7 +19,9 @@ import {
 } from '../../../secret';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
 import {
   IAddressValidation,
   IXprvtValidation,
@@ -38,7 +40,7 @@ import {
 } from '../../../types';
 import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import { getBtcForkNetwork } from './networks';
-import { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 export * from './networks';
 
@@ -81,7 +83,11 @@ function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
 export function tweakSigner(
   privKey: Buffer,
   publicKey: Buffer,
-  opts: { tweakHash?: Buffer; network?: IBtcForkNetwork; needTweak: boolean } = { needTweak: true},
+  opts: {
+    tweakHash?: Buffer;
+    network?: IBtcForkNetwork;
+    needTweak: boolean;
+  } = { needTweak: true },
 ): IBtcForkSigner {
   // new Uint8Array(privKey.buffer) return 8192 length on NODE.js 20
   let privateKey: Uint8Array | null = new Uint8Array(privKey);
@@ -259,6 +265,7 @@ export function validateBtcAddress({
       encoding = EAddressEncodings.P2SH_P2WPKH;
     }
   } catch (e) {
+    errorUtils.autoPrintErrorIgnore(e);
     try {
       const decoded = BitcoinJsAddress.fromBech32(address);
       if (
@@ -281,7 +288,7 @@ export function validateBtcAddress({
         encoding = EAddressEncodings.P2TR;
       }
     } catch (_) {
-      // ignore error
+      errorUtils.autoPrintErrorIgnore(_);
     }
   }
 
@@ -493,6 +500,7 @@ export function getAddressFromXpub({
 }> {
   // Only used to generate addresses locally.
   const decodedXpub = bs58check.decode(xpub);
+  const decodedXpubHex = bufferUtils.bytesToHex(decodedXpub);
 
   let encoding = addressEncoding;
   if (!encoding) {

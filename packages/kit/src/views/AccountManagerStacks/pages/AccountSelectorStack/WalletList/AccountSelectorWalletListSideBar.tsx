@@ -24,6 +24,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
@@ -128,15 +129,23 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
         estimatedItemSize="$10"
         data={wallets}
         extraData={selectedAccount.focusedWallet}
-        renderItem={({ item }: { item: IDBWallet }) => (
-          <WalletListItem
-            key={item.id}
-            wallet={item}
-            focusedWallet={selectedAccount.focusedWallet}
-            onWalletPress={onWalletPress}
-            testID={`wallet-${item.id}`}
-          />
-        )}
+        renderItem={({ item }: { item: IDBWallet }) => {
+          let badge: number | string | undefined;
+          if (accountUtils.isQrWallet({ walletId: item.id })) {
+            badge = 'QR';
+          }
+
+          return (
+            <WalletListItem
+              key={item.id}
+              wallet={item}
+              focusedWallet={selectedAccount.focusedWallet}
+              onWalletPress={onWalletPress}
+              testID={`wallet-${item.id}`}
+              badge={badge}
+            />
+          );
+        }}
         ItemSeparatorComponent={ListItemSeparator}
       />
       {/* Others */}

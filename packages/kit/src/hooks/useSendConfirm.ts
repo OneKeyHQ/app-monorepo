@@ -150,7 +150,7 @@ function useSendConfirm(params: IParams) {
       // send invoice
       await normalizeSendConfirm(params);
     },
-    [networkId, normalizeSendConfirm],
+    [accountId, navigation, networkId, normalizeSendConfirm],
   );
 
   const navigationToSendConfirm = useCallback(
