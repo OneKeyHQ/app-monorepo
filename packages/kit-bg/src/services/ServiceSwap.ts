@@ -282,6 +282,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async fetchTxState({
     txId,
     provider,
