@@ -278,10 +278,9 @@ export default class Vault extends VaultBase {
   ): Promise<ISignedTxPro> {
     const { signedTx, networkId, accountAddress } = params;
     try {
-      console.log('broadcastTransaction START:', {
-        rawTx: signedTx.rawTx,
-      });
-      await this.backgroundApi.serviceSend.broadcastTransaction({
+      const client = await this.getClient();
+      await client.broadcastTransaction({
+        accountId: this.accountId,
         networkId,
         accountAddress,
         signedTx,

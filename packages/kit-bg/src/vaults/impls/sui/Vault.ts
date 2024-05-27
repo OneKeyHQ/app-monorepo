@@ -519,6 +519,16 @@ export default class Vault extends VaultBase {
           }, new BigNumber(0));
           break;
         }
+        if (result.kind === 'SplitCoins' && result.coin.kind === 'GasCoin') {
+          amount = result.amounts.reduce((acc, item) => {
+            let current = acc;
+            if (item.kind === 'Input') {
+              current = current.plus(new BigNumber(item.value));
+            }
+            return current;
+          }, new BigNumber(0));
+          break;
+        }
       } else if (obj.kind === 'Input') {
         const inputResult = inputs[obj.index];
         if (inputResult.type === 'pure') {
