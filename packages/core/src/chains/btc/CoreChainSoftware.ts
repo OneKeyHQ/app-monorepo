@@ -70,6 +70,7 @@ import type {
   IEncodedTxBtc,
 } from './types';
 import { isTaprootInput } from 'bitcoinjs-lib/src/psbt/bip371';
+import { IServerNetwork } from '@onekeyhq/shared/types';
 
 const curveName: ICurveName = 'secp256k1';
 // const a  = tweakSigner()
@@ -94,8 +95,8 @@ const encodeVarString = (buffer: Buffer) =>
   Buffer.concat([VaruintBitCoinEncode(buffer.byteLength), buffer]);
 
 export default class CoreChainSoftware extends CoreChainApiBase {
-  async getCoinName() {
-    return Promise.resolve('BTC');
+  async getCoinName({ network }:{ network:IServerNetwork; }) {
+    return Promise.resolve(network.isTestnet ? 'TEST' : 'BTC');
   }
   protected decodeAddress(address: string): string {
     return address;

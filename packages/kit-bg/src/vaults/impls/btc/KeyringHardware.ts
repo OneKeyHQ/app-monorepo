@@ -40,8 +40,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { dbDevice, deviceCommonParams } = checkIsDefined(
       params.deviceParams,
     );
+    const network = await this.getNetwork();
     const vault = this.vault as VaultBtc;
-    const coinName = await this.coreApi.getCoinName();
+    const coinName = await this.coreApi.getCoinName({ network });
     const addresses = inputs.map((input) => input.address);
     const utxosInfo = await vault._collectUTXOsInfoByApi();
 
