@@ -7,6 +7,8 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
+import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
+
 import {
   BROWSER_BOTTOM_BAR_HEIGHT,
   DISPLAY_BOTTOM_BAR_DURATION,
@@ -14,15 +16,11 @@ import {
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
 } from '../config/Animation.constants';
 
-import type { IWebViewOnScrollEvent } from '../components/WebView/types';
 import type { ViewProps } from 'react-native';
 import type { AnimateProps } from 'react-native-reanimated';
 
 function useMobileBottomBarAnimation(activeTabId: string | null) {
-  const toolbarRef = useMemo(
-    () => createRef<Component<AnimateProps<ViewProps>, any, any>>(),
-    [],
-  );
+  const toolbarRef = useMemo(() => createRef<any>(), []);
   const toolbarHeight = useSharedValue(BROWSER_BOTTOM_BAR_HEIGHT);
   const toolbarOpacity = useSharedValue(MAX_OPACITY_BOTTOM_BAR);
   const lastScrollY = useRef<number | undefined>(undefined);
@@ -53,7 +51,6 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
           layoutMeasurement.height + contentInset.top + contentInset.bottom,
         );
 
-      // @ts-expect-error
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       toolbarRef?.current?.setNativeProps?.({
         position: webViewCanScroll ? 'absolute' : 'relative',
@@ -104,7 +101,6 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
     lastScrollY.current = undefined;
     lastTurnScrollY.current = undefined;
 
-    // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     toolbarRef?.current?.setNativeProps?.({
       position: 'relative',

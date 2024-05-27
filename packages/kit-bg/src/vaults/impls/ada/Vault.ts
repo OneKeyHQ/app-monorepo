@@ -337,12 +337,6 @@ export default class Vault extends VaultBase {
     return Promise.resolve(params.unsignedTx);
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override validateAddress(address: string): Promise<IAddressValidation> {
     if (address.length < 35) {
       return Promise.reject(new InvalidAddress());
@@ -358,7 +352,9 @@ export default class Vault extends VaultBase {
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    return Promise.resolve({
+      isValid: false,
+    });
   }
 
   override getPrivateKeyFromImported(

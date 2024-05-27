@@ -1,7 +1,9 @@
+import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import {
   EOnChainHistoryTxStatus,
   type IAccountHistoryTx,
@@ -118,24 +120,44 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+    const { networkId, accountId } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.buildFetchHistoryListParams(params);
+  }
+
+  @backgroundMethod()
   public async fetchAccountOnChainHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId, xpub, tokenIdOnNetwork, accountAddress } =
       params;
-    const client = await this.getClient();
-    const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
-      '/wallet/v1/account/history/list',
-      {
-        networkId,
-        accountAddress,
-        xpub,
-        tokenAddress: tokenIdOnNetwork,
-      },
-    );
-
+    const extraParams = await this.buildFetchHistoryListParams(params);
     const vault = await vaultFactory.getVault({
       accountId,
       networkId,
     });
+    const client = await this.getClient();
+    let resp;
+    try {
+      resp = await client.post<{ data: IFetchAccountHistoryResp }>(
+        '/wallet/v1/account/history/list',
+        {
+          networkId,
+          accountAddress,
+          xpub,
+          tokenAddress: tokenIdOnNetwork,
+          ...extraParams,
+        },
+      );
+    } catch (e) {
+      const error = e as OneKeyServerApiError;
+      // Exchange the token on the first error to ensure subsequent polling requests succeed
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (error.data?.data?.code === 50401) {
+        // 50401 -> Lightning service special error code
+        await (vault as ILightningVault).exchangeToken();
+      }
+      throw e;
+    }
 
     const { data: onChainHistoryTxs, tokens, nfts } = resp.data.data;
 

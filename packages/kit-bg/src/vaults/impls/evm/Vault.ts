@@ -42,7 +42,6 @@ import { VaultBase } from '../../base/VaultBase';
 import {
   EWrappedType,
   type IApproveInfo,
-  type IBroadcastTransactionParams,
   type IBuildAccountAddressDetailParams,
   type IBuildDecodedTxParams,
   type IBuildEncodedTxParams,
@@ -436,6 +435,13 @@ export default class Vault extends VaultBase {
             ),
             data: '0x',
           };
+        }
+
+        // token address is required when building erc20 token transfer
+        if (!tokenInfo.address) {
+          throw new Error(
+            'buildEncodedTx ERROR: transferInfo.tokenInfo.address missing',
+          );
         }
 
         // token transfer
@@ -883,20 +889,6 @@ export default class Vault extends VaultBase {
     const rpcUrl = await this.getRpcUrl();
     const client = new EthersJsonRpcProvider(rpcUrl);
     return client;
-  }
-
-  override async broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    const { signedTx } = params;
-    const client = await this.getEthersClient();
-    const result = await client.sendTransaction(signedTx.rawTx);
-    console.log('evm broadcastTransaction result: ', result);
-    return {
-      encodedTx: signedTx.encodedTx,
-      txid: signedTx.txid,
-      rawTx: signedTx.rawTx,
-    };
   }
 
   override async getPrivateKeyFromImported(

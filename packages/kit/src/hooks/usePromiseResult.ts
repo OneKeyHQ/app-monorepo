@@ -22,6 +22,7 @@ export type IPromiseResultOptions<T> = {
   debounced?: number;
   undefinedResultIfError?: boolean;
   pollingInterval?: number;
+  alwaysSetState?: boolean;
 };
 
 export type IUsePromiseResultReturn<T> = {
@@ -72,6 +73,7 @@ export function usePromiseResult<T>(
     loadingDelay: 0,
     checkIsMounted: true,
     checkIsFocused: true,
+    alwaysSetState: false,
     ...options,
   };
   const isDepsChangedOnBlur = useRef(false);
@@ -86,6 +88,7 @@ export function usePromiseResult<T>(
         checkIsFocused,
         undefinedResultIfError,
         pollingInterval,
+        alwaysSetState,
       } = optionsRef.current;
 
       const setLoadingTrue = () => {
@@ -101,6 +104,10 @@ export function usePromiseResult<T>(
         }
         if (checkIsFocused && !isFocusedRef.current) {
           flag = false;
+        }
+
+        if (alwaysSetState) {
+          flag = true;
         }
         return flag;
       };

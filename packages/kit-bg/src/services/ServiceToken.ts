@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -13,6 +15,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -77,7 +80,7 @@ class ServiceToken extends ServiceBase {
       data: ({
         info: IToken;
       } & ITokenFiat)[];
-    }>('/wallet/v1/account/token/detail', params);
+    }>('/wallet/v1/account/token/search', params);
 
     return resp.data.data;
   }
@@ -100,11 +103,23 @@ class ServiceToken extends ServiceBase {
   public async getNativeToken({
     networkId,
     accountAddress,
+    tokenIdOnNetwork,
   }: {
     networkId: string;
     accountAddress?: string;
+    tokenIdOnNetwork?: string;
   }) {
-    return this.getToken({ networkId, tokenIdOnNetwork: '', accountAddress });
+    let tokenAddress = tokenIdOnNetwork;
+    if (isNil(tokenAddress)) {
+      const vaultSettings = await getVaultSettings({ networkId });
+      tokenAddress = vaultSettings.nativeTokenAddress;
+    }
+
+    return this.getToken({
+      networkId,
+      tokenIdOnNetwork: tokenAddress ?? '',
+      accountAddress,
+    });
   }
 
   @backgroundMethod()

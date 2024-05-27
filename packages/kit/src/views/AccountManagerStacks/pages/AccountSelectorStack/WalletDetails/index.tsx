@@ -220,14 +220,23 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   const buildSubTitleInfo = useCallback(
     (item: IDBAccount | IDBIndexedAccount) => {
       let address: string | undefined;
+      let allowEmptyAddress = false;
       if (isOthersUniversal) {
         const account = item as IDBAccount | undefined;
         address = account?.address;
       } else {
         const indexedAccount = item as IDBIndexedAccount | undefined;
-        address = indexedAccount?.associateAccount?.address;
+        const associateAccount = indexedAccount?.associateAccount;
+        address = associateAccount?.address;
+
+        if (
+          associateAccount?.addressDetail?.isValid &&
+          associateAccount?.addressDetail?.normalizedAddress
+        ) {
+          allowEmptyAddress = true;
+        }
       }
-      if (!address && !isOthersUniversal && linkNetwork) {
+      if (!address && !isOthersUniversal && linkNetwork && !allowEmptyAddress) {
         // TODO custom style
         return {
           address: `No ${activeAccount?.network?.shortname || ''} address`,
@@ -235,9 +244,11 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         };
       }
       return {
-        address: accountUtils.shortenAddress({
-          address,
-        }),
+        address: address
+          ? accountUtils.shortenAddress({
+              address,
+            })
+          : '',
         isEmptyAddress: false,
       };
     },

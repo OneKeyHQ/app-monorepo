@@ -22,6 +22,7 @@ import type {
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
 } from '@onekeyhq/shared/types/history';
+import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -110,6 +111,7 @@ export type IVaultSettings = {
   watchingAccountEnabled: boolean;
   externalAccountEnabled: boolean;
   hardwareAccountEnabled: boolean;
+  softwareAccountDisabled?: boolean;
 
   isUtxo: boolean;
   isSingleToken: boolean;
@@ -132,9 +134,18 @@ export type IVaultSettings = {
     [networkId: string]: IVaultSettingsNetworkInfo;
   };
   validationRequired?: boolean;
+  hideAmountInputOnFirstEntry?: boolean;
   allowZeroFee?: boolean;
 
   onChainHistoryDisabled?: boolean;
+
+  cannotSendToSelf?: boolean;
+
+  withPaymentId?: boolean;
+
+  enabledOnClassicOnly?: boolean;
+
+  nativeTokenAddress?: string;
 };
 
 export type IVaultFactoryOptions = {
@@ -258,6 +269,13 @@ export type ITransferInfo = {
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  keepAlive?: boolean; // Polkadot chain keep alive
+
+  // Lightning network
+  lnurlPaymentInfo?: ILNURLPaymentInfo;
+  lightningAddress?: string;
+
+  paymentId?: string; // Dynex chain paymentId
 };
 
 export type IApproveInfo = {
@@ -293,6 +311,10 @@ export type IUtxoInfo = {
   amount?: IAdaAmount[];
   datumHash?: string | null;
   referenceScriptHash?: string | null;
+  scriptPublicKey?: {
+    scriptPublicKey: string;
+    version: number;
+  };
 };
 
 export type INativeAmountInfo = {
@@ -331,6 +353,7 @@ export interface IBroadcastTransactionParams {
   networkId: string;
   accountAddress: string;
   signedTx: ISignedTxPro;
+  signature?: string;
 }
 
 export interface ISignTransactionParamsBase {

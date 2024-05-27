@@ -65,6 +65,7 @@ export function calculateTotalFeeRange({
   if (feeInfo.feeUTXO?.feeRate) {
     const fee = new BigNumber(feeInfo.feeUTXO.feeRate)
       .multipliedBy(txSize ?? 0)
+      .decimalPlaces(feeInfo.common.feeDecimals, BigNumber.ROUND_CEIL)
       .toFixed();
     return {
       min: nanToZeroString(fee),
@@ -91,21 +92,16 @@ export function calculateTotalFeeRange({
     };
   }
 
-  if (feeInfo.feeSol) {
-    const gasInfo = feeInfo.feeSol;
-    const limit = gasInfo.limit;
-    const limitForDisplay = limit;
-    const max = new BigNumber(limit).times(gasInfo.price).toFixed();
-
-    const maxForDisplay = new BigNumber(limitForDisplay)
-      .times(gasInfo.price)
-      .toFixed();
+  if (feeInfo.gasFil) {
+    const gasInfo = feeInfo.gasFil;
+    const limit = gasInfo.gasLimit;
+    const max = new BigNumber(limit).times(gasInfo.gasFeeCap).toFixed();
 
     return {
       min: nanToZeroString(max),
       max: nanToZeroString(max),
-      minForDisplay: nanToZeroString(maxForDisplay),
-      maxForDisplay: nanToZeroString(maxForDisplay),
+      minForDisplay: nanToZeroString(max),
+      maxForDisplay: nanToZeroString(max),
     };
   }
 

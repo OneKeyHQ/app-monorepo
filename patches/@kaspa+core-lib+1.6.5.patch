@@ -1,0 +1,163 @@
+diff --git a/node_modules/@kaspa/core-lib/index.js b/node_modules/@kaspa/core-lib/index.js
+index 47931c2..27b12ad 100644
+--- a/node_modules/@kaspa/core-lib/index.js
++++ b/node_modules/@kaspa/core-lib/index.js
+@@ -1,13 +1,5 @@
+-'use strict';
+-
+-
+-const secp256k1 = require('secp256k1-wasm');
+-const blake2b = require('blake2b-wasm');
+-
+ var kaspacore = module.exports;
+ 
+-kaspacore.secp256k1 = secp256k1;
+-
+ // module information
+ kaspacore.version = 'v' + require('./package.json').version;
+ kaspacore.versionGuard = function(version) {
+@@ -21,41 +13,6 @@ kaspacore.versionGuard = function(version) {
+ kaspacore.versionGuard(global._kaspacoreLibVersion);
+ global._kaspacoreLibVersion = kaspacore.version;
+ 
+-
+-const wasmModulesLoadStatus = new Map();
+-kaspacore.wasmModulesLoadStatus = wasmModulesLoadStatus;
+-wasmModulesLoadStatus.set("blake2b", false);
+-wasmModulesLoadStatus.set("secp256k1", false);
+-
+-const setWasmLoadStatus = (mod, loaded) => {
+-	//console.log("setWasmLoadStatus:", mod, loaded)
+-	wasmModulesLoadStatus.set(mod, loaded);
+-	let allLoaded = true;
+-	wasmModulesLoadStatus.forEach((loaded, mod) => {
+-		//console.log("wasmModulesLoadStatus:", mod, loaded)
+-		if (!loaded)
+-			allLoaded = false;
+-	})
+-
+-	if (allLoaded)
+-		kaspacore.ready();
+-}
+-
+-
+-blake2b.ready(() => {
+-	setWasmLoadStatus("blake2b", true);
+-})
+-
+-secp256k1.onRuntimeInitialized = () => {
+-	//console.log("onRuntimeInitialized")
+-	setTimeout(() => {
+-		setWasmLoadStatus("secp256k1", true);
+-	}, 1);
+-}
+-
+-secp256k1.onAbort = (error) => {
+-	console.log("secp256k1:onAbort:", error)
+-}
+ const deferred = ()=>{
+ 	let methods = {};
+ 	let promise = new Promise((resolve, reject)=>{
+@@ -73,7 +30,6 @@ kaspacore.initRuntime = ()=>{
+ 	return readySignal;
+ }
+ 
+-
+ // crypto
+ kaspacore.crypto = {};
+ kaspacore.crypto.BN = require('./lib/crypto/bn');
+@@ -99,6 +55,7 @@ kaspacore.util.js = require('./lib/util/js');
+ kaspacore.util.preconditions = require('./lib/util/preconditions');
+ kaspacore.util.base32 = require('./lib/util/base32');
+ kaspacore.util.convertBits = require('./lib/util/convertBits');
++
+ kaspacore.setDebugLevel = (level)=>{
+ 	kaspacore.util.js.debugLevel = level;
+ }
+diff --git a/node_modules/@kaspa/core-lib/lib/crypto/schnorr.js b/node_modules/@kaspa/core-lib/lib/crypto/schnorr.js
+index c748321..9b2f583 100644
+--- a/node_modules/@kaspa/core-lib/lib/crypto/schnorr.js
++++ b/node_modules/@kaspa/core-lib/lib/crypto/schnorr.js
+@@ -3,7 +3,7 @@
+ // Important references for schnorr implementation
+ // https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-schnorr.md
+ // https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-11-15-schnorrmultisig.md#wallet-implementation-guidelines
+-const secp256k1 = require('secp256k1-wasm');
++const secp256k1 = require('@noble/secp256k1');
+ var BN = require('./bn');
+ var Point = require('./point');
+ var Signature = require('./signature');
+@@ -245,7 +245,7 @@ Schnorr.prototype._findSignature = function(d, e) {
+     }).sign().sig;
+     */
+     //console.log(":::sighash:", hashbuf.toString("hex"))
+-    let result = secp256k1.schnorrsig_sign(privkey.toString(), Buffer.from(hashbuf).toString('hex'));
++    let result =  secp256k1.schnorr.sign(Buffer.from(hashbuf).toString('hex'), privkey.toString());
+     
+     let sig = Signature.fromString(result.sig);
+     let b = sig.toBuffer("schnorr").toString("hex");
+diff --git a/node_modules/@kaspa/core-lib/lib/privatekey.js b/node_modules/@kaspa/core-lib/lib/privatekey.js
+index e2d432d..fd30105 100644
+--- a/node_modules/@kaspa/core-lib/lib/privatekey.js
++++ b/node_modules/@kaspa/core-lib/lib/privatekey.js
+@@ -10,7 +10,7 @@ var Point = require('./crypto/point');
+ var PublicKey = require('./publickey');
+ var Random = require('./crypto/random');
+ var $ = require('./util/preconditions');
+-const secp256k1 = require('secp256k1-wasm');
++const secp256k1 = require('@noble/secp256k1');
+ 
+ /**
+  * Instantiate a PrivateKey from a BN, Buffer and WIF.
+@@ -368,8 +368,9 @@ PrivateKey.prototype.toBufferNoPadding = function() {
+ PrivateKey.prototype.toPublicKey = function() {
+ 	if (!this._pubkey) {
+ 		//this._pubkey = PublicKey.fromPrivateKey(this);
+-		let publicKeys = secp256k1.export_public_keys(this.toString());
+-		this._pubkey = new PublicKey(publicKeys.pubkey, {
++
++		let publicKey = secp256k1.getPublicKey(this.toString(),true);
++		this._pubkey = new PublicKey(Buffer.from(publicKey), {
+ 			network: this.network.name
+ 		});
+ 	}
+diff --git a/node_modules/@kaspa/core-lib/lib/transaction/sighash.js b/node_modules/@kaspa/core-lib/lib/transaction/sighash.js
+index 66a9d37..681fc92 100644
+--- a/node_modules/@kaspa/core-lib/lib/transaction/sighash.js
++++ b/node_modules/@kaspa/core-lib/lib/transaction/sighash.js
+@@ -16,7 +16,7 @@ var BufferUtil = require('../util/buffer');
+ var Interpreter = require('../script/interpreter');
+ var _ = require('lodash');
+ const JSUtil = require('../util/js');
+-const blake2b = require('blake2b-wasm');
++const { blake2b } = require('@noble/hashes/blake2b')
+ //const { isBuffer } = require('lodash');
+ 
+ var SIGHASH_SINGLE_BUG = '0000000000000000000000000000000000000000000000000000000000000001';
+@@ -29,7 +29,7 @@ var DEFAULT_SIGN_FLAGS = Interpreter.SCRIPT_ENABLE_SIGHASH_FORKID;
+ const TransactionSigningHashKey  = Buffer.from("TransactionSigningHash");
+ 
+ const blake2b_256 = (buf, key)=>{
+-  return blake2b(32, key).update(buf).digest();
++	return blake2b.create({dkLen: 32, key: key}).update(buf).digest();
+ }
+ 
+ var sighashForForkId = function(transaction, sighashType, inputNumber, subscript, satoshisBN) {
+@@ -170,7 +170,7 @@ function HashWriter(){
+ 	// this.hash = blake2b(32, TransactionSigningHashKey);
+ 	//let me = this;
+ 	this.hash = {
+-		hash: blake2b(32, TransactionSigningHashKey),
++		hash: blake2b.create({dkLen: 32, key: TransactionSigningHashKey}),
+ 		bw:new BufferWriter(),
+ 		update: function(buf){
+ 			/*
+@@ -184,7 +184,7 @@ function HashWriter(){
+ 			this.hash.update(buf);
+ 		},
+ 		digest: function(){
+-			return this.hash.digest();
++			return Buffer.from(this.hash.digest());
+ 		},
+ 	};
+ }

@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil, random } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -67,6 +68,7 @@ class ServiceSend extends ServiceBase {
         decimals: 18,
         name: 'Ethereum',
         symbol: 'ETH',
+        isNative: true,
       },
     };
 
@@ -236,7 +238,7 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
-    const { networkId, signedTx, accountAddress } = params;
+    const { networkId, signedTx, accountAddress, signature } = params;
     const client = await this.getClient();
     const resp = await client.post<{
       data: { result: string };
@@ -244,6 +246,7 @@ class ServiceSend extends ServiceBase {
       networkId,
       accountAddress,
       tx: signedTx.rawTx,
+      signature,
     });
 
     return resp.data.data.result;
@@ -298,10 +301,11 @@ class ServiceSend extends ServiceBase {
   ) {
     const { networkId, accountId, unsignedTx, signOnly } = params;
 
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
 
     const signedTx = await this.signTransaction({
       networkId,
@@ -317,11 +321,18 @@ class ServiceSend extends ServiceBase {
         accountId,
       })
     ) {
-      const txid = await this.broadcastTransaction({
+      const vault = await vaultFactory.getVault({
         networkId,
-        signedTx,
-        accountAddress: account.address,
+        accountId,
       });
+      const { txid } = await vault.broadcastTransaction({
+        networkId,
+        accountAddress,
+        signedTx,
+      });
+      if (!txid) {
+        throw new Error('Broadcast transaction failed.');
+      }
       return { ...signedTx, txid };
     }
 
@@ -358,7 +369,6 @@ class ServiceSend extends ServiceBase {
     }
 
     const result: ISendTxOnSuccessData[] = [];
-
     for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
       const unsignedTx = newUnsignedTxs[i];
       const signedTx = signOnly
@@ -504,7 +514,6 @@ class ServiceSend extends ServiceBase {
         specifiedFeeRate,
       });
     }
-
     if (swapInfo) {
       newUnsignedTx.swapInfo = swapInfo;
     }
@@ -515,7 +524,7 @@ class ServiceSend extends ServiceBase {
       })
     ).nonceRequired;
 
-    if (isNonceRequired && isNil(newUnsignedTx.nonce)) {
+    if (isNonceRequired && new BigNumber(newUnsignedTx.nonce ?? 0).isZero()) {
       const nonce = await this.backgroundApi.serviceSend.getNextNonce({
         accountId,
         networkId,
@@ -529,7 +538,6 @@ class ServiceSend extends ServiceBase {
         nonceInfo: { nonce },
       });
     }
-
     return newUnsignedTx;
   }
 

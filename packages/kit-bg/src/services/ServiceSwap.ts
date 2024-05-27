@@ -89,14 +89,6 @@ export default class ServiceSwap extends ServiceBase {
             explorers: clientNetwork.explorers,
           };
         }
-        if (network.networkId === 'all') {
-          return {
-            ...network,
-            name: 'All Network',
-            symbol: 'All Net',
-            shortcode: 'All',
-          };
-        }
         return null;
       })
       .filter(Boolean);
@@ -115,7 +107,7 @@ export default class ServiceSwap extends ServiceBase {
     await this.cancelFetchTokenList();
     const params = {
       protocol: EProtocolOfExchange.SWAP,
-      networkId: networkId === 'all' ? undefined : networkId,
+      networkId,
       keywords,
       limit,
       accountAddress,
@@ -411,14 +403,10 @@ export default class ServiceSwap extends ServiceBase {
         method:
           item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
         title:
-          item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
-        message: `${item.baseInfo.fromToken.symbol} -> ${
-          item.baseInfo.toToken.symbol
-        } ${
           item.status === ESwapTxHistoryStatus.SUCCESS
-            ? `swap success, received ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`
-            : 'swap failed'
-        }`,
+            ? 'Swap successful'
+            : 'Swap failed',
+        message: `${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toToken.symbol}`,
       });
     }
   }

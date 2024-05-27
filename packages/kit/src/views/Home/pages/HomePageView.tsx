@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing } from 'react-native';
 
-import { Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -50,7 +50,15 @@ export function HomePageView({
   }, [pageWidth]);
   const intl = useIntl();
   const {
-    activeAccount: { account, accountName, network, deriveInfo, wallet, ready },
+    activeAccount: {
+      account,
+      accountName,
+      network,
+      deriveInfo,
+      wallet,
+      ready,
+      device,
+    },
   } = useActiveAccount({ num: 0 });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -76,6 +84,7 @@ export function HomePageView({
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
   const isRequiredValidation = vaultSettings?.validationRequired;
+  const enabledOnClassicOnly = vaultSettings?.enabledOnClassicOnly;
 
   const tabs = useMemo(
     () =>
@@ -123,10 +132,24 @@ export function HomePageView({
   );
 
   const renderHomePageContent = useCallback(() => {
+    if (enabledOnClassicOnly && device?.deviceType !== 'classic') {
+      return (
+        <YStack height="100%">
+          <HomeSelector createAddressDisabled padding="$5" />
+          <Stack flex={1} justifyContent="center">
+            <Empty
+              icon="LinkSolid"
+              title="Selected network supports only 「Classic」"
+            />
+            ;
+          </Stack>
+        </YStack>
+      );
+    }
+
     if (!account) {
       return (
         <YStack height="100%">
-          <UpdateReminder />
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
             <EmptyAccount
@@ -157,15 +180,17 @@ export function HomePageView({
 
     return <>{renderTabs()}</>;
   }, [
+    enabledOnClassicOnly,
+    device?.deviceType,
     account,
+    isRequiredValidation,
+    renderTabs,
     accountName,
-    network?.id,
     network?.name,
+    network?.id,
     deriveInfo?.labelKey,
     deriveInfo?.label,
     intl,
-    isRequiredValidation,
-    renderTabs,
   ]);
 
   const renderHomePage = useCallback(() => {
@@ -186,6 +211,7 @@ export function HomePageView({
       <>
         <TabPageHeader showHeaderRight sceneName={sceneName} />
         <Page.Body>
+          <UpdateReminder />
           <HomeFirmwareUpdateReminder />
           {content}
         </Page.Body>

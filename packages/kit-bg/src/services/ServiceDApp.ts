@@ -21,6 +21,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import {
@@ -41,6 +42,7 @@ import ServiceBase from './ServiceBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
+import type { ITransferInfo } from '../vaults/types';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -75,19 +77,19 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const storageType: IConnectionStorageType = isWalletConnectRequest
     ? 'walletConnect'
     : 'injectedProvider';
-  let networkImpl: string | undefined = '';
+  let networkImpls: string[] | undefined = [];
   if (options.networkImpl) {
-    networkImpl = options.networkImpl;
+    networkImpls = [options.networkImpl];
   } else if (scope) {
-    networkImpl = getNetworkImplsFromDappScope(scope)?.[0];
+    networkImpls = getNetworkImplsFromDappScope(scope);
   }
 
-  if (!networkImpl) {
+  if (!networkImpls) {
     throw new Error('networkImpl not found');
   }
   return {
     storageType,
-    networkImpl,
+    networkImpls,
   };
 }
 
@@ -250,12 +252,14 @@ class ServiceDApp extends ServiceBase {
     encodedTx,
     accountId,
     networkId,
+    transfersInfo,
     signOnly,
   }: {
     request: IJsBridgeMessagePayload;
     encodedTx: IEncodedTx;
     accountId: string;
     networkId: string;
+    transfersInfo?: ITransferInfo[];
     signOnly?: boolean;
   }) {
     return this.openModal({
@@ -263,6 +267,7 @@ class ServiceDApp extends ServiceBase {
       screens: [EModalRoutes.SendModal, EModalSendRoutes.SendConfirmFromDApp],
       params: {
         encodedTx,
+        transfersInfo,
         accountId,
         networkId,
         signOnly,
@@ -274,10 +279,10 @@ class ServiceDApp extends ServiceBase {
   // connection allowance
   @backgroundMethod()
   async getAccountSelectorNum(params: IGetDAppAccountInfoParams) {
-    const { storageType, networkImpl } = getQueryDAppAccountParams(params);
+    const { storageType, networkImpls } = getQueryDAppAccountParams(params);
     return this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
       params.origin,
-      networkImpl,
+      networkImpls,
       storageType,
     );
   }
@@ -435,22 +440,29 @@ class ServiceDApp extends ServiceBase {
     isWalletConnectRequest,
     options,
   }: IGetDAppAccountInfoParams) {
-    const { storageType, networkImpl } = getQueryDAppAccountParams({
+    const { storageType, networkImpls } = getQueryDAppAccountParams({
       origin,
       scope,
       isWalletConnectRequest,
       options,
     });
-    const accountsInfo =
-      await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOriginAndScope(
-        origin,
-        storageType,
-        networkImpl,
-      );
-    if (!accountsInfo) {
+    const allAccountsInfo = [];
+    for (const networkImpl of networkImpls) {
+      const accountsInfo =
+        await this.backgroundApi.simpleDb.dappConnection.findAccountsInfoByOriginAndScope(
+          origin,
+          storageType,
+          networkImpl,
+        );
+      if (accountsInfo) {
+        allAccountsInfo.push(...accountsInfo);
+      }
+    }
+    if (!allAccountsInfo.length) {
       return null;
     }
-    return accountsInfo;
+
+    return allAccountsInfo;
   }
 
   @backgroundMethod()
@@ -628,6 +640,7 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async switchConnectedNetwork(
     params: IGetDAppAccountInfoParams & {
+      oldNetworkId?: string;
       newNetworkId: string;
     },
   ) {
@@ -639,40 +652,69 @@ class ServiceDApp extends ServiceBase {
     if (!containsNetwork) {
       throw new Error('Network not found');
     }
-    if (!(await this.shouldSwitchNetwork(params))) {
+    const { shouldSwitchNetwork, isDifferentNetworkImpl } =
+      await this.getSwitchNetworkInfo(params);
+    if (!shouldSwitchNetwork) {
       return;
     }
 
-    const { storageType, networkImpl } = getQueryDAppAccountParams(params);
+    const { storageType, networkImpls } = getQueryDAppAccountParams(params);
     const accountSelectorNum =
       await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorNum(
         params.origin,
-        networkImpl,
+        networkImpls,
         storageType,
       );
     console.log('====> accountSelectorNum: ', accountSelectorNum);
-    const selectedAccount =
-      await this.backgroundApi.simpleDb.accountSelector.getSelectedAccount({
-        sceneName: EAccountSelectorSceneName.discover,
+    const map =
+      await this.backgroundApi.simpleDb.dappConnection.getAccountSelectorMap({
         sceneUrl: params.origin,
-        num: accountSelectorNum,
       });
-    if (selectedAccount) {
-      const { selectedAccount: newSelectedAccount } =
+    const existSelectedAccount = map?.[accountSelectorNum];
+    let updatedAccountInfo: IConnectionAccountInfo | null = null;
+    if (existSelectedAccount) {
+      const { selectedAccount, activeAccount } =
         await this.backgroundApi.serviceAccountSelector.buildActiveAccountInfoFromSelectedAccount(
           {
-            selectedAccount: { ...selectedAccount, networkId: newNetworkId },
+            selectedAccount: {
+              ...existSelectedAccount,
+              networkId: newNetworkId,
+            },
           },
         );
-      console.log('===>newSelectedAccount: ', newSelectedAccount);
-    }
 
-    await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
-      params.origin,
-      networkImpl,
-      newNetworkId,
-      storageType,
-    );
+      if (!activeAccount.account) {
+        throw new Error('Switch network failed, account not found');
+      }
+
+      updatedAccountInfo = {
+        ...selectedAccount,
+        accountId: activeAccount?.account.id,
+        address: activeAccount?.account.address,
+        networkImpl: activeAccount?.account.impl,
+      };
+    }
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: newNetworkId,
+    });
+    // update account info if network impl is different, tbtc !== btc
+    if (isDifferentNetworkImpl && updatedAccountInfo) {
+      await this.backgroundApi.simpleDb.dappConnection.updateConnectionAccountInfo(
+        {
+          origin: params.origin,
+          accountSelectorNum,
+          updatedAccountInfo,
+          storageType,
+        },
+      );
+    } else {
+      await this.backgroundApi.simpleDb.dappConnection.updateNetworkId(
+        params.origin,
+        network.impl,
+        newNetworkId,
+        storageType,
+      );
+    }
 
     setTimeout(() => {
       appEventBus.emit(EAppEventBusNames.DAppNetworkUpdate, {
@@ -685,19 +727,43 @@ class ServiceDApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async shouldSwitchNetwork(
+  async getSwitchNetworkInfo(
     params: IGetDAppAccountInfoParams & {
       newNetworkId: string;
+      oldNetworkId?: string;
     },
   ) {
+    const { newNetworkId, oldNetworkId } = params;
     const accountsInfo = await this.getConnectedAccountsInfo(params);
+    let shouldSwitchNetwork = false;
+    let isDifferentNetworkImpl = false;
     if (
       !accountsInfo ||
       (Array.isArray(accountsInfo) && !accountsInfo.length)
     ) {
-      return false;
+      return {
+        shouldSwitchNetwork,
+        isDifferentNetworkImpl,
+      };
     }
-    return accountsInfo.some((a) => a.networkId !== params.newNetworkId);
+    const newNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: newNetworkId,
+    });
+    for (const accountInfo of accountsInfo) {
+      if (oldNetworkId) {
+        // tbtc !== btc
+        if (oldNetworkId === accountInfo.networkId) {
+          shouldSwitchNetwork = accountInfo.networkId !== newNetworkId;
+          isDifferentNetworkImpl = accountInfo.networkImpl !== newNetwork.impl;
+        }
+      } else if (accountInfo.networkId !== newNetworkId) {
+        shouldSwitchNetwork = true;
+      }
+    }
+    return {
+      shouldSwitchNetwork,
+      isDifferentNetworkImpl,
+    };
   }
 
   @backgroundMethod()
@@ -774,7 +840,7 @@ class ServiceDApp extends ServiceBase {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate
       | undefined;
-    return privateProvider?.isWebEmbedApiReady;
+    return Promise.resolve(privateProvider?.isWebEmbedApiReady);
   }
 
   @backgroundMethod()

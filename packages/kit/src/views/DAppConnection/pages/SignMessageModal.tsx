@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Page, Toast } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -16,6 +18,7 @@ import {
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
 function SignMessageModal() {
+  const intl = useIntl();
   const { $sourceInfo, unsignedMessage, accountId, networkId } = useDappQuery<{
     unsignedMessage: IUnsignedMessage;
     accountId: string;
@@ -41,9 +44,9 @@ function SignMessageModal() {
   }, [currentNetwork]);
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
@@ -64,9 +67,14 @@ function SignMessageModal() {
         message: unsignedMessage.message,
         sourceInfo: $sourceInfo,
       });
+      Toast.success({
+        title: intl.formatMessage({
+          id: 'msg__success',
+        }),
+      });
       close?.();
     },
-    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo],
+    [unsignedMessage, dappApprove, networkId, accountId, $sourceInfo, intl],
   );
 
   return (
@@ -92,9 +100,9 @@ function SignMessageModal() {
           onConfirm={(params) => handleSignMessage(params)}
           onCancel={() => dappApprove.reject()}
           confirmButtonProps={{
-            disabled: !canContinueOperate,
+            disabled: !continueOperate,
           }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
+          showContinueOperateCheckbox={showContinueOperate}
           riskLevel={riskLevel}
         />
       </Page.Footer>

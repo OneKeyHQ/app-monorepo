@@ -34,6 +34,7 @@ import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
+import type ServiceMarket from '../services/ServiceMarket';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -45,8 +46,10 @@ import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
+import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type { EAtomNames } from '../states/jotai/atomNames';
@@ -142,6 +145,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;
   serviceAppUpdate: ServiceAppUpdate;
+  serviceMarket: ServiceMarket;
   serviceContextMenu: ServiceContextMenu;
 
   serviceE2E: ServiceE2E;
@@ -149,4 +153,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceFiatCrypto: ServiceFiatCrypto;
   serviceSignature: ServiceSignature;
   serviceNostr: ServiceNostr;
+  serviceUniversalSearch: ServiceUniversalSearch;
+  serviceStaking: ServiceStaking;
 }

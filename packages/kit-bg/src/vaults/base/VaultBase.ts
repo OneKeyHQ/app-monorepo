@@ -36,6 +36,7 @@ import type {
 } from '@onekeyhq/shared/types/address';
 import type {
   IAccountHistoryTx,
+  IFetchAccountHistoryParams,
   IOnChainHistoryTx,
   IOnChainHistoryTxApprove,
   IOnChainHistoryTxNFT,
@@ -217,6 +218,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   abstract getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult>;
+
+  async validateAmountInputShown({ toAddress }: { toAddress: string }) {
+    return Promise.resolve({
+      isValid: true,
+    });
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -254,9 +261,19 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
 
-  abstract broadcastTransaction(
+  async broadcastTransaction(
     params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro>;
+  ): Promise<ISignedTxPro> {
+    const { signedTx } = params;
+    const txid = await this.backgroundApi.serviceSend.broadcastTransaction(
+      params,
+    );
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
+  }
 
   async validateSendAmount() {
     return Promise.resolve(true);
@@ -268,6 +285,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     encodedTx: IEncodedTx | undefined;
   }) {
     return Promise.resolve(encodedTx);
+  }
+
+  async buildFetchHistoryListParams(params: IFetchAccountHistoryParams) {
+    return Promise.resolve({});
   }
 
   async buildHistoryTx({

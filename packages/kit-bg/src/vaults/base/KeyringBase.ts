@@ -2,7 +2,11 @@
 import { isNil } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
-import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  ISignedMessagePro,
+  ISignedTxPro,
+  IVerifiedMessagePro,
+} from '@onekeyhq/core/src/types';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -85,7 +89,8 @@ export abstract class KeyringBase extends VaultContext {
     });
     const ret: Array<IDBSimpleAccount | IDBVariantAccount> = [];
     for (let idx = 0; idx < addressInfos.length; idx += 1) {
-      const { path, publicKey, address, addresses } = addressInfos[idx];
+      const { path, publicKey, address, addresses, relPath } =
+        addressInfos[idx];
       if (!path) {
         throw new Error('KeyringHD prepareAccounts ERROR: path not found');
       }
@@ -121,6 +126,7 @@ export abstract class KeyringBase extends VaultContext {
         type: accountType,
         path,
         pathIndex,
+        relPath,
         indexedAccountId,
         coinType, // TODO save deriveType to account
         impl: settings.impl,

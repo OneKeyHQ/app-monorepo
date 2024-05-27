@@ -5,6 +5,7 @@ import { SimpleDbEntityBase } from './SimpleDbEntityBase';
 export interface IRiskyTokens {
   blockedTokens: Record<string, Record<string, boolean>>; // <networkId, <tokenIdOnNetwork: boolean>>
   unblockedTokens: Record<string, Record<string, boolean>>; // <networkId, <tokenIdOnNetwork: boolean>>
+  confirmedRiskTokens: string[]; // networkId_contractAddress
 }
 
 export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> {
@@ -20,6 +21,11 @@ export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> 
   @backgroundMethod()
   async getUnblockedTokens(networkId: string) {
     return (await this.getRawData())?.unblockedTokens[networkId] ?? {};
+  }
+
+  @backgroundMethod()
+  async getConfirmedRiskTokens() {
+    return (await this.getRawData())?.confirmedRiskTokens ?? [];
   }
 
   @backgroundMethod()
@@ -45,6 +51,7 @@ export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> 
       blockedTokens[networkId] = blockedTokensMap;
 
       return {
+        confirmedRiskTokens: rawData?.confirmedRiskTokens ?? [],
         blockedTokens,
         unblockedTokens: rawData?.unblockedTokens ?? {},
       };
@@ -73,7 +80,22 @@ export class SimpleDbEntityRiskyTokens extends SimpleDbEntityBase<IRiskyTokens> 
 
       unblockedTokens[networkId] = unblockedTokensMap;
 
-      return { blockedTokens: rawData?.blockedTokens ?? {}, unblockedTokens };
+      return {
+        confirmedRiskTokens: rawData?.confirmedRiskTokens ?? [],
+        blockedTokens: rawData?.blockedTokens ?? {},
+        unblockedTokens,
+      };
     });
+  }
+
+  @backgroundMethod()
+  async addConfirmedRiskTokens(tokens: string[]) {
+    await this.setRawData(({ rawData }) => ({
+      blockedTokens: rawData?.blockedTokens ?? {},
+      unblockedTokens: rawData?.unblockedTokens ?? {},
+      confirmedRiskTokens: Array.from(
+        new Set([...(rawData?.confirmedRiskTokens ?? []), ...tokens]),
+      ),
+    }));
   }
 }

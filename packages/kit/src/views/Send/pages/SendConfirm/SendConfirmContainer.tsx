@@ -50,18 +50,21 @@ function SendConfirmContainer() {
       balance: '0',
       logoURI: '',
     });
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      networkId,
-      accountId,
-    });
-    const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
-      accountId,
-      networkId,
-    });
+    const [accountAddress, xpub, vaultSettings] = await Promise.all([
+      backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      }),
+      backgroundApiProxy.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+    ]);
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
-      accountAddress: account.address,
-      contractList: [''],
+      accountAddress,
+      contractList: [vaultSettings.nativeTokenAddress ?? ''],
       xpub,
     });
 

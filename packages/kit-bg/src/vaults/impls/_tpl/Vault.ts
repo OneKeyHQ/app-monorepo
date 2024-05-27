@@ -21,7 +21,6 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
-import settings from './settings';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
@@ -70,12 +69,6 @@ export default class Vault extends VaultBase {
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
     throw new Error('Method not implemented.');
   }
 
