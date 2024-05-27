@@ -66,7 +66,6 @@ const {
             },
           ],
         } as IEncodedTxBtc,
-        // opReturn
       },
       btcExtraInfo: {
         pathToAddresses: {

@@ -710,4 +710,5 @@ module.exports = [
   'Matic',
   'unstake',
   'Unstaking',
+  'thor',
 ];
