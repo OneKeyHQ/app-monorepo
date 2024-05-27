@@ -1,4 +1,3 @@
-import { sortBy } from 'lodash';
 import RNRestart from 'react-native-restart';
 
 import {
@@ -7,9 +6,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import * as Errors from '@onekeyhq/shared/src/errors';
-import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -19,20 +16,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import type { IOpenUrlRouteInfo } from '@onekeyhq/shared/src/utils/extUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type {
-  IUniversalSearchAddress,
-  IUniversalSearchBatchResult,
-  IUniversalSearchResultItem,
-  IUniversalSearchSingleResult,
-} from '@onekeyhq/shared/types/search';
-import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import { settingsPersistAtom } from '../states/jotai/atoms';
-import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 

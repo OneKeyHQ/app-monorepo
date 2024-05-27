@@ -1,19 +1,16 @@
 import type { ReactElement } from 'react';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { differenceInDays } from 'date-fns';
 
 import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import {
   Icon,
-  IconButton,
   NumberSizeableText,
   SizableText,
   XStack,
   YStack,
-  useClipboard,
 } from '@onekeyhq/components';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
 
 import { MarketTokenAddress } from './MarketTokenAddress';
@@ -99,7 +96,7 @@ export function PoolDetails({
       </XStack>
       <XStack space="$4">
         <PoolDetailsItem title="Price" currency isNumeric formatter="price">
-          {attributes.base_token_price_usd}
+          {attributes.baseTokenPriceUsd}
         </PoolDetailsItem>
         <PoolDetailsItem title="24H Txns" isNumeric>
           {String(
@@ -110,20 +107,20 @@ export function PoolDetails({
       </XStack>
       <XStack space="$4">
         <PoolDetailsItem title="24H Volume" isNumeric>
-          {attributes.volume_usd.h24}
+          {attributes.volumeUsd.h24}
         </PoolDetailsItem>
         <PoolDetailsItem title="Liquidity" isNumeric>
-          {attributes.reserve_in_usd}
+          {attributes.reserveInUsd}
         </PoolDetailsItem>
       </XStack>
       <XStack space="$4">
         <PoolDetailsItem title="FDV" isNumeric>
-          {attributes.fdv_usd}
+          {attributes.fdvUsd}
         </PoolDetailsItem>
         <PoolDetailsItem title="Age">
           {`${differenceInDays(
             new Date(),
-            new Date(attributes.pool_created_at),
+            new Date(attributes.poolCreatedAt),
           )} days`}
         </PoolDetailsItem>
       </XStack>

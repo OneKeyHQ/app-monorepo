@@ -3,12 +3,11 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { groupBy } from 'lodash';
 
-import type { IIconProps, ISizableTextProps } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Icon,
-  IconButton,
   ListView,
   NumberSizeableText,
   SizableText,
@@ -85,10 +84,8 @@ function NetworkIdSelect({
 }
 
 export function MarketDetailPools({
-  token,
   pools,
 }: {
-  token: IMarketTokenDetail;
   pools: IMarketDetailPool[];
 }) {
   const { gtMd } = useMedia();
@@ -184,7 +181,7 @@ export function MarketDetailPools({
                       formatterOptions={{ currency: '$' }}
                       textAlign="right"
                     >
-                      {attributes.base_token_price_usd}
+                      {attributes.baseTokenPriceUsd}
                     </NumberSizeableText>
                   </ItemColumn>
                 ) : null}
@@ -208,7 +205,7 @@ export function MarketDetailPools({
                     formatter="marketCap"
                     textAlign="right"
                   >
-                    {attributes.volume_usd.h24}
+                    {attributes.volumeUsd.h24}
                   </NumberSizeableText>
                 </ItemColumn>
                 <ItemColumn>
@@ -217,7 +214,7 @@ export function MarketDetailPools({
                     formatter="marketCap"
                     textAlign="right"
                   >
-                    {attributes.reserve_in_usd}
+                    {attributes.reserveInUsd}
                   </NumberSizeableText>
                 </ItemColumn>
                 <View jc="center">

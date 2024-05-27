@@ -20,11 +20,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  EModalRoutes,
-  EModalSwapRoutes,
-  ETabMarketRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IMarketCategory,
   IMarketToken,
@@ -732,7 +728,7 @@ export function MarketHomeList({
         </XStack>
       </XStack>
     ),
-    [mdColumnKeys, toDetailPage],
+    [handleMdItemAction, mdColumnKeys, toDetailPage],
   );
 
   const renderSelectTrigger = useCallback(

@@ -1,4 +1,3 @@
-import type { PropsWithChildren } from 'react';
 import { memo, useMemo } from 'react';
 
 import { useJotaiContextRootStore } from '@onekeyhq/kit/src/states/jotai/utils/useJotaiContextRootStore';

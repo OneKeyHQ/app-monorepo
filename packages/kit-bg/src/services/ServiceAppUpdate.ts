@@ -142,7 +142,7 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchChangeLog(version: string) {
+  public async fetchChangeLog() {
     const response = await this.getAppLatestInfo({ cached: true });
     return response?.changeLog;
   }
