@@ -14,6 +14,7 @@ import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 
 import { discoveryRouters } from './Discovery/router';
+import { marketRouters } from './Marktet/router';
 import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { swapRouters } from './Swap/router';
@@ -71,6 +72,16 @@ export const getTabRouter = (params?: IGetTabRouterParams) => {
       rewrite: '/',
       exact: true,
       children: homeRouters,
+    },
+    {
+      name: ETabRoutes.Market,
+      tabBarIcon: (focused?: boolean) =>
+        focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
+      translationId: 'title__market',
+      freezeOnBlur: Boolean(params?.freezeOnBlur),
+      rewrite: '/market',
+      exact: true,
+      children: marketRouters,
     },
     {
       name: ETabRoutes.Swap,

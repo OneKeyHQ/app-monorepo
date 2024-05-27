@@ -7,7 +7,7 @@ import { XStack, YStack } from '../../primitives';
 
 import type { GetProps } from 'tamagui';
 
-interface ISegmentControlProps {
+export interface ISegmentControlProps {
   fullWidth?: boolean;
   value: string | number;
   options: {

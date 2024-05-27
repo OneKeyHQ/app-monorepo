@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // https://github.com/wevm/wagmi/blob/main/packages/connectors/src/walletConnect.ts
 
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import type { Emitter } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
 import { createEmitter } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -97,48 +101,48 @@ export class ExternalConnectorWalletConnect
   }
 
   setup?(): Promise<void> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   getAccounts(): Promise<readonly `0x${string}`[]> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   getChainId(): Promise<number> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   getClient?(
     parameters?: { chainId?: number | undefined } | undefined,
   ): Promise<Client> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   isAuthorized(): Promise<boolean> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   switchChain?(parameters: { chainId: number }): Promise<Chain> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   onAccountsChanged(accounts: string[]): void {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   onChainChanged(chainId: string): void {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   onConnect?(connectInfo: ProviderConnectInfo): void {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   onDisconnect(error?: Error | undefined): void {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   onMessage?(message: ProviderMessage): void {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

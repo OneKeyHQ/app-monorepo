@@ -49,7 +49,6 @@ function CreateInvoice() {
 
   const onSubmit = useCallback(
     async (values: IFormValues) => {
-      console.log('formvalue: ', values);
       const response = await serviceLightning.createInvoice({
         accountId,
         networkId,

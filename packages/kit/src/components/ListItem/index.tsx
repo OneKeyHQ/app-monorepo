@@ -270,6 +270,18 @@ export type IListItemProps = PropsWithChildren<{
   onPress?: () => void | Promise<void>;
 }>;
 
+export const listItemPressStyle = {
+  hoverStyle: { bg: '$bgHover' },
+  pressStyle: { bg: '$bgActive' },
+  focusable: true,
+  focusStyle: {
+    outlineWidth: 2,
+    outlineStyle: 'solid',
+    outlineColor: '$focusRing',
+    outlineOffset: -2,
+  },
+};
+
 const renderWithFallback = (
   Component: ComponentType,
   props?: any,
@@ -324,17 +336,7 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       borderRadius="$3"
       borderCurve="continuous"
       onPress={onPress}
-      {...(onPress && {
-        hoverStyle: { bg: '$bgHover' },
-        pressStyle: { bg: '$bgActive' },
-        focusable: true,
-        focusStyle: {
-          outlineWidth: 2,
-          outlineStyle: 'solid',
-          outlineColor: '$focusRing',
-          outlineOffset: -2,
-        },
-      })}
+      {...(onPress && listItemPressStyle)}
       {...rest}
     >
       {renderWithFallback(

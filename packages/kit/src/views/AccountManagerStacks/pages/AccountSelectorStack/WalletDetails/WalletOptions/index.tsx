@@ -98,41 +98,45 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
         </>
       );
     }
-    return (
-      <ActionList
-        offset={{ mainAxis: 0, crossAxis: 18 }}
-        placement="bottom-start"
-        title="Backup"
-        items={[
-          {
-            label: intl.formatMessage({
-              id: 'backup__manual_backup',
-            }),
-            icon: 'PenOutline',
-            onPress: () => void handleBackupPhrase(),
-          },
-          ...(platformEnv.isNative
-            ? [
-                {
-                  label: intl.formatMessage({
-                    id: 'app__hardware_name_onekey_lite',
-                  }),
-                  icon: 'GiroCardOutline' as IKeyOfIcons,
-                  onPress: handleBackupLiteCard,
-                },
-              ]
-            : []),
-          {
-            label: 'OneKey KeyTag',
-            icon: 'OnekeyKeytagOutline',
-            onPress: () => void handleBackupKeyTag(),
-          },
-        ]}
-        renderTrigger={
-          <WalletOptionItem icon="Shield2CheckOutline" label="Backup" />
-        }
-      />
-    );
+
+    if (accountUtils.isHdWallet({ walletId: wallet?.id })) {
+      return (
+        <ActionList
+          offset={{ mainAxis: 0, crossAxis: 18 }}
+          placement="bottom-start"
+          title="Backup"
+          items={[
+            {
+              label: intl.formatMessage({
+                id: 'backup__manual_backup',
+              }),
+              icon: 'PenOutline',
+              onPress: () => void handleBackupPhrase(),
+            },
+            ...(platformEnv.isNative
+              ? [
+                  {
+                    label: intl.formatMessage({
+                      id: 'app__hardware_name_onekey_lite',
+                    }),
+                    icon: 'GiroCardOutline' as IKeyOfIcons,
+                    onPress: handleBackupLiteCard,
+                  },
+                ]
+              : []),
+            {
+              label: 'OneKey KeyTag',
+              icon: 'OnekeyKeytagOutline',
+              onPress: () => void handleBackupKeyTag(),
+            },
+          ]}
+          renderTrigger={
+            <WalletOptionItem icon="Shield2CheckOutline" label="Backup" />
+          }
+        />
+      );
+    }
+    return null;
   }, [
     device,
     handleBackupLiteCard,
