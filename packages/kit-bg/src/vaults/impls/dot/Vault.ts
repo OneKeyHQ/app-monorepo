@@ -4,7 +4,7 @@ import { decode, getRegistry, methods } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, isObject } from 'lodash';
 
-import { serializeUnsignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
+import { serializeSignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -551,9 +551,14 @@ export default class VaultDot extends VaultBase {
   }: {
     encodedTx: IEncodedTx | undefined;
   }): Promise<IEncodedTx | undefined> {
-    const tx = await serializeUnsignedTransaction(encodedTx as IEncodedTxDot);
-    return bufferUtils
-      .toBuffer(tx.rawTx)
-      .toString('base64') as unknown as IEncodedTx;
+    const fakeSignature = Buffer.concat([
+      Buffer.from([0x01]),
+      Buffer.alloc(64).fill(0x42),
+    ]);
+    const tx = await serializeSignedTransaction(
+      encodedTx as IEncodedTxDot,
+      fakeSignature.toString('hex'),
+    );
+    return bufferUtils.toBuffer(tx).toString('base64') as unknown as IEncodedTx;
   }
 }
