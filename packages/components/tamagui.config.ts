@@ -454,6 +454,7 @@ const mergedTokens = createTokens({
     8: 32,
     9: 36,
     10: 40,
+    11: 44,
     12: 48,
     16: 64,
     20: 80,

@@ -254,7 +254,7 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
   if (val.gte(10e8)) {
     return {
       formattedValue: formatLocalNumber(val.div(10e8), 2, true),
-      meta: { value, unit: 'B' },
+      meta: { value, unit: 'B', ...options },
     };
   }
   if (val.gte(10e5)) {
