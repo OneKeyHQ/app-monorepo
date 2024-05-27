@@ -230,12 +230,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     ) {
       throw new OneKeyInternalError('Invalid signature');
     }
-    const authParams = {
-      accountId: dbAccount.id,
-      networkId: network.id,
-    };
-    await client.checkAuthWithRefresh(authParams);
-    const sign = await client.getAuthorization(authParams);
 
     const rawTx = {
       amount,
@@ -245,7 +239,6 @@ export class KeyringHardware extends KeyringHardwareBase {
       paymentHash,
       paymentRequest: invoice,
       randomSeed: signTemplate.randomSeed,
-      sign,
       signature,
       testnet: network.isTestnet,
     };

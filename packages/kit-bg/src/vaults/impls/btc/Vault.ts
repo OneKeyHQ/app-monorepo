@@ -736,7 +736,7 @@ export default class VaultBtc extends VaultBase {
             xpub: await this.getAccountXpub(),
             withUTXOList: true,
           });
-        if (!utxoList || isEmpty(utxoList)) {
+        if (!utxoList) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
         return utxoList;

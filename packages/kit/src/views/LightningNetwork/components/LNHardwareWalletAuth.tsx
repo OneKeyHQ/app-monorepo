@@ -75,7 +75,7 @@ function LNHardwareWalletAuth({
       alignItems="center"
     >
       <Empty
-        icon="SearchOutline"
+        icon="PasswordOutline"
         title="Authorize Access"
         description="Connecting your hardware wallet to access the Lightning account"
         buttonProps={{
