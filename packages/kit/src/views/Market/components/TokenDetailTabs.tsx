@@ -29,7 +29,7 @@ function BasicTokenDetailTabs({
           ? {
               title: 'Pools',
               // eslint-disable-next-line react/no-unstable-nested-components
-              page: () => <MarketDetailPools token={token} pools={pools} />,
+              page: () => <MarketDetailPools pools={pools} />,
             }
           : undefined,
         md
