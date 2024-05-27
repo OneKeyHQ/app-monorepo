@@ -228,7 +228,6 @@ class ServiceSend extends ServiceBase {
     }
 
     const result: ISendTxOnSuccessData[] = [];
-
     for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
       const unsignedTx = newUnsignedTxs[i];
       const signedTx = signOnly
@@ -374,7 +373,6 @@ class ServiceSend extends ServiceBase {
         specifiedFeeRate,
       });
     }
-
     if (swapInfo) {
       newUnsignedTx.swapInfo = swapInfo;
     }
@@ -399,7 +397,6 @@ class ServiceSend extends ServiceBase {
         nonceInfo: { nonce },
       });
     }
-
     return newUnsignedTx;
   }
 
