@@ -96,11 +96,6 @@ function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
   const { icon, coinGeckoId, symbol } = route.params;
-  // const { result: tokenDetail } = usePromiseResult(
-  //   async () => ,
-  //   [coinGeckoId],
-  // );
-
   const [isLoading, setIsLoading] = useState(true);
   const [tokenDetail, setTokenDetail] = useState<
     IMarketTokenDetail | undefined
