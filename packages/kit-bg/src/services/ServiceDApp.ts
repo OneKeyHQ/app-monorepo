@@ -470,23 +470,30 @@ class ServiceDApp extends ServiceBase {
   async getConnectedAccounts(params: IGetDAppAccountInfoParams) {
     const accountsInfo = await this.getConnectedAccountsInfo(params);
     if (!accountsInfo) return null;
-    const result = accountsInfo.map(async (accountInfo) => {
-      const { accountId, networkId } = accountInfo;
-      try {
-        const account = await this.backgroundApi.serviceAccount.getAccount({
-          accountId,
-          networkId: networkId || '',
-        });
-        return {
-          account,
-          accountInfo,
-        };
-      } catch (e) {
-        console.error('getConnectedAccounts', e);
-        return null;
-      }
-    });
-    return Promise.all(result);
+    const result = await Promise.all(
+      accountsInfo.map(async (accountInfo) => {
+        const { accountId, networkId } = accountInfo;
+        try {
+          const account = await this.backgroundApi.serviceAccount.getAccount({
+            accountId,
+            networkId: networkId || '',
+          });
+          return {
+            account,
+            accountInfo,
+          };
+        } catch (e) {
+          console.error('getConnectedAccounts', e);
+          return null;
+        }
+      }),
+    );
+    const finalAccountsInfo = result.filter(Boolean);
+    if (finalAccountsInfo.length !== accountsInfo.length) {
+      console.log('getConnectedAccounts: ===> some accounts not found');
+      return null;
+    }
+    return finalAccountsInfo;
   }
 
   @backgroundMethod()
@@ -507,11 +514,7 @@ class ServiceDApp extends ServiceBase {
     ) {
       return null;
     }
-    const result = accountsInfo.filter(Boolean);
-    if (!result.length) {
-      return null;
-    }
-    return result;
+    return accountsInfo;
   }
 
   @backgroundMethod()
