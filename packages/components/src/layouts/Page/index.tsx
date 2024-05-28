@@ -31,6 +31,9 @@ function PageProvider({
   safeAreaEnabled = true,
   onMounted,
   onUnmounted,
+  onClose,
+  onCancel,
+  onConfirm,
 }: IPageProps) {
   const pageRef = useRef<IScrollViewRef>(null);
   const pageOffsetRef = useRef<NativeScrollPoint>({
@@ -38,6 +41,7 @@ function PageProvider({
     y: 0,
   });
   const footerRef = useRef<IPageFooterRef>({});
+  const confirmedRef = useRef<boolean>(false);
   const value = useMemo(
     () => ({
       scrollEnabled,
@@ -46,11 +50,12 @@ function PageProvider({
       pageRef,
       pageOffsetRef,
       footerRef,
+      confirmedRef,
     }),
     [safeAreaEnabled, scrollEnabled, scrollProps],
   );
 
-  const isEnablePageLifeCycle = onMounted || onUnmounted;
+  const isEnablePageLifeCycle = onMounted || onUnmounted || onClose || onCancel;
 
   return (
     <>
@@ -58,7 +63,14 @@ function PageProvider({
         <PageContainer skipLoading={skipLoading}>{children}</PageContainer>
       </PageContext.Provider>
       {isEnablePageLifeCycle ? (
-        <PageLifeCycle onMounted={onMounted} onUnmounted={onUnmounted} />
+        <PageLifeCycle
+          onMounted={onMounted}
+          onUnmounted={onUnmounted}
+          onCancel={onCancel}
+          onClose={onClose}
+          onConfirm={onConfirm}
+          confirmedRef={confirmedRef}
+        />
       ) : null}
       <PageEvery />
     </>

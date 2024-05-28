@@ -9,17 +9,25 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { LidoStake } from '../../components/LidoStake';
+import { LidoApproveBaseStake } from '../../components/LidoApproveBaseStake';
 import { useLidoMaticStake } from '../../hooks/useLidoMaticHooks';
-import { LIDO_MATIC_LOGO_URI } from '../../utils/const';
 
 const MaticLidoStake = () => {
   const route = useAppRoute<
     IModalStakingParamList,
     EModalStakingRoutes.MaticLidoStake
   >();
-  const { networkId, accountId, token, balance, price, apr, stToken } =
-    route.params;
+  const {
+    networkId,
+    accountId,
+    token,
+    balance,
+    price,
+    apr,
+    stToken,
+    currentAllowance,
+    rate,
+  } = route.params;
   const lidoStake = useLidoMaticStake({ networkId, accountId });
   const onConfirm = useCallback(
     async (value: string) => {
@@ -32,14 +40,21 @@ const MaticLidoStake = () => {
     <Page>
       <Page.Header title="Stake Matic" />
       <Page.Body>
-        <LidoStake
+        <LidoApproveBaseStake
           price={price}
           balance={balance}
-          tokenImageUri={LIDO_MATIC_LOGO_URI}
-          tokenSymbol={token.symbol.toUpperCase()}
-          stTokenSymbol={stToken.symbol.toUpperCase()}
+          token={token}
+          receivingTokenSymbol={stToken.symbol.toUpperCase()}
           onConfirm={onConfirm}
           apr={apr}
+          currentAllowance={currentAllowance}
+          rate={rate}
+          approveTarget={{
+            accountId,
+            networkId,
+            spenderAddress: stToken.address,
+            token,
+          }}
         />
       </Page.Body>
     </Page>
