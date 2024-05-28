@@ -1,4 +1,3 @@
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { BCS, Network, NetworkToNodeAPI, TxnBuilderTypes } from 'aptos';
@@ -50,7 +49,7 @@ export function decodeBytesTransaction(txn: any) {
     if (txn.indexOf(',') !== -1) {
       bcsTxn = new Uint8Array(txn.split(',').map((item) => parseInt(item, 10)));
     } else {
-      bcsTxn = hexToBytes(txn);
+      bcsTxn = bufferUtils.hexToBytes(txn);
     }
   } else {
     throw new Error('invalidParams');
@@ -197,7 +196,7 @@ class ProviderApiAptos extends ProviderApiBase {
     if (txn.indexOf(',') !== -1) {
       bcsTxn = new Uint8Array(txn.split(',').map((item) => parseInt(item, 10)));
     } else {
-      bcsTxn = hexToBytes(txn);
+      bcsTxn = bufferUtils.hexToBytes(txn);
     }
 
     const deserializer = new BCS.Deserializer(bcsTxn);
@@ -205,7 +204,7 @@ class ProviderApiAptos extends ProviderApiBase {
 
     return {
       rawTxn,
-      hexBcsTxn: bytesToHex(bcsTxn),
+      hexBcsTxn: bufferUtils.bytesToHex(bcsTxn),
     };
   }
 
