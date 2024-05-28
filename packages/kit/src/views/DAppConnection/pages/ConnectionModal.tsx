@@ -149,7 +149,14 @@ function ConnectionModal() {
   );
 
   return (
-    <Page scrollEnabled>
+    <Page
+      scrollEnabled
+      onClose={(confirmed) => {
+        if (!confirmed) {
+          dappApprove.reject();
+        }
+      }}
+    >
       <Page.Header headerShown={false} />
       <Page.Body>
         <DAppRequestLayout
@@ -170,9 +177,7 @@ function ConnectionModal() {
           continueOperate={continueOperate}
           setContinueOperate={(value) => setContinueOperate(!!value)}
           onConfirm={onApproval}
-          onCancel={() => {
-            dappApprove.reject();
-          }}
+          onCancel={() => dappApprove.reject()}
           confirmButtonProps={{
             disabled: confirmDisabled,
           }}

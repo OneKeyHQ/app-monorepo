@@ -93,7 +93,14 @@ function WeblnMakeInvoiceModal() {
   );
 
   return (
-    <Page scrollEnabled>
+    <Page
+      scrollEnabled
+      onClose={(confirmed) => {
+        if (!confirmed) {
+          dappApprove.reject();
+        }
+      }}
+    >
       <Page.Header headerShown={false} />
       <Page.Body>
         <DAppRequestLayout
