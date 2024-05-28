@@ -17,6 +17,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
 
 import { listItemPressStyle } from '../../../components/ListItem';
@@ -179,7 +180,7 @@ function HeaderRow({
       >
         Liquidity
       </HeaderColumn>
-      <Stack h="$4" w="$7" />
+      <Stack h="$4" w={platformEnv.isNative ? '$4' : '$7'} />
     </XStack>
   );
 }
