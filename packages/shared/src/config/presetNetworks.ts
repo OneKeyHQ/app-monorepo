@@ -220,6 +220,39 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const sbtc: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'sbtc',
+    'decimals': 8,
+    'id': 'tbtc--1',
+    'impl': 'tbtc',
+    'isTestnet': true,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/sbtc.png',
+    'name': 'Bitcoin Signet',
+    'shortcode': 'sbtc',
+    'shortname': 'SBTC',
+    'symbol': 'SBTC',
+    'feeMeta': {
+      'code': 'sbtc',
+      'decimals': 8,
+      'symbol': 'SBTC',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://mempool.space/signet/address/{address}',
+        'block': 'https://mempool.space/signet/block/{block}',
+        'name': 'https://mempool.space/signet/',
+        'transaction': 'https://mempool.space/signet/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-02-28T00:29:24.951Z',
+    'updatedAt': '2024-02-28T00:29:24.951Z',
+  };
+
   const doge: IServerNetwork = {
     'balance2FeeDecimals': 0,
     'chainId': '0',
@@ -2865,11 +2898,11 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 
   const ckb = {
     'balance2FeeDecimals': 0,
-    'chainId': 'ckb',
-    'code': 'ckb',
+    'chainId': 'nervos',
+    'code': 'nervos',
     'decimals': 8,
-    'id': 'ckb--mainnet',
-    'impl': 'ckb',
+    'id': 'nervos--mainnet',
+    'impl': 'nervos',
     'isTestnet': false,
     'logoURI': 'https://uni.onekey-asset.com/static/chain/nervos.png',
     'name': 'Nervos',
@@ -2901,6 +2934,44 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2024-03-05T00:00:00.002Z',
   };
 
+  const octa = {
+    'balance2FeeDecimals': 9,
+    'chainId': '800001',
+    'code': 'octa',
+    'decimals': 18,
+    'id': 'evm--800001',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/octa.webp',
+    'name': 'OctaSpace',
+    'shortcode': 'octa',
+    'shortname': 'octa',
+    'symbol': 'OCTA',
+    'feeMeta': {
+      'code': 'octa',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'octaspace',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://scan.octa.space/address/{address}',
+        'block': 'https://scan.octa.space/block/{block}',
+        'name': 'https://scan.octa.space/',
+        'transaction': 'https://scan.octa.space/transaction/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-05-24T00:29:24.951Z',
+    'updatedAt': '2024-05-24T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     aptos,
     polkadot,
@@ -2921,6 +2992,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     ltc,
     neurai,
     tbtc,
+    sbtc,
     // evm
     eth,
     sepolia,
@@ -2950,6 +3022,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     iotex,
     mantapacific,
     blast,
+    octa,
     // cosmos
     celestia,
     secret,

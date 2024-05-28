@@ -61,6 +61,7 @@ import { VaultBase } from '../../base/VaultBase';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type {
@@ -385,6 +386,7 @@ export default class VaultBtc extends VaultBase {
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -628,7 +630,7 @@ export default class VaultBtc extends VaultBase {
         })) ?? [],
       );
     }
-    const ret = {
+    const ret: IUnsignedTxPro = {
       inputs: inputsInUnsignedTx,
       outputs: outputsInUnsignedTx,
       txSize,
@@ -738,7 +740,7 @@ export default class VaultBtc extends VaultBase {
             xpub: await this.getAccountXpub(),
             withUTXOList: true,
           });
-        if (!utxoList || isEmpty(utxoList)) {
+        if (!utxoList) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
         return utxoList;

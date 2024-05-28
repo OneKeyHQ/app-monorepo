@@ -11,6 +11,7 @@ import type { ComponentType, ReactElement } from 'react';
 import {
   PageContentView,
   PageManager,
+  SelectedLabel,
 } from '@onekeyfe/react-native-tab-page-view';
 import { Animated } from 'react-native';
 import { withStaticProperties } from 'tamagui';
@@ -274,6 +275,7 @@ export const Tab = withStaticProperties(forwardRef(TabComponent), {
   Page,
   Manager: PageManager,
   Content: PageContentView,
+  SelectedLabel,
 });
 
 export { useTabIsRefreshingFocused };

@@ -107,7 +107,6 @@ export type IUnsignedTxPro = IUnsignedTx & {
   rawTxUnsigned?: string;
   psbtHex?: string;
   inputsToSign?: ITxInputToSign[];
-  opReturn?: string; // BTC opReturn?
   // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
 export type ISignedTx = {
@@ -130,7 +129,8 @@ export type ISignedTxResult = ISignedTx & {
 export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
 };
-export type ISignedMessagePro = string[];
+export type ISignedMessageItemPro = string;
+export type ISignedMessagePro = ISignedMessageItemPro[];
 export type IVerifiedMessagePro = {
   isValid: boolean;
   message: string;

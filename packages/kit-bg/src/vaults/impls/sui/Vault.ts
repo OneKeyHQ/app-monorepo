@@ -38,6 +38,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
 import { createCoinSendTransaction } from './sdkSui/coin-helper';
@@ -74,6 +75,7 @@ export default class Vault extends VaultBase {
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -514,6 +516,16 @@ export default class Vault extends VaultBase {
               newAmount = newAmount.plus(new BigNumber(current.value));
             }
             return newAmount;
+          }, new BigNumber(0));
+          break;
+        }
+        if (result.kind === 'SplitCoins' && result.coin.kind === 'GasCoin') {
+          amount = result.amounts.reduce((acc, item) => {
+            let current = acc;
+            if (item.kind === 'Input') {
+              current = current.plus(new BigNumber(item.value));
+            }
+            return current;
           }, new BigNumber(0));
           break;
         }

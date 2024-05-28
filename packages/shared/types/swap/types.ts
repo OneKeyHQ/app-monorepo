@@ -243,9 +243,22 @@ export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
 }
 
+export interface IThorSwapCallData {
+  hasStreamingSwap?: boolean;
+  depositWithExpiry: string;
+  vault: string;
+  asset: string;
+  amount: string;
+  memo: string;
+  memoStreamingSwap: string;
+  expiration: string;
+  fromAsset: string;
+  amountIn: string;
+}
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
   tx?: ITransaction;
+  thorSwapCallData?: IThorSwapCallData;
   swftOrder?: IFetchBuildTxOrderResponse;
   ctx?: any;
   socketBridgeScanUrl?: string;
@@ -269,7 +282,7 @@ export interface IEVMTransaction {
   data: string;
 }
 
-export type ITransaction = IEVMTransaction;
+export type ITransaction = IEVMTransaction | string;
 
 export interface IFetchBuildTxOrderResponse {
   platformAddr: string;

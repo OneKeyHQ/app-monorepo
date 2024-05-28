@@ -1,17 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Input,
-  Page,
-  Stack,
-  XStack,
-  useSafeAreaInsets,
-} from '@onekeyhq/components';
+import { Button, Page, Stack, TextArea, XStack } from '@onekeyhq/components';
 import { NavCloseButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -20,17 +13,22 @@ import type {
   IScanQrCodeModalParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ScanQrCode } from '../components';
 import { scanFromURLAsync } from '../utils/scanFromURLAsync';
 
+import type { IAppNavigation } from '../../../hooks/useAppNavigation';
 import type { RouteProp } from '@react-navigation/core';
 
+global.$$scanNavigation = undefined as IAppNavigation | undefined;
 function DebugInput({ onText }: { onText: (text: string) => void }) {
+  const navigation = useAppNavigation();
+  global.$$scanNavigation = navigation;
   const [inputText, setInputText] = useState<string>('');
   return (
     <XStack p="$4">
       <Stack flex={1}>
-        <Input
+        <TextArea
           value={inputText}
           onChangeText={setInputText}
           flex={1}
@@ -38,6 +36,7 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
         />
       </Stack>
       <Button onPress={() => onText(inputText)}>Test</Button>
+      <Button onPress={() => navigation.popStack()}>Close</Button>
     </XStack>
   );
 }
@@ -51,7 +50,7 @@ export default function ScanQrCodeModal() {
         EScanQrCodeModalPages.ScanQrCodeStack
       >
     >();
-  const { callback } = route.params;
+  const { callback, mask } = route.params;
 
   const pickImage = useCallback(async () => {
     const result = await launchImageLibraryAsync({
@@ -61,7 +60,9 @@ export default function ScanQrCodeModal() {
 
     if (!result.canceled) {
       const data = await scanFromURLAsync(result.assets[0].uri);
-      if (data) callback(data);
+      if (data) {
+        await callback(data);
+      }
     }
   }, [callback]);
 
@@ -109,7 +110,7 @@ export default function ScanQrCodeModal() {
         headerRight={headerRightCall}
       />
       <Page.Body>
-        <ScanQrCode handleBarCodeScanned={callback} />
+        <ScanQrCode handleBarCodeScanned={callback} mask={mask} />
       </Page.Body>
       {platformEnv.isDev ? (
         <Page.Footer>

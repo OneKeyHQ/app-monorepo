@@ -130,9 +130,9 @@ function JotaiDemo2() {
       <SizableText size="$headingMd">background 获取数据</SizableText>
       <Button
         onPress={async () => {
-          const r = await backgroundApiProxy.serviceApp.demoJotaiGetSettings();
+          const r = await backgroundApiProxy.serviceDemo.demoJotaiGetSettings();
           console.log(
-            'backgroundApiProxy.serviceApp.demoJotaiGetSettings: ',
+            'backgroundApiProxy.serviceDemo.demoJotaiGetSettings: ',
             r,
           );
         }}
@@ -143,9 +143,9 @@ function JotaiDemo2() {
       <Button
         onPress={async () => {
           const r =
-            await backgroundApiProxy.serviceApp.demoJotaiUpdateSettings();
+            await backgroundApiProxy.serviceDemo.demoJotaiUpdateSettings();
           console.log(
-            'backgroundApiProxy.serviceApp.demoJotaiUpdateSettings: ',
+            'backgroundApiProxy.serviceDemo.demoJotaiUpdateSettings: ',
             r,
           );
         }}
