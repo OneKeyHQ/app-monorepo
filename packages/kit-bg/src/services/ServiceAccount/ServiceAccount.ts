@@ -9,6 +9,12 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { IAirGapMultiAccounts } from '@onekeyhq/qr-wallet-sdk';
+import {
+  EAirGapURType,
+  airGapUrUtils,
+  getAirGapSdk,
+} from '@onekeyhq/qr-wallet-sdk';
 import {
   backgroundClass,
   backgroundMethod,
@@ -30,20 +36,22 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceSharedCallParams,
+  IQrWalletDevice,
+} from '@onekeyhq/shared/types/device';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
@@ -55,6 +63,7 @@ import type {
   IDBAccount,
   IDBCreateHWWalletParams,
   IDBCreateHWWalletParamsBase,
+  IDBCreateQRWalletParams,
   IDBDevice,
   IDBExternalAccount,
   IDBGetWalletsParams,
@@ -74,6 +83,36 @@ import type {
   IPrepareWatchingAccountsParams,
   IValidateGeneralInputParams,
 } from '../../vaults/types';
+import type {
+  IAnimationValue,
+  IBaseValue,
+  IQRCodeHandlerParseResult,
+} from '../ServiceScanQRCode/utils/parseQRCode/type';
+
+export type IAddHDOrHWAccountsParams = {
+  walletId: string | undefined;
+  networkId: string | undefined;
+  indexes?: Array<number>; // multiple add by indexes
+  indexedAccountId: string | undefined; // single add by indexedAccountId
+  deriveType: IAccountDeriveTypes;
+  skipDeviceCancel?: boolean;
+  hideCheckingDeviceLoading?: boolean;
+  // names?: Array<string>;
+  // purpose?: number;
+  // skipRepeat?: boolean;
+  // callback?: (_account: Account) => Promise<boolean>;
+  // isAddInitFirstAccountOnly?: boolean;
+  // template?: string;
+  // skipCheckAccountExist?: boolean;
+};
+export type IAddHDOrHWAccountsResult = {
+  networkId: string;
+  walletId: string;
+  indexedAccountId: string | undefined;
+  accounts: IDBAccount[];
+  indexes: number[] | undefined;
+  deriveType: IAccountDeriveTypes;
+};
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
@@ -240,20 +279,35 @@ class ServiceAccount extends ServiceBase {
       }) ||
       accountUtils.isHwWallet({
         walletId,
+      }) ||
+      accountUtils.isQrWallet({
+        walletId,
       })
     ) {
+      const addedAccounts: Array<{
+        networkId: string;
+        deriveType: IAccountDeriveTypes;
+      }> = [];
       // TODO use consts
-      const networks = ['evm--1', 'btc--0'];
-      for (const id of networks) {
-        await this.addHDOrHWAccounts({
-          walletId,
-          networkId: id,
-          indexedAccountId,
-          deriveType: 'default', // TODO get global deriveType
-          skipDeviceCancel,
-          hideCheckingDeviceLoading,
-        });
+      const networks = ['btc--0', 'evm--1'];
+      for (const networkId of networks) {
+        try {
+          // TODO get global deriveType
+          const deriveType: IAccountDeriveTypes = 'default';
+          await this.addHDOrHWAccounts({
+            walletId,
+            networkId,
+            indexedAccountId,
+            deriveType,
+            skipDeviceCancel,
+            hideCheckingDeviceLoading,
+          });
+          addedAccounts.push({ networkId, deriveType });
+        } catch (error) {
+          //
+        }
       }
+      return { addedAccounts };
     }
   }
 
@@ -353,25 +407,10 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
-  async addHDOrHWAccounts(params: {
-    walletId: string | undefined;
-    networkId: string | undefined;
-    indexes?: Array<number>; // multiple add by indexes
-    indexedAccountId: string | undefined; // single add by indexedAccountId
-    deriveType: IAccountDeriveTypes;
-    skipDeviceCancel?: boolean;
-    hideCheckingDeviceLoading?: boolean;
-    // names?: Array<string>;
-    // purpose?: number;
-    // skipRepeat?: boolean;
-    // callback?: (_account: Account) => Promise<boolean>;
-    // isAddInitFirstAccountOnly?: boolean;
-    // template?: string;
-    // skipCheckAccountExist?: boolean;
-  }) {
+  async addHDOrHWAccountsFn(
+    params: IAddHDOrHWAccountsParams,
+  ): Promise<IAddHDOrHWAccountsResult | undefined> {
     // addHDOrHWAccounts
-
     const {
       indexes,
       indexedAccountId,
@@ -413,6 +452,12 @@ class ServiceAccount extends ServiceBase {
         hideCheckingDeviceLoading,
       },
     );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHDOrHWAccounts(params: IAddHDOrHWAccountsParams) {
+    return this.addHDOrHWAccountsFn(params);
   }
 
   @backgroundMethod()
@@ -576,37 +621,6 @@ class ServiceAccount extends ServiceBase {
       walletId,
       accounts,
     };
-  }
-
-  @backgroundMethod()
-  async testEvmPersonalSign({
-    networkId,
-    accountId,
-  }: {
-    networkId: string;
-    accountId: string;
-  }) {
-    const vault = await vaultFactory.getVault({ networkId, accountId });
-    const address = await vault.getAccountAddress();
-    const message = `My email is john@doe.com`;
-    const hexMsg = bufferUtils.textToHex(message, 'utf-8');
-    // personal_sign params
-    const params = [hexMsg, address];
-    // const payload = {
-    //   method: 'personal_sign',
-    //   params,
-    // };
-
-    return this.backgroundApi.serviceSend.signMessage({
-      // TODO build message in vault
-      unsignedMessage: {
-        type: EMessageTypesEth.PERSONAL_SIGN,
-        message: hexMsg,
-        payload: params,
-      },
-      accountId,
-      networkId,
-    });
   }
 
   @backgroundMethod()
@@ -1100,6 +1114,15 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async createQrWallet(params: IDBCreateQRWalletParams) {
+    // const { name, deviceId, xfp, version } = qrDevice;
+    const result = await localDb.createQrWallet(params);
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async createHWWallet(params: IDBCreateHWWalletParamsBase) {
     // createHWWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -1351,6 +1374,50 @@ class ServiceAccount extends ServiceBase {
         deviceParams,
       },
     );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async buildAirGapMultiAccounts({
+    scanResult,
+  }: {
+    scanResult: IQRCodeHandlerParseResult<IBaseValue>;
+  }) {
+    const urScanResult =
+      scanResult as IQRCodeHandlerParseResult<IAnimationValue>;
+    const qrcode = urScanResult.data.fullData || urScanResult.raw || '';
+    const ur = await airGapUrUtils.qrcodeToUr(qrcode);
+    const sdk = getAirGapSdk();
+    let airGapMultiAccounts: IAirGapMultiAccounts | undefined;
+    if (ur.type === EAirGapURType.CryptoMultiAccounts) {
+      airGapMultiAccounts = sdk.parseMultiAccounts(ur);
+    } else if (ur.type === EAirGapURType.CryptoHDKey) {
+      const key = sdk.parseHDKey(ur);
+      const name = key.name || 'name';
+      const chain = key.chain || 'chain';
+      const note = key.note || 'note';
+      const xfpOrUUID = key.xfp || generateUUID();
+      const generatedDeviceId = `SingleChainAirGapDevice@${name}-${chain}-${note}-${xfpOrUUID}`;
+      airGapMultiAccounts = {
+        device: key.name,
+        deviceId: generatedDeviceId,
+        deviceVersion: '0.0.1',
+        masterFingerprint: key.xfp || '',
+        keys: [key],
+      };
+    } else {
+      throw new Error(`Invalid UR type: ${ur.type}`);
+    }
+    const qrDevice: IQrWalletDevice = {
+      name: airGapMultiAccounts.device || 'QR Wallet',
+      deviceId: airGapMultiAccounts.deviceId || '',
+      version: airGapMultiAccounts.deviceVersion || '',
+      xfp: airGapMultiAccounts.masterFingerprint || '',
+    };
+    return {
+      qrDevice,
+      airGapAccounts: airGapMultiAccounts.keys,
+    };
   }
 }
 

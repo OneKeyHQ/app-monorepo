@@ -352,47 +352,6 @@ export class WalletConnectDappSide {
     }, delay);
   }
 
-  async testExternalAccountPersonalSign({
-    address,
-    wcChain,
-    topic,
-    account,
-  }: {
-    address: string;
-    wcChain: IWalletConnectChainString;
-    topic: string;
-    account: IDBExternalAccount;
-  }) {
-    const provider = await this.getOrCreateProvider({
-      topic,
-      updateDB: true,
-    });
-
-    const message = `My email is john@doe.com - ${Date.now()}`;
-    const hexMsg = bufferUtils.textToHex(message, 'utf-8');
-    // personal_sign params
-    const params = [hexMsg, address];
-    const payload = {
-      method: 'personal_sign',
-      params,
-    };
-
-    console.log(
-      'testExternalAccountPersonalSign',
-      payload,
-      topic,
-      provider.session?.namespaces?.eip155,
-      provider.session?.topic,
-    );
-    this.openNativeWalletAppByDeepLink({
-      account,
-    });
-    const result = await provider.request(payload, wcChain);
-    console.log('testExternalAccountPersonalSign RESULT: ', payload, result);
-
-    return result as string;
-  }
-
   openModal({ uri }: { uri: string }) {
     // emit event
     appEventBus.emit(EAppEventBusNames.WalletConnectOpenModal, {

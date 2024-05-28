@@ -88,7 +88,7 @@ function Demo1() {
       </Button>
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceApp.demoError();
+          const ctx = await backgroundApiProxy.serviceDemo.demoError();
           console.log(ctx);
         }}
       >
@@ -97,7 +97,7 @@ function Demo1() {
 
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceApp.demoError2();
+          const ctx = await backgroundApiProxy.serviceDemo.demoError2();
           console.log(ctx);
         }}
       >
@@ -106,7 +106,7 @@ function Demo1() {
 
       <Button
         onPress={async () => {
-          const ctx = await backgroundApiProxy.serviceApp.demoError3();
+          const ctx = await backgroundApiProxy.serviceDemo.demoError3();
           console.log(ctx);
         }}
       >

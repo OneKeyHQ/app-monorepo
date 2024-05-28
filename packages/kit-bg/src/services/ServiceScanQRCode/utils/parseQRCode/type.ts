@@ -1,4 +1,5 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 export enum EQRCodeHandlerType {
@@ -75,7 +76,10 @@ export interface IMigrateValue extends IBaseValue {
 export interface IAnimationValue extends IBaseValue {
   partIndexes: number[];
   partSize: number;
+  parts: string[];
   fullData?: string;
+  fullUr?: IAirGapUrJson;
+  progress: number;
 }
 export interface IUrlValue extends IBaseValue {
   url: string;
@@ -107,9 +111,14 @@ export type IQRCodeHandler<T extends IBaseValue> = (
 export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
 
-export type IQRCodeHandlerParseOptions = {
+export type IQRCodeHandlerParseOutsideOptions = {
   autoHandleResult?: boolean;
-} & IQRCodeHandlerOptions;
+  accountId?: string;
+  mask?: boolean;
+};
+
+export type IQRCodeHandlerParseOptions = IQRCodeHandlerParseOutsideOptions &
+  IQRCodeHandlerOptions;
 
 export type IQRCodeHandlerParse<T extends IBaseValue> = (
   value: string,
