@@ -19,9 +19,7 @@ import {
 } from '../../../secret';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
 import {
   IAddressValidation,
   IXprvtValidation,
@@ -40,6 +38,8 @@ import {
 } from '../../../types';
 import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import { getBtcForkNetwork } from './networks';
+import { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 export * from './networks';
@@ -165,20 +165,20 @@ export function getInputsToSignFromPsbt({
       if (account.address === address) {
         inputsToSign.push({
           index,
-          publicKey: account.pubKey as string,
+          publicKey: checkIsDefined(account.pub),
           address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
         if (account.template?.startsWith(`m/86'/`) && !v.tapInternalKey) {
           v.tapInternalKey = toXOnly(
-            Buffer.from(account.pubKey as string, 'hex'),
+            Buffer.from(checkIsDefined(account.pub), 'hex'),
           );
         }
       } else if (isBtcWalletProvider) {
         // handle babylon
         inputsToSign.push({
           index,
-          publicKey: account.pubKey as string,
+          publicKey: checkIsDefined(account.pub),
           address: account.address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });

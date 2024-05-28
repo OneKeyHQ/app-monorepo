@@ -43,6 +43,8 @@ export function isPrivateAllowedMethod(method?: string) {
       'wallet_detectRiskLevel',
       'wallet_closeCurrentBrowserTab',
       'wallet_addBrowserUrlToRiskWhiteList',
+      'btc_requestAccount',
+      'btc_signTransaction',
     ].includes(method || '')
   );
 }

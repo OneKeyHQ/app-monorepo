@@ -16,10 +16,6 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
@@ -432,7 +428,7 @@ class ProviderApiBtc extends ProviderApiBase {
     return result;
   }
 
-  private async _signPsbt(
+  async _signPsbt(
     request: IJsBridgeMessagePayload,
     params: {
       psbt: Psbt;

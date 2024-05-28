@@ -12,6 +12,7 @@ import ProviderApiNear from './ProviderApiNear';
 import ProviderApiNostr from './ProviderApiNostr';
 import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
+import ProviderApiPrivateExternalAccount from './ProviderApiPrivateExternalAccount';
 import ProviderApiSolana from './ProviderApiSolana';
 // import ProviderApiStarcoin from './ProviderApiStarcoin';
 import ProviderApiSui from './ProviderApiSui';
@@ -74,6 +75,10 @@ function createBackgroundProviders({
     [IInjectedProviderNames.btc]: new ProviderApiBtc({
       backgroundApi,
     }),
+    [IInjectedProviderNames.$privateExternalAccount]:
+      new ProviderApiPrivateExternalAccount({
+        backgroundApi,
+      }),
     // near
     // eslint-disable-next-line spellcheck/spell-checker
     // sollet
