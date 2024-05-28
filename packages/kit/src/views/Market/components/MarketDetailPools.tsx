@@ -153,7 +153,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
                   <XStack space="$2.5" ai="center">
                     <MarketPoolIcon id={relationships.dex.data.id} />
                     <YStack flexShrink={1}>
-                      <SizableText size="$bodySmMedium">
+                      <SizableText size="$bodyMdMedium">
                         {attributes.name}
                       </SizableText>
                       <SizableText size="$bodySm" color="$textSubdued">
