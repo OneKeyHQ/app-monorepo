@@ -101,8 +101,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve: curveName,
     });
-    const { fullMessage } = JSON.parse(unsignedMsg.message);
-    const [signature] = await signer.sign(Buffer.from(fullMessage));
+    const [signature] = await signer.sign(Buffer.from(unsignedMsg.message));
     return hexUtils.addHexPrefix(signature.toString('hex'));
   }
 
