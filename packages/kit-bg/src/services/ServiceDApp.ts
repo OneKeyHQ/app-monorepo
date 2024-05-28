@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
+  IConnectedAccountInfo,
   IConnectionAccountInfo,
   IConnectionItem,
   IConnectionItemWithStorageType,
@@ -471,26 +472,27 @@ class ServiceDApp extends ServiceBase {
     if (!accountsInfo) return null;
     const result = accountsInfo.map(async (accountInfo) => {
       const { accountId, networkId } = accountInfo;
-      const account = await this.backgroundApi.serviceAccount.getAccount({
-        accountId,
-        networkId: networkId || '',
-      });
-      return {
-        account,
-        accountInfo,
-      };
+      try {
+        const account = await this.backgroundApi.serviceAccount.getAccount({
+          accountId,
+          networkId: networkId || '',
+        });
+        return {
+          account,
+          accountInfo,
+        };
+      } catch (e) {
+        console.error('getConnectedAccounts', e);
+        return null;
+      }
     });
     return Promise.all(result);
   }
 
   @backgroundMethod()
-  async dAppGetConnectedAccountsInfo(request: IJsBridgeMessagePayload): Promise<
-    | {
-        account: INetworkAccount;
-        accountInfo?: Partial<IConnectionAccountInfo>;
-      }[]
-    | null
-  > {
+  async dAppGetConnectedAccountsInfo(
+    request: IJsBridgeMessagePayload,
+  ): Promise<IConnectedAccountInfo[] | null> {
     if (!request.origin) {
       throw web3Errors.provider.unauthorized('origin is required');
     }
@@ -505,7 +507,11 @@ class ServiceDApp extends ServiceBase {
     ) {
       return null;
     }
-    return accountsInfo;
+    const result = accountsInfo.filter(Boolean);
+    if (!result.length) {
+      return null;
+    }
+    return result;
   }
 
   @backgroundMethod()
