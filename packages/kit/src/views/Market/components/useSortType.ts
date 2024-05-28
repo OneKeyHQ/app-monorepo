@@ -56,7 +56,7 @@ export const useSortType = (
     return listData;
   }, [listData, sortByType.columnName, sortByType.order]);
   return useMemo(
-    () => ({ sortedListData, handleSortTypeChange, sortByType }),
-    [handleSortTypeChange, sortByType, sortedListData],
+    () => ({ sortedListData, handleSortTypeChange, sortByType, setSortByType }),
+    [handleSortTypeChange, sortByType, sortedListData, setSortByType],
   );
 };
