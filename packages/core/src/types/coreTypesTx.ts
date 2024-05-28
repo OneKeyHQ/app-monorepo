@@ -87,8 +87,8 @@ export type ITxInputToSign = {
 };
 // TODO remove
 export type IUnsignedTx = {
-  inputs?: ITxInput[];
-  outputs?: ITxOutput[];
+  // inputs?: ITxInput[];
+  // outputs?: ITxOutput[];
   type?: string;
   nonce?: number;
   feeLimit?: BigNumber;

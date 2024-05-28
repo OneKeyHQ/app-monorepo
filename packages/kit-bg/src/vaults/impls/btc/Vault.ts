@@ -23,7 +23,6 @@ import {
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
-  ISignedTxPro,
   ITxInput,
   ITxInputToSign,
   IUnsignedMessage,
@@ -610,12 +609,6 @@ export default class VaultBtc extends VaultBase {
         utxo: { txid: input.txid, vout: input.vout, value },
       });
     }
-    const outputsInUnsignedTx = outputs.map(({ address, value, payload }) => ({
-      address,
-      value: new BigNumber(value),
-      payload,
-    }));
-
     const selectedInputs = inputsForCoinSelect?.filter((input) =>
       inputsInUnsignedTx.some(
         (i) => i.utxo?.txid === input.txId && i.utxo.vout === input.vout,
@@ -631,8 +624,6 @@ export default class VaultBtc extends VaultBase {
       );
     }
     const ret: IUnsignedTxPro = {
-      inputs: inputsInUnsignedTx,
-      outputs: outputsInUnsignedTx,
       txSize,
       encodedTx,
       transfersInfo,
