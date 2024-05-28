@@ -86,7 +86,17 @@ export function TestSimpleModal() {
   console.log('render-------');
 
   return (
-    <Page>
+    <Page
+      onClose={(confirmed) => {
+        console.log(`onClose: ${String(confirmed)}`);
+      }}
+      onCancel={() => {
+        console.log('onCancel');
+      }}
+      onConfirm={() => {
+        console.log('onConfirm');
+      }}
+    >
       <Page.Header
         title="test modal"
         headerShown={showHeader}
