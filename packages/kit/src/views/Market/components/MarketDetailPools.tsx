@@ -92,7 +92,6 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
   const { gtMd } = useMedia();
   const partitions = useMemo(() => groupBy(pools, 'onekeyNetworkId'), [pools]);
   const onekeyNetworkIds = useMemo(() => Object.keys(partitions), [partitions]);
-  const [showAll, setIsShowAll] = useState<boolean[]>([]);
   const [index, selectIndex] = useState(0);
   const listData = useMemo(
     () => partitions[onekeyNetworkIds[index]],
@@ -101,7 +100,6 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
   const handleChange = useCallback((selectedIndex: number) => {
     selectIndex(selectedIndex);
   }, []);
-  const isShowAllData = showAll[index] || listData.length < 6;
   return (
     <YStack pb="$2" pt="$5">
       <NetworkIdSelect
@@ -110,7 +108,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
         onChange={handleChange}
       />
       <ListView
-        data={isShowAllData ? listData : listData.slice(0, 5)}
+        data={listData}
         estimatedItemSize={38}
         ListHeaderComponent={
           <XStack py="$2.5" px="$5">
@@ -125,21 +123,6 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
             <HeaderColumn textAlign="right">Liquidity</HeaderColumn>
             <Stack h="$4" w="$7" />
           </XStack>
-        }
-        ListFooterComponent={
-          isShowAllData ? null : (
-            <Button
-              my="$5"
-              onPress={() => {
-                setIsShowAll((prev) => {
-                  prev[index] = true;
-                  return prev.slice();
-                });
-              }}
-            >
-              View More
-            </Button>
-          )
         }
         renderItem={
           (({ item }: { item: IMarketDetailPool }) => {
