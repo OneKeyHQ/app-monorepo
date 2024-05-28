@@ -69,6 +69,7 @@ export interface ISwapToken {
   networkLogoURI?: string;
 
   riskLevel?: ETokenRiskLevel;
+  reservationValue?: string;
 }
 
 export interface ISwapTokenCatch {
