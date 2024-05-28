@@ -11,6 +11,7 @@ import {
   type IFetchAccountHistoryResp,
   type IFetchHistoryTxDetailsParams,
   type IFetchHistoryTxDetailsResp,
+  type IFetchTxDetailsParams,
 } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxStatus,
@@ -199,6 +200,20 @@ class ServiceHistory extends ServiceBase {
       console.log(e);
       return null;
     }
+  }
+
+  @backgroundMethod()
+  public async fetchTxDetails({
+    accountId,
+    networkId,
+    txid,
+  }: IFetchTxDetailsParams) {
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    return this.fetchHistoryTxDetails({ networkId, accountAddress, txid });
   }
 
   @backgroundMethod()
