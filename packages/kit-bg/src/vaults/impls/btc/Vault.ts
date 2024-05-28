@@ -596,8 +596,7 @@ export default class VaultBtc extends VaultBase {
     encodedTx: IEncodedTxBtc;
     transfersInfo: ITransferInfo[];
   }): Promise<IUnsignedTxPro> {
-    const { inputs, outputs, inputsForCoinSelect, inputsToSign, psbtHex } =
-      encodedTx;
+    const { inputs, outputs, inputsForCoinSelect } = encodedTx;
 
     let txSize = BTC_TX_PLACEHOLDER_VSIZE;
     const inputsInUnsignedTx: ITxInput[] = [];
@@ -627,8 +626,6 @@ export default class VaultBtc extends VaultBase {
       txSize,
       encodedTx,
       transfersInfo,
-      inputsToSign,
-      psbtHex,
     };
 
     return Promise.resolve(ret);
@@ -838,12 +835,10 @@ export default class VaultBtc extends VaultBase {
       addresses = [account.address];
     }
     if (unsignedTx) {
+      const { inputs, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
       const emptyInputs: Array<ITxInputToSign | IBtcInput> = [];
       addresses = emptyInputs
-        .concat(
-          unsignedTx.inputsToSign ?? [],
-          (unsignedTx.encodedTx as IEncodedTxBtc)?.inputs ?? [],
-        )
+        .concat(inputsToSign ?? [], inputs ?? [])
         .filter(Boolean)
         .map((input) => input.address)
         .concat(account.address);

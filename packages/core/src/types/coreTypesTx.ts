@@ -87,8 +87,6 @@ export type ITxInputToSign = {
 };
 // TODO remove
 export type IUnsignedTx = {
-  // inputs?: ITxInput[];
-  // outputs?: ITxOutput[];
   type?: string;
   nonce?: number;
   feeLimit?: BigNumber;
@@ -105,9 +103,6 @@ export type IUnsignedTxPro = IUnsignedTx & {
   txSize?: number;
   transfersInfo?: ITransferInfo[];
   rawTxUnsigned?: string;
-  psbtHex?: string;
-  inputsToSign?: ITxInputToSign[];
-  // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
 export type ISignedTx = {
   txid: string;
