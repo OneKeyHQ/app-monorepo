@@ -72,8 +72,8 @@ export function PoolDetails({
     baseTokenImageUrl,
     quoteTokenImageUrl,
     relationships: {
-      base_token: baseToken,
-      quote_token: quoteToken,
+      baseToken,
+      quoteToken,
       dex: {
         data: { id },
       },

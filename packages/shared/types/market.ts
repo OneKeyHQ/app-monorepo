@@ -142,8 +142,8 @@ export enum EMarketDetailDatumType {
 }
 
 export interface IMarketDetailPoolRelationships {
-  base_token: IMarketDetailPoolBaseToken;
-  quote_token: IMarketDetailPoolBaseToken;
+  baseToken: IMarketDetailPoolBaseToken;
+  quoteToken: IMarketDetailPoolBaseToken;
   dex: IMarketDetailPoolBaseToken;
 }
 
