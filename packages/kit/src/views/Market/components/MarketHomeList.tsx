@@ -69,16 +69,36 @@ function Column({
   const handlePress = useCallback(() => {
     onPress?.(name);
   }, [name, onPress]);
+
+  const renderSortIcon = useCallback(() => {
+    if (showSortIcon) {
+      return (
+        <Icon
+          cursor={cursor}
+          name={
+            order === 'desc'
+              ? 'ChevronDownSmallOutline'
+              : 'ChevronTopSmallOutline'
+          }
+          color="$iconSubdued"
+          size="$4"
+        />
+      );
+    }
+    return null;
+  }, [cursor, order, showSortIcon]);
   return (
     <XStack
       key={name}
       testID={`list-column-${name}`}
       jc={jc}
+      ai="center"
       alignItems="center"
       width={width}
       onPress={handlePress}
       {...props}
     >
+      {jc === 'flex-end' ? renderSortIcon() : null}
       {typeof children === 'string' ? (
         <SizableText
           cursor={cursor}
@@ -91,18 +111,7 @@ function Column({
       ) : (
         children
       )}
-      {showSortIcon ? (
-        <Icon
-          cursor={cursor}
-          name={
-            order === 'desc'
-              ? 'ChevronDownSmallOutline'
-              : 'ChevronTopSmallOutline'
-          }
-          color="$iconSubdued"
-          size="$5"
-        />
-      ) : null}
+      {jc === 'flex-start' ? renderSortIcon() : null}
     </XStack>
   );
 }
