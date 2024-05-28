@@ -163,7 +163,7 @@ function MarketDetail({
 
   const renderHeaderRight = useCallback(
     () => (
-      <XStack space="$10" ai="center">
+      <XStack space="$6" ai="center">
         {platformEnv.isNative ? null : (
           <OpenInAppButton
             buildDeepLinkUrl={buildDeepLinkUrl}
