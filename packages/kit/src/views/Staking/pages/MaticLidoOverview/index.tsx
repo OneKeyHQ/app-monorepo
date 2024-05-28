@@ -20,7 +20,10 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import type { ILidoMaticOverview } from '@onekeyhq/shared/types/staking';
+import type {
+  ILidoMaticOverview,
+  ILidoMaticRequest,
+} from '@onekeyhq/shared/types/staking';
 
 import {
   MaticStakeShouldUnderstand,
@@ -30,6 +33,7 @@ import { NftListItemStatus } from '../../components/NftListItemStatus';
 import { PageSkeleton } from '../../components/PageSkeleton';
 import { ProtocolIntro } from '../../components/ProtocolIntro';
 import { StakingProfit } from '../../components/StakingProfit';
+import { useLidoMaticClaim } from '../../hooks/useLidoMaticHooks';
 import {
   LIDO_LOGO_URI,
   LIDO_MATIC_LOGO_URI,
@@ -45,6 +49,55 @@ const ListItemStaked = ({ amount }: { amount: string }) => (
   />
 );
 
+const ListItemPending = ({ requests }: { requests: ILidoMaticRequest[] }) => {
+  const amount = useMemo(
+    () => requests.reduce((a, b) => a + Number(b.amount), 0),
+    [requests],
+  );
+  if (requests.length === 0) {
+    return null;
+  }
+  return (
+    <NftListItemStatus
+      amount={String(amount)}
+      symbol="MATIC"
+      status="pending"
+      tokenImageUri={LIDO_MATIC_LOGO_URI}
+    />
+  );
+};
+
+const ListItemClaim = ({
+  requests,
+  accountId,
+  networkId,
+}: {
+  requests: ILidoMaticRequest[];
+  accountId: string;
+  networkId: string;
+}) => {
+  const lidoClaim = useLidoMaticClaim({ accountId, networkId });
+  const amount = useMemo(
+    () => requests.reduce((a, b) => a + Number(b.amount), 0),
+    [requests],
+  );
+  const onClaim = useCallback(async () => {
+    await lidoClaim({ tokenId: Number(requests[0].id) });
+  }, [lidoClaim, requests]);
+  if (requests.length === 0) {
+    return null;
+  }
+  return (
+    <NftListItemStatus
+      onClaim={onClaim}
+      amount={String(amount)}
+      symbol="MATIC"
+      status="claimable"
+      tokenImageUri={LIDO_MATIC_LOGO_URI}
+    />
+  );
+};
+
 type IMaticLidoOverviewContentProps = {
   networkId: string;
   accountId: string;
@@ -58,26 +111,42 @@ const MaticLidoOverviewContent = ({
   overview,
   apr = 4,
 }: IMaticLidoOverviewContentProps) => {
-  const { matic, stMatic } = overview;
+  const { matic, stMatic, requests, matic2StMatic } = overview;
   const appNavigation = useAppNavigation();
+  const [loading, setLoading] = useState<boolean>(false);
   const onStake = useCallback(async () => {
     Dialog.show({
       renderContent: <MaticStakeShouldUnderstand />,
       showCancelButton: false,
       onConfirmText: 'Got it!',
-      onConfirm: () => {
-        appNavigation.push(EModalStakingRoutes.MaticLidoStake, {
-          accountId,
-          networkId,
-          balance: matic.balanceParsed,
-          price: matic.price,
-          token: matic.info,
-          stToken: stMatic.info,
-          apr,
-        });
+      onConfirm: async ({ close }) => {
+        setLoading(true);
+        try {
+          await close();
+          const { allowanceParsed } =
+            await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+              accountId,
+              networkId,
+              spenderAddress: stMatic.info.address,
+              tokenAddress: matic.info.address,
+            });
+          appNavigation.push(EModalStakingRoutes.MaticLidoStake, {
+            accountId,
+            networkId,
+            balance: matic.balanceParsed,
+            price: matic.price,
+            token: matic.info,
+            stToken: stMatic.info,
+            currentAllowance: allowanceParsed,
+            rate: matic2StMatic,
+            apr,
+          });
+        } finally {
+          setLoading(false);
+        }
       },
     });
-  }, [appNavigation, accountId, networkId, matic, apr, stMatic]);
+  }, [appNavigation, accountId, networkId, matic, apr, stMatic, matic2StMatic]);
   const onRedeem = useCallback(async () => {
     Dialog.show({
       renderContent: <MaticWithdrawShouldUnderstand />,
@@ -111,6 +180,12 @@ const MaticLidoOverviewContent = ({
     },
   ] = useSettingsPersistAtom();
 
+  const nfts = useMemo(() => {
+    const pending = requests.filter((o) => !o.claimable);
+    const finished = requests.filter((o) => o.claimable);
+    return { pending, finished };
+  }, [requests]);
+
   return (
     <Stack px="$5">
       <YStack>
@@ -134,6 +209,12 @@ const MaticLidoOverviewContent = ({
         </XStack>
         <YStack space="$2" mt="$5">
           <ListItemStaked amount={stMatic.balanceParsed} />
+          <ListItemPending requests={nfts.pending} />
+          <ListItemClaim
+            requests={nfts.finished}
+            accountId={accountId}
+            networkId={networkId}
+          />
         </YStack>
         <ProtocolIntro
           protocolText="Lido"
@@ -149,6 +230,7 @@ const MaticLidoOverviewContent = ({
       <Page.Footer
         onConfirmText="Stake"
         confirmButtonProps={{
+          loading,
           variant: 'primary',
           onPress: onStake,
         }}
