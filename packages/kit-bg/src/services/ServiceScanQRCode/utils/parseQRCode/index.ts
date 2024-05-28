@@ -1,28 +1,31 @@
-import * as handlers from './handlers';
+import { getParseHandlerListWithScene } from './handlers';
 import * as deeplinkHandler from './handlers/deeplink';
 import * as urlHandler from './handlers/url';
 import { EQRCodeHandlerType } from './type';
 
 import type {
   IBaseValue,
-  IQRCodeHandler,
   IQRCodeHandlerParse,
   IQRCodeHandlerParseResult,
 } from './type';
-
-const handlerList = handlers as unknown as Record<
-  string,
-  IQRCodeHandler<IBaseValue>
->;
 
 export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
   value,
   options,
 ) => {
+  const parseScene = options?.parseScene;
+  if (!parseScene) {
+    return { type: EQRCodeHandlerType.UNKNOWN, data: value, raw: value };
+  }
   let result: IQRCodeHandlerParseResult<IBaseValue> | undefined;
-  const urlResult = await urlHandler.url(value);
-  const deeplinkResult = await deeplinkHandler.deeplink(value, { urlResult });
-  for (const handler of Object.values(handlerList)) {
+  const urlResult = await urlHandler.default(value);
+  const deeplinkResult = await deeplinkHandler.default(value, {
+    urlResult,
+  });
+
+  for (const handler of Object.values(
+    getParseHandlerListWithScene(parseScene),
+  )) {
     try {
       const itemResult = await handler(value, {
         ...options,

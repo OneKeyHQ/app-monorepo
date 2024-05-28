@@ -49,6 +49,7 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
             string | undefined
           > = async () => {
             const scanResult = await startScan({
+              parseScene: 'animation',
               autoHandleResult: false,
               mask: true,
             });
