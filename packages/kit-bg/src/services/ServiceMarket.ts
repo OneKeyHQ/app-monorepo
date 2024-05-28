@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
   IMarketCategory,
   IMarketDetailPool,
@@ -16,6 +17,11 @@ import ServiceBase from './ServiceBase';
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
 
+const getHeaders = async () => ({
+  'x-proxy': 'http://43.134.180.224',
+  ...(await getRequestHeaders()),
+});
+
 @backgroundClass()
 class ServiceMarket extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -28,8 +34,10 @@ class ServiceMarket extends ServiceBase {
     const response = await client.get<{
       code: number;
       data: IMarketCategory[];
-    }>('/utility/v1/market/category/list');
-    const { code, data } = response.data;
+    }>('/utility/v1/market/category/list', {
+      headers: await getHeaders(),
+    });
+    const { data } = response.data;
     data[0].name = 'Watchlist';
     return filters.length
       ? data.filter((i) => !filters.includes(i.categoryId))
@@ -77,6 +85,7 @@ class ServiceMarket extends ServiceBase {
         const urlSearchParams = new URLSearchParams(params);
         return urlSearchParams.toString();
       },
+      headers: await getHeaders(),
     });
     const { data } = response.data;
     return data;
@@ -93,6 +102,7 @@ class ServiceMarket extends ServiceBase {
         id: coingeckoId,
         explorer_platforms: explorerPlatforms,
       },
+      headers: await getHeaders(),
     });
     const { data } = response.data;
     return data;
@@ -109,6 +119,7 @@ class ServiceMarket extends ServiceBase {
         params: {
           query,
         },
+        headers: await getHeaders(),
       });
       const { data } = response.data;
       return data;
@@ -129,6 +140,7 @@ class ServiceMarket extends ServiceBase {
         days,
         points,
       },
+      headers: await getHeaders(),
     });
     const { data } = response.data;
     return data;
@@ -144,6 +156,7 @@ class ServiceMarket extends ServiceBase {
       params: {
         query,
       },
+      headers: await getHeaders(),
     });
     const { data } = response.data;
     if (data.length) {
