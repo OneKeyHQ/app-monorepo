@@ -31,13 +31,15 @@ import { PoolDetails } from './PoolDetails';
 function HeaderColumn({
   children,
   textAlign,
+  flexGrow = 3,
 }: {
   textAlign: ISizableTextProps['textAlign'];
   children: ISizableTextProps['children'];
+  flexGrow?: number;
 }) {
   return (
     <SizableText
-      flexGrow={1}
+      flexGrow={flexGrow}
       flexBasis={0}
       size="$bodySmMedium"
       color="$textSubdued"
@@ -48,9 +50,12 @@ function HeaderColumn({
   );
 }
 
-function ItemColumn({ children }: PropsWithChildren) {
+function ItemColumn({
+  children,
+  flexGrow = 3,
+}: PropsWithChildren<{ flexGrow?: number }>) {
   return (
-    <Stack flexGrow={1} flexBasis={0} jc="center">
+    <Stack flexGrow={flexGrow} flexBasis={0} jc="center">
       {children}
     </Stack>
   );
@@ -109,14 +114,16 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
         estimatedItemSize={38}
         ListHeaderComponent={
           <XStack py="$2.5" px="$5">
-            <HeaderColumn textAlign="left">Pair</HeaderColumn>
+            <HeaderColumn textAlign="left" flexGrow={5}>
+              Pair
+            </HeaderColumn>
             {gtMd ? <HeaderColumn textAlign="right">Price</HeaderColumn> : null}
             {gtMd ? (
               <HeaderColumn textAlign="right">24H Txns</HeaderColumn>
             ) : null}
             <HeaderColumn textAlign="right">24H Volume</HeaderColumn>
             <HeaderColumn textAlign="right">Liquidity</HeaderColumn>
-            <Stack h="$4" w="$4" pl="$3" />
+            <Stack h="$4" w="$7" />
           </XStack>
         }
         ListFooterComponent={
@@ -149,17 +156,21 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
                   });
                 }}
               >
-                <ItemColumn>
+                <ItemColumn flexGrow={5}>
                   <XStack space="$2.5" ai="center">
                     <MarketPoolIcon
                       id={relationships.dex.data.id}
                       uri={dexLogoUrl}
                     />
                     <YStack flexShrink={1}>
-                      <SizableText size="$bodyMdMedium">
+                      <SizableText size="$bodyMdMedium" numberOfLines={1}>
                         {attributes.name}
                       </SizableText>
-                      <SizableText size="$bodySm" color="$textSubdued">
+                      <SizableText
+                        size="$bodySm"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                      >
                         {relationships.dex.data.id
                           .split('_')
                           .map(
