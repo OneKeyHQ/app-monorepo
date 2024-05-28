@@ -167,6 +167,7 @@ interface IMarketDetailPoolAttributes {
 
 export interface IMarketDetailPool {
   id: string;
+  dexLogoUrl: string;
   baseTokenImageUrl: string;
   onekeyNetworkId: string;
   quoteTokenImageUrl: string;

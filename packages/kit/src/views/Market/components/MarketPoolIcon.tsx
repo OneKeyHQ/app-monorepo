@@ -12,15 +12,22 @@ const imageIcons: Record<string, string> = {
   curve: 'https://uni.onekey-asset.com/static/logo/Curve.png',
   orca: 'https://uni.onekey-asset.com/static/logo/orca.png',
 };
-export function MarketPoolIcon({ id }: { id: string }) {
+export function MarketPoolIcon({ id, uri }: { id: string; uri: string }) {
   const idName = id.toLowerCase();
   const imageSource = useMemo(() => {
+    if (uri) {
+      return uri;
+    }
     const iconKey = Object.keys(imageIcons).find((key) => idName.includes(key));
     return iconKey ? imageIcons[iconKey] : undefined;
-  }, [idName]);
+  }, [idName, uri]);
 
-  if (imageSource) {
-    return <Image size="$5" borderRadius="$full" src={imageSource} />;
-  }
-  return <Icon size="$5" borderRadius="$full" name="SwitchHorOutline" />;
+  return (
+    <Image size="$5" borderRadius="$full">
+      <Image.Source src={imageSource} />
+      <Image.Fallback>
+        <Icon size="$5" borderRadius="$full" name="SwitchHorOutline" />
+      </Image.Fallback>
+    </Image>
+  );
 }

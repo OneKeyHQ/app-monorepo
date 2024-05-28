@@ -136,7 +136,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
         }
         renderItem={
           (({ item }: { item: IMarketDetailPool }) => {
-            const { attributes, relationships } = item;
+            const { attributes, relationships, dexLogoUrl } = item;
             return (
               <XStack
                 px="$5"
@@ -151,7 +151,10 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
               >
                 <ItemColumn>
                   <XStack space="$2.5" ai="center">
-                    <MarketPoolIcon id={relationships.dex.data.id} />
+                    <MarketPoolIcon
+                      id={relationships.dex.data.id}
+                      uri={dexLogoUrl}
+                    />
                     <YStack flexShrink={1}>
                       <SizableText size="$bodyMdMedium">
                         {attributes.name}
