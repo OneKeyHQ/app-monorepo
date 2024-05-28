@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
+import * as ExpoSharing from 'expo-sharing';
 
 import {
   HeaderIconButton,
@@ -12,6 +13,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useClipboard,
   useMedia,
 } from '@onekeyhq/components';
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -33,6 +35,7 @@ import { PriceChangePercentage } from './components/PriceChangePercentage';
 import { TextCell } from './components/TextCell';
 import { TokenDetailTabs } from './components/TokenDetailTabs';
 import { TokenPriceChart } from './components/TokenPriceChart';
+import { buildMarketFullUrl } from './marketUtils';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 
 function TokenDetailHeader({
@@ -136,14 +139,27 @@ function MarketDetail({
     ),
     [icon, symbol, tokenDetail?.image, tokenDetail?.symbol],
   );
+  const { copyText } = useClipboard();
+
   const renderHeaderRight = useCallback(
     () => (
       <XStack space="$10" ai="center">
-        <HeaderIconButton icon="ShareOutline" />
+        <HeaderIconButton
+          icon="ShareOutline"
+          onPress={async () => {
+            const url = buildMarketFullUrl({ coinGeckoId });
+            if (await ExpoSharing.isAvailableAsync()) {
+              // https://docs.expo.dev/versions/latest/sdk/sharing/
+              await ExpoSharing.shareAsync(url);
+            } else {
+              copyText(url);
+            }
+          }}
+        />
         {gtMd ? <MarketHomeHeaderSearchBar /> : null}
       </XStack>
     ),
-    [gtMd],
+    [coinGeckoId, copyText, gtMd],
   );
 
   const navigation = useAppNavigation();

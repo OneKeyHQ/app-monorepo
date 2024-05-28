@@ -1,5 +1,4 @@
 import { WEB_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
-import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -15,7 +14,7 @@ export function buildMarketFullUrl({ coinGeckoId }: { coinGeckoId: string }) {
     platformEnv.isWeb && !platformEnv.isDev
       ? window.location.origin
       : WEB_APP_URL;
-  const path = `${EOneKeyDeepLinkPath.market_detail}?coinGeckoId=${coinGeckoId}`;
+  const path = `/market/market_detail?coinGeckoId=${coinGeckoId}`;
   return `${origin}${path}`;
 }
 
