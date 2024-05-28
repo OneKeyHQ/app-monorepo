@@ -5701,6 +5701,7 @@ __metadata:
     "@walletconnect/modal": "npm:2.6.2"
     "@walletconnect/universal-provider": "npm:2.11.2"
     "@walletconnect/web3wallet": "npm:1.10.2"
+    aptos: "npm:^1.21.0"
     axios: "npm:^1.6.0"
     babel-loader: "npm:^9.1.3"
     babel-plugin-catch-logger: "npm:0.1.13"
@@ -13299,7 +13300,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"aptos@npm:^1.3.17":
+"aptos@npm:^1.21.0, aptos@npm:^1.3.17":
   version: 1.21.0
   resolution: "aptos@npm:1.21.0"
   dependencies:
