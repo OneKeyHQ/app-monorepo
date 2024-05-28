@@ -17,36 +17,65 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type {
-  IMarketDetailPool,
-  IMarketTokenDetail,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
 
 import { listItemPressStyle } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
 import { PoolDetails } from './PoolDetails';
+import { useSortType } from './useSortType';
 
 function HeaderColumn({
+  name,
   children,
-  textAlign,
+  jc,
   flexGrow = 3,
+  sortType,
+  onPress,
+  order,
 }: {
-  textAlign: ISizableTextProps['textAlign'];
+  name: string;
+  jc: ISizableTextProps['jc'];
   children: ISizableTextProps['children'];
   flexGrow?: number;
+  sortType?: string;
+  onPress?: (key: string) => void;
+  order?: 'asc' | 'desc' | '';
 }) {
+  const renderOrderIcon = useCallback(
+    () =>
+      sortType === name && order ? (
+        <Icon
+          cursor="pointer"
+          name={
+            order === 'desc'
+              ? 'ChevronDownSmallOutline'
+              : 'ChevronTopSmallOutline'
+          }
+          color="$iconSubdued"
+          size="$4"
+        />
+      ) : null,
+    [name, order, sortType],
+  );
+  const handlePress = useCallback(() => {
+    onPress?.(name);
+  }, [name, onPress]);
   return (
-    <SizableText
+    <XStack
       flexGrow={flexGrow}
       flexBasis={0}
-      size="$bodySmMedium"
-      color="$textSubdued"
-      textAlign={textAlign}
+      ai="center"
+      onPress={handlePress}
+      jc={jc}
     >
-      {children}
-    </SizableText>
+      {jc === 'flex-end' ? renderOrderIcon() : null}
+      <SizableText size="$bodySmMedium" color="$textSubdued">
+        {children}
+      </SizableText>
+      {jc === 'flex-start' ? renderOrderIcon() : null}
+    </XStack>
   );
 }
 
@@ -58,6 +87,100 @@ function ItemColumn({
     <Stack flexGrow={flexGrow} flexBasis={0} jc="center">
       {children}
     </Stack>
+  );
+}
+
+function HeaderRow({
+  sortType,
+  onSortTypeChange,
+}: {
+  sortType?: { columnName: string; order: 'asc' | 'desc' | undefined };
+  onSortTypeChange?: (options: {
+    columnName: string;
+    order: 'asc' | 'desc' | undefined;
+  }) => void;
+}) {
+  const { gtMd } = useMedia();
+  const useSortFunc = !!(sortType || onSortTypeChange);
+  const handleColumnPress = useCallback(
+    (key: string) => {
+      if (!useSortFunc) {
+        return;
+      }
+      if (key === sortType?.columnName) {
+        let order: 'asc' | 'desc' | undefined = 'desc';
+        if (sortType?.order === 'desc') {
+          order = 'asc';
+        } else if (sortType?.order === 'asc') {
+          order = undefined;
+        }
+        onSortTypeChange?.({
+          columnName: key,
+          order,
+        });
+        return;
+      }
+      onSortTypeChange?.({
+        columnName: key,
+        order: 'desc',
+      });
+    },
+    [onSortTypeChange, sortType?.columnName, sortType?.order, useSortFunc],
+  );
+  return (
+    <XStack py="$2.5" px="$5">
+      <HeaderColumn
+        name="dexDataName"
+        jc="flex-start"
+        flexGrow={5}
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+      >
+        Pair
+      </HeaderColumn>
+      {gtMd ? (
+        <HeaderColumn
+          name="price"
+          jc="flex-end"
+          sortType={sortType?.columnName}
+          order={sortType?.order}
+          onPress={handleColumnPress}
+        >
+          Price
+        </HeaderColumn>
+      ) : null}
+      {gtMd ? (
+        <HeaderColumn
+          name="txTotal"
+          jc="flex-end"
+          sortType={sortType?.columnName}
+          order={sortType?.order}
+          onPress={handleColumnPress}
+        >
+          24H Txns
+        </HeaderColumn>
+      ) : null}
+      <HeaderColumn
+        name="volumeUsdH24"
+        jc="flex-end"
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+      >
+        24H Volume
+      </HeaderColumn>
+      <HeaderColumn
+        name="reserveInUsd"
+        jc="flex-end"
+        sortType={sortType?.columnName}
+        order={sortType?.order}
+        onPress={handleColumnPress}
+      >
+        Liquidity
+      </HeaderColumn>
+      <Stack h="$4" w="$7" />
+    </XStack>
   );
 }
 
@@ -97,9 +220,26 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
     () => partitions[onekeyNetworkIds[index]],
     [index, onekeyNetworkIds, partitions],
   );
+  const formatListData = listData.map((i) => ({
+    ...i,
+    dexDataName: i.relationships.dex.data.id
+      .split('_')
+      .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+      .join(' '),
+    price: Number(i.attributes.baseTokenPriceUsd),
+    txTotal: Number(
+      i.attributes.transactions.h24.buys + i.attributes.transactions.h24.sells,
+    ),
+    volumeUsdH24: Number(i.attributes.volumeUsd.h24),
+    reserveInUsd: Number(i.attributes.reserveInUsd),
+  }));
   const handleChange = useCallback((selectedIndex: number) => {
     selectIndex(selectedIndex);
   }, []);
+
+  const { sortedListData, handleSortTypeChange, sortByType } = useSortType(
+    formatListData as Record<string, any>[],
+  );
   return (
     <YStack pb="$2" pt="$5">
       <NetworkIdSelect
@@ -108,25 +248,25 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
         onChange={handleChange}
       />
       <ListView
-        data={listData}
+        data={sortedListData}
         estimatedItemSize={38}
         ListHeaderComponent={
-          <XStack py="$2.5" px="$5">
-            <HeaderColumn textAlign="left" flexGrow={5}>
-              Pair
-            </HeaderColumn>
-            {gtMd ? <HeaderColumn textAlign="right">Price</HeaderColumn> : null}
-            {gtMd ? (
-              <HeaderColumn textAlign="right">24H Txns</HeaderColumn>
-            ) : null}
-            <HeaderColumn textAlign="right">24H Volume</HeaderColumn>
-            <HeaderColumn textAlign="right">Liquidity</HeaderColumn>
-            <Stack h="$4" w="$7" />
-          </XStack>
+          <HeaderRow
+            sortType={sortByType}
+            onSortTypeChange={handleSortTypeChange}
+          />
         }
         renderItem={
-          (({ item }: { item: IMarketDetailPool }) => {
-            const { attributes, relationships, dexLogoUrl } = item;
+          (({ item }: { item: (typeof formatListData)[0] }) => {
+            const {
+              attributes,
+              dexLogoUrl,
+              dexDataName,
+              price,
+              txTotal,
+              volumeUsdH24,
+              reserveInUsd,
+            } = item;
             return (
               <XStack
                 px="$5"
@@ -151,13 +291,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
                         color="$textSubdued"
                         numberOfLines={1}
                       >
-                        {relationships.dex.data.id
-                          .split('_')
-                          .map(
-                            (word) =>
-                              `${word.charAt(0).toUpperCase()}${word.slice(1)}`,
-                          )
-                          .join(' ')}
+                        {dexDataName}
                       </SizableText>
                     </YStack>
                   </XStack>
@@ -171,7 +305,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
                       formatterOptions={{ currency: '$' }}
                       textAlign="right"
                     >
-                      {attributes.baseTokenPriceUsd}
+                      {price}
                     </NumberSizeableText>
                   </ItemColumn>
                 ) : null}
@@ -182,10 +316,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
                       formatter="marketCap"
                       textAlign="right"
                     >
-                      {String(
-                        attributes.transactions.h24.buys +
-                          attributes.transactions.h24.sells,
-                      )}
+                      {txTotal}
                     </NumberSizeableText>
                   </ItemColumn>
                 ) : null}
@@ -195,7 +326,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
                     formatter="marketCap"
                     textAlign="right"
                   >
-                    {attributes.volumeUsd.h24}
+                    {volumeUsdH24}
                   </NumberSizeableText>
                 </ItemColumn>
                 <ItemColumn>
@@ -204,7 +335,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
                     formatter="marketCap"
                     textAlign="right"
                   >
-                    {attributes.reserveInUsd}
+                    {reserveInUsd}
                   </NumberSizeableText>
                 </ItemColumn>
                 <View jc="center">
