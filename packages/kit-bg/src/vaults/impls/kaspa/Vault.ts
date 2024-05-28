@@ -17,7 +17,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type { ITxInput, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -136,7 +136,7 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
-    const { inputs, outputs, feeInfo } = encodedTx;
+    const { outputs, feeInfo } = encodedTx;
     const network = await this.getNetwork();
     const account = await this.getAccount();
 
@@ -167,15 +167,15 @@ export default class Vault extends VaultBase {
       });
     }
 
-    const utxoFrom = inputs.map((input) => ({
-      address: input.address.toString(),
-      balance: new BigNumber(input.satoshis.toString())
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      balanceValue: input.satoshis?.toString() ?? '0',
-      symbol: network.symbol,
-      isMine: true,
-    }));
+    // const utxoFrom = inputs.map((input) => ({
+    //   address: input.address.toString(),
+    //   balance: new BigNumber(input.satoshis.toString())
+    //     .shiftedBy(-network.decimals)
+    //     .toFixed(),
+    //   balanceValue: input.satoshis?.toString() ?? '0',
+    //   symbol: network.symbol,
+    //   isMine: true,
+    // }));
 
     const utxoTo = outputs.map((output) => ({
       address: output.address,
@@ -228,28 +228,9 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = await this.buildEncodedTx(params);
     if (encodedTx) {
-      const { inputs, outputs } = encodedTx;
-
-      const inputsInUnsignedTx: ITxInput[] = [];
-      for (const input of inputs) {
-        const value = new BigNumber(input.satoshis);
-        inputsInUnsignedTx.push({
-          address: input.address.toString(),
-          value,
-          // publicKey,
-          utxo: { txid: input.txid, vout: input.vout, value },
-        });
-      }
-      const outputsInUnsignedTx = outputs.map(({ address, value }) => ({
-        address,
-        value: new BigNumber(value),
-        payload: {},
-      }));
       return {
         encodedTx,
         transfersInfo: params.transfersInfo,
-        inputs: inputsInUnsignedTx,
-        outputs: outputsInUnsignedTx,
       };
     }
     throw new NotImplemented();
