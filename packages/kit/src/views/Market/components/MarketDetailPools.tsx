@@ -239,6 +239,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
 
   const { sortedListData, handleSortTypeChange, sortByType } = useSortType(
     formatListData as Record<string, any>[],
+    index,
   );
   return (
     <YStack pb="$2" pt="$5">
@@ -256,6 +257,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
             onSortTypeChange={handleSortTypeChange}
           />
         }
+        extraData={index}
         renderItem={
           (({ item }: { item: (typeof formatListData)[0] }) => {
             const {

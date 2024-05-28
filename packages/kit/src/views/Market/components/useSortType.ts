@@ -1,8 +1,16 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-export const useSortType = (listData: Record<string, unknown>[]) => {
+export const useSortType = (
+  listData: Record<string, unknown>[],
+  extraData?: any,
+) => {
   const listDataRef = useRef<typeof listData | undefined>();
+  const extraDataRef = useRef<any>(extraData);
   if (!listDataRef.current && listData?.length) {
+    listDataRef.current = listData;
+  }
+  if (extraDataRef.current !== extraData) {
+    extraDataRef.current = extraData;
     listDataRef.current = listData;
   }
   const [sortByType, setSortByType] = useState<{
