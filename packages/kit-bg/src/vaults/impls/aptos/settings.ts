@@ -6,6 +6,8 @@ import {
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
+import { APTOS_NATIVE_COIN } from './utils';
+
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
@@ -36,6 +38,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: true,
   replaceTxEnabled: false,
+  nativeTokenAddress: APTOS_NATIVE_COIN,
 
   accountDeriveInfo,
   networkInfo: {

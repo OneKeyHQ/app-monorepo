@@ -1,7 +1,7 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import ProviderApiAlgo from './ProviderApiAlgo';
-// import ProviderApiAptos from './ProviderApiAptos';
+import ProviderApiAptos from './ProviderApiAptos';
 import ProviderApiBtc from './ProviderApiBtc';
 import ProviderApiCardano from './ProviderApiCardano';
 import ProviderApiConflux from './ProviderApiConflux';
@@ -46,9 +46,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.near]: new ProviderApiNear({
       backgroundApi,
     }),
-    // [IInjectedProviderNames.aptos]: new ProviderApiAptos({
-    //   backgroundApi,
-    // }),
+    [IInjectedProviderNames.aptos]: new ProviderApiAptos({
+      backgroundApi,
+    }),
     [IInjectedProviderNames.conflux]: new ProviderApiConflux({
       backgroundApi,
     }),
