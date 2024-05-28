@@ -1,13 +1,8 @@
 import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
-import {
-  EModalRoutes,
-  EModalSendRoutes,
-  type IModalSendParamList,
-} from '@onekeyhq/shared/src/routes';
+import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
 export function useLidoMaticStake({
   accountId,
@@ -16,7 +11,7 @@ export function useLidoMaticStake({
   accountId: string;
   networkId: string;
 }) {
-  const navigation = useAppNavigation();
+  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
   return useCallback(
     async ({
       amount,
@@ -31,28 +26,19 @@ export function useLidoMaticStake({
         accountId,
         networkId,
       });
-      const serverTxs =
+      const serverTx =
         await backgroundApiProxy.serviceStaking.buildLidoMaticStakingTransaction(
           {
             amount,
-            accountAddress: account.address,
           },
         );
-      const unsignedTxs = serverTxs.map((tx) => ({
-        encodedTx: { ...tx, from: account.address },
-      }));
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendConfirm,
-        params: {
-          accountId,
-          networkId,
-          unsignedTxs,
-          onSuccess,
-          onFail,
-        },
+      await navigationToSendConfirm({
+        encodedTx: { ...serverTx, from: account.address },
+        onSuccess,
+        onFail,
       });
     },
-    [navigation, accountId, networkId],
+    [navigationToSendConfirm, accountId, networkId],
   );
 }
 
@@ -108,8 +94,6 @@ export function useLidoMaticClaim({
       onSuccess,
       onFail,
     }: {
-      accountId: string;
-      networkId: string;
       tokenId: number;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];

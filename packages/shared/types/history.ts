@@ -133,6 +133,12 @@ export type IFetchHistoryTxDetailsParams = {
   accountAddress: string;
 };
 
+export type IFetchTxDetailsParams = {
+  networkId: string;
+  txid: string;
+  accountId: string;
+};
+
 export type IFetchHistoryTxDetailsResp = {
   data: IOnChainHistoryTx;
   tokens: Record<string, IOnChainHistoryTxToken>; // <tokenAddress, token>
