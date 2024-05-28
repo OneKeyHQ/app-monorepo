@@ -59,7 +59,7 @@
     "@onekeyfe/hd-shared": "1.0.0-alpha.8",
     "@onekeyfe/hd-transport": "1.0.0-alpha.8",
     "@onekeyfe/hd-web-sdk": "1.0.0-alpha.8",
-    "@onekeyfe/onekey-cross-webview": "2.0.0-alpha.5",
+    "@onekeyfe/onekey-cross-webview": "2.0.0-alpha.7",
     "@polkadot/extension-inject": "0.46.6",
     "@polkadot/types": "10.11.2",
     "@polkadot/util-crypto": "12.6.1",

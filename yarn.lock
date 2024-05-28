@@ -5117,20 +5117,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-core@npm:2.0.0-alpha.5":
-  version: 2.0.0-alpha.5
-  resolution: "@onekeyfe/cross-inpage-provider-core@npm:2.0.0-alpha.5"
-  dependencies:
-    "@onekeyfe/cross-inpage-provider-errors": "npm:2.0.0-alpha.5"
-    "@onekeyfe/cross-inpage-provider-events": "npm:2.0.0-alpha.5"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.0.0-alpha.5"
-    events: "npm:^3.3.0"
-    lodash-es: "npm:^4.17.21"
-    ms: "npm:^2.1.3"
-  checksum: 10/79b1658ec2c05f2825fc513f31e2148e74729f93ebe96712e3edc919a3016637aeffd4aa38265076d642cdd4f73c809e662e238d8f7bda6dadd629ab9b193b5b
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/cross-inpage-provider-core@npm:2.0.0-alpha.7":
   version: 2.0.0-alpha.7
   resolution: "@onekeyfe/cross-inpage-provider-core@npm:2.0.0-alpha.7"
@@ -5159,15 +5145,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/cross-inpage-provider-errors@npm:2.0.0-alpha.5":
-  version: 2.0.0-alpha.5
-  resolution: "@onekeyfe/cross-inpage-provider-errors@npm:2.0.0-alpha.5"
-  dependencies:
-    fast-safe-stringify: "npm:^2.1.1"
-  checksum: 10/4551e209ffcb0611fee8dbfed21138f0b75d5e575fbd793a2230e773565be7d5eb35dbea236338e34e19648e857d0503a2a7a20fe3df5a0d4851ae93bc60d468
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/cross-inpage-provider-errors@npm:2.0.0-alpha.7":
   version: 2.0.0-alpha.7
   resolution: "@onekeyfe/cross-inpage-provider-errors@npm:2.0.0-alpha.7"
@@ -5183,13 +5160,6 @@ __metadata:
   dependencies:
     fast-safe-stringify: "npm:^2.1.1"
   checksum: 10/f9a37acaaff97581d5344651b3d72c91cdf537d88c452564db962b8cc214c32c97246de9d5adeeef225ef1ccc5d804545e84755d8c9a95e63af2fc94a90dd4fb
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/cross-inpage-provider-events@npm:2.0.0-alpha.5":
-  version: 2.0.0-alpha.5
-  resolution: "@onekeyfe/cross-inpage-provider-events@npm:2.0.0-alpha.5"
-  checksum: 10/5cf0c22cf0cea4da24978c51ccc32cee3280059283138cfa0083cbc379cae89d3202c821cc224ed04dce82117eef8fcd5d1a3f685ac0dfd9b64c2700e644d985
   languageName: node
   linkType: hard
 
@@ -5221,13 +5191,6 @@ __metadata:
   peerDependencies:
     electron: "*"
   checksum: 10/0f801a882d28424eebb3599fa743d55f479186fc2270be6c9fc4916f98aed1024765caa921ded67398fa542cced27e7e1d221ae58e394475010421d6524eac4c
-  languageName: node
-  linkType: hard
-
-"@onekeyfe/cross-inpage-provider-types@npm:2.0.0-alpha.5":
-  version: 2.0.0-alpha.5
-  resolution: "@onekeyfe/cross-inpage-provider-types@npm:2.0.0-alpha.5"
-  checksum: 10/6d1ce595c67e0d6af3d1bb4d31e6eb4aeba5706847838298a85adb08e6eba3a3df46825942b30be167506e77179020b8f4654e0c5aed25dd142e7ce43ad2348a
   languageName: node
   linkType: hard
 
@@ -5474,16 +5437,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/onekey-cross-webview@npm:2.0.0-alpha.5":
-  version: 2.0.0-alpha.5
-  resolution: "@onekeyfe/onekey-cross-webview@npm:2.0.0-alpha.5"
+"@onekeyfe/onekey-cross-webview@npm:2.0.0-alpha.7":
+  version: 2.0.0-alpha.7
+  resolution: "@onekeyfe/onekey-cross-webview@npm:2.0.0-alpha.7"
   dependencies:
-    "@onekeyfe/cross-inpage-provider-core": "npm:2.0.0-alpha.5"
-    "@onekeyfe/cross-inpage-provider-types": "npm:2.0.0-alpha.5"
+    "@onekeyfe/cross-inpage-provider-core": "npm:2.0.0-alpha.7"
+    "@onekeyfe/cross-inpage-provider-types": "npm:2.0.0-alpha.7"
   peerDependencies:
     electron: "*"
     react-native-webview: "*"
-  checksum: 10/bc6ec473efc4a2490bb110dd9f603e81370a9c8c8b22d5d473a42db8c55df8f4d4245bd179dab9bb611781efd2d446cda7dcd3e0b7d4387dfae9ae251711eb2a
+  checksum: 10/13b1a408b10b07acb365bd15b51ab9c6a309e4f86c27ba326c6b61e043bacb57e3cd051e3d52b88fbd24f38fe3ecbd56255e19858a2efaa51487d5dfca399a67
   languageName: node
   linkType: hard
 
@@ -5707,7 +5670,7 @@ __metadata:
     "@onekeyfe/hd-shared": "npm:1.0.0-alpha.8"
     "@onekeyfe/hd-transport": "npm:1.0.0-alpha.8"
     "@onekeyfe/hd-web-sdk": "npm:1.0.0-alpha.8"
-    "@onekeyfe/onekey-cross-webview": "npm:2.0.0-alpha.5"
+    "@onekeyfe/onekey-cross-webview": "npm:2.0.0-alpha.7"
     "@open-wc/webpack-import-meta-loader": "npm:^0.4.7"
     "@pmmmwh/react-refresh-webpack-plugin": "npm:^0.5.11"
     "@polkadot/extension-inject": "npm:0.46.6"
