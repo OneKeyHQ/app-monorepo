@@ -18,14 +18,18 @@ import {
 } from '@onekeyhq/components';
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IMarketDetailPool,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { OpenInAppButton } from '../../components/OpenInAppButton';
 import useAppNavigation from '../../hooks/useAppNavigation';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
@@ -141,9 +145,31 @@ function MarketDetail({
   );
   const { copyText } = useClipboard();
 
+  const buildDeepLinkUrl = useCallback(
+    () =>
+      uriUtils.buildDeepLinkUrl({
+        path: EOneKeyDeepLinkPath.market_detail,
+        query: {
+          coinGeckoId,
+        },
+      }),
+    [coinGeckoId],
+  );
+
+  const buildFullUrl = useCallback(
+    () => buildMarketFullUrl({ coinGeckoId }),
+    [coinGeckoId],
+  );
+
   const renderHeaderRight = useCallback(
     () => (
       <XStack space="$10" ai="center">
+        {platformEnv.isNative ? null : (
+          <OpenInAppButton
+            buildDeepLinkUrl={buildDeepLinkUrl}
+            buildFullUrl={buildFullUrl}
+          />
+        )}
         <HeaderIconButton
           icon="ShareOutline"
           onPress={async () => {
