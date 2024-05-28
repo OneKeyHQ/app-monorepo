@@ -145,7 +145,7 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
             <SizableText size="$bodyLgMedium">
               {item.symbol.toUpperCase()}
             </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {item.name}
             </SizableText>
           </YStack>
