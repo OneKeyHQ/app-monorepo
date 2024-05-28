@@ -1,9 +1,9 @@
 export enum EMessageTypesEth {
-  ETH_SIGN = 0,
-  PERSONAL_SIGN = 1,
-  TYPED_DATA_V1 = 2,
-  TYPED_DATA_V3 = 3,
-  TYPED_DATA_V4 = 4,
+  ETH_SIGN = 'ETH_SIGN', // 0
+  PERSONAL_SIGN = 'PERSONAL_SIGN', // 1
+  TYPED_DATA_V1 = 'TYPED_DATA_V1', // 2
+  TYPED_DATA_V3 = 'TYPED_DATA_V3', // 3
+  TYPED_DATA_V4 = 'TYPED_DATA_V4', // 4
 }
 
 export enum EMessageTypesAptos {

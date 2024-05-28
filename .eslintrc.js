@@ -20,7 +20,7 @@ const jsRules = {
   'react/jsx-no-useless-fragment': 'off',
   'use-effect-no-deps/use-effect-no-deps': 'error',
   'react-hooks/exhaustive-deps': [
-    'warn',
+    'error',
     {
       'additionalHooks': '(usePromiseResult|useAsyncCall)',
     },

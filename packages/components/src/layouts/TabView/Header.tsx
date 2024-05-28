@@ -37,14 +37,14 @@ const HeaderComponent = (
     titleFromItem = (item: { title: string }) => item.title,
     contentContainerStyle = {},
     scrollContainerStyle = {},
-    containerStyle = { overflow: 'visible' },
+    containerStyle = {},
     itemContainerStyle = { ml: '$5', pb: '$0.5', cursor: 'default' },
     itemTitleStyle = { fontSize: 16, fontWeight: '500' },
     itemTitleNormalStyle = { color: '$textSubdued' },
     itemTitleSelectedStyle = { color: '$text' },
     cursorStyle = {
-      bottom: -StyleSheet.hairlineWidth,
-      h: '$0.5',
+      bottom: -StyleSheet.hairlineWidth * 2,
+      h: '$1',
       bg: '$bgPrimary',
     },
     ...props

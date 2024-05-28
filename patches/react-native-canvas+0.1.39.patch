@@ -1,0 +1,13 @@
+diff --git a/node_modules/react-native-canvas/dist/Canvas.js b/node_modules/react-native-canvas/dist/Canvas.js
+index f50aaaa..82a6154 100644
+--- a/node_modules/react-native-canvas/dist/Canvas.js
++++ b/node_modules/react-native-canvas/dist/Canvas.js
+@@ -25,7 +25,7 @@ var _react = _interopRequireWildcard(require("react"));
+ 
+ var _reactNative = require("react-native");
+ 
+-var _reactNativeWebview = require("react-native-webview");
++var _reactNativeWebview = require("@onekeyfe/react-native-webview");
+ 
+ var _Bus = _interopRequireDefault(require("./Bus"));
+ 
