@@ -1039,7 +1039,7 @@ PODS:
   - react-native-ble-plx (3.0.0):
     - MultiplatformBleAdapter (= 0.1.9)
     - React-Core
-  - react-native-cloud-fs (2.6.0):
+  - react-native-cloud-fs (2.6.1):
     - React
   - react-native-compat (2.11.2):
     - glog
@@ -1417,7 +1417,7 @@ DEPENDENCIES:
   - react-native-tcp-socket (from `../../../node_modules/react-native-tcp-socket`)
   - react-native-video (from `../../../node_modules/react-native-video`)
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
-  - "react-native-webview (from `../../../node_modules/@onekeyfe/react-native-webview`)"
+  - react-native-webview (from `../../../node_modules/react-native-webview`)
   - React-nativeconfig (from `../../../node_modules/react-native/ReactCommon`)
   - React-NativeModulesApple (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-perflogger (from `../../../node_modules/react-native/ReactCommon/reactperflogger`)
@@ -1629,7 +1629,7 @@ EXTERNAL SOURCES:
   react-native-view-shot:
     :path: "../../../node_modules/react-native-view-shot"
   react-native-webview:
-    :path: "../../../node_modules/@onekeyfe/react-native-webview"
+    :path: "../../../node_modules/react-native-webview"
   React-nativeconfig:
     :path: "../../../node_modules/react-native/ReactCommon"
   React-NativeModulesApple:
@@ -1781,7 +1781,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 6f392912435adb8fbf4c3eee0e79a0a0b4e4b717
   react-native-ble-manager: 09724bad4d06b86a85e0cd7bd97196fecca15e9a
   react-native-ble-plx: 4b0b605e4c52453ecbeb82807878bc4a2652d1c9
-  react-native-cloud-fs: cd21282c5cecaf285225e447dd7f3cf2f9015496
+  react-native-cloud-fs: e7103d1f693c57b481f820fa5e6b6b0522a5a31e
   react-native-compat: 3af9add14d349701306d3d052638435f6795ac2c
   react-native-get-random-values: dee677497c6a740b71e5612e8dbd83e7539ed5bb
   react-native-lite-card: cddf236c091281577c86095437a9ae204b74bc6f

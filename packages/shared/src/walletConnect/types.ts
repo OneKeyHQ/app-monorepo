@@ -21,18 +21,18 @@ export type IWalletConnectPeerMeta = SignClientTypes.Metadata;
 
 export type INamespaceUnion =
   | 'eip155'
-  | 'cosmos'
-  | 'solana'
-  | 'polkadot'
-  | 'tron'
+  // | 'cosmos'
+  // | 'solana'
+  // | 'polkadot'
+  // | 'tron'
   | 'algorand';
 
 export enum EWalletConnectNamespaceType {
   evm = 'eip155',
-  cosmos = 'cosmos',
-  solana = 'solana',
-  dot = 'polkadot',
-  tron = 'tron',
+  // cosmos = 'cosmos',
+  // solana = 'solana',
+  // dot = 'polkadot',
+  // tron = 'tron',
   algo = 'algorand',
 }
 
