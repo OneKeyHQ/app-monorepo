@@ -5,7 +5,6 @@ import { differenceInDays } from 'date-fns';
 
 import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import {
-  Icon,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -65,7 +64,7 @@ function PoolDetailsItem({
   );
 }
 
-export function PoolDetails({
+export function PoolDetailDialog({
   item: {
     attributes,
     dexLogoUrl,
