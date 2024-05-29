@@ -1,6 +1,8 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
+
 import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
 import {
   ActionList,
@@ -658,69 +660,73 @@ export function MarketHomeList({
 
   const renderMdItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
-      <XStack
-        px="$5"
-        height={60}
-        justifyContent="space-between"
+      <TouchableWithoutFeedback
         onPress={() => toDetailPage(item)}
         onLongPress={() => handleMdItemAction(item)}
-        {...listItemPressStyle}
       >
-        <XStack space="$3" ai="center">
-          <Image
-            src={decodeURIComponent(item.image)}
-            size="$10"
-            borderRadius="$full"
-          />
-          <YStack>
-            <SizableText size="$bodyLgMedium">
-              {item.symbol.toUpperCase()}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {`VOL `}
-              <NumberSizeableText
-                size="$bodySm"
-                formatter="marketCap"
-                color="$textSubdued"
-                formatterOptions={{ currency: '$' }}
-              >
-                {item.totalVolume}
-              </NumberSizeableText>
-            </SizableText>
-          </YStack>
-        </XStack>
-        <XStack ai="center" space="$5" flexShrink={1}>
-          <NumberSizeableText
-            flexShrink={1}
-            numberOfLines={1}
-            size="$bodyLgMedium"
-            formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
-            formatterOptions={{ currency: '$' }}
-          >
-            {item[mdColumnKeys[0]] as string}
-          </NumberSizeableText>
-          <XStack
-            width="$20"
-            height="$8"
-            jc="center"
-            ai="center"
-            backgroundColor={
-              Number(item.priceChangePercentage24H) > 0
-                ? '$bgSuccessStrong'
-                : '$bgCriticalStrong'
-            }
-            borderRadius="$2"
-          >
+        <XStack
+          px="$5"
+          height={60}
+          justifyContent="space-between"
+          userSelect="none"
+          {...listItemPressStyle}
+        >
+          <XStack space="$3" ai="center">
+            <Image
+              src={decodeURIComponent(item.image)}
+              size="$10"
+              borderRadius="$full"
+            />
+            <YStack>
+              <SizableText size="$bodyLgMedium">
+                {item.symbol.toUpperCase()}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {`VOL `}
+                <NumberSizeableText
+                  size="$bodySm"
+                  formatter="marketCap"
+                  color="$textSubdued"
+                  formatterOptions={{ currency: '$' }}
+                >
+                  {item.totalVolume}
+                </NumberSizeableText>
+              </SizableText>
+            </YStack>
+          </XStack>
+          <XStack ai="center" space="$5" flexShrink={1}>
             <NumberSizeableText
-              size="$bodyMdMedium"
-              color="white"
-              formatter="priceChange"
+              flexShrink={1}
+              numberOfLines={1}
+              size="$bodyLgMedium"
+              formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
+              formatterOptions={{ currency: '$' }}
             >
-              {item[mdColumnKeys[1]] as string}
+              {item[mdColumnKeys[0]] as string}
             </NumberSizeableText>
+            <XStack
+              width="$20"
+              height="$8"
+              jc="center"
+              ai="center"
+              backgroundColor={
+                Number(item.priceChangePercentage24H) > 0
+                  ? '$bgSuccessStrong'
+                  : '$bgCriticalStrong'
+              }
+              borderRadius="$2"
+            >
+              <NumberSizeableText
+                size="$bodyMdMedium"
+                color="white"
+                formatter="priceChange"
+              >
+                {item[mdColumnKeys[1]] as string}
+              </NumberSizeableText>
+            </XStack>
           </XStack>
         </XStack>
-      </XStack>
+      </TouchableWithoutFeedback>
     ),
     [handleMdItemAction, mdColumnKeys, toDetailPage],
   );
