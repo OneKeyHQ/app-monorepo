@@ -7,6 +7,11 @@ import {
   checkBtcAddressIsUsed,
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import type {
+  IBtcInput,
+  IBtcOutput,
+  IEncodedTxBtc,
+} from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -38,7 +43,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
-    const { inputs = [], outputs = [] } = unsignedTx;
+    const { inputs, outputs } = unsignedTx.encodedTx as IEncodedTxBtc;
     const { dbDevice, deviceCommonParams } = checkIsDefined(
       params.deviceParams,
     );
@@ -57,9 +62,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       }
     }
 
-    const prevTxids = Array.from(
-      new Set(inputs.map((i) => i.utxo?.txid)),
-    ).filter(Boolean);
+    const prevTxids = Array.from(new Set(inputs.map((i) => i.txid))).filter(
+      Boolean,
+    );
     const prevTxs = await vault.collectTxs(prevTxids);
     const sdk = await this.getHardwareSDKInstance();
 
@@ -92,26 +97,25 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   private buildHardwareInput = async (
-    input: ITxInput,
+    input: IBtcInput,
     path: string,
   ): Promise<Messages.TxInputType> => {
     const { getHDPath, getScriptType } = await CoreSDKLoader();
     const addressN = getHDPath(path);
     const scriptType = getScriptType(addressN);
-    const utxo = input.utxo as ITxUTXO;
 
     // @ts-expect-error
     return {
-      prev_index: utxo.vout,
-      prev_hash: utxo.txid,
-      amount: new BigNumber(utxo.value).toFixed(),
+      prev_index: input.vout,
+      prev_hash: input.txid,
+      amount: new BigNumber(input.value).toFixed(),
       address_n: addressN,
       script_type: scriptType,
     };
   };
 
   private buildHardwareOutput = async (
-    output: ITxOutput,
+    output: IBtcOutput,
   ): Promise<Messages.TxOutputType> => {
     const { isCharge, bip44Path, opReturn } = output.payload || {};
 

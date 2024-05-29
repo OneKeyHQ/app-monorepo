@@ -148,14 +148,17 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISwitchNetworkParams,
   ) {
     console.log('ProviderApiBtc.switchNetwork');
-    const accountsInfo = await this.getAccountsInfo(request);
+    const accountsInfo =
+      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+        request,
+      );
+    if (!accountsInfo) {
+      return;
+    }
     const { accountInfo: { networkId: oldNetworkId } = {} } = accountsInfo[0];
 
     if (!oldNetworkId) {
-      throw web3Errors.provider.custom({
-        code: 4002,
-        message: `Can not get account`,
-      });
+      return;
     }
 
     const { network: networkName } = params;

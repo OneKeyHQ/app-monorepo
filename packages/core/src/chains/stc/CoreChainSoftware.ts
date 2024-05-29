@@ -52,7 +52,7 @@ const buildUnsignedRawTx = (
   unsignedTx: IUnsignedTxPro,
   chainId: string,
 ): [StarcoinTypes.RawUserTransaction, Uint8Array] => {
-  const fromAddr = unsignedTx?.inputs?.[0].address;
+  const fromAddr = unsignedTx?.transfersInfo?.[0]?.from || '';
   const { scriptFn, data } = unsignedTx.payload || {};
 
   const gasLimit = unsignedTx.feeLimit;
