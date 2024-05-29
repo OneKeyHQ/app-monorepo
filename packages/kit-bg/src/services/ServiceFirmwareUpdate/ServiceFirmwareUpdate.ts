@@ -1411,32 +1411,50 @@ class ServiceFirmwareUpdate extends ServiceBase {
       throw new NeedFirmwareUpgradeFromWeb();
     }
 
-    // bootloader mode device may return wrong firmware current version. so we skip this check
-    if (params.releaseResult?.isBootloaderMode) {
-      return;
-    }
     const deviceType = params.releaseResult?.deviceType;
 
-    const fwFromVersion =
-      params.releaseResult?.updateInfos?.firmware?.fromVersion;
-    if (
-      fwFromVersion &&
-      deviceType &&
-      minVersionMap?.[deviceType]?.firmware &&
-      semver.lt(fwFromVersion, minVersionMap?.[deviceType]?.firmware || '')
-    ) {
-      throw new NeedFirmwareUpgradeFromWeb();
+    const checkFn = ({
+      fromVersion,
+      minVersion,
+    }: {
+      fromVersion: string | undefined;
+      minVersion: string | undefined;
+    }) => {
+      if (
+        deviceType &&
+        fromVersion &&
+        minVersion &&
+        semver.lt(fromVersion || '', minVersion || '')
+      ) {
+        throw new NeedFirmwareUpgradeFromWeb();
+      }
+    };
+
+    // bootloader mode device may return wrong firmware current version. so we skip this check
+    if (params.releaseResult?.isBootloaderMode) {
+      // only check bootloader version at boot mode
+
+      checkFn({
+        fromVersion: params.releaseResult?.updateInfos?.bootloader?.fromVersion,
+        minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
+      });
+      return;
     }
 
-    const bleFromVersion = params.releaseResult?.updateInfos?.ble?.fromVersion;
-    if (
-      bleFromVersion &&
-      deviceType &&
-      minVersionMap?.[deviceType]?.ble &&
-      semver.lt(bleFromVersion, minVersionMap?.[deviceType]?.ble || '')
-    ) {
-      throw new NeedFirmwareUpgradeFromWeb();
-    }
+    checkFn({
+      fromVersion: params.releaseResult?.updateInfos?.firmware?.fromVersion,
+      minVersion: minVersionMap?.[deviceType || 'unknown']?.firmware,
+    });
+
+    checkFn({
+      fromVersion: params.releaseResult?.updateInfos?.ble?.fromVersion,
+      minVersion: minVersionMap?.[deviceType || 'unknown']?.ble,
+    });
+
+    checkFn({
+      fromVersion: params.releaseResult?.updateInfos?.bootloader?.fromVersion,
+      minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
+    });
   }
 
   async validateMnemonicBackuped(params: IUpdateFirmwareWorkflowParams) {
