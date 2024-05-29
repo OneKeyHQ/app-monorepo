@@ -1411,32 +1411,56 @@ class ServiceFirmwareUpdate extends ServiceBase {
       throw new NeedFirmwareUpgradeFromWeb();
     }
 
-    // bootloader mode device may return wrong firmware current version. so we skip this check
-    if (params.releaseResult?.isBootloaderMode) {
-      return;
-    }
     const deviceType = params.releaseResult?.deviceType;
 
-    const fwFromVersion =
-      params.releaseResult?.updateInfos?.firmware?.fromVersion;
-    if (
-      fwFromVersion &&
-      deviceType &&
-      minVersionMap?.[deviceType]?.firmware &&
-      semver.lt(fwFromVersion, minVersionMap?.[deviceType]?.firmware || '')
-    ) {
-      throw new NeedFirmwareUpgradeFromWeb();
+    const checkFn = ({
+      updateInfo,
+      minVersion,
+    }: {
+      updateInfo: IFirmwareUpdateInfo | IBootloaderUpdateInfo | undefined;
+      minVersion: string | undefined;
+    }) => {
+      if (
+        deviceType &&
+        updateInfo?.hasUpgrade &&
+        updateInfo?.fromVersion &&
+        minVersion &&
+        semver.lt(updateInfo?.fromVersion || '', minVersion || '')
+      ) {
+        throw new NeedFirmwareUpgradeFromWeb();
+      }
+    };
+
+    // bootloader mode device may return wrong firmware current version. so we skip this check
+    if (params.releaseResult?.isBootloaderMode) {
+      // only check bootloader version at boot mode
+      checkFn({
+        updateInfo: params.releaseResult?.updateInfos?.bootloader,
+        minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
+      });
+      if (
+        params.releaseResult?.updateInfos?.bootloader?.hasUpgrade &&
+        !params.releaseResult?.updateInfos?.bootloader?.fromVersion
+      ) {
+        throw new NeedFirmwareUpgradeFromWeb();
+      }
+      return;
     }
 
-    const bleFromVersion = params.releaseResult?.updateInfos?.ble?.fromVersion;
-    if (
-      bleFromVersion &&
-      deviceType &&
-      minVersionMap?.[deviceType]?.ble &&
-      semver.lt(bleFromVersion, minVersionMap?.[deviceType]?.ble || '')
-    ) {
-      throw new NeedFirmwareUpgradeFromWeb();
-    }
+    checkFn({
+      updateInfo: params.releaseResult?.updateInfos?.firmware,
+      minVersion: minVersionMap?.[deviceType || 'unknown']?.firmware,
+    });
+
+    checkFn({
+      updateInfo: params.releaseResult?.updateInfos?.ble,
+      minVersion: minVersionMap?.[deviceType || 'unknown']?.ble,
+    });
+
+    checkFn({
+      updateInfo: params.releaseResult?.updateInfos?.bootloader,
+      minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
+    });
   }
 
   async validateMnemonicBackuped(params: IUpdateFirmwareWorkflowParams) {

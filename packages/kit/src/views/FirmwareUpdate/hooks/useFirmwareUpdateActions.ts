@@ -13,6 +13,8 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
+import type { IAppNavigation } from '../../../hooks/useAppNavigation';
+
 export function useFirmwareUpdateActions() {
   const navigation = useAppNavigation();
 
@@ -46,18 +48,40 @@ export function useFirmwareUpdateActions() {
     [navigation, openChangeLogOfExtension],
   );
 
+  /*
+  $$appEventBus.emit('ShowFirmwareUpdateForce',{ connectId: '3383' })
+  */
   const openChangeLogModal = useCallback(
     ({ connectId }: { connectId: string | undefined }) => {
       if (platformEnv.isExtensionUiPopup) {
         void openChangeLogOfExtension({ connectId });
         return;
       }
-      navigation.pushModal(EModalRoutes.FirmwareUpdateModal, {
-        screen: EModalFirmwareUpdateRoutes.ChangeLog,
-        params: {
-          connectId,
-        },
-      });
+      // navigation.popStack();
+      // global.$rootAppNavigation
+
+      if (global.$rootAppNavigation) {
+        (global.$rootAppNavigation as IAppNavigation | undefined)?.navigate(
+          ERootRoutes.Modal,
+          {
+            screen: EModalRoutes.FirmwareUpdateModal,
+            params: {
+              screen: EModalFirmwareUpdateRoutes.ChangeLog,
+              params: {
+                connectId,
+              },
+            },
+          },
+        );
+      } else {
+        // **** navigation.pushModal not working when Dialog open
+        navigation.pushModal(EModalRoutes.FirmwareUpdateModal, {
+          screen: EModalFirmwareUpdateRoutes.ChangeLog,
+          params: {
+            connectId,
+          },
+        });
+      }
     },
     [navigation, openChangeLogOfExtension],
   );
