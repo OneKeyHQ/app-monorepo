@@ -84,6 +84,9 @@ function BookmarkListModal() {
           if (form?.name) {
             void modifyBrowserBookmark({ ...item, title: form.name });
           }
+          Toast.success({
+            title: 'Bookmark Renamed',
+          });
           setTimeout(() => {
             void run();
           }, 200);

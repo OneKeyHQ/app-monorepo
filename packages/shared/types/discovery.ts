@@ -30,6 +30,7 @@ export interface IDApp {
   networkIds: string[];
   categories: ICategory[];
   tags: IDAppTag[];
+  keyword?: string;
 }
 
 export interface IDAppTag {
