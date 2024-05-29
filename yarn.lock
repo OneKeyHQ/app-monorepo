@@ -5602,7 +5602,7 @@ __metadata:
     react-native-gesture-handler: "*"
     react-native-reanimated: ">=2.0.0"
     react-native-svg: "*"
-  checksum: 10/e044ff5dc3bfb5a9fe2e700d0cc522a3ea2f4b341a56cb35e09b6f3fbb98642e7f1e82ad18d353bf544a7044ff124e74247a993919f050c83a96974c0e127a10
+  checksum: 10/e0ded206c3c247c490c1cc612d3752aa26fc1fb347e8f1e86e83847738211b4c7b6ca19930fc5bf6b15be302b50ab08295910edae8bb6b3b5d9d156e5abcd06d
   languageName: node
   linkType: hard
 
