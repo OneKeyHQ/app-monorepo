@@ -1,5 +1,7 @@
 import { memo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { IconButton, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
@@ -56,7 +58,23 @@ const SwapQuoteInput = ({
         }}
         amountValue={fromInputAmount}
         onBalanceMaxPress={() => {
-          setFromInputAmount(fromTokenBalance);
+          let maxAmount = fromTokenBalance;
+          if (fromToken?.reservationValue) {
+            const fromTokenBalanceBN = new BigNumber(fromTokenBalance);
+            const fromTokenReservationValueBN = new BigNumber(
+              fromToken.reservationValue,
+            );
+            if (
+              fromTokenBalanceBN
+                .minus(fromTokenReservationValueBN)
+                .isGreaterThan(0)
+            ) {
+              maxAmount = fromTokenBalanceBN
+                .minus(fromTokenReservationValueBN)
+                .toFixed();
+            }
+          }
+          setFromInputAmount(maxAmount);
         }}
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
