@@ -768,6 +768,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                         price: detailInfo[0].price,
                         fiatValue: detailInfo[0].fiatValue,
                         balanceParsed: detailInfo[0].balanceParsed,
+                        reservationValue: detailInfo[0].reservationValue,
                         accountAddress,
                       };
                     }
@@ -780,6 +781,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                         price: detailInfo[0].price,
                         fiatValue: detailInfo[0].fiatValue,
                         balanceParsed: detailInfo[0].balanceParsed,
+                        reservationValue: detailInfo[0].reservationValue,
                         accountAddress,
                       };
                     }
