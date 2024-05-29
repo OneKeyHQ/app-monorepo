@@ -1,6 +1,7 @@
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 
+import type { INetworkAccount } from './account';
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { SessionTypes } from '@walletconnect/types';
 
@@ -67,3 +68,8 @@ export enum EValidateUrlEnum {
   ValidDeeplink = 'ValidDeeplink',
   InvalidPunycode = 'InvalidPunycode',
 }
+
+export type IConnectedAccountInfo = {
+  account: INetworkAccount;
+  accountInfo?: Partial<IConnectionAccountInfo>;
+};

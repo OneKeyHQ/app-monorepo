@@ -9,7 +9,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import {
   DAPP_SIDE_SINGLE_WALLET_MODE,
   WALLET_CONNECT_CLIENT_META,
@@ -19,7 +18,6 @@ import {
   implToNamespaceMap,
 } from '@onekeyhq/shared/src/walletConnect/constant';
 import type {
-  IWalletConnectChainString,
   IWalletConnectConnectParams,
   IWalletConnectConnectToWalletParams,
   IWalletConnectEventSessionDeleteParams,
@@ -379,9 +377,9 @@ export class WalletConnectDappSide {
     // https://docs.walletconnect.com/advanced/multichain/chain-list
     // const allChains = chains.map((item) => item.wcChain);
 
-    const cosmosChains = chains
-      .filter((item) => item.wcNamespace === EWalletConnectNamespaceType.cosmos)
-      .map((item) => item.wcChain);
+    // const cosmosChains = chains
+    //   .filter((item) => item.wcNamespace === EWalletConnectNamespaceType.cosmos)
+    //   .map((item) => item.wcChain);
 
     // https://github.com/WalletConnect/web-examples/tree/main/advanced/wallets/react-wallet-v2/src/data
     // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L6
@@ -453,16 +451,16 @@ export class WalletConnectDappSide {
         };
       }
 
-      if (cosmosChains.length) {
-        // rainbow, metamask does not support non-evm network, will throw error
-        connectParams.optionalNamespaces[EWalletConnectNamespaceType.cosmos] = {
-          // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L80
-          methods: ['cosmos_signDirect', 'cosmos_signAmino'],
-          chains: cosmosChains,
-          // chains: ['cosmos:cosmoshub-4'],
-          events: [],
-        };
-      }
+      // if (cosmosChains.length) {
+      //   // rainbow, metamask does not support non-evm network, will throw error
+      //   connectParams.optionalNamespaces[EWalletConnectNamespaceType.cosmos] = {
+      //     // https://github.com/WalletConnect/web-examples/blob/main/advanced/dapps/react-dapp-v2/src/constants/default.ts#L80
+      //     methods: ['cosmos_signDirect', 'cosmos_signAmino'],
+      //     chains: cosmosChains,
+      //     // chains: ['cosmos:cosmoshub-4'],
+      //     events: [],
+      //   };
+      // }
 
       if (impl) {
         const ns = implToNamespaceMap[impl];
