@@ -33,6 +33,7 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: false,
   replaceTxEnabled: false,
+  signOnlyFullTxRequired: true,
 
   defaultFeePresetIndex: 0,
 
@@ -41,26 +42,32 @@ const settings: IVaultSettings = {
     default: {
       curve: 'ed25519',
       addressPrefix: '0',
+      nativeTokenAddress: 'DOT',
     },
     'dot--polkadot': {
       curve: 'ed25519',
       addressPrefix: '0',
+      nativeTokenAddress: 'DOT',
     },
     'dot--astar': {
       curve: 'ed25519',
       addressPrefix: '5',
+      nativeTokenAddress: 'ASTR',
     },
     'dot--kusama': {
       curve: 'ed25519',
       addressPrefix: '2',
+      nativeTokenAddress: 'KSM',
     },
     'dot--manta': {
       curve: 'ed25519',
       addressPrefix: '77',
+      nativeTokenAddress: 'MANTA',
     },
     'dot--joystream': {
       curve: 'ed25519',
       addressPrefix: '126',
+      nativeTokenAddress: 'JOY',
     },
   },
 };

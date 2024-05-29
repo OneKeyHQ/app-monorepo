@@ -103,6 +103,7 @@ export type IAccountDeriveTypes =
 export type IVaultSettingsNetworkInfo = {
   addressPrefix: string;
   curve: ICurveName;
+  nativeTokenAddress?: string;
 };
 export type IVaultSettings = {
   impl: string;
@@ -145,8 +146,6 @@ export type IVaultSettings = {
   withPaymentId?: boolean;
 
   enabledOnClassicOnly?: boolean;
-
-  nativeTokenAddress?: string;
 };
 
 export type IVaultFactoryOptions = {

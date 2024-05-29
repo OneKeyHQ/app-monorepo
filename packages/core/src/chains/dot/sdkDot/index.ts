@@ -14,18 +14,17 @@ export async function serializeUnsignedTransaction(encodedTx: IEncodedTxDot): Pr
   rawTx: Uint8Array;
   hash: Uint8Array;
 }> {
-  const unsigned = encodedTx;
-  const { metadataRpc } = unsigned;
+  const { metadataRpc } = encodedTx;
 
   const registry = getRegistry({
-    ...encodedTx,
+    metadataRpc,
     specName: (encodedTx.specName ?? '') as 'polkadot',
     specVersion: +numberUtils.hexToDecimal(encodedTx.specVersion).toString(),
     chainName: encodedTx.chainName ?? '',
   });
 
   registry.setMetadata(createMetadata(registry, metadataRpc));
-  const signingPayload = construct.signingPayload(unsigned, { registry });
+  const signingPayload = construct.signingPayload(encodedTx, { registry });
 
   const extrinsicPayload = registry.createType(
     'ExtrinsicPayload',
