@@ -1414,17 +1414,18 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = params.releaseResult?.deviceType;
 
     const checkFn = ({
-      fromVersion,
+      updateInfo,
       minVersion,
     }: {
-      fromVersion: string | undefined;
+      updateInfo: IFirmwareUpdateInfo | IBootloaderUpdateInfo | undefined;
       minVersion: string | undefined;
     }) => {
       if (
         deviceType &&
-        fromVersion &&
+        updateInfo?.hasUpgrade &&
+        updateInfo?.fromVersion &&
         minVersion &&
-        semver.lt(fromVersion || '', minVersion || '')
+        semver.lt(updateInfo?.fromVersion || '', minVersion || '')
       ) {
         throw new NeedFirmwareUpgradeFromWeb();
       }
@@ -1433,26 +1434,31 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // bootloader mode device may return wrong firmware current version. so we skip this check
     if (params.releaseResult?.isBootloaderMode) {
       // only check bootloader version at boot mode
-
       checkFn({
-        fromVersion: params.releaseResult?.updateInfos?.bootloader?.fromVersion,
+        updateInfo: params.releaseResult?.updateInfos?.bootloader,
         minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
       });
+      if (
+        params.releaseResult?.updateInfos?.bootloader?.hasUpgrade &&
+        !params.releaseResult?.updateInfos?.bootloader?.fromVersion
+      ) {
+        throw new NeedFirmwareUpgradeFromWeb();
+      }
       return;
     }
 
     checkFn({
-      fromVersion: params.releaseResult?.updateInfos?.firmware?.fromVersion,
+      updateInfo: params.releaseResult?.updateInfos?.firmware,
       minVersion: minVersionMap?.[deviceType || 'unknown']?.firmware,
     });
 
     checkFn({
-      fromVersion: params.releaseResult?.updateInfos?.ble?.fromVersion,
+      updateInfo: params.releaseResult?.updateInfos?.ble,
       minVersion: minVersionMap?.[deviceType || 'unknown']?.ble,
     });
 
     checkFn({
-      fromVersion: params.releaseResult?.updateInfos?.bootloader?.fromVersion,
+      updateInfo: params.releaseResult?.updateInfos?.bootloader,
       minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
     });
   }
