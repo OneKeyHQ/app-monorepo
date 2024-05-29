@@ -44,10 +44,9 @@ const settings: IVaultSettings = {
     default: {
       curve: 'ed25519',
       addressPrefix: '',
+      nativeTokenAddress: SUI_TYPE_ARG,
     },
   },
-
-  nativeTokenAddress: SUI_TYPE_ARG,
 };
 
 export default Object.freeze(settings);
