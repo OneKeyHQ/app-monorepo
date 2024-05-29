@@ -185,7 +185,7 @@ function MarketDetail({
         {gtMd ? <MarketHomeHeaderSearchBar /> : null}
       </XStack>
     ),
-    [coinGeckoId, copyText, gtMd],
+    [buildDeepLinkUrl, buildFullUrl, coinGeckoId, copyText, gtMd],
   );
 
   const navigation = useAppNavigation();
