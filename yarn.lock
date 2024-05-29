@@ -5588,9 +5588,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git#b84b2b2ae57874322e59b9fd387ff17e772b7d57":
+"@onekeyfe/react-native-animated-charts@npm:1.0.0":
   version: 1.0.0
-  resolution: "@onekeyfe/react-native-animated-charts@https://github.com/OneKeyHQ/react-native-animated-charts.git#commit=b84b2b2ae57874322e59b9fd387ff17e772b7d57"
+  resolution: "@onekeyfe/react-native-animated-charts@npm:1.0.0"
   dependencies:
     d3-scale: "npm:^4.0.2"
     d3-shape: "npm:^3.0.1"
@@ -5602,7 +5602,7 @@ __metadata:
     react-native-gesture-handler: "*"
     react-native-reanimated: ">=2.0.0"
     react-native-svg: "*"
-  checksum: 10/e0ded206c3c247c490c1cc612d3752aa26fc1fb347e8f1e86e83847738211b4c7b6ca19930fc5bf6b15be302b50ab08295910edae8bb6b3b5d9d156e5abcd06d
+  checksum: 10/b8d6f966098279b803ec554e0ba10cf79a100f42cffd3ef309352043e9764ebacd8bcaa8ac9d7be04143e211d695e5b06b6b1c52c9875f052fef560b2b543ee2
   languageName: node
   linkType: hard
 
@@ -5980,7 +5980,7 @@ __metadata:
     "@formatjs/intl-getcanonicallocales": "npm:^1.9.2"
     "@formatjs/intl-locale": "npm:^2.4.47"
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
-    "@onekeyfe/react-native-animated-charts": "https://github.com/OneKeyHQ/react-native-animated-charts.git#b84b2b2ae57874322e59b9fd387ff17e772b7d57"
+    "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
     "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.5"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.3"
