@@ -30,7 +30,7 @@ const walletConnect: IQRCodeHandler<IWalletConnectValue> = async (
     deeplinkValue &&
     deeplinkValue.data.urlPathList?.[0] === WALLET_CONNECT_DEEP_LINK_NAME
   ) {
-    urlValue = await urlHandler.url(
+    urlValue = await urlHandler.default(
       deeplinkValue.data.urlParamList?.uri,
       options,
     );

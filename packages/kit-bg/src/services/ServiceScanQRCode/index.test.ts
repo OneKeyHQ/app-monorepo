@@ -246,6 +246,7 @@ describe('useParseQRCode', () => {
     expect(
       await parse('other:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH', {
         bitcoinUrlScheme: 'other',
+        parseScene: 'all',
       }),
     ).toEqual(
       expect.objectContaining({
