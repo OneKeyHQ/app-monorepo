@@ -13,10 +13,7 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
   value,
   options,
 ) => {
-  const parseScene = options?.parseScene;
-  if (!parseScene) {
-    return { type: EQRCodeHandlerType.UNKNOWN, data: value, raw: value };
-  }
+  const parseScene = options?.parseScene ?? 'all';
   let result: IQRCodeHandlerParseResult<IBaseValue> | undefined;
   const urlResult = await urlHandler.default(value);
   const deeplinkResult = await deeplinkHandler.default(value, {
