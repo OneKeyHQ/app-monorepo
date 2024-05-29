@@ -68,6 +68,6 @@ export const buildServiceEndpoint = ({
   serviceName: EServiceEndpointEnum;
   env: IEndpointEnv;
 }) =>
-  `https://${serviceName}/${
+  `https://${serviceName}.${
     env === 'prod' ? ONEKEY_API_HOST : ONEKEY_TEST_API_HOST
   }`;
