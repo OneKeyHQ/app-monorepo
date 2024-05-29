@@ -6029,7 +6029,7 @@ __metadata:
     react-native-bundle-visualizer: "npm:^3.1.3"
     react-native-camera-kit: "npm:14.0.0-beta2"
     react-native-canvas: "npm:^0.1.39"
-    react-native-cloud-fs: "https://github.com/OneKeyHQ/react-native-cloud-fs#cba878df6df939e67f326f9381232f5c5a6f9c49"
+    react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.1"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
     react-native-fast-image: "npm:8.6.3"
@@ -28847,10 +28847,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs#cba878df6df939e67f326f9381232f5c5a6f9c49":
-  version: 2.6.0
-  resolution: "react-native-cloud-fs@https://github.com/OneKeyHQ/react-native-cloud-fs.git#commit=cba878df6df939e67f326f9381232f5c5a6f9c49"
-  checksum: 10/54cb4ab2402470e3f0d0c3511d3d84d0d8d9d5a516410a0e78f55b87fe8e8736998ce8f95144961dd6f626b2ee9a28cb0da173b2f48e96028a2b3d067a4e99be
+"react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@2.6.1":
+  version: 2.6.1
+  resolution: "@onekeyfe/react-native-cloud-fs@npm:2.6.1"
+  checksum: 10/1e04b810d40e3cbd4cd058cd393a41c79a4a68184aad029cb3882ef73a253ebd68117ac666f1e8f97ea4b4f0b2eb8d526cabd570dbabdc6ccf8b95190b37349e
   languageName: node
   linkType: hard
 
