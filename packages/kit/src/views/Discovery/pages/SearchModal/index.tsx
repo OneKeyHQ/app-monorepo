@@ -131,7 +131,11 @@ function SearchModal() {
             },
           }}
           renderItemText={() => (
-            <RichSizeableText linkList={[{}]} numberOfLines={1}>
+            <RichSizeableText
+              linkList={[{}]}
+              numberOfLines={1}
+              size="$bodyLgMedium"
+            >
               {item?.keyword
                 ? item.name.replace(
                     new RegExp(item.keyword, 'ig'),
