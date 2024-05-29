@@ -23,6 +23,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -68,6 +69,7 @@ const SwapTokenSelectPage = () => {
   );
   const intl = useIntl();
   const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const searchKeywordDebounce = useDebounce(searchKeyword, 500);
   const [swapNetworks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -88,9 +90,8 @@ const SwapTokenSelectPage = () => {
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
-    searchKeyword,
+    searchKeywordDebounce,
   );
-
   const alertIndex = useMemo(
     () =>
       currentTokens.findIndex((item) => {
@@ -216,7 +217,7 @@ const SwapTokenSelectPage = () => {
         tokenName: rawItem.name,
         tokenSymbol: rawItem.symbol,
         networkImageSrc: rawItem.networkLogoURI,
-        tokenContrastAddress: searchKeyword
+        tokenContrastAddress: searchKeywordDebounce
           ? contractAddressDisplay
           : undefined,
         balance: !balanceBN.isZero() ? rawItem.balanceParsed : undefined,
@@ -254,7 +255,7 @@ const SwapTokenSelectPage = () => {
       md,
       onSelectToken,
       sameTokenDisabled,
-      searchKeyword,
+      searchKeywordDebounce,
       settingsPersistAtom.currencyInfo.symbol,
     ],
   );
