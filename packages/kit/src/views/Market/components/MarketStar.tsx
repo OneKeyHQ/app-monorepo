@@ -1,4 +1,6 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
+
+import { useIsFocused } from '@react-navigation/native';
 
 import { IconButton } from '@onekeyhq/components';
 
@@ -10,6 +12,14 @@ function BasicMarketStar({ coingeckoId }: { coingeckoId: string }) {
   const [checked, setIsChecked] = useState(() =>
     actions.isInWatchList(coingeckoId),
   );
+
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (isFocused) {
+      setIsChecked(actions.isInWatchList(coingeckoId));
+    }
+  }, [actions, coingeckoId, isFocused]);
 
   const handlePress = useCallback(() => {
     if (checked) {

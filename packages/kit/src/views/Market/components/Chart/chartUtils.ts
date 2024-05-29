@@ -16,8 +16,8 @@ type IDeepPartial<T> = {
     : IDeepPartial<T[P]>;
 };
 
-type IPriceNumber = number;
-type ITimeNumber = number;
+// type IPriceNumber = number;
+// type ITimeNumber = number;
 
 export type IOnHoverFunction = ({
   time,

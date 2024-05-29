@@ -89,7 +89,7 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
         </PriceChart>
       </YStack>
       {gtMd ? null : (
-        <Stack mt={platformEnv.isNative ? 0 : '$5'}>
+        <Stack mt={platformEnv.isNative ? -28 : '$5'}>
           <SegmentControl
             fullWidth
             value={days}

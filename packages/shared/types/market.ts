@@ -142,31 +142,32 @@ export enum EMarketDetailDatumType {
 }
 
 export interface IMarketDetailPoolRelationships {
-  base_token: IMarketDetailPoolBaseToken;
-  quote_token: IMarketDetailPoolBaseToken;
+  baseToken: IMarketDetailPoolBaseToken;
+  quoteToken: IMarketDetailPoolBaseToken;
   dex: IMarketDetailPoolBaseToken;
 }
 
 interface IMarketDetailPoolAttributes {
-  base_token_price_usd: string;
-  base_token_price_native_currency: string;
-  quote_token_price_usd: string;
-  quote_token_price_native_currency: string;
-  base_token_price_quote_token: string;
-  quote_token_price_base_token: string;
+  baseTokenPriceUsd: string;
+  baseTokenPriceNativeCurrency: string;
+  quoteTokenPriceUsd: string;
+  quoteTokenPriceNativeCurrency: string;
+  baseTokenPriceQuoteToken: string;
+  quoteTokenPriceBaseToken: string;
   address: string;
   name: string;
-  pool_created_at: Date;
-  fdv_usd: string;
+  poolCreatedAt: Date;
+  fdvUsd: string;
   market_cap_usd: null | string;
-  price_change_percentage: IMarketDetailPoolPriceChangePercentage;
+  priceChangePercentage: IMarketDetailPoolPriceChangePercentage;
   transactions: IMarketDetailPoolTransactions;
-  volume_usd: IMarketDetailPoolPriceChangePercentage;
-  reserve_in_usd: string;
+  volumeUsd: IMarketDetailPoolPriceChangePercentage;
+  reserveInUsd: string;
 }
 
 export interface IMarketDetailPool {
   id: string;
+  dexLogoUrl: string;
   baseTokenImageUrl: string;
   onekeyNetworkId: string;
   quoteTokenImageUrl: string;

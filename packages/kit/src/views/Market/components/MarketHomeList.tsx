@@ -20,11 +20,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  EModalRoutes,
-  EModalSwapRoutes,
-  ETabMarketRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IMarketCategory,
   IMarketToken,
@@ -38,6 +34,7 @@ import { MarketStar } from './MarketStar';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
+import { useSortType } from './useSortType';
 import { useWatchListAction } from './wachListHooks';
 
 function Column({
@@ -73,16 +70,36 @@ function Column({
   const handlePress = useCallback(() => {
     onPress?.(name);
   }, [name, onPress]);
+
+  const renderSortIcon = useCallback(() => {
+    if (showSortIcon) {
+      return (
+        <Icon
+          cursor={cursor}
+          name={
+            order === 'desc'
+              ? 'ChevronDownSmallOutline'
+              : 'ChevronTopSmallOutline'
+          }
+          color="$iconSubdued"
+          size="$4"
+        />
+      );
+    }
+    return null;
+  }, [cursor, order, showSortIcon]);
   return (
     <XStack
       key={name}
       testID={`list-column-${name}`}
       jc={jc}
+      ai="center"
       alignItems="center"
       width={width}
       onPress={handlePress}
       {...props}
     >
+      {jc === 'flex-end' ? renderSortIcon() : null}
       {typeof children === 'string' ? (
         <SizableText
           cursor={cursor}
@@ -95,18 +112,7 @@ function Column({
       ) : (
         children
       )}
-      {showSortIcon ? (
-        <Icon
-          cursor={cursor}
-          name={
-            order === 'desc'
-              ? 'ChevronDownSmallOutline'
-              : 'ChevronTopSmallOutline'
-          }
-          color="$iconSubdued"
-          size="$5"
-        />
-      ) : null}
+      {jc === 'flex-start' ? renderSortIcon() : null}
     </XStack>
   );
 }
@@ -149,7 +155,7 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
             <SizableText size="$bodyLgMedium">
               {item.symbol.toUpperCase()}
             </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
               {item.name}
             </SizableText>
           </YStack>
@@ -546,12 +552,6 @@ export function MarketHomeList({
     [category.categoryId, category.coingeckoIds],
   );
 
-  const listDataRef = useRef<typeof listData | undefined>();
-
-  if (!listDataRef.current && listData?.length) {
-    listDataRef.current = listData;
-  }
-
   const tableRowConfig = useBuildTableRowConfig(showMoreAction);
 
   const toDetailPage = useCallback(
@@ -566,22 +566,12 @@ export function MarketHomeList({
   );
 
   const { gtMd } = useMedia();
-  const [sortByType, setSortByType] = useState<{
-    columnName: string;
-    order: 'asc' | 'desc' | undefined;
-  }>({
-    columnName: 'default',
-    order: 'desc',
-  });
-
-  const handleSortTypeChange = useCallback(
-    (options: { columnName: string; order: 'asc' | 'desc' | undefined }) => {
-      setSortByType(options);
-    },
-    [],
-  );
 
   const tableHeaderConfig = useBuildTableHeaderConfig();
+
+  const { sortedListData, handleSortTypeChange, sortByType, setSortByType } =
+    useSortType(listData as Record<string, any>[]);
+
   const HeaderColumns = useMemo(
     () => (
       <TableRow
@@ -758,43 +748,6 @@ export function MarketHomeList({
     [],
   );
 
-  const sortedListData = useMemo(() => {
-    const columnValue =
-      listDataRef.current?.[0]?.[sortByType.columnName as IKeyOfMarketToken];
-    if (columnValue) {
-      if (sortByType.order) {
-        if (typeof columnValue === 'number')
-          return listDataRef.current?.slice().sort((a, b) => {
-            const numberA = a[
-              sortByType.columnName as IKeyOfMarketToken
-            ] as number;
-            const numberB = b[
-              sortByType.columnName as IKeyOfMarketToken
-            ] as number;
-            return sortByType.order === 'desc'
-              ? numberB - numberA
-              : numberA - numberB;
-          });
-        if (typeof columnValue === 'string') {
-          return listDataRef.current?.slice().sort((a, b) => {
-            const stringA = a[
-              sortByType.columnName as IKeyOfMarketToken
-            ] as string;
-            const stringB = b[
-              sortByType.columnName as IKeyOfMarketToken
-            ] as string;
-            return sortByType.order === 'desc'
-              ? stringA.charCodeAt(0) - stringB.charCodeAt(0)
-              : stringB.charCodeAt(0) - stringA.charCodeAt(0);
-          });
-        }
-        return listData;
-      }
-    }
-
-    return listData;
-  }, [listData, sortByType.columnName, sortByType.order]);
-
   const [mdSortByType, setMdSortByType] = useState<string | undefined>();
   const selectOptions = useMemo(
     () => [
@@ -835,7 +788,7 @@ export function MarketHomeList({
         setSortByType(item?.options as typeof sortByType);
       }
     },
-    [selectOptions],
+    [selectOptions, setSortByType],
   );
 
   return (
@@ -885,7 +838,7 @@ export function MarketHomeList({
         <ListView
           stickyHeaderHiddenOnScroll
           estimatedItemSize={60}
-          data={sortedListData}
+          data={sortedListData as unknown as IMarketToken[]}
           renderItem={gtMd ? renderItem : renderMdItem}
         />
       </YStack>

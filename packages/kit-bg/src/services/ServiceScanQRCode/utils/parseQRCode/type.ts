@@ -14,6 +14,7 @@ export enum EQRCodeHandlerType {
   ANIMATION_CODE = 'ANIMATION_CODE',
   DEEPLINK = 'DEEPLINK',
   URL_ACCOUNT = 'URL_ACCOUNT',
+  MARKET_DETAIL = 'MARKET_DETAIL',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -69,6 +70,10 @@ export interface IUrlAccountValue extends IBaseValue {
   origin: string;
   networkId: string;
   address: string;
+}
+export interface IMarketDetailValue extends IBaseValue {
+  origin: string;
+  coinGeckoId: string;
 }
 export interface IMigrateValue extends IBaseValue {
   address?: string;

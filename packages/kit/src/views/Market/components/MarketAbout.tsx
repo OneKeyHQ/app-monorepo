@@ -50,7 +50,7 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
     <YStack>
       <YStack space="$3">
         <Stack onLayout={onLayoutTrimmedText}>
-          <SizableText numberOfLines={numberOfLines} {...props}>
+          <SizableText size="$bodyMd" numberOfLines={numberOfLines} {...props}>
             {children}
           </SizableText>
         </Stack>
@@ -68,7 +68,9 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
           left={0}
           top={0}
         >
-          <SizableText {...props}>{children}</SizableText>
+          <SizableText size="$bodyMd" {...props}>
+            {children}
+          </SizableText>
         </Stack>
       ) : null}
     </YStack>

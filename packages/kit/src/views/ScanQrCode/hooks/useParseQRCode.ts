@@ -9,6 +9,7 @@ import type {
   IAnimationValue,
   IBaseValue,
   IChainValue,
+  IMarketDetailValue,
   IQRCodeHandlerParse,
   IUrlAccountValue,
   IWalletConnectValue,
@@ -22,6 +23,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
+import { marketNavigation } from '../../Market/marketUtils';
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
@@ -52,7 +54,14 @@ const useParseQRCode = () => {
           });
           break;
         }
-
+        case EQRCodeHandlerType.MARKET_DETAIL:
+          {
+            const marketDetailData = result.data as IMarketDetailValue;
+            void marketNavigation.pushDetailPageFromDeeplink(navigation, {
+              coinGeckoId: marketDetailData.coinGeckoId,
+            });
+          }
+          break;
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:
         case EQRCodeHandlerType.SOLANA:

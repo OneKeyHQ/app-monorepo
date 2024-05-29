@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import {

@@ -10,7 +10,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import { useMarketWatchListAtom } from '../../../states/jotai/contexts/market';

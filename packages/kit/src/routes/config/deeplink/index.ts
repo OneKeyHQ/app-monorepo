@@ -12,10 +12,16 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
+import { marketNavigation } from '../../../views/Market/marketUtils';
 
 import { registerHandler } from './handler';
 
@@ -38,20 +44,36 @@ async function processDeepLinkUrlAccount({
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
     ) {
-      if (hostname === EOneKeyDeepLinkPath.url_account) {
-        console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
-        const query =
-          queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
-        const navigation = global.$rootAppNavigation;
-        if (navigation) {
-          await urlAccountNavigation.pushUrlAccountPageFromDeeplink(
-            navigation,
-            {
-              networkId: query.networkCode,
-              address: query.address,
-            },
-          );
+      console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
+      const navigation = global.$rootAppNavigation;
+      switch (hostname) {
+        case EOneKeyDeepLinkPath.url_account: {
+          const query =
+            queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
+          if (navigation) {
+            await urlAccountNavigation.pushUrlAccountPageFromDeeplink(
+              navigation,
+              {
+                networkId: query.networkCode,
+                address: query.address,
+              },
+            );
+          }
+          break;
         }
+        case EOneKeyDeepLinkPath.market_detail:
+          {
+            const { coinGeckoId } =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.market_detail];
+            if (navigation) {
+              await marketNavigation.pushDetailPageFromDeeplink(navigation, {
+                coinGeckoId,
+              });
+            }
+          }
+          break;
+        default:
+          break;
       }
     }
   } catch (error) {

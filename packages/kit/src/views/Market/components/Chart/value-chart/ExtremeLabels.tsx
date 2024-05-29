@@ -12,23 +12,23 @@ function trim(val: number) {
   return Math.min(Math.max(val, 0.05), 0.95);
 }
 
-function formatNative(value: number | string) {
-  'worklet';
+// function formatNative(value: number | string) {
+//   'worklet';
 
-  let val;
-  if (typeof value === 'string') {
-    try {
-      val = parseFloat(value);
-    } catch (e) {
-      return '';
-    }
-  } else if (value === 0) {
-    return '';
-  } else {
-    val = value;
-  }
-  return val;
-}
+//   let val;
+//   if (typeof value === 'string') {
+//     try {
+//       val = parseFloat(value);
+//     } catch (e) {
+//       return '';
+//     }
+//   } else if (value === 0) {
+//     return '';
+//   } else {
+//     val = value;
+//   }
+//   return val;
+// }
 
 const CenteredLabel = ({
   position,
