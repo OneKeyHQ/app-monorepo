@@ -7,6 +7,7 @@ import {
   Icon,
   Image,
   Page,
+  RichSizeableText,
   ScrollView,
   SearchBar,
   SizableText,
@@ -19,8 +20,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
-import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -73,9 +72,7 @@ function SearchModal() {
 
   const { result: searchResult } = usePromiseResult(async () => {
     const res = await serviceDiscovery.searchDApp(searchValue);
-    return {
-      remoteData: res,
-    };
+    return res;
   }, [searchValue, serviceDiscovery]);
 
   const jumpPageRef = useRef(false);
@@ -88,13 +85,7 @@ function SearchModal() {
     }
   });
 
-  const [searchList, setSearchList] = useState<(IDApp | IFuseResult<IDApp>)[]>(
-    [],
-  );
-
-  const fuseRemoteDataSearch = useFuse(searchResult?.remoteData, {
-    keys: ['name'],
-  });
+  const [searchList, setSearchList] = useState<IDApp[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -114,10 +105,10 @@ function SearchModal() {
           url: '',
           logo,
         } as IDApp,
-        ...fuseRemoteDataSearch.search(searchValue),
+        ...(searchResult ?? []),
       ]);
     })();
-  }, [searchValue, searchResult, fuseRemoteDataSearch]);
+  }, [searchValue, searchResult]);
 
   const displaySearchList = Array.isArray(searchList) && searchList.length > 0;
   const displayBookmarkList =
@@ -125,58 +116,56 @@ function SearchModal() {
   const displayHistoryList = (localData?.historyData ?? []).length > 0;
 
   const renderList = useCallback(
-    (list: (IDApp | IFuseResult<IDApp>)[]) =>
-      list.map((rawItem, index) => {
-        const item = (rawItem as IFuseResult<IDApp>).item
-          ? (rawItem as IFuseResult<IDApp>).item
-          : (rawItem as IDApp);
-        return (
-          <ListItem
-            key={index}
-            avatarProps={{
-              src: item.logo || item.originLogo,
-              loading: LoadingSkeleton,
-              fallbackProps: {
-                bg: '$bgStrong',
-                justifyContent: 'center',
-                alignItems: 'center',
-                children: <Icon name="GlobusOutline" />,
-              },
-            }}
-            title={item.name}
-            titleMatch={(rawItem as IFuseResult<IDApp>).matches?.find(
-              (v) => v.key === 'name',
-            )}
-            titleProps={{
-              numberOfLines: 1,
-            }}
-            subtitleProps={{
-              numberOfLines: 1,
-            }}
-            onPress={() => {
-              if (item.dappId === SEARCH_ITEM_ID) {
-                handleOpenWebSite({
-                  navigation,
-                  useCurrentWindow,
-                  tabId,
-                  webSite: {
-                    url: searchValue,
-                    title: searchValue,
-                  },
-                });
-              } else {
-                handleOpenWebSite({
-                  navigation,
-                  useCurrentWindow,
-                  tabId,
-                  dApp: item,
-                });
-              }
-            }}
-            testID={`dapp-search${index}`}
-          />
-        );
-      }),
+    (list: IDApp[]) =>
+      list.map((item, index) => (
+        <ListItem
+          key={index}
+          avatarProps={{
+            src: item.logo || item.originLogo,
+            loading: LoadingSkeleton,
+            fallbackProps: {
+              bg: '$bgStrong',
+              justifyContent: 'center',
+              alignItems: 'center',
+              children: <Icon name="GlobusOutline" />,
+            },
+          }}
+          renderItemText={() => (
+            <RichSizeableText linkList={[{}]} numberOfLines={1}>
+              {item?.keyword
+                ? item.name.replace(
+                    new RegExp(item.keyword, 'ig'),
+                    `<a>${item.keyword}</a>`,
+                  )
+                : item.name}
+            </RichSizeableText>
+          )}
+          subtitleProps={{
+            numberOfLines: 1,
+          }}
+          onPress={() => {
+            if (item.dappId === SEARCH_ITEM_ID) {
+              handleOpenWebSite({
+                navigation,
+                useCurrentWindow,
+                tabId,
+                webSite: {
+                  url: searchValue,
+                  title: searchValue,
+                },
+              });
+            } else {
+              handleOpenWebSite({
+                navigation,
+                useCurrentWindow,
+                tabId,
+                dApp: item,
+              });
+            }
+          }}
+          testID={`dapp-search${index}`}
+        />
+      )),
     [handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
   );
 
