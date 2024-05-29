@@ -23,7 +23,6 @@ import {
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
-  ISignedTxPro,
   ITxInput,
   ITxInputToSign,
   IUnsignedMessage,
@@ -597,8 +596,7 @@ export default class VaultBtc extends VaultBase {
     encodedTx: IEncodedTxBtc;
     transfersInfo: ITransferInfo[];
   }): Promise<IUnsignedTxPro> {
-    const { inputs, outputs, inputsForCoinSelect, inputsToSign, psbtHex } =
-      encodedTx;
+    const { inputs, outputs, inputsForCoinSelect } = encodedTx;
 
     let txSize = BTC_TX_PLACEHOLDER_VSIZE;
     const inputsInUnsignedTx: ITxInput[] = [];
@@ -610,12 +608,6 @@ export default class VaultBtc extends VaultBase {
         utxo: { txid: input.txid, vout: input.vout, value },
       });
     }
-    const outputsInUnsignedTx = outputs.map(({ address, value, payload }) => ({
-      address,
-      value: new BigNumber(value),
-      payload,
-    }));
-
     const selectedInputs = inputsForCoinSelect?.filter((input) =>
       inputsInUnsignedTx.some(
         (i) => i.utxo?.txid === input.txId && i.utxo.vout === input.vout,
@@ -631,13 +623,9 @@ export default class VaultBtc extends VaultBase {
       );
     }
     const ret: IUnsignedTxPro = {
-      inputs: inputsInUnsignedTx,
-      outputs: outputsInUnsignedTx,
       txSize,
       encodedTx,
       transfersInfo,
-      inputsToSign,
-      psbtHex,
     };
 
     return Promise.resolve(ret);
@@ -847,12 +835,10 @@ export default class VaultBtc extends VaultBase {
       addresses = [account.address];
     }
     if (unsignedTx) {
+      const { inputs, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
       const emptyInputs: Array<ITxInputToSign | IBtcInput> = [];
       addresses = emptyInputs
-        .concat(
-          unsignedTx.inputsToSign ?? [],
-          (unsignedTx.encodedTx as IEncodedTxBtc)?.inputs ?? [],
-        )
+        .concat(inputsToSign ?? [], inputs ?? [])
         .filter(Boolean)
         .map((input) => input.address)
         .concat(account.address);

@@ -51,6 +51,7 @@ import {
 
 import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainSelector';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -72,21 +73,51 @@ const SwapTokenSelectPage = () => {
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
   const [swapNetworks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
+  const syncDefaultNetworkSelect = useCallback(() => {
+    if (type === ESwapDirectionType.FROM) {
+      if (fromToken?.networkId) {
+        return swapNetworks.find(
+          (item: ISwapNetwork) => item.networkId === fromToken.networkId,
+        );
+      }
+      if (swapFromAddressInfo.networkId) {
+        return swapNetworks.find(
+          (item: ISwapNetwork) =>
+            item.networkId === swapToAddressInfo.networkId,
+        );
+      }
+    } else {
+      if (toToken?.networkId) {
+        return swapNetworks.find(
+          (item: ISwapNetwork) => item.networkId === toToken.networkId,
+        );
+      }
+      if (swapToAddressInfo.networkId) {
+        return swapNetworks.find(
+          (item: ISwapNetwork) =>
+            item.networkId === swapToAddressInfo.networkId,
+        );
+      }
+
+      return swapNetworks?.[0];
+    }
+  }, [
+    fromToken?.networkId,
+    swapFromAddressInfo.networkId,
+    swapNetworks,
+    swapToAddressInfo.networkId,
+    toToken?.networkId,
+    type,
+  ]);
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
-  >(() =>
-    type === ESwapDirectionType.FROM
-      ? swapNetworks.find(
-          (item: ISwapNetwork) => item.networkId === fromToken?.networkId,
-        ) ?? swapNetworks?.[0]
-      : swapNetworks.find(
-          (item: ISwapNetwork) => item.networkId === toToken?.networkId,
-        ) ?? swapNetworks?.[0],
-  );
+  >(syncDefaultNetworkSelect);
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,

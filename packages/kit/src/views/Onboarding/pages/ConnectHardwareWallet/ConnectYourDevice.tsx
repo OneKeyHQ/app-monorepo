@@ -131,6 +131,8 @@ function ConnectByUSBOrBLE({
 }: {
   devicesData: IConnectYourDeviceItem[];
 }) {
+  const fwUpdateActions = useFirmwareUpdateActions();
+
   return (
     <>
       {/* connecting animation */}
@@ -154,6 +156,15 @@ function ConnectByUSBOrBLE({
         {devicesData.map((item, index) => (
           <DeviceListItem item={item} key={index} />
         ))}
+        {platformEnv.isDev ? (
+          <Button
+            onPress={() => {
+              void fwUpdateActions.showForceUpdate({ connectId: undefined });
+            }}
+          >
+            ForceUpdate
+          </Button>
+        ) : null}
       </ScrollView>
     </>
   );

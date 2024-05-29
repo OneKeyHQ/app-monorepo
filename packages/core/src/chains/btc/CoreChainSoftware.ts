@@ -763,8 +763,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       networkInfo: { networkChainCode },
       account,
     } = payload;
-    const { psbtHex, inputsToSign } = unsignedTx;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
+    const { psbtHex, inputsToSign } = encodedTx;
 
     if (!account.relPaths?.length) {
       throw new Error('BTC sign transaction need relPaths');

@@ -1,14 +1,13 @@
-import { bufferToU8a, u8aConcat, u8aToU8a, u8aWrapBytes } from '@polkadot/util';
+import { bufferToU8a, u8aConcat } from '@polkadot/util';
 import { hdLedger, encodeAddress } from '@polkadot/util-crypto';
 import { merge } from 'lodash';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { encrypt, mnemonicFromEntropy } from '../../secret';
+import { decryptImportedCredential, encrypt, mnemonicFromEntropy } from '../../secret';
 import { slicePathTemplate } from '../../utils';
 
 import { DOT_TYPE_PREFIX, IEncodedTxDot } from './types';
@@ -26,7 +25,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import { serializeMessage, serializeSignedTransaction, serializeUnsignedTransaction } from './sdkDot';
+import { serializeMessage, serializeSignedTransaction } from './sdkDot';
 
 const curve: ICurveName = 'ed25519';
 
@@ -78,9 +77,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       );
     }
     if (credentials.imported) {
-      // TODO handle relPaths privateKey here
-      // const { relPaths } = account;
-      privateKeys[account.path] = credentials.imported;
+      const { privateKey: p } = decryptImportedCredential({
+        password,
+        credential: credentials.imported,
+      });
+      const encryptPrivateKey = bufferUtils.bytesToHex(encrypt(password, p));
+      privateKeys[account.path] = encryptPrivateKey;
+      privateKeys[''] = encryptPrivateKey;
     }
     if (!Object.keys(privateKeys).length) {
       throw new Error('No private keys found');
