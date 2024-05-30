@@ -24,8 +24,6 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
-import { vaultFactory } from '../vaults/factory';
-
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';

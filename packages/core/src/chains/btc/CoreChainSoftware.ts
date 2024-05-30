@@ -69,6 +69,8 @@ import type {
   IBtcForkTransactionMixin,
   IEncodedTxBtc,
 } from './types';
+import { isTaprootInput } from 'bitcoinjs-lib/src/psbt/bip371';
+import { IServerNetwork } from '@onekeyhq/shared/types';
 
 const curveName: ICurveName = 'secp256k1';
 // const a  = tweakSigner()
@@ -93,8 +95,8 @@ const encodeVarString = (buffer: Buffer) =>
   Buffer.concat([VaruintBitCoinEncode(buffer.byteLength), buffer]);
 
 export default class CoreChainSoftware extends CoreChainApiBase {
-  async getCoinName() {
-    return Promise.resolve('BTC');
+  async getCoinName({ network }:{ network:IServerNetwork; }) {
+    return Promise.resolve(network.isTestnet ? 'TEST' : 'BTC');
   }
   protected decodeAddress(address: string): string {
     return address;
@@ -213,15 +215,28 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const publicKey = await signer.getPubkey(true);
 
     // P2TR taproot
-    if (input && input.tapInternalKey) {
-      const privateKey = await signer.getPrvkey();
-      const privateKeyHex = await signer.getPrvkeyHex();
-      const publicKeyHex = await signer.getPubkeyHex();
-      const tweakedSigner = tweakSigner(privateKey, publicKey, {
-        network,
-      });
-
-      return tweakedSigner;
+    if (isTaprootInput(input)) {
+      let needTweak = true;
+      // script path spend
+      if (
+        input.tapLeafScript &&
+        input.tapLeafScript?.length > 0 &&
+        !input.tapMerkleRoot
+      ) {
+        input.tapLeafScript.forEach((e) => {
+          if (e.controlBlock && e.script) {
+            needTweak = false;
+          }
+        });
+      }
+      if (input.tapInternalKey) {
+        const privateKey = await signer.getPrvkey();
+        const tweakedSigner = tweakSigner(privateKey, publicKey, {
+          network,
+          needTweak,
+        });
+        return tweakedSigner;
+      }
     }
 
     // For other encoding (other btc fork chain)
@@ -245,7 +260,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload: ICoreApiSignTxPayload;
   }) {
     const { unsignedTx, btcExtraInfo } = payload;
-    const { opReturn } = unsignedTx;
     const { inputs, outputs } = unsignedTx.encodedTx as IEncodedTxBtc;
 
     const inputAddressesEncodings = checkIsDefined(
@@ -328,22 +342,27 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
 
     outputs.forEach((output) => {
-      const outputValue: number = new BigNumber(output.value).toNumber();
-      psbt.addOutput({
-        address: output.address,
-        value: outputValue,
-      });
+      const { payload } = output
+      if (
+        payload?.opReturn &&
+        typeof payload?.opReturn === 'string' &&
+        payload?.opReturn.length > 0
+      ) {
+        const embed = payments.embed({
+          data: [loadOPReturn(payload?.opReturn)],
+        });
+        psbt.addOutput({
+          script: checkIsDefined(embed.output),
+          value: 0,
+        });
+      } else {
+        const outputValue: number = new BigNumber(output.value).toNumber();
+        psbt.addOutput({
+          address: output.address,
+          value: outputValue,
+        });
+      }
     });
-
-    if (typeof opReturn === 'string') {
-      const embed = payments.embed({
-        data: [loadOPReturn(opReturn)],
-      });
-      psbt.addOutput({
-        script: checkIsDefined(embed.output),
-        value: 0,
-      });
-    }
 
     return psbt;
   }
@@ -502,6 +521,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       psbt: psbtToSign,
       psbtNetwork,
       account,
+      isBtcWalletProvider: false
     });
 
     await this.signPsbt({
@@ -743,8 +763,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       networkInfo: { networkChainCode },
       account,
     } = payload;
-    const { psbtHex, inputsToSign } = unsignedTx;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
+    const { psbtHex, inputsToSign } = encodedTx;
 
     if (!account.relPaths?.length) {
       throw new Error('BTC sign transaction need relPaths');

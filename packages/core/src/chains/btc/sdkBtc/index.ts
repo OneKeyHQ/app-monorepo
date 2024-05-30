@@ -38,6 +38,9 @@ import {
 } from '../../../types';
 import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import { getBtcForkNetwork } from './networks';
+import { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 export * from './networks';
 
@@ -80,7 +83,11 @@ function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
 export function tweakSigner(
   privKey: Buffer,
   publicKey: Buffer,
-  opts: { tweakHash?: Buffer; network?: IBtcForkNetwork } = {},
+  opts: {
+    tweakHash?: Buffer;
+    network?: IBtcForkNetwork;
+    needTweak: boolean;
+  } = { needTweak: true },
 ): IBtcForkSigner {
   // new Uint8Array(privKey.buffer) return 8192 length on NODE.js 20
   let privateKey: Uint8Array | null = new Uint8Array(privKey);
@@ -103,9 +110,12 @@ export function tweakSigner(
     throw new Error('Invalid tweaked private key!');
   }
 
-  return getBitcoinECPair().fromPrivateKey(Buffer.from(tweakedPrivateKey), {
-    network: opts.network,
-  });
+  return getBitcoinECPair().fromPrivateKey(
+    Buffer.from(opts.needTweak ? tweakedPrivateKey : privateKey),
+    {
+      network: opts.network,
+    },
+  );
 }
 
 const TX_OP_RETURN_SIZE_LIMIT = 80;
@@ -114,6 +124,9 @@ export const loadOPReturn = (
   opReturn: string,
   opReturnSizeLimit: number = TX_OP_RETURN_SIZE_LIMIT,
 ) => {
+  if (opReturn.length > opReturnSizeLimit) {
+    throw new Error('OP_RETURN data is too large.');
+  }
   const buffer = Buffer.from(opReturn);
   return buffer.slice(0, opReturnSizeLimit);
 };
@@ -125,47 +138,70 @@ export function getInputsToSignFromPsbt({
   psbt,
   psbtNetwork,
   account,
+  isBtcWalletProvider,
 }: {
   account: ICoreApiSignAccount;
   psbt: Psbt;
   psbtNetwork: networks.Network;
+  isBtcWalletProvider: ISignPsbtParams['options']['isBtcWalletProvider'];
 }) {
   const inputsToSign: ITxInputToSign[] = [];
   psbt.data.inputs.forEach((v, index) => {
     let script: any = null;
+    let value = 0;
     if (v.witnessUtxo) {
       script = v.witnessUtxo.script;
+      value = v.witnessUtxo.value;
     } else if (v.nonWitnessUtxo) {
       const tx = Transaction.fromBuffer(v.nonWitnessUtxo);
       const output = tx.outs[psbt.txInputs[index].index];
       script = output.script;
+      value = output.value;
     }
     const isSigned = v.finalScriptSig || v.finalScriptWitness;
 
     if (script && !isSigned) {
-      const address = BitcoinJsAddress.fromOutputScript(script, psbtNetwork);
+      const address = scriptPkToAddress(script, psbtNetwork);
       if (account.address === address) {
-        const pubKeyStr = account.pubKey as string;
-        if (!pubKeyStr) {
-          throw new Error('pubKey is empty');
-        }
         inputsToSign.push({
           index,
-          publicKey: pubKeyStr,
+          publicKey: checkIsDefined(account.pub),
           address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
-        if (
-          // TODO use addressEncoding
-          (account.template as string)?.startsWith(`m/86'/`) &&
-          !v.tapInternalKey
-        ) {
-          v.tapInternalKey = toXOnly(Buffer.from(pubKeyStr, 'hex'));
+        if (account.template?.startsWith(`m/86'/`) && !v.tapInternalKey) {
+          v.tapInternalKey = toXOnly(
+            Buffer.from(checkIsDefined(account.pub), 'hex'),
+          );
         }
+      } else if (isBtcWalletProvider) {
+        // handle babylon
+        inputsToSign.push({
+          index,
+          publicKey: checkIsDefined(account.pub),
+          address: account.address,
+          sighashTypes: v.sighashType ? [v.sighashType] : undefined,
+        });
       }
     }
   });
   return inputsToSign;
+}
+
+export function scriptPkToAddress(
+  scriptPk: string | Buffer,
+  psbtNetwork: networks.Network,
+) {
+  initBitcoinEcc();
+  try {
+    const address = BitcoinJsAddress.fromOutputScript(
+      typeof scriptPk === 'string' ? Buffer.from(scriptPk, 'hex') : scriptPk,
+      psbtNetwork,
+    );
+    return address;
+  } catch (e) {
+    return '';
+  }
 }
 
 export function isBRC20Token(tokenAddress?: string) {
@@ -232,6 +268,7 @@ export function validateBtcAddress({
       encoding = EAddressEncodings.P2SH_P2WPKH;
     }
   } catch (e) {
+    errorUtils.autoPrintErrorIgnore(e);
     try {
       const decoded = BitcoinJsAddress.fromBech32(address);
       if (
@@ -254,7 +291,7 @@ export function validateBtcAddress({
         encoding = EAddressEncodings.P2TR;
       }
     } catch (_) {
-      // ignore error
+      errorUtils.autoPrintErrorIgnore(_);
     }
   }
 
@@ -466,6 +503,7 @@ export function getAddressFromXpub({
 }> {
   // Only used to generate addresses locally.
   const decodedXpub = bs58check.decode(xpub);
+  const decodedXpubHex = bufferUtils.bytesToHex(decodedXpub);
 
   let encoding = addressEncoding;
   if (!encoding) {

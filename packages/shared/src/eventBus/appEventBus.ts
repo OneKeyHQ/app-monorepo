@@ -1,7 +1,9 @@
 /* eslint-disable import/no-named-as-default-member */
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
+import type { IQrcodeDrawType } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
 import platformEnv from '../platformEnv';
 
@@ -30,6 +32,7 @@ export enum EAppEventBusNames {
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
   ShowToast = 'ShowToast',
+  ShowQrcode = 'ShowQrcode',
   RealmInit = 'RealmInit',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
@@ -83,6 +86,13 @@ export interface IAppEventBusPayload {
     title: string;
     message?: string;
     duration?: number;
+  };
+  [EAppEventBusNames.ShowQrcode]: {
+    title?: string;
+    drawType: IQrcodeDrawType;
+    promiseId?: number;
+    value?: string;
+    valueUr?: IAirGapUrJson;
   };
   [EAppEventBusNames.RealmInit]: undefined;
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;

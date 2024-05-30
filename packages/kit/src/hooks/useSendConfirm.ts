@@ -9,6 +9,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -28,6 +29,7 @@ type IBuildUnsignedTxParams = {
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
+  stakingInfo?: IStakingInfo;
   onSuccess?: (data: ISendTxOnSuccessData[]) => void;
   onFail?: (error: Error) => void;
   onCancel?: () => void;
@@ -150,7 +152,7 @@ function useSendConfirm(params: IParams) {
       // send invoice
       await normalizeSendConfirm(params);
     },
-    [networkId, normalizeSendConfirm],
+    [accountId, navigation, networkId, normalizeSendConfirm],
   );
 
   const navigationToSendConfirm = useCallback(

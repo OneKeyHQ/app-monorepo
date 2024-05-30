@@ -1,7 +1,10 @@
+import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EOnChainHistoryTxStatus,
   type IAccountHistoryTx,
@@ -9,6 +12,7 @@ import {
   type IFetchAccountHistoryResp,
   type IFetchHistoryTxDetailsParams,
   type IFetchHistoryTxDetailsResp,
+  type IFetchTxDetailsParams,
 } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxStatus,
@@ -23,6 +27,40 @@ import ServiceBase from './ServiceBase';
 class ServiceHistory extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async refreshAccountHistory({
+    accountId,
+    networkId,
+    tokenIdOnNetwork,
+  }: {
+    accountId: string;
+    networkId: string;
+    tokenIdOnNetwork?: string;
+  }) {
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    const [xpub, vaultSettings] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceNetwork.getVaultSettings({
+        networkId,
+      }),
+    ]);
+    return this.fetchAccountHistory({
+      accountId,
+      accountAddress,
+      xpub,
+      networkId,
+      tokenIdOnNetwork,
+      onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+    });
   }
 
   @backgroundMethod()
@@ -129,22 +167,33 @@ class ServiceHistory extends ServiceBase {
     const { accountId, networkId, xpub, tokenIdOnNetwork, accountAddress } =
       params;
     const extraParams = await this.buildFetchHistoryListParams(params);
-    const client = await this.getClient();
-    const resp = await client.post<{ data: IFetchAccountHistoryResp }>(
-      '/wallet/v1/account/history/list',
-      {
-        networkId,
-        accountAddress,
-        xpub,
-        tokenAddress: tokenIdOnNetwork,
-        ...extraParams,
-      },
-    );
-
     const vault = await vaultFactory.getVault({
       accountId,
       networkId,
     });
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    let resp;
+    try {
+      resp = await client.post<{ data: IFetchAccountHistoryResp }>(
+        '/wallet/v1/account/history/list',
+        {
+          networkId,
+          accountAddress,
+          xpub,
+          tokenAddress: tokenIdOnNetwork,
+          ...extraParams,
+        },
+      );
+    } catch (e) {
+      const error = e as OneKeyServerApiError;
+      // Exchange the token on the first error to ensure subsequent polling requests succeed
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (error.data?.data?.code === 50401) {
+        // 50401 -> Lightning service special error code
+        await (vault as ILightningVault).exchangeToken();
+      }
+      throw e;
+    }
 
     const { data: onChainHistoryTxs, tokens, nfts } = resp.data.data;
 
@@ -170,7 +219,7 @@ class ServiceHistory extends ServiceBase {
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
       const { networkId, txid, accountAddress } = params;
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
         '/wallet/v1/account/history/detail',
         {
@@ -186,6 +235,20 @@ class ServiceHistory extends ServiceBase {
       console.log(e);
       return null;
     }
+  }
+
+  @backgroundMethod()
+  public async fetchTxDetails({
+    accountId,
+    networkId,
+    txid,
+  }: IFetchTxDetailsParams) {
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    return this.fetchHistoryTxDetails({ networkId, accountAddress, txid });
   }
 
   @backgroundMethod()
@@ -260,6 +323,9 @@ class ServiceHistory extends ServiceBase {
       isSigner: true,
       isLocalCreated: true,
     });
+    if (signedTx.stakingInfo) {
+      newHistoryTx.stakingInfo = signedTx.stakingInfo;
+    }
     await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
   }
 }

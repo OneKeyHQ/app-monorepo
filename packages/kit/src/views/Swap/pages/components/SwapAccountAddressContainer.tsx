@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Icon, SizableText, Toast, XStack } from '@onekeyhq/components';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import {
   useSwapProviderSupportReceiveAddressAtom,
   useSwapSelectFromTokenAtom,
@@ -99,18 +99,21 @@ const SwapAccountAddressContainer = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
+  const { createAddress } = useAccountSelectorCreateAddress();
 
   const [{ swapToAnotherAccountSwitchOn }] = useSettingsAtom();
 
   const handleOnCreateAddress = useCallback(async () => {
     if (!swapAddressInfo.accountInfo) return;
-    await backgroundApiProxy.serviceAccount.addHDOrHWAccounts({
+    const account = {
       walletId: swapAddressInfo.accountInfo.wallet?.id,
       indexedAccountId: swapAddressInfo.accountInfo.indexedAccount?.id,
       deriveType: swapAddressInfo.accountInfo.deriveType,
       networkId: swapAddressInfo.accountInfo.network?.id,
-    });
-  }, [swapAddressInfo.accountInfo]);
+    };
+    await createAddress({ num: 0, account, selectAfterCreate: false });
+    Toast.success({ title: 'Address generated' });
+  }, [createAddress, swapAddressInfo.accountInfo]);
 
   const addressComponent = useMemo(() => {
     if (!fromToken && type === ESwapDirectionType.FROM) {
@@ -139,6 +142,9 @@ const SwapAccountAddressContainer = ({
         walletId: swapAddressInfo.accountInfo?.wallet?.id,
       }) ||
         accountUtils.isHwWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        }) ||
+        accountUtils.isQrWallet({
           walletId: swapAddressInfo.accountInfo?.wallet?.id,
         }))
     ) {

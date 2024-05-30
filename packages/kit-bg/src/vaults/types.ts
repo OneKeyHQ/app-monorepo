@@ -24,6 +24,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -44,6 +45,7 @@ import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
+  qr = 'qr',
   hardware = 'hardware',
   imported = 'imported',
   watching = 'watching',
@@ -102,6 +104,7 @@ export type IAccountDeriveTypes =
 export type IVaultSettingsNetworkInfo = {
   addressPrefix: string;
   curve: ICurveName;
+  nativeTokenAddress?: string;
 };
 export type IVaultSettings = {
   impl: string;
@@ -136,7 +139,6 @@ export type IVaultSettings = {
   validationRequired?: boolean;
   hideAmountInputOnFirstEntry?: boolean;
   allowZeroFee?: boolean;
-  sendTransactionBySelf?: boolean;
 
   onChainHistoryDisabled?: boolean;
 
@@ -268,6 +270,7 @@ export type ITransferInfo = {
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  keepAlive?: boolean; // Polkadot chain keep alive
 
   // Lightning network
   lnurlPaymentInfo?: ILNURLPaymentInfo;
@@ -338,6 +341,7 @@ export interface IBuildUnsignedTxParams {
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
+  stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {
@@ -351,6 +355,7 @@ export interface IBroadcastTransactionParams {
   networkId: string;
   accountAddress: string;
   signedTx: ISignedTxPro;
+  signature?: string;
 }
 
 export interface ISignTransactionParamsBase {

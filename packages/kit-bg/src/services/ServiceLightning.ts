@@ -8,6 +8,7 @@ import {
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   ILNURLDetails,
   ILNURLError,
@@ -41,7 +42,9 @@ class ServiceLightning extends ServiceBase {
 
   private getClientCache = memoizee(
     async (isTestnet: boolean) => {
-      const _client = await this.backgroundApi.serviceLightning.getClient();
+      const _client = await this.backgroundApi.serviceLightning.getClient(
+        EServiceEndpointEnum.Lightning,
+      );
       return new ClientLightning(this.backgroundApi, _client, isTestnet);
     },
     {

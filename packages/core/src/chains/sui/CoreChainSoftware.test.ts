@@ -1,6 +1,6 @@
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import CoreChainHd from './CoreChainHd';
 
@@ -37,20 +37,11 @@ const {
       unsignedTx: {
         rawTxUnsigned:
           '0000010020ff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c501010100010000ff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c500ff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c5ee02000000000000c0f625000000000000',
-        'inputs': [
-          {
-            value: {} as any,
-            'address':
-              'ff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c5',
-            'publicKey':
-              '2292f77c31cc7e6d3c0b97636387e66c6fb0aceb579de99f8cf3be19ea86a418',
-          },
-        ],
-        'outputs': [],
-        payload: {},
         'encodedTx': {
           rawTx:
             '{"version":1,"gasConfig":{"payment":[]},"inputs":[{"kind":"Input","value":"0xff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c5","index":0,"type":"pure"}],"transactions":[{"kind":"TransferObjects","objects":[{"kind":"GasCoin"}],"address":{"kind":"Input","value":"0xff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c5","index":0,"type":"pure"}}]}',
+          sender:
+            'ff7461b8d07b4633e24b4bacb86dc74224a3a903662974c0a9d06254101081c5',
         },
       },
       signedTx: {

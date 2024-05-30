@@ -20,7 +20,7 @@ export const useAppChangeLog = (version?: string) => {
   const response = usePromiseResult(
     () =>
       version
-        ? backgroundApiProxy.serviceAppUpdate.fetchChangeLog(version)
+        ? backgroundApiProxy.serviceAppUpdate.fetchChangeLog()
         : Promise.resolve(null),
     [version],
   );

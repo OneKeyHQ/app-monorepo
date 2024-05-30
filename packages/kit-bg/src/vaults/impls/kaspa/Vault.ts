@@ -1,12 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
-import type {
-  IKaspaUTXO,
-  UnspentOutputInfo,
-} from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import type { UnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
   CONFIRMATION_COUNT,
   DUST_AMOUNT,
@@ -22,13 +17,11 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  ITxInput,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -41,12 +34,7 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
-import {
-  EDecodedTxActionType,
-  EDecodedTxStatus,
-  type IDecodedTx,
-  type IDecodedTxAction,
-} from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, type IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 
@@ -54,12 +42,12 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -69,12 +57,12 @@ import type {
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -111,7 +99,6 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
     }
-    const { to, amount } = transferInfo;
     const dbAccount = await this.getAccount();
     const confirmUtxos = await this._collectUTXOsInfoByApi({
       address: dbAccount.address,
@@ -149,7 +136,7 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
-    const { inputs, outputs, feeInfo } = encodedTx;
+    const { outputs, feeInfo } = encodedTx;
     const network = await this.getNetwork();
     const account = await this.getAccount();
 
@@ -180,15 +167,15 @@ export default class Vault extends VaultBase {
       });
     }
 
-    const utxoFrom = inputs.map((input) => ({
-      address: input.address.toString(),
-      balance: new BigNumber(input.satoshis.toString())
-        .shiftedBy(-network.decimals)
-        .toFixed(),
-      balanceValue: input.satoshis?.toString() ?? '0',
-      symbol: network.symbol,
-      isMine: true,
-    }));
+    // const utxoFrom = inputs.map((input) => ({
+    //   address: input.address.toString(),
+    //   balance: new BigNumber(input.satoshis.toString())
+    //     .shiftedBy(-network.decimals)
+    //     .toFixed(),
+    //   balanceValue: input.satoshis?.toString() ?? '0',
+    //   symbol: network.symbol,
+    //   isMine: true,
+    // }));
 
     const utxoTo = outputs.map((output) => ({
       address: output.address,
@@ -200,25 +187,28 @@ export default class Vault extends VaultBase {
       isMine: false, // output.address === dbAccount.address,
     }));
 
-    const actions: IDecodedTxAction[] = [
-      {
-        type: EDecodedTxActionType.ASSET_TRANSFER,
-        assetTransfer: {
-          from: account.address,
-          to: utxoTo[0].address,
-          sends,
-          receives: [],
-          utxoFrom,
-          utxoTo,
-        },
-      },
-    ];
+    const transfer = {
+      from: account.address,
+      to: utxoTo[0].address,
+      amount: new BigNumber(utxoTo[0].balance).toFixed(),
+      tokenIdOnNetwork: nativeToken.address,
+      icon: nativeToken.logoURI ?? '',
+      name: nativeToken.name,
+      symbol: nativeToken.symbol,
+      isNFT: false,
+      isNative: true,
+    };
+    const action = await this.buildTxTransferAssetAction({
+      from: account.address,
+      to: utxoTo[0].address,
+      transfers: [transfer],
+    });
     return {
       txid: '',
       owner: account.address,
       signer: account.address,
       nonce: 0,
-      actions,
+      actions: [action],
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -238,31 +228,12 @@ export default class Vault extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = await this.buildEncodedTx(params);
     if (encodedTx) {
-      const { inputs, outputs } = encodedTx;
-
-      const inputsInUnsignedTx: ITxInput[] = [];
-      for (const input of inputs) {
-        const value = new BigNumber(input.satoshis);
-        inputsInUnsignedTx.push({
-          address: input.address.toString(),
-          value,
-          // publicKey,
-          utxo: { txid: input.txid, vout: input.vout, value },
-        });
-      }
-      const outputsInUnsignedTx = outputs.map(({ address, value }) => ({
-        address,
-        value: new BigNumber(value),
-        payload: {},
-      }));
       return {
         encodedTx,
         transfersInfo: params.transfersInfo,
-        inputs: inputsInUnsignedTx,
-        outputs: outputsInUnsignedTx,
       };
     }
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async updateUnsignedTx(
@@ -297,12 +268,6 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const chainId = await this.getNetworkChainId();
     const isValid = isValidAddress(address, chainId);
@@ -313,8 +278,8 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+  override validateXpub(): Promise<IXpubValidation> {
+    throw new NotImplemented();
   }
 
   override getPrivateKeyFromImported(
@@ -342,7 +307,7 @@ export default class Vault extends VaultBase {
     throw new Error('Invalid private key');
   }
 
-  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+  override validateXprvt(): Promise<IXprvtValidation> {
     return Promise.resolve({
       isValid: false,
     });

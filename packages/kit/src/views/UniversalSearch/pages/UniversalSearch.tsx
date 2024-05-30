@@ -1,9 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useDebouncedCallback } from 'use-debounce';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Empty,
+  NumberSizeableText,
   Page,
   SearchBar,
   SectionList,
@@ -14,6 +16,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EUniversalSearchPages,
+  IUniversalSearchParamList,
+} from '@onekeyhq/shared/src/routes/universalSearch';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
@@ -26,6 +35,11 @@ import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
+import { MarketStar } from '../../Market/components/MarketStar';
+import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
+
+import { RecentSearched } from './components/RecentSearched';
+import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
 
 interface IUniversalSection {
   title: string;
@@ -52,31 +66,75 @@ const SkeletonItem = () => (
   </XStack>
 );
 
-export function UniversalSearch() {
+export function UniversalSearch({
+  searchType,
+}: {
+  searchType?: EUniversalSearchType;
+}) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const universalSearchActions = useUniversalSearchActions();
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
     ESearchStatus.init,
   );
+  const [recommendSections, setRecommendSections] = useState<
+    IUniversalSection[]
+  >([]);
+
+  const fetchRecommendList = useCallback(async () => {
+    const searchResultSections: {
+      title: string;
+      data: IUniversalSearchResultItem[];
+    }[] = [];
+    const result =
+      await backgroundApiProxy.serviceUniversalSearch.universalSearchRecommend({
+        searchTypes: searchType ? [searchType] : [],
+      });
+    if (result?.[EUniversalSearchType.MarketToken]?.items) {
+      searchResultSections.push({
+        title: 'Trending',
+        data: result?.[EUniversalSearchType.MarketToken]
+          ?.items as IUniversalSearchResultItem[],
+      });
+    }
+    setRecommendSections(searchResultSections);
+  }, [searchType]);
+
+  useEffect(() => {
+    void fetchRecommendList();
+  }, [fetchRecommendList]);
+
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     const input = val?.trim?.() || '';
-    const result = await backgroundApiProxy.serviceApp.universalSearch({
-      input,
-      networkId: activeAccount?.network?.id,
-      searchTypes: [EUniversalSearchType.Address],
-    });
-    const items = result?.[EUniversalSearchType.Address]?.items;
-    if (items?.length) {
-      setSections([
-        {
-          title: 'Wallet',
-          data: items,
-        },
-      ]);
-    } else {
-      setSections([]);
+    const result =
+      await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+        input,
+        networkId: activeAccount?.network?.id,
+        searchTypes: [searchType || EUniversalSearchType.Address],
+      });
+    const searchResultSections: {
+      title: string;
+      data: IUniversalSearchResultItem[];
+    }[] = [];
+    if (result?.[EUniversalSearchType.Address]?.items) {
+      searchResultSections.push({
+        title: 'Wallet',
+        data: result?.[EUniversalSearchType.Address]
+          ?.items as IUniversalSearchResultItem[],
+      });
     }
+
+    if (result?.[EUniversalSearchType.MarketToken]?.items) {
+      searchResultSections.push({
+        title: 'Market Token',
+        data: result?.[EUniversalSearchType.MarketToken]
+          ?.items as IUniversalSearchResultItem[],
+      });
+    }
+
+    setSections(searchResultSections);
     setSearchStatus(ESearchStatus.done);
   }, 1200);
 
@@ -84,27 +142,121 @@ export function UniversalSearch() {
     setSearchStatus(ESearchStatus.loading);
   }, []);
 
-  // const renderSectionHeader = useCallback(
-  //   ({ section }: { section: IUniversalSection }) => (
-  //     <SizableText px="$5" pb={0} size="$headingSm">
-  //       {section.title}
-  //     </SizableText>
-  //   ),
-  //   [],
-  // );
+  const renderSectionHeader = useCallback(
+    ({ section }: { section: IUniversalSection }) => (
+      <SizableText px="$5" pb={0} size="$headingSm">
+        {section.title}
+      </SizableText>
+    ),
+    [],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: IUniversalSearchResultItem }) => {
+      switch (item.type) {
+        case EUniversalSearchType.Address: {
+          const searchAddressItem = item;
+          return (
+            <ListItem
+              onPress={() => {
+                navigation.pop();
+                setTimeout(() => {
+                  const { network, addressInfo } = searchAddressItem.payload;
+                  urlAccountNavigation.pushUrlAccountPage(navigation, {
+                    address: addressInfo.displayAddress,
+                    networkId: network.id,
+                  });
+                }, 80);
+              }}
+              renderAvatar={
+                <NetworkAvatar
+                  networkId={searchAddressItem.payload.network.id}
+                  size="$10"
+                />
+              }
+              title={searchAddressItem.payload.network.shortname}
+              subtitle={accountUtils.shortenAddress({
+                address: searchAddressItem.payload.addressInfo.displayAddress,
+              })}
+            />
+          );
+        }
+        case EUniversalSearchType.MarketToken: {
+          const { image, coingeckoId, price, symbol, name } = item.payload;
+          return (
+            <ListItem
+              jc="space-between"
+              mx={0}
+              pl="$5"
+              pr={0}
+              onPress={async () => {
+                navigation.pop();
+                setTimeout(async () => {
+                  navigation.push(ETabMarketRoutes.MarketDetail, {
+                    coinGeckoId: coingeckoId,
+                    icon: image,
+                    symbol,
+                  });
+                  setTimeout(() => {
+                    universalSearchActions.current.addIntoRecentSearchList({
+                      id: coingeckoId,
+                      text: symbol.toUpperCase(),
+                      type: item.type,
+                      timestamp: Date.now(),
+                    });
+                  }, 10);
+                }, 80);
+              }}
+              avatarProps={{
+                src: decodeURIComponent(image),
+                size: '$10',
+              }}
+              title={symbol.toUpperCase()}
+              subtitle={name}
+            >
+              <XStack>
+                <NumberSizeableText
+                  size="$bodyLgMedium"
+                  formatter="price"
+                  formatterOptions={{ currency: '$' }}
+                >
+                  {price}
+                </NumberSizeableText>
+                <MarketStar coingeckoId={coingeckoId} />
+              </XStack>
+            </ListItem>
+          );
+        }
+        default: {
+          return null;
+        }
+      }
+    },
+    [universalSearchActions, navigation],
+  );
 
   const renderResult = useCallback(() => {
     switch (searchStatus) {
       case ESearchStatus.init:
-        return null;
+        return (
+          <>
+            <RecentSearched searchType={searchType} />
+            <SectionList
+              renderSectionHeader={renderSectionHeader}
+              sections={recommendSections}
+              renderItem={renderItem}
+              estimatedItemSize="$16"
+            />
+          </>
+        );
 
       case ESearchStatus.loading:
         return (
-          <View>
+          <YStack>
             <SkeletonItem />
             <SkeletonItem />
             <SkeletonItem />
-          </View>
+          </YStack>
         );
 
       case ESearchStatus.done:
@@ -115,37 +267,21 @@ export function UniversalSearch() {
             ListEmptyComponent={
               <Empty icon="SearchOutline" title="No Results" />
             }
-            renderItem={({ item }: { item: IUniversalSearchResultItem }) => (
-              <ListItem
-                onPress={() => {
-                  navigation.pop();
-                  setTimeout(() => {
-                    const { network, addressInfo } = item.payload;
-                    urlAccountNavigation.pushUrlAccountPage(navigation, {
-                      address: addressInfo.displayAddress,
-                      networkId: network.id,
-                    });
-                  }, 80);
-                }}
-                renderAvatar={
-                  <NetworkAvatar
-                    networkId={item.payload.network.id}
-                    size="$10"
-                  />
-                }
-                title={item.payload.network.shortname}
-                subtitle={accountUtils.shortenAddress({
-                  address: item.payload.addressInfo.displayAddress,
-                })}
-              />
-            )}
+            renderItem={renderItem}
             estimatedItemSize="$16"
           />
         );
       default:
         break;
     }
-  }, [navigation, searchStatus, sections]);
+  }, [
+    recommendSections,
+    renderItem,
+    renderSectionHeader,
+    searchStatus,
+    searchType,
+    sections,
+  ]);
 
   return (
     <Page>
@@ -165,7 +301,12 @@ export function UniversalSearch() {
   );
 }
 
-const UniversalSearchProvider = () => (
+const UniversalSearchWithProvider = ({
+  route,
+}: IPageScreenProps<
+  IUniversalSearchParamList,
+  EUniversalSearchPages.UniversalSearch
+>) => (
   <AccountSelectorProviderMirror
     config={{
       sceneName: EAccountSelectorSceneName.home,
@@ -173,8 +314,18 @@ const UniversalSearchProvider = () => (
     }}
     enabledNum={[0]}
   >
-    <UniversalSearch />
+    <MarketWatchListProviderMirror
+      storeName={EJotaiContextStoreNames.marketWatchList}
+    >
+      <UniversalSearchProviderMirror
+        storeName={EJotaiContextStoreNames.universalSearch}
+      >
+        <UniversalSearch
+          searchType={route?.params?.filterType || EUniversalSearchType.Address}
+        />
+      </UniversalSearchProviderMirror>
+    </MarketWatchListProviderMirror>
   </AccountSelectorProviderMirror>
 );
 
-export default UniversalSearchProvider;
+export default UniversalSearchWithProvider;

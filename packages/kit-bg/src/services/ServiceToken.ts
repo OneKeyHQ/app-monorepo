@@ -1,8 +1,11 @@
+import { isNil } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
@@ -13,6 +16,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -44,7 +48,7 @@ class ServiceToken extends ServiceBase {
       rest.accountAddress,
     );
     rest.accountAddress = normalizedAddress;
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     this._fetchAccountTokensController = controller;
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
@@ -72,7 +76,7 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async fetchTokensDetails(params: IFetchTokenDetailParams) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: ({
         info: IToken;
@@ -97,14 +101,39 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getNativeTokenAddress({ networkId }: { networkId: string }) {
+    const vaultSettings = await getVaultSettings({ networkId });
+    let tokenAddress = vaultSettings.networkInfo[networkId]?.nativeTokenAddress;
+    if (typeof tokenAddress === 'string') {
+      return tokenAddress;
+    }
+    tokenAddress = vaultSettings.networkInfo.default.nativeTokenAddress;
+    if (typeof tokenAddress === 'string') {
+      return tokenAddress;
+    }
+    return '';
+  }
+
+  @backgroundMethod()
   public async getNativeToken({
     networkId,
     accountAddress,
+    tokenIdOnNetwork,
   }: {
     networkId: string;
     accountAddress?: string;
+    tokenIdOnNetwork?: string;
   }) {
-    return this.getToken({ networkId, tokenIdOnNetwork: '', accountAddress });
+    let tokenAddress = tokenIdOnNetwork;
+    if (isNil(tokenAddress)) {
+      tokenAddress = await this.getNativeTokenAddress({ networkId });
+    }
+
+    return this.getToken({
+      networkId,
+      tokenIdOnNetwork: tokenAddress ?? '',
+      accountAddress,
+    });
   }
 
   @backgroundMethod()

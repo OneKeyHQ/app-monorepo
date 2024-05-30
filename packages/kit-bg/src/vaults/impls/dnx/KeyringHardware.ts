@@ -8,6 +8,10 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -31,7 +35,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<IDBAccount[]> {
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const nearAddresses = await this.baseGetDeviceAccountAddresses({
+        const dnxAddresses = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
           sdkGetAddressFn: async ({
@@ -59,8 +63,8 @@ export class KeyringHardware extends KeyringHardwareBase {
 
         const ret: ICoreApiGetAddressItem[] = [];
         const addressRelPath = '0/0';
-        for (let i = 0; i < nearAddresses.length; i += 1) {
-          const item = nearAddresses[i];
+        for (let i = 0; i < dnxAddresses.length; i += 1) {
+          const item = dnxAddresses[i];
           const { path, address } = item;
           const addressInfo: ICoreApiGetAddressItem = {
             address: address ?? '',
@@ -124,6 +128,6 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

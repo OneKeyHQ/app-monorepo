@@ -1,5 +1,6 @@
 import { isNil, isNumber } from 'lodash';
 
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { ALL_LOCAL_DB_STORE_NAMES } from '../consts';
@@ -341,7 +342,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       const record = await store.get(id);
       if (!record) {
         const error = new Error(`record not found: ${name} ${id}`);
-        error.$$autoPrintErrorIgnore = true;
+        errorUtils.autoPrintErrorIgnore(error);
         throw error;
       }
       return [record as any, null];

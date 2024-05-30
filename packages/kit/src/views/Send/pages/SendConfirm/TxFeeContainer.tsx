@@ -87,13 +87,13 @@ function TxFeeContainer(props: IProps) {
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
         });
-        const account = await backgroundApiProxy.serviceAccount.getAccount({
-          accountId,
-          networkId,
-        });
+        const accountAddress =
+          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+            networkId,
+            accountId,
+          });
         const r = await backgroundApiProxy.serviceGas.estimateFee({
           networkId,
-          accountAddress: account.address,
           encodedTx: await backgroundApiProxy.serviceGas.buildEstimateFeeParams(
             {
               accountId,
@@ -101,6 +101,7 @@ function TxFeeContainer(props: IProps) {
               encodedTx: unsignedTxs[0].encodedTx,
             },
           ),
+          accountAddress,
         });
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
         // these five levels are also provided as predictions on the custom fee page for users to choose
@@ -145,7 +146,7 @@ function TxFeeContainer(props: IProps) {
         txFee.gas?.length ||
         txFee.feeUTXO?.length ||
         txFee.feeTron?.length ||
-        txFee.feeSol?.length ||
+        txFee.gasFil?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -155,7 +156,7 @@ function TxFeeContainer(props: IProps) {
           gasEIP1559: txFee.gasEIP1559?.[i],
           feeUTXO: txFee.feeUTXO?.[i],
           feeTron: txFee.feeTron?.[i],
-          feeSol: txFee.feeSol?.[i],
+          gasFil: txFee.gasFil?.[i],
         };
 
         items.push({

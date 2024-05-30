@@ -44,6 +44,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -67,6 +68,7 @@ export default class Vault extends VaultBase {
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -159,8 +161,6 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Native token not found');
     }
 
-    let actions: IDecodedTxAction[] = [];
-
     const utxoFrom = (inputs ?? []).map((input) => ({
       address: input.address,
       balance: new BigNumber(input.satoshis)
@@ -183,37 +183,32 @@ export default class Vault extends VaultBase {
     let sendNativeTokenAmountBN = new BigNumber(0);
     let sendNativeTokenAmountValueBN = new BigNumber(0);
 
-    actions = [
-      {
-        type: EDecodedTxActionType.ASSET_TRANSFER,
-        assetTransfer: {
-          from: account.address,
-          to: utxoTo[0].address,
-          sends: utxoTo.map((utxo) => {
-            sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(
-              utxo.balance,
-            );
-            sendNativeTokenAmountValueBN = sendNativeTokenAmountValueBN.plus(
-              utxo.balanceValue,
-            );
-            return {
-              from: account.address,
-              to: utxo.address,
-              isNative: true,
-              tokenIdOnNetwork: '',
-              name: nativeToken.name,
-              icon: nativeToken.logoURI ?? '',
-              amount: utxo.balance,
-              amountValue: utxo.balanceValue,
-              symbol: network.symbol,
-            };
-          }),
-          receives: [],
-          utxoFrom,
-          utxoTo,
-        },
-      },
-    ];
+    const transfers = utxoTo.map((utxo) => {
+      sendNativeTokenAmountBN = sendNativeTokenAmountBN.plus(utxo.balance);
+      sendNativeTokenAmountValueBN = sendNativeTokenAmountValueBN.plus(
+        utxo.balanceValue,
+      );
+      return {
+        from: account.address,
+        to: utxo.address,
+        utxoFrom,
+        utxoTo,
+        amount: utxo.balance,
+        amountValue: utxo.balanceValue,
+        tokenIdOnNetwork: nativeToken.address,
+        name: nativeToken.name,
+        icon: nativeToken.logoURI ?? '',
+        symbol: network.symbol,
+        isNFT: false,
+        isNative: true,
+      };
+    });
+    const action = await this.buildTxTransferAssetAction({
+      from: account.address,
+      to: utxoTo[0].address,
+      transfers,
+    });
+    const actions: IDecodedTxAction[] = [action];
 
     return {
       txid: '',
@@ -245,7 +240,8 @@ export default class Vault extends VaultBase {
         encodedTx,
         txSize: checkIsDefined(encodedTx.estimateTxSize),
         payload: {
-          address: account.address,
+          // core.signTransaction() passed account.address already
+          // address: account.address,
         },
       };
     }
@@ -283,12 +279,6 @@ export default class Vault extends VaultBase {
       ...params.unsignedTx,
       encodedTx: fixedEncodedTx,
     };
-  }
-
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

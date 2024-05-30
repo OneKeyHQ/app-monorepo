@@ -1,16 +1,19 @@
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
+import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
 import type { ICurveName } from './coreTypesBase';
 import type { IEncodedTxAda } from '../chains/ada/types';
 import type { IEncodedTxAlgo, IEncodedTxGroupAlgo } from '../chains/algo/types';
+import type { IEncodedTxAptos } from '../chains/aptos/types';
 import type { IEncodedTxBtc } from '../chains/btc/types';
 import type { IEncodedTxCfx } from '../chains/cfx/types';
 import type { IEncodedTxCkb } from '../chains/ckb/types';
 import type { IEncodedTxCosmos } from '../chains/cosmos/types';
 import type { IEncodedTxDnx } from '../chains/dnx/types';
+import type { IEncodedTxDot } from '../chains/dot/types';
 import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
@@ -33,12 +36,14 @@ export type IEncodedTx =
   | IEncodedTxFil
   | IEncodedTxKaspa
   | IEncodedTxSui
+  | IEncodedTxAptos
   | IEncodedTxXrp
   | IEncodedTxXmr
   | IEncodedTxTron
   | IEncodedTxNexa
   | IEncodedTxLightning
   | IEncodedTxNostr
+  | IEncodedTxDot
   | IEncodedTxDnx
   | IEncodedTxNostr
   | IEncodedTxAlgo
@@ -48,7 +53,6 @@ export type IEncodedTx =
 //   | IEncodedTxBtc
 //   | IEncodedTxDot
 //   | IEncodedTxSTC
-//   | IEncodedTxAptos
 //   | IEncodedTxCfx
 
 export type INativeTx = object;
@@ -85,8 +89,6 @@ export type ITxInputToSign = {
 };
 // TODO remove
 export type IUnsignedTx = {
-  inputs?: ITxInput[];
-  outputs?: ITxOutput[];
   type?: string;
   nonce?: number;
   feeLimit?: BigNumber;
@@ -100,13 +102,10 @@ export type IUnsignedTxPro = IUnsignedTx & {
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
   swapInfo?: ISwapTxInfo | undefined;
+  stakingInfo?: IStakingInfo;
   txSize?: number;
   transfersInfo?: ITransferInfo[];
   rawTxUnsigned?: string;
-  psbtHex?: string;
-  inputsToSign?: ITxInputToSign[];
-  opReturn?: string; // BTC opReturn?
-  // signerAccount: ISignerAccountEvm | ISignerAccountNear | ISignerAccountAptos
 };
 export type ISignedTx = {
   txid: string;
@@ -124,11 +123,13 @@ export type ISignedTxResult = ISignedTx & {
   nonce?: number;
   randomSeed?: number;
   swapInfo?: ISwapTxInfo;
+  stakingInfo?: IStakingInfo;
 };
 export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
 };
-export type ISignedMessagePro = string[];
+export type ISignedMessageItemPro = string;
+export type ISignedMessagePro = ISignedMessageItemPro[];
 export type IVerifiedMessagePro = {
   isValid: boolean;
   message: string;

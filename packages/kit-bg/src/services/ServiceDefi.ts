@@ -10,6 +10,7 @@ import type {
   IFetchAccountDefiParams,
   IFetchAccountDefiResp,
 } from '@onekeyhq/shared/types/defi';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
@@ -23,7 +24,7 @@ class ServiceDefi extends ServiceBase {
   public async fetchAccountDefi(
     params: IFetchAccountDefiParams,
   ): Promise<IFetchAccountDefiResp> {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{
       data: IFetchAccountDefiResp;
     }>(`/wallet/v1/account/defi/list?${qs.stringify(omitBy(params, isNil))}`);

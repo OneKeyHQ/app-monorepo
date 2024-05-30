@@ -5,6 +5,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { swapHistoryStateFetchInterval } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchBuildTxParams,
@@ -66,7 +67,7 @@ export default class ServiceSwap extends ServiceBase {
     const params = {
       protocol,
     };
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.get<IFetchResponse<ISwapNetworkBase[]>>(
       '/swap/v1/networks',
       { params },
@@ -115,7 +116,7 @@ export default class ServiceSwap extends ServiceBase {
       accountXpub,
     };
     this._tokenListAbortController = new AbortController();
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
     try {
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
         '/swap/v1/tokens',
@@ -161,7 +162,7 @@ export default class ServiceSwap extends ServiceBase {
       xpub,
       contractAddress,
     };
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
     const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
       '/swap/v1/token/detail',
       { params },
@@ -198,7 +199,7 @@ export default class ServiceSwap extends ServiceBase {
       blockNumber,
     };
     this._quoteAbortController = new AbortController();
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
     const fetchUrl = '/swap/v1/quote';
     try {
       const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
@@ -265,7 +266,7 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
     };
     try {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.get<IFetchResponse<IFetchBuildTxResponse>>(
         '/swap/v1/build-tx',
         { params },
@@ -282,6 +283,7 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  // @toastIfError()
   async fetchTxState({
     txId,
     provider,
@@ -308,7 +310,7 @@ export default class ServiceSwap extends ServiceBase {
       toTokenAddress,
       receivedAddress,
     };
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
 
     const { data } = await client.post<
       IFetchResponse<IFetchSwapTxHistoryStatusResponse>
@@ -334,7 +336,7 @@ export default class ServiceSwap extends ServiceBase {
       spenderAddress,
       walletAddress,
     };
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
 
     const { data } = await client.get<IFetchResponse<string>>(
       '/swap/v1/allowance',
@@ -403,14 +405,10 @@ export default class ServiceSwap extends ServiceBase {
         method:
           item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
         title:
-          item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
-        message: `${item.baseInfo.fromToken.symbol} -> ${
-          item.baseInfo.toToken.symbol
-        } ${
           item.status === ESwapTxHistoryStatus.SUCCESS
-            ? `swap success, received ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`
-            : 'swap failed'
-        }`,
+            ? 'Swap successful'
+            : 'Swap failed',
+        message: `${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toToken.symbol}`,
       });
     }
   }

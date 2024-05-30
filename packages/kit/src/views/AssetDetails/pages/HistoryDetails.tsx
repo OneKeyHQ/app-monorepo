@@ -84,11 +84,13 @@ export function InfoItem({
   compact = false,
   showCopy = false,
   showOpenWithUrl = undefined,
+  disabledCopy = false,
   ...rest
 }: {
   label: string;
   renderContent: ReactNode;
   compact?: boolean;
+  disabledCopy?: boolean;
   showCopy?: boolean;
   showOpenWithUrl?: string;
 } & IStackProps) {
@@ -111,7 +113,11 @@ export function InfoItem({
         <Stack
           alignItems="flex-start"
           gap="$1.5"
-          onPress={() => copyText(renderContent)}
+          onPress={() => {
+            if (!disabledCopy) {
+              copyText(renderContent);
+            }
+          }}
         >
           <SizableText size="$bodyMd" color="$textSubdued">
             {renderContent}
@@ -418,7 +424,7 @@ function HistoryDetails() {
       from: txDetails?.from,
       to: txDetails?.to,
     };
-  }, [historyTx, txDetails, vaultSettings?.isUtxo]);
+  }, [accountAddress, historyTx, txDetails, vaultSettings?.isUtxo]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,

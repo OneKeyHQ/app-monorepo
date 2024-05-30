@@ -10,6 +10,7 @@ import {
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InvalidAddress,
+  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -34,6 +35,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -52,6 +54,7 @@ import type {
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -82,7 +85,7 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('transfersInfo is required');
     }
     if (transfersInfo.length > 1) {
-      throw new OneKeyInternalError('Only one transfer is allowed');
+      throw new OneKeyInternalError('Batch transfer is not supported');
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
@@ -166,35 +169,30 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Native token not found');
     }
 
+    const transfer = {
+      from: encodedTx.Account,
+      to: encodedTx.Destination,
+      amount: new BigNumber(encodedTx.Amount)
+        .shiftedBy(-network.decimals)
+        .toFixed(),
+      tokenIdOnNetwork: nativeToken.address,
+      icon: nativeToken.logoURI ?? '',
+      name: nativeToken.name,
+      symbol: nativeToken.symbol,
+      isNFT: false,
+      isNative: true,
+    };
+    const action = await this.buildTxTransferAssetAction({
+      from: encodedTx.Account,
+      to: encodedTx.Destination,
+      transfers: [transfer],
+    });
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: encodedTx.Account,
       signer: encodedTx.Account,
       nonce: 0,
-      actions: [
-        {
-          type: EDecodedTxActionType.ASSET_TRANSFER,
-          assetTransfer: {
-            from: encodedTx.Account,
-            to: encodedTx.Destination,
-            sends: [
-              {
-                from: encodedTx.Account,
-                to: encodedTx.Destination,
-                isNative: true,
-                tokenIdOnNetwork: '',
-                name: nativeToken.name,
-                icon: nativeToken.logoURI ?? '',
-                amount: new BigNumber(encodedTx.Amount)
-                  .shiftedBy(-network.decimals)
-                  .toFixed(),
-                symbol: network.symbol,
-              },
-            ],
-            receives: [],
-          },
-        },
-      ],
+      actions: [action],
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
@@ -218,17 +216,13 @@ export default class Vault extends VaultBase {
         transfersInfo: params.transfersInfo,
       };
     }
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     return Promise.resolve(params.unsignedTx);
-  }
-
-  override broadcastTransaction(): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

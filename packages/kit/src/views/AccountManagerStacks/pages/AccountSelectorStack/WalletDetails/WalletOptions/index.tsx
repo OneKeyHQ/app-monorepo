@@ -17,7 +17,11 @@ import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/c
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import {
+  EModalKeyTagRoutes,
+  EModalRoutes,
+  EOnboardingPages,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -59,6 +63,24 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
     void liteCard.backupWallet(wallet?.id);
   }, [liteCard, wallet?.id]);
 
+  const handleBackupKeyTag = useCallback(async () => {
+    if (wallet) {
+      const { mnemonic: encodedText } =
+        await backgroundApiProxy.serviceAccount.getHDAccountMnemonic({
+          walletId: wallet.id,
+          reason: EReasonForNeedPassword.Security,
+        });
+      if (encodedText) ensureSensitiveTextEncoded(encodedText);
+      navigation.pushModal(EModalRoutes.KeyTagModal, {
+        screen: EModalKeyTagRoutes.BackupDotMap,
+        params: {
+          encodedText,
+          title: wallet.name,
+        },
+      });
+    }
+  }, [navigation, wallet]);
+
   const [editMode] = useAccountSelectorEditModeAtom();
 
   const walletSpecifiedOptions = useMemo(() => {
@@ -76,42 +98,53 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
         </>
       );
     }
-    return (
-      <ActionList
-        offset={{ mainAxis: 0, crossAxis: 18 }}
-        placement="bottom-start"
-        title="Backup"
-        items={[
-          {
-            label: intl.formatMessage({
-              id: 'backup__manual_backup',
-            }),
-            icon: 'PenOutline',
-            onPress: () => void handleBackupPhrase(),
-          },
-          ...(platformEnv.isNative
-            ? [
-                {
-                  label: intl.formatMessage({
-                    id: 'app__hardware_name_onekey_lite',
-                  }),
-                  icon: 'GiroCardOutline' as IKeyOfIcons,
-                  onPress: handleBackupLiteCard,
-                },
-              ]
-            : []),
-          {
-            label: 'OneKey KeyTag',
-            icon: 'OnekeyKeytagOutline',
-            onPress: () => console.log('clicked'),
-          },
-        ]}
-        renderTrigger={
-          <WalletOptionItem icon="Shield2CheckOutline" label="Backup" />
-        }
-      />
-    );
-  }, [device, handleBackupLiteCard, handleBackupPhrase, intl, wallet]);
+
+    if (accountUtils.isHdWallet({ walletId: wallet?.id })) {
+      return (
+        <ActionList
+          offset={{ mainAxis: 0, crossAxis: 18 }}
+          placement="bottom-start"
+          title="Backup"
+          items={[
+            {
+              label: intl.formatMessage({
+                id: 'backup__manual_backup',
+              }),
+              icon: 'PenOutline',
+              onPress: () => void handleBackupPhrase(),
+            },
+            ...(platformEnv.isNative
+              ? [
+                  {
+                    label: intl.formatMessage({
+                      id: 'app__hardware_name_onekey_lite',
+                    }),
+                    icon: 'GiroCardOutline' as IKeyOfIcons,
+                    onPress: handleBackupLiteCard,
+                  },
+                ]
+              : []),
+            {
+              label: 'OneKey KeyTag',
+              icon: 'OnekeyKeytagOutline',
+              onPress: () => void handleBackupKeyTag(),
+            },
+          ]}
+          renderTrigger={
+            <WalletOptionItem icon="Shield2CheckOutline" label="Backup" />
+          }
+        />
+      );
+    }
+    return null;
+  }, [
+    device,
+    handleBackupLiteCard,
+    handleBackupPhrase,
+    handleBackupKeyTag,
+    intl,
+    wallet,
+  ]);
 
   return (
     <HeightTransition>
