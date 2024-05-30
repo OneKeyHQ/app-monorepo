@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -25,7 +25,7 @@ import type {
   ILidoEthRequest,
 } from '@onekeyhq/shared/types/staking';
 
-import { LidoFAQs } from '../../components/LidoFAQs';
+import { EthLidoFAQs } from '../../components/LidoFAQs';
 import {
   EthStakeShouldUnderstand,
   EthWithdrawShouldUnderstand,
@@ -33,6 +33,7 @@ import {
 import { NftListItemStatus } from '../../components/NftListItemStatus';
 import { PageSkeleton } from '../../components/PageSkeleton';
 import { ProtocolIntro } from '../../components/ProtocolIntro';
+import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { StakingProfit } from '../../components/StakingProfit';
 import { useLidoClaim } from '../../hooks/useLidoEthHooks';
 import {
@@ -84,7 +85,13 @@ const ListItemClaim = ({
   );
   const lidoClaim = useLidoClaim({ accountId, networkId });
   const onClaim = useCallback(async () => {
-    await lidoClaim({ requestIds });
+    await lidoClaim({
+      requestIds,
+      stakingInfo: {
+        protocol: 'lido',
+        tags: ['lido-eth'],
+      },
+    });
   }, [lidoClaim, requestIds]);
   if (requests.length === 0) {
     return null;
@@ -100,19 +107,24 @@ const ListItemClaim = ({
   );
 };
 
+type IEthLidoOverviewContentProps = {
+  networkId: string;
+  accountId: string;
+  overview: ILidoEthOverview;
+  apr?: number;
+  onRefresh?: () => void;
+};
+
 const EthLidoOverviewContent = ({
   accountId,
   networkId,
   overview,
   apr = 4,
-}: {
-  networkId: string;
-  accountId: string;
-  overview: ILidoEthOverview;
-  apr?: number;
-}) => {
+  onRefresh,
+}: IEthLidoOverviewContentProps) => {
   const { eth, stETH, requests } = overview;
   const appNavigation = useAppNavigation();
+
   const onStake = useCallback(async () => {
     Dialog.show({
       renderContent: <EthStakeShouldUnderstand />,
@@ -141,11 +153,13 @@ const EthLidoOverviewContent = ({
           accountId,
           networkId,
           balance: stETH.balanceParsed,
+          price: stETH.price,
           token: stETH.info,
+          receivingToken: eth.info,
         });
       },
     });
-  }, [accountId, networkId, appNavigation, stETH]);
+  }, [accountId, networkId, appNavigation, stETH, eth]);
 
   const showRedeemButton = useMemo(
     () => new BigNumber(stETH.balanceParsed).gt(0),
@@ -207,7 +221,7 @@ const EthLidoOverviewContent = ({
           tokenImageUrl={eth.info.logoURI}
           tokenSymbol={eth.info.symbol}
         />
-        <LidoFAQs />
+        <EthLidoFAQs />
       </YStack>
       <Page.Footer
         onConfirmText="Stake"
@@ -224,6 +238,12 @@ const EthLidoOverviewContent = ({
             : undefined
         }
       />
+      <StakingTransactionIndicator
+        accountId={accountId}
+        networkId={networkId}
+        stakeTag="lido-eth"
+        onRefresh={onRefresh}
+      />
     </Stack>
   );
 };
@@ -234,9 +254,7 @@ const EthLidoOverview = () => {
     EModalStakingRoutes.EthLidoOverview
   >();
   const { accountId, networkId } = appRoute.params;
-  const [refreshValue, setRefreshValue] = useState(1);
-  const onRefresh = useCallback(() => setRefreshValue((v) => v + 1), []);
-  const { result, isLoading } = usePromiseResult(
+  const { result, isLoading, run } = usePromiseResult(
     async () => {
       const overviewPromise =
         backgroundApiProxy.serviceStaking.fetchLidoEthOverview({
@@ -247,8 +265,7 @@ const EthLidoOverview = () => {
       const [overview, apr] = await Promise.all([overviewPromise, aprPromise]);
       return { overview, apr };
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [accountId, networkId, refreshValue],
+    [accountId, networkId],
     { watchLoading: true },
   );
   return (
@@ -258,7 +275,7 @@ const EthLidoOverview = () => {
         <PageSkeleton
           loading={Boolean(result === undefined && isLoading === true)}
           error={Boolean(result === undefined && isLoading === false)}
-          onRefresh={onRefresh}
+          onRefresh={run}
         >
           {result ? (
             <EthLidoOverviewContent
@@ -266,6 +283,7 @@ const EthLidoOverview = () => {
               apr={result.apr.find((o) => o.protocol === 'lido')?.apr}
               networkId={networkId}
               accountId={accountId}
+              onRefresh={run}
             />
           ) : null}
         </PageSkeleton>

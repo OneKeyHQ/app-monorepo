@@ -20,6 +20,7 @@ import type {
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IProxyRequest,
   IProxyRequestItem,
@@ -46,7 +47,7 @@ class ServiceAccountProfile extends ServiceBase {
   public async fetchAccountDetails(
     params: IFetchAccountDetailsParams,
   ): Promise<IFetchAccountDetailsResp> {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{
       data: IFetchAccountDetailsResp;
     }>(`/wallet/v1/account/get-account?${qs.stringify(omitBy(params, isNil))}`);
@@ -85,7 +86,7 @@ class ServiceAccountProfile extends ServiceBase {
   fetchValidateAddressResult = memoizee(
     async (params: IAddressNetworkIdParams) => {
       const { networkId, address } = params;
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{
         data: IAddressValidation;
       }>('/wallet/v1/account/validate-address', {
@@ -108,7 +109,7 @@ class ServiceAccountProfile extends ServiceBase {
     toAddress: string;
   }): Promise<IAddressInteractionStatus> {
     try {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{
         data: {
           interacted: boolean;
@@ -275,7 +276,7 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     body: IProxyRequestItem[];
   }): Promise<T[]> {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const request: IProxyRequest = { networkId, body };
     const resp = await client.post<IProxyResponse<T>>(
       '/wallet/v1/proxy/wallet',
@@ -295,7 +296,7 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     body: IProxyRequestItem[];
   }): Promise<T[]> {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const request: IProxyRequest = { networkId, body };
     const resp = await client.post<IRpcProxyResponse<T>>(
       '/wallet/v1/proxy/wallet',
