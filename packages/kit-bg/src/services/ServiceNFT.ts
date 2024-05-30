@@ -41,7 +41,11 @@ class ServiceNFT extends ServiceBase {
       '/wallet/v1/account/nft/detail',
       {
         ...rest,
-        nftIds: nfts.map((nft) => `${nft.collectionAddress}:${nft.itemId}`),
+        nftIds: nfts.map((nft) =>
+          isNil(nft.itemId)
+            ? nft.collectionAddress
+            : `${nft.collectionAddress}:${nft.itemId}`,
+        ),
       },
     );
     return resp.data.data;

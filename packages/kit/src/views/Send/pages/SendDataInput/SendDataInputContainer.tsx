@@ -500,21 +500,27 @@ function SendDataInputContainer() {
           label={intl.formatMessage({ id: 'form__amount' })}
           rules={{ required: true, max: 1, min: 1 }}
         >
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            position="absolute"
-            right="$0"
-            top="$0"
-          >
-            Available: 999
-          </SizableText>
+          {isLoadingAssets ? null : (
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              position="absolute"
+              right="$0"
+              top="$0"
+            >
+              Available: {nftDetails?.amount ?? 1}
+            </SizableText>
+          )}
           <Input
             size="large"
             addOns={[
               {
+                loading: isLoadingAssets,
                 label: intl.formatMessage({ id: 'action__max' }),
-                onPress: () => console.log('clicked'),
+                onPress: () => {
+                  form.setValue('nftAmount', nftDetails?.amount ?? '1');
+                  void form.trigger('nftAmount');
+                },
               },
             ]}
           />
@@ -522,7 +528,7 @@ function SendDataInputContainer() {
       );
     }
     return null;
-  }, [intl, nft?.collectionType]);
+  }, [form, intl, isLoadingAssets, nft?.collectionType, nftDetails?.amount]);
 
   const renderDataInput = useCallback(() => {
     if (isNFT) {
