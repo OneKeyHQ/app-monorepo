@@ -131,7 +131,7 @@ function MarketDetail({
 
   const renderHeaderTitle = useCallback(
     () => (
-      <XStack space="$2" $gtMd={{ ml: '$4' }}>
+      <XStack space="$2">
         <Image
           width="$6"
           height="$6"

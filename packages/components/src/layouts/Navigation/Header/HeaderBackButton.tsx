@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { memo } from 'react';
 
 import { useMedia } from 'tamagui';
@@ -40,8 +41,12 @@ function HeaderBackButton({
   isRootScreen,
   canGoBack,
   disableClose,
+  renderLeft,
   ...props
-}: IOnekeyStackHeaderProps & HeaderBackButtonProps) {
+}: IOnekeyStackHeaderProps &
+  HeaderBackButtonProps & {
+    renderLeft?: (props: HeaderBackButtonProps) => ReactNode | undefined;
+  }) {
   const isVerticalLayout = useMedia().md;
 
   const showCloseButton = isModelScreen && !isRootScreen && !canGoBack;
@@ -72,6 +77,12 @@ function HeaderBackButton({
     <HeaderButtonGroup mr="$4">
       {renderCollapseButton()}
       {!disableClose ? renderBackButton() : null}
+      {renderLeft
+        ? renderLeft({
+            canGoBack,
+            ...props,
+          })
+        : null}
     </HeaderButtonGroup>
   );
 }

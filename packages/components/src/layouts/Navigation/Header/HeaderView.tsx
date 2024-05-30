@@ -68,30 +68,27 @@ function HeaderView({
     }
   }, [canGoBack, navigation]);
 
+
   const headerLeftView = useCallback(
     (props: HeaderBackButtonProps): ReactNode => (
       <XStack>
-        {!disableClose ? (
-          <HeaderBackButton
-            canGoBack={!topStack}
-            onPress={onBackCallback}
-            isRootScreen={isRootScreen}
-            isModelScreen={isModelScreen}
-            {...props}
-          />
-        ) : null}
-        {headerLeft?.({
-          ...props,
-          canGoBack: !topStack,
-        })}
+        <HeaderBackButton
+          canGoBack={!topStack}
+          onPress={onBackCallback}
+          isRootScreen={isRootScreen}
+          isModelScreen={isModelScreen}
+          disableClose={disableClose}
+          renderLeft={headerLeft}
+          {...props}
+        />
       </XStack>
     ),
     [
-      disableClose,
-      isModelScreen,
-      isRootScreen,
-      onBackCallback,
       topStack,
+      onBackCallback,
+      isRootScreen,
+      isModelScreen,
+      disableClose,
       headerLeft,
     ],
   );
