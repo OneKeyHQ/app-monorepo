@@ -4,6 +4,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EOnChainHistoryTxStatus,
   type IAccountHistoryTx,
@@ -26,6 +27,40 @@ import ServiceBase from './ServiceBase';
 class ServiceHistory extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async refreshAccountHistory({
+    accountId,
+    networkId,
+    tokenIdOnNetwork,
+  }: {
+    accountId: string;
+    networkId: string;
+    tokenIdOnNetwork?: string;
+  }) {
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    const [xpub, vaultSettings] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceNetwork.getVaultSettings({
+        networkId,
+      }),
+    ]);
+    return this.fetchAccountHistory({
+      accountId,
+      accountAddress,
+      xpub,
+      networkId,
+      tokenIdOnNetwork,
+      onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+    });
   }
 
   @backgroundMethod()
@@ -136,7 +171,7 @@ class ServiceHistory extends ServiceBase {
       accountId,
       networkId,
     });
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     let resp;
     try {
       resp = await client.post<{ data: IFetchAccountHistoryResp }>(
@@ -184,7 +219,7 @@ class ServiceHistory extends ServiceBase {
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
       const { networkId, txid, accountAddress } = params;
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
         '/wallet/v1/account/history/detail',
         {
@@ -288,6 +323,9 @@ class ServiceHistory extends ServiceBase {
       isSigner: true,
       isLocalCreated: true,
     });
+    if (signedTx.stakingInfo) {
+      newHistoryTx.stakingInfo = signedTx.stakingInfo;
+    }
     await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
   }
 }

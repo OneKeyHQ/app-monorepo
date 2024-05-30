@@ -10,7 +10,7 @@ import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import { YStack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import ExtremeLabels from './ExtremeLabels';
+// import ExtremeLabels from './ExtremeLabels';
 
 import type { IOnHoverFunction } from '../chartUtils';
 

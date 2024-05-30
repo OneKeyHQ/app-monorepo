@@ -2973,12 +2973,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   };
 
   const chainsOnlyEnabledInDev = [
-    aptos,
-    polkadot,
-    astar,
-    kusama,
-    manta,
-    joystream,
     tatom, // Cosmos Testnet
     nexaTestnet,
     tlightning,
@@ -3032,7 +3026,14 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     akash,
     osmosis,
     cosmoshub,
+    // polkadot
+    polkadot,
+    astar,
+    kusama,
+    manta,
+    joystream,
 
+    aptos,
     lightning,
     cardano,
     ripple,

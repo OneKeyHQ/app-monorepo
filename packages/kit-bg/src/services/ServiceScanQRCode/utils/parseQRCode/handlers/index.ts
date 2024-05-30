@@ -1,40 +1,27 @@
 import animation from './animation';
 import bitcoin from './bitcoin';
 import ethereum from './ethereum';
+import marketDetail from './marketDetail';
 import migrate from './migrate';
 import solana from './solana';
 import urlAccount from './urlAccount';
 import walletconnect from './walletconnect';
 
-import type {
-  IBaseValue,
-  IQRCodeHandler,
-  IQRCodeParseHandlerListScene,
-} from '../type';
+import type { IBaseValue, IQRCodeHandler } from '../type';
 
-export function getParseHandlerListWithScene(
-  type: IQRCodeParseHandlerListScene,
-) {
-  switch (type) {
-    case 'all':
-      return {
-        bitcoin,
-        ethereum,
-        solana,
-        walletconnect,
-        migrate,
-        animation,
-        urlAccount,
-      } as Record<string, IQRCodeHandler<IBaseValue>>;
-    case 'animation': {
-      return {
-        animation,
-      } as Record<string, IQRCodeHandler<IBaseValue>>;
-    }
-    case 'none': {
-      return {};
-    }
-    default:
-      return {};
-  }
-}
+export const PARSE_HANDLERS = {
+  all: {
+    bitcoin,
+    ethereum,
+    solana,
+    walletconnect,
+    migrate,
+    animation,
+    urlAccount,
+    marketDetail,
+  },
+  animation: {
+    animation,
+  },
+  none: {},
+} as Record<string, Record<string, IQRCodeHandler<IBaseValue>>>;

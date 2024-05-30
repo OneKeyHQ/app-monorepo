@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { isNil, random } from 'lodash';
+import { isNil } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
@@ -11,6 +11,7 @@ import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type {
   IDecodedTx,
@@ -56,10 +57,13 @@ class ServiceSend extends ServiceBase {
     }
 
     if (unsignedTx.swapInfo) {
-      decodedTx.swapProvider =
+      decodedTx.toAddressLabel =
         unsignedTx.swapInfo.swapBuildResData?.result?.info?.providerName;
     }
 
+    if (unsignedTx.stakingInfo) {
+      decodedTx.toAddressLabel = unsignedTx.stakingInfo.protocol;
+    }
     return decodedTx;
   }
 
@@ -98,7 +102,7 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
     const { networkId, signedTx, accountAddress, signature } = params;
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { result: string };
     }>('/wallet/v1/account/send-transaction', {
@@ -151,6 +155,7 @@ class ServiceSend extends ServiceBase {
     console.log('signTx@serviceSend.signTransaction', tx);
 
     tx.swapInfo = unsignedTx.swapInfo;
+    tx.stakingInfo = unsignedTx.stakingInfo;
     return tx;
   }
 
@@ -243,7 +248,6 @@ class ServiceSend extends ServiceBase {
             accountId,
             signOnly: false,
           });
-
       const decodedTx = await this.buildDecodedTx({
         networkId,
         accountId,
@@ -352,6 +356,7 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       wrappedInfo,
       swapInfo,
+      stakingInfo,
       specifiedFeeRate,
     } = params;
 
@@ -375,6 +380,9 @@ class ServiceSend extends ServiceBase {
     }
     if (swapInfo) {
       newUnsignedTx.swapInfo = swapInfo;
+    }
+    if (stakingInfo) {
+      newUnsignedTx.stakingInfo = stakingInfo;
     }
 
     const isNonceRequired = (
@@ -455,7 +463,7 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     txids: string[];
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { transactionMap: Record<string, { rawTx: string }> };
     }>('/wallet/v1/network/raw-transaction/list', {

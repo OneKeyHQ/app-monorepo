@@ -8,7 +8,7 @@ import { EQRCodeHandlerType } from '../type';
 import type { IQRCodeHandler, IUrlAccountValue } from '../type';
 
 /*
-https://wallet.onekeytest.com/btc/3EuKgMjxH8t3zEpMoobSeofXzQ64u2Sfpi
+https://app.onekeytest.com/btc/3EuKgMjxH8t3zEpMoobSeofXzQ64u2Sfpi
 */
 const urlAccount: IQRCodeHandler<IUrlAccountValue> = async (value, options) => {
   const urlValue = options?.urlResult;

@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IResolveNameParams,
   IResolveNameResp,
@@ -20,7 +21,7 @@ class ServiceNameResolver extends ServiceBase {
     name,
     networkId,
   }: IResolveNameParams): Promise<IResolveNameResp | undefined | null> {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
       const resp = await client.get<{
         data: IResolveNameResp;

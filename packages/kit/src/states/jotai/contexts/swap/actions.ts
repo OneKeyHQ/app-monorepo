@@ -719,9 +719,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const accountXpub = (
         swapAddressInfo.accountInfo?.account as IDBUtxoAccount
       )?.xpub;
-      if (accountNetworkId !== token?.networkId) return;
       let balanceDisplay;
-      if (token && accountAddress && accountNetworkId) {
+      if (
+        token &&
+        accountAddress &&
+        accountNetworkId &&
+        accountNetworkId === token?.networkId
+      ) {
         if (
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
@@ -818,7 +822,7 @@ export const useSwapActions = () => {
   const syncNetworksSort = actions.syncNetworksSort.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
-  const quoteAction = debounce(actions.quoteAction.use(), 100);
+  const quoteAction = debounce(actions.quoteAction.use(), 500);
   const approvingStateAction = actions.approvingStateAction.use();
   const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 200);
   const tokenListFetchAction = actions.tokenListFetchAction.use();

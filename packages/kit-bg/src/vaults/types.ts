@@ -24,6 +24,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -103,6 +104,7 @@ export type IAccountDeriveTypes =
 export type IVaultSettingsNetworkInfo = {
   addressPrefix: string;
   curve: ICurveName;
+  nativeTokenAddress?: string;
 };
 export type IVaultSettings = {
   impl: string;
@@ -145,8 +147,6 @@ export type IVaultSettings = {
   withPaymentId?: boolean;
 
   enabledOnClassicOnly?: boolean;
-
-  nativeTokenAddress?: string;
 };
 
 export type IVaultFactoryOptions = {
@@ -341,6 +341,7 @@ export interface IBuildUnsignedTxParams {
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
+  stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {

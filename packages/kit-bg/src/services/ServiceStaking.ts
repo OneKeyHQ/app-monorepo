@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAllowanceOverview,
   IAprItem,
@@ -11,6 +12,7 @@ import type {
   ILidoEthOverview,
   ILidoMaticOverview,
   IServerEvmTransaction,
+  IStakeTag,
 } from '@onekeyhq/shared/types/staking';
 
 import ServiceBase from './ServiceBase';
@@ -23,7 +25,7 @@ class ServiceStaking extends ServiceBase {
 
   private baseGetApr = memoizee(
     async (token: IAprToken) => {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
       const resp = await client.get<{
         data: IAprItem[];
       }>(`/earn/v1/apr/index`, { params: { token } });
@@ -53,19 +55,25 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: ILidoEthOverview;
-    }>(`/earn/v1/lido-eth/overview`, { params: { accountAddress } });
+    }>(`/earn/v1/lido-eth/overview`, { params: { accountAddress, networkId } });
     return resp.data.data;
   }
 
   @backgroundMethod()
-  public async buildLidoEthStakingTransaction({ amount }: { amount: string }) {
-    const client = await this.getClient();
+  public async buildLidoEthStakingTransaction({
+    amount,
+    networkId,
+  }: {
+    amount: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
-    }>(`/earn/v1/lido-eth/tx/stake`, { amount });
+    }>(`/earn/v1/lido-eth/tx/stake`, { amount, networkId });
     return resp.data.data;
   }
 
@@ -79,7 +87,7 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,
@@ -87,7 +95,7 @@ class ServiceStaking extends ServiceBase {
       });
     const resp = await client.post<{
       data: { message: string; deadline: number };
-    }>(`/earn/v1/lido-eth/tx/permit`, { amount, accountAddress });
+    }>(`/earn/v1/lido-eth/tx/permit`, { amount, accountAddress, networkId });
     return resp.data.data;
   }
 
@@ -110,7 +118,7 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
     }>(`/earn/v1/lido-eth/tx/withdrawal`, {
@@ -118,6 +126,7 @@ class ServiceStaking extends ServiceBase {
       deadline,
       signature,
       accountAddress,
+      networkId,
     });
     return resp.data.data;
   }
@@ -125,13 +134,15 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   public async buildLidoEthClaimTransaction({
     requestIds,
+    networkId,
   }: {
     requestIds: number[];
+    networkId: string;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
-    }>(`/earn/v1/lido-eth/tx/claim`, { requestIds });
+    }>(`/earn/v1/lido-eth/tx/claim`, { requestIds, networkId });
     return resp.data.data;
   }
 
@@ -148,49 +159,57 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: ILidoMaticOverview;
-    }>(`/earn/v1/lido-matic/overview`, { params: { accountAddress } });
+    }>(`/earn/v1/lido-matic/overview`, {
+      params: { accountAddress, networkId },
+    });
     return resp.data.data;
   }
 
   @backgroundMethod()
   public async buildLidoMaticStakingTransaction({
     amount,
+    networkId,
   }: {
     amount: string;
+    networkId: string;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
-    }>(`/earn/v1/lido-matic/tx/stake`, { amount });
+    }>(`/earn/v1/lido-matic/tx/stake`, { amount, networkId });
     return resp.data.data;
   }
 
   @backgroundMethod()
   public async buildLidoMaticWithdrawalTransaction({
     amount,
+    networkId,
   }: {
     amount: string;
+    networkId: string;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
-    }>(`/earn/v1/lido-matic/tx/unstake`, { amount });
+    }>(`/earn/v1/lido-matic/tx/unstake`, { amount, networkId });
     return resp.data.data;
   }
 
   @backgroundMethod()
   public async buildLidoMaticClaimTransaction({
     tokenId,
+    networkId,
   }: {
     tokenId: number;
+    networkId: string;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
-    }>(`/earn/v1/lido-matic/tx/claim`, { tokenId });
+    }>(`/earn/v1/lido-matic/tx/claim`, { tokenId, networkId });
     return resp.data.data;
   }
 
@@ -203,7 +222,7 @@ class ServiceStaking extends ServiceBase {
     blockNumber?: number;
   }) {
     const { networkId, accountId, ...rest } = params;
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,
@@ -217,6 +236,27 @@ class ServiceStaking extends ServiceBase {
     });
 
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  public async fetchLocalStakingHistory({
+    accountId,
+    networkId,
+    stakeTag,
+  }: {
+    accountId: string;
+    networkId: string;
+    stakeTag: IStakeTag;
+  }) {
+    const pendingTxs =
+      await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs({
+        networkId,
+        accountId,
+      });
+    const stakingTxs = pendingTxs.filter(
+      (o) => o.stakingInfo && o.stakingInfo.tags.includes(stakeTag),
+    );
+    return stakingTxs;
   }
 }
 
