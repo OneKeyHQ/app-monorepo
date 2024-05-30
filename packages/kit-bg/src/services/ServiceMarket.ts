@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
   IMarketDetailPool,
@@ -22,7 +23,7 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchCategories(filters = [ONEKEY_SEARCH_TRANDING]) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketCategory[];
     }>('/utility/v1/market/category/list');
@@ -64,7 +65,7 @@ class ServiceMarket extends ServiceBase {
     if (coingeckoIds.length) {
       requestParams.ids = encodeURI(coingeckoIds.join(','));
     }
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketToken[];
     }>('/utility/v1/market/tokens', {
@@ -80,7 +81,7 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchTokenDetail(coingeckoId: string, explorerPlatforms = true) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketTokenDetail;
     }>('/utility/v1/market/detail', {
@@ -95,7 +96,7 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchPools(query: string) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     try {
       const response = await client.get<{
         data: IMarketDetailPool[];
@@ -113,7 +114,7 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchTokenChart(coingeckoId: string, days: string, points: number) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketTokenChart;
     }>('/utility/v1/market/token/chart', {
@@ -129,7 +130,7 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async searchToken(query: string) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: string[];
     }>('/utility/v1/market/search', {

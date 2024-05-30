@@ -10,6 +10,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
@@ -27,7 +28,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   async fetchConfig() {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       code: number;
       data: IResponseAppUpdateInfo;

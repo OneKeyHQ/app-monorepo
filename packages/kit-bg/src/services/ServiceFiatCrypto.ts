@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFiatCryptoToken,
   IFiatCryptoType,
@@ -24,7 +25,7 @@ class ServiceFiatCrypto extends ServiceBase {
 
   _buildUriForFiatToken = memoizee(
     async (params: IGenerateWidgetUrl) => {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const { enabled: isDev } = await devSettingsPersistAtom.get();
       const resp = await client.get<{
         data: { url: string; build: boolean };
@@ -62,7 +63,7 @@ class ServiceFiatCrypto extends ServiceBase {
       type: IFiatCryptoType;
       address?: string;
     }) => {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{
         data: IFiatCryptoToken[];
       }>('/wallet/v1/fiat-pay/list', { params });

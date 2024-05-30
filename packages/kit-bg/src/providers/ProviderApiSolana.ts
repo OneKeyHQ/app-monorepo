@@ -208,7 +208,6 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: { onlyIfTrusted: boolean },
   ) {
-    debugger;
     const { onlyIfTrusted = false } = params || {};
 
     let publicKey = (await this._getConnectedAccountsPublicKey(request))[0];

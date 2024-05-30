@@ -5,6 +5,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
@@ -47,7 +48,7 @@ class ServiceToken extends ServiceBase {
       rest.accountAddress,
     );
     rest.accountAddress = normalizedAddress;
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     this._fetchAccountTokensController = controller;
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
@@ -75,7 +76,7 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async fetchTokensDetails(params: IFetchTokenDetailParams) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: ({
         info: IToken;

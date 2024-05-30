@@ -1,13 +1,19 @@
-export enum EEndpointName {
-  Http = 'http',
-  WebSocket = 'websocket',
+export enum EServiceEndpointEnum {
+  Wallet = 'wallet',
+  Swap = 'swap',
+  Utility = 'utility',
+  Lightning = 'lightning',
+  Earn = 'earn',
 }
 
 export type IEndpointEnv = 'test' | 'prod';
 
-export type IEndpoint = {
-  http: string;
-  websocket: string;
+export type IServiceEndpoint = {
+  wallet: string;
+  swap: string;
+  utility: string;
+  lightning: string;
+  earn: string;
 };
 
 export type IEndpointDomainWhiteList = string[];

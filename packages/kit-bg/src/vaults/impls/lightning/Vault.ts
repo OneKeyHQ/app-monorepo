@@ -36,6 +36,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IFetchAccountHistoryParams } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type {
@@ -93,7 +94,9 @@ export default class Vault extends VaultBase {
   private getClientCache = memoizee(
     async () => {
       const network = await this.getNetwork();
-      const _client = await this.backgroundApi.serviceLightning.getClient();
+      const _client = await this.backgroundApi.serviceLightning.getClient(
+        EServiceEndpointEnum.Lightning,
+      );
       return new ClientLightning(
         this.backgroundApi,
         _client,

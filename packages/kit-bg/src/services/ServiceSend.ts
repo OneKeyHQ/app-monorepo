@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { isNil, random } from 'lodash';
+import { isNil } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
@@ -11,6 +11,7 @@ import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type {
   IDecodedTx,
@@ -98,7 +99,7 @@ class ServiceSend extends ServiceBase {
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
     const { networkId, signedTx, accountAddress, signature } = params;
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { result: string };
     }>('/wallet/v1/account/send-transaction', {
@@ -455,7 +456,7 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     txids: string[];
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { transactionMap: Record<string, { rawTx: string }> };
     }>('/wallet/v1/network/raw-transaction/list', {

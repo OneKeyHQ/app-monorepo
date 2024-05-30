@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountNFTsParams,
   IFetchAccountNFTsResp,
@@ -25,7 +26,7 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.get<{
       data: IFetchAccountNFTsResp;
     }>(`/wallet/v1/account/nft/list?${qs.stringify(omitBy(params, isNil))}`);
@@ -34,7 +35,7 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async fetchNFTDetails(params: IFetchNFTDetailsParams) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const { nfts, ...rest } = params;
     const resp = await client.post<IFetchNFTDetailsResp>(
       '/wallet/v1/account/nft/detail',

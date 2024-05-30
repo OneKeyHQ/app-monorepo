@@ -3,6 +3,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IEstimateGasParams,
   IEstimateGasResp,
@@ -20,7 +21,7 @@ class ServiceGas extends ServiceBase {
 
   @backgroundMethod()
   async estimateFee(params: IEstimateGasParams) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
 
     const resp = await client.post<{ data: IEstimateGasResp }>(
       '/wallet/v1/account/estimate-fee',

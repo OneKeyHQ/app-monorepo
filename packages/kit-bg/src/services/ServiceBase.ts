@@ -8,7 +8,7 @@ import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EEndpointName } from '@onekeyhq/shared/types/endpoint';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { getEndpoints } from '../endpoints';
 
@@ -19,9 +19,12 @@ export type IServiceBaseProps = {
   backgroundApi: any;
 };
 
-const clients: Record<EEndpointName, AxiosInstance | null> = {
-  [EEndpointName.Http]: null,
-  [EEndpointName.WebSocket]: null,
+const clients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
+  [EServiceEndpointEnum.Wallet]: null,
+  [EServiceEndpointEnum.Swap]: null,
+  [EServiceEndpointEnum.Utility]: null,
+  [EServiceEndpointEnum.Lightning]: null,
+  [EServiceEndpointEnum.Earn]: null,
 };
 
 @backgroundClass()
@@ -33,7 +36,7 @@ export default class ServiceBase {
   backgroundApi: IBackgroundApi;
 
   getClient = memoizee(
-    async (endpointName: EEndpointName = EEndpointName.Http) => {
+    async (endpointName: EServiceEndpointEnum) => {
       const existingClient = clients[endpointName];
       if (existingClient) return existingClient;
 
