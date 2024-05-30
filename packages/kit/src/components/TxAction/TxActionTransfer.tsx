@@ -451,10 +451,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             })}
             content={target}
             description={
-              decodedTx.swapProvider && direction === EDecodedTxDirection.OUT
+              decodedTx.toAddressLabel && direction === EDecodedTxDirection.OUT
                 ? {
                     icon: 'NoteSolid',
-                    content: decodedTx.swapProvider,
+                    content: decodedTx.toAddressLabel,
                   }
                 : undefined
             }
@@ -487,7 +487,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       return <Container.Box>{transferElements}</Container.Box>;
     },
     [
-      decodedTx.swapProvider,
+      decodedTx.toAddressLabel,
       from,
       intl,
       isSendNativeToken,

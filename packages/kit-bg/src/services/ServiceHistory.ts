@@ -30,6 +30,40 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  async refreshAccountHistory({
+    accountId,
+    networkId,
+    tokenIdOnNetwork,
+  }: {
+    accountId: string;
+    networkId: string;
+    tokenIdOnNetwork?: string;
+  }) {
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    const [xpub, vaultSettings] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      this.backgroundApi.serviceNetwork.getVaultSettings({
+        networkId,
+      }),
+    ]);
+    return this.fetchAccountHistory({
+      accountId,
+      accountAddress,
+      xpub,
+      networkId,
+      tokenIdOnNetwork,
+      onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+    });
+  }
+
+  @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId, tokenIdOnNetwork, onChainHistoryDisabled } =
       params;
@@ -289,6 +323,9 @@ class ServiceHistory extends ServiceBase {
       isSigner: true,
       isLocalCreated: true,
     });
+    if (signedTx.stakingInfo) {
+      newHistoryTx.stakingInfo = signedTx.stakingInfo;
+    }
     await this.saveLocalHistoryPendingTxs({ pendingTxs: [newHistoryTx] });
   }
 }
