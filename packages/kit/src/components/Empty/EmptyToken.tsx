@@ -1,10 +1,11 @@
 import type { IImageProps } from '@onekeyhq/components';
-import { Image, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Empty, Image, SizableText, Stack, XStack } from '@onekeyhq/components';
 
 type IProps = {
   isBuyTokenSupported?: boolean;
   onBuy?: () => void;
   onReceive?: () => void;
+  withBuyAndReceive?: boolean;
 };
 
 function EmptyTokenItem({
@@ -39,30 +40,42 @@ function EmptyTokenItem({
 }
 
 function EmptyToken(props: IProps) {
-  const { onBuy, onReceive, isBuyTokenSupported } = props;
-  return (
-    <Stack py="$2">
-      <SizableText size="$bodyLg" color="$textSubdued" px="$5">
-        You have no tokens yet.
-      </SizableText>
+  const { onBuy, onReceive, isBuyTokenSupported, withBuyAndReceive } = props;
 
-      <XStack mt="$2.5" px="$2.5">
-        {isBuyTokenSupported ? (
+  if (withBuyAndReceive) {
+    return (
+      <Stack py="$2">
+        <SizableText size="$bodyLg" color="$textSubdued" px="$5">
+          You have no tokens yet.
+        </SizableText>
+
+        <XStack mt="$2.5" px="$2.5">
+          {isBuyTokenSupported ? (
+            <EmptyTokenItem
+              image={require('@onekeyhq/kit/assets/buy_assets.png')}
+              content="Buy with trusted providers"
+              onPress={onBuy}
+            />
+          ) : null}
+
           <EmptyTokenItem
-            image={require('@onekeyhq/kit/assets/buy_assets.png')}
-            content="Buy with trusted providers"
-            onPress={onBuy}
+            image={require('@onekeyhq/kit/assets/receive_assets.png')}
+            content="Receive Tokens or NFTs"
+            onPress={onReceive}
           />
-        ) : null}
+        </XStack>
+      </Stack>
+    );
+  }
 
-        <EmptyTokenItem
-          image={require('@onekeyhq/kit/assets/receive_assets.png')}
-          content="Receive Tokens or NFTs"
-          onPress={onReceive}
-        />
-      </XStack>
-    </Stack>
+  return (
+    <Empty
+      testID="Wallet-No-Token-Empty"
+      icon="CoinOutline"
+      title="No tokens found at this address"
+    />
   );
+
   // TODO: App review mode
 }
 

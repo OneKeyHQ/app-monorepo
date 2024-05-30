@@ -3,8 +3,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
-import { useBuyToken } from '../../hooks/useBuyToken';
-import { useReceiveToken } from '../../hooks/useReceiveToken';
 import {
   useSearchKeyAtom,
   useTokenListAtom,
@@ -26,6 +24,10 @@ type IProps = {
   withHeader?: boolean;
   withFooter?: boolean;
   withPrice?: boolean;
+  withBuyAndReceive?: boolean;
+  onReceiveToken?: () => void;
+  onBuyToken?: () => void;
+  isBuyTokenSupported?: boolean;
 };
 
 function TokenListView(props: IProps) {
@@ -36,13 +38,15 @@ function TokenListView(props: IProps) {
     withHeader,
     withFooter,
     withPrice,
+    withBuyAndReceive,
+    onReceiveToken,
+    onBuyToken,
+    isBuyTokenSupported,
   } = props;
 
   const [tokenList] = useTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
-  const { handleOnReceive } = useReceiveToken();
-  const { handleOnBuy, isSupported } = useBuyToken();
   const { tokens } = tokenList;
 
   const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
@@ -73,9 +77,10 @@ function TokenListView(props: IProps) {
           EmptySearch
         ) : (
           <EmptyToken
-            isBuyTokenSupported={isSupported}
-            onBuy={handleOnBuy}
-            onReceive={handleOnReceive}
+            withBuyAndReceive={withBuyAndReceive}
+            isBuyTokenSupported={isBuyTokenSupported}
+            onBuy={onBuyToken}
+            onReceive={onReceiveToken}
           />
         )
       }

@@ -2,41 +2,55 @@ import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-function useReceiveToken() {
-  const {
-    activeAccount: { account, network, wallet, deriveInfo, deriveType },
-  } = useActiveAccount({ num: 0 });
+function useReceiveToken({
+  accountId,
+  networkId,
+  walletId,
+  deriveInfo,
+  deriveType,
+}: {
+  accountId: string;
+  networkId: string;
+  walletId: string;
+  deriveInfo: IAccountDeriveInfo | undefined;
+  deriveType: IAccountDeriveTypes;
+}) {
   const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
+    useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
 
   const handleOnReceive = useCallback(() => {
-    if (!account || !network || !wallet || !deriveInfo) return;
-    if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
+    if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
       navigation.pushModal(EModalRoutes.ReceiveModal, {
         screen: EModalReceiveRoutes.CreateInvoice,
         params: {
-          networkId: network.id,
-          accountId: account.id,
+          networkId,
+          accountId,
         },
       });
       return;
     }
+
+    if (!deriveInfo) return;
+
     navigation.pushModal(EModalRoutes.ReceiveModal, {
       screen: EModalReceiveRoutes.ReceiveToken,
       params: {
-        networkId: network.id,
-        accountId: account.id,
-        walletId: wallet.id,
+        networkId,
+        accountId,
+        walletId,
         deriveInfo,
         deriveType,
       },
     });
-  }, [account, deriveInfo, deriveType, navigation, network, wallet]);
+  }, [accountId, deriveInfo, deriveType, navigation, networkId, walletId]);
 
   return { handleOnReceive };
 }

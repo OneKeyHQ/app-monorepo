@@ -4,7 +4,6 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
@@ -27,6 +26,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { RawActions } from './RawActions';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionMore } from './WalletActionMore';
+import { WalletActionReceive } from './WalletActionReceive';
 
 function WalletActionSend() {
   const navigation =
@@ -108,12 +108,6 @@ function WalletActionSend() {
   );
 }
 
-function WalletActionReceive() {
-  const { handleOnReceive } = useReceiveToken();
-
-  return <RawActions.Receive onPress={handleOnReceive} />;
-}
-
 function WalletActionSwap({ networkId }: { networkId?: string }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -128,15 +122,21 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
 
 function WalletActions() {
   const {
-    activeAccount: { network },
+    activeAccount: { network, account, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
 
   return (
     <RawActions>
-      <WalletActionBuy />
+      <WalletActionBuy networkId={network?.id} accountId={account?.id} />
       <WalletActionSwap networkId={network?.id} />
       <WalletActionSend />
-      <WalletActionReceive />
+      <WalletActionReceive
+        accountId={account?.id}
+        networkId={network?.id}
+        walletId={wallet?.id}
+        deriveInfo={deriveInfo}
+        deriveType={deriveType}
+      />
       <WalletActionMore />
     </RawActions>
   );
