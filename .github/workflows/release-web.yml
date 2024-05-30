@@ -14,7 +14,7 @@ jobs:
     env:
       HOST_PATH: '${{ github.event.repository.name }}/${{ github.sha }}/'
       PUBLIC_URL: 'https://asset.onekey-asset.com/${{ github.event.repository.name }}/${{ github.sha }}/'
-      TEST_ENDPOINT: wallet.onekeytest.com
+      TEST_ENDPOINT: app.onekeytest.com
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
       - uses: actions/checkout@v3

@@ -42,8 +42,8 @@ export const ONEKEY_URL = 'https://onekey.so';
 export const ONEKEY_API_HOST = 'onekeytest.com';
 export const ONEKEY_TEST_API_HOST = 'onekeytest.com';
 // https://1key.so
-export const WEB_APP_URL = 'https://wallet.onekeytest.com';
-export const WEB_APP_URL_DEV = 'https://wallet.onekeytest.com';
+export const WEB_APP_URL = 'https://app.onekeytest.com';
+export const WEB_APP_URL_DEV = 'https://app.onekeytest.com';
 
 export const EXT_RATE_URL = {
   'chrome':

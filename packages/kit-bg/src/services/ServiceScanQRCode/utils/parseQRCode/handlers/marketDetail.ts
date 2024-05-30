@@ -8,7 +8,7 @@ import { EQRCodeHandlerType } from '../type';
 import type { IMarketDetailValue, IQRCodeHandler } from '../type';
 
 /*
-https://wallet.onekeytest.com/market/market_detail?coinGeckoId=bitcoin
+https://app.onekeytest.com/market/market_detail?coinGeckoId=bitcoin
 */
 export const marketDetail: IQRCodeHandler<IMarketDetailValue> = async (
   value,
