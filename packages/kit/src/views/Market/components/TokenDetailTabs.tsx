@@ -126,12 +126,17 @@ function BasicTokenDetailTabs({
     [md, pools, token],
   );
   return pools ? (
-    <Stack $gtMd={{ pt: '$8', px: '$5' }} py="$5">
+    <Stack $gtMd={{ pt: '$8', px: '$5' }}>
       <Tab.Page
         data={tabConfig}
         ListHeaderComponent={listHeaderComponent}
         onSelectedPageIndex={(index: number) => {
           console.log('选中', index);
+        }}
+        headerProps={{
+          style: {
+            marginTop: 20,
+          },
         }}
       />
     </Stack>
