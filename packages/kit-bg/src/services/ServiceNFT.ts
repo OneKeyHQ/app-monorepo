@@ -52,6 +52,7 @@ class ServiceNFT extends ServiceBase {
     networkId: string;
     nftId: string;
     collectionAddress: string;
+    accountAddress: string;
   }) {
     try {
       return {
@@ -67,14 +68,17 @@ class ServiceNFT extends ServiceBase {
       networkId,
       nftId,
       collectionAddress,
+      accountAddress,
     }: {
       networkId: string;
       nftId: string;
       collectionAddress: string;
+      accountAddress: string;
     }) => {
       const nftDetails = await this.fetchNFTDetails({
         networkId,
         nfts: [{ collectionAddress, itemId: nftId }],
+        accountAddress,
       });
       return nftDetails[0];
     },
