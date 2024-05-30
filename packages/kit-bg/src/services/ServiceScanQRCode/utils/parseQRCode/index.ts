@@ -1,4 +1,4 @@
-import { PARSE_HANDLERS } from './handlers';
+import { PARSE_HANDLERS, PARSE_HANDLER_NAMES } from './handlers';
 import * as deeplinkHandler from './handlers/deeplink';
 import * as urlHandler from './handlers/url';
 import { EQRCodeHandlerType } from './type';
@@ -13,14 +13,15 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
   value,
   options,
 ) => {
-  const handlers = options?.handlers ?? PARSE_HANDLERS.all;
+  const handlerNames = options?.handlers ?? PARSE_HANDLER_NAMES.all;
   let result: IQRCodeHandlerParseResult<IBaseValue> | undefined;
   const urlResult = await urlHandler.default(value);
   const deeplinkResult = await deeplinkHandler.default(value, {
     urlResult,
   });
 
-  for (const handler of Object.values(handlers)) {
+  for (const handlerName of handlerNames) {
+    const handler = PARSE_HANDLERS[handlerName];
     try {
       const itemResult = await handler(value, {
         ...options,

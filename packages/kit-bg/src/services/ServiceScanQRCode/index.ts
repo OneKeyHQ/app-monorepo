@@ -19,7 +19,7 @@ class ServiceScanQRCode extends ServiceBase {
   public parse(value: string, options?: IQRCodeHandlerParseOptions) {
     return parseQRCode(value, {
       ...options,
-      handlers: options?.handlers ?? {},
+      handlers: options?.handlers ?? [],
       backgroundApi: this.backgroundApi,
     });
   }

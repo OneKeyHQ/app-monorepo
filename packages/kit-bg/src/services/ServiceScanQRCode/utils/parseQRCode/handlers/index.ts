@@ -1,3 +1,5 @@
+import { EQRCodeHandlerNames } from '../type';
+
 import animation from './animation';
 import bitcoin from './bitcoin';
 import ethereum from './ethereum';
@@ -7,21 +9,28 @@ import solana from './solana';
 import urlAccount from './urlAccount';
 import walletconnect from './walletconnect';
 
-import type { IBaseValue, IQRCodeHandler } from '../type';
-
 export const PARSE_HANDLERS = {
-  all: {
-    bitcoin,
-    ethereum,
-    solana,
-    walletconnect,
-    migrate,
-    animation,
-    urlAccount,
-    marketDetail,
-  },
-  animation: {
-    animation,
-  },
-  none: {},
-} as Record<string, Record<string, IQRCodeHandler<IBaseValue>>>;
+  [EQRCodeHandlerNames.bitcoin]: bitcoin,
+  [EQRCodeHandlerNames.ethereum]: ethereum,
+  [EQRCodeHandlerNames.solana]: solana,
+  [EQRCodeHandlerNames.walletconnect]: walletconnect,
+  [EQRCodeHandlerNames.migrate]: migrate,
+  [EQRCodeHandlerNames.animation]: animation,
+  [EQRCodeHandlerNames.urlAccount]: urlAccount,
+  [EQRCodeHandlerNames.marketDetail]: marketDetail,
+};
+
+export const PARSE_HANDLER_NAMES = {
+  all: [
+    EQRCodeHandlerNames.bitcoin,
+    EQRCodeHandlerNames.ethereum,
+    EQRCodeHandlerNames.solana,
+    EQRCodeHandlerNames.walletconnect,
+    EQRCodeHandlerNames.migrate,
+    EQRCodeHandlerNames.animation,
+    EQRCodeHandlerNames.urlAccount,
+    EQRCodeHandlerNames.marketDetail,
+  ],
+  animation: [EQRCodeHandlerNames.animation],
+  none: [],
+} as Record<string, EQRCodeHandlerNames[]>;

@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { Vibration } from 'react-native';
 
-import { PARSE_HANDLERS } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers';
+import { PARSE_HANDLER_NAMES } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers';
 import { resetAnimationQrcodeScan } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers/animation';
 import type {
   IAnimationValue,
@@ -66,5 +66,5 @@ export default function useScanQrCode() {
       }),
     [navigation, parseQRCode],
   );
-  return useMemo(() => ({ start, PARSE_HANDLERS }), [start]);
+  return useMemo(() => ({ start, PARSE_HANDLER_NAMES }), [start]);
 }

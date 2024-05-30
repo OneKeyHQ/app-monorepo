@@ -46,7 +46,7 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
             string | undefined
           > = async () => {
             const scanResult = await scanQrCode.start({
-              handlers: scanQrCode.PARSE_HANDLERS.animation,
+              handlers: scanQrCode.PARSE_HANDLER_NAMES.animation,
               autoHandleResult: false,
               mask: true,
             });

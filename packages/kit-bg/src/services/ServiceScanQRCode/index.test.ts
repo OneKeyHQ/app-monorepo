@@ -1,5 +1,5 @@
 import { parseQRCode as parse } from './utils/parseQRCode';
-import { PARSE_HANDLERS } from './utils/parseQRCode/handlers';
+import { PARSE_HANDLER_NAMES } from './utils/parseQRCode/handlers';
 import { EQRCodeHandlerType } from './utils/parseQRCode/type';
 
 // yarn jest packages/kit-bg/src/services/ServiceScanQRCode/index.test.ts
@@ -247,7 +247,7 @@ describe('useParseQRCode', () => {
     expect(
       await parse('other:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH', {
         bitcoinUrlScheme: 'other',
-        handlers: PARSE_HANDLERS.all,
+        handlers: PARSE_HANDLER_NAMES.all,
       }),
     ).toEqual(
       expect.objectContaining({
