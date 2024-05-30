@@ -3,9 +3,8 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { groupBy } from 'lodash';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
+import type { ISizableTextProps, ITabPageProps } from '@onekeyhq/components';
 import {
-  Button,
   Dialog,
   Icon,
   ListView,
@@ -212,7 +211,10 @@ function NetworkIdSelect({
   );
 }
 
-export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
+export function MarketDetailPools({
+  pools,
+  onContentSizeChange,
+}: ITabPageProps & { pools: IMarketDetailPool[] }) {
   const { gtMd } = useMedia();
   const partitions = useMemo(() => groupBy(pools, 'onekeyNetworkId'), [pools]);
   const onekeyNetworkIds = useMemo(() => Object.keys(partitions), [partitions]);
@@ -252,6 +254,7 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
       <ListView
         data={sortedListData}
         estimatedItemSize={38}
+        onContentSizeChange={onContentSizeChange}
         ListHeaderComponent={
           <HeaderRow
             sortType={sortByType}

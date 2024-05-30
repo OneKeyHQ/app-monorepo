@@ -9,6 +9,7 @@ import {
   NavBackButton,
   NumberSizeableText,
   Page,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -64,7 +65,7 @@ function TokenDetailHeader({
   } = token;
   const { gtMd } = useMedia();
   return (
-    <YStack $gtMd={{ maxWidth: 336 }} px="$5">
+    <YStack px="$5">
       <XStack ai="center">
         <YStack flex={1}>
           <SizableText size="$headingMd" color="$textSubdued">
@@ -235,7 +236,7 @@ function MarketDetail({
     return null;
   }
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         disableClose
         headerTitle={renderHeaderTitle}
@@ -244,16 +245,20 @@ function MarketDetail({
       />
       <Page.Body>
         {gtMd ? (
-          <YStack>
+          <YStack flex={1}>
             <Stack
+              flex={1}
               flexDirection="column"
               $gtMd={{ flexDirection: 'row', pt: '$5' }}
               $md={{ space: '$5', pt: '$3' }}
             >
-              {tokenDetailHeader}
+              <ScrollView maxWidth={336}>{tokenDetailHeader}</ScrollView>
               <YStack flex={1}>
-                {tokenPriceChart}
-                <TokenDetailTabs token={tokenDetail} pools={pools} />
+                <TokenDetailTabs
+                  token={tokenDetail}
+                  pools={pools}
+                  listHeaderComponent={<YStack>{tokenPriceChart}</YStack>}
+                />
               </YStack>
             </Stack>
           </YStack>

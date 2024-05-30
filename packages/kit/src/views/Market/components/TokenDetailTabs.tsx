@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
 import { Stack, Tab, useMedia } from '@onekeyhq/components';
+import type { ITabPageProps } from '@onekeyhq/components';
 import type {
   IMarketDetailPool,
   IMarketTokenDetail,
@@ -29,16 +30,22 @@ function BasicTokenDetailTabs({
           ? {
               title: 'Pools',
               // eslint-disable-next-line react/no-unstable-nested-components
-              page: () => <MarketDetailPools pools={pools} />,
+              page: (props: ITabPageProps) => (
+                <MarketDetailPools {...props} pools={pools} />
+              ),
             }
           : undefined,
         md
           ? {
               title: 'Overview',
               // eslint-disable-next-line react/no-unstable-nested-components
-              page: () => (
+              page: (props: ITabPageProps) => (
                 <Stack px="$5">
-                  <MarketDetailOverview token={token} pools={pools} />
+                  <MarketDetailOverview
+                    {...props}
+                    token={token}
+                    pools={pools}
+                  />
                 </Stack>
               ),
             }
@@ -46,21 +53,23 @@ function BasicTokenDetailTabs({
         {
           title: 'Links',
           // eslint-disable-next-line react/no-unstable-nested-components
-          page: () => <MarketDetailLinks token={token} />,
+          page: (props: ITabPageProps) => (
+            <MarketDetailLinks {...props} token={token} />
+          ),
         },
       ].filter(Boolean),
     [md, pools, token],
   );
   return (
-    <Stack $gtMd={{ pt: '$8', px: '$5' }} py="$5">
-      <Tab.Page
-        data={tabConfig}
-        ListHeaderComponent={listHeaderComponent}
-        onSelectedPageIndex={(index: number) => {
-          console.log('选中', index);
-        }}
-      />
-    </Stack>
+    <Tab
+      $gtMd={{ mt: '$8', mx: '$5' }}
+      mt="$5"
+      data={tabConfig}
+      ListHeaderComponent={listHeaderComponent}
+      onSelectedPageIndex={(index: number) => {
+        console.log('选中', index);
+      }}
+    />
   );
 }
 
