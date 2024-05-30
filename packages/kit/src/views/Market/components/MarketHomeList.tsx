@@ -264,7 +264,7 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
       ),
       'actions': (item) => (
         <XStack>
-          <MarketStar coingeckoId={item.coingeckoId} />
+          <MarketStar coingeckoId={item.coingeckoId} mx="$3" />
           {showMoreAction ? (
             <MarketMore coingeckoId={item.coingeckoId} />
           ) : null}
