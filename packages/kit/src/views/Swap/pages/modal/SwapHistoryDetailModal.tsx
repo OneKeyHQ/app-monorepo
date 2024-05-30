@@ -21,6 +21,7 @@ import type {
   EModalSwapRoutes,
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
@@ -241,16 +242,36 @@ const SwapHistoryDetailModal = () => {
           <InfoItemGroup>
             {txHistory.txInfo.orderId ? (
               <InfoItem
+                disabledCopy
                 label="Order ID"
                 renderContent={renderCanCopyText(txHistory.txInfo.orderId)}
               />
             ) : null}
-            <InfoItem label="Rate" renderContent={renderRate()} />
-            <InfoItem label="Swap duration" renderContent={durationTime} />
+            <InfoItem disabledCopy label="Rate" renderContent={renderRate()} />
+            <InfoItem
+              disabledCopy
+              label="Swap duration"
+              renderContent={durationTime}
+            />
             {txHistory.swapInfo.oneKeyFee ? (
               <InfoItem
+                disabledCopy
                 label="Service Fee"
                 renderContent={`${txHistory.swapInfo.oneKeyFee} %`}
+              />
+            ) : null}
+            {txHistory.swapInfo.protocolFee ? (
+              <InfoItem
+                disabledCopy
+                label="Protocol Fee"
+                renderContent={`${
+                  numberFormat(txHistory.swapInfo.protocolFee.toString(), {
+                    formatter: 'value',
+                    formatterOptions: {
+                      currency: settingsPersistAtom.currencyInfo.symbol,
+                    },
+                  }) as string
+                }`}
               />
             ) : null}
           </InfoItemGroup>
@@ -278,6 +299,7 @@ const SwapHistoryDetailModal = () => {
     renderSwapAssetsChange,
     renderSwapDate,
     renderSwapOrderStatus,
+    settingsPersistAtom.currencyInfo.symbol,
     txHistory,
   ]);
 

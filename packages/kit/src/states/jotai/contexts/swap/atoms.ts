@@ -164,7 +164,10 @@ export const {
   const manualSelectQuoteResult = list.find(
     (item) => item.info.provider === manualSelectQuoteProviders?.info.provider,
   );
-  return manualSelectQuoteProviders && manualSelectQuoteResult?.toAmount
+  return manualSelectQuoteProviders &&
+    (manualSelectQuoteResult?.toAmount ||
+      manualSelectQuoteResult?.limit?.max ||
+      manualSelectQuoteResult?.limit?.min)
     ? list.find(
         (item) =>
           item.info.provider === manualSelectQuoteProviders.info.provider,
