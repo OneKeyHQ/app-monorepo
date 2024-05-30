@@ -213,6 +213,7 @@ function NetworkIdSelect({
 
 export function MarketDetailPools({
   pools,
+  // eslint-disable-next-line react/prop-types
   onContentSizeChange,
 }: ITabPageProps & { pools: IMarketDetailPool[] }) {
   const { gtMd } = useMedia();
