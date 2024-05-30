@@ -4,6 +4,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EOnChainHistoryTxStatus,
   type IAccountHistoryTx,
@@ -136,7 +137,7 @@ class ServiceHistory extends ServiceBase {
       accountId,
       networkId,
     });
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     let resp;
     try {
       resp = await client.post<{ data: IFetchAccountHistoryResp }>(
@@ -184,7 +185,7 @@ class ServiceHistory extends ServiceBase {
   public async fetchHistoryTxDetails(params: IFetchHistoryTxDetailsParams) {
     try {
       const { networkId, txid, accountAddress } = params;
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.get<{ data: IFetchHistoryTxDetailsResp }>(
         '/wallet/v1/account/history/detail',
         {
