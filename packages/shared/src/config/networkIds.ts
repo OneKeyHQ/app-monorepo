@@ -27,7 +27,8 @@ type INetworkShortCode =
   | 'tlightning'
   | 'lightning'
   | 'ltc'
-  | 'trx';
+  | 'trx'
+  | 'sepolia';
 
 // TODO generate getNetworkIdsMap in build time
 export const getNetworkIdsMap = memoFn(() => {

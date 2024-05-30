@@ -173,7 +173,13 @@ export const LidoApproveBaseStake = ({
     return (
       <XStack space="$1">
         <SizableText>
-          {amountBN.toFixed()} {token.symbol.toUpperCase()} ({' '}
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ tokenSymbol: token.symbol }}
+          >
+            {amountBN.toFixed()}
+          </NumberSizeableText>
+          (
           <NumberSizeableText
             formatter="value"
             formatterOptions={{ currency: symbol }}
@@ -239,9 +245,14 @@ export const LidoApproveBaseStake = ({
               title="Est. receive"
               titleProps={{ color: '$textSubdued' }}
             >
-              <ListItem.Text
-                primary={`${receivingTokenAmount} ${receivingTokenSymbol.toUpperCase()}`}
-              />
+              <SizableText>
+                <NumberSizeableText
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol: receivingTokenSymbol }}
+                >
+                  {receivingTokenAmount}
+                </NumberSizeableText>
+              </SizableText>
             </ListItem>
           ) : null}
           <ListItem title="APR" titleProps={{ color: '$textSubdued' }}>

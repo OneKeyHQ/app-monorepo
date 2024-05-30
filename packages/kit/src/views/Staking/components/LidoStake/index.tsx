@@ -22,7 +22,7 @@ import { LIDO_LOGO_URI } from '../../utils/const';
 type ILidoStakeProps = {
   price: string;
   balance: string;
-  minAmount?: number;
+  minAmount?: string;
   tokenImageUri: string;
   tokenSymbol: string;
   stTokenSymbol: string;
@@ -34,7 +34,7 @@ export const LidoStake = ({
   price,
   balance,
   apr = 4,
-  minAmount = 0,
+  minAmount = '0',
   tokenImageUri,
   tokenSymbol,
   stTokenSymbol,
@@ -105,7 +105,13 @@ export const LidoStake = ({
     return (
       <XStack space="$1">
         <SizableText>
-          {amountBN.toFixed()} {tokenSymbol.toUpperCase()} ({' '}
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{ tokenSymbol }}
+          >
+            {amountBN.toFixed()}
+          </NumberSizeableText>
+          (
           <NumberSizeableText
             formatter="value"
             formatterOptions={{ currency: symbol }}
@@ -140,13 +146,22 @@ export const LidoStake = ({
             currency: currentValue ? symbol : undefined,
           }}
         />
-        {isLessThanMinAmount ? (
-          <Alert
-            icon="InfoCircleOutline"
-            type="critical"
-            title={`The minimum amount for this staking is ${minAmount} ETH.`}
-          />
-        ) : null}
+        <YStack space="$1">
+          {isLessThanMinAmount ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="critical"
+              title={`The minimum amount for this staking is ${minAmount} ETH.`}
+            />
+          ) : null}
+          {isInsufficientBalance ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="critical"
+              title="Insufficient staked balance."
+            />
+          ) : null}
+        </YStack>
       </Stack>
       <Stack>
         <YStack>
@@ -163,9 +178,12 @@ export const LidoStake = ({
               title="Est. receive"
               titleProps={{ color: '$textSubdued' }}
             >
-              <ListItem.Text
-                primary={`${amountValue} ${stTokenSymbol.toUpperCase()}`}
-              />
+              <NumberSizeableText
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: stTokenSymbol }}
+              >
+                {amountValue}
+              </NumberSizeableText>
             </ListItem>
           ) : null}
           <ListItem title="APR" titleProps={{ color: '$textSubdued' }}>
@@ -189,7 +207,7 @@ export const LidoStake = ({
         </YStack>
       </Stack>
       <Page.Footer
-        onConfirmText={isInsufficientBalance ? 'Insufficient balance' : 'Stake'}
+        onConfirmText="Stake"
         confirmButtonProps={{
           onPress,
           loading,

@@ -8,7 +8,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { EthereumMatic } from '@onekeyhq/shared/src/consts/addresses';
+import {
+  EthereumMatic,
+  SepoliaMatic,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
 type IStakingListItemProps = {
@@ -96,7 +99,10 @@ export const StakingApr = ({
   accountId,
   tokenAddress,
 }: IStakingListItemProps) => {
-  if (networkId === getNetworkIdsMap().eth && !tokenAddress) {
+  if (
+    [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId) &&
+    !tokenAddress
+  ) {
     return (
       <EthStakingListItem
         networkId={networkId}
@@ -106,8 +112,10 @@ export const StakingApr = ({
     );
   }
   if (
-    networkId === getNetworkIdsMap().eth &&
-    tokenAddress.toLowerCase() === EthereumMatic
+    (networkId === getNetworkIdsMap().eth &&
+      tokenAddress.toLowerCase() === EthereumMatic) ||
+    (networkId === getNetworkIdsMap().sepolia &&
+      tokenAddress.toLowerCase() === SepoliaMatic)
   ) {
     return (
       <MaticStakingAprAd

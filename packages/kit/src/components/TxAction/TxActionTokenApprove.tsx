@@ -136,10 +136,10 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
       }}
       target={{
         content: approveSpender,
-        description: decodedTx.swapProvider
+        description: decodedTx.toAddressLabel
           ? {
               icon: 'NoteSolid',
-              content: decodedTx.swapProvider,
+              content: decodedTx.toAddressLabel,
             }
           : undefined,
       }}

@@ -52,3 +52,12 @@ export type IAprItem = {
 };
 
 export type IAprToken = 'eth' | 'matic';
+
+export type IStakeTag = 'lido-eth' | 'lido-matic';
+
+export type IStakingInfo = {
+  protocol: string;
+  tags: IStakeTag[]; // used for filtering
+  send?: { amount: string; token: IToken };
+  receive?: { amount: string; token: IToken };
+};

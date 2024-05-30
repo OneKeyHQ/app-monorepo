@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
 export function useLidoStake({
   networkId,
@@ -16,10 +17,12 @@ export function useLidoStake({
   return useCallback(
     async ({
       amount,
+      stakingInfo,
       onSuccess,
       onFail,
     }: {
       amount: string;
+      stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
@@ -30,9 +33,12 @@ export function useLidoStake({
       const serverTx =
         await backgroundApiProxy.serviceStaking.buildLidoEthStakingTransaction({
           amount,
+          networkId,
         });
+
       await navigationToSendConfirm({
         encodedTx: { ...serverTx, from: account.address },
+        stakingInfo,
         onSuccess,
         onFail,
       });
@@ -52,10 +58,12 @@ export function useLidoWithdraw({
   return useCallback(
     async ({
       amount,
+      stakingInfo,
       onSuccess,
       onFail,
     }: {
       amount: string;
+      stakingInfo: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
@@ -94,6 +102,7 @@ export function useLidoWithdraw({
 
       await navigationToSendConfirm({
         encodedTx: { ...serverTx, from: account.address },
+        stakingInfo,
         onSuccess,
         onFail,
       });
@@ -113,10 +122,12 @@ export function useLidoClaim({
   return useCallback(
     async ({
       requestIds,
+      stakingInfo,
       onSuccess,
       onFail,
     }: {
       requestIds: number[];
+      stakingInfo: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
@@ -127,9 +138,11 @@ export function useLidoClaim({
       const serverTx =
         await backgroundApiProxy.serviceStaking.buildLidoEthClaimTransaction({
           requestIds,
+          networkId,
         });
       await navigationToSendConfirm({
         encodedTx: { ...serverTx, from: account.address },
+        stakingInfo,
         onSuccess,
         onFail,
       });

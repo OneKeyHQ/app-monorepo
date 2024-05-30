@@ -57,10 +57,13 @@ class ServiceSend extends ServiceBase {
     }
 
     if (unsignedTx.swapInfo) {
-      decodedTx.swapProvider =
+      decodedTx.toAddressLabel =
         unsignedTx.swapInfo.swapBuildResData?.result?.info?.providerName;
     }
 
+    if (unsignedTx.stakingInfo) {
+      decodedTx.toAddressLabel = unsignedTx.stakingInfo.protocol;
+    }
     return decodedTx;
   }
 
@@ -152,6 +155,7 @@ class ServiceSend extends ServiceBase {
     console.log('signTx@serviceSend.signTransaction', tx);
 
     tx.swapInfo = unsignedTx.swapInfo;
+    tx.stakingInfo = unsignedTx.stakingInfo;
     return tx;
   }
 
@@ -244,7 +248,6 @@ class ServiceSend extends ServiceBase {
             accountId,
             signOnly: false,
           });
-
       const decodedTx = await this.buildDecodedTx({
         networkId,
         accountId,
@@ -353,6 +356,7 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       wrappedInfo,
       swapInfo,
+      stakingInfo,
       specifiedFeeRate,
     } = params;
 
@@ -376,6 +380,9 @@ class ServiceSend extends ServiceBase {
     }
     if (swapInfo) {
       newUnsignedTx.swapInfo = swapInfo;
+    }
+    if (stakingInfo) {
+      newUnsignedTx.stakingInfo = stakingInfo;
     }
 
     const isNonceRequired = (

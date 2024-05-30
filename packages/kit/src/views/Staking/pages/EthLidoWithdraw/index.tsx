@@ -16,16 +16,22 @@ import { LIDO_ETH_LOGO_URI } from '../../utils/const';
 const EthLidoWithdraw = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.EthLidoStake
+    EModalStakingRoutes.EthLidoWithdraw
   >();
-  const { accountId, networkId, balance, token } = route.params;
+  const { accountId, networkId, balance, token, price, receivingToken } =
+    route.params;
   const appNavigation = useAppNavigation();
   const lidoWithdraw = useLidoWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
     async (value: string) => {
-      const amount = new BigNumber(value).shiftedBy(token.decimals).toFixed();
+      const amount = BigNumber(value).shiftedBy(token.decimals).toFixed();
       await lidoWithdraw({
         amount,
+        stakingInfo: {
+          protocol: 'lido',
+          send: { token, amount: value },
+          tags: ['lido-eth'],
+        },
         onSuccess: () => appNavigation.pop(),
       });
     },
@@ -33,6 +39,8 @@ const EthLidoWithdraw = () => {
   );
   return (
     <LidoWithdraw
+      receivingTokenSymbol={receivingToken.symbol}
+      price={price}
       balance={balance}
       tokenSymbol={token.symbol}
       tokenImageUri={LIDO_ETH_LOGO_URI}
