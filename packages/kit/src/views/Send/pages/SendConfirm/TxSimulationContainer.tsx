@@ -16,6 +16,7 @@ import {
   useSendSelectedFeeInfoAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 
 export type ITxSimulationItem = {
   label: string;
@@ -23,6 +24,12 @@ export type ITxSimulationItem = {
   symbol: string;
   isNFT?: boolean;
 };
+
+interface ITxSimulationToken {
+  symbol: string;
+  logoURI?: string;
+  isNative?: boolean;
+}
 
 function SimulationItem(item: ITxSimulationItem) {
   const { label, icon, isNFT, symbol } = item;
@@ -62,45 +69,85 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
 
   const swapInfo = unsignedTxs[0]?.swapInfo;
+  const stakingInfo = unsignedTxs[0]?.stakingInfo;
 
   const simulationDataIn = useMemo(() => {
-    if (!swapInfo) return [];
-    return [
-      {
-        label: `+${swapInfo.receiver.amount}`,
-        icon: swapInfo.receiver.token.logoURI ?? '',
-        symbol: swapInfo.receiver.token.symbol,
-      },
-    ];
-  }, [swapInfo]);
-  const simulationDataOut = useMemo(() => {
-    if (!swapInfo) return [];
-
-    if (swapInfo.sender.token.isNative || !sendSelectedFeeInfo) {
+    if (swapInfo) {
       return [
         {
-          label: `-${new BigNumber(swapInfo.sender.amount)
-            .plus(sendSelectedFeeInfo?.totalNativeForDisplay ?? 0)
-            .toFixed()}`,
-          icon: swapInfo.sender.token.logoURI ?? '',
-          symbol: swapInfo.sender.token.symbol,
+          label: `+${swapInfo.receiver.amount}`,
+          icon: swapInfo.receiver.token.logoURI ?? '',
+          symbol: swapInfo.receiver.token.symbol,
         },
       ];
     }
+    if (stakingInfo?.receive) {
+      const receive = stakingInfo.receive;
+      return [
+        {
+          label: `+${receive.amount}`,
+          icon: receive.token.logoURI ?? '',
+          symbol: receive.token.symbol,
+        },
+      ];
+    }
+    return [];
+  }, [swapInfo, stakingInfo]);
+  const simulationDataOut = useMemo(() => {
+    const generateTxSimulationItem = ({
+      token,
+      amount,
+      feeInfo,
+      nativeToken,
+    }: {
+      amount: string;
+      token: ITxSimulationToken;
+      feeInfo?: ISendSelectedFeeInfo;
+      nativeToken: { logoURI?: string };
+    }): ITxSimulationItem[] => {
+      if (token.isNative || !feeInfo) {
+        return [
+          {
+            label: `-${new BigNumber(amount)
+              .plus(feeInfo?.totalNativeForDisplay ?? 0)
+              .toFixed()}`,
+            icon: token.logoURI ?? '',
+            symbol: token.symbol,
+          },
+        ];
+      }
+      return [
+        {
+          label: `-${amount}`,
+          icon: token.logoURI ?? '',
+          symbol: token.symbol,
+        },
+        {
+          label: `-${feeInfo?.totalNativeForDisplay ?? '0'}`,
+          icon: nativeToken?.logoURI ?? '',
+          symbol: feeInfo?.feeInfo.common.nativeSymbol ?? '',
+        },
+      ];
+    };
+    if (swapInfo) {
+      return generateTxSimulationItem({
+        token: swapInfo.sender.token,
+        amount: swapInfo.sender.amount,
+        feeInfo: sendSelectedFeeInfo,
+        nativeToken: nativeTokenInfo,
+      });
+    }
+    if (stakingInfo?.send) {
+      return generateTxSimulationItem({
+        token: stakingInfo.send.token,
+        amount: stakingInfo.send.amount,
+        feeInfo: sendSelectedFeeInfo,
+        nativeToken: nativeTokenInfo,
+      });
+    }
 
-    return [
-      {
-        label: `-${swapInfo.sender.amount}`,
-        icon: swapInfo.sender.token.logoURI ?? '',
-        symbol: swapInfo.sender.token.symbol,
-      },
-      {
-        label: `-${sendSelectedFeeInfo?.totalNativeForDisplay ?? '0'}`,
-        icon: nativeTokenInfo?.logoURI,
-        symbol: sendSelectedFeeInfo?.feeInfo.common.nativeSymbol ?? '',
-      },
-    ];
-  }, [nativeTokenInfo?.logoURI, sendSelectedFeeInfo, swapInfo]);
+    return [];
+  }, [sendSelectedFeeInfo, swapInfo, stakingInfo, nativeTokenInfo]);
 
   const renderTxSimulation = useCallback(
     (simulation: ITxSimulationItem[]) => (
@@ -114,7 +161,7 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
   );
 
   // for now just internal swap info
-  if (!swapInfo) return null;
+  if (!swapInfo && !stakingInfo) return null;
 
   return (
     <Container.Box>
@@ -123,10 +170,12 @@ function TxSimulationContainer({ tableLayout }: { tableLayout?: boolean }) {
         subtitle="Include fee"
         content={renderTxSimulation(simulationDataOut)}
       />
-      <Container.Item
-        title="Total in"
-        content={renderTxSimulation(simulationDataIn)}
-      />
+      {simulationDataIn.length > 0 ? (
+        <Container.Item
+          title="Total in"
+          content={renderTxSimulation(simulationDataIn)}
+        />
+      ) : null}
       <Container.Item
         content={
           tableLayout ? null : (
