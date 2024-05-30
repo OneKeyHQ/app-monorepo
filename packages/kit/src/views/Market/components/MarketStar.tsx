@@ -9,11 +9,10 @@ import { useWatchListAction } from './wachListHooks';
 
 function BasicMarketStar({
   coingeckoId,
-  mx,
+  ...props
 }: {
   coingeckoId: string;
-  mx?: IStackProps['mx'];
-}) {
+} & IStackProps) {
   const actions = useWatchListAction();
 
   const [checked, setIsChecked] = useState(() =>
@@ -43,8 +42,8 @@ function BasicMarketStar({
       color="red"
       variant="tertiary"
       iconSize="$5"
-      mx={mx}
       onPress={handlePress}
+      {...props}
     />
   );
 }
