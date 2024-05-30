@@ -36,6 +36,7 @@ import type {
   IConnectionStorageType,
   IGetDAppAccountInfoParams,
 } from '@onekeyhq/shared/types/dappConnection';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
@@ -819,7 +820,7 @@ class ServiceDApp extends ServiceBase {
     networkId: string;
     request: IJsonRpcRequest;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const results = await client.post<{
       data: {
         data: {
