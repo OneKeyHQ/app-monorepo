@@ -2,11 +2,18 @@ import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
+import type { IStackProps } from '@onekeyhq/components';
 import { IconButton } from '@onekeyhq/components';
 
 import { useWatchListAction } from './wachListHooks';
 
-function BasicMarketStar({ coingeckoId }: { coingeckoId: string }) {
+function BasicMarketStar({
+  coingeckoId,
+  mx,
+}: {
+  coingeckoId: string;
+  mx?: IStackProps['mx'];
+}) {
   const actions = useWatchListAction();
 
   const [checked, setIsChecked] = useState(() =>
@@ -36,7 +43,7 @@ function BasicMarketStar({ coingeckoId }: { coingeckoId: string }) {
       color="red"
       variant="tertiary"
       iconSize="$5"
-      mx="$3"
+      mx={mx}
       onPress={handlePress}
     />
   );
