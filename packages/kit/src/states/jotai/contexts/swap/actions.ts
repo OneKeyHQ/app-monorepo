@@ -719,9 +719,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const accountXpub = (
         swapAddressInfo.accountInfo?.account as IDBUtxoAccount
       )?.xpub;
-      if (accountNetworkId !== token?.networkId) return;
       let balanceDisplay;
-      if (token && accountAddress && accountNetworkId) {
+      if (
+        token &&
+        accountAddress &&
+        accountNetworkId &&
+        accountNetworkId === token?.networkId
+      ) {
         if (
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
