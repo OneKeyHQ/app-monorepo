@@ -384,14 +384,16 @@ export function TokenDetails() {
                   </XStack>
                   {/* Actions */}
                   <RawActions>
-                    <RawActions.Send onPress={handleSendPress} />
-                    <RawActions.Receive onPress={handleReceivePress} />
-                    <RawActions.Swap onPress={handleOnSwap} />
                     <ActionBuy
                       networkId={networkId}
                       accountId={accountId}
                       tokenAddress={tokenInfo.address}
                     />
+                    <RawActions.Swap onPress={handleOnSwap} />
+
+                    <RawActions.Send onPress={handleSendPress} />
+                    <RawActions.Receive onPress={handleReceivePress} />
+
                     <ActionSell
                       networkId={networkId}
                       accountId={accountId}
