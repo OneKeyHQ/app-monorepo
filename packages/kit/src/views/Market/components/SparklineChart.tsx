@@ -51,20 +51,20 @@ const SparkLineChart = ({
           ctx.beginPath();
           ctx.lineWidth = lineWidth;
           ctx.strokeStyle = lineColor;
-          const xSpath = width / (showData.length - 1);
+          const xPath = width / (showData.length - 1);
           let xPoint = 0;
           let lastY = 0;
           showData.forEach((v, i) => {
             const yPoint = calculateHeight - (v - minValue) * yStep;
             if (smooth && i >= 2 && i < showData.length - 1) {
               // draw bezier
-              const pre1X = xSpath * (i - 1);
+              const pre1X = xPath * (i - 1);
               const pre1Y =
                 calculateHeight - (showData[i - 1] - minValue) * yStep;
-              const pre2X = xSpath * (i - 2);
+              const pre2X = xPath * (i - 2);
               const pre2Y =
                 calculateHeight - (showData[i - 2] - minValue) * yStep;
-              const nextX = xSpath * (i + 1);
+              const nextX = xPath * (i + 1);
               const nextY =
                 calculateHeight - (showData[i + 1] - minValue) * yStep;
               const cp1x = pre1X + (xPoint - pre2X) * scale;
@@ -78,10 +78,10 @@ const SparkLineChart = ({
               ctx.lineTo(xPoint, yPoint);
             }
             if (i === showData.length - 1) lastY = yPoint;
-            xPoint += xSpath;
+            xPoint += xPath;
           });
-          ctx.lineTo(xPoint + xSpath, lastY);
-          ctx.lineTo(xPoint + xSpath, height);
+          ctx.lineTo(xPoint + xPath, lastY);
+          ctx.lineTo(xPoint + xPath, height);
           ctx.lineTo(0, height);
           ctx.stroke();
           ctx.closePath();

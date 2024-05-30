@@ -5,3 +5,4 @@ export * from './walletconnect';
 export * from './migrate';
 export * from './animation';
 export * from './urlAccount';
+export * from './marketDetail';

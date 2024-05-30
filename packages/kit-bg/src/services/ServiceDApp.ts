@@ -21,7 +21,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import {
@@ -30,6 +29,7 @@ import {
 } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
+  IConnectedAccountInfo,
   IConnectionAccountInfo,
   IConnectionItem,
   IConnectionItemWithStorageType,
@@ -469,28 +469,36 @@ class ServiceDApp extends ServiceBase {
   async getConnectedAccounts(params: IGetDAppAccountInfoParams) {
     const accountsInfo = await this.getConnectedAccountsInfo(params);
     if (!accountsInfo) return null;
-    const result = accountsInfo.map(async (accountInfo) => {
-      const { accountId, networkId } = accountInfo;
-      const account = await this.backgroundApi.serviceAccount.getAccount({
-        accountId,
-        networkId: networkId || '',
-      });
-      return {
-        account,
-        accountInfo,
-      };
-    });
-    return Promise.all(result);
+    const result = await Promise.all(
+      accountsInfo.map(async (accountInfo) => {
+        const { accountId, networkId } = accountInfo;
+        try {
+          const account = await this.backgroundApi.serviceAccount.getAccount({
+            accountId,
+            networkId: networkId || '',
+          });
+          return {
+            account,
+            accountInfo,
+          };
+        } catch (e) {
+          console.error('getConnectedAccounts', e);
+          return null;
+        }
+      }),
+    );
+    const finalAccountsInfo = result.filter(Boolean);
+    if (finalAccountsInfo.length !== accountsInfo.length) {
+      console.log('getConnectedAccounts: ===> some accounts not found');
+      return null;
+    }
+    return finalAccountsInfo;
   }
 
   @backgroundMethod()
-  async dAppGetConnectedAccountsInfo(request: IJsBridgeMessagePayload): Promise<
-    | {
-        account: INetworkAccount;
-        accountInfo?: Partial<IConnectionAccountInfo>;
-      }[]
-    | null
-  > {
+  async dAppGetConnectedAccountsInfo(
+    request: IJsBridgeMessagePayload,
+  ): Promise<IConnectedAccountInfo[] | null> {
     if (!request.origin) {
       throw web3Errors.provider.unauthorized('origin is required');
     }

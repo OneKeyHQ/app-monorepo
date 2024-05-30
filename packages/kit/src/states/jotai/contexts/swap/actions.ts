@@ -768,6 +768,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                         price: detailInfo[0].price,
                         fiatValue: detailInfo[0].fiatValue,
                         balanceParsed: detailInfo[0].balanceParsed,
+                        reservationValue: detailInfo[0].reservationValue,
                         accountAddress,
                       };
                     }
@@ -780,6 +781,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                         price: detailInfo[0].price,
                         fiatValue: detailInfo[0].fiatValue,
                         balanceParsed: detailInfo[0].balanceParsed,
+                        reservationValue: detailInfo[0].reservationValue,
                         accountAddress,
                       };
                     }
@@ -816,7 +818,7 @@ export const useSwapActions = () => {
   const syncNetworksSort = actions.syncNetworksSort.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
-  const quoteAction = debounce(actions.quoteAction.use(), 100);
+  const quoteAction = debounce(actions.quoteAction.use(), 500);
   const approvingStateAction = actions.approvingStateAction.use();
   const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 200);
   const tokenListFetchAction = actions.tokenListFetchAction.use();
