@@ -28,7 +28,6 @@ import {
   EAccountSelectorSceneName,
   type IDappSourceInfo,
 } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IConnectedAccountInfo,
   IConnectionAccountInfo,
@@ -99,6 +98,8 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
 class ServiceDApp extends ServiceBase {
   private semaphore = new Semaphore(1);
 
+  private existingWindowId: number | null | undefined = null;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -115,9 +116,12 @@ class ServiceDApp extends ServiceBase {
     params?: any;
     fullScreen?: boolean;
   }) {
-    return this.semaphore.runExclusive(
-      () =>
-        new Promise((resolve, reject) => {
+    // Try to open an existing window anyway in the extension
+    this.tryOpenExistingExtensionWindow();
+
+    return this.semaphore.runExclusive(async () => {
+      try {
+        return await new Promise((resolve, reject) => {
           if (!request.origin) {
             throw new Error('origin is required');
           }
@@ -163,16 +167,19 @@ class ServiceDApp extends ServiceBase {
 
           ensureSerializable(modalParams);
 
-          this._openModalByRouteParamsDebounced({
+          void this._openModalByRouteParamsDebounced({
             routeNames,
             routeParams,
             modalParams,
           });
-        }),
-    );
+        });
+      } finally {
+        this.existingWindowId = null;
+      }
+    });
   }
 
-  _openModalByRouteParams = ({
+  _openModalByRouteParams = async ({
     modalParams,
     routeParams,
     routeNames,
@@ -183,10 +190,11 @@ class ServiceDApp extends ServiceBase {
   }) => {
     if (platformEnv.isExtension) {
       // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
-      void extUtils.openStandaloneWindow({
+      const extensionWindow = await extUtils.openStandaloneWindow({
         routes: routeNames,
         params: routeParams,
       });
+      this.existingWindowId = extensionWindow.id;
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(
@@ -207,6 +215,12 @@ class ServiceDApp extends ServiceBase {
       trailing: true,
     },
   );
+
+  private tryOpenExistingExtensionWindow() {
+    if (platformEnv.isExtension && this.existingWindowId) {
+      extUtils.openExistWindow({ windowId: this.existingWindowId });
+    }
+  }
 
   @backgroundMethod()
   async openConnectionModal(
