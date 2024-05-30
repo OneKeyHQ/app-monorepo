@@ -65,6 +65,8 @@ export function useSwapTxHistoryActions() {
               swapTxInfo.swapBuildResData.socketBridgeScanUrl,
             oneKeyFee:
               swapTxInfo.swapBuildResData.result.fee?.percentageFee ?? 0,
+            protocolFee:
+              swapTxInfo.swapBuildResData.result.fee?.protocolFees ?? 0,
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };
