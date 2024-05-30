@@ -5,10 +5,8 @@ import logger from 'electron-log';
 import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 
-import {
-  ONEKEY_API_URL,
-  ONEKEY_TEST_API_URL,
-} from '@onekeyhq/shared/src/config/appConfig';
+import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { ipcMessageKeys } from '../config';
 import { b2t, toHumanReadable } from '../libs/utils';
@@ -181,9 +179,10 @@ const init = ({ mainWindow, store }: IDependencies) => {
       });
       return;
     }
-    const feedUrl = `${
-      updateSettings.useTestFeedUrl ? ONEKEY_TEST_API_URL : ONEKEY_API_URL
-    }/utility/v1/app-update/electron-feed-url`;
+    const feedUrl = `${buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Utility,
+      env: updateSettings.useTestFeedUrl ? 'test' : 'prod',
+    })}/utility/v1/app-update/electorn-feed-url`;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
