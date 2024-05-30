@@ -1,9 +1,14 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { StyleSheet } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
-import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IListViewRef,
+  IStackProps,
+} from '@onekeyhq/components';
 import {
   ActionList,
   Button,
@@ -15,6 +20,7 @@ import {
   Popover,
   Select,
   SizableText,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -38,6 +44,8 @@ import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
 import { useSortType } from './useSortType';
 import { useWatchListAction } from './wachListHooks';
+
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
 function Column({
   alignLeft,
@@ -797,6 +805,20 @@ export function MarketHomeList({
     [selectOptions, setSortByType],
   );
 
+  const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
+  const listViewRef = useRef<IListViewRef<unknown> | null>(null);
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) =>
+      setIsShowBackToTopButton(event.nativeEvent.contentOffset.y > 0),
+    [],
+  );
+
+  const handleScrollToTop = useCallback(() => {
+    if (listViewRef.current) {
+      listViewRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, []);
+
   return (
     <>
       {gtMd ? undefined : (
@@ -842,11 +864,32 @@ export function MarketHomeList({
       <YStack flex={1} py="$3">
         {gtMd ? HeaderColumns : undefined}
         <ListView
+          ref={listViewRef}
           stickyHeaderHiddenOnScroll
           estimatedItemSize={60}
+          onScroll={handleScroll}
+          scrollEventThrottle={100}
           data={sortedListData as unknown as IMarketToken[]}
           renderItem={gtMd ? renderItem : renderMdItem}
+          ListFooterComponent={<Stack height={60} />}
         />
+        {isShowBackToTopButton ? (
+          <Stack
+            position="absolute"
+            bg="$bg"
+            borderRadius="$full"
+            bottom={gtMd ? '$8' : '$4'}
+            right={gtMd ? '$8' : '$4'}
+          >
+            <IconButton
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$transparent"
+              iconColor="$icon"
+              icon="AlignTopOutline"
+              onPress={handleScrollToTop}
+            />
+          </Stack>
+        ) : null}
       </YStack>
     </>
   );
