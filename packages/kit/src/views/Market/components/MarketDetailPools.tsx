@@ -69,6 +69,7 @@ function HeaderColumn({
       ai="center"
       onPress={handlePress}
       jc={jc}
+      cursor="pointer"
     >
       {jc === 'flex-end' ? renderOrderIcon() : null}
       <SizableText size="$bodySmMedium" color="$textSubdued">

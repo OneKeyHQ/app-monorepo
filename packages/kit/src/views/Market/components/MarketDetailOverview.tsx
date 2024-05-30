@@ -177,7 +177,7 @@ function OverviewMarketVOL({
         </XStack>
       </YStack>
       {keys.length ? (
-        <YStack pt="$3" space="$2">
+        <YStack pt="$3" space="$3">
           <SizableText color="$textSubdued" size="$bodySm">
             Contract
           </SizableText>
