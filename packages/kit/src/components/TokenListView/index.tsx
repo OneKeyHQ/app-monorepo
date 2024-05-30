@@ -3,6 +3,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import { useBuyToken } from '../../hooks/useBuyToken';
+import { useReceiveToken } from '../../hooks/useReceiveToken';
 import {
   useSearchKeyAtom,
   useTokenListAtom,
@@ -39,6 +41,8 @@ function TokenListView(props: IProps) {
   const [tokenList] = useTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
+  const { handleOnReceive } = useReceiveToken();
+  const { handleOnBuy, isSupported } = useBuyToken();
   const { tokens } = tokenList;
 
   const filteredTokens = getFilteredTokenBySearchKey({ tokens, searchKey });
@@ -64,7 +68,17 @@ function TokenListView(props: IProps) {
         ) : null
       }
       onContentSizeChange={onContentSizeChange}
-      ListEmptyComponent={searchKey ? EmptySearch : EmptyToken}
+      ListEmptyComponent={
+        searchKey ? (
+          EmptySearch
+        ) : (
+          <EmptyToken
+            isBuyTokenSupported={isSupported}
+            onBuy={handleOnBuy}
+            onReceive={handleOnReceive}
+          />
+        )
+      }
       renderItem={({ item, index }) => (
         <TokenListItem
           token={item}
