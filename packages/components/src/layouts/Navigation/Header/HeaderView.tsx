@@ -77,7 +77,7 @@ function HeaderView({
           isRootScreen={isRootScreen}
           isModelScreen={isModelScreen}
           disableClose={disableClose}
-          renderLeft={headerLeft as any}
+          renderLeft={headerLeft}
           {...props}
         />
       </XStack>

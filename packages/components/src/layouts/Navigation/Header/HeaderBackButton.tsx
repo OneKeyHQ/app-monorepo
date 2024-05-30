@@ -45,7 +45,7 @@ function HeaderBackButton({
   ...props
 }: IOnekeyStackHeaderProps &
   HeaderBackButtonProps & {
-    renderLeft?: (props: HeaderBackButtonProps) => ReactNode | undefined;
+    renderLeft?: (props: any) => ReactNode | undefined;
   }) {
   const isVerticalLayout = useMedia().md;
 
