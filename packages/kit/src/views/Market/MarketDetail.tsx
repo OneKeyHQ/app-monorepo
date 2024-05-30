@@ -10,7 +10,9 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
+  Skeleton,
   Stack,
+  View,
   XStack,
   YStack,
   useClipboard,
@@ -95,13 +97,34 @@ function TokenDetailHeader({
   );
 }
 
+function SkeletonHeader() {
+  return (
+    <YStack>
+      <Skeleton w="$24" h="$4" />
+      <View pt="$5" pb="$3.5">
+        <Skeleton w="$40" h="$7" />
+      </View>
+      <Skeleton w="$24" h="$3" />
+    </YStack>
+  );
+}
+
+function SkeletonHeaderOverItemItem() {
+  return (
+    <YStack space="$2" flexGrow={1} flexBasis={0}>
+      <Skeleton w="$10" h="$3" />
+      <Skeleton w="$24" h="$3" />
+    </YStack>
+  );
+}
+
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
   const { icon, coinGeckoId, symbol } = route.params;
   const { gtMd } = useMedia();
 
-  const { result: tokenDetail, isLoading } = usePromiseResult(
+  const { result: tokenDetail } = usePromiseResult(
     () => backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId),
     [coinGeckoId],
   );
@@ -193,13 +216,54 @@ function MarketDetail({
     [navigation],
   );
 
-  const tokenDetailHeader = useMemo(
-    () =>
-      tokenDetail ? (
+  const tokenDetailHeader = useMemo(() => {
+    if (tokenDetail) {
+      return (
         <TokenDetailHeader coinGeckoId={coinGeckoId} token={tokenDetail} />
-      ) : null,
-    [coinGeckoId, tokenDetail],
-  );
+      );
+    }
+    return (
+      <YStack px="$5">
+        {gtMd ? (
+          <YStack space="$12" width={336}>
+            <SkeletonHeader />
+            <YStack space="$3">
+              <Skeleton w={252} h="$3" />
+            </YStack>
+            <YStack space="$6">
+              <XStack>
+                <SkeletonHeaderOverItemItem />
+                <SkeletonHeaderOverItemItem />
+              </XStack>
+              <XStack>
+                <SkeletonHeaderOverItemItem />
+                <SkeletonHeaderOverItemItem />
+              </XStack>
+              <XStack>
+                <SkeletonHeaderOverItemItem />
+                <SkeletonHeaderOverItemItem />
+              </XStack>
+            </YStack>
+            <YStack space="$6">
+              <Skeleton w="$10" h="$3" />
+              <Skeleton w={252} h="$3" />
+              <Skeleton w={252} h="$3" />
+              <Skeleton w={252} h="$3" />
+            </YStack>
+          </YStack>
+        ) : (
+          <YStack space="$10" py="$3">
+            <SkeletonHeader />
+            <XStack>
+              <SkeletonHeaderOverItemItem />
+              <SkeletonHeaderOverItemItem />
+              <SkeletonHeaderOverItemItem />
+            </XStack>
+          </YStack>
+        )}
+      </YStack>
+    );
+  }, [coinGeckoId, gtMd]);
 
   const tokenPriceChart = useMemo(
     () => <TokenPriceChart coinGeckoId={coinGeckoId} />,
@@ -217,17 +281,13 @@ function MarketDetail({
       <Page.Body>
         {gtMd ? (
           <YStack>
-            <Stack
-              flexDirection="column"
-              $gtMd={{ flexDirection: 'row', pt: '$5' }}
-              $md={{ space: '$5', pt: '$3' }}
-            >
+            <XStack $gtMd={{ pt: '$5' }} $md={{ space: '$5', pt: '$3' }}>
               {tokenDetailHeader}
               <YStack flex={1}>
                 {tokenPriceChart}
                 {tokenDetail ? <TokenDetailTabs token={tokenDetail} /> : null}
               </YStack>
-            </Stack>
+            </XStack>
           </YStack>
         ) : (
           <TokenDetailTabs

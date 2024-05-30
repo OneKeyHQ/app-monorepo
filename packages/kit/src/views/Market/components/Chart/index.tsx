@@ -3,7 +3,15 @@ import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, Spinner, Stack, XStack, useMedia } from '@onekeyhq/components';
+import {
+  Empty,
+  Skeleton,
+  Spinner,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -115,8 +123,15 @@ export function PriceChart({
   return gtMd ? (
     <>
       <XStack justifyContent="space-between">
-        {priceLabel}
-        {data ? children : null}
+        {isFetching ? (
+          <YStack space="$2">
+            <Skeleton w="$10" h="$3" />
+            <Skeleton w="$24" h="$3" />
+          </YStack>
+        ) : (
+          priceLabel
+        )}
+        {children}
       </XStack>
       <Stack h={240} mt={32} justifyContent="center" alignItems="center">
         {chartViewWithSpinner}

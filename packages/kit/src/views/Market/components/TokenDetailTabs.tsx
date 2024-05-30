@@ -1,7 +1,14 @@
 import type { ReactElement } from 'react';
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
-import { Stack, Tab, useMedia } from '@onekeyhq/components';
+import {
+  Skeleton,
+  Stack,
+  Tab,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
@@ -10,6 +17,44 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { MarketDetailLinks } from './MarketDetailLinks';
 import { MarketDetailOverview } from './MarketDetailOverview';
 import { MarketDetailPools } from './MarketDetailPools';
+
+function SkeletonRow() {
+  return (
+    <XStack>
+      <XStack flex={1}>
+        <Skeleton w="$24" h="$3" />
+      </XStack>
+      <XStack flex={1} jc="flex-end">
+        <Skeleton w="$16" h="$3" />
+      </XStack>
+      <XStack flex={1} jc="flex-end">
+        <Skeleton w="$16" h="$3" />
+      </XStack>
+      <XStack flex={1} jc="flex-end">
+        <Skeleton w="$16" h="$3" />
+      </XStack>
+      <XStack flex={1} jc="flex-end">
+        <Skeleton w="$16" h="$3" />
+      </XStack>
+    </XStack>
+  );
+}
+
+function MdSkeletonRow() {
+  return (
+    <XStack>
+      <XStack flex={1}>
+        <Skeleton w="$24" h="$3" />
+      </XStack>
+      <XStack flex={1} jc="flex-end">
+        <Skeleton w="$16" h="$3" />
+      </XStack>
+      <XStack flex={1} jc="flex-end">
+        <Skeleton w="$16" h="$3" />
+      </XStack>
+    </XStack>
+  );
+}
 
 function BasicTokenDetailTabs({
   token,
@@ -20,7 +65,7 @@ function BasicTokenDetailTabs({
 }) {
   const { md } = useMedia();
 
-  const { result: pools, isLoading } = usePromiseResult(
+  const { result: pools } = usePromiseResult(
     () =>
       token?.symbol
         ? backgroundApiProxy.serviceMarket.fetchPools(token?.symbol)
@@ -28,28 +73,51 @@ function BasicTokenDetailTabs({
     [token?.symbol],
   );
 
+  const renderSkeleton = useMemo(
+    () =>
+      md ? (
+        <YStack>
+          {listHeaderComponent}
+          <YStack space="$10" px="$5" pt="$11">
+            <MdSkeletonRow />
+            <MdSkeletonRow />
+            <MdSkeletonRow />
+            <MdSkeletonRow />
+          </YStack>
+        </YStack>
+      ) : (
+        <YStack space="$6" px="$5" pt="$11">
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+        </YStack>
+      ),
+    [listHeaderComponent, md],
+  );
+
   const tabConfig = useMemo(
     () =>
       [
-        pools?.length
+        pools?.length && token
           ? {
               title: 'Pools',
               // eslint-disable-next-line react/no-unstable-nested-components
               page: () => <MarketDetailPools pools={pools} />,
             }
           : undefined,
-        md
+        md && token
           ? {
               title: 'Overview',
               // eslint-disable-next-line react/no-unstable-nested-components
               page: () => (
                 <Stack px="$5">
-                  <MarketDetailOverview token={token} pools={pools} />
+                  <MarketDetailOverview token={token} />
                 </Stack>
               ),
             }
           : undefined,
-        {
+        token && {
           title: 'Links',
           // eslint-disable-next-line react/no-unstable-nested-components
           page: () => <MarketDetailLinks token={token} />,
@@ -57,7 +125,7 @@ function BasicTokenDetailTabs({
       ].filter(Boolean),
     [md, pools, token],
   );
-  return (
+  return pools ? (
     <Stack $gtMd={{ pt: '$8', px: '$5' }} py="$5">
       <Tab.Page
         data={tabConfig}
@@ -67,6 +135,8 @@ function BasicTokenDetailTabs({
         }}
       />
     </Stack>
+  ) : (
+    renderSkeleton
   );
 }
 

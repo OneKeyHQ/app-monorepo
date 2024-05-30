@@ -213,7 +213,6 @@ export function MarketDetailOverview({
   },
 }: {
   token: IMarketTokenDetail;
-  pools: IMarketDetailPool[];
 }) {
   return (
     <YStack $gtMd={{ pb: '$10' }}>
