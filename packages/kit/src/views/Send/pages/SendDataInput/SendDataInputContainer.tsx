@@ -6,7 +6,14 @@ import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Form, Input, Page, SizableText, useForm } from '@onekeyhq/components';
+import {
+  Form,
+  Input,
+  Page,
+  SizableText,
+  XStack,
+  useForm,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
@@ -15,6 +22,7 @@ import {
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -152,7 +160,7 @@ function SendDataInputContainer() {
     defaultValues: {
       to: { raw: address } as IAddressInputValue,
       amount: sendAmount,
-      nftAmount: '',
+      nftAmount: sendAmount || '1',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -162,6 +170,7 @@ function SendDataInputContainer() {
   const amount = form.watch('amount');
   const toPending = form.watch('to.pending');
   const toResolved = form.watch('to.resolved');
+  const nftAmount = form.watch('nftAmount');
 
   const linkedAmount = useMemo(() => {
     const amountBN = new BigNumber(amount ?? 0);
@@ -245,16 +254,23 @@ function SendDataInputContainer() {
       if (!account) return;
       const toAddress = form.getValues('to').resolved;
       if (!toAddress) return;
+      let realAmount = amount;
 
       setIsSubmitting(true);
 
-      let realAmount = amount;
+      if (isNFT) {
+        realAmount = nftAmount;
+      } else {
+        realAmount = amount;
 
-      if (isUseFiat) {
-        if (new BigNumber(amount).isGreaterThan(tokenDetails?.fiatValue ?? 0)) {
-          realAmount = tokenDetails?.balanceParsed ?? '0';
-        } else {
-          realAmount = linkedAmount.originalAmount;
+        if (isUseFiat) {
+          if (
+            new BigNumber(amount).isGreaterThan(tokenDetails?.fiatValue ?? 0)
+          ) {
+            realAmount = tokenDetails?.balanceParsed ?? '0';
+          } else {
+            realAmount = linkedAmount.originalAmount;
+          }
         }
       }
 
@@ -293,7 +309,8 @@ function SendDataInputContainer() {
     form,
     isNFT,
     isUseFiat,
-    linkedAmount,
+    linkedAmount.originalAmount,
+    nftAmount,
     nftDetails,
     sendConfirm,
     tokenDetails,
@@ -354,21 +371,22 @@ function SendDataInputContainer() {
       return true;
     }
 
-    if (
-      (!isNFT || nft?.collectionType === ENFTType.ERC1155) &&
-      !amount &&
-      displayAmountFormItem
-    ) {
+    if (isNFT && nft?.collectionType === ENFTType.ERC1155 && !nftAmount) {
+      return true;
+    }
+
+    if (!isNFT && !amount && displayAmountFormItem) {
       return true;
     }
   }, [
-    amount,
-    form.formState.isValid,
     isLoadingAssets,
-    isNFT,
     isSubmitting,
-    nft?.collectionType,
     toPending,
+    form.formState.isValid,
+    isNFT,
+    nft?.collectionType,
+    nftAmount,
+    amount,
     displayAmountFormItem,
   ]);
 
@@ -480,7 +498,7 @@ function SendDataInputContainer() {
         <Form.Field
           name="nftAmount"
           label={intl.formatMessage({ id: 'form__amount' })}
-          rules={{ required: true }}
+          rules={{ required: true, max: 1 }}
         >
           <SizableText
             size="$bodyMd"
@@ -489,7 +507,7 @@ function SendDataInputContainer() {
             right="$0"
             top="$0"
           >
-            Available: 9999
+            Available: 999
           </SizableText>
           <Input
             size="large"
@@ -536,33 +554,34 @@ function SendDataInputContainer() {
           }}
         >
           <Form form={form}>
-            {isNFT && nft?.collectionType !== ENFTType.ERC1155 ? (
+            {isNFT ? (
               <Form.Field
-                label={intl.formatMessage({ id: 'form__token' })}
-                name="token"
+                label={intl.formatMessage({ id: 'form__nft' })}
+                name="nft"
               >
                 <ListItem
-                  avatarProps={{
-                    src: nft?.metadata?.image,
-                    borderRadius: '$full',
-                    cornerImageProps: {
-                      src: network?.logoURI,
-                    },
-                  }}
                   mx="$0"
                   borderWidth={1}
                   borderColor="$border"
                   borderRadius="$2"
                 >
-                  <ListItem.Text
-                    flex={1}
-                    primary={nft?.metadata?.name}
-                    secondary={
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {tokenInfo?.name}
-                      </SizableText>
-                    }
-                  />
+                  <XStack alignItems="center" space="$1" flex={1}>
+                    <Token
+                      isNFT
+                      size="lg"
+                      tokenImageUri={nft?.metadata?.image}
+                      networkImageUri={network?.logoURI}
+                    />
+                    <ListItem.Text
+                      flex={1}
+                      primary={nft?.metadata?.name}
+                      secondary={
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {tokenInfo?.name}
+                        </SizableText>
+                      }
+                    />
+                  </XStack>
                 </ListItem>
               </Form.Field>
             ) : null}
