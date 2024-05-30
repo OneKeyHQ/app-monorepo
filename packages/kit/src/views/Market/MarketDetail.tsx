@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import * as ExpoSharing from 'expo-sharing';
@@ -11,7 +11,6 @@ import {
   Page,
   SizableText,
   Skeleton,
-  Stack,
   View,
   XStack,
   YStack,

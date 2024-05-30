@@ -1,13 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import type { IButtonProps, ISizableTextProps } from '@onekeyhq/components';
-import {
-  Button,
-  SizableText,
-  Stack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
