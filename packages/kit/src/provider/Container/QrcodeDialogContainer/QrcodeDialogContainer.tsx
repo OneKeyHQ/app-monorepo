@@ -30,7 +30,7 @@ export function QrcodeDialogContainer() {
           await dialog.close({ flag: 'skipReject' });
           // TODO reject at scan onClose
           const result = await startScan({
-            parseScene: 'none',
+            handlers: {},
             mask: true,
             autoHandleResult: false,
           });

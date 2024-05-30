@@ -39,7 +39,7 @@ const ScanQRCodeGallery = () => {
     async (values: { autoHandleResult: boolean; mask?: boolean }) => {
       try {
         const result = await scanQrCode.start({
-          parseScene: 'all',
+          handlers: scanQrCode.PARSE_HANDLERS.all,
           ...values,
           accountId: account?.id,
         });

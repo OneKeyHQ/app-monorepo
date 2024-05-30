@@ -116,10 +116,8 @@ export type IQRCodeHandler<T extends IBaseValue> = (
 export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
 
-export type IQRCodeParseHandlerListScene = 'all' | 'animation' | 'none';
-
 export type IQRCodeHandlerParseOutsideOptions = {
-  parseScene: IQRCodeParseHandlerListScene;
+  handlers: Record<string, IQRCodeHandler<IBaseValue>>;
   autoHandleResult?: boolean;
   accountId?: string;
   mask?: boolean;

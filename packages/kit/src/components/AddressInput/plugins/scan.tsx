@@ -11,7 +11,7 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { start } = useScanQrCode();
   const onPress = useCallback(async () => {
     const address = await start({
-      parseScene: 'none',
+      handlers: {},
       autoHandleResult: false,
     });
     onChange?.(address?.raw);

@@ -35,7 +35,7 @@ export function HeaderRight({
   const onScanButtonPressed = useCallback(
     () =>
       scanQrCode.start({
-        parseScene: 'all',
+        handlers: scanQrCode.PARSE_HANDLERS.all,
         autoHandleResult: true,
         accountId: account?.id,
       }),

@@ -35,10 +35,7 @@ UR:CRYPTO-HDKEY/1-2/LPADAOCSGECYBAKIYLATHDDAOTADYKAXHDCLAEVSWFDMJPFSWPWKAHCYWSPS
 UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCMKBPSFTGONBGAUEFSEHGRQZDMVODIZMWEEMTLAYWLBYRLPR
 
   */
-  const {
-    start: startScan,
-    // close,
-  } = useScanQrCode();
+  const scanQrCode = useScanQrCode();
 
   const navigation = useAppNavigation();
   return (
@@ -48,8 +45,8 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
           const startAnimatedScan: () => Promise<
             string | undefined
           > = async () => {
-            const scanResult = await startScan({
-              parseScene: 'animation',
+            const scanResult = await scanQrCode.start({
+              handlers: scanQrCode.PARSE_HANDLERS.animation,
               autoHandleResult: false,
               mask: true,
             });
