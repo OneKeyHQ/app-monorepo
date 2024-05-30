@@ -143,7 +143,7 @@ export function ImportSingleChainBase({
                   iconName: 'ScanOutline',
                   onPress: async () => {
                     const result = await start({
-                      handlers: {},
+                      handlers: [],
                       autoHandleResult: false,
                     });
                     form.setValue('input', result.raw);

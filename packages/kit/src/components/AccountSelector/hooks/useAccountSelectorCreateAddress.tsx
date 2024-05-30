@@ -37,7 +37,7 @@ export function useCreateQrWallet() {
       byDevice?: IDBDevice;
     }) => {
       const scanResult = await startScan({
-        handlers: {},
+        handlers: [],
         mask: true,
         autoHandleResult: false,
       });
