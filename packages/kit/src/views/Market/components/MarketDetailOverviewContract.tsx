@@ -6,6 +6,7 @@ import type { IMarketDetailPlatform } from '@onekeyhq/shared/types/market';
 
 import { MarketTokenAddress } from './MarketTokenAddress';
 
+const MAX_SHOW_NUMBER = 4;
 export function MarketDetailOverviewContract({
   detailPlatforms,
 }: {
@@ -16,16 +17,21 @@ export function MarketDetailOverviewContract({
       detailPlatforms ? Object.keys(detailPlatforms).filter((i) => !!i) : [],
     [detailPlatforms],
   );
-  const [isShowMore, setIsShowMore] = useState(false);
+  const isShowAllInDefault = keys.length <= MAX_SHOW_NUMBER;
+  const [isShowMore, setIsShowMore] = useState(isShowAllInDefault);
   const handleViewMore = useCallback(() => {
     setIsShowMore((prev) => !prev);
   }, []);
+  const showKeys = useMemo(
+    () => (isShowMore ? keys : keys.slice(0, MAX_SHOW_NUMBER)),
+    [isShowMore, keys],
+  );
   return keys.length ? (
     <YStack pt="$3" space="$3">
       <SizableText color="$textSubdued" size="$bodySm">
         Contract
       </SizableText>
-      {keys.map((tokenName) => {
+      {showKeys.map((tokenName) => {
         const platform = detailPlatforms[tokenName];
         return (
           <MarketTokenAddress
@@ -39,7 +45,7 @@ export function MarketDetailOverviewContract({
           />
         );
       })}
-      {isShowMore ? (
+      {isShowAllInDefault ? null : (
         <Button
           size="medium"
           variant="secondary"
@@ -48,7 +54,7 @@ export function MarketDetailOverviewContract({
         >
           {isShowMore ? 'View More' : 'View Less'}
         </Button>
-      ) : null}
+      )}
     </YStack>
   ) : null;
 }
