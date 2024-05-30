@@ -12,7 +12,6 @@ import type {
 
 import { LidoStake } from '../../components/LidoStake';
 import { useLidoStake } from '../../hooks/useLidoEthHooks';
-import { LIDO_ETH_LOGO_URI } from '../../utils/const';
 
 const EthLidoStake = () => {
   const route = useAppRoute<
@@ -48,9 +47,9 @@ const EthLidoStake = () => {
           price={price}
           balance={balance}
           minAmount={BigNumber(1).shiftedBy(-token.decimals).toFixed()}
-          tokenImageUri={LIDO_ETH_LOGO_URI}
-          tokenSymbol={token.symbol.toUpperCase()}
-          stTokenSymbol={stToken.symbol.toUpperCase()}
+          tokenImageUri={token.logoURI}
+          tokenSymbol={token.symbol}
+          stTokenSymbol={stToken.symbol}
           onConfirm={onConfirm}
         />
       </Page.Body>
