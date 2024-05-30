@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 
 export function useLidoMaticStake({
   accountId,
@@ -15,10 +16,12 @@ export function useLidoMaticStake({
   return useCallback(
     async ({
       amount,
+      stakingInfo,
       onSuccess,
       onFail,
     }: {
       amount: string;
+      stakingInfo: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
@@ -30,10 +33,12 @@ export function useLidoMaticStake({
         await backgroundApiProxy.serviceStaking.buildLidoMaticStakingTransaction(
           {
             amount,
+            networkId,
           },
         );
       await navigationToSendConfirm({
         encodedTx: { ...serverTx, from: account.address },
+        stakingInfo,
         onSuccess,
         onFail,
       });
@@ -53,10 +58,12 @@ export function useLidoMaticWithdraw({
   return useCallback(
     async ({
       amount,
+      stakingInfo,
       onSuccess,
       onFail,
     }: {
       amount: string;
+      stakingInfo: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
@@ -64,14 +71,17 @@ export function useLidoMaticWithdraw({
         accountId,
         networkId,
       });
+
       const serverTx =
         await backgroundApiProxy.serviceStaking.buildLidoMaticWithdrawalTransaction(
           {
             amount,
+            networkId,
           },
         );
       await navigationToSendConfirm({
         encodedTx: { ...serverTx, from: account.address },
+        stakingInfo,
         onSuccess,
         onFail,
       });
@@ -91,10 +101,12 @@ export function useLidoMaticClaim({
   return useCallback(
     async ({
       tokenId,
+      stakingInfo,
       onSuccess,
       onFail,
     }: {
       tokenId: number;
+      stakingInfo: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
@@ -105,9 +117,11 @@ export function useLidoMaticClaim({
       const serverTx =
         await backgroundApiProxy.serviceStaking.buildLidoMaticClaimTransaction({
           tokenId,
+          networkId,
         });
       await navigationToSendConfirm({
         encodedTx: { ...serverTx, from: account.address },
+        stakingInfo,
         onSuccess,
         onFail,
       });
