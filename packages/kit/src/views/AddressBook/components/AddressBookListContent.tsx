@@ -255,10 +255,23 @@ export const AddressBookListContent = ({
     let sections: ISectionItem[] = [];
     if (searchKey) {
       const fuse = buildFuse(items, { keys: ['address', 'name'] });
+      console.log(fuse.search(searchKey));
       const itemSearched = fuse.search(searchKey).map((o) => ({
         ...o.item,
-        addressMatch: o.matches?.find((i) => i.key === 'address'),
         nameMatch: o.matches?.find((i) => i.key === 'name'),
+        // Require an exact match for address search.
+        addressMatch: o.matches?.find((i) => {
+          try {
+            return (
+              i.key === 'address' &&
+              i.indices.length === 1 &&
+              i.value &&
+              i.indices[0][1] - i.indices[0][0] === i.value.length - 1
+            );
+          } catch {
+            return false;
+          }
+        }),
       }));
       sections = buildSections(itemSearched);
     } else {
