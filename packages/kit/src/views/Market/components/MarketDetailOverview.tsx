@@ -175,7 +175,7 @@ function OverviewMarketVOL({
           </OverviewMarketVOLItem>
         </XStack>
       </YStack>
-      <MarketDetailOverviewContract detailPlatform={detailPlatforms} />
+      <MarketDetailOverviewContract detailPlatforms={detailPlatforms} />
     </YStack>
   );
 }

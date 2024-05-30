@@ -10,7 +10,7 @@ const MAX_SHOW_NUMBER = 4;
 export function MarketDetailOverviewContract({
   detailPlatforms,
 }: {
-  detailPlatforms: IMarketDetailPlatform;
+  detailPlatforms?: IMarketDetailPlatform;
 }) {
   const keys = useMemo(
     () =>
@@ -26,7 +26,7 @@ export function MarketDetailOverviewContract({
     () => (isShowMore ? keys : keys.slice(0, MAX_SHOW_NUMBER)),
     [isShowMore, keys],
   );
-  return keys.length ? (
+  return detailPlatforms && keys.length ? (
     <YStack pt="$3" space="$3">
       <SizableText color="$textSubdued" size="$bodySm">
         Contract

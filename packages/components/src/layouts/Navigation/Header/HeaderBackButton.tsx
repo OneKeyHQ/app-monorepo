@@ -11,7 +11,7 @@ import HeaderIconButton from './HeaderIconButton';
 
 import type { IOnekeyStackHeaderProps } from './HeaderScreenOptions';
 import type { IIconButtonProps } from '../../../actions';
-import type { HeaderBackButtonProps } from '@react-navigation/elements';
+import type { HeaderBackButtonProps } from '@react-navigation/elements/src/types';
 
 type INavButtonProps = Omit<IIconButtonProps, 'icon' | 'testID'>;
 
