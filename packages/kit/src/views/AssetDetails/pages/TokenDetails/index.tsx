@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
+import type { IActionListSection } from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
@@ -21,6 +22,7 @@ import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListVie
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -32,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
+import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import ActionBuy from './ActionBuy';
@@ -67,60 +70,62 @@ export function TokenDetails() {
   const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
   const [initialized, setInitialized] = useState(false);
 
-  const { result: [tokenHistory, tokenDetails, account] = [], isLoading } =
-    usePromiseResult(
-      async () => {
-        const a = await backgroundApiProxy.serviceAccount.getAccount({
+  const {
+    result: [tokenHistory, tokenDetails, account, network] = [],
+    isLoading,
+  } = usePromiseResult(
+    async () => {
+      const a = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const b = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
           accountId,
           networkId,
         });
-        const accountAddress =
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            accountId,
-            networkId,
-          });
 
-        if (!a) return;
-        const [xpub, vaultSettings] = await Promise.all([
-          backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          }),
-          backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          }),
-        ]);
-        const [history, details] = await Promise.all([
-          backgroundApiProxy.serviceHistory.fetchAccountHistory({
-            accountId: a.id,
-            accountAddress,
-            xpub,
-            networkId,
-            tokenIdOnNetwork: tokenInfo.address,
-            onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
-          }),
-          backgroundApiProxy.serviceToken.fetchTokensDetails({
-            networkId,
-            xpub,
-            accountAddress,
-            contractList: [tokenInfo.address],
-          }),
-        ]);
+      if (!a) return;
+      const [xpub, vaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId,
+        }),
+      ]);
+      const [history, details] = await Promise.all([
+        backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId: a.id,
+          accountAddress,
+          xpub,
+          networkId,
+          tokenIdOnNetwork: tokenInfo.address,
+          onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+        }),
+        backgroundApiProxy.serviceToken.fetchTokensDetails({
+          networkId,
+          xpub,
+          accountAddress,
+          contractList: [tokenInfo.address],
+        }),
+      ]);
 
-        setInitialized(true);
+      setInitialized(true);
 
-        return [history, details[0], a];
-      },
-      [accountId, networkId, tokenInfo.address],
-      {
-        watchLoading: true,
-      },
-    );
+      return [history, details[0], a, b];
+    },
+    [accountId, networkId, tokenInfo.address],
+    {
+      watchLoading: true,
+    },
+  );
 
   const handleOnSwap = useCallback(async () => {
-    const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-      networkId,
-    });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
@@ -139,6 +144,7 @@ export function TokenDetails() {
     });
   }, [
     navigation,
+    network?.logoURI,
     networkId,
     tokenInfo.address,
     tokenInfo.decimals,
@@ -199,39 +205,57 @@ export function TokenDetails() {
     }
   }, [isBlocked, networkId, tokenInfo.address]);
 
-  const headerRight = useCallback(
-    () => (
+  const headerRight = useCallback(() => {
+    const sections: IActionListSection[] = [
+      {
+        items: [
+          {
+            label: isBlocked ? 'Unhide' : 'Hide',
+            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
+            onPress: handleToggleBlockedToken,
+          },
+        ],
+      },
+    ];
+
+    if (tokenInfo.address !== '') {
+      sections.unshift({
+        items: [
+          {
+            label: 'Copy Token Contract',
+            icon: 'Copy1Outline',
+            onPress: () => copyText(tokenInfo.address),
+          },
+        ],
+      });
+
+      const tokenDetailsUrl = buildExplorerAddressUrl({
+        network,
+        address: tokenInfo.address,
+      });
+
+      if (tokenDetailsUrl !== '') {
+        sections[0].items.push({
+          label: 'View in explorer',
+          icon: 'ShareOutline',
+          onPress: () => openUrl(tokenDetailsUrl),
+        });
+      }
+    }
+    return (
       <ActionList
         title="Actions"
         renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
-        sections={[
-          {
-            items: [
-              {
-                label: 'Copy Token Contract',
-                icon: 'Copy1Outline',
-                onPress: () => copyText(tokenInfo.address),
-              },
-              {
-                label: 'View on Etherscan',
-                icon: 'ShareOutline',
-              },
-            ],
-          },
-          {
-            items: [
-              {
-                label: isBlocked ? 'Unhide' : 'Hide',
-                icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-                onPress: handleToggleBlockedToken,
-              },
-            ],
-          },
-        ]}
+        sections={sections}
       />
-    ),
-    [copyText, handleToggleBlockedToken, isBlocked, tokenInfo.address],
-  );
+    );
+  }, [
+    copyText,
+    handleToggleBlockedToken,
+    isBlocked,
+    network,
+    tokenInfo.address,
+  ]);
 
   // const renderTokenAddress = useCallback(() => {
   //   if (!tokenInfo.address) return null;
