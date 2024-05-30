@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAllowanceOverview,
   IAprItem,
@@ -23,7 +24,7 @@ class ServiceStaking extends ServiceBase {
 
   private baseGetApr = memoizee(
     async (token: IAprToken) => {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
       const resp = await client.get<{
         data: IAprItem[];
       }>(`/earn/v1/apr/index`, { params: { token } });
@@ -53,7 +54,7 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: ILidoEthOverview;
     }>(`/earn/v1/lido-eth/overview`, { params: { accountAddress } });
@@ -62,7 +63,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   public async buildLidoEthStakingTransaction({ amount }: { amount: string }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
     }>(`/earn/v1/lido-eth/tx/stake`, { amount });
@@ -79,7 +80,7 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,
@@ -110,7 +111,7 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
     }>(`/earn/v1/lido-eth/tx/withdrawal`, {
@@ -128,7 +129,7 @@ class ServiceStaking extends ServiceBase {
   }: {
     requestIds: number[];
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
     }>(`/earn/v1/lido-eth/tx/claim`, { requestIds });
@@ -148,7 +149,7 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: ILidoMaticOverview;
     }>(`/earn/v1/lido-matic/overview`, { params: { accountAddress } });
@@ -161,7 +162,7 @@ class ServiceStaking extends ServiceBase {
   }: {
     amount: string;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
     }>(`/earn/v1/lido-matic/tx/stake`, { amount });
@@ -174,7 +175,7 @@ class ServiceStaking extends ServiceBase {
   }: {
     amount: string;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
     }>(`/earn/v1/lido-matic/tx/unstake`, { amount });
@@ -187,7 +188,7 @@ class ServiceStaking extends ServiceBase {
   }: {
     tokenId: number;
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
       data: IServerEvmTransaction;
     }>(`/earn/v1/lido-matic/tx/claim`, { tokenId });
@@ -203,7 +204,7 @@ class ServiceStaking extends ServiceBase {
     blockNumber?: number;
   }) {
     const { networkId, accountId, ...rest } = params;
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,

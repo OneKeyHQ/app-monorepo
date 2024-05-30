@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
+import type { EServiceEndpointEnum, IEndpointEnv } from '../../types/endpoint';
+
 /**
  * Tokens will injected at build process. These are client token.
  */
@@ -37,11 +39,11 @@ export const DISCORD_URL = 'https://www.discord.gg/onekey';
 export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
 export const ONEKEY_URL = 'https://onekey.so';
-export const ONEKEY_API_URL = 'https://rest.onekeytest.com';
-export const ONEKEY_TEST_API_URL = 'https://rest.onekeytest.com';
+export const ONEKEY_API_HOST = 'onekeytest.com';
+export const ONEKEY_TEST_API_HOST = 'onekeytest.com';
 // https://1key.so
-export const WEB_APP_URL = 'https://wallet.onekeytest.com';
-export const WEB_APP_URL_DEV = 'https://wallet.onekeytest.com';
+export const WEB_APP_URL = 'https://app.onekeytest.com';
+export const WEB_APP_URL_DEV = 'https://app.onekeytest.com';
 
 export const EXT_RATE_URL = {
   'chrome':
@@ -58,3 +60,14 @@ export const ONEKEY_KEY_TAG_PURCHASE_URL =
   'https://onekey.so/zh_CN/products/onekey-keytag/';
 
 export const BIP39_DOT_MAP_URL = 'https://github.com/OneKeyHQ/bip39-dotmap';
+
+export const buildServiceEndpoint = ({
+  serviceName,
+  env,
+}: {
+  serviceName: EServiceEndpointEnum;
+  env: IEndpointEnv;
+}) =>
+  `https://${serviceName}.${
+    env === 'prod' ? ONEKEY_API_HOST : ONEKEY_TEST_API_HOST
+  }`;

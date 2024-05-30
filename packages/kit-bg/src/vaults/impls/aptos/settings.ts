@@ -38,13 +38,13 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: true,
   replaceTxEnabled: false,
-  nativeTokenAddress: APTOS_NATIVE_COIN,
 
   accountDeriveInfo,
   networkInfo: {
     default: {
       curve: 'ed25519',
       addressPrefix: '',
+      nativeTokenAddress: APTOS_NATIVE_COIN,
     },
   },
 };

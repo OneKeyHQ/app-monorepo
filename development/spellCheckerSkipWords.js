@@ -711,4 +711,6 @@ module.exports = [
   'unstake',
   'Unstaking',
   'thor',
+  'algorand',
+  'electron',
 ];
