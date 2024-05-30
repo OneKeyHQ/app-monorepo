@@ -20,6 +20,7 @@ import {
   Popover,
   Select,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
@@ -284,8 +285,10 @@ function TableRow({
   onSortTypeChange,
   showMoreAction = false,
   showListItemPressStyle = false,
+  isLoading,
 }: {
   item?: IMarketToken;
+  isLoading?: boolean;
   tableConfig: ITableColumnConfig;
   minHeight?: IStackProps['height'];
   onPress?: (item: IMarketToken) => void;
@@ -357,7 +360,7 @@ function TableRow({
         onPress={handleColumnPress}
         cursor={cursor}
       >
-        {serialNumber?.(item)}
+        {isLoading ? <Skeleton w="$4" h="$3" /> : serialNumber?.(item)}
       </Column>
       <Column
         name="name"
@@ -368,7 +371,17 @@ function TableRow({
         onPress={handleColumnPress}
         cursor={cursor}
       >
-        {name?.(item)}
+        {isLoading ? (
+          <XStack space="$3">
+            <Skeleton w="$8" h="$8" radius="round" />
+            <YStack space="$2">
+              <Skeleton w="$16" h="$3" />
+              <Skeleton w="$24" h="$3" />
+            </YStack>
+          </XStack>
+        ) : (
+          name?.(item)
+        )}
       </Column>
       <Column
         name="price"
@@ -380,7 +393,7 @@ function TableRow({
         onPress={handleColumnPress}
         cursor={cursor}
       >
-        {price?.(item)}
+        {isLoading ? <Skeleton w="$20" h="$3" /> : price?.(item)}
       </Column>
       <Column
         name="priceChangePercentage1H"
@@ -392,7 +405,11 @@ function TableRow({
         onPress={handleColumnPress}
         cursor={cursor}
       >
-        {priceChangePercentage1H?.(item)}
+        {isLoading ? (
+          <Skeleton w="$10" h="$3" />
+        ) : (
+          priceChangePercentage1H?.(item)
+        )}
       </Column>
       <Column
         name="priceChangePercentage24H"
@@ -404,7 +421,11 @@ function TableRow({
         onPress={handleColumnPress}
         cursor={cursor}
       >
-        {priceChangePercentage24H?.(item)}
+        {isLoading ? (
+          <Skeleton w="$10" h="$3" />
+        ) : (
+          priceChangePercentage24H?.(item)
+        )}
       </Column>
       <Column
         flexGrow={1}
@@ -416,7 +437,11 @@ function TableRow({
         onPress={handleColumnPress}
         cursor={cursor}
       >
-        {priceChangePercentage7D?.(item)}
+        {isLoading ? (
+          <Skeleton w="$10" h="$3" />
+        ) : (
+          priceChangePercentage7D?.(item)
+        )}
       </Column>
       <Column
         flexGrow={1}
@@ -428,7 +453,7 @@ function TableRow({
         onPress={handleColumnPress}
         cursor={cursor}
       >
-        {totalVolume?.(item)}
+        {isLoading ? <Skeleton w="$20" h="$3" /> : totalVolume?.(item)}
       </Column>
       <Column
         flexGrow={1}
@@ -440,7 +465,7 @@ function TableRow({
         onPress={handleColumnPress}
         cursor={cursor}
       >
-        {marketCap?.(item)}
+        {isLoading ? <Skeleton w="$20" h="$3" /> : marketCap?.(item)}
       </Column>
       {gtLg ? (
         <Column
@@ -453,7 +478,7 @@ function TableRow({
           onPress={handleColumnPress}
           cursor={cursor}
         >
-          {sparkline?.(item)}
+          {isLoading ? <Skeleton w="$20" h="$3" /> : sparkline?.(item)}
         </Column>
       ) : null}
       <Column
@@ -464,7 +489,7 @@ function TableRow({
         onPress={handleColumnPress}
         cursor={cursor}
       >
-        {actions?.(item)}
+        {isLoading ? null : actions?.(item)}
       </Column>
     </XStack>
   );
@@ -538,6 +563,47 @@ function PopoverSettingsContent({
       >
         Confirm
       </Button>
+    </YStack>
+  );
+}
+
+function TableMdSkeletonRow() {
+  return (
+    <XStack h={60} jc="space-between">
+      <XStack space="$3" ai="center">
+        <Skeleton w="$10" h="$10" radius="round" />
+        <YStack space="$2">
+          <Skeleton w="$16" h="$2.5" />
+          <Skeleton w="$24" h="$2.5" />
+        </YStack>
+      </XStack>
+      <XStack space="$5" ai="center">
+        <Skeleton w="$16" h="$2.5" />
+        <Skeleton w="$16" h="$2.5" />
+      </XStack>
+    </XStack>
+  );
+}
+
+function ListEmptyComponent() {
+  const { gtMd } = useMedia();
+  return gtMd ? (
+    <YStack>
+      {new Array(6).fill(0).map((i) => (
+        <TableRow
+          key={i}
+          isLoading
+          showMoreAction
+          tableConfig={{}}
+          minHeight={52}
+        />
+      ))}
+    </YStack>
+  ) : (
+    <YStack px="$5">
+      {new Array(6).fill(0).map((i) => (
+        <TableMdSkeletonRow key={i} />
+      ))}
     </YStack>
   );
 }
@@ -872,6 +938,7 @@ export function MarketHomeList({
           data={sortedListData as unknown as IMarketToken[]}
           renderItem={gtMd ? renderItem : renderMdItem}
           ListFooterComponent={<Stack height={60} />}
+          ListEmptyComponent={<ListEmptyComponent />}
         />
         {isShowBackToTopButton ? (
           <Stack
