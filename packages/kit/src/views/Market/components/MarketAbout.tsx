@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
+import type { IButtonProps, ISizableTextProps } from '@onekeyhq/components';
 import {
   Button,
   SizableText,
@@ -63,7 +63,12 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
           </SizableText>
         </Stack>
         {isShowViewButton ? (
-          <Button size="small" variant="secondary" onPress={handleViewMore}>
+          <Button
+            size="medium"
+            variant="secondary"
+            onPress={handleViewMore}
+            $gtMd={{ size: 'small' } as IButtonProps}
+          >
             {numberOfLines ? 'View More' : 'View Less'}
           </Button>
         ) : null}
