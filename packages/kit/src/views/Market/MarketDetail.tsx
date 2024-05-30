@@ -23,14 +23,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type {
-  IMarketDetailPool,
-  IMarketTokenDetail,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { OpenInAppButton } from '../../components/OpenInAppButton';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
@@ -45,11 +43,9 @@ import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 function TokenDetailHeader({
   coinGeckoId,
   token,
-  pools,
 }: {
   coinGeckoId: string;
   token: IMarketTokenDetail;
-  pools: IMarketDetailPool[];
 }) {
   const {
     name,
@@ -85,7 +81,7 @@ function TokenDetailHeader({
         <MarketStar coingeckoId={coinGeckoId} mr="$-2" />
       </XStack>
       {gtMd ? (
-        <MarketDetailOverview token={token} pools={pools} />
+        <MarketDetailOverview token={token} />
       ) : (
         <XStack pt="$6" flex={1} ai="center" jc="center" space="$2">
           <TextCell title="24H VOL(USD)">{volume24h}</TextCell>
@@ -103,29 +99,12 @@ function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
   const { icon, coinGeckoId, symbol } = route.params;
-  const [isLoading, setIsLoading] = useState(true);
-  const [tokenDetail, setTokenDetail] = useState<
-    IMarketTokenDetail | undefined
-  >();
-  const [pools, setPools] = useState<IMarketDetailPool[]>([]);
-
   const { gtMd } = useMedia();
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    const responseToken =
-      await backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId);
-    const responsePools = await backgroundApiProxy.serviceMarket.fetchPools(
-      responseToken.symbol,
-    );
-    setTokenDetail(responseToken);
-    setPools(responsePools);
-    setIsLoading(false);
-  }, [coinGeckoId]);
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const { result: tokenDetail, isLoading } = usePromiseResult(
+    () => backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId),
+    [coinGeckoId],
+  );
 
   const renderHeaderTitle = useCallback(
     () => (
@@ -217,13 +196,9 @@ function MarketDetail({
   const tokenDetailHeader = useMemo(
     () =>
       tokenDetail ? (
-        <TokenDetailHeader
-          coinGeckoId={coinGeckoId}
-          token={tokenDetail}
-          pools={pools}
-        />
+        <TokenDetailHeader coinGeckoId={coinGeckoId} token={tokenDetail} />
       ) : null,
-    [coinGeckoId, pools, tokenDetail],
+    [coinGeckoId, tokenDetail],
   );
 
   const tokenPriceChart = useMemo(
@@ -231,9 +206,6 @@ function MarketDetail({
     [coinGeckoId],
   );
 
-  if (!tokenDetail) {
-    return null;
-  }
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -253,14 +225,13 @@ function MarketDetail({
               {tokenDetailHeader}
               <YStack flex={1}>
                 {tokenPriceChart}
-                <TokenDetailTabs token={tokenDetail} pools={pools} />
+                {tokenDetail ? <TokenDetailTabs token={tokenDetail} /> : null}
               </YStack>
             </Stack>
           </YStack>
         ) : (
           <TokenDetailTabs
             token={tokenDetail}
-            pools={pools}
             listHeaderComponent={
               <YStack>
                 {tokenDetailHeader}

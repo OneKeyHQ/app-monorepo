@@ -1,11 +1,11 @@
 import type { ReactElement } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import { Stack, Tab, useMedia } from '@onekeyhq/components';
-import type {
-  IMarketDetailPool,
-  IMarketTokenDetail,
-} from '@onekeyhq/shared/types/market';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import { MarketDetailLinks } from './MarketDetailLinks';
 import { MarketDetailOverview } from './MarketDetailOverview';
@@ -13,14 +13,20 @@ import { MarketDetailPools } from './MarketDetailPools';
 
 function BasicTokenDetailTabs({
   token,
-  pools,
   listHeaderComponent,
 }: {
-  token: IMarketTokenDetail;
-  pools: IMarketDetailPool[];
+  token?: IMarketTokenDetail;
   listHeaderComponent?: ReactElement;
 }) {
   const { md } = useMedia();
+
+  const { result: pools, isLoading } = usePromiseResult(
+    () =>
+      token?.symbol
+        ? backgroundApiProxy.serviceMarket.fetchPools(token?.symbol)
+        : Promise.resolve(undefined),
+    [token?.symbol],
+  );
 
   const tabConfig = useMemo(
     () =>
