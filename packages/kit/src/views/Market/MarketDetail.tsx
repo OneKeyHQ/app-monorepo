@@ -82,7 +82,7 @@ function TokenDetailHeader({
             {performance.priceChangePercentage24h}
           </PriceChangePercentage>
         </YStack>
-        <MarketStar coingeckoId={coinGeckoId} />
+        <MarketStar coingeckoId={coinGeckoId} mr="$-2" />
       </XStack>
       {gtMd ? (
         <MarketDetailOverview token={token} pools={pools} />
