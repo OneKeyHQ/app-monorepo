@@ -263,7 +263,7 @@ function MarketDetail({
         )}
       </YStack>
     );
-  }, [coinGeckoId, gtMd]);
+  }, [coinGeckoId, gtMd, tokenDetail]);
 
   const tokenPriceChart = useMemo(
     () => <TokenPriceChart coinGeckoId={coinGeckoId} />,
