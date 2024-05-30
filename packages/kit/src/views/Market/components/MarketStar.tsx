@@ -39,9 +39,11 @@ function BasicMarketStar({
   return (
     <IconButton
       icon={checked ? 'StarSolid' : 'StarOutline'}
-      color="red"
       variant="tertiary"
       iconSize="$5"
+      iconProps={{
+        color: checked ? '$iconActive' : '$iconDisabled',
+      }}
       onPress={handlePress}
       {...props}
     />
