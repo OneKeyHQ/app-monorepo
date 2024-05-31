@@ -8,7 +8,7 @@ type ILidoFAQProps = {
 };
 
 const LidoFAQ = ({ question, answer }: ILidoFAQProps) => {
-  const [show, setShow] = useState(true);
+  const [show, setShow] = useState(false);
   const onToggle = useCallback(() => setShow((v) => !v), []);
   return (
     <YStack>
@@ -21,7 +21,7 @@ const LidoFAQ = ({ question, answer }: ILidoFAQProps) => {
             <IconButton
               onPress={onToggle}
               variant="tertiary"
-              icon={show ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'}
+              icon={show ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
             />
           </XStack>
         </XStack>
