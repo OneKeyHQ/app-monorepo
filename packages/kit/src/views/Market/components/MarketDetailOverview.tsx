@@ -16,7 +16,7 @@ import type {
 } from '@onekeyhq/shared/types/market';
 
 import { MarketAbout } from './MarketAbout';
-import { MarketTokenAddress } from './MarketTokenAddress';
+import { MarketDetailOverviewContract } from './MarketDetailOverviewContract';
 import { PriceChangePercentage } from './PriceChangePercentage';
 
 function OverviewPriceChange({
@@ -146,7 +146,6 @@ function OverviewMarketVOL({
   circulatingSupply: number;
   detailPlatforms: IMarketDetailPlatform;
 }) {
-  const keys = Object.keys(detailPlatforms).filter((i) => !!i);
   return (
     <YStack pt="$10">
       <YStack space="$3">
@@ -179,27 +178,7 @@ function OverviewMarketVOL({
           </OverviewMarketVOLItem>
         </XStack>
       </YStack>
-      {keys.length ? (
-        <YStack pt="$3" space="$2">
-          <SizableText color="$textSubdued" size="$bodySm">
-            Contract
-          </SizableText>
-          {keys.map((tokenName) => {
-            const platform = detailPlatforms[tokenName];
-            return (
-              <MarketTokenAddress
-                key={tokenName}
-                tokenNameSize="$bodyMd"
-                tokenNameColor="$textSubdued"
-                addressSize="$bodyMdMedium"
-                networkId={platform.onekeyNetworkId}
-                tokenName={`${tokenName[0].toUpperCase()}${tokenName.slice(1)}`}
-                address={platform.contract_address}
-              />
-            );
-          })}
-        </YStack>
-      ) : null}
+      <MarketDetailOverviewContract detailPlatforms={detailPlatforms} />
     </YStack>
   );
 }
@@ -238,7 +217,6 @@ export function MarketDetailOverview({
   onContentSizeChange,
 }: ITabPageProps & {
   token: IMarketTokenDetail;
-  pools: IMarketDetailPool[];
 }) {
   return (
     <YStack

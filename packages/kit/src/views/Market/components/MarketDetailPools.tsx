@@ -23,7 +23,7 @@ import { listItemPressStyle } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
-import { PoolDetails } from './PoolDetails';
+import { PoolDetailDialog } from './PoolDetailDialog';
 import { useSortType } from './useSortType';
 
 function HeaderColumn({
@@ -69,6 +69,7 @@ function HeaderColumn({
       ai="center"
       onPress={handlePress}
       jc={jc}
+      cursor="pointer"
     >
       {jc === 'flex-end' ? renderOrderIcon() : null}
       <SizableText size="$bodySmMedium" color="$textSubdued">
@@ -282,7 +283,7 @@ export function MarketDetailPools({
                 onPress={() => {
                   Dialog.confirm({
                     title: 'Pool Details',
-                    renderContent: <PoolDetails item={item} />,
+                    renderContent: <PoolDetailDialog item={item} />,
                   });
                 }}
               >

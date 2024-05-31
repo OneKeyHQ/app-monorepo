@@ -67,7 +67,11 @@ export function MarketDetailLinks({
             </Button>
           ) : null}
           {whitepaper ? (
-            <Button icon="BookOpenOutline" iconAfter="OpenOutline">
+            <Button
+              icon="BookOpenOutline"
+              iconAfter="OpenOutline"
+              onPress={() => openUrlExternal(whitepaper)}
+            >
               White Paper
             </Button>
           ) : null}
