@@ -12,7 +12,7 @@ let parts: string[] = [];
 // ur://bytes/1-3/1ABC
 // ur://bytes/2-3/2ABC
 // ur://bytes/3-3/3ABC
-export const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
+const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   if (!/^ur:/i.test(value)) {
     return null;
   }
@@ -52,6 +52,8 @@ export const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   }
   return null;
 };
+
+export default animation;
 
 export function resetAnimationQrcodeScan() {
   decoder = new URDecoder();
