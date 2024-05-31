@@ -663,8 +663,17 @@ export function MarketHomeList({
 
   const tableHeaderConfig = useBuildTableHeaderConfig();
 
+  const filterCoingeckoIdsListData = useMemo(
+    () =>
+      category.coingeckoIds
+        ? listData?.filter((item) =>
+            category.coingeckoIds.includes(item.coingeckoId),
+          )
+        : listData,
+    [listData, category.coingeckoIds],
+  );
   const { sortedListData, handleSortTypeChange, sortByType, setSortByType } =
-    useSortType(listData as Record<string, any>[]);
+    useSortType(filterCoingeckoIdsListData as Record<string, any>[]);
 
   const HeaderColumns = useMemo(
     () => (
