@@ -10,7 +10,10 @@ import type { IAddressPluginProps } from '../types';
 const ScanPluginContent: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { start } = useScanQrCode();
   const onPress = useCallback(async () => {
-    const address = await start({ autoHandleResult: false });
+    const address = await start({
+      handlers: [],
+      autoHandleResult: false,
+    });
     onChange?.(address?.raw);
   }, [onChange, start]);
   return (
