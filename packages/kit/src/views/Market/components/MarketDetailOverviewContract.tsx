@@ -51,7 +51,7 @@ export function MarketDetailOverviewContract({
           onPress={handleViewMore}
           $gtMd={{ size: 'small' } as IButtonProps}
         >
-          {isShowMore ? 'View More' : 'View Less'}
+          {isShowMore ? 'View Less' : 'View More'}
         </Button>
       )}
     </YStack>
