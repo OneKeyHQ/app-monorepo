@@ -437,17 +437,14 @@ export default class VaultDot extends VaultBase {
         symbol: tokenInfo.symbol,
         tokenIdOnNetwork: tokenInfo.address,
         isNFT: false,
+        isNative: tokenInfo.symbol === networkInfo.nativeTokenAddress,
       };
 
-      action = {
-        type: actionType,
-        assetTransfer: {
-          from,
-          to,
-          sends: [transferAction],
-          receives: [],
-        },
-      };
+      action = await this.buildTxTransferAssetAction({
+        from,
+        to,
+        transfers: [transferAction],
+      });
     } else {
       action = {
         type: EDecodedTxActionType.UNKNOWN,
@@ -495,13 +492,69 @@ export default class VaultDot extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx } = params;
-    const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
+    const { unsignedTx, nativeAmountInfo } = params;
+    let encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     if (params.nonceInfo) {
       encodedTx.nonce = hexUtils.hexlify(params.nonceInfo.nonce, {
         hexPad: 'left',
       }) as `0x${string}`;
     }
+
+    // send max amount
+    if (nativeAmountInfo) {
+      const decodeUnsignedTx = await this._decodeUnsignedTx(encodedTx);
+      const type = getTransactionTypeFromTxInfo(decodeUnsignedTx);
+      if (type === EDecodedTxActionType.ASSET_TRANSFER) {
+        const txBaseInfo = await this._getTxBaseInfo();
+        const from = await this.getAccountAddress();
+
+        const info = {
+          ...txBaseInfo,
+          address: from,
+          eraPeriod: 64,
+          nonce: decodeUnsignedTx.nonce ?? 0,
+          tip: 0,
+        };
+
+        const option = {
+          metadataRpc: txBaseInfo.metadataRpc,
+          registry: txBaseInfo.registry,
+        };
+
+        const network = await this.getNetwork();
+        const amountValue = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
+          .shiftedBy(network.decimals)
+          .toFixed();
+        const dest = decodeUnsignedTx.method.args.dest as { id: string };
+
+        let tx;
+        if (decodeUnsignedTx.method?.name?.indexOf('KeepAlive') !== -1) {
+          tx = methods.balances.transferKeepAlive(
+            {
+              value: amountValue,
+              dest,
+            },
+            info,
+            option,
+          );
+        } else {
+          tx = methods.balances.transferAll(
+            {
+              dest,
+              keepAlive: false,
+            },
+            info,
+            option,
+          );
+        }
+        encodedTx = {
+          ...tx,
+          specName: txBaseInfo.specName,
+          chainName: network.name,
+        };
+      }
+    }
+
     return {
       encodedTx,
       feeInfo: params.feeInfo,
