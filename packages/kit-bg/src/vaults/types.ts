@@ -147,6 +147,8 @@ export type IVaultSettings = {
   withPaymentId?: boolean;
 
   enabledOnClassicOnly?: boolean;
+
+  hideFeeInfoInHistoryList?: boolean;
 };
 
 export type IVaultFactoryOptions = {

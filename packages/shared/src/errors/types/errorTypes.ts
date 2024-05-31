@@ -83,13 +83,17 @@ export type IOneKeyErrorMeta = {
 };
 
 export type IOneKeyRpcError = {
-  message: string;
-  endpoint: string;
-  error: {
-    code: number;
-    message: string;
-    data: string;
+  req: {
+    method: string;
+    params: [any];
   };
-  method: string;
-  params: [any];
+  res: {
+    id: number;
+    jsonrpc: string;
+    error: {
+      code: number;
+      message: string;
+      data: string;
+    };
+  };
 };
