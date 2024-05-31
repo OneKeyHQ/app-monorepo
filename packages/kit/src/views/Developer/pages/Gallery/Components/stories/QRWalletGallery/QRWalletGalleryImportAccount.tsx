@@ -48,7 +48,8 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
             const scanResult = await scanQrCode.start({
               handlers: scanQrCode.PARSE_HANDLER_NAMES.animation,
               autoHandleResult: false,
-              mask: true,
+              qrWalletScene: true,
+              showProTutorial: true,
             });
             const animatedData = scanResult.data as IAnimationValue;
             const fullData = animatedData.fullData;
