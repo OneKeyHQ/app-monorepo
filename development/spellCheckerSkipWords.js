@@ -713,4 +713,8 @@ module.exports = [
   'thor',
   'algorand',
   'electron',
+  'fdv',
+  'dex',
+  'Dex',
+  'whitepaper',
 ];
