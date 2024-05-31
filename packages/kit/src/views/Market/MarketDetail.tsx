@@ -83,7 +83,7 @@ function TokenDetailHeader({
         <MarketStar coingeckoId={coinGeckoId} mr="$-2" />
       </XStack>
       {gtMd ? (
-        <MarketDetailOverview token={token} />
+        <MarketDetailOverview token={token} onContentSizeChange={() => {}} />
       ) : (
         <XStack pt="$6" flex={1} ai="center" jc="center" space="$2">
           <TextCell title="24H VOL(USD)">{volume24h}</TextCell>
