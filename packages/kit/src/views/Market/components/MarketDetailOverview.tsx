@@ -199,7 +199,7 @@ function OverviewMarketVOL({
 
 export function MarketDetailOverview({
   token: {
-    detail_platforms: detailPlatforms,
+    detailPlatforms,
     stats: {
       maxSupply,
       totalSupply,

@@ -96,7 +96,7 @@ export interface IMarketTokenDetail {
   explorers: IMarketTokenExplorer[];
   links: IMarketDetailLinks;
   stats: IMarketDetailStats;
-  detail_platforms: IMarketDetailPlatform;
+  detailPlatforms: IMarketDetailPlatform;
 }
 
 export type IMarketTokenChart = [number, number][];
