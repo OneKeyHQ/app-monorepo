@@ -1,12 +1,23 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+
+import { useWindowDimensions } from 'react-native';
 
 import { useRoute } from '@react-navigation/core';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
 
-import { Button, Page, Stack, TextArea, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  ListView,
+  Page,
+  Stack,
+  TextArea,
+  XStack,
+} from '@onekeyhq/components';
 import { NavCloseButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EScanQrCodeModalPages,
@@ -41,6 +52,73 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
   );
 }
 
+const FOOTER_NORMAL_ITEM_LIST: { title: string; icon: IKeyOfIcons }[] = [
+  { icon: 'Copy1Outline', title: 'Scan address codes to copy address' },
+  {
+    icon: 'WalletOutline',
+    title: 'Scan WalletConnect code to connect to sites',
+  },
+];
+
+const FOOTER_TUTORIAL_ITEM_LIST: { title: string; icon: IKeyOfIcons }[] = [
+  {
+    icon: 'QrCodeOutline',
+    title:
+      'To show your QR code, go to Connect App Wallet > QR Code > OneKey Wallet on your device',
+  },
+];
+
+const FOOTER_SECURITY_ITEM_LIST: { title: string; icon: IKeyOfIcons }[] = [
+  {
+    icon: 'CameraExposureZoomInOutline',
+    title: 'If it fails to scan, move closer to the screen and try again',
+  },
+  {
+    icon: 'ShieldCheckDoneOutline',
+    title:
+      "We've blurred your screen for security, but it won't affect your scan",
+  },
+];
+
+function ScanQrCodeModalFooter({
+  qrWalletScene,
+  showProTutorial,
+}: {
+  qrWalletScene?: boolean;
+  showProTutorial?: boolean;
+}) {
+  return (
+    <ListView
+      mt="$5"
+      data={
+        qrWalletScene
+          ? [
+              ...(showProTutorial ? FOOTER_TUTORIAL_ITEM_LIST : []),
+              ...FOOTER_SECURITY_ITEM_LIST,
+            ]
+          : FOOTER_NORMAL_ITEM_LIST
+      }
+      renderItem={({ item }) => (
+        <ListItem
+          p={0}
+          m={0}
+          mt="$4"
+          icon={item.icon}
+          title={item.title}
+          iconProps={{ size: 'small' }}
+          titleProps={{
+            size: '$bodyMd',
+            color: '$textSubdued',
+            marginTop: '$.5',
+          }}
+          ai="flex-start"
+        />
+      )}
+      estimatedItemSize="$10"
+    />
+  );
+}
+
 export default function ScanQrCodeModal() {
   const intl = useIntl();
   const route =
@@ -50,9 +128,12 @@ export default function ScanQrCodeModal() {
         EScanQrCodeModalPages.ScanQrCodeStack
       >
     >();
-  const { callback, mask } = route.params;
+  const { callback, qrWalletScene, showProTutorial } = route.params;
+
+  const isPickedImage = useRef(false);
 
   const pickImage = useCallback(async () => {
+    isPickedImage.current = true;
     const result = await launchImageLibraryAsync({
       base64: !platformEnv.isNative,
       allowsMultipleSelection: false,
@@ -61,10 +142,21 @@ export default function ScanQrCodeModal() {
     if (!result.canceled) {
       const data = await scanFromURLAsync(result.assets[0].uri);
       if (data) {
+        isPickedImage.current = true;
         await callback(data);
       }
     }
   }, [callback]);
+
+  const onCameraScanned = useCallback(
+    async (value: string) => {
+      if (isPickedImage.current) {
+        return {};
+      }
+      return callback(value);
+    },
+    [callback],
+  );
 
   const headerLeftCall = useCallback(
     () => (
@@ -94,6 +186,10 @@ export default function ScanQrCodeModal() {
     [pickImage],
   );
 
+  const { width: screenWidth } = useWindowDimensions();
+  const mdSize = screenWidth - 40;
+  const gtMdSize = 250;
+
   return (
     <Page safeAreaEnabled={false}>
       <Page.Header
@@ -101,16 +197,31 @@ export default function ScanQrCodeModal() {
           id: 'title__scan_qr_code',
         })}
         disableClose
-        headerTransparent
-        headerTitleStyle={{
-          color: '#ffffff',
-        }}
         headerLeft={headerLeftCall}
-        headerTintColor="white"
         headerRight={headerRightCall}
       />
-      <Page.Body>
-        <ScanQrCode handleBarCodeScanned={callback} mask={mask} />
+      <Page.Body ai="center" $gtMd={{ jc: 'center' }}>
+        <Stack
+          flex={1}
+          $md={{ width: mdSize, mt: '$5' }}
+          $gtMd={{ width: gtMdSize }}
+        >
+          <Stack
+            $md={{ height: mdSize }}
+            $gtMd={{ height: gtMdSize }}
+            borderRadius="$5"
+            overflow="hidden"
+          >
+            <ScanQrCode
+              handleBarCodeScanned={callback}
+              qrWalletScene={qrWalletScene}
+            />
+          </Stack>
+          <ScanQrCodeModalFooter
+            qrWalletScene={qrWalletScene}
+            showProTutorial={showProTutorial}
+          />
+        </Stack>
       </Page.Body>
       {platformEnv.isDev ? (
         <Page.Footer>

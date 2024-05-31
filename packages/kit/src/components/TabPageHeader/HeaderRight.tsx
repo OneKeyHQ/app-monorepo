@@ -33,7 +33,12 @@ export function HeaderRight({
     });
   }, [navigation]);
   const onScanButtonPressed = useCallback(
-    () => scanQrCode.start({ autoHandleResult: true, accountId: account?.id }),
+    () =>
+      scanQrCode.start({
+        handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+        autoHandleResult: true,
+        accountId: account?.id,
+      }),
     [scanQrCode, account?.id],
   );
 

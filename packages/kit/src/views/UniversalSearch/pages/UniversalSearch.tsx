@@ -53,7 +53,7 @@ enum ESearchStatus {
 }
 
 const SkeletonItem = () => (
-  <XStack px="$5" py="$2" alignItems="center">
+  <XStack py="$2" alignItems="center">
     <Skeleton w="$10" h="$10" radius="round" />
     <YStack ml="$3">
       <Stack py="$1.5">
@@ -222,7 +222,7 @@ export function UniversalSearch({
                 >
                   {price}
                 </NumberSizeableText>
-                <MarketStar coingeckoId={coingeckoId} />
+                <MarketStar coingeckoId={coingeckoId} mx="$3" />
               </XStack>
             </ListItem>
           );
@@ -245,6 +245,16 @@ export function UniversalSearch({
               renderSectionHeader={renderSectionHeader}
               sections={recommendSections}
               renderItem={renderItem}
+              ListEmptyComponent={
+                <YStack px="$5">
+                  <SizableText numberOfLines={1} size="$headingSm">
+                    Trending
+                  </SizableText>
+                  <SkeletonItem />
+                  <SkeletonItem />
+                  <SkeletonItem />
+                </YStack>
+              }
               estimatedItemSize="$16"
             />
           </>
@@ -252,7 +262,7 @@ export function UniversalSearch({
 
       case ESearchStatus.loading:
         return (
-          <YStack>
+          <YStack px="$5">
             <SkeletonItem />
             <SkeletonItem />
             <SkeletonItem />

@@ -1,3 +1,4 @@
+import type { ITabPageProps } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
@@ -13,11 +14,19 @@ export function MarketDetailLinks({
     links: { discordUrl, homePageUrl, telegramUrl, twitterUrl, whitepaper },
     explorers,
   },
-}: {
+  onContentSizeChange,
+}: ITabPageProps & {
   token: IMarketTokenDetail;
 }) {
   return (
-    <YStack px="$5">
+    <YStack
+      px="$5"
+      onLayout={({
+        nativeEvent: {
+          layout: { width, height },
+        },
+      }) => onContentSizeChange(width, height)}
+    >
       <YStack py="$5" space="$2">
         <SizableText size="$headingSm" color="$textSubdued">
           Community
@@ -58,7 +67,11 @@ export function MarketDetailLinks({
             </Button>
           ) : null}
           {whitepaper ? (
-            <Button icon="BookOpenOutline" iconAfter="OpenOutline">
+            <Button
+              icon="BookOpenOutline"
+              iconAfter="OpenOutline"
+              onPress={() => openUrlExternal(whitepaper)}
+            >
               White Paper
             </Button>
           ) : null}

@@ -30,7 +30,8 @@ export function QrcodeDialogContainer() {
           await dialog.close({ flag: 'skipReject' });
           // TODO reject at scan onClose
           const result = await startScan({
-            mask: true,
+            handlers: [],
+            qrWalletScene: true,
             autoHandleResult: false,
           });
           console.log(result, result.raw);

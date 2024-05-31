@@ -63,7 +63,6 @@ export interface IMarketDetailStats {
   marketCap: number;
   marketCapRank: number;
   volume24h: number;
-  trandingVolume: number;
   low24h: number;
   high24h: number;
   atl: IMarketDetailAth;
@@ -97,7 +96,7 @@ export interface IMarketTokenDetail {
   explorers: IMarketTokenExplorer[];
   links: IMarketDetailLinks;
   stats: IMarketDetailStats;
-  detail_platforms: IMarketDetailPlatform;
+  detailPlatforms: IMarketDetailPlatform;
 }
 
 export type IMarketTokenChart = [number, number][];

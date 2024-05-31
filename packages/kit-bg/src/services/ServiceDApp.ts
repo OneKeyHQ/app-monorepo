@@ -1,4 +1,5 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { Semaphore } from 'async-mutex';
 import { debounce } from 'lodash';
 
 import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -27,7 +28,6 @@ import {
   EAccountSelectorSceneName,
   type IDappSourceInfo,
 } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IConnectedAccountInfo,
   IConnectionAccountInfo,
@@ -96,6 +96,10 @@ function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
 
 @backgroundClass()
 class ServiceDApp extends ServiceBase {
+  private semaphore = new Semaphore(1);
+
+  private existingWindowId: number | null | undefined = null;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -112,61 +116,70 @@ class ServiceDApp extends ServiceBase {
     params?: any;
     fullScreen?: boolean;
   }) {
-    return new Promise((resolve, reject) => {
-      if (!request.origin) {
-        throw new Error('origin is required');
+    // Try to open an existing window anyway in the extension
+    this.tryOpenExistingExtensionWindow();
+
+    return this.semaphore.runExclusive(async () => {
+      try {
+        return await new Promise((resolve, reject) => {
+          if (!request.origin) {
+            throw new Error('origin is required');
+          }
+          if (!request.scope) {
+            throw new Error('scope is required');
+          }
+          const id = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          const modalScreens = screens;
+          const routeNames = [
+            fullScreen ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
+            ...modalScreens,
+          ];
+          const $sourceInfo: IDappSourceInfo = {
+            id,
+            origin: request.origin,
+            hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
+            scope: request.scope,
+            data: request.data as any,
+            isWalletConnectRequest: !!request.isWalletConnectRequest,
+          };
+
+          const routeParams = {
+            // stringify required, nested object not working with Ext route linking
+            query: JSON.stringify(
+              {
+                $sourceInfo,
+                ...params,
+                _$t: Date.now(),
+              },
+              (key, value) =>
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+                typeof value === 'bigint' ? value.toString() : value,
+            ),
+          };
+
+          const modalParams = buildModalRouteParams({
+            screens: routeNames,
+            routeParams,
+          });
+
+          ensureSerializable(modalParams);
+
+          void this._openModalByRouteParamsDebounced({
+            routeNames,
+            routeParams,
+            modalParams,
+          });
+        });
+      } finally {
+        this.existingWindowId = null;
       }
-      if (!request.scope) {
-        throw new Error('scope is required');
-      }
-      const id = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-      const modalScreens = screens;
-      const routeNames = [
-        fullScreen ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
-        ...modalScreens,
-      ];
-      const $sourceInfo: IDappSourceInfo = {
-        id,
-        origin: request.origin,
-        hostname: uriUtils.getHostNameFromUrl({ url: request.origin }),
-        scope: request.scope,
-        data: request.data as any,
-        isWalletConnectRequest: !!request.isWalletConnectRequest,
-      };
-
-      const routeParams = {
-        // stringify required, nested object not working with Ext route linking
-        query: JSON.stringify(
-          {
-            $sourceInfo,
-            ...params,
-            _$t: Date.now(),
-          },
-          (key, value) =>
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-            typeof value === 'bigint' ? value.toString() : value,
-        ),
-      };
-
-      const modalParams = buildModalRouteParams({
-        screens: routeNames,
-        routeParams,
-      });
-
-      ensureSerializable(modalParams);
-
-      this._openModalByRouteParamsDebounced({
-        routeNames,
-        routeParams,
-        modalParams,
-      });
     });
   }
 
-  _openModalByRouteParams = ({
+  _openModalByRouteParams = async ({
     modalParams,
     routeParams,
     routeNames,
@@ -177,10 +190,11 @@ class ServiceDApp extends ServiceBase {
   }) => {
     if (platformEnv.isExtension) {
       // check packages/kit/src/routes/config/getStateFromPath.ext.ts for Ext hash route
-      void extUtils.openStandaloneWindow({
+      const extensionWindow = await extUtils.openStandaloneWindow({
         routes: routeNames,
         params: routeParams,
       });
+      this.existingWindowId = extensionWindow.id;
     } else {
       const doOpenModal = () =>
         global.$navigationRef.current?.navigate(
@@ -201,6 +215,12 @@ class ServiceDApp extends ServiceBase {
       trailing: true,
     },
   );
+
+  private tryOpenExistingExtensionWindow() {
+    if (platformEnv.isExtension && this.existingWindowId) {
+      extUtils.openExistWindow({ windowId: this.existingWindowId });
+    }
+  }
 
   @backgroundMethod()
   async openConnectionModal(

@@ -35,10 +35,7 @@ UR:CRYPTO-HDKEY/1-2/LPADAOCSGECYBAKIYLATHDDAOTADYKAXHDCLAEVSWFDMJPFSWPWKAHCYWSPS
 UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCMKBPSFTGONBGAUEFSEHGRQZDMVODIZMWEEMTLAYWLBYRLPR
 
   */
-  const {
-    start: startScan,
-    // close,
-  } = useScanQrCode();
+  const scanQrCode = useScanQrCode();
 
   const navigation = useAppNavigation();
   return (
@@ -48,9 +45,11 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
           const startAnimatedScan: () => Promise<
             string | undefined
           > = async () => {
-            const scanResult = await startScan({
+            const scanResult = await scanQrCode.start({
+              handlers: scanQrCode.PARSE_HANDLER_NAMES.animation,
               autoHandleResult: false,
-              mask: true,
+              qrWalletScene: true,
+              showProTutorial: true,
             });
             const animatedData = scanResult.data as IAnimationValue;
             const fullData = animatedData.fullData;
