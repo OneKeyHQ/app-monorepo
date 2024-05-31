@@ -23,7 +23,7 @@ type ILidoStakeProps = {
   price: string;
   balance: string;
   minAmount?: string;
-  tokenImageUri: string;
+  tokenImageUri?: string;
   tokenSymbol: string;
   stTokenSymbol: string;
   apr?: number;
@@ -151,14 +151,14 @@ export const LidoStake = ({
             <Alert
               icon="InfoCircleOutline"
               type="critical"
-              title={`The minimum amount for this staking is ${minAmount} ETH.`}
+              title={`The minimum amount for this staking is ${minAmount} ${tokenSymbol}.`}
             />
           ) : null}
           {isInsufficientBalance ? (
             <Alert
               icon="InfoCircleOutline"
               type="critical"
-              title="Insufficient staked balance."
+              title="Insufficient balance."
             />
           ) : null}
         </YStack>

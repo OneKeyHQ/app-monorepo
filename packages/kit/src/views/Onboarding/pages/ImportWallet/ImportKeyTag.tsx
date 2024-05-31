@@ -36,7 +36,7 @@ const KeyTagFooterComponent = () => {
         website to find the corresponding word for this position.
       </SizableText>
       <Stack borderRadius={12} mt="$5" overflow="hidden">
-        <Stack width="100%" height={300} bg="red">
+        <Stack width="100%" $sm={{ height: 224 }} height={300}>
           <Image
             width="100%"
             height="100%"

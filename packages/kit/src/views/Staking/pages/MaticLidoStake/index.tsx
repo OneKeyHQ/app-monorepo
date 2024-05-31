@@ -59,6 +59,7 @@ const MaticLidoStake = () => {
           balance={balance}
           token={token}
           receivingTokenSymbol={stToken.symbol.toUpperCase()}
+          minAmount={BigNumber(1).shiftedBy(-token.decimals).toFixed()}
           onConfirm={onConfirm}
           apr={apr}
           currentAllowance={currentAllowance}

@@ -11,7 +11,6 @@ import type {
 
 import { LidoWithdraw } from '../../components/LidoWithdraw';
 import { useLidoWithdraw } from '../../hooks/useLidoEthHooks';
-import { LIDO_ETH_LOGO_URI } from '../../utils/const';
 
 const EthLidoWithdraw = () => {
   const route = useAppRoute<
@@ -42,8 +41,9 @@ const EthLidoWithdraw = () => {
       receivingTokenSymbol={receivingToken.symbol}
       price={price}
       balance={balance}
+      minAmount={BigNumber(100).shiftedBy(-token.decimals).toFixed()}
       tokenSymbol={token.symbol}
-      tokenImageUri={LIDO_ETH_LOGO_URI}
+      tokenImageUri={token.logoURI}
       onConfirm={onConfirm}
     />
   );
