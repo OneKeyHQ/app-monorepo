@@ -76,7 +76,7 @@ export function MarketTokenAddress({
       {renderIcon()}
       <XStack space="$2">
         <SizableText color={tokenNameColor} size={tokenNameSize}>{`${
-          network?.name || tokenName || ''
+          tokenName || network?.name || ''
         }:`}</SizableText>
         <SizableText size={addressSize}>{`${address.slice(
           0,

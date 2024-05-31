@@ -40,7 +40,6 @@ export function MarketDetailOverviewContract({
             tokenNameColor="$textSubdued"
             addressSize="$bodyMdMedium"
             networkId={platform.onekeyNetworkId}
-            tokenName={`${tokenName[0].toUpperCase()}${tokenName.slice(1)}`}
             address={platform.contract_address}
           />
         );
