@@ -187,7 +187,7 @@ export function UniversalSearch({
             <ListItem
               jc="space-between"
               mx={0}
-              pl="$4"
+              pl="$5"
               pr={0}
               onPress={async () => {
                 navigation.pop();

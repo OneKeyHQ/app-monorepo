@@ -25,7 +25,10 @@ export type IModalStakingParamList = {
   };
   [EModalStakingRoutes.EthLidoWithdraw]: IBaseRouteParams & {
     balance: string;
+    price: string;
     token: IToken;
+    receivingToken: IToken;
+    rate?: string;
   };
   [EModalStakingRoutes.MaticLidoOverview]: IBaseRouteParams;
   [EModalStakingRoutes.MaticLidoStake]: IBaseRouteParams & {
@@ -33,10 +36,15 @@ export type IModalStakingParamList = {
     balance: string;
     token: IToken;
     stToken: IToken;
+    currentAllowance: string;
     apr?: number;
+    rate?: string;
   };
   [EModalStakingRoutes.MaticLidoWithdraw]: IBaseRouteParams & {
     balance: string;
+    price: string;
     token: IToken;
+    receivingToken: IToken;
+    rate?: string;
   };
 };

@@ -2,13 +2,16 @@
 import { decodeAddress, encodeAddress } from '@polkadot/util-crypto';
 import { decode, getRegistry, methods } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, isObject } from 'lodash';
 
-import { serializeUnsignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
+import { serializeSignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
@@ -37,6 +40,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { getTransactionTypeFromTxInfo } from './utils';
 
@@ -52,17 +56,15 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import type {
-  Args,
-  BaseTxInfo,
-  TypeRegistry,
-} from '@substrate/txwrapper-polkadot';
+import type { Type } from '@polkadot/types';
+import type { Args, TypeRegistry } from '@substrate/txwrapper-polkadot';
 
 export default class VaultDot extends VaultBase {
   override coreApi = coreChainApi.dot.hd;
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -287,6 +289,25 @@ export default class VaultDot extends VaultBase {
     };
   }
 
+  private async _getMetadataRpc(): Promise<`0x${string}`> {
+    const [res] =
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
+        {
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'state_getMetadata',
+                params: [],
+              },
+            },
+          ],
+        },
+      );
+    return res;
+  }
+
   private async _getRegistry(params: {
     metadataRpc?: `0x${string}`;
     specVersion?: string;
@@ -296,22 +317,7 @@ export default class VaultDot extends VaultBase {
 
     let metadataRpcHex: `0x${string}`;
     if (isNil(params.metadataRpc) || isEmpty(params.metadataRpc)) {
-      const [res] =
-        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<`0x${string}`>(
-          {
-            networkId: this.networkId,
-            body: [
-              {
-                route: 'rpc',
-                params: {
-                  method: 'state_getMetadata',
-                  params: [],
-                },
-              },
-            ],
-          },
-        );
-      metadataRpcHex = res;
+      metadataRpcHex = await this._getMetadataRpc();
     } else {
       metadataRpcHex = params.metadataRpc;
     }
@@ -360,7 +366,10 @@ export default class VaultDot extends VaultBase {
   private async _decodeUnsignedTx(unsigned: IEncodedTxDot) {
     const registry = await this._getRegistry(unsigned);
 
-    const { metadataRpc } = unsigned;
+    let { metadataRpc } = unsigned;
+    if (!metadataRpc) {
+      metadataRpc = await this._getMetadataRpc();
+    }
     const decodedUnsigned = decode(unsigned, {
       metadataRpc,
       registry,
@@ -396,15 +405,25 @@ export default class VaultDot extends VaultBase {
       let to = '';
       let amount = '';
 
+      const networkInfo = await this.getNetworkInfo();
+      let assetId = '';
+      if (decodeUnsignedTx.assetId) {
+        if (isObject(decodeUnsignedTx.assetId)) {
+          const assetIdInst = decodeUnsignedTx.assetId as Type;
+          if (!assetIdInst.isEmpty) {
+            assetId = assetIdInst.toHex();
+          }
+        } else {
+          assetId = decodeUnsignedTx.assetId.toString();
+        }
+      }
       const tokenInfo = await this.backgroundApi.serviceToken.getToken({
         networkId: this.networkId,
-        tokenIdOnNetwork: decodeUnsignedTx.assetId
-          ? decodeUnsignedTx.assetId.toString()
-          : '',
+        tokenIdOnNetwork: assetId || (networkInfo.nativeTokenAddress ?? ''),
         accountAddress: account.address,
       });
 
-      const { amount: tokenAmount } = decodeUnsignedTx.method.args;
+      const { value: tokenAmount } = decodeUnsignedTx.method.args;
       to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
 
       amount = tokenAmount?.toString() ?? '0';
@@ -460,8 +479,12 @@ export default class VaultDot extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
+    const encodedTx = (params.encodedTx ??
+      (await this.buildEncodedTx(params))) as IEncodedTxDot;
     if (encodedTx) {
+      if (!encodedTx.metadataRpc) {
+        encodedTx.metadataRpc = await this._getMetadataRpc();
+      }
       return {
         encodedTx,
       };
@@ -475,8 +498,8 @@ export default class VaultDot extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     if (params.nonceInfo) {
-      encodedTx.nonce = numberUtils.numberToHex(params.nonceInfo.nonce, {
-        prefix0x: true,
+      encodedTx.nonce = hexUtils.hexlify(params.nonceInfo.nonce, {
+        hexPad: 'left',
       }) as `0x${string}`;
     }
     return {
@@ -500,7 +523,7 @@ export default class VaultDot extends VaultBase {
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override getPrivateKeyFromImported(
@@ -533,9 +556,14 @@ export default class VaultDot extends VaultBase {
   }: {
     encodedTx: IEncodedTx | undefined;
   }): Promise<IEncodedTx | undefined> {
-    const tx = await serializeUnsignedTransaction(encodedTx as IEncodedTxDot);
-    return bufferUtils
-      .toBuffer(tx.rawTx)
-      .toString('base64') as unknown as IEncodedTx;
+    const fakeSignature = Buffer.concat([
+      Buffer.from([0x01]),
+      Buffer.alloc(64).fill(0x42),
+    ]);
+    const tx = await serializeSignedTransaction(
+      encodedTx as IEncodedTxDot,
+      fakeSignature.toString('hex'),
+    );
+    return bufferUtils.toBuffer(tx).toString('base64') as unknown as IEncodedTx;
   }
 }

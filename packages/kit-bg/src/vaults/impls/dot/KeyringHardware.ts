@@ -1,17 +1,21 @@
+import { u8aConcat } from '@polkadot/util';
 import { encodeAddress } from '@polkadot/util-crypto';
-import { hexToBytes } from 'viem';
 
 import {
   serializeSignedTransaction,
   serializeUnsignedTransaction,
 } from '@onekeyhq/core/src/chains/dot/sdkDot';
-import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
+import {
+  DOT_TYPE_PREFIX,
+  type IEncodedTxDot,
+} from '@onekeyhq/core/src/chains/dot/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -71,7 +75,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             [this.networkId]:
               address ??
               encodeAddress(
-                hexToBytes(hexUtils.addHexPrefix(publicKey)),
+                bufferUtils.hexToBytes(hexUtils.addHexPrefix(publicKey)),
                 +networkInfo.addressPrefix,
               ),
           };
@@ -98,16 +102,25 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const { connectId = '', deviceId } = dbDevice;
     const account = await this.vault.getAccount();
+    const network = await this.getNetwork();
+    encodedTx.chainName = network.name;
     const tx = await serializeUnsignedTransaction(encodedTx);
     const { signature } = await convertDeviceResponse(async () =>
       sdk.polkadotSignTransaction(connectId, deviceId, {
         path: account.path,
-        network: this.vault.networkId,
+        network: network.chainId,
         rawTx: bufferUtils.bytesToHex(tx.rawTx),
         ...deviceCommonParams,
       }),
     );
-    const signedTx = await serializeSignedTransaction(encodedTx, signature);
+    const txSignature = u8aConcat(
+      DOT_TYPE_PREFIX.ed25519,
+      bufferUtils.hexToBytes(signature),
+    );
+    const signedTx = await serializeSignedTransaction(
+      encodedTx,
+      bufferUtils.bytesToHex(txSignature),
+    );
     return {
       txid: '',
       rawTx: signedTx,
@@ -117,6 +130,6 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

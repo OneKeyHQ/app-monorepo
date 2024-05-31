@@ -44,9 +44,9 @@ const SwapProviderInfoItem = ({
     const formatRate = numberFormat(rateBN.toFixed(), {
       formatter: 'balance',
     });
-    return `1 ${fromToken.symbol.toUpperCase()} = ${
-      formatRate as string
-    } ${toToken.symbol.toUpperCase()}`;
+    return `1 ${fromToken.symbol.toUpperCase()} = ${formatRate as string} ${
+      toToken.symbol
+    }`;
   }, [fromToken, rate, rateIsExit, toToken]);
   return (
     <XStack justifyContent="space-between" alignItems="center">

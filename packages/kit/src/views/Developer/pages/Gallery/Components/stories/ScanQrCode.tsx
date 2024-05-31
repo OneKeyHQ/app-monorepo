@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { Button, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ScanQrCode } from '@onekeyhq/kit/src/views/ScanQrCode/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -18,8 +19,9 @@ const ScanQrCameraDemo = () => {
       {isShow ? (
         <Stack mt={20} w={360} h={600}>
           <ScanQrCode
-            handleBarCodeScanned={(value) => {
+            handleBarCodeScanned={async (value) => {
               alert(value);
+              return {};
             }}
           />
         </Stack>
@@ -30,10 +32,23 @@ const ScanQrCameraDemo = () => {
 
 const ScanQRCodeGallery = () => {
   const scanQrCode = useScanQrCode();
-  const openScanQrCodeModal = useCallback(async () => {
-    const result = await scanQrCode.start(true);
-    console.log(result);
-  }, [scanQrCode]);
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
+  const openScanQrCodeModal = useCallback(
+    async (values: { autoHandleResult: boolean; mask?: boolean }) => {
+      try {
+        const result = await scanQrCode.start({
+          ...values,
+          accountId: account?.id,
+        });
+        console.log(result);
+      } catch (e) {
+        console.log('用户取消扫描');
+      }
+    },
+    [scanQrCode, account?.id],
+  );
   return (
     <Layout
       description=".."
@@ -41,8 +56,26 @@ const ScanQRCodeGallery = () => {
       boundaryConditions={['...']}
       elements={[
         {
-          title: '命令式弹出 Modal',
-          element: <Button onPress={openScanQrCodeModal}>打开</Button>,
+          title: '命令式弹出 Modal(自动处理)',
+          element: (
+            <Button
+              onPress={() => openScanQrCodeModal({ autoHandleResult: true })}
+            >
+              打开
+            </Button>
+          ),
+        },
+        {
+          title: '命令式弹出 Modal(不自动处理，但是带有遮罩)',
+          element: (
+            <Button
+              onPress={() =>
+                openScanQrCodeModal({ autoHandleResult: false, mask: true })
+              }
+            >
+              打开
+            </Button>
+          ),
         },
         {
           title: '单独测试 Camera 权限等',

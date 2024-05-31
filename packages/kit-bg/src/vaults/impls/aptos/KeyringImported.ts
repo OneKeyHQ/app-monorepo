@@ -1,8 +1,14 @@
+import { BCS } from 'aptos';
+
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
+import { generateUnsignedTransaction } from './utils';
+
+import type VaultAptos from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetPrivateKeysParams,
@@ -30,13 +36,26 @@ export class KeyringImported extends KeyringImportedBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    return this.baseSignTransaction(params);
+    const { unsignedTx } = params;
+    const rawTxn = await generateUnsignedTransaction(
+      (this.vault as VaultAptos).client,
+      params.unsignedTx,
+    );
+    const serializer = new BCS.Serializer();
+    rawTxn.serialize(serializer);
+    return this.baseSignTransaction({
+      ...params,
+      unsignedTx: {
+        ...unsignedTx,
+        rawTxUnsigned: bufferUtils.bytesToHex(serializer.getBytes()),
+      },
+    });
   }
 
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    // throw new Error('Method not implemented.')
+    // throw new NotImplemented();
     return this.baseSignMessage(params);
   }
 }

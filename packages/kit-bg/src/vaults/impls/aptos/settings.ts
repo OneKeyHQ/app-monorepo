@@ -6,6 +6,8 @@ import {
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
+import { APTOS_NATIVE_COIN } from './utils';
+
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
@@ -42,6 +44,7 @@ const settings: IVaultSettings = {
     default: {
       curve: 'ed25519',
       addressPrefix: '',
+      nativeTokenAddress: APTOS_NATIVE_COIN,
     },
   },
 };

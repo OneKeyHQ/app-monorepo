@@ -6,6 +6,7 @@ import type {
   EMessageTypesEth,
 } from '@onekeyhq/shared/types/message';
 
+import type { ISignMessageRequest } from '../chains/aptos/types';
 import type { SignatureOptions } from 'bitcoinjs-message';
 
 // dapp -> onekey -> external wallet
@@ -21,7 +22,7 @@ export type IUnsignedMessageEth = {
 export type IUnsignedMessageAptos = {
   type: EMessageTypesAptos;
   message: string;
-  payload?: any;
+  payload?: ISignMessageRequest;
 };
 
 export type IUnsignedMessageAda = {

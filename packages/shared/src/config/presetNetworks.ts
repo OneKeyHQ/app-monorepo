@@ -220,6 +220,39 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2023-05-31T00:29:24.951Z',
   };
 
+  const sbtc: IServerNetwork = {
+    'balance2FeeDecimals': 0,
+    'chainId': '0',
+    'code': 'sbtc',
+    'decimals': 8,
+    'id': 'tbtc--1',
+    'impl': 'tbtc',
+    'isTestnet': true,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/sbtc.png',
+    'name': 'Bitcoin Signet',
+    'shortcode': 'sbtc',
+    'shortname': 'SBTC',
+    'symbol': 'SBTC',
+    'feeMeta': {
+      'code': 'sbtc',
+      'decimals': 8,
+      'symbol': 'SBTC',
+    },
+    'defaultEnabled': false,
+    'priceConfigs': [],
+    'explorers': [
+      {
+        'address': 'https://mempool.space/signet/address/{address}',
+        'block': 'https://mempool.space/signet/block/{block}',
+        'name': 'https://mempool.space/signet/',
+        'transaction': 'https://mempool.space/signet/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-02-28T00:29:24.951Z',
+    'updatedAt': '2024-02-28T00:29:24.951Z',
+  };
+
   const doge: IServerNetwork = {
     'balance2FeeDecimals': 0,
     'chainId': '0',
@@ -2940,12 +2973,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   };
 
   const chainsOnlyEnabledInDev = [
-    aptos,
-    polkadot,
-    astar,
-    kusama,
-    manta,
-    joystream,
     tatom, // Cosmos Testnet
     nexaTestnet,
     tlightning,
@@ -2959,6 +2986,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     ltc,
     neurai,
     tbtc,
+    sbtc,
     // evm
     eth,
     sepolia,
@@ -2998,7 +3026,14 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     akash,
     osmosis,
     cosmoshub,
+    // polkadot
+    polkadot,
+    astar,
+    kusama,
+    manta,
+    joystream,
 
+    aptos,
     lightning,
     cardano,
     ripple,

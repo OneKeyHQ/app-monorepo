@@ -23,6 +23,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -50,6 +51,7 @@ import {
 
 import useConfigurableChainSelector from '../../../ChainSelector/hooks/useChainSelector';
 import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -68,29 +70,59 @@ const SwapTokenSelectPage = () => {
   );
   const intl = useIntl();
   const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const searchKeywordDebounce = useDebounce(searchKeyword, 500);
   const [swapNetworks] = useSwapNetworksAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
+  const syncDefaultNetworkSelect = useCallback(() => {
+    if (type === ESwapDirectionType.FROM) {
+      if (fromToken?.networkId) {
+        return swapNetworks.find(
+          (item: ISwapNetwork) => item.networkId === fromToken.networkId,
+        );
+      }
+      if (swapFromAddressInfo.networkId) {
+        return swapNetworks.find(
+          (item: ISwapNetwork) =>
+            item.networkId === swapToAddressInfo.networkId,
+        );
+      }
+    } else {
+      if (toToken?.networkId) {
+        return swapNetworks.find(
+          (item: ISwapNetwork) => item.networkId === toToken.networkId,
+        );
+      }
+      if (swapToAddressInfo.networkId) {
+        return swapNetworks.find(
+          (item: ISwapNetwork) =>
+            item.networkId === swapToAddressInfo.networkId,
+        );
+      }
+
+      return swapNetworks?.[0];
+    }
+  }, [
+    fromToken?.networkId,
+    swapFromAddressInfo.networkId,
+    swapNetworks,
+    swapToAddressInfo.networkId,
+    toToken?.networkId,
+    type,
+  ]);
   const [currentSelectNetwork, setCurrentSelectNetwork] = useState<
     ISwapNetwork | undefined
-  >(() =>
-    type === ESwapDirectionType.FROM
-      ? swapNetworks.find(
-          (item: ISwapNetwork) => item.networkId === fromToken?.networkId,
-        ) ?? swapNetworks?.[0]
-      : swapNetworks.find(
-          (item: ISwapNetwork) => item.networkId === toToken?.networkId,
-        ) ?? swapNetworks?.[0],
-  );
+  >(syncDefaultNetworkSelect);
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
-    searchKeyword,
+    searchKeywordDebounce,
   );
-
   const alertIndex = useMemo(
     () =>
       currentTokens.findIndex((item) => {
@@ -216,7 +248,7 @@ const SwapTokenSelectPage = () => {
         tokenName: rawItem.name,
         tokenSymbol: rawItem.symbol,
         networkImageSrc: rawItem.networkLogoURI,
-        tokenContrastAddress: searchKeyword
+        tokenContrastAddress: searchKeywordDebounce
           ? contractAddressDisplay
           : undefined,
         balance: !balanceBN.isZero() ? rawItem.balanceParsed : undefined,
@@ -254,7 +286,7 @@ const SwapTokenSelectPage = () => {
       md,
       onSelectToken,
       sameTokenDisabled,
-      searchKeyword,
+      searchKeywordDebounce,
       settingsPersistAtom.currencyInfo.symbol,
     ],
   );
@@ -307,6 +339,7 @@ const SwapTokenSelectPage = () => {
         <NetworkToggleGroup
           onMoreNetwork={() => {
             openChainSelector({
+              defaultNetworkId: currentSelectNetwork?.networkId,
               networkIds: swapNetworks.map((item) => item.networkId),
               onSelect: (network) => {
                 if (!network) return;

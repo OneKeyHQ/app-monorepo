@@ -20,6 +20,7 @@ import {
   InvoiceAlreadyPaid,
   InvoiceExpiredError,
   NoRouteFoundError,
+  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -35,6 +36,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IFetchAccountHistoryParams } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type {
@@ -56,6 +58,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import ClientLightning from './sdkLightning/ClientLightning';
 import { findLnurl, isLightningAddress } from './sdkLightning/lnurl';
@@ -77,6 +80,7 @@ import type {
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -90,7 +94,9 @@ export default class Vault extends VaultBase {
   private getClientCache = memoizee(
     async () => {
       const network = await this.getNetwork();
-      const _client = await this.backgroundApi.serviceLightning.getClient();
+      const _client = await this.backgroundApi.serviceLightning.getClient(
+        EServiceEndpointEnum.Lightning,
+      );
       return new ClientLightning(
         this.backgroundApi,
         _client,
@@ -403,29 +409,29 @@ export default class Vault extends VaultBase {
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async validateAmountInputShown({

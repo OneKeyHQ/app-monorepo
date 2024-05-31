@@ -5,10 +5,13 @@ import { Linking, StyleSheet } from 'react-native';
 
 import {
   Anchor,
+  Button,
   Dialog,
+  Divider,
   LottieView,
   Page,
   ScrollView,
+  SegmentControl,
   SizableText,
   Stack,
   Toast,
@@ -19,6 +22,8 @@ import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_b
 import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { DeviceAvatar } from '@onekeyhq/kit/src/components/DeviceAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -39,6 +44,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import useScanQrCode from '../../../ScanQrCode/hooks/useScanQrCode';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
@@ -81,6 +87,92 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
   );
 }
 
+function ConnectByQrCode() {
+  const {
+    start: startScan,
+    // close,
+  } = useScanQrCode();
+  const actions = useAccountSelectorActions();
+  const navigation = useAppNavigation();
+  const { createQrWallet } = useCreateQrWallet();
+  return (
+    <>
+      <ScrollView flex={1}>
+        <Stack alignItems="center" justifyContent="center">
+          <DeviceAvatar deviceType="pro" size={40} />
+          <SizableText textAlign="center">
+            Create QR-based wallet with OneKey Pro
+          </SizableText>
+          <SizableText textAlign="center">
+            To display your QR code in device, navigate to "Connect App Wallet"{' '}
+            {'>'} "QR Code" {'>'} "OneKey Wallet".
+          </SizableText>
+          <Button
+            variant="primary"
+            onPress={async () => {
+              try {
+                await createQrWallet({ isOnboarding: true });
+              } catch (error) {
+                navigation.pop();
+                throw error;
+              }
+            }}
+          >
+            Scan to connect
+          </Button>
+        </Stack>
+      </ScrollView>
+    </>
+  );
+}
+
+function ConnectByUSBOrBLE({
+  devicesData,
+}: {
+  devicesData: IConnectYourDeviceItem[];
+}) {
+  const fwUpdateActions = useFirmwareUpdateActions();
+
+  return (
+    <>
+      {/* connecting animation */}
+      <Stack alignItems="center" bg="$bgSubdued">
+        <LottieView
+          width="100%"
+          height="$56"
+          source={
+            platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
+          }
+        />
+      </Stack>
+
+      {/* list devices */}
+      <ScrollView flex={1}>
+        <SizableText textAlign="center" color="$textSubdued" pt="$2.5" pb="$5">
+          {platformEnv.isNative
+            ? 'Please make sure your Bluetooth is enabled'
+            : 'Connect your device via USB'}
+        </SizableText>
+        {devicesData.map((item, index) => (
+          <DeviceListItem item={item} key={index} />
+        ))}
+        {platformEnv.isDev ? (
+          <Button
+            onPress={() => {
+              void fwUpdateActions.showForceUpdate({ connectId: undefined });
+            }}
+          >
+            ForceUpdate
+          </Button>
+        ) : null}
+      </ScrollView>
+    </>
+  );
+}
+enum EConnectDeviceTab {
+  usbOrBle = 'usbOrBle',
+  qr = 'qr',
+}
 export function ConnectYourDevicePage() {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -89,6 +181,10 @@ export function ConnectYourDevicePage() {
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const actions = useAccountSelectorActions();
+
+  const [tabValue, setTabValue] = useState<EConnectDeviceTab>(
+    EConnectDeviceTab.usbOrBle,
+  );
 
   useEffect(() => {
     const deviceScanner = deviceUtils.getDeviceScanner({
@@ -359,33 +455,27 @@ export function ConnectYourDevicePage() {
         headerRight={() => headerRight(handleHeaderRightPress)}
       />
       <Page.Body>
-        {/* animation */}
-        <Stack alignItems="center" bg="$bgSubdued">
-          <LottieView
-            width="100%"
-            height="$56"
-            source={
-              platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
-            }
+        <Stack px="$5" pt="$2" pb="$4">
+          <SegmentControl
+            fullWidth
+            value={tabValue}
+            onChange={(v) => setTabValue(v as any)}
+            options={[
+              {
+                label: platformEnv.isNative ? 'Bluetooth' : 'USB',
+                value: EConnectDeviceTab.usbOrBle,
+              },
+              { label: 'QR Code', value: EConnectDeviceTab.qr },
+            ]}
           />
         </Stack>
+        <Divider />
 
-        {/* devices */}
-        <ScrollView flex={1}>
-          <SizableText
-            textAlign="center"
-            color="$textSubdued"
-            pt="$2.5"
-            pb="$5"
-          >
-            {platformEnv.isNative
-              ? 'Please make sure your Bluetooth is enabled'
-              : 'Connect your device via USB'}
-          </SizableText>
-          {devicesData.map((item, index) => (
-            <DeviceListItem item={item} key={index} />
-          ))}
-        </ScrollView>
+        {tabValue === EConnectDeviceTab.usbOrBle ? (
+          <ConnectByUSBOrBLE devicesData={devicesData} />
+        ) : null}
+
+        {tabValue === EConnectDeviceTab.qr ? <ConnectByQrCode /> : null}
 
         {/* buy link */}
         <XStack

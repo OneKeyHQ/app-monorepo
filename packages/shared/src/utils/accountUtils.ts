@@ -1,5 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
-import { isNil } from 'lodash';
+import { add, isNil } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
@@ -11,6 +11,7 @@ import {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_QR,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 
@@ -27,10 +28,12 @@ import {
 import { CoreSDKLoader } from '../hardware/instance';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import deviceUtils from './deviceUtils';
 import networkUtils from './networkUtils';
 
-import type { IOneKeyDeviceFeatures } from '../../types/device';
+import type {
+  IOneKeyDeviceFeatures,
+  IQrWalletDevice,
+} from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -46,6 +49,12 @@ function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
 
 function beautifyPathTemplate({ template }: { template: string }) {
   return template.replace(INDEX_PLACEHOLDER, '*');
+}
+
+function normalizePathTemplate({ template }: { template: string }) {
+  return template
+    .replace('*', () => INDEX_PLACEHOLDER) // replace first * with INDEX_PLACEHOLDER
+    .replace(/\*/g, '0'); // replace other * with 0
 }
 
 function shortenAddress({
@@ -72,6 +81,10 @@ function shortenAddress({
 
 function isHdWallet({ walletId }: { walletId: string | undefined }) {
   return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_HD}-`));
+}
+
+function isQrWallet({ walletId }: { walletId: string | undefined }) {
+  return Boolean(walletId && walletId.startsWith(`${WALLET_TYPE_QR}-`));
 }
 
 function isHwWallet({ walletId }: { walletId: string | undefined }) {
@@ -101,6 +114,11 @@ function isExternalWallet({ walletId }: { walletId: string | undefined }) {
 function isHdAccount({ accountId }: { accountId: string }) {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isHdWallet({ walletId });
+}
+
+function isQrAccount({ accountId }: { accountId: string }) {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isQrWallet({ walletId });
 }
 
 function isHwAccount({ accountId }: { accountId: string }) {
@@ -191,6 +209,19 @@ function isExternalAccount({ accountId }: { accountId: string }) {
   return isExternalWallet({ walletId });
 }
 
+function buildPathFromTemplate({
+  template,
+  index,
+}: {
+  template: string;
+  index: number;
+}) {
+  return normalizePathTemplate({ template }).replace(
+    INDEX_PLACEHOLDER,
+    index.toString(),
+  );
+}
+
 function buildHDAccountId({
   walletId,
   networkImpl,
@@ -218,7 +249,7 @@ function buildHDAccountId({
     if (isNil(index)) {
       throw new Error('buildHDAccountId ERROR: index must be provided');
     }
-    usedPath = template.replace(INDEX_PLACEHOLDER, index.toString());
+    usedPath = buildPathFromTemplate({ template, index });
   }
   let id = `${walletId}--${usedPath}`;
   // EVM LedgerLive ID:  hd-1--m/44'/60'/0'/0/0--LedgerLive
@@ -400,6 +431,20 @@ function buildHwWalletId({
   return dbWalletId;
 }
 
+function buildQrWalletId({
+  dbDeviceId,
+  xfpHash,
+}: {
+  dbDeviceId: string;
+  xfpHash: string;
+}) {
+  let dbWalletId = `qr-${dbDeviceId}`;
+  if (xfpHash) {
+    dbWalletId = `qr-${dbDeviceId}-${xfpHash}`;
+  }
+  return dbWalletId;
+}
+
 function getWalletConnectMergedNetwork({ networkId }: { networkId: string }): {
   isMergedNetwork: boolean;
   networkIdOrImpl: string;
@@ -562,7 +607,16 @@ async function buildDeviceName({
   );
 }
 
+function buildUtxoAddressRelPath({
+  isChange = false,
+  addressIndex = 0,
+}: { isChange?: boolean; addressIndex?: number } = {}) {
+  const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
+  return addressRelPath;
+}
+
 export default {
+  buildUtxoAddressRelPath,
   buildBaseAccountName,
   buildHDAccountName,
   buildIndexedAccountName,
@@ -574,8 +628,10 @@ export default {
   buildHDAccountId,
   buildIndexedAccountId,
   buildHwWalletId,
+  buildQrWalletId,
   buildExternalAccountId,
   isHdWallet,
+  isQrWallet,
   isHwWallet,
   isHwHiddenWallet,
   isWatchingWallet,
@@ -583,6 +639,7 @@ export default {
   isExternalWallet,
   isHdAccount,
   isHwAccount,
+  isQrAccount,
   isExternalAccount,
   parseAccountId,
   parseIndexedAccountId,
@@ -600,4 +657,5 @@ export default {
   buildDeviceName,
   getWalletConnectMergedNetwork,
   formatUtxoPath,
+  buildPathFromTemplate,
 };

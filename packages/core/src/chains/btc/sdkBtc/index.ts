@@ -39,6 +39,8 @@ import {
 import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import { getBtcForkNetwork } from './networks';
 import { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 export * from './networks';
 
@@ -81,7 +83,11 @@ function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
 export function tweakSigner(
   privKey: Buffer,
   publicKey: Buffer,
-  opts: { tweakHash?: Buffer; network?: IBtcForkNetwork; needTweak: boolean } = { needTweak: true},
+  opts: {
+    tweakHash?: Buffer;
+    network?: IBtcForkNetwork;
+    needTweak: boolean;
+  } = { needTweak: true },
 ): IBtcForkSigner {
   // new Uint8Array(privKey.buffer) return 8192 length on NODE.js 20
   let privateKey: Uint8Array | null = new Uint8Array(privKey);
@@ -118,6 +124,9 @@ export const loadOPReturn = (
   opReturn: string,
   opReturnSizeLimit: number = TX_OP_RETURN_SIZE_LIMIT,
 ) => {
+  if (opReturn.length > opReturnSizeLimit) {
+    throw new Error('OP_RETURN data is too large.');
+  }
   const buffer = Buffer.from(opReturn);
   return buffer.slice(0, opReturnSizeLimit);
 };
@@ -156,20 +165,20 @@ export function getInputsToSignFromPsbt({
       if (account.address === address) {
         inputsToSign.push({
           index,
-          publicKey: account.pubKey as string,
+          publicKey: checkIsDefined(account.pub),
           address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
         if (account.template?.startsWith(`m/86'/`) && !v.tapInternalKey) {
           v.tapInternalKey = toXOnly(
-            Buffer.from(account.pubKey as string, 'hex'),
+            Buffer.from(checkIsDefined(account.pub), 'hex'),
           );
         }
       } else if (isBtcWalletProvider) {
         // handle babylon
         inputsToSign.push({
           index,
-          publicKey: account.pubKey as string,
+          publicKey: checkIsDefined(account.pub),
           address: account.address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
@@ -259,6 +268,7 @@ export function validateBtcAddress({
       encoding = EAddressEncodings.P2SH_P2WPKH;
     }
   } catch (e) {
+    errorUtils.autoPrintErrorIgnore(e);
     try {
       const decoded = BitcoinJsAddress.fromBech32(address);
       if (
@@ -281,7 +291,7 @@ export function validateBtcAddress({
         encoding = EAddressEncodings.P2TR;
       }
     } catch (_) {
-      // ignore error
+      errorUtils.autoPrintErrorIgnore(_);
     }
   }
 
@@ -493,6 +503,7 @@ export function getAddressFromXpub({
 }> {
   // Only used to generate addresses locally.
   const decodedXpub = bs58check.decode(xpub);
+  const decodedXpubHex = bufferUtils.bytesToHex(decodedXpub);
 
   let encoding = addressEncoding;
   if (!encoding) {

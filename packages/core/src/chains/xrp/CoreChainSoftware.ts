@@ -20,6 +20,7 @@ import type {
   ISignedTxPro,
 } from '../../types';
 import type { Transaction } from 'xrpl';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 
@@ -76,7 +77,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     return this.baseGetPrivateKeys({
       payload,
       curve,
@@ -86,7 +87,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const { unsignedTx } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
@@ -113,7 +114,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(): Promise<string> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();;
   }
 
   override async getAddressFromPrivate(

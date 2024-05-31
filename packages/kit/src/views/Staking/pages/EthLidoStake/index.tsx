@@ -12,7 +12,6 @@ import type {
 
 import { LidoStake } from '../../components/LidoStake';
 import { useLidoStake } from '../../hooks/useLidoEthHooks';
-import { LIDO_ETH_LOGO_URI } from '../../utils/const';
 
 const EthLidoStake = () => {
   const route = useAppRoute<
@@ -28,10 +27,16 @@ const EthLidoStake = () => {
       const amount = BigNumber(value).shiftedBy(token.decimals).toFixed(0);
       await lidoStake({
         amount,
+        stakingInfo: {
+          protocol: 'lido',
+          send: { token, amount: value },
+          receive: { token: stToken, amount: value },
+          tags: ['lido-eth'],
+        },
         onSuccess: () => appNavigation.pop(),
       });
     },
-    [lidoStake, token.decimals, appNavigation],
+    [lidoStake, appNavigation, token, stToken],
   );
   return (
     <Page>
@@ -41,9 +46,10 @@ const EthLidoStake = () => {
           apr={apr}
           price={price}
           balance={balance}
-          tokenImageUri={LIDO_ETH_LOGO_URI}
-          tokenSymbol={token.symbol.toUpperCase()}
-          stTokenSymbol={stToken.symbol.toUpperCase()}
+          minAmount={BigNumber(1).shiftedBy(-token.decimals).toFixed()}
+          tokenImageUri={token.logoURI}
+          tokenSymbol={token.symbol}
+          stTokenSymbol={stToken.symbol}
           onConfirm={onConfirm}
         />
       </Page.Body>

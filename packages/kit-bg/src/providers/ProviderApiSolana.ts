@@ -8,6 +8,10 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -131,7 +135,7 @@ class ProviderApiSolana extends ProviderApiBase {
     params: { message: string[] },
   ) {
     // TODO: need request queue
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   @providerApiMethod()
@@ -204,7 +208,6 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: { onlyIfTrusted: boolean },
   ) {
-    debugger;
     const { onlyIfTrusted = false } = params || {};
 
     let publicKey = (await this._getConnectedAccountsPublicKey(request))[0];

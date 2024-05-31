@@ -26,13 +26,16 @@ import {
   WALLET_TYPE_HD,
   WALLET_TYPE_HW,
   WALLET_TYPE_IMPORTED,
+  WALLET_TYPE_QR,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
+  NotImplemented,
   OneKeyInternalError,
   PasswordNotSet,
   WrongPassword,
 } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -41,7 +44,10 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type {
+  INetworkAccount,
+  IQrWalletAirGapAccountsInfo,
+} from '@onekeyhq/shared/types/account';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 import type {
   ICreateConnectedSiteParams,
@@ -61,6 +67,7 @@ import type {
   IDBContext,
   IDBCreateHDWalletParams,
   IDBCreateHWWalletParams,
+  IDBCreateQRWalletParams,
   IDBCredentialBase,
   IDBDevice,
   IDBDeviceSettings,
@@ -96,6 +103,7 @@ import type {
   ILocalDBTxUpdateRecordsParams,
   ILocalDBWithTransactionTask,
 } from './types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase implements ILocalDBAgent {
   protected abstract readyDb: Promise<ILocalDBAgent>;
@@ -234,7 +242,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   }
 
   confirmHDWalletBackuped(walletId: string): Promise<IDBWallet> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   async getContext(
@@ -660,6 +668,10 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       }
     }
 
+    if (wallet.airGapAccountsInfoRaw) {
+      wallet.airGapAccountsInfo = JSON.parse(wallet.airGapAccountsInfoRaw);
+    }
+
     return wallet;
   }
 
@@ -675,6 +687,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     const accountId = account.id;
     if (
       accountUtils.isHdAccount({ accountId }) ||
+      accountUtils.isQrAccount({ accountId }) ||
       accountUtils.isHwAccount({
         accountId,
       })
@@ -751,6 +764,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   }) {
     if (
       !accountUtils.isHdWallet({ walletId }) &&
+      !accountUtils.isQrWallet({ walletId }) &&
       !accountUtils.isHwWallet({ walletId })
     ) {
       throw new OneKeyInternalError({
@@ -759,7 +773,10 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     }
     let dbDevice: IDBDevice | undefined;
     let dbWallet: IDBWallet | undefined;
-    if (accountUtils.isHwWallet({ walletId })) {
+    if (
+      accountUtils.isHwWallet({ walletId }) ||
+      accountUtils.isQrWallet({ walletId })
+    ) {
       [dbWallet] = await this.txGetWallet({ tx, walletId });
       const deviceId = dbWallet.associatedDevice;
       if (deviceId) {
@@ -892,7 +909,10 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
 
     let dbDevice: IDBDevice | undefined;
-    if (accountUtils.isHwWallet({ walletId })) {
+    if (
+      accountUtils.isHwWallet({ walletId }) ||
+      accountUtils.isQrWallet({ walletId })
+    ) {
       dbDevice = await this.getWalletDevice({
         walletId,
       });
@@ -1033,6 +1053,150 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
+  async createQrWallet({ qrDevice, airGapAccounts }: IDBCreateQRWalletParams) {
+    const db = await this.readyDb;
+    const { deviceId: rawDeviceId, xfp } = qrDevice;
+    const existingDevice = await this.getDeviceByQuery({
+      featuresDeviceId: rawDeviceId,
+    });
+    const dbDeviceId = existingDevice?.id || generateUUID();
+
+    // TODO support OneKey Pro device only
+    const deviceType: IDeviceType = 'pro';
+    const deviceName = qrDevice.name || 'OneKey Pro';
+    const walletName = deviceName;
+    const now = Date.now();
+
+    const avatar: IAvatarInfo = {
+      img: deviceType,
+    };
+    const context = await this.getContext();
+
+    const xfpHash = bufferUtils.bytesToHex(
+      sha256(bufferUtils.toBuffer(xfp, 'utf8')),
+    );
+
+    const dbWalletId = accountUtils.buildQrWalletId({
+      dbDeviceId,
+      xfpHash,
+    });
+
+    // TODO parse passphraseState from deviceName
+    // const passphraseState = deviceName;
+
+    const firstAccountIndex = 0;
+    let addedHdAccountIndex = -1;
+
+    await db.withTransaction(async (tx) => {
+      if (existingDevice) {
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: [dbDeviceId],
+          updater: async (item) => {
+            item.updatedAt = now;
+            return item;
+          },
+        });
+      } else {
+        await this.txAddRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          skipIfExists: true,
+          records: [
+            {
+              id: dbDeviceId,
+              name: deviceName,
+              connectId: '',
+              uuid: '',
+              deviceId: rawDeviceId,
+              deviceType,
+              features: '',
+              settingsRaw: '',
+              createdAt: now,
+              updatedAt: now,
+            },
+          ],
+        });
+
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Device,
+          ids: [dbDeviceId],
+          updater: async (item) => {
+            item.updatedAt = now;
+            return item;
+          },
+        });
+      }
+
+      // add db wallet
+      await this.txAddRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        skipIfExists: true,
+        records: [
+          {
+            id: dbWalletId,
+            name: walletName,
+            avatar: avatar && JSON.stringify(avatar),
+            type: WALLET_TYPE_QR,
+            backuped: true,
+            associatedDevice: dbDeviceId,
+            isTemp: false,
+            passphraseState: '',
+            nextIndex: firstAccountIndex,
+            nextAccountIds: {},
+            accounts: [],
+            walletNo: context.nextWalletNo,
+            xfp,
+          },
+        ],
+      });
+
+      await this.txUpdateWallet({
+        tx,
+        walletId: dbWalletId,
+        updater: (item) => {
+          item.isTemp = false;
+          item.xfp = xfp;
+          const keysInfo: IQrWalletAirGapAccountsInfo = {
+            accounts: airGapAccounts || [],
+          };
+          item.airGapAccountsInfoRaw = JSON.stringify(keysInfo);
+          return item;
+        },
+      });
+
+      // add first indexed account
+      const { nextIndex } = await this.txAddHDNextIndexedAccount({
+        tx,
+        walletId: dbWalletId,
+        onlyAddFirst: true,
+      });
+      addedHdAccountIndex = nextIndex;
+
+      console.log('increase nextWalletNo');
+      // increase nextHD
+      await this.txUpdateContext({
+        tx,
+        updater: (ctx) => {
+          ctx.nextWalletNo += 1;
+          return ctx;
+        },
+      });
+    });
+
+    // if (passphraseState) {
+    // this.tempWallets[dbWalletId] = true;
+    // }
+
+    return this.buildCreateHDAndHWWalletResult({
+      walletId: dbWalletId,
+      addedHdAccountIndex,
+    });
+  }
+
   // TODO remove unused hidden wallet first
   async createHWWallet(params: IDBCreateHWWalletParams) {
     const db = await this.readyDb;
@@ -1050,8 +1214,8 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     const deviceType = device.deviceType || getDeviceType(features);
     const deviceUUID = device.uuid || getDeviceUUID(features);
     const rawDeviceId = device.deviceId || features.device_id || '';
-    let walletName =
-      name ?? (await accountUtils.buildDeviceName({ device, features }));
+    const deviceName = await accountUtils.buildDeviceName({ device, features });
+    let walletName = name || deviceName;
     if (passphraseState) {
       // TODO use nextHidden in IDBWallet
       walletName = 'Hidden Wallet #1';
@@ -1085,7 +1249,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
         records: [
           {
             id: dbDeviceId,
-            name: walletName,
+            name: deviceName,
             connectId: connectId || '',
             uuid: deviceUUID,
             deviceId: rawDeviceId,
@@ -1108,6 +1272,18 @@ export abstract class LocalDbBase implements ILocalDBAgent {
         updater: async (item) => {
           item.features = featuresStr;
           item.updatedAt = now;
+
+          item.connectId = connectId || '';
+          item.uuid = deviceUUID;
+          item.deviceId = rawDeviceId;
+          item.deviceType = deviceType;
+
+          item.settingsRaw =
+            item.settingsRaw ||
+            JSON.stringify({
+              inputPinOnSoftware: true,
+            } as IDBDeviceSettings);
+
           if (isFirmwareVerified) {
             const versionText = await deviceUtils.getDeviceVersionStr({
               device,
@@ -1184,6 +1360,21 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
+  async clearQrWalletAirGapAccountKeys({ walletId }: { walletId: string }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: [walletId],
+        updater: (item) => {
+          item.airGapAccountsInfoRaw = undefined;
+          return item;
+        },
+      });
+    });
+  }
+
   // TODO clean wallets which associatedDevice is removed
   // TODO remove associate indexedAccount and account
   async removeWallet({ walletId }: IDBRemoveWalletParams): Promise<void> {
@@ -1197,9 +1388,10 @@ export abstract class LocalDbBase implements ILocalDBAgent {
         tx,
         walletId,
       });
-      const isHardware = accountUtils.isHwWallet({
-        walletId,
-      });
+      const isHardware =
+        accountUtils.isHwWallet({
+          walletId,
+        }) || accountUtils.isQrWallet({ walletId });
       if (isHardware) {
         if (
           wallet.associatedDevice &&
@@ -1313,20 +1505,20 @@ export abstract class LocalDbBase implements ILocalDBAgent {
           return w;
         },
       });
-      // update device name
-      if (wallet.associatedDevice) {
-        await this.txUpdateRecords({
-          tx,
-          name: ELocalDBStoreNames.Device,
-          ids: [wallet.associatedDevice],
-          updater: (item) => {
-            if (params.name) {
-              item.name = params.name || item.name;
-            }
-            return item;
-          },
-        });
-      }
+      // **** do NOT update device name, qr wallet use device name to check sign origin
+      // if (wallet.associatedDevice) {
+      //   await this.txUpdateRecords({
+      //     tx,
+      //     name: ELocalDBStoreNames.Device,
+      //     ids: [wallet.associatedDevice],
+      //     updater: (item) => {
+      //       if (params.name) {
+      //         item.name = params.name || item.name;
+      //       }
+      //       return item;
+      //     },
+      //   });
+      // }
     });
     wallet = await this.getWallet({ walletId });
     return wallet;
@@ -1442,15 +1634,14 @@ export abstract class LocalDbBase implements ILocalDBAgent {
               });
             }
           } catch (error) {
-            //
-            (error as Error).$$autoPrintErrorIgnore = true;
+            errorUtils.autoPrintErrorIgnore(error);
           }
         }
         return result;
       }
       return [];
     } catch (error) {
-      (error as Error).$$autoPrintErrorIgnore = true;
+      errorUtils.autoPrintErrorIgnore(error);
       return [];
     }
   }
@@ -1746,14 +1937,14 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   }
 
   getAccounts(accountIds: string[]): Promise<IDBAccount[]> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   getAccountByAddress(params: {
     address: string;
     coinType?: string | undefined;
   }): Promise<IDBAccount> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   async removeAccount({
@@ -1893,7 +2084,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     accountId,
     template,
   }: IDBSetAccountTemplateParams): Promise<IDBAccount> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   updateAccountAddresses(
@@ -1901,7 +2092,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     networkId: string,
     address: string,
   ): Promise<IDBAccount> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   updateUTXOAccountAddresses({
@@ -1913,7 +2104,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     addresses: Record<string, string>;
     isCustomPath: boolean;
   }): Promise<IDBAccount> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   removeUTXOAccountAddresses({
@@ -1925,7 +2116,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     addresses: Record<string, string>;
     isCustomPath: boolean;
   }): Promise<IDBAccount> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   addAccountDerivation({
@@ -1934,7 +2125,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     impl,
     template,
   }: IDBAddAccountDerivationParams): Promise<void> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   removeAccountDerivation({
@@ -1946,7 +2137,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     impl: string;
     template: string;
   }): Promise<void> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   removeAccountDerivationByWalletId({
@@ -1954,7 +2145,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   }: {
     walletId: string;
   }): Promise<void> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   removeAccountDerivationByAccountId({
@@ -1964,7 +2155,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     walletId: string;
     accountId: string;
   }): Promise<void> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   getAccountDerivationByWalletId({
@@ -1972,7 +2163,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
   }: {
     walletId: string;
   }): Promise<Record<string, IDBAccountDerivation>> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   // ---------------------------------------------- device
@@ -2021,7 +2212,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     connectId?: string;
     featuresDeviceId?: string;
     features?: IOneKeyDeviceFeatures;
-  }) {
+  }): Promise<IDBDevice | undefined> {
     const { getDeviceUUID } = await CoreSDKLoader();
     const devices = await this.getAllDevices();
     const device = devices.find((item) => {

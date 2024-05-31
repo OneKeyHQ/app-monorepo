@@ -15,6 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EOnekeyDomain } from '@onekeyhq/shared/types';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
 import {
@@ -108,7 +109,7 @@ class ServiceSetting extends ServiceBase {
 
   _getCurrencyList = memoizee(
     async () => {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
       const res = await client.get<{ data: ICurrencyItem[] }>(
         '/utility/v1/currency/exchange-rates',
       );

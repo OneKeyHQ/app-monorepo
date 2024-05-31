@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { decodeAddress, encodeAddress } from '@polkadot/util-crypto/address';
@@ -9,6 +10,10 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -55,7 +60,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const data = async ({ origin }: { origin: string }) => {
-      const params = await this.account({ origin });
+      const params = await this.account({ origin, scope: 'polkadot' });
       const result = {
         method: 'wallet_events_accountChanged',
         params,
@@ -89,11 +94,11 @@ class ProviderApiPolkadot extends ProviderApiBase {
       return true;
     }
 
-    const [address] = (await this.backgroundApi.serviceDApp.openConnectionModal(
+    const res = await this.backgroundApi.serviceDApp.openConnectionModal(
       request,
-    )) as string[];
+    );
 
-    return !!address;
+    return !!res;
   }
 
   @permissionRequired()
@@ -164,16 +169,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
   }
 
   private async findAccount(request: IJsBridgeMessagePayload, address: string) {
-    const accounts =
-      await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
-        request,
-      );
-
-    if (!accounts)
-      throw web3Errors.provider.custom({
-        code: 4001,
-        message: 'Wallet not found',
-      });
+    const accounts = await this.getAccountsInfo(request);
 
     const selectAccount = accounts.find(({ account }) => {
       if (account.address === address) {
@@ -265,7 +261,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcSubscribe,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   @providerApiMethod()
@@ -273,7 +269,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcUnsubscribe,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   @providerApiMethod()
@@ -281,7 +277,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcSend,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   @providerApiMethod()
@@ -289,7 +285,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcSend,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   @providerApiMethod()
@@ -297,7 +293,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: IRequestRpcSend,
   ) {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }
 

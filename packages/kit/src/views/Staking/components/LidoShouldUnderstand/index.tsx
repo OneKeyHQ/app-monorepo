@@ -1,5 +1,6 @@
 import {
   Image,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -43,28 +44,32 @@ const ShouldUnderstand = ({
   subtitle,
   items,
 }: IShouldUnderstandProps) => (
-  <YStack p="$5">
-    <Stack>
-      <Image w="$14" h="$14" src={LIDO_LOGO_URI} />
-      <YStack mt="$5">
-        <SizableText size="$headingXl">{title}</SizableText>
-        {subtitle ? (
-          <XStack mt="$5">
-            <SizableText size="$bodyLg">{subtitle}</SizableText>
-          </XStack>
-        ) : null}
+  <YStack flex={1}>
+    <ScrollView maxHeight={560}>
+      <YStack p="$5">
+        <Stack>
+          <Image w="$14" h="$14" src={LIDO_LOGO_URI} />
+          <YStack mt="$5">
+            <SizableText size="$headingXl">{title}</SizableText>
+            {subtitle ? (
+              <XStack mt="$5">
+                <SizableText size="$bodyLg">{subtitle}</SizableText>
+              </XStack>
+            ) : null}
+          </YStack>
+          <YStack mt="$5" space="$5">
+            {items.map((o, index) => (
+              <ShouldUnderstandListItemListItem
+                key={index}
+                index={index + 1}
+                title={o.title}
+                description={o.description}
+              />
+            ))}
+          </YStack>
+        </Stack>
       </YStack>
-      <YStack mt="$5" space="$5">
-        {items.map((o, index) => (
-          <ShouldUnderstandListItemListItem
-            key={index}
-            index={index + 1}
-            title={o.title}
-            description={o.description}
-          />
-        ))}
-      </YStack>
-    </Stack>
+    </ScrollView>
   </YStack>
 );
 
@@ -125,14 +130,14 @@ export const MaticStakeShouldUnderstand = () => (
           'The APR is updated hourly and adjusted according to changes in TVL',
       },
       {
-        title: 'Receive stETH',
+        title: 'Receive stMATIC',
         description:
-          'When you stake ETH you receive 1:1 stETH. You can unstake and trade this liquid asset at any time',
+          'When you stake MATIC you receive stMATIC. You can unstake and trade this liquid asset at any time.',
       },
       {
         title: 'Rewards updated daily',
         description:
-          "There'll be a daily update on your stETH balances, which includes the staking rewards.",
+          'During the staking period, the value of stMATIC changes to reflect earnings',
       },
     ]}
   />
@@ -146,17 +151,17 @@ export const MaticWithdrawShouldUnderstand = () => (
       {
         title: 'Request Withdrawal',
         description:
-          'Lock your stETH/wstETH by issuing a withdrawal request. After 1-5 days, the locked stETH will be destroyed and your ETH will become available for withdrawal.',
+          '1-5 days after issuing a withdrawal request, the locked stMATIC will be destroyed and your MATIC will become available for withdrawal.',
       },
       {
         title: 'Receive Lido NFT',
         description:
-          'Each withdrawal request generates a Lido NFT, and its appearance changes when your ETH becomes available for withdrawal.',
+          'Each withdrawal request generates a Lido NFT, and its appearance changes when your MATIC becomes available for withdrawal.',
       },
       {
         title: 'Claim',
         description:
-          'Claim your ETH after the withdrawal request has been processed.',
+          'Claim your MATIC after the withdrawal request has been processed.',
       },
     ]}
   />
