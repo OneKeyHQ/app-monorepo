@@ -1,5 +1,7 @@
+import BigNumber from 'bignumber.js';
+
 import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
   nft: IAccountNFT;
@@ -57,7 +59,8 @@ function NFTListItem(props: IProps) {
               <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
             </Image.Fallback>
           </Image>
-          {Number.parseInt(nft.amount, 10) > 1 ? (
+          {nft.collectionType === ENFTType.ERC1155 &&
+          new BigNumber(nft.amount ?? 1).gt(1) ? (
             <SizableText
               position="absolute"
               right="$0"

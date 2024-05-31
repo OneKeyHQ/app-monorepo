@@ -44,6 +44,8 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+
+  hideFeeInfoInHistoryList: true,
 };
 
 export default Object.freeze(settings);

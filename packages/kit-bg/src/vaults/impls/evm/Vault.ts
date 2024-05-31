@@ -857,6 +857,7 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       collectionAddress: encodedTx.to,
       nftId,
+      accountAddress,
     });
 
     let nftAmount = amount;
