@@ -251,6 +251,8 @@ export function MarketDetailPools({
       data={sortedListData}
       estimatedItemSize={38}
       onContentSizeChange={onContentSizeChange}
+      scrollEnabled={platformEnv.isWebTouchable}
+      disableScrollViewPanResponder
       ListHeaderComponent={
         <YStack pb="$2" pt="$5">
           <NetworkIdSelect
