@@ -339,6 +339,7 @@ const SwapTokenSelectPage = () => {
         <NetworkToggleGroup
           onMoreNetwork={() => {
             openChainSelector({
+              defaultNetworkId: currentSelectNetwork?.networkId,
               networkIds: swapNetworks.map((item) => item.networkId),
               onSelect: (network) => {
                 if (!network) return;

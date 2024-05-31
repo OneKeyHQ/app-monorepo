@@ -39,6 +39,7 @@ export interface INetworkExplorerConfig {
   address?: string;
   transaction?: string;
   block?: string;
+  token?: string;
 }
 
 export type IServerNetwork = {
