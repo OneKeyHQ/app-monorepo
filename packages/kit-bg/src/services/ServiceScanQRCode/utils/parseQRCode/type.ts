@@ -119,7 +119,8 @@ export type IQRCodeHandlerParseResult<T extends IBaseValue> =
 export type IQRCodeHandlerParseOutsideOptions = {
   autoHandleResult?: boolean;
   accountId?: string;
-  mask?: boolean;
+  qrWalletScene?: boolean;
+  showProTutorial?: boolean;
 };
 
 export type IQRCodeHandlerParseOptions = IQRCodeHandlerParseOutsideOptions &
