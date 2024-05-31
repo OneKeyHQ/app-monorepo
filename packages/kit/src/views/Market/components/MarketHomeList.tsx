@@ -611,6 +611,21 @@ function ListEmptyComponent() {
   );
 }
 
+function MdPlaceholder() {
+  return (
+    <Stack
+      borderRadius="$2"
+      width="$20"
+      height="$8"
+      bg="$bgDisabled"
+      jc="center"
+      ai="center"
+    >
+      <SizableText size="$bodyMdMedium">-</SizableText>
+    </Stack>
+  );
+}
+
 type IKeyOfMarketToken = keyof IMarketToken;
 export function MarketHomeList({
   category,
@@ -804,15 +819,7 @@ export function MarketHomeList({
                 </NumberSizeableText>
               </XStack>
             ) : (
-              <Stack borderRadius="$2">
-                <SizableText
-                  size="$bodyMdMedium"
-                  width="$20"
-                  textAlign="center"
-                >
-                  -
-                </SizableText>
-              </Stack>
+              <MdPlaceholder />
             )}
           </XStack>
         </XStack>
