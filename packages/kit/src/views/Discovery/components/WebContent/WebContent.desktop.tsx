@@ -16,8 +16,8 @@ import { webviewRefs } from '../../utils/explorerUtils';
 import BlockAccessView from '../BlockAccessView';
 
 import type { IWebTab } from '../../types';
-import type { WebViewProps } from '@onekeyfe/react-native-webview';
 import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
+import type { WebViewProps } from 'react-native-webview';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {
