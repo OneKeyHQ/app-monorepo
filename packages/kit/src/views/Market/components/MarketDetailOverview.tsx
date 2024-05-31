@@ -220,7 +220,7 @@ export function MarketDetailOverview({
 }) {
   return (
     <YStack
-      $gtMd={{ pb: '$10' }}
+      pb="$10"
       onLayout={({
         nativeEvent: {
           layout: { width, height },
