@@ -7,7 +7,7 @@ import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/di
 import { webviewRefs } from '../../utils/explorerUtils';
 
 import type { IWebTab } from '../../types';
-import type { WebViewProps } from '@onekeyfe/react-native-webview';
+import type { WebViewProps } from 'react-native-webview';
 
 type IWebContentProps = IWebTab &
   WebViewProps & {

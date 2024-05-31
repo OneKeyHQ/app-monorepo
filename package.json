@@ -204,6 +204,7 @@
     "@babel/parser": "7.23.5",
     "@walletconnect/universal-provider": "2.11.2",
     "@walletconnect/core": "2.11.2",
-    "fs": "npm:@favware/skip-dependency@1.2.1"
+    "fs": "npm:@favware/skip-dependency@1.2.1",
+    "react-native-webview": "npm:@onekeyfe/react-native-webview@13.8.2"
   }
 }
