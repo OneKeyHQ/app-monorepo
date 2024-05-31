@@ -280,7 +280,7 @@ function MarketDetail({
       />
       <Page.Body>
         {gtMd ? (
-          <YStack>
+          <YStack flex={1}>
             <XStack
               flex={1}
               $gtMd={{ pt: '$5' }}
@@ -292,7 +292,6 @@ function MarketDetail({
                   token={tokenDetail}
                   listHeaderComponent={<YStack>{tokenPriceChart}</YStack>}
                 />
-                {tokenDetail ? <TokenDetailTabs token={tokenDetail} /> : null}
               </YStack>
             </XStack>
           </YStack>
