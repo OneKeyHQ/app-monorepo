@@ -74,7 +74,7 @@ function BasicTokenDetailTabs({
     [token?.symbol],
   );
 
-  const renderSkeleton = useMemo(
+  const renderPoolSkeleton = useMemo(
     () =>
       md ? (
         <YStack>
@@ -141,7 +141,10 @@ function BasicTokenDetailTabs({
       }}
     />
   ) : (
-    renderSkeleton
+    <>
+      {md ? null : listHeaderComponent}
+      {renderPoolSkeleton}
+    </>
   );
 }
 
