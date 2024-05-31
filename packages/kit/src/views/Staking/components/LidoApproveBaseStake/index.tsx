@@ -37,7 +37,7 @@ type ILidoApproveBaseStakeProps = {
   currentAllowance?: string;
   rate?: string;
   apr?: number;
-  minAmount?: number;
+  minAmount?: string;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -47,7 +47,7 @@ export const LidoApproveBaseStake = ({
   token,
   receivingTokenSymbol,
   apr = 4,
-  minAmount = 0,
+  minAmount = '0',
   rate = '1',
   currentAllowance = '0',
   onConfirm,
@@ -123,14 +123,11 @@ export const LidoApproveBaseStake = ({
   }, [amountValue, allowance]);
 
   const onConfirmText = useMemo(() => {
-    if (isInsufficientBalance) {
-      return 'Insufficient balance';
-    }
     if (isApprove) {
       return `Approve ${amountValue} ${token.symbol.toUpperCase()}`;
     }
     return 'Stake';
-  }, [isInsufficientBalance, isApprove, token, amountValue]);
+  }, [isApprove, token, amountValue]);
 
   const onApprove = useCallback(async () => {
     setApproving(true);
@@ -173,7 +170,13 @@ export const LidoApproveBaseStake = ({
     return (
       <XStack space="$1">
         <SizableText>
-          {amountBN.toFixed()} {token.symbol.toUpperCase()} ({' '}
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ tokenSymbol: token.symbol }}
+          >
+            {amountBN.toFixed()}
+          </NumberSizeableText>
+          (
           <NumberSizeableText
             formatter="value"
             formatterOptions={{ currency: symbol }}
@@ -216,13 +219,22 @@ export const LidoApproveBaseStake = ({
             currency: currentValue ? symbol : undefined,
           }}
         />
-        {isLessThanMinAmount ? (
-          <Alert
-            icon="InfoCircleOutline"
-            type="critical"
-            title={`The minimum amount for this staking is ${minAmount} ETH.`}
-          />
-        ) : null}
+        <YStack>
+          {isLessThanMinAmount ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="critical"
+              title={`The minimum amount for this staking is ${minAmount} ${token.symbol}.`}
+            />
+          ) : null}
+          {isInsufficientBalance ? (
+            <Alert
+              icon="InfoCircleOutline"
+              type="critical"
+              title="Insufficient balance."
+            />
+          ) : null}
+        </YStack>
       </Stack>
       <Stack>
         <YStack>
@@ -239,9 +251,14 @@ export const LidoApproveBaseStake = ({
               title="Est. receive"
               titleProps={{ color: '$textSubdued' }}
             >
-              <ListItem.Text
-                primary={`${receivingTokenAmount} ${receivingTokenSymbol.toUpperCase()}`}
-              />
+              <SizableText>
+                <NumberSizeableText
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol: receivingTokenSymbol }}
+                >
+                  {receivingTokenAmount}
+                </NumberSizeableText>
+              </SizableText>
             </ListItem>
           ) : null}
           <ListItem title="APR" titleProps={{ color: '$textSubdued' }}>

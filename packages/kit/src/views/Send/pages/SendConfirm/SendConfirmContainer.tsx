@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, XStack, YStack, usePageUnMounted } from '@onekeyhq/components';
+import { Page, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
@@ -43,7 +43,6 @@ function SendConfirmContainer() {
     sourceInfo,
     signOnly,
   } = route.params;
-  usePageUnMounted(onCancel);
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,

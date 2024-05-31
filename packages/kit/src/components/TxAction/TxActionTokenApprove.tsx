@@ -39,9 +39,10 @@ function getTxActionTokenApproveInfo(props: ITxActionProps) {
 function TxActionTokenApproveListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps, showIcon } = props;
   const intl = useIntl();
-  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
-    decodedTx,
-  });
+  const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
+    useFeeInfoInDecodedTx({
+      decodedTx,
+    });
 
   const {
     approveIcon,
@@ -92,6 +93,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       feeSymbol={txFeeSymbol}
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
+      hideFeeInfo={hideFeeInfo}
       {...componentProps}
     />
   );
@@ -136,10 +138,10 @@ function TxActionTokenApproveDetailView(props: ITxActionProps) {
       }}
       target={{
         content: approveSpender,
-        description: decodedTx.swapProvider
+        description: decodedTx.toAddressLabel
           ? {
               icon: 'NoteSolid',
-              content: decodedTx.swapProvider,
+              content: decodedTx.toAddressLabel,
             }
           : undefined,
       }}

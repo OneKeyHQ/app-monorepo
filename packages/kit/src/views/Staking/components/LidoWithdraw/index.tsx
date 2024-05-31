@@ -5,7 +5,6 @@ import BigNumber from 'bignumber.js';
 
 import {
   Alert,
-  Button,
   NumberSizeableText,
   Page,
   SizableText,
@@ -16,26 +15,38 @@ import {
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { LIDO_LOGO_URI } from '../../utils/const';
 
 type ILidoWithdrawProps = {
   balance: string;
-  tokenImageUri: string;
+  price: string;
+  tokenImageUri?: string;
   tokenSymbol: string;
+  receivingTokenSymbol: string;
+  rate?: string;
   minAmount?: string;
   onConfirm?: (amount: string) => Promise<void>;
 };
 
 export const LidoWithdraw = ({
   balance,
+  price,
   tokenImageUri,
-  minAmount = '0',
   tokenSymbol,
+  receivingTokenSymbol,
+  minAmount = '0',
+  rate = '1',
   onConfirm,
 }: PropsWithChildren<ILidoWithdrawProps>) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState('');
+  const [
+    {
+      currencyInfo: { symbol },
+    },
+  ] = useSettingsPersistAtom();
 
   const onPress = useCallback(async () => {
     try {
@@ -56,6 +67,12 @@ export const LidoWithdraw = ({
     }
     setAmountValue(value);
   }, []);
+
+  const currentValue = useMemo<string | undefined>(() => {
+    const amountValueBn = new BigNumber(amountValue);
+    if (amountValueBn.isNaN()) return undefined;
+    return amountValueBn.multipliedBy(price).toFixed();
+  }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo<boolean>(
     () => new BigNumber(amountValue).gt(balance),
@@ -83,6 +100,36 @@ export const LidoWithdraw = ({
     [amountValue, isInsufficientBalance, isLessThanMinAmount],
   );
 
+  const receiving = useMemo(() => {
+    const amountValueBN = BigNumber(amountValue);
+    if (amountValueBN.isNaN()) return null;
+    const receivingAmount = amountValueBN.dividedBy(rate).toFixed();
+    const receivingValue = amountValueBN
+      .multipliedBy(price)
+      .dividedBy(rate)
+      .toFixed();
+    return (
+      <XStack space="$1">
+        <SizableText>
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: receivingTokenSymbol }}
+          >
+            {receivingAmount}
+          </NumberSizeableText>
+          (
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ currency: symbol }}
+          >
+            {receivingValue}
+          </NumberSizeableText>
+          )
+        </SizableText>
+      </XStack>
+    );
+  }, [amountValue, price, symbol, receivingTokenSymbol, rate]);
+
   return (
     <Page>
       <Page.Header title="Redeem" />
@@ -100,54 +147,68 @@ export const LidoWithdraw = ({
               inputProps={{
                 placeholder: '0',
               }}
+              balanceProps={{
+                value: balance,
+                onPress: onMax,
+              }}
+              valueProps={{
+                value: currentValue,
+                currency: currentValue ? symbol : undefined,
+              }}
+              enableMaxAmount
             />
-            {isLessThanMinAmount ? (
-              <Alert
-                icon="InfoCircleOutline"
-                type="critical"
-                title={`The minimum amount for this staking is ${minAmount} ETH.`}
-              />
-            ) : null}
-            <XStack
-              bg="$bgSubdued"
-              p="$3"
-              borderRadius={8}
-              overflow="hidden"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <SizableText size="$bodyMdMedium">Staked amount</SizableText>
-              <XStack space="$2" alignItems="center">
-                <NumberSizeableText formatter="balance">
-                  {balance}
-                </NumberSizeableText>
-                <Button
-                  variant="tertiary"
-                  onPress={onMax}
-                  color="$textInteractive"
-                >
-                  Max
-                </Button>
-              </XStack>
-            </XStack>
+            <YStack space="$1">
+              {isLessThanMinAmount ? (
+                <Alert
+                  icon="InfoCircleOutline"
+                  type="critical"
+                  title={`The minimum amount for this staking is ${minAmount} ${tokenSymbol}.`}
+                />
+              ) : null}
+              {isInsufficientBalance ? (
+                <Alert
+                  icon="InfoCircleOutline"
+                  type="critical"
+                  title="Insufficient balance."
+                />
+              ) : null}
+            </YStack>
           </Stack>
           <YStack>
-            <ListItem title="Protocol">
+            {receiving ? (
+              <ListItem title="Receive" titleProps={{ color: '$textSubdued' }}>
+                {receiving}
+              </ListItem>
+            ) : null}
+            {amountValue ? (
+              <ListItem title="Pay with" titleProps={{ color: '$textSubdued' }}>
+                <SizableText>
+                  <NumberSizeableText
+                    formatter="balance"
+                    formatterOptions={{ tokenSymbol }}
+                  >
+                    {amountValue}
+                  </NumberSizeableText>
+                </SizableText>
+              </ListItem>
+            ) : null}
+            <ListItem title="Protocol" titleProps={{ color: '$textSubdued' }}>
               <XStack space="$2" alignItems="center">
                 <Token size="sm" tokenImageUri={LIDO_LOGO_URI} />
                 <SizableText size="$bodyMdMedium">Lido</SizableText>
               </XStack>
             </ListItem>
-            <ListItem title="Stake Release Period">
+            <ListItem
+              title="Stake Release Period"
+              titleProps={{ color: '$textSubdued' }}
+            >
               <ListItem.Text primary="< 4 Days" />
             </ListItem>
           </YStack>
         </YStack>
       </Page.Body>
       <Page.Footer
-        onConfirmText={
-          isInsufficientBalance ? 'Insufficient balance' : 'Redeem'
-        }
+        onConfirmText="Redeem"
         confirmButtonProps={{
           onPress,
           loading,
