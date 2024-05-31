@@ -962,6 +962,7 @@ export function MarketHomeList({
           renderItem={gtMd ? renderItem : renderMdItem}
           ListFooterComponent={<Stack height={60} />}
           ListEmptyComponent={<ListEmptyComponent />}
+          extraData={gtMd ? undefined : mdColumnKeys}
         />
         {isShowBackToTopButton ? (
           <Stack
