@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { memo, useMemo } from 'react';
 
+import type { ITabPageProps } from '@onekeyhq/components';
 import {
   Skeleton,
   Stack,
@@ -73,7 +74,7 @@ function BasicTokenDetailTabs({
     [token?.symbol],
   );
 
-  const renderSkeleton = useMemo(
+  const renderPoolSkeleton = useMemo(
     () =>
       md ? (
         <YStack>
@@ -103,16 +104,18 @@ function BasicTokenDetailTabs({
           ? {
               title: 'Pools',
               // eslint-disable-next-line react/no-unstable-nested-components
-              page: () => <MarketDetailPools pools={pools} />,
+              page: (props: ITabPageProps) => (
+                <MarketDetailPools {...props} pools={pools} />
+              ),
             }
           : undefined,
         md && token
           ? {
               title: 'Overview',
               // eslint-disable-next-line react/no-unstable-nested-components
-              page: () => (
+              page: (props: ITabPageProps) => (
                 <Stack px="$5">
-                  <MarketDetailOverview token={token} />
+                  <MarketDetailOverview {...props} token={token} />
                 </Stack>
               ),
             }
@@ -120,28 +123,28 @@ function BasicTokenDetailTabs({
         token && {
           title: 'Links',
           // eslint-disable-next-line react/no-unstable-nested-components
-          page: () => <MarketDetailLinks token={token} />,
+          page: (props: ITabPageProps) => (
+            <MarketDetailLinks {...props} token={token} />
+          ),
         },
       ].filter(Boolean),
     [md, pools, token],
   );
   return pools ? (
-    <Stack $gtMd={{ pt: '$8', px: '$5' }}>
-      <Tab.Page
-        data={tabConfig}
-        ListHeaderComponent={listHeaderComponent}
-        onSelectedPageIndex={(index: number) => {
-          console.log('选中', index);
-        }}
-        headerProps={{
-          style: {
-            marginTop: 20,
-          },
-        }}
-      />
-    </Stack>
+    <Tab
+      $gtMd={{ mt: '$8', mx: '$5' }}
+      mt="$5"
+      data={tabConfig}
+      ListHeaderComponent={<Stack mb="$5">{listHeaderComponent}</Stack>}
+      onSelectedPageIndex={(index: number) => {
+        console.log('选中', index);
+      }}
+    />
   ) : (
-    renderSkeleton
+    <>
+      {md ? null : listHeaderComponent}
+      {renderPoolSkeleton}
+    </>
   );
 }
 

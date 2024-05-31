@@ -286,6 +286,7 @@ function TableRow({
   showMoreAction = false,
   showListItemPressStyle = false,
   isLoading,
+  py,
 }: {
   item?: IMarketToken;
   isLoading?: boolean;
@@ -299,6 +300,7 @@ function TableRow({
   }) => void;
   showMoreAction?: boolean;
   showListItemPressStyle?: boolean;
+  py?: IStackProps['py'];
 }) {
   const {
     serialNumber,
@@ -347,6 +349,7 @@ function TableRow({
     <XStack
       space="$3"
       px="$5"
+      py={py}
       minHeight={minHeight}
       onPress={handlePress}
       {...(showListItemPressStyle && listItemPressStyle)}
@@ -601,10 +604,25 @@ function ListEmptyComponent() {
     </YStack>
   ) : (
     <YStack px="$5">
-      {new Array(6).fill(0).map((i) => (
-        <TableMdSkeletonRow key={i} />
+      {new Array(6).fill(0).map((_, index) => (
+        <TableMdSkeletonRow key={index} />
       ))}
     </YStack>
+  );
+}
+
+function MdPlaceholder() {
+  return (
+    <Stack
+      borderRadius="$2"
+      width="$20"
+      height="$8"
+      bg="$bgDisabled"
+      jc="center"
+      ai="center"
+    >
+      <SizableText size="$bodyMdMedium">-</SizableText>
+    </Stack>
   );
 }
 
@@ -645,8 +663,17 @@ export function MarketHomeList({
 
   const tableHeaderConfig = useBuildTableHeaderConfig();
 
+  const filterCoingeckoIdsListData = useMemo(
+    () =>
+      category.coingeckoIds
+        ? listData?.filter((item) =>
+            category.coingeckoIds.includes(item.coingeckoId),
+          )
+        : listData,
+    [listData, category.coingeckoIds],
+  );
   const { sortedListData, handleSortTypeChange, sortByType, setSortByType } =
-    useSortType(listData as Record<string, any>[]);
+    useSortType(filterCoingeckoIdsListData as Record<string, any>[]);
 
   const HeaderColumns = useMemo(
     () => (
@@ -656,6 +683,7 @@ export function MarketHomeList({
         minHeight="$4"
         sortType={sortByType}
         onSortTypeChange={handleSortTypeChange}
+        py="$2"
       />
     ),
     [handleSortTypeChange, showMoreAction, sortByType, tableHeaderConfig],
@@ -778,26 +806,30 @@ export function MarketHomeList({
             >
               {item[mdColumnKeys[0]] as string}
             </NumberSizeableText>
-            <XStack
-              width="$20"
-              height="$8"
-              jc="center"
-              ai="center"
-              backgroundColor={
-                Number(item.priceChangePercentage24H) > 0
-                  ? '$bgSuccessStrong'
-                  : '$bgCriticalStrong'
-              }
-              borderRadius="$2"
-            >
-              <NumberSizeableText
-                size="$bodyMdMedium"
-                color="white"
-                formatter="priceChange"
+            {item[mdColumnKeys[1]] ? (
+              <XStack
+                width="$20"
+                height="$8"
+                jc="center"
+                ai="center"
+                backgroundColor={
+                  Number(item.priceChangePercentage24H) > 0
+                    ? '$bgSuccessStrong'
+                    : '$bgCriticalStrong'
+                }
+                borderRadius="$2"
               >
-                {item[mdColumnKeys[1]] as string}
-              </NumberSizeableText>
-            </XStack>
+                <NumberSizeableText
+                  size="$bodyMdMedium"
+                  color="white"
+                  formatter="priceChange"
+                >
+                  {item[mdColumnKeys[1]] as string}
+                </NumberSizeableText>
+              </XStack>
+            ) : (
+              <MdPlaceholder />
+            )}
           </XStack>
         </XStack>
       </TouchableWithoutFeedback>
@@ -939,6 +971,7 @@ export function MarketHomeList({
           renderItem={gtMd ? renderItem : renderMdItem}
           ListFooterComponent={<Stack height={60} />}
           ListEmptyComponent={<ListEmptyComponent />}
+          extraData={gtMd ? undefined : mdColumnKeys}
         />
         {isShowBackToTopButton ? (
           <Stack

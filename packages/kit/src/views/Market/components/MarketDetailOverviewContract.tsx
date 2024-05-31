@@ -40,7 +40,6 @@ export function MarketDetailOverviewContract({
             tokenNameColor="$textSubdued"
             addressSize="$bodyMdMedium"
             networkId={platform.onekeyNetworkId}
-            tokenName={`${tokenName[0].toUpperCase()}${tokenName.slice(1)}`}
             address={platform.contract_address}
           />
         );
@@ -52,7 +51,7 @@ export function MarketDetailOverviewContract({
           onPress={handleViewMore}
           $gtMd={{ size: 'small' } as IButtonProps}
         >
-          {isShowMore ? 'View More' : 'View Less'}
+          {isShowMore ? 'View Less' : 'View More'}
         </Button>
       )}
     </YStack>

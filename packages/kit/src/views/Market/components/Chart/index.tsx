@@ -96,7 +96,7 @@ export function PriceChart({
 
   const emptyView = useMemo(() => {
     if (isFetching) {
-      return <Spinner />;
+      return <Spinner $platform-native={{ mt: -190 }} />;
     }
     return (
       <Empty
