@@ -9,6 +9,7 @@ import {
   NavBackButton,
   NumberSizeableText,
   Page,
+  ScrollView,
   SizableText,
   Skeleton,
   View,
@@ -61,7 +62,7 @@ function TokenDetailHeader({
   } = token;
   const { gtMd } = useMedia();
   return (
-    <YStack $gtMd={{ maxWidth: 336 }} px="$5">
+    <YStack px="$5">
       <XStack ai="center">
         <YStack flex={1}>
           <SizableText size="$headingMd" color="$textSubdued">
@@ -82,7 +83,7 @@ function TokenDetailHeader({
         <MarketStar coingeckoId={coinGeckoId} mr="$-2" />
       </XStack>
       {gtMd ? (
-        <MarketDetailOverview token={token} />
+        <MarketDetailOverview token={token} onContentSizeChange={() => {}} />
       ) : (
         <XStack pt="$6" flex={1} ai="center" jc="center" space="$2">
           <TextCell title="24H VOL(USD)">{volume24h}</TextCell>
@@ -270,7 +271,7 @@ function MarketDetail({
   );
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         disableClose
         headerTitle={renderHeaderTitle}
@@ -279,12 +280,18 @@ function MarketDetail({
       />
       <Page.Body>
         {gtMd ? (
-          <YStack>
-            <XStack $gtMd={{ pt: '$5' }} $md={{ space: '$5', pt: '$3' }}>
-              {tokenDetailHeader}
+          <YStack flex={1}>
+            <XStack
+              flex={1}
+              $gtMd={{ pt: '$5' }}
+              $md={{ space: '$5', pt: '$3' }}
+            >
+              <ScrollView maxWidth={336}>{tokenDetailHeader}</ScrollView>
               <YStack flex={1}>
-                {tokenPriceChart}
-                {tokenDetail ? <TokenDetailTabs token={tokenDetail} /> : null}
+                <TokenDetailTabs
+                  token={tokenDetail}
+                  listHeaderComponent={<YStack>{tokenPriceChart}</YStack>}
+                />
               </YStack>
             </XStack>
           </YStack>
