@@ -1,13 +1,14 @@
 import {
   type INumberSizeableTextProps,
   NumberSizeableText,
+  SizableText,
 } from '@onekeyhq/components';
 
 export function PriceChangePercentage({
   children,
   ...props
 }: INumberSizeableTextProps) {
-  return (
+  return children ? (
     <NumberSizeableText
       size="$bodyMd"
       formatter="priceChange"
@@ -17,5 +18,7 @@ export function PriceChangePercentage({
     >
       {children}
     </NumberSizeableText>
+  ) : (
+    <SizableText size="$bodyMd">-</SizableText>
   );
 }
