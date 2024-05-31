@@ -280,8 +280,12 @@ function MarketDetail({
       />
       <Page.Body>
         {gtMd ? (
-          <YStack flex={1}>
-            <XStack $gtMd={{ pt: '$5' }} $md={{ space: '$5', pt: '$3' }}>
+          <YStack>
+            <XStack
+              flex={1}
+              $gtMd={{ pt: '$5' }}
+              $md={{ space: '$5', pt: '$3' }}
+            >
               <ScrollView maxWidth={336}>{tokenDetailHeader}</ScrollView>
               <YStack flex={1}>
                 <TokenDetailTabs
