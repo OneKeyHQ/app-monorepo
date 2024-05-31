@@ -46,6 +46,7 @@ export type ITxActionCommonListViewProps = {
   pending?: boolean;
   tableLayout?: boolean;
   showIcon?: boolean;
+  hideFeeInfo?: boolean;
 };
 
 export type ITxActionCommonDetailViewProps = {

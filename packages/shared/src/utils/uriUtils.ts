@@ -149,6 +149,28 @@ export function buildExplorerAddressUrl({
   return addressUrl.replace('{address}', address);
 }
 
+export function buildTokenDetailsUrl({
+  network,
+  address,
+}: {
+  network: IServerNetwork | undefined;
+  address: string | undefined;
+}) {
+  if (!network || !address) return '';
+
+  const tokenUrl = network.explorers[0]?.token;
+
+  if (tokenUrl) {
+    return tokenUrl.replace('{token}', address);
+  }
+
+  const addressUrl = network.explorers[0]?.address;
+
+  if (!addressUrl) return '';
+
+  return addressUrl.replace('{address}', address);
+}
+
 export function buildTransactionDetailsUrl({
   network,
   txid,

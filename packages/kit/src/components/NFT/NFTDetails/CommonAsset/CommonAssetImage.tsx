@@ -1,5 +1,7 @@
+import BigNumber from 'bignumber.js';
+
 import { Image, SizableText } from '@onekeyhq/components';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
   nft: IAccountNFT;
@@ -20,7 +22,8 @@ function CommonAssetImage(props: IProps) {
         }}
       />
 
-      {Number(nft.amount) > 1 ? (
+      {nft.collectionType === ENFTType.ERC1155 &&
+      new BigNumber(nft.amount ?? 1).gt(1) ? (
         <SizableText
           size="$bodyLgMedium"
           position="absolute"

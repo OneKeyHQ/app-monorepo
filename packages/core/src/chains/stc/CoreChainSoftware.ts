@@ -55,8 +55,8 @@ const buildUnsignedRawTx = (
   const fromAddr = unsignedTx?.transfersInfo?.[0]?.from || '';
   const { scriptFn, data } = unsignedTx.payload || {};
 
-  const gasLimit = unsignedTx.feeLimit;
-  const gasPrice = unsignedTx.feePricePerUnit;
+  const gasLimit = unsignedTx.feeInfo?.gas?.gasLimit;
+  const gasPrice = unsignedTx.feeInfo?.gas?.gasPrice;
   const { nonce } = unsignedTx;
   const { expirationTime } = unsignedTx.payload || {};
 
@@ -80,8 +80,8 @@ const buildUnsignedRawTx = (
   const rawTxn = utils.tx.generateRawUserTransaction(
     fromAddr,
     txPayload,
-    gasLimit.toNumber(),
-    gasPrice.toNumber(),
+    Number(gasLimit),
+    Number(gasPrice),
     nonce,
     expirationTime,
     Number(chainId),
@@ -168,7 +168,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(): Promise<string> {
-    throw new NotImplemented();;
+    throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(

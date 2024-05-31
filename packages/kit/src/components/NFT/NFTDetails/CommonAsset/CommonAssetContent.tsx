@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -9,11 +10,10 @@ import {
   Heading,
   SizableText,
   Stack,
-  Toast,
   XStack,
+  useClipboard,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
@@ -26,13 +26,9 @@ function CommonAssetContent(props: IProps) {
   const intl = useIntl();
   const { networkId, nft } = props;
   const { attributes } = nft.metadata ?? {};
-  const { serviceNetwork } = backgroundApiProxy;
+  const { copyText } = useClipboard();
 
-  const res = usePromiseResult(
-    () => serviceNetwork.getNetwork({ networkId }),
-    [networkId, serviceNetwork],
-  );
-  const network = res.result;
+  const { network } = useAccountData({ networkId });
 
   const details: {
     label: string;
@@ -40,36 +36,37 @@ function CommonAssetContent(props: IProps) {
     onPress?: () => void;
     iconAfter?: IKeyOfIcons;
   }[] = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({ id: 'content__collection' }),
-        value: nft.collectionName,
-      },
-      {
-        label: intl.formatMessage({ id: 'network__network' }),
-        value: network?.name ?? '',
-      },
-      {
-        label: 'Token ID',
-        value: nft.itemId,
-      },
-      {
-        label: intl.formatMessage({ id: 'content__nft_standard' }),
-        value: nft.collectionType,
-      },
-      {
-        label: intl.formatMessage({
-          id: 'transaction__contract_address',
-        }),
-        value: accountUtils.shortenAddress({ address: nft.collectionAddress }),
-        onPress: () =>
-          Toast.success({
-            title: intl.formatMessage({ id: 'msg__copied' }),
+    () =>
+      [
+        {
+          label: intl.formatMessage({ id: 'content__collection' }),
+          value: nft.collectionName,
+        },
+        {
+          label: intl.formatMessage({ id: 'network__network' }),
+          value: network?.name ?? '',
+        },
+        {
+          label: 'Token ID',
+          value: nft.itemId,
+        },
+        {
+          label: intl.formatMessage({ id: 'content__nft_standard' }),
+          value: nft.collectionType,
+        },
+        {
+          label: intl.formatMessage({
+            id: 'transaction__contract_address',
           }),
-        iconAfter: 'Copy1Outline',
-      },
-    ],
+          value: accountUtils.shortenAddress({
+            address: nft.collectionAddress,
+          }),
+          onPress: () => copyText(nft.collectionAddress),
+          iconAfter: 'Copy1Outline' as IKeyOfIcons,
+        },
+      ].filter((item) => !isNil(item.value)),
     [
+      copyText,
       intl,
       network?.name,
       nft.collectionAddress,
@@ -93,7 +90,14 @@ function CommonAssetContent(props: IProps) {
             <DescriptionList.Item.Key size="$bodyMd" color="$textSubdued">
               {label}
             </DescriptionList.Item.Key>
-            <DescriptionList.Item.Value onPress={onPress} iconAfter={iconAfter}>
+            <DescriptionList.Item.Value
+              maxWidth="70%"
+              onPress={onPress}
+              iconAfter={iconAfter}
+              textProps={{
+                numberOfLines: 999,
+              }}
+            >
               {value}
             </DescriptionList.Item.Value>
           </DescriptionList.Item>

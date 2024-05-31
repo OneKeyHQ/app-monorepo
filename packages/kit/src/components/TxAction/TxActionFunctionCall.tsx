@@ -35,9 +35,10 @@ function getTxActionFunctionCallInfo(props: ITxActionProps) {
 
 function TxActionFunctionCallListView(props: ITxActionProps) {
   const { tableLayout, decodedTx, componentProps, showIcon } = props;
-  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
-    decodedTx,
-  });
+  const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
+    useFeeInfoInDecodedTx({
+      decodedTx,
+    });
 
   const { functionTo, functionName, functionIcon } =
     getTxActionFunctionCallInfo(props);
@@ -62,6 +63,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       fee={txFee}
       feeFiatValue={txFeeFiatValue}
       feeSymbol={txFeeSymbol}
+      hideFeeInfo={hideFeeInfo}
       {...componentProps}
     />
   );

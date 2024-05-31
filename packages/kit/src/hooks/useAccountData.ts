@@ -1,4 +1,5 @@
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -12,6 +13,7 @@ type IUseAccountDataResult = {
   account: INetworkAccount | undefined;
   network: IServerNetwork | undefined;
   wallet: IDBWallet | undefined;
+  vaultSettings: IVaultSettings | undefined;
 };
 
 export function useAccountData<T extends IUseAccountDataResult>({
@@ -28,7 +30,7 @@ export function useAccountData<T extends IUseAccountDataResult>({
   const { serviceAccount, serviceNetwork } = backgroundApiProxy;
   const { result, isLoading, run } = usePromiseResult<IUseAccountDataResult>(
     async () => {
-      const [account, network, wallet] = await Promise.all([
+      const [account, network, wallet, vaultSettings] = await Promise.all([
         accountId && networkId
           ? serviceAccount.getAccount({
               accountId,
@@ -45,11 +47,13 @@ export function useAccountData<T extends IUseAccountDataResult>({
               walletId,
             })
           : undefined,
+        networkId ? serviceNetwork.getVaultSettings({ networkId }) : undefined,
       ]);
       const obj: IUseAccountDataResult = {
         account,
         network,
         wallet,
+        vaultSettings,
       };
       return obj;
     },
@@ -59,16 +63,18 @@ export function useAccountData<T extends IUseAccountDataResult>({
         account: undefined,
         network: undefined,
         wallet: undefined,
+        vaultSettings: undefined,
       },
       ...options,
     },
   );
 
-  const { account, wallet, network } = result;
+  const { account, wallet, network, vaultSettings } = result;
   return {
     account,
     wallet,
     network,
+    vaultSettings,
     run,
     isLoading,
   };
