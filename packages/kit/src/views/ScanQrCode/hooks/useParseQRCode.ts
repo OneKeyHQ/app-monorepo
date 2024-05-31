@@ -110,17 +110,19 @@ const useParseQRCode = () => {
             void backgroundApiProxy.walletConnect.connectToDapp(wcValue.wcUri);
           }
           break;
-        case EQRCodeHandlerType.ANIMATION_CODE: {
-          const animationValue = result.data as IAnimationValue;
-          if (animationValue.fullData) {
-            console.log('🥺', animationValue);
-          }
-          break;
-        }
         default: {
+          let content = value;
+          if (result.type === EQRCodeHandlerType.ANIMATION_CODE) {
+            const animationValue = result.data as IAnimationValue;
+            const animationFullData = animationValue.fullData;
+            if (!animationFullData) {
+              break;
+            }
+            content = animationFullData;
+          }
           Dialog.confirm({
             title: intl.formatMessage({ id: 'content__info' }),
-            description: value,
+            description: content,
             onConfirmText: intl.formatMessage({
               id: 'action__copy',
             }),
@@ -129,7 +131,7 @@ const useParseQRCode = () => {
             },
             onConfirm: ({ preventClose }) => {
               preventClose();
-              clipboard?.copyText(value);
+              clipboard?.copyText(content);
             },
           });
         }

@@ -10,10 +10,7 @@ import type { IQRCodeHandler, IUrlAccountValue } from '../type';
 /*
 https://app.onekeytest.com/btc/3EuKgMjxH8t3zEpMoobSeofXzQ64u2Sfpi
 */
-export const urlAccount: IQRCodeHandler<IUrlAccountValue> = async (
-  value,
-  options,
-) => {
+const urlAccount: IQRCodeHandler<IUrlAccountValue> = async (value, options) => {
   const urlValue = options?.urlResult;
   // const deeplinkValue = options?.deeplinkResult;
   // if (
@@ -49,3 +46,5 @@ export const urlAccount: IQRCodeHandler<IUrlAccountValue> = async (
   }
   return null;
 };
+
+export default urlAccount;

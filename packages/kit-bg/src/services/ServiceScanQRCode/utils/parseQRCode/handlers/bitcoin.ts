@@ -8,10 +8,7 @@ import type { IBitcoinValue, IQRCodeHandler } from '../type';
 // bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=20.3&label=Luke-Jr
 
 // from https://github.com/bitcoinjs/bip21/blob/fb796720b56d4b22dff8ad543ef4153ef45a10ad/index.js#L7
-export const bitcoin: IQRCodeHandler<IBitcoinValue> = async (
-  value,
-  options,
-) => {
+const bitcoin: IQRCodeHandler<IBitcoinValue> = async (value, options) => {
   const urnScheme = options?.bitcoinUrlScheme || 'bitcoin';
   const urnSchemeActual = value.slice(0, urnScheme.length).toLowerCase();
   if (urnSchemeActual !== urnScheme || value.charAt(urnScheme.length) !== ':')
@@ -57,3 +54,5 @@ export const bitcoin: IQRCodeHandler<IBitcoinValue> = async (
     data: bitcoinValue,
   };
 };
+
+export default bitcoin;

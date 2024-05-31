@@ -15,10 +15,7 @@ import type { IEthereumValue, IQRCodeHandler } from '../type';
 // ethereum:0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40@1/transfer?address=0x178e3e6c9f547A00E33150F7104427ea02cfc747&uint256=1e8
 
 // https://github.com/ethereum/ercs/blob/master/ERCS/erc-681.md
-export const ethereum: IQRCodeHandler<IEthereumValue> = async (
-  value,
-  options,
-) => {
+const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
   if (!/^ethereum:/i.test(value)) {
     return null;
   }
@@ -65,3 +62,5 @@ export const ethereum: IQRCodeHandler<IEthereumValue> = async (
   }
   return null;
 };
+
+export default ethereum;

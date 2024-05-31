@@ -10,7 +10,7 @@ import type { IMarketDetailValue, IQRCodeHandler } from '../type';
 /*
 https://app.onekeytest.com/market/market_detail?coinGeckoId=bitcoin
 */
-export const marketDetail: IQRCodeHandler<IMarketDetailValue> = async (
+const marketDetail: IQRCodeHandler<IMarketDetailValue> = async (
   value,
   options,
 ) => {
@@ -34,3 +34,5 @@ export const marketDetail: IQRCodeHandler<IMarketDetailValue> = async (
   }
   return null;
 };
+
+export default marketDetail;
