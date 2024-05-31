@@ -1,4 +1,7 @@
-import type { INumberSizeableTextProps } from '@onekeyhq/components';
+import type {
+  INumberSizeableTextProps,
+  ITabPageProps,
+} from '@onekeyhq/components';
 import {
   NumberSizeableText,
   Progress,
@@ -196,7 +199,7 @@ function OverviewMarketVOL({
 
 export function MarketDetailOverview({
   token: {
-    detail_platforms: detailPlatforms,
+    detailPlatforms,
     stats: {
       maxSupply,
       totalSupply,
@@ -211,11 +214,19 @@ export function MarketDetailOverview({
     },
     about,
   },
-}: {
+  onContentSizeChange,
+}: ITabPageProps & {
   token: IMarketTokenDetail;
 }) {
   return (
-    <YStack $gtMd={{ pb: '$10' }}>
+    <YStack
+      pb="$10"
+      onLayout={({
+        nativeEvent: {
+          layout: { width, height },
+        },
+      }) => onContentSizeChange(width, height)}
+    >
       <XStack
         borderWidth="$px"
         borderRadius="$2"

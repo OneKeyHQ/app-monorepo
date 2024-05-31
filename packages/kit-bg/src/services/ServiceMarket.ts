@@ -30,7 +30,9 @@ class ServiceMarket extends ServiceBase {
     const { data } = response.data;
     data[0].name = 'Watchlist';
     return filters.length
-      ? data.filter((i) => !filters.includes(i.categoryId))
+      ? data
+          .filter((i) => !filters.includes(i.categoryId))
+          .sort((a, b) => Number(a.sequenceId) - Number(b.sequenceId))
       : data;
   }
 

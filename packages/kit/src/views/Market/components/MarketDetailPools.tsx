@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { groupBy } from 'lodash';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
+import type { ISizableTextProps, ITabPageProps } from '@onekeyhq/components';
 import {
   Dialog,
   Icon,
@@ -212,7 +212,11 @@ function NetworkIdSelect({
   );
 }
 
-export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
+export function MarketDetailPools({
+  pools,
+  // eslint-disable-next-line react/prop-types
+  onContentSizeChange,
+}: ITabPageProps & { pools: IMarketDetailPool[] }) {
   const { gtMd } = useMedia();
   const partitions = useMemo(() => groupBy(pools, 'onekeyNetworkId'), [pools]);
   const onekeyNetworkIds = useMemo(() => Object.keys(partitions), [partitions]);
@@ -243,112 +247,115 @@ export function MarketDetailPools({ pools }: { pools: IMarketDetailPool[] }) {
     index,
   );
   return (
-    <YStack pb="$2" pt="$5">
-      <NetworkIdSelect
-        options={onekeyNetworkIds}
-        value={index}
-        onChange={handleChange}
-      />
-      <ListView
-        data={sortedListData}
-        estimatedItemSize={38}
-        ListHeaderComponent={
+    <ListView
+      data={sortedListData}
+      estimatedItemSize={38}
+      onContentSizeChange={onContentSizeChange}
+      scrollEnabled={platformEnv.isWebTouchable}
+      disableScrollViewPanResponder
+      ListHeaderComponent={
+        <YStack pb="$2" pt="$5">
+          <NetworkIdSelect
+            options={onekeyNetworkIds}
+            value={index}
+            onChange={handleChange}
+          />
           <HeaderRow
             sortType={sortByType}
             onSortTypeChange={handleSortTypeChange}
           />
-        }
-        extraData={index}
-        renderItem={
-          (({ item }: { item: (typeof formatListData)[0] }) => {
-            const {
-              attributes,
-              dexLogoUrl,
-              dexDataName,
-              price,
-              txTotal,
-              volumeUsdH24,
-              reserveInUsd,
-            } = item;
-            return (
-              <XStack
-                px="$5"
-                py="$2"
-                {...listItemPressStyle}
-                onPress={() => {
-                  Dialog.confirm({
-                    title: 'Pool Details',
-                    renderContent: <PoolDetailDialog item={item} />,
-                  });
-                }}
-              >
-                <ItemColumn flexGrow={5}>
-                  <XStack space="$2.5" ai="center">
-                    <MarketPoolIcon uri={dexLogoUrl} />
-                    <YStack flexShrink={1}>
-                      <SizableText size="$bodyMdMedium" numberOfLines={1}>
-                        {attributes.name}
-                      </SizableText>
-                      <SizableText
-                        size="$bodySm"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                      >
-                        {dexDataName}
-                      </SizableText>
-                    </YStack>
-                  </XStack>
-                </ItemColumn>
+        </YStack>
+      }
+      extraData={index}
+      renderItem={
+        (({ item }: { item: (typeof formatListData)[0] }) => {
+          const {
+            attributes,
+            dexLogoUrl,
+            dexDataName,
+            price,
+            txTotal,
+            volumeUsdH24,
+            reserveInUsd,
+          } = item;
+          return (
+            <XStack
+              px="$5"
+              py="$2"
+              {...listItemPressStyle}
+              onPress={() => {
+                Dialog.confirm({
+                  title: 'Pool Details',
+                  renderContent: <PoolDetailDialog item={item} />,
+                });
+              }}
+            >
+              <ItemColumn flexGrow={5}>
+                <XStack space="$2.5" ai="center">
+                  <MarketPoolIcon uri={dexLogoUrl} />
+                  <YStack flexShrink={1}>
+                    <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                      {attributes.name}
+                    </SizableText>
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                    >
+                      {dexDataName}
+                    </SizableText>
+                  </YStack>
+                </XStack>
+              </ItemColumn>
 
-                {gtMd ? (
-                  <ItemColumn>
-                    <NumberSizeableText
-                      size="$bodyMd"
-                      formatter="price"
-                      formatterOptions={{ currency: '$' }}
-                      textAlign="right"
-                    >
-                      {price}
-                    </NumberSizeableText>
-                  </ItemColumn>
-                ) : null}
-                {gtMd ? (
-                  <ItemColumn>
-                    <NumberSizeableText
-                      size="$bodyMd"
-                      formatter="marketCap"
-                      textAlign="right"
-                    >
-                      {txTotal}
-                    </NumberSizeableText>
-                  </ItemColumn>
-                ) : null}
+              {gtMd ? (
+                <ItemColumn>
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    formatter="price"
+                    formatterOptions={{ currency: '$' }}
+                    textAlign="right"
+                  >
+                    {price}
+                  </NumberSizeableText>
+                </ItemColumn>
+              ) : null}
+              {gtMd ? (
                 <ItemColumn>
                   <NumberSizeableText
                     size="$bodyMd"
                     formatter="marketCap"
                     textAlign="right"
                   >
-                    {volumeUsdH24}
+                    {txTotal}
                   </NumberSizeableText>
                 </ItemColumn>
-                <ItemColumn>
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    formatter="marketCap"
-                    textAlign="right"
-                  >
-                    {reserveInUsd}
-                  </NumberSizeableText>
-                </ItemColumn>
-                <View jc="center">
-                  <Icon name="ChevronRightSmallOutline" size="$4" pl="$3" />
-                </View>
-              </XStack>
-            );
-          }) as any
-        }
-      />
-    </YStack>
+              ) : null}
+              <ItemColumn>
+                <NumberSizeableText
+                  size="$bodyMd"
+                  formatter="marketCap"
+                  textAlign="right"
+                >
+                  {volumeUsdH24}
+                </NumberSizeableText>
+              </ItemColumn>
+              <ItemColumn>
+                <NumberSizeableText
+                  size="$bodyMd"
+                  formatter="marketCap"
+                  textAlign="right"
+                >
+                  {reserveInUsd}
+                </NumberSizeableText>
+              </ItemColumn>
+              <View jc="center">
+                <Icon name="ChevronRightSmallOutline" size="$4" pl="$3" />
+              </View>
+            </XStack>
+          );
+        }) as any
+      }
+    />
   );
 }
