@@ -63,7 +63,6 @@ export interface IMarketDetailStats {
   marketCap: number;
   marketCapRank: number;
   volume24h: number;
-  trandingVolume: number;
   low24h: number;
   high24h: number;
   atl: IMarketDetailAth;
