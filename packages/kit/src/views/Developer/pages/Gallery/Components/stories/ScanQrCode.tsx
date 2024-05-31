@@ -36,7 +36,11 @@ const ScanQRCodeGallery = () => {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
   const openScanQrCodeModal = useCallback(
-    async (values: { autoHandleResult: boolean; mask?: boolean }) => {
+    async (values: {
+      autoHandleResult: boolean;
+      qrWalletScene?: boolean;
+      showProTutorial?: boolean;
+    }) => {
       try {
         const result = await scanQrCode.start({
           handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
@@ -67,11 +71,33 @@ const ScanQRCodeGallery = () => {
           ),
         },
         {
-          title: '命令式弹出 Modal(不自动处理，但是带有遮罩)',
+          title:
+            '命令式弹出 Modal(不自动处理，qrWalletScene = true & showProTutorial = false)',
           element: (
             <Button
               onPress={() =>
-                openScanQrCodeModal({ autoHandleResult: false, mask: true })
+                openScanQrCodeModal({
+                  autoHandleResult: false,
+                  qrWalletScene: true,
+                  showProTutorial: false,
+                })
+              }
+            >
+              打开
+            </Button>
+          ),
+        },
+        {
+          title:
+            '命令式弹出 Modal(不自动处理，qrWalletScene = true & showProTutorial = true)',
+          element: (
+            <Button
+              onPress={() =>
+                openScanQrCodeModal({
+                  autoHandleResult: false,
+                  qrWalletScene: true,
+                  showProTutorial: true,
+                })
               }
             >
               打开

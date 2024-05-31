@@ -131,7 +131,8 @@ export type IQRCodeHandlerParseOutsideOptions = {
   handlers: EQRCodeHandlerNames[];
   autoHandleResult?: boolean;
   accountId?: string;
-  mask?: boolean;
+  qrWalletScene?: boolean;
+  showProTutorial?: boolean;
 };
 
 export type IQRCodeHandlerParseOptions = IQRCodeHandlerParseOutsideOptions &

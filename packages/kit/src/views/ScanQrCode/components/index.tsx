@@ -20,10 +20,13 @@ import { ScanCamera } from './ScanCamera';
 
 export type IScanQrCodeProps = {
   handleBarCodeScanned: (value: string) => Promise<{ progress?: number }>;
-  mask?: boolean;
+  qrWalletScene?: boolean;
 };
 
-export function ScanQrCode({ handleBarCodeScanned, mask }: IScanQrCodeProps) {
+export function ScanQrCode({
+  handleBarCodeScanned,
+  qrWalletScene,
+}: IScanQrCodeProps) {
   const intl = useIntl();
   const scanned = useRef<string | undefined>(undefined);
   const [currentPermission, setCurrentPermission] = useState<PermissionStatus>(
@@ -110,34 +113,27 @@ export function ScanQrCode({ handleBarCodeScanned, mask }: IScanQrCodeProps) {
       isActive={isFocused}
       handleScanResult={reloadHandleBarCodeScanned}
     >
-      <YStack
-        fullscreen
-        alignItems="center"
-        justifyContent="center"
-        overflow="hidden"
-      >
-        <Stack
-          borderWidth={400}
-          borderColor="rgba(0,0,0,.5)"
-          borderRadius={425}
-        >
-          <Stack w={256} h={256} borderRadius="$6" />
-          {mask ? (
-            <YStack fullscreen>
-              <BlurView flex={1} borderRadius="$6" />
-            </YStack>
-          ) : null}
-          {progress ? (
-            <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">
-              <Stack bg="white" borderRadius="$1" px="$3" py="$2">
-                <SizableText size="$headingXxs" color="black">{`${(
-                  progress * 100
-                ).toFixed(2)}%`}</SizableText>
-              </Stack>
-            </YStack>
-          ) : null}
-        </Stack>
-      </YStack>
+      {qrWalletScene ? (
+        <YStack fullscreen>
+          <BlurView flex={1} borderRadius="$5" />
+        </YStack>
+      ) : null}
+      {progress ? (
+        <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">
+          <Stack
+            bg="$blackA9"
+            borderRadius="$2"
+            mr="$3"
+            mb="$3"
+            px="$2"
+            py="$1"
+          >
+            <SizableText size="$bodySmMedium" color="$whiteA12">{`Scanning ${(
+              progress * 100
+            ).toFixed(0)}%`}</SizableText>
+          </Stack>
+        </YStack>
+      ) : null}
     </ScanCamera>
   ) : null;
 }

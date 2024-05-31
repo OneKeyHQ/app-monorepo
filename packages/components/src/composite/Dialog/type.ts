@@ -34,6 +34,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
   tone?: 'default' | 'destructive' | 'warning' | 'success';
   showFooter?: boolean;
   footerProps?: Omit<IStackProps, 'children'>;
+  showExitButton?: boolean;
   showConfirmButton?: boolean;
   showCancelButton?: boolean;
   onConfirmText?: string;

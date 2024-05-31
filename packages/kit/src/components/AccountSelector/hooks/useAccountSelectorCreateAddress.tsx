@@ -38,7 +38,7 @@ export function useCreateQrWallet() {
     }) => {
       const scanResult = await startScan({
         handlers: [],
-        mask: true,
+        qrWalletScene: true,
         autoHandleResult: false,
       });
       console.log('startScan:', scanResult.raw?.trim());
