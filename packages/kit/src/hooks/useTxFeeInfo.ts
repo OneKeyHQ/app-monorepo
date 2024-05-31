@@ -7,7 +7,7 @@ export function useFeeInfoInDecodedTx({
 }: {
   decodedTx: IDecodedTx;
 }) {
-  const { network } = useAccountData({
+  const { network, vaultSettings } = useAccountData({
     networkId: decodedTx.networkId,
   });
 
@@ -19,5 +19,6 @@ export function useFeeInfoInDecodedTx({
     txFee,
     txFeeFiatValue,
     txFeeSymbol: network?.symbol ?? '',
+    hideFeeInfo: vaultSettings?.hideFeeInfoInHistoryList,
   };
 }

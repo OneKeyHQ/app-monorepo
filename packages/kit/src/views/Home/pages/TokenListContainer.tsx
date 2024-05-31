@@ -22,7 +22,9 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useBuyToken } from '../../../hooks/useBuyToken';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
@@ -39,6 +41,18 @@ function TokenListContainer({
   const {
     activeAccount: { account, network, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
+
+  const { handleOnBuy, isSupported } = useBuyToken({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+  });
+  const { handleOnReceive } = useReceiveToken({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    walletId: wallet?.id ?? '',
+    deriveInfo,
+    deriveType,
+  });
 
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -192,6 +206,10 @@ function TokenListContainer({
         withHeader
         withFooter
         withPrice
+        withBuyAndReceive
+        isBuyTokenSupported={isSupported}
+        onBuyToken={handleOnBuy}
+        onReceiveToken={handleOnReceive}
         onPressToken={handleOnPressToken}
         onContentSizeChange={onContentSizeChange}
         {...(media.gtLg && {

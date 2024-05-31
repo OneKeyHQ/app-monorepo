@@ -177,6 +177,7 @@ function TxActionCommonListView(
     pending,
     tableLayout,
     showIcon,
+    hideFeeInfo,
     ...rest
   } = props;
 
@@ -246,7 +247,7 @@ function TxActionCommonListView(
             changeDescription
           )}
         </Stack>
-        {tableLayout ? (
+        {tableLayout && !hideFeeInfo ? (
           <TxActionCommonFee
             fee={fee}
             feeFiatValue={feeFiatValue}
