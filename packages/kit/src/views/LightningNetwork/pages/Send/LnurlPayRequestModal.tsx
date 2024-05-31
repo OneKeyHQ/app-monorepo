@@ -9,6 +9,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { isLightningAddress } from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/lnurl';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -172,55 +173,57 @@ function LnurlPayRequestModal() {
   ]);
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title={intl.formatMessage({ id: 'title__lnurl_pay' })}
-          subtitleShown={false}
-          origin={origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          {routeParams.isSendFlow ? (
-            <DAppAccountListStandAloneItemForHomeScene />
-          ) : (
-            <DAppAccountListStandAloneItem readonly />
-          )}
-          <LNSendPaymentForm
-            accountId={accountId}
-            networkId={networkId}
-            useFormReturn={useFormReturn}
-            amount={amountMin === amountMax ? amountMin : undefined}
-            amountReadOnly={amountMin === amountMax}
-            minimumAmount={amountMin}
-            maximumAmount={amountMax}
-            commentAllowedLength={commentAllowedLength}
-            metadata={lnurlDetails.metadata}
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title={intl.formatMessage({ id: 'title__lnurl_pay' })}
+            subtitleShown={false}
+            origin={origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            {routeParams.isSendFlow ? (
+              <DAppAccountListStandAloneItemForHomeScene />
+            ) : (
+              <DAppAccountListStandAloneItem readonly />
+            )}
+            <LNSendPaymentForm
+              accountId={accountId}
+              networkId={networkId}
+              useFormReturn={useFormReturn}
+              amount={amountMin === amountMax ? amountMin : undefined}
+              amountReadOnly={amountMin === amountMax}
+              minimumAmount={amountMin}
+              maximumAmount={amountMax}
+              commentAllowedLength={commentAllowedLength}
+              metadata={lnurlDetails.metadata}
+            />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            confirmText="Continue"
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+            onConfirm={onConfirm}
+            onCancel={() => {
+              if (!routeParams.isSendFlow) {
+                dappApprove.reject();
+              }
+            }}
+            confirmButtonProps={{
+              loading: isLoading,
+              disabled: !continueOperate,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
           />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          confirmText="Continue"
-          continueOperate={continueOperate}
-          setContinueOperate={(checked) => {
-            setContinueOperate(!!checked);
-          }}
-          onConfirm={onConfirm}
-          onCancel={() => {
-            if (!routeParams.isSendFlow) {
-              dappApprove.reject();
-            }
-          }}
-          confirmButtonProps={{
-            loading: isLoading,
-            disabled: !continueOperate,
-          }}
-          showContinueOperateCheckbox={showContinueOperate}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

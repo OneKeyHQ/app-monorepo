@@ -18,6 +18,8 @@ import {
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
+import DappOpenModalPage from './DappOpenModalPage';
+
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
 import type { IHandleAccountChanged } from '../hooks/useHandleAccountChanged';
@@ -149,38 +151,38 @@ function ConnectionModal() {
   );
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title="Connection Request"
-          subtitle={subtitle}
-          origin={$sourceInfo?.origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          <DAppAccountListStandAloneItem
-            handleAccountChanged={handleAccountChanged}
-            onConnectedAccountInfoChanged={setConnectedAccountInfo}
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title="Connection Request"
+            subtitle={subtitle}
+            origin={$sourceInfo?.origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            <DAppAccountListStandAloneItem
+              handleAccountChanged={handleAccountChanged}
+              onConnectedAccountInfoChanged={setConnectedAccountInfo}
+            />
+            <DAppRequestedPermissionContent />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            continueOperate={continueOperate}
+            setContinueOperate={(value) => setContinueOperate(!!value)}
+            onConfirm={onApproval}
+            onCancel={() => dappApprove.reject()}
+            confirmButtonProps={{
+              disabled: confirmDisabled,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
           />
-          <DAppRequestedPermissionContent />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          continueOperate={continueOperate}
-          setContinueOperate={(value) => setContinueOperate(!!value)}
-          onConfirm={onApproval}
-          onCancel={() => {
-            dappApprove.reject();
-          }}
-          confirmButtonProps={{
-            disabled: confirmDisabled,
-          }}
-          showContinueOperateCheckbox={showContinueOperate}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

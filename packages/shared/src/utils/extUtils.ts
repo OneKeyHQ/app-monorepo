@@ -182,10 +182,21 @@ function openSidePanel(
   });
 }
 
+function openExistWindow({
+  windowId,
+}: {
+  windowId: number | undefined | null;
+}) {
+  if (windowId) {
+    void chrome.windows.update(windowId, { focused: true });
+  }
+}
+
 export default {
   openUrl,
   openUrlInTab,
   openStandaloneWindow,
   openExpandTab,
   openSidePanel,
+  openExistWindow,
 };

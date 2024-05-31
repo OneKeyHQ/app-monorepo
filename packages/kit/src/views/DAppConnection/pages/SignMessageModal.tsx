@@ -17,6 +17,8 @@ import {
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
+import DappOpenModalPage from './DappOpenModalPage';
+
 function SignMessageModal() {
   const intl = useIntl();
   const { $sourceInfo, unsignedMessage, accountId, networkId } = useDappQuery<{
@@ -78,35 +80,37 @@ function SignMessageModal() {
   );
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title="Message Signature Request"
-          subtitle={subtitle}
-          origin={$sourceInfo?.origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          <DAppAccountListStandAloneItem readonly />
-          <DAppSignMessageContent content={unsignedMessage.message} />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          continueOperate={continueOperate}
-          setContinueOperate={(checked) => {
-            setContinueOperate(!!checked);
-          }}
-          onConfirm={(params) => handleSignMessage(params)}
-          onCancel={() => dappApprove.reject()}
-          confirmButtonProps={{
-            disabled: !continueOperate,
-          }}
-          showContinueOperateCheckbox={showContinueOperate}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title="Message Signature Request"
+            subtitle={subtitle}
+            origin={$sourceInfo?.origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            <DAppAccountListStandAloneItem readonly />
+            <DAppSignMessageContent content={unsignedMessage.message} />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+            onConfirm={(params) => handleSignMessage(params)}
+            onCancel={() => dappApprove.reject()}
+            confirmButtonProps={{
+              disabled: !continueOperate,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
+          />
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 
