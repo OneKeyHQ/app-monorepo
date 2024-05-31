@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Page, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSendConfirmActions,
@@ -42,6 +43,10 @@ function SendConfirmContainer() {
     sourceInfo,
     signOnly,
   } = route.params;
+  const dappApprove = useDappApproveAction({
+    id: sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
   usePromiseResult(async () => {
     updateUnsignedTxs(unsignedTxs);
     updateNativeTokenInfo({
@@ -161,7 +166,14 @@ function SendConfirmContainer() {
   ]);
 
   return (
-    <Page scrollEnabled={!tableLayout}>
+    <Page
+      scrollEnabled={!tableLayout}
+      onClose={(confirmed) => {
+        if (!confirmed) {
+          dappApprove.reject();
+        }
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       />
