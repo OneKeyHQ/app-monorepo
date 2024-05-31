@@ -121,7 +121,8 @@ function TxFeeContainer(props: IProps) {
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
           errMessage:
-            (e as { data: { data: IOneKeyRpcError } }).data?.data?.message ??
+            (e as { data: { data: IOneKeyRpcError } }).data?.data?.res?.error
+              ?.message ??
             (e as Error).message ??
             e,
         });

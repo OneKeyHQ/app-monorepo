@@ -2844,11 +2844,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     ],
     'explorers': [
       {
-        'address': 'https://filscan.io/address/general?address={address}',
-        'block': 'https://filscan.io/tipset/chain?hash={block}',
+        'address': 'https://filscan.io/address/{address}',
+        'block': 'https://filscan.io/height/{block}',
         'name': 'https://filscan.io/',
-        'transaction':
-          'https://filscan.io/tipset/message-detail?cid={transaction}',
+        'transaction': 'https://filscan.io/message/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
@@ -130,7 +130,10 @@ export default function ScanQrCodeModal() {
     >();
   const { callback, qrWalletScene, showProTutorial } = route.params;
 
+  const isPickedImage = useRef(false);
+
   const pickImage = useCallback(async () => {
+    isPickedImage.current = true;
     const result = await launchImageLibraryAsync({
       base64: !platformEnv.isNative,
       allowsMultipleSelection: false,
@@ -139,10 +142,21 @@ export default function ScanQrCodeModal() {
     if (!result.canceled) {
       const data = await scanFromURLAsync(result.assets[0].uri);
       if (data) {
+        isPickedImage.current = true;
         await callback(data);
       }
     }
   }, [callback]);
+
+  const onCameraScanned = useCallback(
+    async (value: string) => {
+      if (isPickedImage.current) {
+        return {};
+      }
+      return callback(value);
+    },
+    [callback],
+  );
 
   const headerLeftCall = useCallback(
     () => (

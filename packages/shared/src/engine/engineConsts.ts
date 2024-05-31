@@ -193,6 +193,7 @@ export const getEnabledNFTNetworkIds = (): string[] => [
   getNetworkIdsMap().polygon,
   getNetworkIdsMap().arbitrum,
   getNetworkIdsMap().avalanche,
+  getNetworkIdsMap().sol,
 ];
 
 function getSupportedImpls() {

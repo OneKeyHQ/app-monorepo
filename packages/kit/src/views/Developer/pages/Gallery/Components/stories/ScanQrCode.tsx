@@ -43,6 +43,7 @@ const ScanQRCodeGallery = () => {
     }) => {
       try {
         const result = await scanQrCode.start({
+          handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
           ...values,
           accountId: account?.id,
         });
