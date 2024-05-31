@@ -665,7 +665,7 @@ export function MarketHomeList({
 
   const filterCoingeckoIdsListData = useMemo(
     () =>
-      category.coingeckoIds
+      category.coingeckoIds?.length
         ? listData?.filter((item) =>
             category.coingeckoIds.includes(item.coingeckoId),
           )
