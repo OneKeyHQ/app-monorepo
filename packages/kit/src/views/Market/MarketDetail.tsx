@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import * as ExpoSharing from 'expo-sharing';
@@ -10,7 +10,8 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
-  Stack,
+  Skeleton,
+  View,
   XStack,
   YStack,
   useClipboard,
@@ -23,14 +24,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type {
-  IMarketDetailPool,
-  IMarketTokenDetail,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { OpenInAppButton } from '../../components/OpenInAppButton';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
@@ -45,11 +44,9 @@ import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
 function TokenDetailHeader({
   coinGeckoId,
   token,
-  pools,
 }: {
   coinGeckoId: string;
   token: IMarketTokenDetail;
-  pools: IMarketDetailPool[];
 }) {
   const {
     name,
@@ -82,10 +79,10 @@ function TokenDetailHeader({
             {performance.priceChangePercentage24h}
           </PriceChangePercentage>
         </YStack>
-        <MarketStar coingeckoId={coinGeckoId} />
+        <MarketStar coingeckoId={coinGeckoId} mr="$-2" />
       </XStack>
       {gtMd ? (
-        <MarketDetailOverview token={token} pools={pools} />
+        <MarketDetailOverview token={token} />
       ) : (
         <XStack pt="$6" flex={1} ai="center" jc="center" space="$2">
           <TextCell title="24H VOL(USD)">{volume24h}</TextCell>
@@ -99,37 +96,41 @@ function TokenDetailHeader({
   );
 }
 
+function SkeletonHeader() {
+  return (
+    <YStack>
+      <Skeleton w="$24" h="$4" />
+      <View pt="$5" pb="$3.5">
+        <Skeleton w="$40" h="$7" />
+      </View>
+      <Skeleton w="$24" h="$3" />
+    </YStack>
+  );
+}
+
+function SkeletonHeaderOverItemItem() {
+  return (
+    <YStack space="$2" flexGrow={1} flexBasis={0}>
+      <Skeleton w="$10" h="$3" />
+      <Skeleton w="$24" h="$3" />
+    </YStack>
+  );
+}
+
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
   const { icon, coinGeckoId, symbol } = route.params;
-  const [isLoading, setIsLoading] = useState(true);
-  const [tokenDetail, setTokenDetail] = useState<
-    IMarketTokenDetail | undefined
-  >();
-  const [pools, setPools] = useState<IMarketDetailPool[]>([]);
-
   const { gtMd } = useMedia();
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    const responseToken =
-      await backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId);
-    const responsePools = await backgroundApiProxy.serviceMarket.fetchPools(
-      responseToken.symbol,
-    );
-    setTokenDetail(responseToken);
-    setPools(responsePools);
-    setIsLoading(false);
-  }, [coinGeckoId]);
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const { result: tokenDetail } = usePromiseResult(
+    () => backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId),
+    [coinGeckoId],
+  );
 
   const renderHeaderTitle = useCallback(
     () => (
-      <XStack space="$2" $gtMd={{ ml: '$4' }}>
+      <XStack space="$2">
         <Image
           width="$6"
           height="$6"
@@ -214,26 +215,60 @@ function MarketDetail({
     [navigation],
   );
 
-  const tokenDetailHeader = useMemo(
-    () =>
-      tokenDetail ? (
-        <TokenDetailHeader
-          coinGeckoId={coinGeckoId}
-          token={tokenDetail}
-          pools={pools}
-        />
-      ) : null,
-    [coinGeckoId, pools, tokenDetail],
-  );
+  const tokenDetailHeader = useMemo(() => {
+    if (tokenDetail) {
+      return (
+        <TokenDetailHeader coinGeckoId={coinGeckoId} token={tokenDetail} />
+      );
+    }
+    return (
+      <YStack px="$5">
+        {gtMd ? (
+          <YStack space="$12" width={336}>
+            <SkeletonHeader />
+            <YStack space="$3">
+              <Skeleton w={252} h="$3" />
+            </YStack>
+            <YStack space="$6">
+              <XStack>
+                <SkeletonHeaderOverItemItem />
+                <SkeletonHeaderOverItemItem />
+              </XStack>
+              <XStack>
+                <SkeletonHeaderOverItemItem />
+                <SkeletonHeaderOverItemItem />
+              </XStack>
+              <XStack>
+                <SkeletonHeaderOverItemItem />
+                <SkeletonHeaderOverItemItem />
+              </XStack>
+            </YStack>
+            <YStack space="$6">
+              <Skeleton w="$10" h="$3" />
+              <Skeleton w={252} h="$3" />
+              <Skeleton w={252} h="$3" />
+              <Skeleton w={252} h="$3" />
+            </YStack>
+          </YStack>
+        ) : (
+          <YStack space="$10" py="$3">
+            <SkeletonHeader />
+            <XStack>
+              <SkeletonHeaderOverItemItem />
+              <SkeletonHeaderOverItemItem />
+              <SkeletonHeaderOverItemItem />
+            </XStack>
+          </YStack>
+        )}
+      </YStack>
+    );
+  }, [coinGeckoId, gtMd, tokenDetail]);
 
   const tokenPriceChart = useMemo(
     () => <TokenPriceChart coinGeckoId={coinGeckoId} />,
     [coinGeckoId],
   );
 
-  if (!tokenDetail) {
-    return null;
-  }
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -245,22 +280,17 @@ function MarketDetail({
       <Page.Body>
         {gtMd ? (
           <YStack>
-            <Stack
-              flexDirection="column"
-              $gtMd={{ flexDirection: 'row', pt: '$5' }}
-              $md={{ space: '$5', pt: '$3' }}
-            >
+            <XStack $gtMd={{ pt: '$5' }} $md={{ space: '$5', pt: '$3' }}>
               {tokenDetailHeader}
               <YStack flex={1}>
                 {tokenPriceChart}
-                <TokenDetailTabs token={tokenDetail} pools={pools} />
+                {tokenDetail ? <TokenDetailTabs token={tokenDetail} /> : null}
               </YStack>
-            </Stack>
+            </XStack>
           </YStack>
         ) : (
           <TokenDetailTabs
             token={tokenDetail}
-            pools={pools}
             listHeaderComponent={
               <YStack>
                 {tokenDetailHeader}

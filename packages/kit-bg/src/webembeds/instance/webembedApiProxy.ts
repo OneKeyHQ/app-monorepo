@@ -6,7 +6,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 

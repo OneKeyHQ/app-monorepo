@@ -1,12 +1,23 @@
-import { Icon, Image } from '@onekeyhq/components';
+import { Icon, Image, Skeleton, Stack } from '@onekeyhq/components';
 
 export function MarketPoolIcon({ uri }: { uri: string }) {
   return (
     <Image size="$5" borderRadius="$full">
       <Image.Source src={uri} />
       <Image.Fallback>
-        <Icon size="$5" borderRadius="$full" name="SwitchHorOutline" />
+        <Stack
+          flex={1}
+          borderRadius="$full"
+          bg="$bgDisabled"
+          ai="center"
+          jc="center"
+        >
+          <Icon size="$3.5" color="$iconSubdued" name="SwitchHorOutline" />
+        </Stack>
       </Image.Fallback>
+      <Image.Loading>
+        <Skeleton width="100%" height="100%" />
+      </Image.Loading>
     </Image>
   );
 }

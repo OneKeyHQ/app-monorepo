@@ -1,5 +1,3 @@
-// import BigNumber from 'bignumber.js';
-
 import {
   NumberSizeableText,
   SizableText,
@@ -15,7 +13,7 @@ type IPriceLabelProps = {
   opacity: IStackProps['opacity'];
 };
 
-// function formatMarketValueForFiexd(value?: number, fractionDigits?: number) {
+// function formatMarketValueForFixed(value?: number, fractionDigits?: number) {
 //   if (value) {
 //     // const resValue = fractionDigits
 //     //   ? value.toFixed(fractionDigits).replace(/0+$/g, '')
@@ -34,15 +32,15 @@ type IPriceLabelProps = {
 // }
 
 // function formatDecimalZero(value: number) {
-//   if (value >= 1) return formatMarketValueForFiexd(value);
+//   if (value >= 1) return formatMarketValueForFixed(value);
 //   const noRexponentail = parseExponential(value);
 //   const effectIndex = noRexponentail.toString().search(/[^-.0]/g);
 //   const zeroCount = effectIndex - 2;
-//   const fiexdValue = formatMarketValueForFiexd(value, 3 + zeroCount);
+//   const fixedValue = formatMarketValueForFixed(value, 3 + zeroCount);
 //   if (zeroCount >= 3) {
-//     return `0.{${zeroCount}}${fiexdValue.toString().substring(effectIndex)}`;
+//     return `0.{${zeroCount}}${fixedValue.toString().substring(effectIndex)}`;
 //   }
-//   return fiexdValue;
+//   return fixedValue;
 // }
 
 // function calculateGains({

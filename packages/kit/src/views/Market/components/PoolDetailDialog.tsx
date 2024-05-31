@@ -5,7 +5,6 @@ import { differenceInDays } from 'date-fns';
 
 import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import {
-  Icon,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -13,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
 
+import { MarketPoolIcon } from './MarketPoolIcon';
 import { MarketTokenAddress } from './MarketTokenAddress';
 
 function PoolDetailsItem({
@@ -64,9 +64,10 @@ function PoolDetailsItem({
   );
 }
 
-export function PoolDetails({
+export function PoolDetailDialog({
   item: {
     attributes,
+    dexLogoUrl,
     onekeyNetworkId,
     id: pairAddress,
     baseTokenImageUrl,
@@ -89,7 +90,7 @@ export function PoolDetails({
         <PoolDetailsItem title="Pair">{attributes.name}</PoolDetailsItem>
         <PoolDetailsItem title="DEX">
           <XStack space="$1.5">
-            <Icon size={5} name="TelegramBrand" />
+            <MarketPoolIcon uri={dexLogoUrl} />
             <SizableText size="$bodyMdMedium">{id}</SizableText>
           </XStack>
         </PoolDetailsItem>

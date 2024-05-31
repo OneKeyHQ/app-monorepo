@@ -222,7 +222,7 @@ export function UniversalSearch({
                 >
                   {price}
                 </NumberSizeableText>
-                <MarketStar coingeckoId={coingeckoId} />
+                <MarketStar coingeckoId={coingeckoId} mx="$3" />
               </XStack>
             </ListItem>
           );
