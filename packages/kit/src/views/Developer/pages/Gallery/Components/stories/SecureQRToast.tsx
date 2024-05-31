@@ -44,7 +44,10 @@ const SecureQRToastGallery = () => {
             <Button
               onPress={async () => {
                 await SecureQRToast.show({ value: 'https://onekey.so' });
-                await scanQrCode.start({ autoHandleResult: true });
+                await scanQrCode.start({
+                  autoHandleResult: true,
+                  handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+                });
               }}
             >
               点击显示后续流程
