@@ -89,15 +89,10 @@ export type ITxInputToSign = {
 };
 // TODO remove
 export type IUnsignedTx = {
-  type?: string;
   nonce?: number;
-  feeLimit?: BigNumber;
-  feeLimitForDisplay?: BigNumber;
-  feePricePerUnit?: BigNumber;
   payload?: { [key: string]: any };
-  totalFeeInNative?: string;
-  tokensChangedTo?: { [key: string]: string };
 };
+
 export type IUnsignedTxPro = IUnsignedTx & {
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;

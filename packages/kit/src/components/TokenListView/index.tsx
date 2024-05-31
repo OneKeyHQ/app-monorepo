@@ -24,6 +24,10 @@ type IProps = {
   withHeader?: boolean;
   withFooter?: boolean;
   withPrice?: boolean;
+  withBuyAndReceive?: boolean;
+  onReceiveToken?: () => void;
+  onBuyToken?: () => void;
+  isBuyTokenSupported?: boolean;
 };
 
 function TokenListView(props: IProps) {
@@ -34,6 +38,10 @@ function TokenListView(props: IProps) {
     withHeader,
     withFooter,
     withPrice,
+    withBuyAndReceive,
+    onReceiveToken,
+    onBuyToken,
+    isBuyTokenSupported,
   } = props;
 
   const [tokenList] = useTokenListAtom();
@@ -64,7 +72,18 @@ function TokenListView(props: IProps) {
         ) : null
       }
       onContentSizeChange={onContentSizeChange}
-      ListEmptyComponent={searchKey ? EmptySearch : EmptyToken}
+      ListEmptyComponent={
+        searchKey ? (
+          EmptySearch
+        ) : (
+          <EmptyToken
+            withBuyAndReceive={withBuyAndReceive}
+            isBuyTokenSupported={isBuyTokenSupported}
+            onBuy={onBuyToken}
+            onReceive={onReceiveToken}
+          />
+        )
+      }
       renderItem={({ item, index }) => (
         <TokenListItem
           token={item}
