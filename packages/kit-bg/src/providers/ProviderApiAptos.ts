@@ -65,14 +65,14 @@ class ProviderApiAptos extends ProviderApiBase {
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const data = async ({ origin }: { origin: string }) => {
-      const params = await this.account({ origin, scope: 'aptos' });
+      const params = await this.account({ origin, scope: this.providerName });
       const result = {
         method: 'wallet_events_accountChanged',
         params,
       };
       return result;
     };
-    info.send(data, origin);
+    info.send(data, info.targetOrigin);
   }
 
   public notifyDappChainChanged(info: IProviderBaseBackgroundNotifyInfo) {
