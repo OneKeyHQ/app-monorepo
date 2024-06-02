@@ -60,7 +60,7 @@ function NFTListView(props: IProps) {
       return searchKey ? <EmptySearch /> : <EmptyNFT />;
 
     return (
-      <XStack flexWrap="wrap" px="$2.5" pb="$5" py="$0.5">
+      <XStack flexWrap="wrap" px="$2.5" pb="$6" pt="$0.5">
         {filteredNfts.map((item) => (
           <NFTListItem
             nft={item}
