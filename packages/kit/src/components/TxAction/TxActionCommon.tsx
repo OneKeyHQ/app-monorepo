@@ -138,7 +138,7 @@ function TxActionCommonFee({
   return (
     <Stack flexGrow={1} flexBasis={0}>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Gas Fee
+        Network Fee
       </SizableText>
       <XStack alignItems="center" space="$1">
         <NumberSizeableText

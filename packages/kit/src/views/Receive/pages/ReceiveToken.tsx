@@ -19,6 +19,7 @@ import {
   Stack,
   Toast,
   XStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
@@ -64,6 +65,8 @@ function ReceiveToken() {
   const [addressState, setAddressState] = useState<EAddressState>(
     EAddressState.Unverified,
   );
+
+  const { copyText } = useClipboard();
 
   const isHardwareWallet = wallet?.type === WALLET_TYPE_HW;
 
@@ -114,12 +117,6 @@ function ReceiveToken() {
     networkId,
     walletId,
   ]);
-
-  const handleCopyAddressPress = () => {
-    Toast.success({
-      title: 'Copied',
-    });
-  };
 
   const headerRight = () => {
     const isForceShowAction = addressState !== EAddressState.ForceShow;
@@ -267,7 +264,10 @@ function ReceiveToken() {
                 Verify on Device
               </Button>
             ) : (
-              <Button icon="Copy1Outline" onPress={handleCopyAddressPress}>
+              <Button
+                icon="Copy1Outline"
+                onPress={() => copyText(account.address)}
+              >
                 Copy Address
               </Button>
             )}
@@ -279,6 +279,7 @@ function ReceiveToken() {
     account,
     addressState,
     addressType,
+    copyText,
     handleVerifyOnDevicePress,
     isHardwareWallet,
     isShowAddress,

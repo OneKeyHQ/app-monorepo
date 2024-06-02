@@ -18,6 +18,7 @@ import {
   Spinner,
   Stack,
   XStack,
+  YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -110,8 +111,7 @@ export function InfoItem({
     >
       <SizableText size="$bodyMdMedium">{label}</SizableText>
       {typeof renderContent === 'string' ? (
-        <Stack
-          alignItems="flex-start"
+        <YStack
           gap="$1.5"
           onPress={() => {
             if (!disabledCopy) {
@@ -119,7 +119,12 @@ export function InfoItem({
             }
           }}
         >
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            flex={1}
+            numberOfLines={999}
+          >
             {renderContent}
           </SizableText>
           <XStack space="$2">
@@ -138,7 +143,7 @@ export function InfoItem({
               />
             ) : null}
           </XStack>
-        </Stack>
+        </YStack>
       ) : (
         renderContent
       )}
