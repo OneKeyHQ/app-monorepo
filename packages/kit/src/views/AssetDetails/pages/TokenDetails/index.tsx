@@ -373,7 +373,7 @@ export function TokenDetails() {
                       }
                       size="xl"
                     />
-                    <Stack ml="$3">
+                    <Stack ml="$3" flex={1}>
                       {isLoading ? (
                         <YStack>
                           <Stack py="$1.5">
@@ -389,6 +389,7 @@ export function TokenDetails() {
                             size="$heading3xl"
                             formatter="balance"
                             formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+                            numberOfLines={1}
                           >
                             {tokenDetails?.balanceParsed ?? '0'}
                           </NumberSizeableText>
