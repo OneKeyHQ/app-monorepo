@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "_folderslint": "yarn folderslint",
-    "fetch:locale": "rimraf ./src/locale/json && npx lokalise-client fetch",
+    "fetch:locale": "rimraf ./src/locale/json && npx lokalise-client fetch & node ./scripts/build-local-json-map.js",
     "lint": "tsc --noEmit && eslint . --ext .ts,.tsx"
   },
   "author": "",
