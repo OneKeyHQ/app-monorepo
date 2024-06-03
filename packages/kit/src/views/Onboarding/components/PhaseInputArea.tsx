@@ -532,6 +532,14 @@ export function PhaseInputArea({
     });
   }, [defaultPhrasesMap, form]);
 
+  const handleChangePhraseLength = useCallback(
+    (value: string) => {
+      setPhraseLength(value);
+      handleClear();
+    },
+    [handleClear],
+  );
+
   return (
     <>
       <Page.Body>
@@ -543,7 +551,7 @@ export function PhaseInputArea({
                 placement="bottom-start"
                 items={phraseLengthOptions}
                 value={phraseLength}
-                onChange={setPhraseLength}
+                onChange={handleChangePhraseLength}
                 renderTrigger={({ value }) => (
                   <Button
                     iconAfter="ChevronDownSmallOutline"
