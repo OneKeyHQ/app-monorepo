@@ -69,7 +69,7 @@ function HeaderBackButton({
     ) : null;
 
   // If neither button should be shown, return null early.
-  if (!showCollapseButton && !showBackButton) {
+  if (!showCollapseButton && !showBackButton && !renderLeft) {
     return null;
   }
 

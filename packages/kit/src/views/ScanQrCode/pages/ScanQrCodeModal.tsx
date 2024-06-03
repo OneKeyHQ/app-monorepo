@@ -160,12 +160,7 @@ export default function ScanQrCodeModal() {
   const headerLeftCall = useCallback(
     () => (
       <Page.Close>
-        <NavCloseButton
-          mr="$4"
-          iconProps={{
-            color: '$whiteA12',
-          }}
-        />
+        <NavCloseButton mr="$4" />
       </Page.Close>
     ),
     [],
@@ -176,9 +171,6 @@ export default function ScanQrCodeModal() {
       <HeaderIconButton
         onPress={pickImage}
         icon="ImageSquareMountainOutline"
-        iconProps={{
-          color: '$whiteA12',
-        }}
         testID="scan-open-photo"
       />
     ),
@@ -212,7 +204,7 @@ export default function ScanQrCodeModal() {
             overflow="hidden"
           >
             <ScanQrCode
-              handleBarCodeScanned={callback}
+              handleBarCodeScanned={onCameraScanned}
               qrWalletScene={qrWalletScene}
             />
           </Stack>

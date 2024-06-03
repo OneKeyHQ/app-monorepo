@@ -115,7 +115,11 @@ export function ScanQrCode({
     >
       {qrWalletScene ? (
         <YStack fullscreen>
-          <BlurView flex={1} borderRadius="$5" />
+          <BlurView
+            flex={1}
+            borderRadius="$5"
+            contentStyle={{ flex: 1, borderRadius: '$5' }}
+          />
         </YStack>
       ) : null}
       {progress ? (
