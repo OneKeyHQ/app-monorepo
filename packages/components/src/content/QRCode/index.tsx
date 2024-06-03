@@ -106,7 +106,6 @@ function BasicQRCode({
   linearGradient = ['rgb(255,0,0)', 'rgb(0,255,255)'],
 }: IBasicQRCodeProps) {
   const logoBackgroundColor = useThemeValue(logoBGColor);
-  // const logoBackgroundColor = 'transparent';
   const href = (logo as ImageURISource)?.uri ?? logo;
   const primaryColor = useThemeValue('text');
   const secondaryColor = useThemeValue('bgApp');
@@ -246,7 +245,7 @@ function BasicQRCode({
             fill={logoBackgroundColor}
             height={logoWrapperSize}
             width={logoWrapperSize}
-            rx={9999}
+            rx={drawType === 'line' ? 9999 : undefined}
           />
           <G x={logoMargin} y={logoMargin}>
             {logo ? (
