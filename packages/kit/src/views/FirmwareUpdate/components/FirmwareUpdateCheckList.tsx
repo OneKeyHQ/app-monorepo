@@ -25,24 +25,29 @@ export function FirmwareUpdateCheckList({
   const [checkValueList, setCheckValueList] = useState([
     {
       label: "I've backed up my recovery phrase.",
+      emoji: '✅',
       value: false,
     },
     {
       label: platformEnv.isNative
         ? 'My device is connected via bluetooth.'
         : 'My device is connected via USB cable.',
+      emoji: '📲',
       value: false,
     },
     {
       label: 'The device battery is fully charged.',
+      emoji: '🔋',
       value: false,
     },
     {
       label: 'Only one device is connected.',
+      emoji: '📱',
       value: false,
     },
     {
       label: 'All other OneKey Apps and web upgrade tools are closed.',
+      emoji: '🆗',
       value: false,
     },
   ]);
@@ -68,7 +73,11 @@ export function FirmwareUpdateCheckList({
           <Checkbox
             key={checkValue.label}
             value={checkValue.value}
-            label={checkValue.label}
+            label={
+              checkValue.value
+                ? `${checkValue.label} ${checkValue.emoji}`
+                : checkValue.label
+            }
             onChange={() => onCheckChanged(checkValue)}
           />
         ))}
