@@ -530,6 +530,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     firmwareType,
     fromVersion,
     toVersion,
+    mockUpdateFirmware,
+    mockUpdateBle,
   }: {
     releasePayload:
       | IFirmwareReleasePayload
@@ -538,6 +540,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     firmwareType: IDeviceFirmwareType;
     fromVersion: string;
     toVersion: string;
+    mockUpdateFirmware?: boolean;
+    mockUpdateBle?: boolean;
   }) {
     let hasUpgradeForce = false;
     let hasUpgrade = false;
@@ -597,6 +601,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade = false;
     }
 
+    if (firmwareType === 'firmware' && mockUpdateFirmware) {
+      hasUpgrade = true;
+    }
+    if (firmwareType === 'ble' && mockUpdateBle) {
+      hasUpgrade = true;
+    }
+
     return {
       hasUpgradeForce,
       hasUpgrade,
@@ -639,11 +650,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     const fromVersion = firmwareVersion || '';
     const toVersion = this.arrayVersionToString(payload?.release?.version);
+    const mockUpdateFirmware =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateFirmware',
+      );
     const { hasUpgrade, hasUpgradeForce } = this.getFirmwareHasUpgradeStatus({
       releasePayload: payload,
       firmwareType: 'firmware',
       fromVersion,
       toVersion,
+      mockUpdateFirmware,
     });
 
     const updateInfo: IFirmwareUpdateInfo = {
@@ -682,11 +698,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
     const fromVersion = bleVersion || '';
     const toVersion = this.arrayVersionToString(payload?.release?.version);
+    const mockUpdateBle =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateBle',
+      );
     const { hasUpgrade, hasUpgradeForce } = this.getFirmwareHasUpgradeStatus({
       releasePayload: payload,
       firmwareType: 'ble',
       fromVersion,
       toVersion,
+      mockUpdateBle,
     });
 
     const updateInfo: IBleFirmwareUpdateInfo = {
