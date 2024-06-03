@@ -6,9 +6,9 @@ module.exports = {
     token: process.env.LOKALISE_TOKEN,
     clean: true,
     useFlat: true,
-    delimiter: '__',
+    delimiter: '.',
     declaration: {
-      dist: './src/locale/type',
+      dist: './src/locale/enum',
     },
     projects: [
       {
