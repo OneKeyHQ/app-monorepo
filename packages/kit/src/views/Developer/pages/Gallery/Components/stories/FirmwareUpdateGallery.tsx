@@ -247,7 +247,8 @@ function FirmwareUpdateGalleryStaticUI() {
         <SizableText size="$heading2xl">** 安装中</SizableText>
 
         <FirmwareUpdateProgressBarView
-          stepText=""
+          currentStep={undefined}
+          totalStep={undefined}
           title="Preparing..."
           progress={12}
           desc="Checking device..."
@@ -256,7 +257,18 @@ function FirmwareUpdateGalleryStaticUI() {
         />
 
         <FirmwareUpdateProgressBarView
-          stepText="Step 1/3"
+          currentStep={1}
+          totalStep={1}
+          title="Preparing...(Only One Step, no step text bar is displayed)"
+          progress={12}
+          desc="Checking device..."
+          fromVersion=""
+          toVersion=""
+        />
+
+        <FirmwareUpdateProgressBarView
+          currentStep={1}
+          totalStep={3}
           title="Updating firmware..."
           progress={20}
           desc="Downloading..."
@@ -265,7 +277,8 @@ function FirmwareUpdateGalleryStaticUI() {
         />
 
         <FirmwareUpdateProgressBarView
-          stepText="Step 2/3"
+          currentStep={2}
+          totalStep={3}
           title="Updating bluetooth..."
           progress={50}
           desc="Transferring..."
