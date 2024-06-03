@@ -19,7 +19,7 @@ fs.writeFileSync(
 export const LOCALES = {
 ${jsonFiles
   .map((file) =>
-    file !== enUSJsonFile
+    file !== defaultLocaleJsonFile
       ? `  '${file
           .split('.')[0]
           .replace(/_/g, '-')}': () => import('./json/${file}'),`
