@@ -5,6 +5,7 @@ import { Icon, SizableText, Toast, XStack } from '@onekeyhq/components';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import {
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -97,6 +98,7 @@ const SwapAccountAddressContainer = ({
   const swapAddressInfo = useSwapAddressInfo(type);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [swapSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const { createAddress } = useAccountSelectorCreateAddress();
@@ -150,7 +152,11 @@ const SwapAccountAddressContainer = ({
     ) {
       return <AddressButton empty onPress={handleOnCreateAddress} />;
     }
-    if (type === ESwapDirectionType.FROM || !swapSupportReceiveAddress) {
+    if (
+      type === ESwapDirectionType.FROM ||
+      !swapSupportReceiveAddress ||
+      !quoteResult
+    ) {
       return (
         <AddressButton
           address={accountUtils.shortenAddress({
@@ -170,6 +176,7 @@ const SwapAccountAddressContainer = ({
     );
   }, [
     fromToken,
+    quoteResult,
     handleOnCreateAddress,
     onToAnotherAddressModal,
     swapAddressInfo.accountInfo?.indexedAccount,
