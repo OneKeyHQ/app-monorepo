@@ -113,9 +113,17 @@ const SwapAccountAddressContainer = ({
       deriveType: swapAddressInfo.accountInfo.deriveType,
       networkId: swapAddressInfo.accountInfo.network?.id,
     };
-    await createAddress({ num: 0, account, selectAfterCreate: false });
-    Toast.success({ title: 'Address generated' });
-  }, [createAddress, swapAddressInfo.accountInfo]);
+    try {
+      await createAddress({
+        num: type === ESwapDirectionType.FROM ? 0 : 1,
+        account,
+        selectAfterCreate: false,
+      });
+      Toast.success({ title: 'Address generated' });
+    } catch (e) {
+      Toast.error({ title: 'Address generated failed' });
+    }
+  }, [createAddress, swapAddressInfo.accountInfo, type]);
 
   const addressComponent = useMemo(() => {
     if (!fromToken && type === ESwapDirectionType.FROM) {
@@ -126,7 +134,16 @@ const SwapAccountAddressContainer = ({
     }
     if (
       !swapAddressInfo.accountInfo?.wallet ||
-      !swapAddressInfo.accountInfo.indexedAccount ||
+      ((accountUtils.isHdWallet({
+        walletId: swapAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        }) ||
+        accountUtils.isQrWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        })) &&
+        !swapAddressInfo.accountInfo?.indexedAccount) ||
       (type === ESwapDirectionType.FROM &&
         !swapAddressInfo.address &&
         !accountUtils.isHdWallet({
@@ -176,16 +193,16 @@ const SwapAccountAddressContainer = ({
     );
   }, [
     fromToken,
-    quoteResult,
-    handleOnCreateAddress,
-    onToAnotherAddressModal,
-    swapAddressInfo.accountInfo?.indexedAccount,
+    type,
+    toToken,
     swapAddressInfo.accountInfo?.wallet,
+    swapAddressInfo.accountInfo?.indexedAccount,
     swapAddressInfo.address,
     swapSupportReceiveAddress,
+    quoteResult,
+    onToAnotherAddressModal,
     swapToAnotherAccountSwitchOn,
-    toToken,
-    type,
+    handleOnCreateAddress,
   ]);
 
   return (
