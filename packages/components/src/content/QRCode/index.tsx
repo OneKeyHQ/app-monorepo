@@ -95,7 +95,7 @@ function BasicQRCode({
   logoSvg,
   logoBackgroundColor: logoBGColor = 'bgApp',
   logoSvgColor = '$text',
-  logoMargin = 0,
+  logoMargin = 5,
   logoSize = 62,
   size,
   value,
