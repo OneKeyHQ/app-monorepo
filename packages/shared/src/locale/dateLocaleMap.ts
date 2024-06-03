@@ -1,4 +1,5 @@
 import {
+  ar,
   bn,
   de,
   enUS,
@@ -11,6 +12,7 @@ import {
   ko,
   mn,
   pt,
+  ptBR,
   ru,
   th,
   uk,
@@ -40,7 +42,8 @@ const DateLocaleMap: Record<Exclude<ILocaleSymbol, 'system'>, Locale> = {
   'uk-UA': uk,
   'vi': vi,
   'id': id,
-
+  ar,
+  'pt-BR': ptBR,
   // no fil in date-fns
   'fil': enUS,
 };
