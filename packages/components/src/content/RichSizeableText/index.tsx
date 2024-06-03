@@ -56,6 +56,7 @@ export function RichSizeableText({
                     <SizableText
                       color="$textInfo"
                       {...link}
+                      cursor="pointer"
                       onPress={() => onLinkDidPress(link)}
                     >
                       {text}
