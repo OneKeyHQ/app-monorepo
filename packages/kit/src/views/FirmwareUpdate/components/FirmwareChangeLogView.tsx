@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Icon,
@@ -27,13 +27,11 @@ import { FirmwareVersionProgressBar } from './FirmwareVersionProgressBar';
 function ChangeLogSection({
   title,
   icon,
-  initialCollapse = true,
   isDone,
   updateInfo,
 }: {
   title: string;
   icon: IKeyOfIcons;
-  initialCollapse?: boolean;
   isDone?: boolean;
   updateInfo:
     | IFirmwareUpdateInfo
@@ -41,7 +39,7 @@ function ChangeLogSection({
     | IBootloaderUpdateInfo
     | undefined;
 }) {
-  const [collapse, setCollapse] = useState(initialCollapse);
+  const [collapse, setCollapse] = useState(isDone);
   const onDropDownPressed = useCallback(() => {
     setCollapse(!collapse);
   }, [collapse]);
@@ -51,7 +49,10 @@ function ChangeLogSection({
         <Icon name={icon} size="$5" />
         <Stack flex={1}>
           <SizableText size="$bodyLgMedium">{title}</SizableText>
-          <SizableText size="$bodyMd" color="$textInfo">
+          <SizableText
+            size="$bodyMd"
+            color={isDone ? '$textSubdued' : '$textInfo'}
+          >
             {isDone
               ? `Updated to the latest version ${updateInfo?.toVersion || ''}`
               : `${updateInfo?.toVersion || ''} is available`}
@@ -93,7 +94,6 @@ export function FirmwareChangeLogContentView({
         <ChangeLogSection
           title="Bootloader"
           icon="StorageOutline"
-          initialCollapse={isDone ?? false}
           updateInfo={result?.updateInfos?.bootloader}
           isDone={isDone}
         />
