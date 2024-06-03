@@ -1,6 +1,4 @@
 import BigNumber from 'bignumber.js';
-import { stripHexPrefix } from 'ethjs-util';
-import { bytesToHex, hexToBytes } from 'viem';
 
 import type { UnpackedMessage } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import {
@@ -15,6 +13,7 @@ import {
   pubkeyToAddressDetail,
   serializeSignedTx,
   setFee,
+  setSendAmount,
   validateCosmosAddress,
 } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import type { ProtoMsgsOrWithAminoMsgs } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/ITxMsgBuilder';
@@ -23,13 +22,11 @@ import type {
   IEncodedTxCosmos,
 } from '@onekeyhq/core/src/chains/cosmos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -45,7 +42,6 @@ import {
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxAction,
-  type IDecodedTxActionAssetTransfer,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -208,7 +204,7 @@ export default class VaultCosmos extends VaultBase {
     if (!account.pub) {
       throw new Error('Invalid account');
     }
-    const pubkey = hexToBytes(`0x${stripHexPrefix(account.pub)}`);
+    const pubkey = bufferUtils.hexToBytes(hexUtils.stripHexPrefix(account.pub));
 
     const gasLimit = '0';
     const feeAmount = '0';
@@ -291,10 +287,10 @@ export default class VaultCosmos extends VaultBase {
           .toFixed();
         const amountDenom = token.symbol;
 
-        const transferAction: IDecodedTxActionAssetTransfer = {
+        action = await this.buildTxTransferAssetAction({
           from: fromAddress,
           to: toAddress,
-          sends: [
+          transfers: [
             {
               from: fromAddress,
               to: toAddress,
@@ -302,15 +298,11 @@ export default class VaultCosmos extends VaultBase {
               icon: token.logoURI ?? '',
               symbol: amountDenom,
               name: token.name,
-              tokenIdOnNetwork: '',
+              tokenIdOnNetwork: token.address,
+              isNative: amountDenom === network.symbol,
             },
           ],
-          receives: [],
-        };
-        action = {
-          type: actionType,
-          assetTransfer: transferAction,
-        };
+        });
       } else {
         action = {
           type: EDecodedTxActionType.UNKNOWN,
@@ -435,6 +427,19 @@ export default class VaultCosmos extends VaultBase {
       });
     }
 
+    if (params.nativeAmountInfo && params.nativeAmountInfo.maxSendAmount) {
+      const encodedTx = unsignedTx.encodedTx as IEncodedTxCosmos;
+      const txWrapper = new TransactionWrapper(
+        encodedTx.signDoc,
+        encodedTx.msg,
+      );
+      const tokenInfo = unsignedTx.transfersInfo?.[0].tokenInfo;
+      const amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
+        .shiftedBy(tokenInfo?.decimals ?? 0)
+        .toFixed();
+      unsignedTx.encodedTx = setSendAmount(txWrapper, amount).toObject();
+    }
+
     return {
       ...unsignedTx,
       feeInfo,
@@ -480,6 +485,6 @@ export default class VaultCosmos extends VaultBase {
         pubKey: account.pub ?? '',
       },
     });
-    return bytesToHex(rawTx) as unknown as IEncodedTx;
+    return bufferUtils.bytesToHex(rawTx) as unknown as IEncodedTx;
   }
 }
