@@ -2,21 +2,120 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IActionListSection, IKeyOfIcons } from '@onekeyhq/components';
 import {
-  ActionList,
+  Badge,
+  Divider,
   Icon,
+  Image,
+  ListView,
+  Popover,
   SizableText,
   Toast,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { networkTransactionExplorerReplaceStr } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import { type ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapTxHistoryStatus,
+  type ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapTxHistoryViewInBrowserProps {
   onViewInBrowser: (url: string) => void;
   item: ISwapTxHistory;
 }
+
+enum EExplorerType {
+  PROVIDER = 'provider',
+  FROM = 'from',
+  TO = 'to',
+}
+
+interface IExplorersInfo {
+  url?: string;
+  logo?: string;
+  status: ESwapTxHistoryStatus;
+  type: EExplorerType;
+  name: string;
+}
+
+const ExplorersList = ({
+  data,
+  onPressItem,
+}: {
+  data: IExplorersInfo[];
+  onPressItem: (item: IExplorersInfo) => void;
+}) => {
+  const parserLabel = useCallback((type: EExplorerType) => {
+    switch (type) {
+      case EExplorerType.FROM:
+        return 'From';
+      case EExplorerType.TO:
+        return 'To';
+      case EExplorerType.PROVIDER:
+        return 'Provider';
+      default:
+        return '';
+    }
+  }, []);
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: IExplorersInfo; index: number }) => (
+      <YStack
+        space="$4"
+        px="$5"
+        pb="$5"
+        {...(!item.url && {
+          opacity: 0.5,
+        })}
+        onPress={() => {
+          if (item.url) {
+            onPressItem(item);
+          }
+        }}
+      >
+        <SizableText size="$headingSm">{parserLabel(item.type)}</SizableText>
+        <XStack justifyContent="space-between">
+          <XStack space="$2">
+            <Image height="$6" width="$6" borderRadius="$full">
+              <Image.Source
+                source={{
+                  uri: item.logo,
+                }}
+              />
+              <Image.Fallback
+                alignItems="center"
+                justifyContent="center"
+                bg="$bgStrong"
+                delayMs={1000}
+              >
+                <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+              </Image.Fallback>
+            </Image>
+            <SizableText size="$bodyLg">{item.name}</SizableText>
+          </XStack>
+          {item.status === ESwapTxHistoryStatus.PENDING &&
+          item.type === EExplorerType.TO ? (
+            <Badge badgeType="info" badgeSize="lg">
+              Pending
+            </Badge>
+          ) : null}
+        </XStack>
+        {!(index === data.length - 1) ? <Divider /> : null}
+      </YStack>
+    ),
+    [data.length, onPressItem, parserLabel],
+  );
+  return (
+    <ListView
+      pt="$5"
+      estimatedItemSize="$10"
+      data={data}
+      renderItem={renderItem}
+    />
+  );
+};
+
 const SwapTxHistoryViewInBrowser = ({
   item,
   onViewInBrowser,
@@ -32,59 +131,104 @@ const SwapTxHistoryViewInBrowser = ({
     () => !!item.swapInfo.socketBridgeScanUrl,
     [item.swapInfo.socketBridgeScanUrl],
   );
-  const fromTxExplorerUrl = useMemo(() => {
-    const fromNetworkExplorerUrl =
+  const fromTxExplorer = useMemo(() => {
+    const logo = item.baseInfo.fromNetwork?.logoURI;
+    const transactionExplorer =
       item.baseInfo.fromNetwork?.explorers?.[0]?.transaction;
-    if (!fromNetworkExplorerUrl) return '';
-    return fromNetworkExplorerUrl.replace(
+    const url = transactionExplorer?.replace(
       networkTransactionExplorerReplaceStr,
       item.txInfo.txId,
     );
-  }, [item.baseInfo.fromNetwork?.explorers, item.txInfo.txId]);
+    return {
+      name: item.baseInfo.fromNetwork?.name ?? '-',
+      url,
+      logo,
+      status: item.status,
+      type: EExplorerType.FROM,
+    };
+  }, [
+    item.baseInfo.fromNetwork?.explorers,
+    item.baseInfo.fromNetwork?.logoURI,
+    item.baseInfo.fromNetwork?.name,
+    item.status,
+    item.txInfo.txId,
+  ]);
 
-  const toTxExplorerUrl = useMemo(() => {
-    const toNetworkExplorerUrl =
+  const toTxExplorer = useMemo(() => {
+    const logo = item.baseInfo.toNetwork?.logoURI;
+    const transactionExplorer =
       item.baseInfo.toNetwork?.explorers?.[0]?.transaction;
-    if (!toNetworkExplorerUrl || !item.txInfo.receiverTransactionId) return '';
-    return toNetworkExplorerUrl.replace(
-      networkTransactionExplorerReplaceStr,
-      item.txInfo.receiverTransactionId,
-    );
-  }, [item.baseInfo.toNetwork?.explorers, item.txInfo.receiverTransactionId]);
-
-  const onHandleFromTxExplorer = useCallback(() => {
-    if (fromTxExplorerUrl) {
-      onViewInBrowser(fromTxExplorerUrl);
-    } else {
-      Toast.error({
-        title: 'error',
-        message: 'no explorer',
-      });
+    let url = '';
+    if (
+      item.txInfo.receiverTransactionId &&
+      transactionExplorer &&
+      item.status === ESwapTxHistoryStatus.SUCCESS
+    ) {
+      url = transactionExplorer?.replace(
+        networkTransactionExplorerReplaceStr,
+        item.txInfo.receiverTransactionId,
+      );
     }
-  }, [fromTxExplorerUrl, onViewInBrowser]);
+    return {
+      name: item.baseInfo.toNetwork?.name ?? '-',
+      url,
+      logo,
+      status: item.status,
+      type: EExplorerType.TO,
+    };
+  }, [
+    item.baseInfo.toNetwork?.explorers,
+    item.baseInfo.toNetwork?.logoURI,
+    item.baseInfo.toNetwork?.name,
+    item.status,
+    item.txInfo.receiverTransactionId,
+  ]);
 
-  const onHandleToTxExplorer = useCallback(() => {
-    if (toTxExplorerUrl) {
-      onViewInBrowser(toTxExplorerUrl);
-    } else {
-      Toast.error({
-        title: 'error',
-        message: 'no transaction hash',
-      });
+  const providerExplorer = useMemo(() => {
+    const logo = item.swapInfo.provider?.providerLogo;
+    const url = item.swapInfo.socketBridgeScanUrl;
+    return {
+      name: item.swapInfo.provider.providerName,
+      url,
+      logo,
+      status: item.status,
+      type: EExplorerType.PROVIDER,
+    };
+  }, [
+    item.status,
+    item.swapInfo.provider?.providerLogo,
+    item.swapInfo.provider.providerName,
+    item.swapInfo.socketBridgeScanUrl,
+  ]);
+
+  const onHandleExplorer = useCallback(
+    (t: IExplorersInfo) => {
+      if (t.url) {
+        onViewInBrowser(t.url);
+      } else {
+        Toast.error({
+          title: 'error',
+          message: 'no explorer',
+        });
+      }
+    },
+    [onViewInBrowser],
+  );
+
+  const explorersData = useMemo(() => {
+    let data = [fromTxExplorer, toTxExplorer];
+    if (isSocketBridgeSwap) {
+      data = [providerExplorer, ...data];
     }
-  }, [onViewInBrowser, toTxExplorerUrl]);
-
-  const onHandleSocketBridgeTxExplorer = useCallback(() => {
-    if (!item.swapInfo.socketBridgeScanUrl) return;
-    onViewInBrowser(`${item.swapInfo.socketBridgeScanUrl}${item.txInfo.txId}`);
-  }, [item.swapInfo.socketBridgeScanUrl, item.txInfo.txId, onViewInBrowser]);
+    return data;
+  }, [fromTxExplorer, isSocketBridgeSwap, providerExplorer, toTxExplorer]);
 
   const triggerViewInBrowser = useMemo(
     () => (
       <XStack
         onPress={() => {
           if (isSingleChainSwap) {
-            onHandleFromTxExplorer();
+            onHandleExplorer(fromTxExplorer);
           }
         }}
         space="$2"
@@ -95,72 +239,18 @@ const SwapTxHistoryViewInBrowser = ({
         <Icon color="$iconSubdued" name="OpenOutline" size={20} />
       </XStack>
     ),
-    [intl, isSingleChainSwap, onHandleFromTxExplorer],
+    [fromTxExplorer, intl, isSingleChainSwap, onHandleExplorer],
   );
-
-  const sectionsData = useMemo(() => {
-    let sections: IActionListSection[] = [];
-    if (!isSingleChainSwap) {
-      const fromData = {
-        title: 'FROM',
-        items: [
-          {
-            label: item.baseInfo.fromNetwork?.name ?? '-',
-            icon: 'PlaceholderOutline' as IKeyOfIcons,
-            onPress: () => {
-              onHandleFromTxExplorer();
-            },
-          },
-        ],
-      };
-      const toData = {
-        title: 'TO',
-        items: [
-          {
-            label: item.baseInfo.toNetwork?.name ?? '-',
-            icon: 'PlaceholderOutline' as IKeyOfIcons,
-            onPress: () => {
-              onHandleToTxExplorer();
-            },
-          },
-        ],
-      };
-      sections = [fromData, toData];
-    }
-    if (isSocketBridgeSwap) {
-      const socketBridgeItemData = {
-        title: 'Provider',
-        items: [
-          {
-            label: item.swapInfo.provider.providerName,
-            icon: 'PlaceholderOutline' as IKeyOfIcons,
-            onPress: () => {
-              onHandleSocketBridgeTxExplorer();
-            },
-          },
-        ],
-      };
-      sections = [socketBridgeItemData, ...sections];
-    }
-    return sections;
-  }, [
-    isSingleChainSwap,
-    isSocketBridgeSwap,
-    item.baseInfo.fromNetwork?.name,
-    item.baseInfo.toNetwork?.name,
-    item.swapInfo.provider.providerName,
-    onHandleFromTxExplorer,
-    onHandleSocketBridgeTxExplorer,
-    onHandleToTxExplorer,
-  ]);
   if (isSingleChainSwap) {
     return triggerViewInBrowser;
   }
   return (
-    <ActionList
-      sections={sectionsData}
+    <Popover
       title={intl.formatMessage({ id: 'action__view_in_browser' })}
       renderTrigger={triggerViewInBrowser}
+      renderContent={
+        <ExplorersList data={explorersData} onPressItem={onHandleExplorer} />
+      }
     />
   );
 };
