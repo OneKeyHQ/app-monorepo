@@ -62,7 +62,9 @@ const PasswordVerify = ({
     if (isEnable && !passwordInput) {
       actions.push({
         iconName:
-          authType && authType.includes(AuthenticationType.FACIAL_RECOGNITION)
+          authType &&
+          (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
+            authType.includes(AuthenticationType.IRIS))
             ? 'FaceArcSolid'
             : 'TouchId2Outline',
         onPress: onBiologyAuth,

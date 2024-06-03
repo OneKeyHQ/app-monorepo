@@ -36,7 +36,8 @@ const BiologyAuthContainer = ({
   const settingsTitle = useMemo(() => {
     if (
       biologyAuthIsSupport &&
-      authType.includes(AuthenticationType.FACIAL_RECOGNITION)
+      (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
+        authType.includes(AuthenticationType.IRIS))
     ) {
       return intl.formatMessage(
         { id: 'content__authentication_with' },
