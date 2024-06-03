@@ -656,7 +656,8 @@ class ServiceDApp extends ServiceBase {
       isWalletConnectRequest: request.isWalletConnectRequest,
     });
     if (!accountsInfo) {
-      throw new Error('Network not found');
+      console.log('getConnectedNetworks: ===> Network not found');
+      return [];
     }
     const networkIds = accountsInfo.map(
       (accountInfo) => accountInfo.networkId || '',

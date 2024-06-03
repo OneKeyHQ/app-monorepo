@@ -5,6 +5,7 @@ import { Icon, SizableText, Toast, XStack } from '@onekeyhq/components';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import {
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -97,6 +98,7 @@ const SwapAccountAddressContainer = ({
   const swapAddressInfo = useSwapAddressInfo(type);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [swapSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const { createAddress } = useAccountSelectorCreateAddress();
@@ -111,9 +113,17 @@ const SwapAccountAddressContainer = ({
       deriveType: swapAddressInfo.accountInfo.deriveType,
       networkId: swapAddressInfo.accountInfo.network?.id,
     };
-    await createAddress({ num: 0, account, selectAfterCreate: false });
-    Toast.success({ title: 'Address generated' });
-  }, [createAddress, swapAddressInfo.accountInfo]);
+    try {
+      await createAddress({
+        num: type === ESwapDirectionType.FROM ? 0 : 1,
+        account,
+        selectAfterCreate: false,
+      });
+      Toast.success({ title: 'Address generated' });
+    } catch (e) {
+      Toast.error({ title: 'Address generated failed' });
+    }
+  }, [createAddress, swapAddressInfo.accountInfo, type]);
 
   const addressComponent = useMemo(() => {
     if (!fromToken && type === ESwapDirectionType.FROM) {
@@ -124,7 +134,16 @@ const SwapAccountAddressContainer = ({
     }
     if (
       !swapAddressInfo.accountInfo?.wallet ||
-      !swapAddressInfo.accountInfo.indexedAccount ||
+      ((accountUtils.isHdWallet({
+        walletId: swapAddressInfo.accountInfo?.wallet?.id,
+      }) ||
+        accountUtils.isHwWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        }) ||
+        accountUtils.isQrWallet({
+          walletId: swapAddressInfo.accountInfo?.wallet?.id,
+        })) &&
+        !swapAddressInfo.accountInfo?.indexedAccount) ||
       (type === ESwapDirectionType.FROM &&
         !swapAddressInfo.address &&
         !accountUtils.isHdWallet({
@@ -150,7 +169,11 @@ const SwapAccountAddressContainer = ({
     ) {
       return <AddressButton empty onPress={handleOnCreateAddress} />;
     }
-    if (type === ESwapDirectionType.FROM || !swapSupportReceiveAddress) {
+    if (
+      type === ESwapDirectionType.FROM ||
+      !swapSupportReceiveAddress ||
+      !quoteResult
+    ) {
       return (
         <AddressButton
           address={accountUtils.shortenAddress({
@@ -170,15 +193,16 @@ const SwapAccountAddressContainer = ({
     );
   }, [
     fromToken,
-    handleOnCreateAddress,
-    onToAnotherAddressModal,
-    swapAddressInfo.accountInfo?.indexedAccount,
+    type,
+    toToken,
     swapAddressInfo.accountInfo?.wallet,
+    swapAddressInfo.accountInfo?.indexedAccount,
     swapAddressInfo.address,
     swapSupportReceiveAddress,
+    quoteResult,
+    onToAnotherAddressModal,
     swapToAnotherAccountSwitchOn,
-    toToken,
-    type,
+    handleOnCreateAddress,
   ]);
 
   return (
