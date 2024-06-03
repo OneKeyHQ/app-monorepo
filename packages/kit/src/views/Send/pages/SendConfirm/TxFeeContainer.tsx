@@ -11,6 +11,7 @@ import {
   Skeleton,
   YStack,
 } from '@onekeyhq/components';
+import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -41,11 +42,12 @@ import { FeeEditor, FeeSelectorTrigger } from '../../components/SendFee';
 type IProps = {
   accountId: string;
   networkId: string;
+  useFeeInTx?: boolean;
   tableLayout?: boolean;
 };
 
 function TxFeeContainer(props: IProps) {
-  const { accountId, networkId } = props;
+  const { accountId, networkId, useFeeInTx } = props;
   const intl = useIntl();
   const txFeeInit = useRef(false);
   const [isEditFeeActive, setIsEditFeeActive] = useState(false);
@@ -184,61 +186,102 @@ function TxFeeContainer(props: IProps) {
         });
       }
 
-      if (vaultSettings?.editFeeEnabled) {
-        const customFeeInfo: IFeeInfoUnit = {
-          common: txFee.common,
+      const customFeeInfo: IFeeInfoUnit = {
+        common: txFee.common,
+      };
+
+      if (customFee?.gas && txFee.gas) {
+        customFeeInfo.gas = {
+          ...customFee.gas,
+          gasLimit:
+            customFee.gas.gasLimit ??
+            txFee.gas[sendSelectedFee.presetIndex].gasLimit,
+          gasLimitForDisplay:
+            customFee.gas.gasLimitForDisplay ??
+            txFee.gas[sendSelectedFee.presetIndex].gasLimitForDisplay,
         };
+      }
 
-        if (customFee?.gas && txFee.gas) {
-          customFeeInfo.gas = {
-            ...customFee.gas,
-            gasLimit:
-              customFee.gas.gasLimit ??
-              txFee.gas[sendSelectedFee.presetIndex].gasLimit,
-            gasLimitForDisplay:
-              customFee.gas.gasLimitForDisplay ??
-              txFee.gas[sendSelectedFee.presetIndex].gasLimitForDisplay,
-          };
-        }
+      if (customFee?.gasEIP1559 && txFee.gasEIP1559) {
+        customFeeInfo.gasEIP1559 = {
+          ...customFee.gasEIP1559,
+          gasLimit:
+            customFee.gasEIP1559.gasLimit ??
+            txFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimit,
+          gasLimitForDisplay:
+            customFee.gasEIP1559.gasLimitForDisplay ??
+            txFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimitForDisplay,
+        };
+      }
 
-        if (customFee?.gasEIP1559 && txFee.gasEIP1559) {
+      if (customFee?.feeUTXO && txFee.feeUTXO) {
+        customFeeInfo.feeUTXO = customFee.feeUTXO;
+      }
+
+      if (useFeeInTx) {
+        const { gas, gasLimit, gasPrice, maxFeePerGas, maxPriorityFeePerGas } =
+          unsignedTxs[0].encodedTx as IEncodedTxEvm;
+        const limit = gasLimit || gas;
+        if (maxFeePerGas && maxPriorityFeePerGas && customFeeInfo.gasEIP1559) {
           customFeeInfo.gasEIP1559 = {
-            ...customFee.gasEIP1559,
-            gasLimit:
-              customFee.gasEIP1559.gasLimit ??
-              txFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimit,
+            ...customFeeInfo.gasEIP1559,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+            gasLimit: limit ?? customFeeInfo.gasEIP1559?.gasLimit,
             gasLimitForDisplay:
-              customFee.gasEIP1559.gasLimitForDisplay ??
-              txFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimitForDisplay,
+              limit ?? customFeeInfo.gasEIP1559?.gasLimitForDisplay,
           };
+        } else if (gasPrice && customFeeInfo.gas) {
+          customFeeInfo.gas = {
+            ...customFeeInfo.gas,
+            gasPrice,
+            gasLimit: limit ?? customFeeInfo.gas?.gasLimit,
+            gasLimitForDisplay: limit ?? customFeeInfo.gas?.gasLimitForDisplay,
+          };
+        } else if (limit) {
+          if (customFeeInfo.gasEIP1559) {
+            customFeeInfo.gasEIP1559 = {
+              ...customFeeInfo.gasEIP1559,
+              gasLimit: limit,
+              gasLimitForDisplay: limit,
+            };
+          }
+          if (customFeeInfo.gas) {
+            customFeeInfo.gas = {
+              ...customFeeInfo.gas,
+              gasLimit: limit,
+              gasLimitForDisplay: limit,
+            };
+          }
         }
-
-        if (customFee?.feeUTXO && txFee.feeUTXO) {
-          customFeeInfo.feeUTXO = customFee.feeUTXO;
-        }
-
-        items.push({
-          label: intl.formatMessage({
-            id: getFeeLabel({ feeType: EFeeType.Custom }),
-          }),
-          value: items.length,
-          feeInfo: customFeeInfo,
-          type: EFeeType.Custom,
+        updateSendSelectedFee({
+          feeType: EFeeType.Custom,
         });
       }
+
+      items.push({
+        label: intl.formatMessage({
+          id: getFeeLabel({ feeType: EFeeType.Custom }),
+        }),
+        value: items.length,
+        feeInfo: customFeeInfo,
+        type: EFeeType.Custom,
+      });
 
       return items;
     }
 
     return [];
   }, [
-    customFee?.feeUTXO,
+    txFee,
     customFee?.gas,
     customFee?.gasEIP1559,
-    txFee,
+    customFee?.feeUTXO,
+    useFeeInTx,
     intl,
     sendSelectedFee.presetIndex,
-    vaultSettings?.editFeeEnabled,
+    unsignedTxs,
+    updateSendSelectedFee,
   ]);
 
   const { selectedFee } = useMemo(() => {
