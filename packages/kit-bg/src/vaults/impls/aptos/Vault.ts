@@ -44,6 +44,8 @@ import { KeyringWatching } from './KeyringWatching';
 import { AptosClient } from './sdkAptos/AptosClient';
 import {
   APTOS_NATIVE_COIN,
+  APTOS_NATIVE_TRANSFER_FUNC,
+  APTOS_TRANSFER_FUNC,
   generateTransferCoin,
   getTransactionTypeByPayload,
 } from './utils';
@@ -294,7 +296,13 @@ export default class VaultAptos extends VaultBase {
   ): Promise<IUnsignedTxPro> {
     const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
     if (encodedTx) {
-      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxAptos);
+      const result = await this._buildUnsignedTxFromEncodedTx(
+        encodedTx as IEncodedTxAptos,
+      );
+      return {
+        ...result,
+        transfersInfo: params.transfersInfo,
+      };
     }
     throw new OneKeyInternalError();
   }
@@ -345,7 +353,7 @@ export default class VaultAptos extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, feeInfo } = params;
+    const { unsignedTx, feeInfo, nativeAmountInfo } = params;
     let encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
     if (feeInfo) {
       encodedTx = await this._attachFeeInfoToEncodedTx({
@@ -353,6 +361,23 @@ export default class VaultAptos extends VaultBase {
         feeInfo,
       });
     }
+    // max native token transfer update
+    if (
+      nativeAmountInfo &&
+      [APTOS_NATIVE_TRANSFER_FUNC, APTOS_TRANSFER_FUNC].includes(
+        encodedTx?.function ?? '',
+      ) &&
+      unsignedTx.transfersInfo
+    ) {
+      const decimals = unsignedTx.transfersInfo[0].tokenInfo?.decimals ?? 0;
+      const amount = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
+        .shiftedBy(decimals)
+        .toFixed();
+
+      const [to] = encodedTx.arguments || [];
+      encodedTx.arguments = [to, amount];
+    }
+
     return {
       ...unsignedTx,
       encodedTx,
