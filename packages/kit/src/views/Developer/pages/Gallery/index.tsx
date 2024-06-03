@@ -215,6 +215,12 @@ const QRCodeGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/QRCode'
     ),
 );
+const SecureQRToastGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SecureQRToast'
+    ),
+);
 const RadioGallery = LazyLoadPage(
   () =>
     import(
@@ -541,6 +547,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.componentQRCode,
     component: QRCodeGallery,
+  },
+  {
+    name: EGalleryRoutes.componentSecureQRToast,
+    component: SecureQRToastGallery,
   },
   {
     name: EGalleryRoutes.componentScanQrCode,

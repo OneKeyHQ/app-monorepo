@@ -1,19 +1,16 @@
 import { useCallback, useRef, useState } from 'react';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
-import {
-  Button,
-  SizableText,
-  Stack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import type { IButtonProps, ISizableTextProps } from '@onekeyhq/components';
+import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
 
 import type { LayoutChangeEvent } from 'react-native';
 
+const DEFAULT_NUMBER_OF_LINES = 6;
 function ViewMoreText({ children, ...props }: ISizableTextProps) {
   const [layoutTimes, setLayoutTimes] = useState(0);
-  const [numberOfLines, setNumberOfLines] = useState<number | undefined>(6);
+  const [numberOfLines, setNumberOfLines] = useState<number | undefined>(
+    DEFAULT_NUMBER_OF_LINES,
+  );
   const fullTextHeight = useRef(0);
   const onLayoutFullText = useCallback(
     ({
@@ -21,8 +18,10 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
         layout: { height },
       },
     }: LayoutChangeEvent) => {
-      fullTextHeight.current = height;
-      setLayoutTimes((prev) => prev + 1);
+      if (!fullTextHeight.current) {
+        fullTextHeight.current = height;
+        setLayoutTimes((prev) => prev + 1);
+      }
     },
     [],
   );
@@ -34,14 +33,17 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
         layout: { height },
       },
     }: LayoutChangeEvent) => {
-      trimmedTextHeight.current = height;
+      if (!trimmedTextHeight.current) {
+        trimmedTextHeight.current = height;
+      }
       setLayoutTimes((prev) => prev + 1);
     },
     [],
   );
 
+  const isShowViewButton = trimmedTextHeight.current < fullTextHeight.current;
   const handleViewMore = useCallback(() => {
-    setNumberOfLines(undefined);
+    setNumberOfLines((prev) => (prev ? undefined : DEFAULT_NUMBER_OF_LINES));
   }, []);
 
   const isFullTextShown = layoutTimes < 2;
@@ -54,9 +56,14 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
             {children}
           </SizableText>
         </Stack>
-        {trimmedTextHeight.current < fullTextHeight.current ? (
-          <Button size="medium" variant="secondary" onPress={handleViewMore}>
-            View More
+        {isShowViewButton ? (
+          <Button
+            size="medium"
+            variant="secondary"
+            onPress={handleViewMore}
+            $gtMd={{ size: 'small' } as IButtonProps}
+          >
+            {numberOfLines ? 'View More' : 'View Less'}
           </Button>
         ) : null}
       </YStack>
@@ -82,17 +89,10 @@ export function MarketAbout({
 }: {
   children: ISizableTextProps['children'];
 }) {
-  const { gtMd } = useMedia();
   return (
     <YStack space="$3" pt="$10">
       <SizableText size="$headingSm">About</SizableText>
-      {gtMd ? (
-        <ViewMoreText color="$textSubdued">{children}</ViewMoreText>
-      ) : (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {children}
-        </SizableText>
-      )}
+      <ViewMoreText color="$textSubdued">{children}</ViewMoreText>
     </YStack>
   );
 }

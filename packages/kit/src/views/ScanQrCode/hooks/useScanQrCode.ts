@@ -2,7 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import { Vibration } from 'react-native';
 
-import { resetAnimationQrcodeScan } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers';
+import { PARSE_HANDLER_NAMES } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers';
+import { resetAnimationQrcodeScan } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers/animation';
 import type {
   IAnimationValue,
   IBaseValue,
@@ -25,8 +26,10 @@ export default function useScanQrCode() {
   const start = useCallback(
     ({
       autoHandleResult = false,
+      handlers,
       accountId,
-      mask = false,
+      qrWalletScene = false,
+      showProTutorial = false,
     }: IQRCodeHandlerParseOutsideOptions) =>
       new Promise<IQRCodeHandlerParseResult<IBaseValue>>((resolve, reject) => {
         resetAnimationQrcodeScan();
@@ -34,11 +37,13 @@ export default function useScanQrCode() {
         navigation.pushFullModal(EModalRoutes.ScanQrCodeModal, {
           screen: EScanQrCodeModalPages.ScanQrCodeStack,
           params: {
-            mask,
+            qrWalletScene,
+            showProTutorial,
             callback: async (value: string) => {
               if (value?.length > 0) {
                 const parseValue = await parseQRCode.parse(value, {
                   autoHandleResult,
+                  handlers,
                   accountId,
                 });
                 if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
@@ -63,5 +68,5 @@ export default function useScanQrCode() {
       }),
     [navigation, parseQRCode],
   );
-  return useMemo(() => ({ start }), [start]);
+  return useMemo(() => ({ start, PARSE_HANDLER_NAMES }), [start]);
 }

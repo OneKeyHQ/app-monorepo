@@ -838,7 +838,7 @@ export default class Vault extends VaultBase {
     const swapSendToken = swapInfo.sender.token;
     const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
-      to: '',
+      to: swapInfo.receivingAddress,
       transfers: [
         {
           from: swapInfo.accountAddress,

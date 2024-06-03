@@ -10,7 +10,6 @@ import {
   SizableText,
   Stack,
   TextArea,
-  Toast,
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';

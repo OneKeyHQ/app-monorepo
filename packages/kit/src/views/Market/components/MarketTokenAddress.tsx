@@ -14,6 +14,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 export function MarketTokenAddress({
   tokenName,
@@ -25,7 +26,7 @@ export function MarketTokenAddress({
   addressSize = '$bodyMd',
 }: {
   networkId?: string;
-  tokenName: string;
+  tokenName?: string;
   address: string;
   uri?: string;
   tokenNameColor?: ISizableTextProps['color'];
@@ -33,16 +34,20 @@ export function MarketTokenAddress({
   addressSize?: ISizableTextProps['size'];
 }) {
   const { copyText } = useClipboard();
+  const { result: network } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId,
+      }),
+    [networkId],
+  );
   const handleOpenUrl = useCallback(async () => {
-    const network = await backgroundApiProxy.serviceNetwork.getNetwork({
-      networkId,
-    });
-    if (network.explorers[0].address) {
+    if (network?.explorers[0].address) {
       openUrlExternal(
         network.explorers[0].address.replace('{address}', address),
       );
     }
-  }, [address, networkId]);
+  }, [address, network?.explorers]);
   const renderIcon = useCallback(() => {
     if (uri) {
       return (
@@ -70,10 +75,9 @@ export function MarketTokenAddress({
     <XStack space="$1.5" ai="center">
       {renderIcon()}
       <XStack space="$2">
-        <SizableText
-          color={tokenNameColor}
-          size={tokenNameSize}
-        >{`${tokenName}:`}</SizableText>
+        <SizableText color={tokenNameColor} size={tokenNameSize}>{`${
+          tokenName || network?.name || ''
+        }:`}</SizableText>
         <SizableText size={addressSize}>{`${address.slice(
           0,
           6,

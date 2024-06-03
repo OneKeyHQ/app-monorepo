@@ -22,7 +22,7 @@ import { LIDO_LOGO_URI } from '../../utils/const';
 type ILidoWithdrawProps = {
   balance: string;
   price: string;
-  tokenImageUri: string;
+  tokenImageUri?: string;
   tokenSymbol: string;
   receivingTokenSymbol: string;
   rate?: string;
@@ -162,14 +162,14 @@ export const LidoWithdraw = ({
                 <Alert
                   icon="InfoCircleOutline"
                   type="critical"
-                  title={`The minimum amount for this staking is ${minAmount} ETH.`}
+                  title={`The minimum amount for this staking is ${minAmount} ${tokenSymbol}.`}
                 />
               ) : null}
               {isInsufficientBalance ? (
                 <Alert
                   icon="InfoCircleOutline"
                   type="critical"
-                  title="Insufficient staked balance."
+                  title="Insufficient balance."
                 />
               ) : null}
             </YStack>

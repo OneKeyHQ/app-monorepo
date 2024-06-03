@@ -62,6 +62,7 @@ function DialogFrame({
   description,
   renderContent,
   showFooter = true,
+  showExitButton = true,
   footerProps,
   onConfirm,
   onConfirmText = 'Confirm',
@@ -184,18 +185,20 @@ function DialogFrame({
       ) : null}
 
       {/* close button */}
-      <IconButton
-        position="absolute"
-        zIndex={1}
-        right="$5"
-        top="$5"
-        icon="CrossedSmallOutline"
-        iconProps={{
-          color: '$iconSubdued',
-        }}
-        size="small"
-        onPress={handleCancelButtonPress}
-      />
+      {showExitButton ? (
+        <IconButton
+          position="absolute"
+          zIndex={1}
+          right="$5"
+          top="$5"
+          icon="CrossedSmallOutline"
+          iconProps={{
+            color: '$iconSubdued',
+          }}
+          size="small"
+          onPress={handleCancelButtonPress}
+        />
+      ) : null}
 
       {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>

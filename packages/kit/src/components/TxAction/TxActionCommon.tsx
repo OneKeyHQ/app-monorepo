@@ -138,7 +138,7 @@ function TxActionCommonFee({
   return (
     <Stack flexGrow={1} flexBasis={0}>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Gas Fee
+        Network Fee
       </SizableText>
       <XStack alignItems="center" space="$1">
         <NumberSizeableText
@@ -177,6 +177,7 @@ function TxActionCommonListView(
     pending,
     tableLayout,
     showIcon,
+    hideFeeInfo,
     ...rest
   } = props;
 
@@ -246,7 +247,7 @@ function TxActionCommonListView(
             changeDescription
           )}
         </Stack>
-        {tableLayout ? (
+        {tableLayout && !hideFeeInfo ? (
           <TxActionCommonFee
             fee={fee}
             feeFiatValue={feeFiatValue}
