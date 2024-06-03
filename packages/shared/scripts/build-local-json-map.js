@@ -3,6 +3,7 @@ const path = require('path');
 
 const localeJsonPath = path.join(__dirname, '../src/locale/json');
 
+// build localeJsonMap.ts
 const jsonFiles = fs
   .readdirSync(localeJsonPath)
   .filter((file) => file.endsWith('.json'));
@@ -31,3 +32,17 @@ ${jsonFiles
 export { enUS };
 `,
 );
+
+// fix lint of type file.
+const typeFile = path.join(__dirname, '../src/locale/type/translations.ts');
+const isExistTypeFile = fs.existsSync(typeFile);
+
+if (isExistTypeFile) {
+  const text = fs.readFileSync(typeFile, 'utf8');
+  fs.writeFileSync(
+    typeFile,
+    text
+      .replace('export enum Translations {', 'export enum ETranslations {')
+      .replaceAll('	', '  '),
+  );
+}
