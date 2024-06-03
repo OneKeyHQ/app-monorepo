@@ -18,11 +18,12 @@ fs.writeFileSync(
 
 export const LOCALES = {
 ${jsonFiles
-  .map(
-    (file) =>
-      `  '${file
-        .split('.')[0]
-        .replace(/_/g, '-')}': () => import('./json/${file}'),`,
+  .map((file) =>
+    file !== enUSJsonFile
+      ? `  '${file
+          .split('.')[0]
+          .replace(/_/g, '-')}': () => import('./json/${file}'),`
+      : `  '${file.split('.')[0].replace(/_/g, '-')}': enUS,`,
   )
   .join('\n')}
 };
