@@ -45,3 +45,5 @@ if (platformEnv.isExtensionBackground) {
 export { LOCALES_OPTION };
 
 export * from './type';
+
+export * from './enum/translations';
