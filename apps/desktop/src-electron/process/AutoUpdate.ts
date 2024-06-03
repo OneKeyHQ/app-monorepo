@@ -182,7 +182,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     const feedUrl = `${buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Utility,
       env: updateSettings.useTestFeedUrl ? 'test' : 'prod',
-    })}/utility/v1/app-update/electorn-feed-url`;
+    })}/utility/v1/app-update/electron-feed-url`;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
