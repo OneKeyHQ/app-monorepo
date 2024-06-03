@@ -27,7 +27,7 @@
     "webextension-polyfill": "^0.8.0"
   },
   "devDependencies": {
-    "rimraf": "^5.0.5",
-    "folderslint": "^1.2.0"
+    "folderslint": "^1.2.0",
+    "rimraf": "^5.0.5"
   }
 }
