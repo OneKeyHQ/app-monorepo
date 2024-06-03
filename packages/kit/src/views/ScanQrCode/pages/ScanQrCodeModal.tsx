@@ -1,10 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 
-import { useWindowDimensions } from 'react-native';
-
 import { useRoute } from '@react-navigation/core';
 import { launchImageLibraryAsync } from 'expo-image-picker';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Button,
