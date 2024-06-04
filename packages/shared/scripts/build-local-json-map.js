@@ -35,14 +35,12 @@ export { enUS };
 
 // fix lint of type file.
 const typeFile = path.join(__dirname, '../src/locale/type/translations.ts');
-const isExistTypeFile = fs.existsSync(typeFile);
 
-if (isExistTypeFile) {
-  const text = fs.readFileSync(typeFile, 'utf8');
-  fs.writeFileSync(
-    typeFile,
-    text
-      .replace('export enum Translations {', 'export enum ETranslations {')
-      .replaceAll('	', '  '),
-  );
-}
+const text = fs.readFileSync(typeFile, 'utf8');
+fs.writeFileSync(
+  typeFile,
+  text
+    .replace('export enum Translations {', 'export enum ETranslations {')
+    .replaceAll('	', '  '),
+  'utf8',
+);
