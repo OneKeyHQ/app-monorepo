@@ -1,6 +1,12 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
+import type {
+  IAnchorProps,
+  IKeyOfIcons,
+  IXStackProps,
+} from '@onekeyhq/components';
 import {
   Anchor,
   Divider,
@@ -116,6 +122,21 @@ export function GetStarted() {
   const privacyLink = useHelpLink({ path: 'articles/360002003315 ' });
 
   const isDappMode = platformEnv.isRuntimeBrowser && !platformEnv.isExtension;
+
+  const AnchorComponent = useCallback(
+    ({ children, ...rest }: IAnchorProps) => (
+      <Anchor
+        size="$bodySm"
+        color="$text"
+        target="_blank"
+        textDecorationLine="none"
+        {...rest}
+      >
+        {children}
+      </Anchor>
+    ),
+    [],
+  );
 
   return (
     <Page>
@@ -254,26 +275,33 @@ export function GetStarted() {
           p="$5"
           pt="$0"
         >
-          Use implies consent to our{' '}
-          <Anchor
-            href={termsLink}
-            size="$bodySm"
-            color="$text"
-            target="_blank"
-            textDecorationLine="none"
-          >
-            Terms
-          </Anchor>{' '}
-          &{' '}
-          <Anchor
-            href={privacyLink}
-            size="$bodySm"
-            color="$text"
-            target="_blank"
-            textDecorationLine="none"
-          >
-            Privacy
-          </Anchor>
+          {intl.formatMessage(
+            { id: ETranslations.terms_privacy },
+            {
+              termsTag: (...chunks) => (
+                <Anchor
+                  href={termsLink}
+                  size="$bodySm"
+                  color="$text"
+                  target="_blank"
+                  textDecorationLine="none"
+                >
+                  {chunks}
+                </Anchor>
+              ),
+              privacyTag: (...chunks) => (
+                <Anchor
+                  href={privacyLink}
+                  size="$bodySm"
+                  color="$text"
+                  target="_blank"
+                  textDecorationLine="none"
+                >
+                  {chunks}
+                </Anchor>
+              ),
+            },
+          )}
         </SizableText>
       </Page.Body>
     </Page>
