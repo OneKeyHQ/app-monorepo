@@ -5751,6 +5751,7 @@ __metadata:
     jest-html-reporter: "npm:^3.10.2"
     jotai: "npm:^2.5.0"
     lightweight-charts: "npm:^3.8.0"
+    long: "npm:^4.0.0"
     lru-cache: "npm:^10.2.0"
     memoizee: "npm:^0.4.15"
     metro: "npm:0.80.5"

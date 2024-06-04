@@ -154,7 +154,9 @@ export default class VaultCosmos extends VaultBase {
       const { amount, from, to } = transfer;
       if (transfer.tokenInfo && transfer.tokenInfo.address) {
         const { address, decimals } = transfer.tokenInfo;
-        const amountValue = new BigNumber(amount).shiftedBy(decimals).toFixed();
+        const amountValue = new BigNumber(amount)
+          .shiftedBy(decimals)
+          .toFixed(0);
         if (transfer.tokenInfo.isNative || this._isIbcToken(address)) {
           const msg = this.txMsgBuilder.makeSendNativeMsg(
             from,
@@ -177,7 +179,7 @@ export default class VaultCosmos extends VaultBase {
       } else {
         const amountValue = new BigNumber(amount)
           .shiftedBy(network.decimals)
-          .toFixed();
+          .toFixed(0);
         const providerOptions = network.extensions?.providerOptions as {
           mainCoinDenom: string;
         };
@@ -384,7 +386,7 @@ export default class VaultCosmos extends VaultBase {
     const amount = gasLimitNum
       .multipliedBy(gasPriceNum)
       .shiftedBy(common.feeDecimals)
-      .toFixed();
+      .toFixed(0);
     const newAmount = [
       {
         denom: common.feeSymbol,
@@ -436,7 +438,7 @@ export default class VaultCosmos extends VaultBase {
       const tokenInfo = unsignedTx.transfersInfo?.[0].tokenInfo;
       const amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
         .shiftedBy(tokenInfo?.decimals ?? 0)
-        .toFixed();
+        .toFixed(0);
       unsignedTx.encodedTx = setSendAmount(txWrapper, amount).toObject();
     }
 
