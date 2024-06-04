@@ -13,6 +13,7 @@ export type ISettingsPersistAtom = {
   locale: ILocaleSymbol;
   version: string;
   buildNumber?: string;
+  reviewControl?: boolean;
   instanceId: string;
   sensitiveEncodeKey: string;
   isBiologyAuthSwitchOn: boolean;

@@ -1,8 +1,10 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { useClipboard } from '@onekeyhq/components';
+import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
@@ -32,41 +34,43 @@ export function WalletActionMore() {
       params: { networkId: network?.id ?? '', accountId: account?.id ?? '' },
     });
   }, [navigation, network, account]);
+  const show = useReviewControl();
 
-  return (
-    <RawActions.More
-      sections={[
+  const sections: ComponentProps<typeof RawActions.More>['sections'] = [
+    {
+      items: [
         {
-          items: [
-            {
-              label: intl.formatMessage({ id: 'action__sell_crypto' }),
-              icon: 'MinusLargeOutline',
-              disabled: !isSupported,
-              onPress: sellCrypto,
-            },
-          ],
+          label: intl.formatMessage({ id: 'action__view_in_explorer' }),
+          icon: 'GlobusOutline',
+          onPress: () =>
+            openUrl(
+              buildExplorerAddressUrl({
+                network,
+                address: account?.address,
+              }),
+            ),
         },
         {
-          items: [
-            {
-              label: intl.formatMessage({ id: 'action__view_in_explorer' }),
-              icon: 'GlobusOutline',
-              onPress: () =>
-                openUrl(
-                  buildExplorerAddressUrl({
-                    network,
-                    address: account?.address,
-                  }),
-                ),
-            },
-            {
-              label: intl.formatMessage({ id: 'action__copy_address' }),
-              icon: 'Copy1Outline',
-              onPress: () => copyText(account?.address || ''),
-            },
-          ],
+          label: intl.formatMessage({ id: 'action__copy_address' }),
+          icon: 'Copy1Outline',
+          onPress: () => copyText(account?.address || ''),
         },
-      ]}
-    />
-  );
+      ],
+    },
+  ];
+
+  if (show) {
+    sections.unshift({
+      items: [
+        {
+          label: intl.formatMessage({ id: 'action__sell_crypto' }),
+          icon: 'MinusLargeOutline',
+          disabled: !isSupported,
+          onPress: sellCrypto,
+        },
+      ],
+    });
+  }
+
+  return <RawActions.More sections={sections} />;
 }

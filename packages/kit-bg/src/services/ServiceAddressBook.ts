@@ -18,6 +18,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 
 import ServiceBase from './ServiceBase';
 
@@ -137,14 +138,14 @@ class ServiceAddressBook extends ServiceBase {
 
   @backgroundMethod()
   async __dangerTamperVerifyHashForTest() {
-    if (!platformEnv.isDev) {
-      return;
+    const { enabled } = await devSettingsPersistAtom.get();
+    if (platformEnv.isDev || enabled) {
+      const items = await this.getItems();
+      await this.setItems(
+        items,
+        encodeSensitiveText({ text: String(Date.now()) }),
+      );
     }
-    const items = await this.getItems();
-    await this.setItems(
-      items,
-      encodeSensitiveText({ text: String(Date.now()) }),
-    );
   }
 
   @backgroundMethod()
