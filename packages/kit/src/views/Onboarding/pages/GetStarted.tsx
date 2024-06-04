@@ -2,11 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IAnchorProps,
-  IKeyOfIcons,
-  IXStackProps,
-} from '@onekeyhq/components';
+import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
   Anchor,
   Divider,
@@ -28,6 +24,8 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+
+import type { FormatXMLElementFn } from 'intl-messageformat';
 
 type IActionsGroupItem = {
   iconName: IKeyOfIcons;
@@ -123,19 +121,34 @@ export function GetStarted() {
 
   const isDappMode = platformEnv.isRuntimeBrowser && !platformEnv.isExtension;
 
-  const AnchorComponent = useCallback(
-    ({ children, ...rest }: IAnchorProps) => (
+  const renderTermsTag: FormatXMLElementFn<string, any> = useCallback(
+    (chunks: string[]) => (
       <Anchor
+        href={termsLink}
         size="$bodySm"
         color="$text"
         target="_blank"
         textDecorationLine="none"
-        {...rest}
       >
-        {children}
+        {chunks}
       </Anchor>
     ),
-    [],
+    [termsLink],
+  );
+
+  const renderPrivacyTag: FormatXMLElementFn<string, any> = useCallback(
+    (chunks: string[]) => (
+      <Anchor
+        href={privacyLink}
+        size="$bodySm"
+        color="$text"
+        target="_blank"
+        textDecorationLine="none"
+      >
+        {chunks}
+      </Anchor>
+    ),
+    [privacyLink],
   );
 
   return (
@@ -278,28 +291,8 @@ export function GetStarted() {
           {intl.formatMessage(
             { id: ETranslations.terms_privacy },
             {
-              termsTag: (...chunks) => (
-                <Anchor
-                  href={termsLink}
-                  size="$bodySm"
-                  color="$text"
-                  target="_blank"
-                  textDecorationLine="none"
-                >
-                  {chunks}
-                </Anchor>
-              ),
-              privacyTag: (...chunks) => (
-                <Anchor
-                  href={privacyLink}
-                  size="$bodySm"
-                  color="$text"
-                  target="_blank"
-                  textDecorationLine="none"
-                >
-                  {chunks}
-                </Anchor>
-              ),
+              termsTag: renderTermsTag,
+              privacyTag: renderPrivacyTag,
             },
           )}
         </SizableText>
