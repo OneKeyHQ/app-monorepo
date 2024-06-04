@@ -68,10 +68,10 @@ function BasicTokenDetailTabs({
 
   const { result: pools } = usePromiseResult(
     () =>
-      token?.symbol
-        ? backgroundApiProxy.serviceMarket.fetchPools(token?.symbol)
+      token?.detailPlatforms
+        ? backgroundApiProxy.serviceMarket.fetchPools(token.detailPlatforms)
         : Promise.resolve(undefined),
-    [token?.symbol],
+    [token?.detailPlatforms],
   );
 
   const renderPoolSkeleton = useMemo(

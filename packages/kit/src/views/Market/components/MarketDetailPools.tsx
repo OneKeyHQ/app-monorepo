@@ -1,8 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { groupBy } from 'lodash';
-
 import type { ISizableTextProps, ITabPageProps } from '@onekeyhq/components';
 import {
   Dialog,
@@ -17,7 +15,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
+import type { IMarketResponsePool } from '@onekeyhq/shared/types/market';
 
 import { listItemPressStyle } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
@@ -218,16 +216,15 @@ export function MarketDetailPools({
   pools,
   // eslint-disable-next-line react/prop-types
   onContentSizeChange,
-}: ITabPageProps & { pools: IMarketDetailPool[] }) {
+}: ITabPageProps & { pools: IMarketResponsePool[] }) {
   const { gtMd } = useMedia();
-  const partitions = useMemo(() => groupBy(pools, 'onekeyNetworkId'), [pools]);
-  const onekeyNetworkIds = useMemo(() => Object.keys(partitions), [partitions]);
-  const [index, selectIndex] = useState(0);
-  const listData = useMemo(
-    () => partitions[onekeyNetworkIds[index]],
-    [index, onekeyNetworkIds, partitions],
+  const onekeyNetworkIds = useMemo(
+    () => pools.map((i) => i.onekeyNetworkId),
+    [pools],
   );
-  const formatListData = listData.map((i) => ({
+  const [index, selectIndex] = useState(0);
+  const listData = useMemo(() => pools[index], [index, pools]);
+  const formatListData = listData.data.map((i) => ({
     ...i,
     dexDataName: i.relationships.dex.data.id
       .split('_')

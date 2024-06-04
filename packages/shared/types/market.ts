@@ -58,6 +58,12 @@ export interface IMarketDetailPlatform {
   };
 }
 
+export interface IMarketResponsePool {
+  data: IMarketDetailPool[];
+  contract_address: string;
+  onekeyNetworkId?: string | undefined;
+}
+
 export interface IMarketDetailStats {
   performance: IMarketPerformance;
   marketCap: number;
