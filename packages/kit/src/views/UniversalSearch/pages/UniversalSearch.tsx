@@ -119,7 +119,7 @@ export function UniversalSearch({
         title: string;
         data: IUniversalSearchResultItem[];
       }[] = [];
-      if (result?.[EUniversalSearchType.Address]?.items) {
+      if (result?.[EUniversalSearchType.Address]?.items?.length) {
         searchResultSections.push({
           title: 'Wallet',
           data: result?.[EUniversalSearchType.Address]
@@ -127,7 +127,7 @@ export function UniversalSearch({
         });
       }
 
-      if (result?.[EUniversalSearchType.MarketToken]?.items) {
+      if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
         searchResultSections.push({
           title: 'Market Token',
           data: result?.[EUniversalSearchType.MarketToken]
@@ -135,7 +135,7 @@ export function UniversalSearch({
         });
       }
 
-      setSections(searchResultSections);
+      console.log('---searchResultSections', searchResultSections);
       setSearchStatus(ESearchStatus.done);
     } else {
       setSearchStatus(ESearchStatus.init);
@@ -279,7 +279,11 @@ export function UniversalSearch({
             sections={sections}
             // renderSectionHeader={renderSectionHeader}
             ListEmptyComponent={
-              <Empty icon="SearchOutline" title="No Results" />
+              <Empty
+                icon="SearchOutline"
+                title="No Results"
+                description="Try to change the search keyword"
+              />
             }
             renderItem={renderItem}
             estimatedItemSize="$16"
