@@ -104,7 +104,7 @@ export enum ETranslations {
   global_synced = 'global.synced',
   global_syncing = 'global.syncing',
   global_touch_id = 'global.touch_id',
-  global_tract_any_address = 'global.tract_any_address',
+  global_track_any_address = 'global.track_any_address',
   global_upgrade = 'global.upgrade',
   global_url = 'global.url',
   global_verify = 'global.verify',

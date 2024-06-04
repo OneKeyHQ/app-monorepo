@@ -157,7 +157,9 @@ export function GetStarted() {
                 textAlign="center"
                 color="$textSubdued"
               >
-                Simple, Secure Crypto Management
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_welcome_description,
+                })}
               </SizableText>
             </Stack>
           </Stack>
@@ -178,7 +180,9 @@ export function GetStarted() {
                 iconName: platformEnv.isNative
                   ? 'BluetoothOutline'
                   : 'UsbOutline',
-                label: 'Connect Hardware Wallet',
+                label: intl.formatMessage({
+                  id: ETranslations.global_connect_hardware_wallet,
+                }),
                 primary: true,
                 onPress: handleConnectHardwareWallet,
                 testID: 'hardware-wallet',
@@ -190,35 +194,58 @@ export function GetStarted() {
               items={[
                 {
                   iconName: 'PlusCircleOutline',
-                  label: 'Create Wallet',
+                  label: intl.formatMessage({
+                    id: ETranslations.global_create_wallet,
+                  }),
                   onPress: handleCreateWalletPress,
                   testID: 'create-wallet',
                 },
                 {
                   iconName: 'ArrowBottomCircleOutline',
-                  label: 'Import Wallet',
+                  label: intl.formatMessage({
+                    id: ETranslations.global_import_wallet,
+                  }),
                   onPress: handleImportWalletPress,
                   testID: 'import-wallet',
                 },
               ]}
             />
           ) : null}
-          <ActionsGroup
-            items={[
-              {
-                iconName: 'Link2Outline',
-                label: 'Connect wallet',
-                onPress: handleConnectWalletPress,
-                testID: '3rd-party-wallet',
-              },
-              {
-                iconName: 'EyeOutline',
-                label: 'Track any address',
-                onPress: handleTrackAnyAddressPress,
-                testID: 'track-any-address',
-              },
-            ]}
-          />
+          {isDappMode ? (
+            <ActionsGroup
+              items={[
+                {
+                  iconName: 'Link2Outline',
+                  label: intl.formatMessage({
+                    id: ETranslations.global_connect_wallet,
+                  }),
+                  onPress: handleConnectWalletPress,
+                  testID: '3rd-party-wallet',
+                },
+                {
+                  iconName: 'EyeOutline',
+                  label: intl.formatMessage({
+                    id: ETranslations.global_track_any_address,
+                  }),
+                  onPress: handleTrackAnyAddressPress,
+                  testID: 'track-any-address',
+                },
+              ]}
+            />
+          ) : (
+            <ActionsGroup
+              items={[
+                {
+                  iconName: 'Link2Outline',
+                  label: intl.formatMessage({
+                    id: ETranslations.global_connect_wallet,
+                  }),
+                  onPress: handleConnectWalletPress,
+                  testID: '3rd-party-wallet',
+                },
+              ]}
+            />
+          )}
         </Stack>
         <SizableText
           size="$bodySm"
