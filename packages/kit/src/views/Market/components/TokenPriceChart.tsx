@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -46,7 +46,7 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [days, setDays] = useState<string>(options[0].value);
   const intl = useIntl();
-  const intlId = options.find((v) => v.value === days)?.id as ILocaleIds;
+  const intlId = options.find((v) => v.value === days)?.id as ETranslations;
 
   useEffect(() => {
     setIsLoading(true);

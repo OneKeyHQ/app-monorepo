@@ -44,7 +44,7 @@ export class InvalidPIN extends OneKeyHardwareError {
 
   override code = HardwareErrorCode.PinInvalid;
 
-  // override key: ILocaleIds = 'msg__hardware_invalid_pin_error';
+  // override key: ETranslations = 'msg__hardware_invalid_pin_error';
 }
 
 export class InvalidPassphrase extends OneKeyHardwareError {
