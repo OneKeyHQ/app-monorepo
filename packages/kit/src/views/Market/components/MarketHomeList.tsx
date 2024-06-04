@@ -113,12 +113,7 @@ function Column({
     >
       {jc === 'flex-end' ? renderSortIcon() : null}
       {typeof children === 'string' ? (
-        <SizableText
-          cursor={cursor}
-          color="$textSubdued"
-          size="$bodySmMedium"
-          selectable={false}
-        >
+        <SizableText cursor={cursor} color="$textSubdued" size="$bodySmMedium">
           {children}
         </SizableText>
       ) : (
