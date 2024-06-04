@@ -146,6 +146,8 @@ export default class VaultCosmos extends VaultBase {
   }): Promise<IEncodedTx> {
     const { transfersInfo, feeInfo } = params;
     const network = await this.getNetwork();
+    const networkInfo = await this.getNetworkInfo();
+    const mainCoinDenom = networkInfo.nativeTokenAddress ?? '';
     const msgs: ProtoMsgsOrWithAminoMsgs = {
       protoMsgs: [],
       aminoMsgs: [],
@@ -180,14 +182,11 @@ export default class VaultCosmos extends VaultBase {
         const amountValue = new BigNumber(amount)
           .shiftedBy(network.decimals)
           .toFixed(0);
-        const providerOptions = network.extensions?.providerOptions as {
-          mainCoinDenom: string;
-        };
         const msg = this.txMsgBuilder.makeSendNativeMsg(
           from,
           to,
           amountValue,
-          providerOptions.mainCoinDenom,
+          mainCoinDenom,
         );
         msgs.protoMsgs.push(...msg.protoMsgs);
         msgs.aminoMsgs.push(...msg.aminoMsgs);
@@ -210,7 +209,6 @@ export default class VaultCosmos extends VaultBase {
 
     const gasLimit = '0';
     const feeAmount = '0';
-    const mainCoinDenom = network.symbol;
 
     const tx = txBuilder.makeTxWrapper(msgs, {
       memo: '',
