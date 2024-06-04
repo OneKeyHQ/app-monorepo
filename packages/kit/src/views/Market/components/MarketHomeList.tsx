@@ -312,7 +312,7 @@ function TableRow({
     sparkline,
     actions,
   } = tableConfig;
-  const { gtXl } = useMedia();
+  const { gtLg, gtXl } = useMedia();
   const handlePress = useCallback(() => {
     onPress?.(item);
   }, [item, onPress]);
@@ -396,22 +396,24 @@ function TableRow({
       >
         {isLoading ? <Skeleton w="$20" h="$3" /> : price?.(item)}
       </Column>
-      <Column
-        name="priceChangePercentage1H"
-        alignRight
-        flexGrow={1}
-        flexBasis={0}
-        sortType={sortType?.columnName}
-        order={sortType?.order}
-        onPress={handleColumnPress}
-        cursor={cursor}
-      >
-        {isLoading ? (
-          <Skeleton w="$10" h="$3" />
-        ) : (
-          priceChangePercentage1H?.(item)
-        )}
-      </Column>
+      {gtLg ? (
+        <Column
+          name="priceChangePercentage1H"
+          alignRight
+          flexGrow={1}
+          flexBasis={0}
+          sortType={sortType?.columnName}
+          order={sortType?.order}
+          onPress={handleColumnPress}
+          cursor={cursor}
+        >
+          {isLoading ? (
+            <Skeleton w="$10" h="$3" />
+          ) : (
+            priceChangePercentage1H?.(item)
+          )}
+        </Column>
+      ) : null}
       <Column
         name="priceChangePercentage24H"
         alignRight
@@ -428,22 +430,24 @@ function TableRow({
           priceChangePercentage24H?.(item)
         )}
       </Column>
-      <Column
-        flexGrow={1}
-        flexBasis={0}
-        name="priceChangePercentage7D"
-        alignRight
-        sortType={sortType?.columnName}
-        order={sortType?.order}
-        onPress={handleColumnPress}
-        cursor={cursor}
-      >
-        {isLoading ? (
-          <Skeleton w="$10" h="$3" />
-        ) : (
-          priceChangePercentage7D?.(item)
-        )}
-      </Column>
+      {gtLg ? (
+        <Column
+          flexGrow={1}
+          flexBasis={0}
+          name="priceChangePercentage7D"
+          alignRight
+          sortType={sortType?.columnName}
+          order={sortType?.order}
+          onPress={handleColumnPress}
+          cursor={cursor}
+        >
+          {isLoading ? (
+            <Skeleton w="$10" h="$3" />
+          ) : (
+            priceChangePercentage7D?.(item)
+          )}
+        </Column>
+      ) : null}
       <Column
         flexGrow={1}
         flexBasis={0}
