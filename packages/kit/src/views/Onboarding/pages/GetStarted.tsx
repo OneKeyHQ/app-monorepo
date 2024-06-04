@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
   Anchor,
@@ -14,6 +16,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -39,7 +42,7 @@ function ActionsGroup({ items }: IActionsProp) {
       }}
       separator={<Divider />}
     >
-      {items.map((item, index) => (
+      {items.map((item: IActionsGroupItem, index) => (
         <Group.Item key={index}>
           <XStack
             flexDirection="row"
@@ -86,6 +89,7 @@ function ActionsGroup({ items }: IActionsProp) {
 
 export function GetStarted() {
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   const handleCreateWalletPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
@@ -104,8 +108,15 @@ export function GetStarted() {
     navigation.push(EOnboardingPages.ConnectWalletSelectNetworks);
   };
 
+  const handleTrackAnyAddressPress = async () => {
+    navigation.push(EOnboardingPages.ImportAddress);
+  };
+
   const termsLink = useHelpLink({ path: 'articles/360002014776' });
   const privacyLink = useHelpLink({ path: 'articles/360002003315 ' });
+
+  const isDappMode = platformEnv.isRuntimeBrowser && !platformEnv.isExtension;
+
   return (
     <Page>
       <Page.Header headerShown={false} />
@@ -137,7 +148,9 @@ export function GetStarted() {
             />
             <Stack zIndex={1}>
               <Heading size="$heading4xl" textAlign="center">
-                Welcome to OneKey
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_welcome_message,
+                })}
               </Heading>
               <SizableText
                 size="$bodyLg"
@@ -172,29 +185,37 @@ export function GetStarted() {
               },
             ]}
           />
+          {!isDappMode ? (
+            <ActionsGroup
+              items={[
+                {
+                  iconName: 'PlusCircleOutline',
+                  label: 'Create Wallet',
+                  onPress: handleCreateWalletPress,
+                  testID: 'create-wallet',
+                },
+                {
+                  iconName: 'ArrowBottomCircleOutline',
+                  label: 'Import Wallet',
+                  onPress: handleImportWalletPress,
+                  testID: 'import-wallet',
+                },
+              ]}
+            />
+          ) : null}
           <ActionsGroup
             items={[
               {
-                iconName: 'PlusCircleOutline',
-                label: 'Create Wallet',
-                onPress: handleCreateWalletPress,
-                testID: 'create-wallet',
-              },
-              {
-                iconName: 'ArrowBottomCircleOutline',
-                label: 'Import Wallet',
-                onPress: handleImportWalletPress,
-                testID: 'import-wallet',
-              },
-            ]}
-          />
-          <ActionsGroup
-            items={[
-              {
-                iconName: 'LinkOutline',
-                label: 'Link External Wallet',
+                iconName: 'Link2Outline',
+                label: 'Connect wallet',
                 onPress: handleConnectWalletPress,
                 testID: '3rd-party-wallet',
+              },
+              {
+                iconName: 'EyeOutline',
+                label: 'Track any address',
+                onPress: handleTrackAnyAddressPress,
+                testID: 'track-any-address',
               },
             ]}
           />
