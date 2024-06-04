@@ -60,10 +60,14 @@ class ServiceMarket extends ServiceBase {
       category: string;
       sparkline: boolean;
       ids?: string;
+      sparklinePoints?: number;
     } = {
       category,
       sparkline,
     };
+    if (requestParams.sparkline) {
+      requestParams.sparklinePoints = 100;
+    }
     if (coingeckoIds.length) {
       requestParams.ids = encodeURI(coingeckoIds.join(','));
     }
