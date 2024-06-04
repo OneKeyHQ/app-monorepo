@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -127,7 +128,9 @@ function WalletActions() {
 
   return (
     <RawActions>
-      <WalletActionBuy networkId={network?.id} accountId={account?.id} />
+      <ReviewControl>
+        <WalletActionBuy networkId={network?.id} accountId={account?.id} />
+      </ReviewControl>
       <WalletActionSwap networkId={network?.id} />
       <WalletActionSend />
       <WalletActionReceive

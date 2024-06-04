@@ -1,4 +1,4 @@
-import { type FC, useMemo } from 'react';
+import { type FC, useEffect, useMemo } from 'react';
 import { useCallback, useState } from 'react';
 
 import { groupBy } from 'lodash';
@@ -206,6 +206,10 @@ export const AddressBookListContent = ({
     [],
   );
 
+  useEffect(() => {
+    setFoldItems([]);
+  }, [searchKey]);
+
   const renderSectionHeader = useCallback(
     ({
       section,
@@ -216,12 +220,12 @@ export const AddressBookListContent = ({
         index: number;
         isFold?: boolean;
       };
-    }) => (
-      <SectionList.SectionHeader
-        title={section.title.toUpperCase()}
-        justifyContent="space-between"
-      >
-        {!searchKey ? (
+    }) =>
+      !searchKey ? (
+        <SectionList.SectionHeader
+          title={section.title.toUpperCase()}
+          justifyContent="space-between"
+        >
           <IconButton
             size="small"
             variant="tertiary"
@@ -235,9 +239,8 @@ export const AddressBookListContent = ({
             }
             onPress={() => onToggle(section.title)}
           />
-        ) : null}
-      </SectionList.SectionHeader>
-    ),
+        </SectionList.SectionHeader>
+      ) : null,
     [onToggle, searchKey],
   );
 
@@ -255,7 +258,6 @@ export const AddressBookListContent = ({
     let sections: ISectionItem[] = [];
     if (searchKey) {
       const fuse = buildFuse(items, { keys: ['address', 'name'] });
-      console.log(fuse.search(searchKey));
       const itemSearched = fuse.search(searchKey).map((o) => ({
         ...o.item,
         nameMatch: o.matches?.find((i) => i.key === 'name'),

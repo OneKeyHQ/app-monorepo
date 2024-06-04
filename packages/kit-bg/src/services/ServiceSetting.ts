@@ -1,4 +1,5 @@
 import { isFunction } from 'lodash';
+import semver from 'semver';
 
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
@@ -229,6 +230,38 @@ class ServiceSetting extends ServiceBase {
     const confirmedRiskTokens =
       await this.backgroundApi.simpleDb.riskyTokens.getConfirmedRiskTokens();
     return confirmedRiskTokens.includes(tokenId);
+  }
+
+  @backgroundMethod()
+  public async fetchReviewControl() {
+    const { reviewControl } = await settingsPersistAtom.get();
+    const isReviewControlEnv = platformEnv.isAppleStoreEnv || platformEnv.isMas;
+    if (!reviewControl && isReviewControlEnv) {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const key = platformEnv.isAppleStoreEnv
+        ? 'Intelligent_Diligent_Resourceful_Capable'
+        : 'Mindful_Driven_Responsible_Curious';
+      const response = await client.get<{
+        data: { value: string; key: string }[];
+      }>('/utility/v1/setting', {
+        params: {
+          key,
+        },
+      });
+      const data = response.data.data;
+      if (data.length !== 1 && data[0].key !== key) {
+        return;
+      }
+      const reviewControlValue = data[0].value;
+      if (reviewControlValue && platformEnv.version) {
+        if (semver.lte(platformEnv.version, reviewControlValue)) {
+          await settingsPersistAtom.set((prev) => ({
+            ...prev,
+            reviewControl: true,
+          }));
+        }
+      }
+    }
   }
 }
 
