@@ -220,12 +220,12 @@ export const AddressBookListContent = ({
         index: number;
         isFold?: boolean;
       };
-    }) => (
-      <SectionList.SectionHeader
-        title={section.title.toUpperCase()}
-        justifyContent="space-between"
-      >
-        {!searchKey ? (
+    }) =>
+      !searchKey ? (
+        <SectionList.SectionHeader
+          title={section.title.toUpperCase()}
+          justifyContent="space-between"
+        >
           <IconButton
             size="small"
             variant="tertiary"
@@ -239,9 +239,8 @@ export const AddressBookListContent = ({
             }
             onPress={() => onToggle(section.title)}
           />
-        ) : null}
-      </SectionList.SectionHeader>
-    ),
+        </SectionList.SectionHeader>
+      ) : null,
     [onToggle, searchKey],
   );
 
