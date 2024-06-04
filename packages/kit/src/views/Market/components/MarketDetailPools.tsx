@@ -180,7 +180,9 @@ function HeaderRow({
       >
         Liquidity
       </HeaderColumn>
-      <Stack h="$4" w={platformEnv.isNative ? '$4' : '$7'} />
+      <View flex={1}>
+        <View w="$4" h="$4" />
+      </View>
     </XStack>
   );
 }
@@ -349,8 +351,8 @@ export function MarketDetailPools({
                   {reserveInUsd}
                 </NumberSizeableText>
               </ItemColumn>
-              <View jc="center">
-                <Icon name="ChevronRightSmallOutline" size="$4" pl="$3" />
+              <View jc="center" ai="center" flex={1}>
+                <Icon name="ChevronRightSmallOutline" size="$4" />
               </View>
             </XStack>
           );
