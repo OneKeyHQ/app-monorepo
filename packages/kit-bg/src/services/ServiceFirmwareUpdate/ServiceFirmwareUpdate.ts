@@ -505,12 +505,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
 
     const fromVersion = bootloaderVersion;
-    const { hasUpgrade, hasUpgradeForce } = this.getFirmwareHasUpgradeStatus({
-      releasePayload: usedReleasePayload,
-      firmwareType: 'bootloader',
-      fromVersion,
-      toVersion,
-    });
+    const { hasUpgrade, hasUpgradeForce } =
+      await this.getFirmwareHasUpgradeStatus({
+        releasePayload: usedReleasePayload,
+        firmwareType: 'bootloader',
+        fromVersion,
+        toVersion,
+      });
 
     const updateInfo: IBootloaderUpdateInfo = {
       connectId,
@@ -525,13 +526,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return updateInfo;
   }
 
-  getFirmwareHasUpgradeStatus({
+  async getFirmwareHasUpgradeStatus({
     releasePayload,
     firmwareType,
     fromVersion,
     toVersion,
-    mockUpdateFirmware,
-    mockUpdateBle,
   }: {
     releasePayload:
       | IFirmwareReleasePayload
@@ -540,8 +539,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
     firmwareType: IDeviceFirmwareType;
     fromVersion: string;
     toVersion: string;
-    mockUpdateFirmware?: boolean;
-    mockUpdateBle?: boolean;
   }) {
     let hasUpgradeForce = false;
     let hasUpgrade = false;
@@ -601,6 +598,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade = false;
     }
 
+    const mockUpdateFirmware =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateFirmware',
+      );
+    const mockUpdateBle =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateBle',
+      );
     if (firmwareType === 'firmware' && mockUpdateFirmware) {
       hasUpgrade = true;
     }
@@ -654,13 +659,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'forceUpdateFirmware',
       );
-    const { hasUpgrade, hasUpgradeForce } = this.getFirmwareHasUpgradeStatus({
-      releasePayload: payload,
-      firmwareType: 'firmware',
-      fromVersion,
-      toVersion,
-      mockUpdateFirmware,
-    });
+    const { hasUpgrade, hasUpgradeForce } =
+      await this.getFirmwareHasUpgradeStatus({
+        releasePayload: payload,
+        firmwareType: 'firmware',
+        fromVersion,
+        toVersion,
+      });
 
     const updateInfo: IFirmwareUpdateInfo = {
       connectId,
@@ -698,17 +703,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
     const fromVersion = bleVersion || '';
     const toVersion = this.arrayVersionToString(payload?.release?.version);
-    const mockUpdateBle =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'forceUpdateBle',
-      );
-    const { hasUpgrade, hasUpgradeForce } = this.getFirmwareHasUpgradeStatus({
-      releasePayload: payload,
-      firmwareType: 'ble',
-      fromVersion,
-      toVersion,
-      mockUpdateBle,
-    });
+    const { hasUpgrade, hasUpgradeForce } =
+      await this.getFirmwareHasUpgradeStatus({
+        releasePayload: payload,
+        firmwareType: 'ble',
+        fromVersion,
+        toVersion,
+      });
 
     const updateInfo: IBleFirmwareUpdateInfo = {
       connectId,
