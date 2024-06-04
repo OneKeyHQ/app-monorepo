@@ -22,6 +22,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  View,
   XStack,
   YStack,
   useMedia,
@@ -245,29 +246,31 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
         </NumberSizeableText>
       ),
       'sparkline': (item) => (
-        <SparklineChart
-          data={item.sparkline}
-          width={144}
-          height={40}
-          lineColor={
-            item.priceChangePercentage24H &&
-            Number(item.priceChangePercentage24H) >= 0
-              ? '#33C641'
-              : '#FF6259'
-          }
-          linearGradientColor={
-            item.priceChangePercentage24H &&
-            Number(item.priceChangePercentage24H) >= 0
-              ? 'rgba(0, 184, 18, 0.2)'
-              : 'rgba(255, 98, 89, 0.2)'
-          }
-        />
+        <View>
+          <SparklineChart
+            data={item.sparkline}
+            width={100}
+            height={40}
+            lineColor={
+              item.priceChangePercentage24H &&
+              Number(item.priceChangePercentage24H) >= 0
+                ? '#33C641'
+                : '#FF6259'
+            }
+            linearGradientColor={
+              item.priceChangePercentage24H &&
+              Number(item.priceChangePercentage24H) >= 0
+                ? 'rgba(0, 184, 18, 0.2)'
+                : 'rgba(255, 98, 89, 0.2)'
+            }
+          />
+        </View>
       ),
       'actions': (item) => (
         <XStack>
-          <MarketStar coingeckoId={item.coingeckoId} mx="$3" />
+          <MarketStar coingeckoId={item.coingeckoId} width={44} mx={0} />
           {showMoreAction ? (
-            <MarketMore coingeckoId={item.coingeckoId} />
+            <MarketMore coingeckoId={item.coingeckoId} width={44} />
           ) : null}
         </XStack>
       ),
@@ -472,10 +475,12 @@ function TableRow({
       </Column>
       {gtLg ? (
         <Column
-          minWidth={160}
+          minWidth={100}
+          flexGrow={1}
+          flexBasis={0}
           name="sparkline"
           alignRight
-          pl="$4"
+          ml="$4"
           sortType={sortType?.columnName}
           order={sortType?.order}
           onPress={handleColumnPress}
@@ -488,7 +493,6 @@ function TableRow({
         name="action"
         width={showMoreAction ? 88 : 64}
         jc="center"
-        px="$3"
         onPress={handleColumnPress}
         cursor={cursor}
       >
