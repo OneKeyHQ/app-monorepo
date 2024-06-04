@@ -51,6 +51,7 @@ import type {
   CommonParams,
   CoreApi,
   CoreMessage,
+  DeviceUploadResourceParams,
   Features,
   IDeviceType,
   KnownDevice,
@@ -521,6 +522,14 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async firmwareAuthenticate(p: IFirmwareAuthenticateParams) {
     return this.hardwareVerifyManager.firmwareAuthenticate(p);
+  }
+
+  @backgroundMethod()
+  async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
+    const hardwareSDK = await this.getSDKInstance();
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceUploadResource(connectId, params),
+    );
   }
 }
 
