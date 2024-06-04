@@ -60,7 +60,7 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
   const { gtMd } = useMedia();
   return (
     <YStack px="$5">
-      <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ pl: '$5', h: 346 }}>
+      <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ h: 346 }}>
         <PriceChart
           isFetching={isLoading}
           data={points}
