@@ -516,17 +516,19 @@ export default class Vault extends VaultBase {
         networkId: this.networkId,
         body: [
           {
-            route: 'bf',
+            route: 'rpc',
             params: {
-              method: 'accounts',
-              params: [stakeAddress],
+              method: 'GET',
+              params: [],
+              url: `/accounts/${stakeAddress}`,
             },
           },
           {
-            route: 'bf',
+            route: 'rpc',
             params: {
-              method: 'accountsAddressesAssets',
-              params: [stakeAddress],
+              method: 'GET',
+              params: [],
+              url: `/accounts/${stakeAddress}/addresses/assets`,
             },
           },
         ],
@@ -577,10 +579,11 @@ export default class Vault extends VaultBase {
         networkId: this.networkId,
         body: [
           {
-            route: 'bf',
+            route: 'rpc',
             params: {
-              method: 'accountsAddresses',
-              params: [stakeAddress],
+              method: 'GET',
+              params: [],
+              url: `/accounts/${stakeAddress}/addresses`,
             },
           },
         ],

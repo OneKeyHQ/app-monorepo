@@ -1,6 +1,7 @@
 export interface IProxyRequestParam {
   method: string;
   params: any;
+  url?: string;
 }
 
 export interface IProxyRequestItem {
