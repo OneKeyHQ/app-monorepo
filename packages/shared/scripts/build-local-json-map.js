@@ -8,10 +8,7 @@ const jsonFiles = fs
   .readdirSync(localeJsonPath)
   .filter((file) => file.endsWith('.json'));
 
-const enUSJsonFile = jsonFiles.find((i) => i === 'en-US.json');
-
-const defaultLocaleJsonFile =
-  enUSJsonFile || jsonFiles.find((i) => i === 'en.json');
+const defaultLocaleJsonFile = jsonFiles.find((i) => i === 'en_US.json');
 
 fs.writeFileSync(
   path.join(__dirname, '../src/locale/localeJsonMap.ts'),
@@ -34,7 +31,7 @@ export { enUS };
 );
 
 // fix lint of type file.
-const typeFile = path.join(__dirname, '../src/locale/type/translations.ts');
+const typeFile = path.join(__dirname, '../src/locale/enum/translations.ts');
 
 const text = fs.readFileSync(typeFile, 'utf8');
 fs.writeFileSync(
