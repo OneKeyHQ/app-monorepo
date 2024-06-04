@@ -312,7 +312,7 @@ function TableRow({
     sparkline,
     actions,
   } = tableConfig;
-  const { gtLg } = useMedia();
+  const { gtXl } = useMedia();
   const handlePress = useCallback(() => {
     onPress?.(item);
   }, [item, onPress]);
@@ -468,7 +468,7 @@ function TableRow({
       >
         {isLoading ? <Skeleton w="$20" h="$3" /> : marketCap?.(item)}
       </Column>
-      {gtLg ? (
+      {gtXl ? (
         <Column
           minWidth={100}
           flexGrow={1}
