@@ -22,7 +22,7 @@ export function TextCell({
       </SizableText>
       <XStack space="$1">
         <NumberSizeableText
-          size="$bodySmMedium"
+          size="$bodyMdMedium"
           formatter="marketCap"
           formatterOptions={{ currency: '$' }}
         >
