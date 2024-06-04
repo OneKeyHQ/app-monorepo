@@ -90,7 +90,7 @@
     "expo": "50.0.5",
     "jotai": "^2.5.0",
     "lightweight-charts": "^3.8.0",
-    "long": "^4.0.0",
+    "long": "^5.2.1",
     "lru-cache": "^10.2.0",
     "memoizee": "^0.4.15",
     "mipd": "^0.0.7",
