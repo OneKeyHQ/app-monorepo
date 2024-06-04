@@ -66,9 +66,8 @@ export const imageToBase64 = async (image: string) => {
       },
     });
     const buffer = Buffer.from(response.data.data, 'binary').toString('base64');
-    return `data:${response.headers
-      .get('content-type')
-      .toString()};base64,${buffer}`;
+    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+    return `data:${response.headers['content-type']};base64,${buffer}`;
   } catch {
     // TODO fallback to download image by backend service
     return '';
@@ -218,7 +217,7 @@ export async function generateUploadNFTParams({
 
   if (!data?.arrayBuffer && !zoomData?.arrayBuffer) return;
 
-  const metaData = { ...metadata };
+  const metaData = { ...metadata } as INFTMetaData;
   let metadataBuf = Buffer.from(JSON.stringify(metaData));
   if (metadataBuf.length > 1024 * 2) {
     console.log(
