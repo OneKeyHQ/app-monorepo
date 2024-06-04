@@ -15,12 +15,14 @@ import {
   SizableText,
   Stack,
   ThemeableStack,
+  View,
   XStack,
 } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -117,38 +119,44 @@ export function GetStarted() {
   };
 
   const termsLink = useHelpLink({ path: 'articles/360002014776' });
-  const privacyLink = useHelpLink({ path: 'articles/360002003315 ' });
+  const privacyLink = useHelpLink({ path: 'articles/360002003315' });
 
   const isDappMode = platformEnv.isRuntimeBrowser && !platformEnv.isExtension;
 
+  const renderAnchor = useCallback(
+    (link: string, chunks: string[]) =>
+      platformEnv.isNative ? (
+        <View
+          onPress={() => {
+            openUrlExternal(link);
+          }}
+        >
+          <SizableText left={20.5} top={2.5} size="$bodySm">
+            {chunks[0]}
+          </SizableText>
+        </View>
+      ) : (
+        <Anchor
+          href={link}
+          size="$bodySm"
+          color="$text"
+          target="_blank"
+          textDecorationLine="none"
+        >
+          {chunks}
+        </Anchor>
+      ),
+    [],
+  );
+
   const renderTermsTag: FormatXMLElementFn<string, any> = useCallback(
-    (chunks: string[]) => (
-      <Anchor
-        href={termsLink}
-        size="$bodySm"
-        color="$text"
-        target="_blank"
-        textDecorationLine="none"
-      >
-        {chunks}
-      </Anchor>
-    ),
-    [termsLink],
+    (chunks: string[]) => renderAnchor(termsLink, chunks),
+    [renderAnchor, termsLink],
   );
 
   const renderPrivacyTag: FormatXMLElementFn<string, any> = useCallback(
-    (chunks: string[]) => (
-      <Anchor
-        href={privacyLink}
-        size="$bodySm"
-        color="$text"
-        target="_blank"
-        textDecorationLine="none"
-      >
-        {chunks}
-      </Anchor>
-    ),
-    [privacyLink],
+    (chunks: string[]) => renderAnchor(privacyLink, chunks),
+    [privacyLink, renderAnchor],
   );
 
   return (
