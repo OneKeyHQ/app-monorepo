@@ -131,7 +131,11 @@ export function GetStarted() {
             openUrlExternal(link);
           }}
         >
-          <SizableText left={20.5} top={2.5} size="$bodySm">
+          <SizableText
+            left={platformEnv.isNativeIOS ? 20.5 : undefined}
+            top={platformEnv.isNativeIOS ? 2.5 : 3.5}
+            size="$bodySm"
+          >
             {chunks[0]}
           </SizableText>
         </View>
