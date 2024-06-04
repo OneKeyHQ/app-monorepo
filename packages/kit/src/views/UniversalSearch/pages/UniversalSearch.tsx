@@ -108,34 +108,38 @@ export function UniversalSearch({
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     const input = val?.trim?.() || '';
-    const result =
-      await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-        input,
-        networkId: activeAccount?.network?.id,
-        searchTypes: [searchType || EUniversalSearchType.Address],
-      });
-    const searchResultSections: {
-      title: string;
-      data: IUniversalSearchResultItem[];
-    }[] = [];
-    if (result?.[EUniversalSearchType.Address]?.items) {
-      searchResultSections.push({
-        title: 'Wallet',
-        data: result?.[EUniversalSearchType.Address]
-          ?.items as IUniversalSearchResultItem[],
-      });
-    }
+    if (input) {
+      const result =
+        await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+          input,
+          networkId: activeAccount?.network?.id,
+          searchTypes: [searchType || EUniversalSearchType.Address],
+        });
+      const searchResultSections: {
+        title: string;
+        data: IUniversalSearchResultItem[];
+      }[] = [];
+      if (result?.[EUniversalSearchType.Address]?.items) {
+        searchResultSections.push({
+          title: 'Wallet',
+          data: result?.[EUniversalSearchType.Address]
+            ?.items as IUniversalSearchResultItem[],
+        });
+      }
 
-    if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      searchResultSections.push({
-        title: 'Market Token',
-        data: result?.[EUniversalSearchType.MarketToken]
-          ?.items as IUniversalSearchResultItem[],
-      });
-    }
+      if (result?.[EUniversalSearchType.MarketToken]?.items) {
+        searchResultSections.push({
+          title: 'Market Token',
+          data: result?.[EUniversalSearchType.MarketToken]
+            ?.items as IUniversalSearchResultItem[],
+        });
+      }
 
-    setSections(searchResultSections);
-    setSearchStatus(ESearchStatus.done);
+      setSections(searchResultSections);
+      setSearchStatus(ESearchStatus.done);
+    } else {
+      setSearchStatus(ESearchStatus.init);
+    }
   }, 1200);
 
   const handleChangeText = useCallback(() => {
