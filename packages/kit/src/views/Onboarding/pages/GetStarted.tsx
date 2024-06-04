@@ -125,6 +125,8 @@ export function GetStarted() {
 
   const renderAnchor = useCallback(
     (link: string, chunks: string[]) =>
+      // Due to bugs such as the onPress event of the Text component,
+      //  only the last of multiple Anchors will take effect.
       platformEnv.isNative ? (
         <View
           onPress={() => {
