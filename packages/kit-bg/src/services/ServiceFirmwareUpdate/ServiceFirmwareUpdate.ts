@@ -655,10 +655,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     const fromVersion = firmwareVersion || '';
     const toVersion = this.arrayVersionToString(payload?.release?.version);
-    const mockUpdateFirmware =
-      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
-        'forceUpdateFirmware',
-      );
     const { hasUpgrade, hasUpgradeForce } =
       await this.getFirmwareHasUpgradeStatus({
         releasePayload: payload,
