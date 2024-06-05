@@ -1,16 +1,22 @@
+import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type { IButtonProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  ISizableTextProps,
+  IStackProps,
+} from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   SizableText,
   Spinner,
   Stack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -87,6 +93,244 @@ function useFirmwareVerifyBase({
   return { result, reset, errorState, verify };
 }
 
+export function FirmwareAuthenticationDialogContentLegacy({
+  onContinue,
+  device,
+  skipDeviceCancel,
+}: {
+  onContinue: (params: { checked: boolean }) => void;
+  device: SearchDevice;
+  skipDeviceCancel?: boolean;
+}) {
+  const { result, reset, verify } = useFirmwareVerifyBase({
+    device,
+    skipDeviceCancel,
+  });
+  const requestsUrl = useHelpLink({ path: 'requests/new' });
+
+  return (
+    <Stack>
+      <HeightTransition initialHeight={106}>
+        <Stack
+          borderRadius="$3"
+          p="$5"
+          bg="$bgSubdued"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$transparent"
+          {...(result === 'official' && {
+            bg: '$bgSuccessSubdued',
+            borderColor: '$borderSuccessSubdued',
+          })}
+          {...(result === 'unofficial' && {
+            bg: '$bgCriticalSubdued',
+            borderColor: '$borderCriticalSubdued',
+          })}
+          {...(result === 'error' && {
+            bg: '$bgCautionSubdued',
+            borderColor: '$borderCautionSubdued',
+          })}
+          borderCurve="continuous"
+        >
+          <Stack>
+            <Stack justifyContent="center" alignItems="center">
+              {result === 'unknown' ? (
+                <Spinner size="large" />
+              ) : (
+                <Icon
+                  name="BadgeVerifiedSolid"
+                  size="$9"
+                  color="$iconSuccess"
+                  {...(result === 'unofficial' && {
+                    name: 'ErrorSolid',
+                    color: '$iconCritical',
+                  })}
+                  {...(result === 'error' && {
+                    name: 'ErrorSolid',
+                    color: '$iconCaution',
+                  })}
+                />
+              )}
+            </Stack>
+
+            <SizableText
+              textAlign="center"
+              mt="$5"
+              {...(result === 'official' && {
+                color: '$textSuccess',
+              })}
+              {...(result === 'unofficial' && {
+                color: '$textCritical',
+              })}
+              {...(result === 'error' && {
+                color: '$textCaution',
+              })}
+            >
+              {result === 'unknown' ? 'Verifying official firmware' : null}
+              {result === 'official'
+                ? 'Your device is running official firmware'
+                : null}
+              {result === 'unofficial' ? 'Unofficial firmware detected!' : null}
+              {result === 'error'
+                ? 'Unable to verify firmware: internet connection required'
+                : null}
+            </SizableText>
+          </Stack>
+        </Stack>
+        {result !== 'unknown' ? (
+          <Stack pt="$5">
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              {...(result === 'official' && {
+                onPress: () => onContinue({ checked: true }),
+              })}
+              {...(result === 'unofficial' && {
+                onPress: async () => {
+                  // Contact OneKey Support
+                  await Linking.openURL(requestsUrl);
+                },
+              })}
+              {...(result === 'error' && {
+                onPress: async () => {
+                  reset();
+                  // Retry
+                  await verify();
+                },
+              })}
+            >
+              {result === 'official' ? 'Continue' : null}
+              {result === 'unofficial' ? 'Contact OneKey Support' : null}
+              {result === 'error' ? 'Retry' : null}
+            </Button>
+          </Stack>
+        ) : null}
+        {result === 'error' ? (
+          <Stack pt="$3">
+            <Button
+              variant="tertiary"
+              m="$0"
+              onPress={() => onContinue({ checked: false })}
+            >
+              Continue Anyway(Legacy)
+            </Button>
+          </Stack>
+        ) : null}
+      </HeightTransition>
+    </Stack>
+  );
+}
+
+function BasicDialogContentContainer({ children, ...props }: IStackProps) {
+  return (
+    <Stack
+      p="$5"
+      space="$5"
+      borderRadius="$3"
+      borderCurve="continuous"
+      borderWidth={StyleSheet.hairlineWidth}
+      {...props}
+    >
+      {children}
+    </Stack>
+  );
+}
+
+export function BasicFirmwareAuthenticationDialogContent({
+  showLoading,
+  showActions,
+  actionsProps,
+  showContinue,
+  continueProps,
+  showRiskyWarning,
+  textContent,
+  textContentContainerProps,
+  riskyWarningProps,
+}: {
+  textContentContainerProps?: IStackProps;
+  textContent?: string;
+  showLoading: boolean;
+  showActions: boolean;
+  actionsProps: IButtonProps;
+  showContinue: boolean;
+  continueProps?: IButtonProps;
+  showRiskyWarning: boolean;
+  riskyWarningProps: {
+    buttonProps: IButtonProps;
+    message: string;
+  };
+}) {
+  const content = useMemo(() => {
+    if (showLoading) {
+      return <Spinner />;
+    }
+    return (
+      <>
+        {textContent ? (
+          <BasicDialogContentContainer {...textContentContainerProps}>
+            <SizableText textAlign="center">{textContent}</SizableText>
+          </BasicDialogContentContainer>
+        ) : null}
+
+        {showActions ? (
+          <Button
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
+            variant="primary"
+            {...actionsProps}
+          />
+        ) : null}
+
+        {showContinue ? (
+          <Button
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
+            {...continueProps}
+          />
+        ) : null}
+        {showRiskyWarning ? (
+          <YStack p="$5" space="$5" bg="$bgCautionSubdued">
+            <SizableText size="$bodyLgMedium" color="$textCaution">
+              {riskyWarningProps.message}
+            </SizableText>
+            <Button
+              bg="transparent"
+              borderColor="$bgStrong"
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              {...riskyWarningProps.buttonProps}
+            />
+          </YStack>
+        ) : null}
+      </>
+    );
+  }, [
+    actionsProps,
+    continueProps,
+    riskyWarningProps.buttonProps,
+    riskyWarningProps.message,
+    showActions,
+    showContinue,
+    showLoading,
+    showRiskyWarning,
+    textContent,
+    textContentContainerProps,
+  ]);
+  return <YStack space="$5">{content} </YStack>;
+}
+
 export function FirmwareAuthenticationDialogContent({
   onContinue,
   device,
@@ -106,6 +350,18 @@ export function FirmwareAuthenticationDialogContent({
   });
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
+
+  const textContent = useMemo(() => {
+    if (result === 'official') {
+      return 'Your device is running official firmware';
+    }
+
+    if (result === 'unofficial') {
+      return 'Unofficial firmware detected!';
+    }
+
+    return '';
+  }, [result]);
 
   const content = useMemo(() => {
     if (result === 'unknown') {
@@ -163,108 +419,56 @@ export function FirmwareAuthenticationDialogContent({
         },
       },
     };
-    let confirmButton: JSX.Element | null = (
-      <Button
-        $md={
-          {
-            size: 'large',
-          } as IButtonProps
-        }
-        variant="primary"
-        onPress={propsMap[result].onPress}
-      >
-        {propsMap[result].button}
-      </Button>
+
+    const showContinue = !(
+      result === 'error' && errorState === 'UnexpectedBootloaderMode'
     );
-    if (result === 'official' && noContinue) {
-      confirmButton = null;
-    }
+    const continueProps = showContinue
+      ? ({
+          key: 'continue-anyway',
+          variant: 'tertiary',
+          children: 'Continue Anyway',
+          onPress: () => onContinue({ checked: false }),
+        } as IButtonProps)
+      : undefined;
 
-    const stackPropsShared: IStackProps = {
-      p: '$5',
-      space: '$5',
-      borderRadius: '$3',
-      borderCurve: 'continuous',
-      borderWidth: StyleSheet.hairlineWidth,
-      ...propsMap[result].textStackProps,
-    };
-    const officialText =
-      result === 'official' ? (
-        <Stack {...stackPropsShared}>
-          <SizableText textAlign="center">
-            Your device is running official firmware
-          </SizableText>
-        </Stack>
-      ) : null;
-
-    const unofficialText =
-      result === 'unofficial' ? (
-        <Stack {...stackPropsShared}>
-          <SizableText textAlign="center">
-            Unofficial firmware detected!
-          </SizableText>
-        </Stack>
-      ) : null;
-
-    let errorContinueButton: JSX.Element | null = isShowingRiskWarning ? (
-      <Button
-        $md={
-          {
-            size: 'large',
-          } as IButtonProps
-        }
-        onPress={() =>
+    const riskyWarningProps = {
+      message:
+        result === 'error' && errorState === 'UnexpectedBootloaderMode'
+          ? 'Device is in unexpected bootloader mode.'
+          : `We're currently unable to verify your device. Continuing may pose
+  security risks.`,
+      buttonProps: {
+        onPress: () =>
           noContinue
             ? onContinue({ checked: false })
-            : setIsShowingRiskWarning(false)
-        }
-      >
-        I Understand
-      </Button>
-    ) : (
-      <Button
-        key="continue-anyway"
-        $md={
-          {
-            size: 'large',
-          } as IButtonProps
-        }
-        variant="destructive"
-        //   variant="tertiary"
-        //   mx="$0"
-        onPress={() => onContinue({ checked: false })}
-      >
-        Continue Anyway
-      </Button>
-    );
-    let errorMessage = `We're currently unable to verify your device. Continuing may pose
-    security risks.`;
-    if (result === 'error' && errorState === 'UnexpectedBootloaderMode') {
-      errorContinueButton = null;
-      errorMessage = 'Device is in unexpected bootloader mode.';
-    }
-    const riskText =
-      result === 'error' ? (
-        <Stack {...stackPropsShared}>
-          <SizableText>{errorMessage}</SizableText>
-
-          {errorContinueButton}
-        </Stack>
-      ) : null;
+            : setIsShowingRiskWarning(false),
+        children: 'I Understand',
+      },
+    };
 
     return (
-      <Stack space="$4">
-        {officialText}
-        {unofficialText}
-        {confirmButton}
-        {riskText}
-      </Stack>
+      <BasicFirmwareAuthenticationDialogContent
+        showLoading={false}
+        textContentContainerProps={propsMap[result].textStackProps}
+        textContent={textContent}
+        showActions={!(result === 'official' && noContinue)}
+        actionsProps={{
+          onPress: propsMap[result].onPress,
+          children: propsMap[result].button,
+        }}
+        showContinue={showContinue}
+        continueProps={continueProps}
+        showRiskyWarning={isShowingRiskWarning}
+        riskyWarningProps={riskyWarningProps}
+      />
     );
   }, [
     result,
+    errorState,
+    textContent,
     noContinue,
     isShowingRiskWarning,
-    errorState,
     onContinue,
     requestsUrl,
     reset,

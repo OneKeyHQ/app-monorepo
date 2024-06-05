@@ -1,4 +1,14 @@
-import { Button, SizableText, Stack } from '@onekeyhq/components';
+import { useState } from 'react';
+
+import {
+  Button,
+  Dialog,
+  Form,
+  SizableText,
+  Stack,
+  Switch,
+  useForm,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -15,6 +25,7 @@ import { FirmwareUpdateProgressBarView } from '@onekeyhq/kit/src/views/FirmwareU
 import { FirmwareUpdateWarningMessage } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareUpdateWarningMessage';
 import { FirmwareUpdateReminderAlert } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { BasicFirmwareAuthenticationDialogContent } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import {
@@ -136,6 +147,80 @@ function FirmwareUpdateErrorDemo({
       {content}
       {detail}
     </>
+  );
+}
+
+function StaticUIDialog() {
+  const form = useForm({
+    defaultValues: {
+      showLoading: false,
+      showActions: false,
+      showContinue: false,
+      showRiskyWarning: false,
+      errorMessage: '111',
+      showErrorContinueButton: false,
+      onErrorContinueButtonPress: () => {
+        alert('onErrorContinueButtonPress');
+      },
+    },
+  });
+  return (
+    <Form form={form}>
+      <Form.Field name="showLoading" label="showLoading">
+        <Switch />
+      </Form.Field>
+      <Form.Field name="showActions" label="showActions">
+        <Switch />
+      </Form.Field>
+
+      <Form.Field name="showContinue" label="showContinue">
+        <Switch />
+      </Form.Field>
+
+      <Form.Field name="showRiskyWarning" label="showRiskyWarning">
+        <Switch />
+      </Form.Field>
+
+      <Button
+        onPress={() => {
+          Dialog.show({
+            tone: 'success',
+            icon: 'DocumentSearch2Outline',
+            title: 'Device Authentication',
+            description:
+              'Confirm on your device to verify its authenticity and secure your connection.',
+            showFooter: false,
+            renderContent: (
+              <BasicFirmwareAuthenticationDialogContent
+                actionsProps={{
+                  onPress: () => {
+                    alert('actionsProps');
+                  },
+                  children: 'Retry',
+                }}
+                continueProps={{
+                  key: 'continue-anyway',
+                  variant: 'tertiary',
+                  children: 'Continue Anyway',
+                  onPress: () => alert('Continue Anyway'),
+                }}
+                {...form.getValues()}
+                riskyWarningProps={{
+                  message: `We're currently unable to verify your device. Continuing may pose
+              security risks.`,
+                  buttonProps: {
+                    onPress: () => alert('riskyWarningProps'),
+                    children: 'I Understand',
+                  },
+                }}
+              />
+            ),
+          });
+        }}
+      >
+        FirmwareVerify UI Dialog
+      </Button>
+    </Form>
   );
 }
 
@@ -305,6 +390,11 @@ function FirmwareUpdateGalleryStaticUI() {
           tipMessage={EFirmwareUpdateTipMessages.AutoRebootToBootloader}
           retryInfo={undefined}
         />
+      </Stack>
+
+      <Stack my="$8">
+        <SizableText size="$heading2xl">* StaticUIDialog</SizableText>
+        <StaticUIDialog />
       </Stack>
     </Stack>
   );
