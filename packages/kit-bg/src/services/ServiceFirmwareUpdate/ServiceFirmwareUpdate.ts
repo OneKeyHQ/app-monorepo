@@ -374,6 +374,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ble?.hasUpgrade ? 'ble' : undefined,
     ];
 
+    if (!hasUpgrade && originalConnectId) {
+      await this.detectMap.deleteUpdateInfo({
+        connectId: originalConnectId,
+      });
+    }
+
     return {
       updatingConnectId,
       originalConnectId,

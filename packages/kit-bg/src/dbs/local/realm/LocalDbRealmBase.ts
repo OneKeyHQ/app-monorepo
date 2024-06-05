@@ -4,8 +4,6 @@ import Realm from 'realm';
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
-  REALM_DB_NAME,
-  REALM_DB_VERSION,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
@@ -16,6 +14,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
+import { REALM_DB_NAME, REALM_DB_VERSION } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 
