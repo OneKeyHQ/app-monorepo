@@ -632,7 +632,7 @@ function MdPlaceholder() {
 
 type IKeyOfMarketToken = keyof IMarketToken;
 const TouchableContainer = platformEnv.isNative
-  ? Stack
+  ? React.Fragment
   : TouchableWithoutFeedback;
 
 export function MarketHomeList({
@@ -783,6 +783,10 @@ export function MarketHomeList({
           justifyContent="space-between"
           userSelect="none"
           {...listItemPressStyle}
+          onPress={platformEnv.isNative ? () => toDetailPage(item) : undefined}
+          onLongPress={
+            platformEnv.isNative ? () => handleMdItemAction(item) : undefined
+          }
         >
           <XStack space="$3" ai="center">
             <Image
