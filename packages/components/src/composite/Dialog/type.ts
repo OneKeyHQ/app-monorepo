@@ -1,8 +1,10 @@
 import type {
+  Dispatch,
   MutableRefObject,
   PropsWithChildren,
   ReactElement,
   ReactNode,
+  SetStateAction,
 } from 'react';
 
 import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
@@ -43,6 +45,19 @@ export interface IDialogFooterProps extends PropsWithChildren {
   cancelButtonProps?: IDialogButtonProps;
   onConfirm?: IOnDialogConfirm;
   onCancel?: () => void;
+}
+
+export interface IDialogTitleContextTitleProps {
+  icon?: IKeyOfIcons;
+  title?: string;
+  description?: string;
+  showExitButton?: boolean;
+  tone?: 'default' | 'destructive' | 'warning' | 'success';
+}
+
+export interface IDialogTitleContextType {
+  titleProps: IDialogTitleContextTitleProps;
+  setTitleProps: Dispatch<SetStateAction<IDialogTitleContextTitleProps>>;
 }
 
 interface IBasicDialogProps extends TMDialogProps {

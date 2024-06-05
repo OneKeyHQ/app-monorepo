@@ -16,18 +16,18 @@ import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IconButton } from '../../actions/IconButton';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useBackHandler, useKeyboardHeight } from '../../hooks';
-import { Icon, SizableText, Stack } from '../../primitives';
+import { Stack } from '../../primitives';
 
 import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
 import { renderToContainer } from './renderToContainer';
+import { DialogTitle, DialogTitleContext, SetDialogTitle } from './Title';
 
 import type {
   IDialogCancelProps,
@@ -36,6 +36,7 @@ import type {
   IDialogInstance,
   IDialogProps,
   IDialogShowProps,
+  IDialogTitleContextTitleProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
@@ -118,88 +119,11 @@ function DialogFrame({
     }
   }, [footerRef.props?.onCancel, onCancel, onClose]);
 
-  const getColors = (): {
-    iconWrapperBg: ColorTokens;
-    iconColor: ColorTokens;
-  } => {
-    switch (tone) {
-      case 'destructive': {
-        return {
-          iconWrapperBg: '$bgCritical',
-          iconColor: '$iconCritical',
-        };
-      }
-      case 'warning': {
-        return {
-          iconWrapperBg: '$bgCaution',
-          iconColor: '$iconCaution',
-        };
-      }
-      case 'success': {
-        return {
-          iconWrapperBg: '$bgSuccess',
-          iconColor: '$iconSuccess',
-        };
-      }
-      default: {
-        return {
-          iconWrapperBg: '$bgStrong',
-          iconColor: '$icon',
-        };
-      }
-    }
-  };
-
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
-      {/* leading icon */}
-      {icon ? (
-        <Stack
-          alignSelf="flex-start"
-          p="$3"
-          ml="$5"
-          mt="$5"
-          borderRadius="$full"
-          bg={getColors().iconWrapperBg}
-        >
-          <Icon name={icon} size="$8" color={getColors().iconColor} />
-        </Stack>
-      ) : null}
-
-      {/* title and description */}
-      {title || description ? (
-        <Stack p="$5" pr="$16">
-          {title ? (
-            <SizableText size="$headingXl" py="$px">
-              {title}
-            </SizableText>
-          ) : null}
-          {description ? (
-            <SizableText size="$bodyLg" pt="$1.5">
-              {description}
-            </SizableText>
-          ) : null}
-        </Stack>
-      ) : null}
-
-      {/* close button */}
-      {showExitButton ? (
-        <IconButton
-          position="absolute"
-          zIndex={1}
-          right="$5"
-          top="$5"
-          icon="CrossedSmallOutline"
-          iconProps={{
-            color: '$iconSubdued',
-          }}
-          size="small"
-          onPress={handleCancelButtonPress}
-        />
-      ) : null}
-
+      <DialogTitle onClose={handleCancelButtonPress} />
       {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
@@ -336,7 +260,17 @@ function DialogFrame({
 }
 
 function BaseDialogContainer(
-  { onOpen, onClose, renderContent, ...props }: IDialogContainerProps,
+  {
+    onOpen,
+    onClose,
+    renderContent,
+    title,
+    tone,
+    description,
+    icon,
+    showExitButton,
+    ...props
+  }: IDialogContainerProps,
   ref: ForwardedRef<IDialogInstance>,
 ) {
   const [isOpen, changeIsOpen] = useState(true);
@@ -384,16 +318,29 @@ function BaseDialogContainer(
     }),
     [handleImperativeClose],
   );
+  const [titleProps, setTitleProps] = useState<IDialogTitleContextTitleProps>({
+    title,
+    tone,
+    description,
+    icon,
+    showExitButton,
+  });
+  const titleContextValue = useMemo(
+    () => ({ titleProps, setTitleProps }),
+    [titleProps],
+  );
   return (
     <DialogContext.Provider value={contextValue}>
-      <DialogFrame
-        contextValue={contextValue}
-        open={isOpen}
-        onOpen={handleOpen}
-        renderContent={renderContent}
-        onClose={handleContainerClose}
-        {...props}
-      />
+      <DialogTitleContext.Provider value={titleContextValue}>
+        <DialogFrame
+          contextValue={contextValue}
+          open={isOpen}
+          onOpen={handleOpen}
+          renderContent={renderContent}
+          onClose={handleContainerClose}
+          {...props}
+        />
+      </DialogTitleContext.Provider>
     </DialogContext.Provider>
   );
 }
@@ -538,9 +485,10 @@ const dialogCancel = (props: IDialogCancelProps) =>
   });
 
 export const Dialog = {
+  Title: SetDialogTitle,
+  Footer: FooterAction,
   Form: DialogForm,
   FormField: Form.Field,
-  Footer: FooterAction,
   show: dialogShow,
   confirm: dialogConfirm,
   cancel: dialogCancel,

@@ -14,6 +14,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import type { IDialogTitleContextTitleProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -257,6 +258,7 @@ function BasicDialogContentContainer({ children, ...props }: IStackProps) {
 }
 
 export interface IBasicFirmwareAuthenticationDialogContent {
+  titleProps?: IDialogTitleContextTitleProps;
   textContentContainerProps?: IStackProps;
   textContent?: string;
   showLoading?: boolean;
@@ -271,6 +273,7 @@ export interface IBasicFirmwareAuthenticationDialogContent {
   };
 }
 export function BasicFirmwareAuthenticationDialogContent({
+  titleProps,
   showLoading,
   showActions,
   actionsProps,
@@ -283,10 +286,16 @@ export function BasicFirmwareAuthenticationDialogContent({
 }: IBasicFirmwareAuthenticationDialogContent) {
   const content = useMemo(() => {
     if (showLoading) {
-      return <Spinner />;
+      return (
+        <>
+          <Dialog.Title {...titleProps} />
+          <Spinner />
+        </>
+      );
     }
     return (
       <>
+        <Dialog.Title {...titleProps} />
         {textContent ? (
           <BasicDialogContentContainer {...textContentContainerProps}>
             <SizableText textAlign="center">{textContent}</SizableText>
@@ -345,6 +354,7 @@ export function BasicFirmwareAuthenticationDialogContent({
     showRiskyWarning,
     textContent,
     textContentContainerProps,
+    titleProps,
   ]);
   return <YStack space="$5">{content} </YStack>;
 }
@@ -363,15 +373,25 @@ export function EnumBasicDialogContentContainer({
     switch (contentType) {
       case EFirmwareAuthenticationDialogContentType.default:
         return {
+          titleProps: {
+            title: 'default',
+            description: 'default description',
+          },
           textContent,
           textContentContainerProps,
         };
       case EFirmwareAuthenticationDialogContentType.verifying:
         return {
+          titleProps: {
+            title: 'verifying',
+          },
           showLoading: true,
         };
       case EFirmwareAuthenticationDialogContentType.verification_successful:
         return {
+          titleProps: {
+            title: 'verification_successful',
+          },
           textContent,
           textContentContainerProps,
           showActions: true,
@@ -379,6 +399,9 @@ export function EnumBasicDialogContentContainer({
         };
       case EFirmwareAuthenticationDialogContentType.network_error:
         return {
+          titleProps: {
+            title: 'network_error',
+          },
           textContent,
           textContentContainerProps,
           showActions: true,
@@ -388,6 +411,9 @@ export function EnumBasicDialogContentContainer({
         };
       case EFirmwareAuthenticationDialogContentType.unofficial_device_detected:
         return {
+          titleProps: {
+            title: 'unofficial_device_detected',
+          },
           textContent,
           textContentContainerProps,
           showActions: true,
@@ -395,6 +421,9 @@ export function EnumBasicDialogContentContainer({
         };
       case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
         return {
+          titleProps: {
+            title: 'verification_temporarily_unavailable',
+          },
           textContent,
           textContentContainerProps,
           showActions: true,
@@ -404,6 +433,9 @@ export function EnumBasicDialogContentContainer({
         };
       case EFirmwareAuthenticationDialogContentType.show_risky_warning:
         return {
+          titleProps: {
+            title: 'show_risky_warning',
+          },
           textContent,
           textContentContainerProps,
           showActions: true,
