@@ -6,10 +6,9 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import { EOnekeyDomain } from '../../types';
-
 import { importHardwareSDK, importHardwareSDKLowLevel } from './sdk-loader';
 
+import type { EOnekeyDomain } from '../../types';
 import type {
   ConnectSettings,
   CoreApi,
@@ -21,10 +20,7 @@ let HardwareSDK: CoreApi;
 let HardwareLowLevelSDK: LowLevelCoreApi;
 
 export const generateConnectSrc = (hardwareConnectSrc?: EOnekeyDomain) => {
-  let connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYSO}/${HARDWARE_SDK_VERSION}/`;
-  if (hardwareConnectSrc === EOnekeyDomain.ONEKEY_CN) {
-    connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYCN}/${HARDWARE_SDK_VERSION}/`;
-  }
+  const connectSrc = `${HARDWARE_SDK_IFRAME_SRC_ONEKEYSO}/${HARDWARE_SDK_VERSION}/`;
   return connectSrc;
 };
 

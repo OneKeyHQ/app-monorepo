@@ -3,6 +3,7 @@ import { type FC, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Empty,
   Page,
   SearchBar,
   SectionList,
@@ -144,6 +145,13 @@ export default function SettingCurrencyModal() {
           estimatedItemSize="$6"
           ListHeaderComponent={
             <ListHeaderComponent text={text} onChangeText={onChangeText} />
+          }
+          ListEmptyComponent={
+            <Empty
+              icon="SearchOutline"
+              title="No results"
+              description="Try to change the search keyword"
+            />
           }
           sections={sections ?? emptySections}
           renderItem={renderItem}
