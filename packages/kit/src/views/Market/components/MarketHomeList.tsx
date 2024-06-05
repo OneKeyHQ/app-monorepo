@@ -30,6 +30,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IMarketCategory,
@@ -630,6 +631,10 @@ function MdPlaceholder() {
 }
 
 type IKeyOfMarketToken = keyof IMarketToken;
+const TouchableContainer = platformEnv.isNative
+  ? Stack
+  : TouchableWithoutFeedback;
+
 export function MarketHomeList({
   category,
   showMoreAction = false,
@@ -647,6 +652,9 @@ export function MarketHomeList({
         true,
       ),
     [category.categoryId, category.coingeckoIds],
+    {
+      checkIsFocused: false,
+    },
   );
 
   const tableRowConfig = useBuildTableRowConfig(showMoreAction);
@@ -765,7 +773,7 @@ export function MarketHomeList({
 
   const renderMdItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
-      <TouchableWithoutFeedback
+      <TouchableContainer
         onPress={() => toDetailPage(item)}
         onLongPress={() => handleMdItemAction(item)}
       >
@@ -835,7 +843,7 @@ export function MarketHomeList({
             )}
           </XStack>
         </XStack>
-      </TouchableWithoutFeedback>
+      </TouchableContainer>
     ),
     [handleMdItemAction, mdColumnKeys, toDetailPage],
   );
