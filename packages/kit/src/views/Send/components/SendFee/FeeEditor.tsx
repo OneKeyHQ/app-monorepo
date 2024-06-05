@@ -154,13 +154,15 @@ function FeeEditor(props: IProps) {
   const [currentFeeIndex, setCurrentFeeIndex] = useState(
     getPresetIndex(sendSelectedFee, feeSelectorItems),
   );
-  const [customTouched, setCustomTouched] = useState(false);
+  const [customTouched, setCustomTouched] = useState(
+    sendSelectedFee.feeType === EFeeType.Custom,
+  );
   const [currentFeeType, setCurrentFeeType] = useState<EFeeType>(
     sendSelectedFee.feeType,
   );
   const customFee = (originalCustomFee ?? selectedFee?.feeInfo) as IFeeInfoUnit;
 
-  const { feeSymbol, nativeSymbol, nativeTokenPrice } = customFee.common;
+  const { feeSymbol, nativeSymbol, nativeTokenPrice } = customFee?.common ?? {};
 
   const vaultSettings = usePromiseResult(
     () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
@@ -169,17 +171,20 @@ function FeeEditor(props: IProps) {
 
   const form = useForm({
     defaultValues: {
-      gasLimit:
+      gasLimit: new BigNumber(
         customFee.gas?.gasLimit ?? customFee.gasEIP1559?.gasLimit ?? '0',
+      ).toFixed(),
       // gas legacy
-      gasPrice: customFee.gas?.gasPrice ?? '0',
+      gasPrice: new BigNumber(customFee.gas?.gasPrice ?? '0').toFixed(),
       // gas eip1559
-      priorityFee: customFee.gasEIP1559?.maxPriorityFeePerGas ?? '0',
+      priorityFee: new BigNumber(
+        customFee.gasEIP1559?.maxPriorityFeePerGas ?? '0',
+      ).toFixed(),
       maxBaseFee: new BigNumber(customFee.gasEIP1559?.maxFeePerGas ?? '0')
         .minus(customFee.gasEIP1559?.maxPriorityFeePerGas ?? '0')
         .toFixed(),
       // fee utxo
-      feeRate: customFee.feeUTXO?.feeRate ?? '0',
+      feeRate: new BigNumber(customFee.feeUTXO?.feeRate ?? '0').toFixed(),
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -365,7 +370,7 @@ function FeeEditor(props: IProps) {
 
   const renderFeeEditorForm = useCallback(() => {
     if (!vaultSettings?.editFeeEnabled) return null;
-    if (currentFeeType !== EFeeType.Custom) return null;
+    if (currentFeeType !== EFeeType.Custom || !customFee) return null;
 
     if (customFee.gasEIP1559) {
       const originalLimit = customFee.gasEIP1559.gasLimit;
@@ -428,7 +433,10 @@ function FeeEditor(props: IProps) {
                   {
                     iconName: 'UndoOutline',
                     onPress: () => {
-                      form.setValue('gasLimit', originalLimit);
+                      form.setValue(
+                        'gasLimit',
+                        new BigNumber(originalLimit).toFixed(),
+                      );
                       void form.trigger('gasLimit');
                     },
                   },
@@ -509,9 +517,7 @@ function FeeEditor(props: IProps) {
     }
   }, [
     currentFeeType,
-    customFee.feeUTXO,
-    customFee.gas,
-    customFee.gasEIP1559,
+    customFee,
     feeSymbol,
     form,
     gasLimitDescription,

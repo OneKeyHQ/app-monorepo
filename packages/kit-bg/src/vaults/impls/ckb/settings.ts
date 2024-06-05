@@ -37,7 +37,7 @@ const settings: IVaultSettings = {
   editFeeEnabled: false,
   replaceTxEnabled: false,
 
-  minTransferAmount: '0.00000546',
+  minTransferAmount: '61',
 
   accountDeriveInfo,
   networkInfo: {

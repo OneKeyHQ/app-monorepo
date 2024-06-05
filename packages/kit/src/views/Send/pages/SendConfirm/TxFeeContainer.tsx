@@ -11,6 +11,7 @@ import {
   Skeleton,
   YStack,
 } from '@onekeyhq/components';
+import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -41,13 +42,15 @@ import { FeeEditor, FeeSelectorTrigger } from '../../components/SendFee';
 type IProps = {
   accountId: string;
   networkId: string;
+  useFeeInTx?: boolean;
   tableLayout?: boolean;
 };
 
 function TxFeeContainer(props: IProps) {
-  const { accountId, networkId } = props;
+  const { accountId, networkId, useFeeInTx } = props;
   const intl = useIntl();
   const txFeeInit = useRef(false);
+  const feeInTxUpdated = useRef(false);
   const [isEditFeeActive, setIsEditFeeActive] = useState(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
   const [customFee] = useCustomFeeAtom();
@@ -189,32 +192,82 @@ function TxFeeContainer(props: IProps) {
           common: txFee.common,
         };
 
-        if (customFee?.gas && txFee.gas) {
+        if (txFee.gas) {
           customFeeInfo.gas = {
-            ...customFee.gas,
-            gasLimit:
-              customFee.gas.gasLimit ??
-              txFee.gas[sendSelectedFee.presetIndex].gasLimit,
-            gasLimitForDisplay:
-              customFee.gas.gasLimitForDisplay ??
-              txFee.gas[sendSelectedFee.presetIndex].gasLimitForDisplay,
+            ...txFee.gas[sendSelectedFee.presetIndex],
+            ...(customFee?.gas ?? {}),
           };
         }
 
-        if (customFee?.gasEIP1559 && txFee.gasEIP1559) {
+        if (txFee.gasEIP1559) {
           customFeeInfo.gasEIP1559 = {
-            ...customFee.gasEIP1559,
-            gasLimit:
-              customFee.gasEIP1559.gasLimit ??
-              txFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimit,
-            gasLimitForDisplay:
-              customFee.gasEIP1559.gasLimitForDisplay ??
-              txFee.gasEIP1559[sendSelectedFee.presetIndex].gasLimitForDisplay,
+            ...txFee.gasEIP1559[sendSelectedFee.presetIndex],
+            ...(customFee?.gasEIP1559 ?? {}),
           };
         }
 
-        if (customFee?.feeUTXO && txFee.feeUTXO) {
-          customFeeInfo.feeUTXO = customFee.feeUTXO;
+        if (txFee.feeUTXO) {
+          customFeeInfo.feeUTXO = {
+            ...txFee.feeUTXO[sendSelectedFee.presetIndex],
+            ...(customFee?.feeUTXO ?? {}),
+          };
+        }
+
+        if (useFeeInTx) {
+          const {
+            gas,
+            gasLimit,
+            gasPrice,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+          } = unsignedTxs[0].encodedTx as IEncodedTxEvm;
+          const limit = gasLimit || gas;
+          if (
+            maxFeePerGas &&
+            maxPriorityFeePerGas &&
+            customFeeInfo.gasEIP1559
+          ) {
+            customFeeInfo.gasEIP1559 = {
+              ...customFeeInfo.gasEIP1559,
+              maxFeePerGas,
+              maxPriorityFeePerGas,
+              gasLimit: limit ?? customFeeInfo.gasEIP1559?.gasLimit,
+              gasLimitForDisplay:
+                limit ?? customFeeInfo.gasEIP1559?.gasLimitForDisplay,
+            };
+          } else if (gasPrice && customFeeInfo.gas) {
+            customFeeInfo.gas = {
+              ...customFeeInfo.gas,
+              gasPrice,
+              gasLimit: limit ?? customFeeInfo.gas?.gasLimit,
+              gasLimitForDisplay:
+                limit ?? customFeeInfo.gas?.gasLimitForDisplay,
+            };
+          } else if (limit) {
+            if (customFeeInfo.gasEIP1559) {
+              customFeeInfo.gasEIP1559 = {
+                ...customFeeInfo.gasEIP1559,
+                gasLimit: limit,
+                gasLimitForDisplay: limit,
+              };
+            }
+            if (customFeeInfo.gas) {
+              customFeeInfo.gas = {
+                ...customFeeInfo.gas,
+                gasLimit: limit,
+                gasLimitForDisplay: limit,
+              };
+            }
+          }
+
+          if (!feeInTxUpdated.current) {
+            updateSendSelectedFee({
+              feeType: EFeeType.Custom,
+              presetIndex: 0,
+            });
+          }
+
+          feeInTxUpdated.current = true;
         }
 
         items.push({
@@ -232,13 +285,16 @@ function TxFeeContainer(props: IProps) {
 
     return [];
   }, [
-    customFee?.feeUTXO,
+    txFee,
+    vaultSettings?.editFeeEnabled,
+    intl,
     customFee?.gas,
     customFee?.gasEIP1559,
-    txFee,
-    intl,
+    customFee?.feeUTXO,
+    useFeeInTx,
     sendSelectedFee.presetIndex,
-    vaultSettings?.editFeeEnabled,
+    unsignedTxs,
+    updateSendSelectedFee,
   ]);
 
   const { selectedFee } = useMemo(() => {

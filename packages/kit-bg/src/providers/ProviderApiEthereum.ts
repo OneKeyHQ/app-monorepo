@@ -238,11 +238,16 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
 
     const nonceBN = new BigNumber(transaction.nonce ?? 0);
+    const gasPriceBN = new BigNumber(transaction.gasPrice ?? 0);
 
     // https://app.chainspot.io/
     // some dapp may send tx with incorrect nonce 0
     if (nonceBN.isNaN() || nonceBN.isLessThanOrEqualTo(0)) {
       delete transaction.nonce;
+    }
+
+    if (gasPriceBN.isNaN() || gasPriceBN.isLessThanOrEqualTo(0)) {
+      delete transaction.gasPrice;
     }
 
     const result =

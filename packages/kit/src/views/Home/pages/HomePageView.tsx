@@ -141,7 +141,6 @@ export function HomePageView({
               icon="LinkSolid"
               title="Selected network supports only 「Classic」"
             />
-            ;
           </Stack>
         </YStack>
       );

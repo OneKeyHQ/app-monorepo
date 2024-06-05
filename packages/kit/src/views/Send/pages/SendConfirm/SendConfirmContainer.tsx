@@ -42,6 +42,7 @@ function SendConfirmContainer() {
     onCancel,
     sourceInfo,
     signOnly,
+    useFeeInTx,
   } = route.params;
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -117,6 +118,7 @@ function SendConfirmContainer() {
                   accountId={accountId}
                   networkId={networkId}
                   tableLayout={tableLayout}
+                  useFeeInTx={useFeeInTx}
                 />
                 <SendConfirmActionsContainer
                   sourceInfo={sourceInfo}
@@ -140,7 +142,11 @@ function SendConfirmContainer() {
         <Page.Body px="$5" space="$4">
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer accountId={accountId} networkId={networkId} />
-          <TxFeeContainer accountId={accountId} networkId={networkId} />
+          <TxFeeContainer
+            accountId={accountId}
+            networkId={networkId}
+            useFeeInTx={useFeeInTx}
+          />
           <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer
@@ -155,14 +161,15 @@ function SendConfirmContainer() {
       </>
     );
   }, [
+    tableLayout,
+    sourceInfo,
     accountId,
     networkId,
-    onFail,
-    onSuccess,
-    onCancel,
+    useFeeInTx,
     signOnly,
-    sourceInfo,
-    tableLayout,
+    onSuccess,
+    onFail,
+    onCancel,
   ]);
 
   return (

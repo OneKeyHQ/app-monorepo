@@ -344,6 +344,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async prepareSendConfirmUnsignedTx(
     params: ISendTxBaseParams & IBuildUnsignedTxParams,
   ) {

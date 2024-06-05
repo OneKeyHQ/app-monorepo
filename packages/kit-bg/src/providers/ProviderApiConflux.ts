@@ -3,6 +3,7 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
 
+import { conflux } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import type { IEncodedTxCfx } from '@onekeyhq/core/src/chains/cfx/types';
 import type ICfxVault from '@onekeyhq/kit-bg/src/vaults/impls/cfx/Vault';
 import {
@@ -205,6 +206,12 @@ class ProviderApiConflux extends ProviderApiBase {
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
+    const gasPrice = new BigNumber(transaction.gasPrice ?? 0);
+
+    if (gasPrice.isLessThan(conflux.CONST.MIN_GAS_PRICE)) {
+      delete transaction.gasPrice;
+    }
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({

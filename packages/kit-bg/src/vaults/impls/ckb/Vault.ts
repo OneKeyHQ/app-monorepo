@@ -18,6 +18,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
   NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -258,7 +259,7 @@ export default class Vault extends VaultBase {
         )
           .shiftedBy(network.decimals)
           .toFixed();
-        throw new Error(
+        throw new OneKeyError(
           `The balance after the transaction must not be less than ${miniAmount}`,
         );
       }

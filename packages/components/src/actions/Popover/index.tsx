@@ -37,7 +37,8 @@ export interface IPopoverProps extends TMPopoverProps {
   closePopover?: () => void;
   renderContent:
     | ReactElement
-    | ComponentType<{ isOpen?: boolean; closePopover: () => void }>;
+    | ComponentType<{ isOpen?: boolean; closePopover: () => void }>
+    | null;
   floatingPanelProps?: PopoverContentTypeProps;
   sheetProps?: SheetProps;
 }

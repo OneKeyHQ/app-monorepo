@@ -23,6 +23,7 @@ function SendConfirmFromDApp() {
     signOnly = false,
     accountId,
     networkId,
+    useFeeInTx = true,
     _$t = undefined,
   } = useDappQuery<{
     encodedTx: IEncodedTx;
@@ -30,6 +31,7 @@ function SendConfirmFromDApp() {
     accountId: string;
     networkId: string;
     signOnly: boolean;
+    useFeeInTx: boolean;
     _$t: number | undefined;
   }>();
 
@@ -63,6 +65,7 @@ function SendConfirmFromDApp() {
           unsignedTxs: [unsignedTx],
           sourceInfo: $sourceInfo,
           signOnly,
+          useFeeInTx,
           // @ts-ignore
           _disabledAnimationOfNavigate: true,
           _$t,
@@ -94,6 +97,7 @@ function SendConfirmFromDApp() {
     $sourceInfo,
     _$t,
     transfersInfo,
+    useFeeInTx,
   ]);
 
   return (
