@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */
-
 import {
   backgroundClass,
   backgroundMethod,
@@ -7,14 +5,21 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import v4dbHubs from '../../migrations/v4ToV5Migration/v4dbHubs';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EV4LocalDBStoreNames } from '../../migrations/v4ToV5Migration/v4local/v4localDBStoreNames';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4MigrationForAccount';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
 import ServiceBase from '../ServiceBase';
 
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { IV4MigrationPayload } from '../../migrations/v4ToV5Migration/types';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
 
 @backgroundClass()
