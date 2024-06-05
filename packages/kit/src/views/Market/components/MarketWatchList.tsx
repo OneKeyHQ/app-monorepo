@@ -114,7 +114,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   const renderRecommend = useCallback(() => {
     if (category?.recommendedTokens) {
       return (
-        <YStack flex={1} ai="center" jc="center" px="$5" py="$8">
+        <YStack flex={1} ai="center" px="$5" py="$8" overflow="scroll">
           <SizableText size="$heading3xl">Your watchlist is empty</SizableText>
           <SizableText size="$bodyLgMedium" pt="$2">
             Add your favorite tokens to watchlist
