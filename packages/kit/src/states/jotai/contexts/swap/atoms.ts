@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import {
   ESwapProviderSort,
@@ -231,17 +232,44 @@ export const {
 } = contextAtom<ISwapApproveTransaction | undefined>(undefined);
 
 // swap slippage
+
+export const {
+  atom: swapSlippagePercentageModeAtom,
+  use: useSwapSlippagePercentageModeAtom,
+} = contextAtom<ESwapSlippageSegmentKey>(ESwapSlippageSegmentKey.AUTO);
+
+export const {
+  atom: swapSlippagePercentageCustomValueAtom,
+  use: useSwapSlippagePercentageCustomValueAtom,
+} = contextAtom<number>(swapSlippageAutoValue);
+
 export const {
   atom: swapSlippagePercentageAtom,
   use: useSwapSlippagePercentageAtom,
-} = contextAtom<ISwapSlippageSegmentItem>({
-  key: ESwapSlippageSegmentKey.AUTO,
-  value: swapSlippageAutoValue,
+} = contextAtomComputed<ISwapSlippageSegmentItem>((get) => {
+  const mode = get(swapSlippagePercentageModeAtom());
+  const quoteResult = get(swapQuoteCurrentSelectAtom());
+  if (mode === ESwapSlippageSegmentKey.AUTO) {
+    if (isNil(quoteResult?.autoSuggestedSlippage)) {
+      return {
+        key: mode,
+        value: swapSlippageAutoValue,
+      };
+    }
+    return {
+      key: mode,
+      value: quoteResult.autoSuggestedSlippage,
+    };
+  }
+  return {
+    key: mode,
+    value: get(swapSlippagePercentageCustomValueAtom()),
+  };
 });
 
 export const {
-  atom: swapSlippagePopoverOpeningAtom,
-  use: useSwapSlippagePopoverOpeningAtom,
+  atom: swapSlippageDialogOpeningAtom,
+  use: useSwapSlippageDialogOpeningAtom,
 } = contextAtom<boolean>(false);
 
 // swap build_tx

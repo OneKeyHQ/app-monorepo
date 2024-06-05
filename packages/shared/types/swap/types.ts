@@ -169,6 +169,8 @@ export interface IFetchQuoteResult {
   unSupportReceiveAddressDifferent?: boolean;
   routesData?: IQuoteRoutePath[];
   quoteExtraData?: IQuoteExtraData;
+  autoSuggestedSlippage?: number;
+  unSupportSlippage?: boolean;
 }
 
 export interface IAllowanceResult {
