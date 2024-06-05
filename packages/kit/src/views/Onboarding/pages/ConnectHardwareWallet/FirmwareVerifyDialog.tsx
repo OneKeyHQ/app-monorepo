@@ -43,10 +43,11 @@ function useFirmwareVerifyBase({
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
   const [errorState, setErrorState] = useState<IFirmwareErrorState>();
-  const [showLoading, setShowLoading] = useState(true);
+  const [showLoading, setShowLoading] = useState(false);
   const verify = useCallback(async () => {
     try {
       setErrorState(undefined);
+      setShowLoading(true);
       const authResult =
         await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
           device,
@@ -469,6 +470,7 @@ export function FirmwareAuthenticationDialogContent({
   }, [
     result,
     errorState,
+    showLoading,
     textContent,
     noContinue,
     isShowingRiskWarning,
