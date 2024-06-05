@@ -843,8 +843,10 @@ export function MarketHomeList({
   const renderSelectTrigger = useCallback(
     ({ label }: { label?: string }) => (
       <XStack ai="center" space="$1">
-        <SizableText>{label}</SizableText>
-        <Icon name="ChevronBottomSolid" size="$4" />
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {label || 'Default'}
+        </SizableText>
+        <Icon name="ChevronDownSmallSolid" size="$4" />
       </XStack>
     ),
     [],
@@ -866,6 +868,10 @@ export function MarketHomeList({
   const [mdSortByType, setMdSortByType] = useState<string | undefined>();
   const selectOptions = useMemo(
     () => [
+      {
+        label: 'Default',
+        value: 'Default',
+      },
       {
         label: 'Last price',
         value: 'last_price',
@@ -899,9 +905,7 @@ export function MarketHomeList({
     (value: string) => {
       setMdSortByType(value);
       const item = selectOptions.find((v) => v.value === value);
-      if (item?.options) {
-        setSortByType(item?.options as typeof sortByType);
-      }
+      setSortByType(item?.options as typeof sortByType);
     },
     [selectOptions, setSortByType],
   );
@@ -939,7 +943,7 @@ export function MarketHomeList({
                 renderTrigger={renderSelectTrigger}
               />
             </XStack>
-            <Popover
+            {/* <Popover
               title="Settings"
               renderTrigger={
                 <IconButton
@@ -957,7 +961,7 @@ export function MarketHomeList({
                   onConfirm={handleSettingsContentChange}
                 />
               }
-            />
+            /> */}
           </XStack>
         </YStack>
       )}

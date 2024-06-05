@@ -29,7 +29,7 @@ export const useSortType = (
   );
 
   const sortedListData = useMemo(() => {
-    const columnValue = listDataRef.current?.[0]?.[sortByType.columnName];
+    const columnValue = listDataRef.current?.[0]?.[sortByType?.columnName];
     if (columnValue) {
       if (sortByType.order) {
         if (typeof columnValue === 'number')
@@ -53,8 +53,8 @@ export const useSortType = (
       }
     }
 
-    return listData;
-  }, [listData, sortByType.columnName, sortByType.order]);
+    return listDataRef.current;
+  }, [listData, sortByType?.columnName, sortByType?.order]);
   return useMemo(
     () => ({ sortedListData, handleSortTypeChange, sortByType, setSortByType }),
     [handleSortTypeChange, sortByType, sortedListData, setSortByType],
