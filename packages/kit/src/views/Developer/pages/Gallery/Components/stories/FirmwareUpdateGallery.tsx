@@ -4,6 +4,7 @@ import {
   Button,
   Dialog,
   Form,
+  Select,
   SizableText,
   Stack,
   Switch,
@@ -25,7 +26,10 @@ import { FirmwareUpdateProgressBarView } from '@onekeyhq/kit/src/views/FirmwareU
 import { FirmwareUpdateWarningMessage } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareUpdateWarningMessage';
 import { FirmwareUpdateReminderAlert } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
-import { BasicFirmwareAuthenticationDialogContent } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
+import {
+  EFirmwareAuthenticationDialogContentType,
+  EnumBasicDialogContentContainer,
+} from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import {
@@ -153,32 +157,18 @@ function FirmwareUpdateErrorDemo({
 function StaticUIDialog() {
   const form = useForm({
     defaultValues: {
-      showLoading: false,
-      showActions: false,
-      showContinue: false,
-      showRiskyWarning: false,
-      errorMessage: '111',
-      showErrorContinueButton: false,
-      onErrorContinueButtonPress: () => {
-        alert('onErrorContinueButtonPress');
-      },
+      contentType: EFirmwareAuthenticationDialogContentType.default,
     },
   });
   return (
     <Form form={form}>
-      <Form.Field name="showLoading" label="showLoading">
-        <Switch />
-      </Form.Field>
-      <Form.Field name="showActions" label="showActions">
-        <Switch />
-      </Form.Field>
-
-      <Form.Field name="showContinue" label="showContinue">
-        <Switch />
-      </Form.Field>
-
-      <Form.Field name="showRiskyWarning" label="showRiskyWarning">
-        <Switch />
+      <Form.Field name="contentType" label="contentType">
+        <Select
+          title=""
+          items={Object.keys(EFirmwareAuthenticationDialogContentType).map(
+            (i) => ({ label: i, value: i }),
+          )}
+        />
       </Form.Field>
 
       <Button
@@ -191,7 +181,8 @@ function StaticUIDialog() {
               'Confirm on your device to verify its authenticity and secure your connection.',
             showFooter: false,
             renderContent: (
-              <BasicFirmwareAuthenticationDialogContent
+              <EnumBasicDialogContentContainer
+                {...form.getValues()}
                 actionsProps={{
                   onPress: () => {
                     alert('actionsProps');
@@ -204,7 +195,6 @@ function StaticUIDialog() {
                   children: 'Continue Anyway',
                   onPress: () => alert('Continue Anyway'),
                 }}
-                {...form.getValues()}
                 riskyWarningProps={{
                   message: `We're currently unable to verify your device. Continuing may pose
               security risks.`,
