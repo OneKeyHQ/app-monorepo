@@ -208,7 +208,7 @@ export default class VaultCosmos extends VaultBase {
     const pubkey = bufferUtils.hexToBytes(hexUtils.stripHexPrefix(account.pub));
 
     const gasLimit = '0';
-    const feeAmount = '0';
+    const feeAmount = '1';
 
     const tx = txBuilder.makeTxWrapper(msgs, {
       memo: '',
