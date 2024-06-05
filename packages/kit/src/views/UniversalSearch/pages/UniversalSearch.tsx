@@ -134,7 +134,7 @@ export function UniversalSearch({
             ?.items as IUniversalSearchResultItem[],
         });
       }
-
+      setSections(searchResultSections);
       console.log('---searchResultSections', searchResultSections);
       setSearchStatus(ESearchStatus.done);
     } else {
