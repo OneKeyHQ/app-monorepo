@@ -774,8 +774,10 @@ export function MarketHomeList({
   const renderMdItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
       <TouchableContainer
-        onPress={() => toDetailPage(item)}
-        onLongPress={() => handleMdItemAction(item)}
+        onPress={platformEnv.isNative ? undefined : () => toDetailPage(item)}
+        onLongPress={
+          platformEnv.isNative ? undefined : () => handleMdItemAction(item)
+        }
       >
         <XStack
           px="$5"
