@@ -426,12 +426,14 @@ export default class Vault extends VaultBase {
             utxoPath = pathArray.join('/');
           }
           return {
-            ...utxo,
+            address: utxo.address,
+            amount: utxo.amount ?? [],
+            datum_hash: utxo.datumHash,
+            output_index: utxo.txIndex as number,
+            path: utxoPath,
+            reference_script_hash: utxo.referenceScriptHash,
             tx_hash: utxo.txid,
             tx_index: utxo.txIndex as number,
-            path: utxoPath,
-            output_index: utxo.txIndex as number,
-            amount: utxo.amount ?? [],
           };
         });
       } catch (e) {
