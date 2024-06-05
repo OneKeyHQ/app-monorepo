@@ -62,7 +62,7 @@ function TokenDetailHeader({
   } = token;
   const { gtMd } = useMedia();
   return (
-    <YStack px="$5">
+    <YStack px="$5" $md={{ minHeight: 150 }}>
       <YStack flex={1}>
         <SizableText size="$headingMd" color="$textSubdued">
           {name}
