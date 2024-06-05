@@ -75,7 +75,7 @@ function TokenDetailHeader({
           >
             {currentPrice || 0}
           </NumberSizeableText>
-          <MarketStar coingeckoId={coinGeckoId} mr="$-2" />
+          <MarketStar coingeckoId={coinGeckoId} mr="$-2" size="medium" />
         </XStack>
         <PriceChangePercentage pt="$0.5">
           {performance.priceChangePercentage24h}
