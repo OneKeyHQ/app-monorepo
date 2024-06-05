@@ -498,7 +498,7 @@ function SendDataInputContainer() {
         <Form.Field
           name="nftAmount"
           label={intl.formatMessage({ id: 'form__amount' })}
-          rules={{ required: true, max: 1, min: 1 }}
+          rules={{ required: true, max: nftDetails?.amount ?? 1, min: 1 }}
         >
           {isLoadingAssets ? null : (
             <SizableText
