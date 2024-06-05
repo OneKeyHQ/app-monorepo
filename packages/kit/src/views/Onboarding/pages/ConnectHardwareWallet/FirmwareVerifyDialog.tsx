@@ -329,7 +329,7 @@ export function BasicFirmwareAuthenticationDialogContent({
     textContent,
     textContentContainerProps,
   ]);
-  return <Stack space="$5">{content} </Stack>;
+  return <YStack space="$5">{content} </YStack>;
 }
 
 export function FirmwareAuthenticationDialogContent({
@@ -420,32 +420,6 @@ export function FirmwareAuthenticationDialogContent({
         },
       },
     };
-
-    const stackPropsShared: IStackProps = {
-      p: '$5',
-      space: '$5',
-      borderRadius: '$3',
-      borderCurve: 'continuous',
-      borderWidth: StyleSheet.hairlineWidth,
-      ...propsMap[result].textStackProps,
-    };
-    const officialText =
-      result === 'official' ? (
-        <Stack {...stackPropsShared}>
-          <SizableText textAlign="center">
-            Your device is running official firmware
-          </SizableText>
-        </Stack>
-      ) : null;
-
-    const unofficialText =
-      result === 'unofficial' ? (
-        <Stack {...stackPropsShared}>
-          <SizableText textAlign="center">
-            Unofficial firmware detected!
-          </SizableText>
-        </Stack>
-      ) : null;
 
     const showContinue = !(
       result === 'error' && errorState === 'UnexpectedBootloaderMode'
