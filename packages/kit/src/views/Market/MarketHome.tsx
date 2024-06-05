@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import type { ColorTokens } from '@onekeyhq/components';
 import { Icon, Page, Tab, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
@@ -47,7 +48,7 @@ function MarketHome() {
             contentContainerStyle: { paddingRight: '$5' },
             renderItem: (item, index, titleStyle) =>
               index === 0 && !gtMd ? (
-                <Icon name="StarOutline" />
+                <Icon name="StarOutline" size="$4.5" px="$1" />
               ) : (
                 <Tab.SelectedLabel {...(titleStyle as any)} />
               ),
