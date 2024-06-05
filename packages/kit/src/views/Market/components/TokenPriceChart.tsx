@@ -47,7 +47,7 @@ const cacheMap = new Map<string, [IMarketTokenChart, number]>();
 
 function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
   const [points, setPoints] = useState<IMarketTokenChart>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [days, setDays] = useState<string>(options[0].value);
   const intl = useIntl();
   const intlId = options.find((v) => v.value === days)?.id as ILocaleIds;

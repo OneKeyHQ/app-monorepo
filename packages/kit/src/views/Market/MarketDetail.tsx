@@ -251,7 +251,7 @@ function MarketDetail({
             </YStack>
           </YStack>
         ) : (
-          <YStack space="$10" py="$3">
+          <YStack space="$6" pt="$1">
             <SkeletonHeader />
             <XStack>
               <SkeletonHeaderOverItemItem />
@@ -287,7 +287,7 @@ function MarketDetail({
               <YStack flex={1}>
                 <TokenDetailTabs
                   token={tokenDetail}
-                  listHeaderComponent={<YStack>{tokenPriceChart}</YStack>}
+                  listHeaderComponent={tokenPriceChart}
                 />
               </YStack>
             </XStack>
