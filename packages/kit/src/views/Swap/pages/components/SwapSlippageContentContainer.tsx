@@ -3,10 +3,8 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import type { IInputProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -16,7 +14,6 @@ import {
   SizableText,
   XStack,
   YStack,
-  useMedia,
   useSafeKeyboardAnimationStyle,
 } from '@onekeyhq/components';
 import {
@@ -58,15 +55,11 @@ const BaseSlippageInput = ({
 
   return (
     <Input
-      $gtMd={
-        {
-          size: 'small',
-        } as IInputProps['$gtMd']
-      }
+      size="medium"
       value={inputValue}
       autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
       addOns={[{ label: '%' }]}
-      textAlign="right"
+      textAlign="left"
       disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
       placeholder={swapSlippage.value.toString()}
       onChangeText={handleTextChange}
@@ -85,7 +78,6 @@ const SwapsSlippageContentContainer = ({
 }) => {
   const [swapSlippageStatus, setSwapSlippageStatus] = useState(swapSlippage);
   const intl = useIntl();
-  const media = useMedia();
 
   const [customValueState, setCustomValueState] = useState<{
     status: ESwapSlippageCustomStatus;
@@ -135,67 +127,67 @@ const SwapsSlippageContentContainer = ({
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
   return (
     <Animated.View style={safeKeyboardAnimationStyle}>
-      <YStack p="$4" space="$4">
-        <YStack
-          space="$5"
-          $gtMd={{
-            flexDirection: 'row',
+      <YStack space="$4">
+        <SegmentControl
+          fullWidth
+          value={swapSlippageStatus.key}
+          options={swapSlippageItems.map((item) => ({
+            label: intl.formatMessage({
+              id:
+                item.key === ESwapSlippageSegmentKey.AUTO
+                  ? 'form__auto'
+                  : 'content__custom',
+            }),
+            value: item.value,
+          }))}
+          onChange={(value) => {
+            const keyValue = value as ESwapSlippageSegmentKey;
+            setSwapSlippageStatus({
+              key: keyValue,
+              value: swapSlippage.value,
+            });
           }}
-        >
-          <SegmentControl
-            fullWidth={!media.gtMd}
-            value={swapSlippageStatus.key}
-            options={swapSlippageItems.map((item) => ({
-              label: intl.formatMessage({
-                id:
-                  item.key === ESwapSlippageSegmentKey.AUTO
-                    ? 'form__auto'
-                    : 'content__custom',
-              }),
-              value: item.value,
-            }))}
-            onChange={(value) => {
-              const keyValue = value as ESwapSlippageSegmentKey;
-              setSwapSlippageStatus({
-                key: keyValue,
-                value: swapSlippage.value,
-              });
-            }}
+        />
+        <XStack space="$2.5">
+          <SlippageInput
+            swapSlippage={swapSlippageStatus}
+            onChangeText={handleSlippageChange}
           />
-          <XStack space="$2">
-            <SlippageInput
-              swapSlippage={swapSlippageStatus}
-              onChangeText={handleSlippageChange}
-            />
-            {swapSlippageStatus.key === ESwapSlippageSegmentKey.CUSTOM ? (
-              <XStack>
-                {swapSlippageCustomDefaultList.map((item, index) => (
-                  <>
-                    <Button
-                      bg="$bgStrong"
-                      key={item}
-                      variant="secondary"
-                      size="medium"
-                      onPress={() => {
-                        setSwapSlippageStatus({
-                          key: ESwapSlippageSegmentKey.CUSTOM,
-                          value: item,
-                        });
-                      }}
-                    >{`${item}%`}</Button>
-                    {index !== swapSlippageCustomDefaultList.length - 1 ? (
-                      <Divider
-                        width={StyleSheet.hairlineWidth}
-                        height="100%"
-                        bg="$borderSubdued"
-                      />
-                    ) : null}
-                  </>
-                ))}
-              </XStack>
-            ) : null}
-          </XStack>
-        </YStack>
+          {swapSlippageStatus.key === ESwapSlippageSegmentKey.CUSTOM ? (
+            <XStack>
+              {swapSlippageCustomDefaultList.map((item, index) => (
+                <>
+                  <Button
+                    key={item}
+                    variant="secondary"
+                    size="medium"
+                    borderTopRightRadius={index !== 2 ? 0 : '$2'}
+                    borderBottomRightRadius={index !== 2 ? 0 : '$2'}
+                    borderTopLeftRadius={index !== 0 ? 0 : '$2'}
+                    borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
+                    onPress={() => {
+                      setCustomValueState({
+                        status: ESwapSlippageCustomStatus.NORMAL,
+                        message: '',
+                      });
+                      setSwapSlippageStatus({
+                        key: ESwapSlippageSegmentKey.CUSTOM,
+                        value: item,
+                      });
+                    }}
+                  >{`${item}${
+                    index === swapSlippageCustomDefaultList.length - 1
+                      ? '  '
+                      : ''
+                  }%`}</Button>
+                  {index !== swapSlippageCustomDefaultList.length - 1 ? (
+                    <Divider vertical />
+                  ) : null}
+                </>
+              ))}
+            </XStack>
+          ) : null}
+        </XStack>
         {swapSlippageStatus.key === ESwapSlippageSegmentKey.AUTO ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             Auto slippage optimizes slippage based on pool liquidity and trading
@@ -216,6 +208,7 @@ const SwapsSlippageContentContainer = ({
           </SizableText>
         ) : null}
         <Dialog.Footer
+          showCancelButton={false}
           onConfirmText="Save"
           confirmButtonProps={{
             variant: 'primary',

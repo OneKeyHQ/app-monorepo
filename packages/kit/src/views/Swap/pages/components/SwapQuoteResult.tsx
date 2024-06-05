@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useRef } from 'react';
 
 import { Dialog, NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
@@ -44,30 +44,32 @@ const SwapQuoteResult = ({
   const [, setSwapSlippageCustomValue] =
     useSwapSlippagePercentageCustomValueAtom();
   const [, setSwapSlippageMode] = useSwapSlippagePercentageModeAtom();
-
+  const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const slippageOnSave = useCallback(
     (slippageItem: ISwapSlippageSegmentItem) => {
       setSwapSlippageMode(slippageItem.key);
       if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
         setSwapSlippageCustomValue(slippageItem.value);
       }
+      void dialogRef.current?.close();
     },
     [setSwapSlippageCustomValue, setSwapSlippageMode],
   );
 
   const slippageHandleClick = useCallback(() => {
-    Dialog.confirm({
+    dialogRef.current = Dialog.show({
       title: 'Slippage tolerance',
-      // onConfirmText: 'Save',
-      // onConfirm: slippageOnSave,
       renderContent: (
         <SwapSlippageContentContainer
           swapSlippage={swapSlippage}
           onSave={slippageOnSave}
         />
       ),
-      onOpenChange: (open) => {
-        setSwapSlippageDialogOpening(open);
+      onOpen: () => {
+        setSwapSlippageDialogOpening(true);
+      },
+      onClose: () => {
+        setSwapSlippageDialogOpening(false);
       },
     });
   }, [setSwapSlippageDialogOpening, slippageOnSave, swapSlippage]);

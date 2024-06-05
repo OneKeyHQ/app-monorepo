@@ -16,7 +16,6 @@ import {
   swapQuoteFetchInterval,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
-  swapSlippageAutoValue,
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -55,6 +54,7 @@ import {
   swapSelectedToTokenBalanceAtom,
   swapSilenceQuoteLoading,
   swapSlippagePercentageAtom,
+  swapSlippagePercentageModeAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
 } from './atoms';
@@ -74,10 +74,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   resetSwapSlippage = contextAtomMethod((get, set) => {
-    set(swapSlippagePercentageAtom(), {
-      key: ESwapSlippageSegmentKey.AUTO,
-      value: swapSlippageAutoValue,
-    });
+    set(swapSlippagePercentageModeAtom(), ESwapSlippageSegmentKey.AUTO);
   });
 
   cleanManualSelectQuoteProviders = contextAtomMethod((get, set) => {

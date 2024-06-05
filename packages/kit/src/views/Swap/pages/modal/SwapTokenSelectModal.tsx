@@ -165,6 +165,7 @@ const SwapTokenSelectPage = () => {
       if (type === ESwapDirectionType.FROM) {
         void selectFromToken(token);
       } else {
+        console.log('token-', token);
         void selectToToken(token);
       }
     },
