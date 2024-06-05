@@ -43,7 +43,7 @@ function useFirmwareVerifyBase({
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
   const [errorState, setErrorState] = useState<IFirmwareErrorState>();
-
+  const [showLoading, setShowLoading] = useState(true);
   const verify = useCallback(async () => {
     try {
       setErrorState(undefined);
@@ -59,6 +59,7 @@ function useFirmwareVerifyBase({
       } else {
         setResult('unofficial');
       }
+      setShowLoading(false);
     } catch (error) {
       setResult('error');
       if (
@@ -91,7 +92,7 @@ function useFirmwareVerifyBase({
     setErrorState(undefined);
   }, []);
 
-  return { result, reset, errorState, verify };
+  return { result, reset, errorState, verify, showLoading };
 }
 
 export function FirmwareAuthenticationDialogContentLegacy({
@@ -345,10 +346,11 @@ export function FirmwareAuthenticationDialogContent({
 }) {
   const [isShowingRiskWarning, setIsShowingRiskWarning] = useState(true);
 
-  const { result, reset, errorState, verify } = useFirmwareVerifyBase({
-    device,
-    skipDeviceCancel,
-  });
+  const { result, reset, errorState, verify, showLoading } =
+    useFirmwareVerifyBase({
+      device,
+      skipDeviceCancel,
+    });
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
@@ -450,7 +452,7 @@ export function FirmwareAuthenticationDialogContent({
 
     return (
       <BasicFirmwareAuthenticationDialogContent
-        showLoading={false}
+        showLoading={showLoading}
         textContentContainerProps={propsMap[result].textStackProps}
         textContent={textContent}
         showActions={!(result === 'official' && noContinue)}
