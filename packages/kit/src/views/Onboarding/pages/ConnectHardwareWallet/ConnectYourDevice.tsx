@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Anchor,
   Button,
@@ -36,6 +37,7 @@ import {
   NeedBluetoothTurnedOn,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -82,7 +84,6 @@ function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
           setIsLoading(false);
         }
       }}
-      focusable={false}
     />
   );
 }
@@ -95,34 +96,45 @@ function ConnectByQrCode() {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
   const { createQrWallet } = useCreateQrWallet();
+  const intl = useIntl();
+
   return (
-    <>
-      <ScrollView flex={1}>
-        <Stack alignItems="center" justifyContent="center">
-          <DeviceAvatar deviceType="pro" size={40} />
-          <SizableText textAlign="center">
-            Create QR-based wallet with OneKey Pro
-          </SizableText>
-          <SizableText textAlign="center">
-            To display your QR code in device, navigate to "Connect App Wallet"{' '}
-            {'>'} "QR Code" {'>'} "OneKey Wallet".
-          </SizableText>
-          <Button
-            variant="primary"
-            onPress={async () => {
-              try {
-                await createQrWallet({ isOnboarding: true });
-              } catch (error) {
-                navigation.pop();
-                throw error;
-              }
-            }}
-          >
-            Scan to connect
-          </Button>
-        </Stack>
-      </ScrollView>
-    </>
+    <Stack flex={1} alignItems="center" justifyContent="center">
+      <DeviceAvatar deviceType="pro" size={40} />
+      <SizableText textAlign="center" size="$bodyLgMedium" pt="$5" pb="$2">
+        {intl.formatMessage({
+          id: ETranslations.onboarding_create_qr_wallet_title,
+        })}
+      </SizableText>
+      <SizableText
+        textAlign="center"
+        color="$textSubdued"
+        maxWidth="$80"
+        pb="$5"
+      >
+        {intl.formatMessage({
+          id: ETranslations.onboarding_create_qr_wallet_desc,
+        })}
+      </SizableText>
+      <Button
+        variant="primary"
+        $md={
+          {
+            size: 'large',
+          } as IButtonProps
+        }
+        onPress={async () => {
+          try {
+            await createQrWallet({ isOnboarding: true });
+          } catch (error) {
+            navigation.pop();
+            throw error;
+          }
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.global_scan_to_connect })}
+      </Button>
+    </Stack>
   );
 }
 
@@ -449,9 +461,9 @@ export function ConnectYourDevicePage() {
   return (
     <Page>
       <Page.Header
-        title={
-          platformEnv.isNative ? 'Looking for Devices' : 'Connect Your Device'
-        }
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_connect_your_device,
+        })}
         headerRight={() => headerRight(handleHeaderRightPress)}
       />
       <Page.Body>
@@ -462,10 +474,15 @@ export function ConnectYourDevicePage() {
             onChange={(v) => setTabValue(v as any)}
             options={[
               {
-                label: platformEnv.isNative ? 'Bluetooth' : 'USB',
+                label: platformEnv.isNative
+                  ? intl.formatMessage({ id: ETranslations.global_bluetooth })
+                  : 'USB',
                 value: EConnectDeviceTab.usbOrBle,
               },
-              { label: 'QR Code', value: EConnectDeviceTab.qr },
+              {
+                label: intl.formatMessage({ id: ETranslations.global_qr_code }),
+                value: EConnectDeviceTab.qr,
+              },
             ]}
           />
         </Stack>
@@ -486,7 +503,9 @@ export function ConnectYourDevicePage() {
           alignItems="center"
         >
           <SizableText size="$bodyMd" color="$textSubdued">
-            Don't have OneKey yet?
+            {intl.formatMessage({
+              id: ETranslations.global_onekey_prompt_dont_have_yet,
+            })}
           </SizableText>
           <Anchor
             display="flex"
@@ -499,7 +518,7 @@ export function ConnectYourDevicePage() {
             size="$bodyMdMedium"
             p="$2"
           >
-            Buy One
+            {intl.formatMessage({ id: ETranslations.global_buy_one })}
           </Anchor>
         </XStack>
       </Page.Body>

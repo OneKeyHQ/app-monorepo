@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
 import type { IButtonProps, IStackProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
-  HeightTransition,
-  Icon,
   SizableText,
   Spinner,
   Stack,
@@ -86,137 +85,6 @@ function useFirmwareVerifyBase({
   }, []);
 
   return { result, reset, errorState, verify };
-}
-
-export function FirmwareAuthenticationDialogContentLegacy({
-  onContinue,
-  device,
-  skipDeviceCancel,
-}: {
-  onContinue: (params: { checked: boolean }) => void;
-  device: SearchDevice;
-  skipDeviceCancel?: boolean;
-}) {
-  const { result, reset, verify } = useFirmwareVerifyBase({
-    device,
-    skipDeviceCancel,
-  });
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
-
-  return (
-    <Stack>
-      <HeightTransition initialHeight={106}>
-        <Stack
-          borderRadius="$3"
-          p="$5"
-          bg="$bgSubdued"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$transparent"
-          {...(result === 'official' && {
-            bg: '$bgSuccessSubdued',
-            borderColor: '$borderSuccessSubdued',
-          })}
-          {...(result === 'unofficial' && {
-            bg: '$bgCriticalSubdued',
-            borderColor: '$borderCriticalSubdued',
-          })}
-          {...(result === 'error' && {
-            bg: '$bgCautionSubdued',
-            borderColor: '$borderCautionSubdued',
-          })}
-          borderCurve="continuous"
-        >
-          <Stack>
-            <Stack justifyContent="center" alignItems="center">
-              {result === 'unknown' ? (
-                <Spinner size="large" />
-              ) : (
-                <Icon
-                  name="BadgeVerifiedSolid"
-                  size="$9"
-                  color="$iconSuccess"
-                  {...(result === 'unofficial' && {
-                    name: 'ErrorSolid',
-                    color: '$iconCritical',
-                  })}
-                  {...(result === 'error' && {
-                    name: 'ErrorSolid',
-                    color: '$iconCaution',
-                  })}
-                />
-              )}
-            </Stack>
-
-            <SizableText
-              textAlign="center"
-              mt="$5"
-              {...(result === 'official' && {
-                color: '$textSuccess',
-              })}
-              {...(result === 'unofficial' && {
-                color: '$textCritical',
-              })}
-              {...(result === 'error' && {
-                color: '$textCaution',
-              })}
-            >
-              {result === 'unknown' ? 'Verifying official firmware' : null}
-              {result === 'official'
-                ? 'Your device is running official firmware'
-                : null}
-              {result === 'unofficial' ? 'Unofficial firmware detected!' : null}
-              {result === 'error'
-                ? 'Unable to verify firmware: internet connection required'
-                : null}
-            </SizableText>
-          </Stack>
-        </Stack>
-        {result !== 'unknown' ? (
-          <Stack pt="$5">
-            <Button
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              variant="primary"
-              {...(result === 'official' && {
-                onPress: () => onContinue({ checked: true }),
-              })}
-              {...(result === 'unofficial' && {
-                onPress: async () => {
-                  // Contact OneKey Support
-                  await Linking.openURL(requestsUrl);
-                },
-              })}
-              {...(result === 'error' && {
-                onPress: async () => {
-                  reset();
-                  // Retry
-                  await verify();
-                },
-              })}
-            >
-              {result === 'official' ? 'Continue' : null}
-              {result === 'unofficial' ? 'Contact OneKey Support' : null}
-              {result === 'error' ? 'Retry' : null}
-            </Button>
-          </Stack>
-        ) : null}
-        {result === 'error' ? (
-          <Stack pt="$3">
-            <Button
-              variant="tertiary"
-              m="$0"
-              onPress={() => onContinue({ checked: false })}
-            >
-              Continue Anyway(Legacy)
-            </Button>
-          </Stack>
-        ) : null}
-      </HeightTransition>
-    </Stack>
-  );
 }
 
 export function FirmwareAuthenticationDialogContent({
@@ -411,6 +279,8 @@ export function useFirmwareVerifyDialog({
 }: {
   noContinue?: boolean;
 } = {}) {
+  const intl = useIntl();
+
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
@@ -422,7 +292,6 @@ export function useFirmwareVerifyDialog({
       const firmwareAuthenticationDialog = Dialog.show({
         tone: 'success',
         icon: 'DocumentSearch2Outline',
-        // title: 'Firmware Authentication',
         title: 'Device Authentication',
         description:
           'Confirm on your device to verify its authenticity and secure your connection.',
