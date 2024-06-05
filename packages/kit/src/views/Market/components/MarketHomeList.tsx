@@ -966,7 +966,7 @@ export function MarketHomeList({
         </YStack>
       )}
 
-      <YStack flex={1} py="$3">
+      <YStack flex={1} $gtMd={{ py: '$3' }}>
         {gtMd ? HeaderColumns : undefined}
         <ListView
           ref={listViewRef}
@@ -976,7 +976,7 @@ export function MarketHomeList({
           scrollEventThrottle={100}
           data={sortedListData as unknown as IMarketToken[]}
           renderItem={gtMd ? renderItem : renderMdItem}
-          ListFooterComponent={<Stack height={60} />}
+          ListFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           ListEmptyComponent={<ListEmptyComponent />}
           extraData={gtMd ? undefined : mdColumnKeys}
         />
