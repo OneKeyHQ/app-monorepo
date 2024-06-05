@@ -132,7 +132,7 @@ function BasicTokenDetailTabs({
   );
   return pools ? (
     <Tab
-      $gtMd={{ mx: '$5' }}
+      $gtMd={{ px: '$5' }}
       $md={{ mt: '$5' }}
       data={tabConfig}
       ListHeaderComponent={<Stack mb="$5">{listHeaderComponent}</Stack>}
@@ -141,7 +141,7 @@ function BasicTokenDetailTabs({
       }}
     />
   ) : (
-    <YStack px="$5">
+    <YStack $gtMd={{ px: '$5' }}>
       {md ? null : listHeaderComponent}
       {renderPoolSkeleton}
     </YStack>
