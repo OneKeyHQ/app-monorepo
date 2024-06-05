@@ -99,7 +99,7 @@ function HeaderRow({
     order: 'asc' | 'desc' | undefined;
   }) => void;
 }) {
-  const { gtMd } = useMedia();
+  const { gtMd, gtXl } = useMedia();
   const useSortFunc = !!(sortType || onSortTypeChange);
   const handleColumnPress = useCallback(
     (key: string) => {
@@ -149,7 +149,7 @@ function HeaderRow({
           Price
         </HeaderColumn>
       ) : null}
-      {gtMd ? (
+      {gtXl ? (
         <HeaderColumn
           name="txTotal"
           jc="flex-end"
@@ -217,7 +217,7 @@ export function MarketDetailPools({
   // eslint-disable-next-line react/prop-types
   onContentSizeChange,
 }: ITabPageProps & { pools: IMarketResponsePool[] }) {
-  const { gtMd } = useMedia();
+  const { gtMd, gtXl } = useMedia();
   const onekeyNetworkIds = useMemo(
     () => pools.map((i) => i.onekeyNetworkId),
     [pools],
@@ -319,7 +319,7 @@ export function MarketDetailPools({
                   </NumberSizeableText>
                 </ItemColumn>
               ) : null}
-              {gtMd ? (
+              {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
                     size="$bodyMd"
