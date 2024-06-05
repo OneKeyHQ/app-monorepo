@@ -217,7 +217,6 @@ const TabComponent = (
   }, [pageManager.pageIndex, stickyConfig.data]);
   return (
     <ScrollView
-      key={data.map((item) => item.title).join('')}
       ref={scrollViewRef}
       onLayout={(event) => {
         stickyConfig.scrollViewHeight = event.nativeEvent.layout.height;
