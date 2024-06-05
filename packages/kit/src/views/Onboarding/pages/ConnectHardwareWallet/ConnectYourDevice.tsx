@@ -504,6 +504,7 @@ export function ConnectYourDevicePage() {
         >
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
+              // eslint-disable-next-line spellcheck/spell-checker
               id: ETranslations.global_onekey_prompt_dont_have_yet,
             })}
           </SizableText>

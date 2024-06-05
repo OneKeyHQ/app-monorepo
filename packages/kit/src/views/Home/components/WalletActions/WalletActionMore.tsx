@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalFiatCryptoRoutes,
   EModalRoutes,
@@ -39,7 +40,7 @@ export function WalletActionMore() {
         {
           items: [
             {
-              label: intl.formatMessage({ id: 'action__sell_crypto' }),
+              label: intl.formatMessage({ id: ETranslations.global_sell }),
               icon: 'MinusLargeOutline',
               disabled: !isSupported,
               onPress: sellCrypto,
@@ -49,7 +50,9 @@ export function WalletActionMore() {
         {
           items: [
             {
-              label: intl.formatMessage({ id: 'action__view_in_explorer' }),
+              label: intl.formatMessage({
+                id: ETranslations.global_view_in_blockchain_explorer,
+              }),
               icon: 'GlobusOutline',
               onPress: () =>
                 openUrl(
@@ -60,7 +63,9 @@ export function WalletActionMore() {
                 ),
             },
             {
-              label: intl.formatMessage({ id: 'action__copy_address' }),
+              label: intl.formatMessage({
+                id: ETranslations.global_copy_address,
+              }),
               icon: 'Copy1Outline',
               onPress: () => copyText(account?.address || ''),
             },
