@@ -15,7 +15,6 @@ import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
@@ -89,14 +88,6 @@ class ServiceSetting extends ServiceBase {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       spendDustUTXO: value,
-    }));
-  }
-
-  @backgroundMethod()
-  public async setHardwareConnectSrc(value: EOnekeyDomain) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      hardwareConnectSrc: value,
     }));
   }
 

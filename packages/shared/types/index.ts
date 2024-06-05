@@ -69,7 +69,6 @@ export type IServerNetwork = {
 
 export enum EOnekeyDomain {
   ONEKEY_SO = 'onekey.so',
-  ONEKEY_CN = 'onekeycn.com',
 }
 
 export enum EAccountSelectorSceneName {
