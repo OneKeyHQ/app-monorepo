@@ -367,7 +367,7 @@ export default class Vault extends VaultBase {
                 route: 'rpc',
                 params: {
                   method: 'GET',
-                  // @ts-expect-error
+                  params: [],
                   url: '/info/network',
                 },
               },
