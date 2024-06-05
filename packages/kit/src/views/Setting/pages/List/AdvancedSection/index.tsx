@@ -15,29 +15,13 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { Section } from '../Section';
 
 const HardwareBridgeListItems = () => {
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
-  const onPressBridgeSdkUrl = useCallback(() => {
-    navigation.push(EModalSettingRoutes.SettingHardwareSdkUrlModal);
-  }, [navigation]);
-
   const onPressBridgeStatus = useCallback(() => {
     openUrlExternal(BRIDGE_STATUS_URL);
   }, []);
   const intl = useIntl();
 
-  const [settings] = useSettingsPersistAtom();
-
   return (
     <>
-      <ListItem
-        onPress={onPressBridgeSdkUrl}
-        icon="CodeOutline"
-        title={intl.formatMessage({ id: 'form__hardware_bridge_sdk_url' })}
-        drillIn
-      >
-        <ListItem.Text primary={settings.hardwareConnectSrc} align="right" />
-      </ListItem>
       <ListItem
         onPress={onPressBridgeStatus}
         icon="ApiConnectionOutline"

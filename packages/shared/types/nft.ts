@@ -48,3 +48,10 @@ export type IFetchNFTDetailsParams = {
 export type IFetchNFTDetailsResp = {
   data: IAccountNFT[];
 };
+
+export type INFTMetaData = {
+  header: string;
+  subheader: string;
+  network: string;
+  owner: string;
+};
