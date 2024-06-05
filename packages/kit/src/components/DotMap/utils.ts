@@ -9,7 +9,7 @@ const mnemonicWordToValueData = (word: string) => {
   if (index < 0) {
     throw new Error('Invalid mnemonic');
   }
-  const binary = parseInt(`${index}`).toString(2);
+  const binary = parseInt(`${index + 1}`).toString(2);
   return padStart(binary, 12, '0')
     .split('')
     .map((bit) => bit === '1');

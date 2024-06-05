@@ -11,6 +11,7 @@ import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { Section } from '../Section';
 
+import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { StartTimePanel } from './StartTimePanel';
@@ -167,6 +168,7 @@ export const DevSettingsSection = () => {
           />
         </>
       ) : null}
+      <AddressBookDevSetting />
     </Section>
   );
 };
