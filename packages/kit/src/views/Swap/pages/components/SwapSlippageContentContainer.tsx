@@ -5,6 +5,7 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import Animated from 'react-native-reanimated';
 
+import type { IInputProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -34,9 +35,11 @@ import { validateAmountInput } from '../../utils/utils';
 const BaseSlippageInput = ({
   swapSlippage,
   onChangeText,
+  props,
 }: {
   swapSlippage: ISwapSlippageSegmentItem;
   onChangeText: (text: string) => void;
+  props?: IInputProps;
 }) => {
   const [inputValue, setInputValue] = useState('');
   const handleTextChange = useCallback(
@@ -56,6 +59,7 @@ const BaseSlippageInput = ({
   return (
     <Input
       size="medium"
+      containerProps={{ flex: 1 }}
       value={inputValue}
       autoFocus={swapSlippage.key === ESwapSlippageSegmentKey.CUSTOM}
       addOns={[{ label: '%' }]}
@@ -63,6 +67,7 @@ const BaseSlippageInput = ({
       disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
       placeholder={swapSlippage.value.toString()}
       onChangeText={handleTextChange}
+      {...props}
     />
   );
 };
@@ -148,12 +153,18 @@ const SwapsSlippageContentContainer = ({
             });
           }}
         />
-        <XStack space="$2.5">
+        {swapSlippageStatus.key !== ESwapSlippageSegmentKey.CUSTOM ? (
           <SlippageInput
             swapSlippage={swapSlippageStatus}
             onChangeText={handleSlippageChange}
           />
-          {swapSlippageStatus.key === ESwapSlippageSegmentKey.CUSTOM ? (
+        ) : null}
+        {swapSlippageStatus.key === ESwapSlippageSegmentKey.CUSTOM ? (
+          <XStack space="$2.5">
+            <SlippageInput
+              swapSlippage={swapSlippageStatus}
+              onChangeText={handleSlippageChange}
+            />
             <XStack>
               {swapSlippageCustomDefaultList.map((item, index) => (
                 <>
@@ -186,8 +197,8 @@ const SwapsSlippageContentContainer = ({
                 </>
               ))}
             </XStack>
-          ) : null}
-        </XStack>
+          </XStack>
+        ) : null}
         {swapSlippageStatus.key === ESwapSlippageSegmentKey.AUTO ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             Auto slippage optimizes slippage based on pool liquidity and trading

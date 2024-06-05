@@ -118,6 +118,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
   slippagePercentage?: number;
+  autoSlippage?: boolean;
   blockNumber?: number;
 }
 interface ISocketAsset {

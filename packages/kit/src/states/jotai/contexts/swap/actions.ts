@@ -203,6 +203,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       toToken: ISwapToken,
       fromTokenAmount: string,
       slippagePercentage: number,
+      autoSlippage?: boolean,
       address?: string,
       loadingDelayEnable?: boolean,
       blockNumber?: number,
@@ -218,6 +219,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromTokenAmount,
           userAddress: address,
           slippagePercentage,
+          autoSlippage,
           blockNumber,
         });
         if (!loadingDelayEnable) {
@@ -266,6 +268,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           toToken,
           fromTokenAmount,
           swapSlippage.value,
+          swapSlippage.key === ESwapSlippageSegmentKey.AUTO,
           address,
           false,
           blockNumber,
@@ -365,6 +368,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             toToken,
             fromTokenAmount,
             swapSlippage.value,
+            swapSlippage.key === ESwapSlippageSegmentKey.AUTO,
             address,
             true,
           );
@@ -378,6 +382,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       clearTimeout(this.quoteInterval);
       this.quoteInterval = undefined;
     }
+    void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
   };
 
   cleanApprovingInterval = () => {
