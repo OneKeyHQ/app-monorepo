@@ -11,6 +11,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -132,8 +133,8 @@ function BasicTokenDetailTabs({
   );
   return pools ? (
     <Tab
-      $gtMd={{ mt: '$8', mx: '$5' }}
-      mt="$5"
+      $gtMd={{ mx: '$5' }}
+      $md={{ mt: '$5' }}
       data={tabConfig}
       ListHeaderComponent={<Stack mb="$5">{listHeaderComponent}</Stack>}
       onSelectedPageIndex={(index: number) => {
