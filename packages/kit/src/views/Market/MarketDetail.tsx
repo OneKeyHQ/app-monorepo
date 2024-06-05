@@ -63,25 +63,24 @@ function TokenDetailHeader({
   const { gtMd } = useMedia();
   return (
     <YStack px="$5">
-      <XStack ai="center">
-        <YStack flex={1}>
-          <SizableText size="$headingMd" color="$textSubdued">
-            {name}
-          </SizableText>
+      <YStack flex={1}>
+        <SizableText size="$headingMd" color="$textSubdued">
+          {name}
+        </SizableText>
+        <XStack ai="center" jc="space-between" pt="$2">
           <NumberSizeableText
-            pt="$2"
             size="$heading3xl"
             formatterOptions={{ currency: '$' }}
             formatter="price"
           >
             {currentPrice || 0}
           </NumberSizeableText>
-          <PriceChangePercentage pt="$0.5">
-            {performance.priceChangePercentage24h}
-          </PriceChangePercentage>
-        </YStack>
-        <MarketStar coingeckoId={coinGeckoId} mr="$-2" />
-      </XStack>
+          <MarketStar coingeckoId={coinGeckoId} mr="$-2" />
+        </XStack>
+        <PriceChangePercentage pt="$0.5">
+          {performance.priceChangePercentage24h}
+        </PriceChangePercentage>
+      </YStack>
       {gtMd ? (
         <MarketDetailOverview token={token} onContentSizeChange={() => {}} />
       ) : (
