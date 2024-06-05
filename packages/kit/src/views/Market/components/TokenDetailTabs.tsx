@@ -142,10 +142,10 @@ function BasicTokenDetailTabs({
       }}
     />
   ) : (
-    <>
+    <YStack px="$5">
       {md ? null : listHeaderComponent}
       {renderPoolSkeleton}
-    </>
+    </YStack>
   );
 }
 
