@@ -133,7 +133,13 @@ export function PriceChart({
         )}
         {children}
       </XStack>
-      <Stack h={240} mt={32} justifyContent="center" alignItems="center">
+      <Stack
+        h={240}
+        mt={32}
+        $gtMd={{ mt: 18 }}
+        justifyContent="center"
+        alignItems="center"
+      >
         {chartViewWithSpinner}
       </Stack>
     </>
