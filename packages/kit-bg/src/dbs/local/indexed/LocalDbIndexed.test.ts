@@ -1,7 +1,4 @@
-import {
-  DB_MAIN_CONTEXT_ID,
-  INDEXED_DB_VERSION,
-} from '@onekeyhq/shared/src/consts/dbConsts';
+import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 
 import * as consts from '../consts';
 
@@ -24,7 +21,7 @@ describe('LocalDbIndexed tests', () => {
     const context = await db.getContext();
     expect(context.id).toEqual(DB_MAIN_CONTEXT_ID);
     expect(context.backupUUID).toEqual('fake-uuid');
-    expect(db0.indexed.version).toEqual(INDEXED_DB_VERSION);
+    expect(db0.indexed.version).toEqual(consts.INDEXED_DB_VERSION);
   });
   it('getBackupUUID', async () => {
     const db = new LocalDbIndexed();

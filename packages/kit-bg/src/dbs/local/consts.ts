@@ -1,5 +1,15 @@
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+const LOCAL_DB_NAME = 'OneKeyV5';
+const LOCAL_DB_VERSION = 1;
+
+// ----------------------------------------------
+
+export const INDEXED_DB_NAME = LOCAL_DB_NAME;
+export const INDEXED_DB_VERSION = LOCAL_DB_VERSION;
+export const REALM_DB_NAME = LOCAL_DB_NAME;
+export const REALM_DB_VERSION = LOCAL_DB_VERSION;
+
 // ---------------------------------------------- const
 
 export const ALL_LOCAL_DB_STORE_NAMES: ELocalDBStoreNames[] =
@@ -11,7 +21,6 @@ export const storeNameSupportCreatedAt = [
   ELocalDBStoreNames.ConnectedSite,
 ];
 // ---------------------------------------------- enums
-
 export enum EDBAccountType {
   SIMPLE = 'simple',
   UTXO = 'utxo',

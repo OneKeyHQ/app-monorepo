@@ -4,15 +4,17 @@ import { difference, isNil } from 'lodash';
 import {
   DB_MAIN_CONTEXT_ID,
   DEFAULT_VERIFY_STRING,
-  INDEXED_DB_NAME,
-  INDEXED_DB_VERSION,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import { storeNameSupportCreatedAt } from '../consts';
+import {
+  INDEXED_DB_NAME,
+  INDEXED_DB_VERSION,
+  storeNameSupportCreatedAt,
+} from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
 
@@ -116,7 +118,7 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
     if (!tx.stores) {
       throw new Error('tx.stores is undefined');
     }
-    const { context: contextStore, wallets: walletStore } = tx.stores;
+    const { Context: contextStore, Wallet: walletStore } = tx.stores;
     await Promise.all([
       this._getOrAddRecord(contextStore, {
         id: DB_MAIN_CONTEXT_ID,

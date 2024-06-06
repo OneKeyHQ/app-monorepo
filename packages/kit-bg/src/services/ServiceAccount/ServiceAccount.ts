@@ -1,3 +1,5 @@
+import { isEmpty } from 'lodash';
+
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   decodeSensitiveText,
@@ -505,7 +507,7 @@ class ServiceAccount extends ServiceBase {
       importedCredential,
     });
     if (shouldCreateIndexAccount) {
-      await localDb.addIndexedAccount({
+      await this.addIndexedAccount({
         walletId,
         indexes: accounts.map((account) =>
           account.indexedAccountId
@@ -590,7 +592,9 @@ class ServiceAccount extends ServiceBase {
     credential,
     networkId,
     deriveType,
+    name,
   }: {
+    name?: string;
     credential: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
@@ -617,7 +621,7 @@ class ServiceAccount extends ServiceBase {
     });
     const params: IPrepareImportedAccountsParams = {
       password,
-      name: '',
+      name: name || '',
       importedCredential: credentialEncrypt,
       createAtNetwork: networkId,
     };
@@ -752,12 +756,16 @@ class ServiceAccount extends ServiceBase {
     input,
     networkId,
     deriveType,
+    name,
     isUrlAccount,
+    skipAddIfNotEqualToAddress,
   }: {
     input: string;
     networkId: string;
+    name?: string;
     deriveType: IAccountDeriveTypes | undefined;
     isUrlAccount?: boolean;
+    skipAddIfNotEqualToAddress?: string;
   }) {
     const walletId = WALLET_TYPE_WATCHING;
 
@@ -790,7 +798,7 @@ class ServiceAccount extends ServiceBase {
     const params: IPrepareWatchingAccountsParams = {
       address,
       xpub,
-      name: '',
+      name: name || '',
       networks: [networkId],
       createAtNetwork: networkId,
       isUrlAccount,
@@ -806,6 +814,20 @@ class ServiceAccount extends ServiceBase {
 
     // addWatchingAccount
     const accounts = await vault.keyring.prepareAccounts(params);
+
+    if (
+      skipAddIfNotEqualToAddress &&
+      accounts.length === 1 &&
+      accounts?.[0]?.address &&
+      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+    ) {
+      return {
+        networkId,
+        walletId,
+        accounts: [],
+      };
+    }
+
     await localDb.addAccountsToWallet({
       walletId,
       accounts,
@@ -1042,7 +1064,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addHDIndexedAccount({
+  async addIndexedAccount({
     walletId,
     indexes,
     skipIfExists,
@@ -1176,7 +1198,13 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async createHDWallet({ mnemonic }: { mnemonic: string }) {
+  async createHDWallet({
+    name,
+    mnemonic,
+  }: {
+    mnemonic: string;
+    name?: string;
+  }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.CreateOrRemoveWallet,
@@ -1196,7 +1224,7 @@ class ServiceAccount extends ServiceBase {
       throw new InvalidMnemonic();
     }
 
-    return this.createHDWalletWithRs({ rs, password });
+    return this.createHDWalletWithRs({ rs, password, name });
   }
 
   @backgroundMethod()
@@ -1204,10 +1232,12 @@ class ServiceAccount extends ServiceBase {
     rs,
     password,
     avatarInfo,
+    name,
   }: {
     rs: string;
     password: string;
     avatarInfo?: IAvatarInfo;
+    name?: string;
   }) {
     ensureSensitiveTextEncoded(password);
 
@@ -1216,6 +1246,7 @@ class ServiceAccount extends ServiceBase {
       rs,
       backuped: false,
       avatar: avatarInfo ?? randomAvatar(),
+      name,
     });
 
     await timerUtils.wait(100);
@@ -1391,6 +1422,10 @@ class ServiceAccount extends ServiceBase {
     // getHWAccountAddresses
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
+        const addresses = await vault.keyring.batchGetAddresses(prepareParams);
+        if (!isEmpty(addresses)) {
+          return addresses.map((address) => address.address);
+        }
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
         return accounts.map((account) => account.address);
       },
