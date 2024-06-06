@@ -6,12 +6,11 @@ import { AppState } from 'react-native';
 import { Page, Spinner, Stack } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
-
-import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 
 import type { StackActionType } from '@react-navigation/native';
 
