@@ -354,6 +354,7 @@ function ConnectByUSBOrBLE({
   }, []);
 
   const [isSearching, setIsSearching] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
@@ -462,6 +463,7 @@ function ConnectByUSBOrBLE({
   }, [scanDevice]);
 
   const startBLEConnection = useCallback(async () => {
+    setIsChecking(true);
     const isGranted = await checkBLEPermission();
     if (!isGranted) {
       Dialog.confirm({
@@ -470,6 +472,7 @@ function ConnectByUSBOrBLE({
           'To connect via Bluetooth, please enable access in Settings.',
         onConfirmText: 'Go to Settings',
         onConfirm: openSettings,
+        onClose: () => setIsChecking(false),
       });
       return;
     }
@@ -484,10 +487,12 @@ function ConnectByUSBOrBLE({
           platformEnv.isNativeIOS
             ? Linking.openURL('App-Prefs:Bluetooth')
             : Linking.sendIntent('android.settings.BLUETOOTH_SETTINGS'),
+        onClose: () => setIsChecking(false),
       });
       return;
     }
 
+    setIsChecking(false);
     listingDevice();
   }, [checkBLEPermission, checkBLEState, listingDevice]);
 
@@ -518,7 +523,9 @@ function ConnectByUSBOrBLE({
               Ensure the device is powered on and within range, then press
               "Connect device" below to start the connection
             </SizableText>
-            <Button onPress={startBLEConnection}>Start connection</Button>
+            <Button loading={isChecking} onPress={startBLEConnection}>
+              Start connection
+            </Button>
           </YStack>
         </>
       );
