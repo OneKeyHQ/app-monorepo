@@ -214,16 +214,6 @@ function MarketDetail({
     [popPage],
   );
 
-  useEffect(() => {
-    if (platformEnv.isNativeAndroid) {
-      const backHandler = BackHandler.addEventListener(
-        'hardwareBackPress',
-        pop,
-      );
-      return () => backHandler.remove();
-    }
-  }, []);
-
   const tokenDetailHeader = useMemo(() => {
     if (tokenDetail) {
       return (
@@ -281,7 +271,6 @@ function MarketDetail({
   return (
     <Page>
       <Page.Header
-        disableClose
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
         headerLeft={renderHeaderLeft}
