@@ -144,6 +144,18 @@ function SendTestButton() {
     <Stack>
       <Button
         onPress={async () => {
+          const r = await backgroundApiProxy.serviceDemo.demoGetPrivateKey({
+            networkId: activeAccount.network?.id || '',
+            accountId: activeAccount.account?.id || '',
+          });
+          console.log('getPrivateKeys done:', r);
+        }}
+      >
+        获取私钥
+      </Button>
+
+      <Button
+        onPress={async () => {
           const r = await backgroundApiProxy.serviceDemo.demoSend({
             networkId: activeAccount.network?.id || '',
             accountId: activeAccount.account?.id || '',

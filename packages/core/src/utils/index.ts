@@ -13,8 +13,8 @@ import type { IEncodedTxBtc } from '../chains/btc/types';
 export function slicePathTemplate(template: string) {
   const [prefix, suffix] = template.split(INDEX_PLACEHOLDER);
   return {
-    pathPrefix: prefix.slice(0, -1),
-    pathSuffix: `{index}${suffix}`,
+    pathPrefix: prefix.slice(0, -1), // m/44'/60'
+    pathSuffix: `{index}${suffix}`, // {index}/0/0
   };
 }
 
