@@ -299,7 +299,7 @@ function SendDataInputContainer() {
       setIsSubmitting(false);
 
       throw new OneKeyError({
-        info: e.message ?? e,
+        message: e.message,
         autoToast: true,
       });
     }
