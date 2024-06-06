@@ -40,7 +40,6 @@ import type {
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
-import type { ColorTokens } from 'tamagui';
 
 export * from './hooks';
 export type {
