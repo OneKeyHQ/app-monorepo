@@ -11,8 +11,9 @@ import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+
 import type { StackActionType } from '@react-navigation/native';
-import useDappApproveAction from '../../../../hooks/useDappApproveAction';
 
 function SendConfirmFromDApp() {
   const navigation = useNavigation();

@@ -16,11 +16,11 @@ import {
 } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   ETraitsDisplayType,
   type IAccountNFT,
 } from '@onekeyhq/shared/types/nft';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 type IProps = {
   networkId: string;
@@ -130,7 +130,7 @@ function CommonAssetContent(props: IProps) {
                   </SizableText>
                   <SizableText size="$bodyMdMedium">
                     {displayType === ETraitsDisplayType.Date
-                      ? formatDate(new Date(value),{})
+                      ? formatDate(new Date(value), {})
                       : value}
                   </SizableText>
                 </Stack>
