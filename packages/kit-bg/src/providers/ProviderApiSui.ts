@@ -9,6 +9,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 import type {
   ISignAndExecuteTransactionBlockInput,
@@ -24,6 +25,7 @@ import ProviderApiBase from './ProviderApiBase';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type {
   SignedMessage,
+  SignedPersonalMessage,
   SuiTransactionBlockResponse,
 } from '@mysten/sui.js';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
@@ -202,7 +204,7 @@ class ProviderApiSui extends ProviderApiBase {
   public async signMessage(
     request: IJsBridgeMessagePayload,
     params: ISignMessageInput,
-  ): Promise<SignedMessage> {
+  ): Promise<SignedPersonalMessage> {
     const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -212,16 +214,24 @@ class ProviderApiSui extends ProviderApiBase {
       accountId: accountId ?? '',
       networkId: networkId ?? '',
       unsignedMessage: {
-        type: EMessageTypesCommon.SIGN_MESSAGE,
+        type: EMessageTypesCommon.SIMPLE_SIGN,
         message: params.messageSerialize,
-        secure: false,
+        secure: true,
       },
     })) as string;
 
     return {
-      messageBytes: params.messageSerialize,
+      bytes: bufferUtils.hexToText(params.messageSerialize, 'base64'),
       signature: result,
     };
+  }
+
+  @providerApiMethod()
+  public async signPersonalMessage(
+    request: IJsBridgeMessagePayload,
+    params: ISignMessageInput,
+  ): Promise<SignedPersonalMessage> {
+    return this.signMessage(request, params);
   }
 }
 
