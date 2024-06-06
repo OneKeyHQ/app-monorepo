@@ -56,8 +56,8 @@ export interface IDialogHeaderProps {
 }
 
 export interface IDialogHeaderContextType {
-  titleProps: IDialogHeaderProps;
-  setTitleProps: Dispatch<SetStateAction<IDialogHeaderProps>>;
+  headerProps: IDialogHeaderProps;
+  setHeaderProps: Dispatch<SetStateAction<IDialogHeaderProps>>;
 }
 
 interface IBasicDialogProps extends TMDialogProps {
