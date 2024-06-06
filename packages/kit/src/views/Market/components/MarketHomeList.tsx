@@ -900,7 +900,9 @@ function BasicMarketHomeList({
     [],
   );
 
-  const [mdSortByType, setMdSortByType] = useState<string | undefined>();
+  const [mdSortByType, setMdSortByType] = useState<string | undefined>(
+    'Default',
+  );
   const selectOptions = useMemo(
     () => [
       {
@@ -909,7 +911,7 @@ function BasicMarketHomeList({
       },
       {
         label: 'Last price',
-        value: 'last_price',
+        value: 'Last price',
         options: { columnName: 'price', order: 'desc' },
       },
       {
@@ -962,7 +964,7 @@ function BasicMarketHomeList({
   const onSwitchMarketHomeTabCallback = useCallback(
     ({ tabIndex: currentTabIndex }: { tabIndex: number }) => {
       if (currentTabIndex !== tabIndex) {
-        handleMdSortByTypeChange('default');
+        handleMdSortByTypeChange('Default');
       }
     },
     [handleMdSortByTypeChange, tabIndex],
