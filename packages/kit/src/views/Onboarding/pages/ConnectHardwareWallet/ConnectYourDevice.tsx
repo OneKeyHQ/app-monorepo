@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
+import { openSettings } from 'react-native-permissions';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
@@ -17,6 +18,7 @@ import {
   Stack,
   Toast,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_bluetooth.json';
@@ -29,6 +31,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import {
   BleLocationServiceError,
   InitIframeLoadFail,
@@ -40,6 +43,8 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   PERMISSIONS,
+  PermissionStatus,
+  RESULTS,
   check,
   checkMultiple,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-permissions';
@@ -330,14 +335,20 @@ function ConnectByUSBOrBLE({
     [createHwWallet, fwUpdateActions, showFirmwareVerifyDialog],
   );
 
-  const checkBLEPermisstion = useCallback(async () => {
-    const statuses = await (platformEnv.isNativeIOS
-      ? check(PERMISSIONS.IOS.BLUETOOTH)
-      : checkMultiple([
-          PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
-          PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
-        ]));
-    console.log(statuses);
+  const checkBLEPermission = useCallback(async () => {
+    if (platformEnv.isNativeIOS) {
+      const status = await check(PERMISSIONS.IOS.BLUETOOTH);
+      return status === RESULTS.GRANTED;
+    }
+
+    if (platformEnv.isNativeAndroid) {
+      const statuses = checkMultiple([
+        PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
+        PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
+      ]);
+      console.log('---statuses', statuses);
+      return true;
+    }
   }, []);
 
   const [isSearching, setIsSearching] = useState(false);
@@ -395,7 +406,7 @@ function ConnectByUSBOrBLE({
     ],
   );
 
-  useEffect(() => {
+  const scanDevice = useCallback(() => {
     const deviceScanner = deviceUtils.getDeviceScanner({
       backgroundApi: backgroundApiProxy,
     });
@@ -435,11 +446,68 @@ function ConnectByUSBOrBLE({
         searchStateRef.current = state;
       },
     );
-  }, [intl]);
+  }, []);
 
-  useEffect(() => {}, []);
+  const checkBLEState = useCallback(async () => {
+    const bleManager = await uiDeviceUtils.getBleManager();
+    const checkState = await bleManager?.checkState();
+    return checkState === 'on';
+  }, []);
+
+  const startBLEConnection = useCallback(async () => {
+    const isGranted = await checkBLEPermission();
+    if (!isGranted) {
+      Dialog.confirm({
+        title: 'Bluetooth permission needed',
+        description:
+          'To connect via Bluetooth, please enable access in Settings.',
+        onConfirmText: 'Go to Settings',
+        onConfirm: openSettings,
+      });
+      return;
+    }
+
+    const checkState = await checkBLEState();
+    if (!checkState) {
+      Dialog.confirm({
+        title: 'Turn on Bluetooth Switch',
+        description: 'To connect via Bluetooth, please Turn on Bluetooth.',
+      });
+    }
+  }, [checkBLEPermission, checkBLEState]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      setConnectStatus(EConnectionStatus.listing);
+      scanDevice();
+    }
+  }, [checkBLEPermission, scanDevice]);
 
   switch (connectStatus) {
+    case EConnectionStatus.init:
+      return (
+        <>
+          {/* connecting animation */}
+          <Stack alignItems="center" bg="$bgSubdued">
+            <LottieView
+              width="100%"
+              height="$56"
+              source={
+                platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
+              }
+            />
+          </Stack>
+
+          <YStack>
+            <SizableText>Keep the device nearby</SizableText>
+            <SizableText>
+              Ensure the device is powered on and within range, then press
+              "Connect device" below to start the connection
+            </SizableText>
+            <Button onPress={startBLEConnection}>Start connection</Button>
+          </YStack>
+        </>
+      );
     case EConnectionStatus.listing:
       return (
         <>
