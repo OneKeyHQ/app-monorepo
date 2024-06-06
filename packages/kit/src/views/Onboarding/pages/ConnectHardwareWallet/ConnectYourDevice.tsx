@@ -38,6 +38,11 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  PERMISSIONS,
+  check,
+  checkMultiple,
+} from '@onekeyhq/shared/src/modules3rdParty/react-native-permissions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -138,111 +143,62 @@ function ConnectByQrCode() {
   );
 }
 
+enum EConnectionStatus {
+  init = 'init',
+  searching = 'searching',
+  listing = 'listing',
+}
 function ConnectByUSBOrBLE({
-  devicesData,
+  toOneKeyHardwareWalletPage,
 }: {
-  devicesData: IConnectYourDeviceItem[];
+  toOneKeyHardwareWalletPage: () => void;
 }) {
-  const fwUpdateActions = useFirmwareUpdateActions();
-
-  return (
-    <>
-      {/* connecting animation */}
-      <Stack alignItems="center" bg="$bgSubdued">
-        <LottieView
-          width="100%"
-          height="$56"
-          source={
-            platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
-          }
-        />
-      </Stack>
-
-      {/* list devices */}
-      <ScrollView flex={1}>
-        <SizableText textAlign="center" color="$textSubdued" pt="$2.5" pb="$5">
-          {platformEnv.isNative
-            ? 'Please make sure your Bluetooth is enabled'
-            : 'Connect your device via USB'}
-        </SizableText>
-        {devicesData.map((item, index) => (
-          <DeviceListItem item={item} key={index} />
-        ))}
-        {platformEnv.isDev ? (
-          <Button
-            onPress={() => {
-              void fwUpdateActions.showForceUpdate({ connectId: undefined });
-            }}
-          >
-            ForceUpdate
-          </Button>
-        ) : null}
-      </ScrollView>
-    </>
-  );
-}
-enum EConnectDeviceTab {
-  usbOrBle = 'usbOrBle',
-  qr = 'qr',
-}
-export function ConnectYourDevicePage() {
-  const navigation = useAppNavigation();
   const intl = useIntl();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const searchStateRef = useRef<'start' | 'stop'>('stop');
+  const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
+
   const actions = useAccountSelectorActions();
 
-  const [tabValue, setTabValue] = useState<EConnectDeviceTab>(
-    EConnectDeviceTab.usbOrBle,
+  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
+  const fwUpdateActions = useFirmwareUpdateActions();
+  const navigation = useAppNavigation();
+
+  const createHwWallet = useCallback(
+    async ({
+      device,
+      isFirmwareVerified,
+      features,
+    }: {
+      device: SearchDevice;
+      isFirmwareVerified?: boolean;
+      features: IOneKeyDeviceFeatures;
+    }) => {
+      try {
+        console.log('ConnectYourDevice -> createHwWallet', device);
+
+        navigation.push(EOnboardingPages.FinalizeWalletSetup);
+
+        await Promise.all([
+          await actions.current.createHWWalletWithHidden({
+            device,
+            // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
+            hideCheckingDeviceLoading: true,
+            skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
+            features,
+            isFirmwareVerified,
+          }),
+        ]);
+      } catch (error) {
+        navigation.pop();
+        throw error;
+      } finally {
+        await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
+          connectId: device.connectId || '',
+        });
+      }
+    },
+    [actions, navigation],
   );
-
-  useEffect(() => {
-    const deviceScanner = deviceUtils.getDeviceScanner({
-      backgroundApi: backgroundApiProxy,
-    });
-    deviceScanner.startDeviceScan(
-      (response) => {
-        if (!response.success) {
-          const error = convertDeviceError(response.payload);
-          if (platformEnv.isNative) {
-            if (
-              !(error instanceof NeedBluetoothTurnedOn) &&
-              !(error instanceof NeedBluetoothPermissions) &&
-              !(error instanceof BleLocationServiceError)
-            ) {
-              Toast.error({
-                title: error.message || 'DeviceScanError',
-              });
-            } else {
-              deviceScanner.stopScan();
-            }
-          } else if (
-            error instanceof InitIframeLoadFail ||
-            error instanceof InitIframeTimeout
-          ) {
-            Toast.error({
-              title: error.message || 'DeviceScanError',
-            });
-            deviceScanner.stopScan();
-          }
-          setIsSearching(false);
-          return;
-        }
-
-        setSearchedDevices(response.payload);
-        console.log('startDeviceScan>>>>>', response.payload);
-      },
-      (state) => {
-        searchStateRef.current = state;
-      },
-    );
-  }, [intl]);
-
-  const handleHeaderRightPress = useCallback(() => {
-    navigation.push(EOnboardingPages.OneKeyHardwareWallet);
-  }, [navigation]);
 
   const handleSetupNewWalletPress = useCallback(() => {
     navigation.push(EOnboardingPages.ActivateDevice);
@@ -318,46 +274,6 @@ export function ConnectYourDevicePage() {
     });
   }, [handleSetupNewWalletPress, intl, requestsUrl]);
 
-  const createHwWallet = useCallback(
-    async ({
-      device,
-      isFirmwareVerified,
-      features,
-    }: {
-      device: SearchDevice;
-      isFirmwareVerified?: boolean;
-      features: IOneKeyDeviceFeatures;
-    }) => {
-      try {
-        console.log('ConnectYourDevice -> createHwWallet', device);
-
-        navigation.push(EOnboardingPages.FinalizeWalletSetup);
-
-        await Promise.all([
-          await actions.current.createHWWalletWithHidden({
-            device,
-            // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
-            hideCheckingDeviceLoading: true,
-            skipDeviceCancel: true, // createHWWalletWithHidden: skip device cancel as create may call device multiple times
-            features,
-            isFirmwareVerified,
-          }),
-        ]);
-      } catch (error) {
-        navigation.pop();
-        throw error;
-      } finally {
-        await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
-          connectId: device.connectId || '',
-        });
-      }
-    },
-    [actions, navigation],
-  );
-
-  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
-  const fwUpdateActions = useFirmwareUpdateActions();
-
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
       const handleBootloaderMode = () => {
@@ -414,6 +330,19 @@ export function ConnectYourDevicePage() {
     [createHwWallet, fwUpdateActions, showFirmwareVerifyDialog],
   );
 
+  const checkBLEPermisstion = useCallback(async () => {
+    const statuses = await (platformEnv.isNativeIOS
+      ? check(PERMISSIONS.IOS.BLUETOOTH)
+      : checkMultiple([
+          PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
+          PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
+        ]));
+    console.log(statuses);
+  }, []);
+
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
+
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
       /*
@@ -452,19 +381,128 @@ export function ConnectYourDevicePage() {
             {
               title: 'OneKey Touch2(buy)',
               src: HwWalletAvatarImages.touch,
-              onPress: handleHeaderRightPress,
+              onPress: toOneKeyHardwareWalletPage,
             },
           ]
         : []),
     ],
     [
-      handleHeaderRightPress,
       handleHwWalletCreateFlow,
       handleNotActivatedDevicePress,
       handleSetupNewWalletPress,
       searchedDevices,
+      toOneKeyHardwareWalletPage,
     ],
   );
+
+  useEffect(() => {
+    const deviceScanner = deviceUtils.getDeviceScanner({
+      backgroundApi: backgroundApiProxy,
+    });
+    deviceScanner.startDeviceScan(
+      (response) => {
+        if (!response.success) {
+          const error = convertDeviceError(response.payload);
+          if (platformEnv.isNative) {
+            if (
+              !(error instanceof NeedBluetoothTurnedOn) &&
+              !(error instanceof NeedBluetoothPermissions) &&
+              !(error instanceof BleLocationServiceError)
+            ) {
+              Toast.error({
+                title: error.message || 'DeviceScanError',
+              });
+            } else {
+              deviceScanner.stopScan();
+            }
+          } else if (
+            error instanceof InitIframeLoadFail ||
+            error instanceof InitIframeTimeout
+          ) {
+            Toast.error({
+              title: error.message || 'DeviceScanError',
+            });
+            deviceScanner.stopScan();
+          }
+          setIsSearching(false);
+          return;
+        }
+
+        setSearchedDevices(response.payload);
+        console.log('startDeviceScan>>>>>', response.payload);
+      },
+      (state) => {
+        searchStateRef.current = state;
+      },
+    );
+  }, [intl]);
+
+  useEffect(() => {}, []);
+
+  switch (connectStatus) {
+    case EConnectionStatus.listing:
+      return (
+        <>
+          {/* connecting animation */}
+          <Stack alignItems="center" bg="$bgSubdued">
+            <LottieView
+              width="100%"
+              height="$56"
+              source={
+                platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
+              }
+            />
+          </Stack>
+
+          {/* list devices */}
+          <ScrollView flex={1}>
+            <SizableText
+              textAlign="center"
+              color="$textSubdued"
+              pt="$2.5"
+              pb="$5"
+            >
+              {platformEnv.isNative
+                ? 'Please make sure your Bluetooth is enabled'
+                : 'Connect your device via USB'}
+            </SizableText>
+            {devicesData.map((item, index) => (
+              <DeviceListItem item={item} key={index} />
+            ))}
+            {platformEnv.isDev ? (
+              <Button
+                onPress={() => {
+                  void fwUpdateActions.showForceUpdate({
+                    connectId: undefined,
+                  });
+                }}
+              >
+                ForceUpdate
+              </Button>
+            ) : null}
+          </ScrollView>
+        </>
+      );
+
+    default:
+      return null;
+  }
+}
+enum EConnectDeviceTab {
+  usbOrBle = 'usbOrBle',
+  qr = 'qr',
+}
+export function ConnectYourDevicePage() {
+  const navigation = useAppNavigation();
+  const intl = useIntl();
+
+  const [tabValue, setTabValue] = useState<EConnectDeviceTab>(
+    EConnectDeviceTab.usbOrBle,
+  );
+
+  const toOneKeyHardwareWalletPage = useCallback(() => {
+    navigation.push(EOnboardingPages.OneKeyHardwareWallet);
+  }, [navigation]);
 
   return (
     <Page>
@@ -472,7 +510,7 @@ export function ConnectYourDevicePage() {
         title={intl.formatMessage({
           id: ETranslations.onboarding_connect_your_device,
         })}
-        headerRight={() => headerRight(handleHeaderRightPress)}
+        headerRight={() => headerRight(toOneKeyHardwareWalletPage)}
       />
       <Page.Body>
         <Stack px="$5" pt="$2" pb="$4">
@@ -497,7 +535,9 @@ export function ConnectYourDevicePage() {
         <Divider />
 
         {tabValue === EConnectDeviceTab.usbOrBle ? (
-          <ConnectByUSBOrBLE devicesData={devicesData} />
+          <ConnectByUSBOrBLE
+            toOneKeyHardwareWalletPage={toOneKeyHardwareWalletPage}
+          />
         ) : null}
 
         {tabValue === EConnectDeviceTab.qr ? <ConnectByQrCode /> : null}
