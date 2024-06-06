@@ -539,6 +539,30 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async exportAccountSecretKeys({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.Security,
+      });
+    return vault.keyring.exportAccountSecretKeys({
+      password,
+      publicKey: true,
+      privateKey: true,
+      xprvt: true,
+      xpub: true,
+    });
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async addImportedAccount({
     input,
     networkId,
