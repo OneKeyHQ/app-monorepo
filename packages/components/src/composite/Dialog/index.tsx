@@ -308,20 +308,20 @@ function BaseDialogContainer(
     }),
     [handleImperativeClose],
   );
-  const [titleProps, setTitleProps] = useState<IDialogHeaderProps>({
+  const [headerProps, setHeaderProps] = useState<IDialogHeaderProps>({
     title,
     tone,
     description,
     icon,
     showExitButton,
   });
-  const titleContextValue = useMemo(
-    () => ({ titleProps, setTitleProps }),
-    [titleProps],
+  const headerContextValue = useMemo(
+    () => ({ headerProps, setHeaderProps }),
+    [headerProps],
   );
   return (
     <DialogContext.Provider value={contextValue}>
-      <DialogHeaderContext.Provider value={titleContextValue}>
+      <DialogHeaderContext.Provider value={headerContextValue}>
         <DialogFrame
           contextValue={contextValue}
           open={isOpen}
