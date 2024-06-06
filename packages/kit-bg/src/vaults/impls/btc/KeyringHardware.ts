@@ -231,4 +231,37 @@ export class KeyringHardware extends KeyringHardwareBase {
       },
     });
   }
+
+  override async batchGetAddresses(params: IPrepareHardwareAccountsParams) {
+    const { indexes } = params;
+    const addresses = await this.baseGetDeviceAccountAddresses({
+      params,
+      usedIndexes: indexes,
+      sdkGetAddressFn: async ({
+        connectId,
+        deviceId,
+        pathPrefix,
+        pathSuffix,
+        coinName,
+        showOnOnekeyFn,
+      }) => {
+        const sdk = await this.getHardwareSDKInstance();
+
+        const response = await sdk.btcGetAddress(connectId, deviceId, {
+          ...params.deviceParams.deviceCommonParams,
+          bundle: indexes.map((index, arrIndex) => ({
+            path: `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+            coin: coinName?.toLowerCase(),
+            showOnOneKey: showOnOnekeyFn(arrIndex),
+          })),
+        });
+        return response;
+      },
+    });
+
+    return addresses.map((item) => ({
+      path: item.path ?? '',
+      address: item.address ?? '',
+    }));
+  }
 }

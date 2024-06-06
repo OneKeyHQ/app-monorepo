@@ -48,7 +48,18 @@ class ServiceNFT extends ServiceBase {
         ),
       },
     );
-    return resp.data.data;
+    const result = resp.data.data;
+
+    return result.map((nft) => {
+      if (nft.metadata?.attributes) {
+        nft.metadata.attributes = nft.metadata.attributes.map((attr) => ({
+          ...attr,
+          traitType: attr.trait_type,
+          displayType: attr.display_type,
+        }));
+      }
+      return nft;
+    });
   }
 
   @backgroundMethod()

@@ -1,6 +1,7 @@
+/* eslint-disable camelcase */
 import { useMemo } from 'react';
 
-import { isNil } from 'lodash';
+import { isNil, isObject } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -15,7 +16,11 @@ import {
 } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  ETraitsDisplayType,
+  type IAccountNFT,
+} from '@onekeyhq/shared/types/nft';
 
 type IProps = {
   networkId: string;
@@ -109,22 +114,28 @@ function CommonAssetContent(props: IProps) {
         <Heading size="$headingSm">Attributes</Heading>
         {attributes?.length ? (
           <XStack m="$-1" pt="$2.5" flexWrap="wrap">
-            {attributes?.map(({ traitType, value }) => (
-              <Stack
-                key={traitType}
-                py="$2"
-                px="$3.5"
-                m="$1"
-                bg="$bgStrong"
-                borderRadius="$2"
-                borderCurve="continuous"
-              >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {traitType}
-                </SizableText>
-                <SizableText size="$bodyMdMedium">{value}</SizableText>
-              </Stack>
-            ))}
+            {attributes?.map(({ traitType, value, displayType }) =>
+              isObject(value) ? null : (
+                <Stack
+                  key={traitType}
+                  py="$2"
+                  px="$3.5"
+                  m="$1"
+                  bg="$bgStrong"
+                  borderRadius="$2"
+                  borderCurve="continuous"
+                >
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {traitType}
+                  </SizableText>
+                  <SizableText size="$bodyMdMedium">
+                    {displayType === ETraitsDisplayType.Date
+                      ? formatDate(new Date(value), {})
+                      : value}
+                  </SizableText>
+                </Stack>
+              ),
+            )}
           </XStack>
         ) : (
           <SizableText size="$bodyMd" mt="$2" color="$textSubdued">

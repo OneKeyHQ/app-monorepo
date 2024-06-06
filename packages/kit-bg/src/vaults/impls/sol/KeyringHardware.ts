@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { VersionedTransaction } from '@solana/web3.js';
+import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 
 import type {
   IEncodedTxSol,
@@ -25,7 +25,6 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import type { PublicKey } from '@solana/web3.js';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.sol.hd;
@@ -93,8 +92,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { unsignedTx, deviceParams } = params;
     const { feePayer } = unsignedTx.payload as {
       nativeTx: INativeTxSol;
-      feePayer: PublicKey;
+      feePayer: string;
     };
+
+    const feePayerPublicKey = new PublicKey(feePayer);
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
 
@@ -123,7 +124,10 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const { signature } = result;
     if (signature) {
-      transaction.addSignature(feePayer, Buffer.from(signature, 'hex'));
+      transaction.addSignature(
+        feePayerPublicKey,
+        Buffer.from(signature, 'hex'),
+      );
       return {
         txid: signature,
         encodedTx,

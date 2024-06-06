@@ -244,6 +244,12 @@ export abstract class KeyringBase extends VaultContext {
     return ret;
   }
 
+  async batchGetAddresses(
+    params: IPrepareAccountsParams,
+  ): Promise<{ address: string; path: string }[]> {
+    return [];
+  }
+
   abstract signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro>;

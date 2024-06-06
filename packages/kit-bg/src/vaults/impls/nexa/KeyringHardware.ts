@@ -84,6 +84,44 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
+  override async batchGetAddresses(params: IPrepareHardwareAccountsParams) {
+    const { indexes } = params;
+
+    const addresses = await this.baseGetDeviceAccountAddresses({
+      params,
+      usedIndexes: indexes,
+      sdkGetAddressFn: async ({
+        connectId,
+        deviceId,
+        pathPrefix,
+        showOnOnekeyFn,
+      }) => {
+        const chainId = await this.getNetworkChainId();
+
+        const paths = indexes.map((index) => `${pathPrefix}/${index}'/0/0`);
+        const bundle = paths.map((path, index) => ({
+          path,
+          showOnOneKey: showOnOnekeyFn(index),
+          prefix: getNexaPrefix(chainId),
+          scheme: SIGN_TYPE,
+        }));
+
+        const sdk = await this.getHardwareSDKInstance();
+
+        const response = await sdk.nexaGetAddress(connectId, deviceId, {
+          ...params.deviceParams.deviceCommonParams,
+          bundle,
+        });
+        return response;
+      },
+    });
+
+    return addresses.map((item) => ({
+      path: item.path ?? '',
+      address: item.address ?? '',
+    }));
+  }
+
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {

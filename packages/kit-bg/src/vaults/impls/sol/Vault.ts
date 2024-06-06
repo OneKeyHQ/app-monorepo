@@ -871,7 +871,7 @@ export default class Vault extends VaultBase {
 
     return {
       payload: {
-        feePayer: new PublicKey(accountAddress),
+        feePayer: accountAddress,
       },
       encodedTx,
     };

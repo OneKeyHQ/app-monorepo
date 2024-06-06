@@ -443,7 +443,7 @@ export default class Vault extends VaultBase {
       }),
     ]);
 
-    tx.chainId = status.chainId;
+    tx.chainId = new BigNumber(status.chainId).toNumber();
     tx.epochHeight = status.epochNumber;
     tx.storageLimit = new BigNumber(estimate.storageCollateralized).toFixed();
 

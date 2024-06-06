@@ -166,7 +166,23 @@ class ProviderApiNear extends ProviderApiBase {
   ): Promise<{ transactionHashes: string[] }> {
     const { transactions } = params;
     const transactionHashes: string[] = [];
-    // TODO: need request queue
+
+    const { accountInfo: { accountId, networkId } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    for (let i = 0; i < transactions.length; i += 1) {
+      const tx = transactions[i];
+
+      const result =
+        (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+          accountId: accountId ?? '',
+          networkId: networkId ?? '',
+          request,
+          encodedTx: tx,
+        })) as string;
+      transactionHashes.push(result);
+    }
     return { transactionHashes };
   }
 
