@@ -131,13 +131,8 @@ export function EnumBasicDialogContentContainer({
   onContinuePress,
   errorCode,
 }: {
-  errorCode: number;
   contentType: EFirmwareAuthenticationDialogContentType;
-  titleProps?: IDialogTitleContextTitleProps;
-  showLoading?: boolean;
-  showActions?: boolean;
-  actionsProps?: IButtonProps;
-  showContinueAnyway?: boolean;
+  errorCode: number;
   onActionPress?: () => void;
   onContinuePress?: () => void;
 }) {

@@ -69,7 +69,7 @@ export function DialogIcon({
 export function DialogTitle({ children, ...props }: ISizableTextProps) {
   return (
     <>
-      <SizableText p="$5" pb={0} pr="$16" size="$headingXl" py="$px" {...props}>
+      <SizableText m="$5" mb={0} mr="$16" size="$headingXl" py="$px" {...props}>
         {children}
       </SizableText>
       {
@@ -83,7 +83,7 @@ export function DialogTitle({ children, ...props }: ISizableTextProps) {
 }
 
 export function DialogDescription(props: ISizableTextProps) {
-  return <SizableText p="$5" pr="$16" size="$bodyLg" pt="$1.5" {...props} />;
+  return <SizableText m="$5" mr="$16" size="$bodyLg" mt="$1.5" {...props} />;
 }
 
 function BasicDialogHeader({ onClose }: { onClose: () => void }) {
