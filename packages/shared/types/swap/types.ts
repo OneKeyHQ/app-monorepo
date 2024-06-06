@@ -52,15 +52,18 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   logoURI?: string;
   explorers?: INetworkExplorerConfig[];
 }
-export interface ISwapToken {
+
+export interface ISwapTokenBase {
   networkId: string;
   contractAddress: string;
-  isNative: boolean | undefined;
+  isNative?: boolean;
   symbol: string;
   decimals: number;
   name?: string;
   logoURI?: string;
+}
 
+export interface ISwapToken extends ISwapTokenBase {
   balanceParsed?: string;
   price?: string;
   fiatValue?: string;
@@ -118,6 +121,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
   slippagePercentage?: number;
+  autoSlippage?: boolean;
   blockNumber?: number;
 }
 interface ISocketAsset {
@@ -169,6 +173,10 @@ export interface IFetchQuoteResult {
   unSupportReceiveAddressDifferent?: boolean;
   routesData?: IQuoteRoutePath[];
   quoteExtraData?: IQuoteExtraData;
+  autoSuggestedSlippage?: number;
+  unSupportSlippage?: boolean;
+  fromTokenInfo: ISwapTokenBase;
+  toTokenInfo: ISwapTokenBase;
 }
 
 export interface IAllowanceResult {

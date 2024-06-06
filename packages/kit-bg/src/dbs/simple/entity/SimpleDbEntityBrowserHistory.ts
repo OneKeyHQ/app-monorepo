@@ -1,6 +1,6 @@
 import type { IBrowserHistory } from '@onekeyhq/kit/src/views/Discovery/types';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IBrowserHistories {
   data: IBrowserHistory[];

@@ -3,7 +3,16 @@ export enum ENFTType {
   ERC1155 = 'ERC-1155',
 }
 
+export enum ETraitsDisplayType {
+  String = 'string',
+  Date = 'date',
+  Number = 'number',
+}
+
 export type ITraits = {
+  trait_type: string;
+  display_type: ETraitsDisplayType;
+  displayType: ETraitsDisplayType;
   traitType: string;
   value: string;
 };

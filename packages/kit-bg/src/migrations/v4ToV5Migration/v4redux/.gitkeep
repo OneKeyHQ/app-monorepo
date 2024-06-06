@@ -1,0 +1,1 @@
+JSON.parse(JSON.parse(await $$appStorage.getItem('persist:ONEKEY_WALLET')).settings)

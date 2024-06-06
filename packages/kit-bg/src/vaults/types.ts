@@ -2,6 +2,7 @@ import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
 import type {
   EAddressEncodings,
   ICoreApiGetAddressItem,
+  ICoreApiPrivateKeysMap,
   ICoreImportedCredentialEncryptHex,
   ICurveName,
   IEncodedTx,
@@ -167,9 +168,7 @@ export type IGetPrivateKeysParams = {
   password: string;
   relPaths?: string[] | undefined;
 };
-export type IGetPrivateKeysResult = {
-  [path: string]: Buffer;
-};
+export type IGetPrivateKeysResult = ICoreApiPrivateKeysMap;
 export type IPrepareExternalAccountsParams = {
   name: string;
   networks?: string[];
@@ -231,6 +230,21 @@ export type IPrepareAccountByAddressIndexParams = {
   template: string;
   accountIndex: number;
   addressIndex: number;
+};
+
+export type IExportAccountSecretKeysParams = {
+  password: string;
+  publicKey?: boolean;
+  privateKey?: boolean;
+  xpub?: boolean;
+  xprvt?: boolean;
+};
+
+export type IExportAccountSecretKeysResult = {
+  publicKey?: string;
+  privateKey?: string;
+  xpub?: string;
+  xprvt?: string;
 };
 
 // GetAddress ----------------------------------------------
