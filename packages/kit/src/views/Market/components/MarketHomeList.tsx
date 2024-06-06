@@ -494,10 +494,7 @@ function TableRow({
           name="sparkline"
           alignRight
           ml="$4"
-          sortType={sortType?.columnName}
-          order={sortType?.order}
           onPress={handleColumnPress}
-          cursor={cursor}
         >
           {isLoading ? <Skeleton w="$20" h="$3" /> : sparkline?.(item)}
         </Column>
