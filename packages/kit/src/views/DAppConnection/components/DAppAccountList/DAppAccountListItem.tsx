@@ -22,6 +22,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -46,6 +47,21 @@ function DAppAccountListInitFromHome({ num }: { num: number }) {
   }, [actions, num]);
   return null;
 }
+
+const getLoadingDuration = ({
+  skeletonRenderDuration,
+  shouldSyncFromHome,
+}: {
+  skeletonRenderDuration?: number;
+  shouldSyncFromHome?: boolean;
+}) => {
+  if (skeletonRenderDuration) {
+    return skeletonRenderDuration;
+  }
+  const syncFromHomeDuration = platformEnv.isNative ? 1200 : 1000;
+  const normalLoadingDuration = platformEnv.isNative ? 800 : 500;
+  return shouldSyncFromHome ? syncFromHomeDuration : normalLoadingDuration;
+};
 
 function DAppAccountListItem({
   num,
@@ -72,8 +88,10 @@ function DAppAccountListItem({
   });
 
   const shouldSyncFromHome = initFromHome && !readonly;
-  const loadingDuration =
-    skeletonRenderDuration || (shouldSyncFromHome ? 800 : 500);
+  const loadingDuration = getLoadingDuration({
+    skeletonRenderDuration,
+    shouldSyncFromHome,
+  });
   return (
     <>
       <XGroup
