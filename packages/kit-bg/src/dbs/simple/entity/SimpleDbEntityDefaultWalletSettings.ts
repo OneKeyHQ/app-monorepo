@@ -1,4 +1,4 @@
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IDefaultWalletSettingsDB {
   isDefaultWallet: boolean;

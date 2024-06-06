@@ -4,7 +4,7 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ILocalTokens {
   data: Record<string, IToken>; // <networkId_tokenIdOnNetwork, token>

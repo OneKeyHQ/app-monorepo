@@ -8,7 +8,7 @@ import type {
   IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IDappConnectionData {
   data: {

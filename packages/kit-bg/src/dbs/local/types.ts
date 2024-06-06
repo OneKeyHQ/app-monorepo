@@ -119,12 +119,12 @@ export type IDBWalletType =
 export type IDBWallet = IDBBaseObjectWithName & {
   type: IDBWalletType;
   backuped: boolean;
-  nextIndex: number; // TODO optional, merge with nextAccountIds
   // only for singleton wallet
   accounts: string[];
   // only for singleton wallet
   nextAccountIds: {
     // 'global': 1, // imported, external, watching,
+    // 'index': 0, // hd, hw
     // purpose + cointype => index
     [template: string]: number; // hd
   };

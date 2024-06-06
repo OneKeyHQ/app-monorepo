@@ -1,6 +1,6 @@
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IAddressBookData {
   items: IAddressItem[];

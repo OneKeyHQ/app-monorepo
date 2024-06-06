@@ -12,9 +12,11 @@ const wallet: IDBWallet = {
   'avatar': img,
   'type': 'hd',
   'backuped': false,
-  'nextAccountIds': {},
+  'nextAccountIds': {
+    global: 1,
+    index: 0,
+  },
   'accounts': [],
-  'nextIndex': 54,
   'walletNo': 0,
   'avatarInfo': {
     'img': 'pig',

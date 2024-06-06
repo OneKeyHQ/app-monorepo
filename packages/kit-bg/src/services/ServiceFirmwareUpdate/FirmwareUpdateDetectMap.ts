@@ -52,7 +52,8 @@ export class FirmwareUpdateDetectMap {
     await firmwareUpdatesDetectStatusAtom.set(
       (value: IFirmwareUpdatesDetectStatus | undefined) => {
         const detectCache = this.detectMapCache[connectId];
-        if (detectCache) {
+        const hasUpdateInfo = detectCache && detectCache?.updateInfo;
+        if (hasUpdateInfo) {
           const hasUpgrade = Boolean(
             detectCache?.updateInfo?.firmware?.hasUpgrade ||
               detectCache?.updateInfo?.ble?.hasUpgrade,
@@ -73,7 +74,7 @@ export class FirmwareUpdateDetectMap {
           };
           return newValue;
         }
-        if (value && !detectCache) {
+        if (value && !hasUpdateInfo) {
           delete value[connectId];
           return { ...value };
         }
@@ -134,7 +135,12 @@ export class FirmwareUpdateDetectMap {
   }
 
   async deleteUpdateInfo({ connectId }: { connectId: string }) {
-    delete this.detectMapCache[connectId];
+    // delete this.detectMapCache[connectId];
+    const cache = this.detectMapCache[connectId];
+    if (cache) {
+      // keep lastDetectAt but clear updateInfo
+      cache.updateInfo = undefined;
+    }
     await this.updateDetectStatusAtom({
       connectId,
     });

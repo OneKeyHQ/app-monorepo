@@ -51,6 +51,7 @@ import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
+import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 import type { EAtomNames } from '../states/jotai/atomNames';
@@ -133,6 +134,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceGas: ServiceGas;
   serviceDiscovery: ServiceDiscovery;
   serviceDemo: ServiceDemo;
+  serviceV4Migration: ServiceV4Migration;
   serviceDApp: ServiceDApp;
   serviceDappSide: ServiceDappSide;
   serviceWalletConnect: ServiceWalletConnect;

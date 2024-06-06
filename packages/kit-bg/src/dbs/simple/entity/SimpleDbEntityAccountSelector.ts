@@ -7,7 +7,7 @@ import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtil
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 import type {

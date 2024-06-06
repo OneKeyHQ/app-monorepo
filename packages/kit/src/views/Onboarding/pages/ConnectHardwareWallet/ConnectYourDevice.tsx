@@ -56,6 +56,7 @@ type IConnectYourDeviceItem = {
   src: ImageSourcePropType;
   onPress: () => void | Promise<void>;
   opacity?: number;
+  device: SearchDevice | undefined;
 };
 
 const headerRight = (onPress: () => void) => (
@@ -159,7 +160,9 @@ function ConnectByUSBOrBLE({
         {platformEnv.isDev ? (
           <Button
             onPress={() => {
-              void fwUpdateActions.showForceUpdate({ connectId: undefined });
+              void fwUpdateActions.showForceUpdate({
+                connectId: devicesData?.[0]?.device?.connectId ?? undefined,
+              });
             }}
           >
             ForceUpdate
@@ -414,6 +417,7 @@ export function ConnectYourDevicePage() {
       ...searchedDevices.map((item) => ({
         title: item.name,
         src: HwWalletAvatarImages[item.deviceType],
+        device: item,
         onPress: () => handleHwWalletCreateFlow({ device: item }),
         opacity: 1,
       })),
@@ -423,16 +427,19 @@ export function ConnectYourDevicePage() {
               title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
               src: HwWalletAvatarImages.classic1s,
               onPress: handleNotActivatedDevicePress,
+              device: undefined,
             },
             {
               title: 'OneKey Pro(Activate Your Device)',
               src: HwWalletAvatarImages.pro,
               onPress: handleSetupNewWalletPress,
+              device: undefined,
             },
             {
               title: 'OneKey Touch2(buy)',
               src: HwWalletAvatarImages.touch,
               onPress: handleHeaderRightPress,
+              device: undefined,
             },
           ]
         : []),

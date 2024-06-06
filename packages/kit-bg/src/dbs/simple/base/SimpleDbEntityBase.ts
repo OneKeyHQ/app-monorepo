@@ -4,7 +4,7 @@ import { isFunction, isNil, isString } from 'lodash';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-const SIMPLE_DB_KEY_PREFIX = 'simple_db';
+const SIMPLE_DB_KEY_PREFIX = 'simple_db_v5';
 
 type ISimpleDbEntitySavedData<T> = {
   data: T;

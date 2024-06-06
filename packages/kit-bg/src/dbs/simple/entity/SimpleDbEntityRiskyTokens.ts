@@ -1,6 +1,6 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IRiskyTokens {
   blockedTokens: Record<string, Record<string, boolean>>; // <networkId, <tokenIdOnNetwork: boolean>>

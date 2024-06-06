@@ -1,4 +1,4 @@
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ILightningDB {
   tokens: Record<string, string>;

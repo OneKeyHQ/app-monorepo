@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Buffer } from 'buffer';
+// eslint-disable-next-line max-classes-per-file
 
-import { isNil, max, uniq } from 'lodash';
+import { isNil, uniq } from 'lodash';
 import natsort from 'natsort';
 
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
 import {
-  decrypt,
   decryptImportedCredential,
   decryptRevealableSeed,
-  encrypt,
+  decryptVerifyString,
   encryptImportedCredential,
   encryptRevealableSeed,
+  encryptVerifyString,
   ensureSensitiveTextEncoded,
   sha256,
 } from '@onekeyhq/core/src/secret';
@@ -56,8 +56,10 @@ import type {
 } from '@onekeyhq/shared/types/signatureRecord';
 
 import { EDBAccountType } from './consts';
+import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type {
   IDBAccount,
   IDBAccountDerivation,
@@ -83,42 +85,16 @@ import type {
   IDBWallet,
   IDBWalletId,
   IDBWalletIdSingleton,
-  ILocalDBAgent,
-  ILocalDBGetAllRecordsParams,
-  ILocalDBGetAllRecordsResult,
-  ILocalDBGetRecordByIdParams,
-  ILocalDBGetRecordByIdResult,
-  ILocalDBGetRecordsCountParams,
-  ILocalDBGetRecordsCountResult,
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
-  ILocalDBTxAddRecordsParams,
-  ILocalDBTxAddRecordsResult,
-  ILocalDBTxGetAllRecordsParams,
-  ILocalDBTxGetAllRecordsResult,
-  ILocalDBTxGetRecordByIdParams,
   ILocalDBTxGetRecordByIdResult,
-  ILocalDBTxGetRecordsCountParams,
-  ILocalDBTxRemoveRecordsParams,
-  ILocalDBTxUpdateRecordsParams,
-  ILocalDBWithTransactionTask,
 } from './types';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-export abstract class LocalDbBase implements ILocalDBAgent {
-  protected abstract readyDb: Promise<ILocalDBAgent>;
-
+export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
     [walletId: string]: boolean;
   } = {};
-
-  async withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T> {
-    throw new Error(
-      'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
-    );
-    // const db = await this.readyDb;
-    // return db.withTransaction(task);
-  }
 
   buildSingletonWalletRecord({ walletId }: { walletId: IDBWalletIdSingleton }) {
     const walletConfig: Record<
@@ -156,89 +132,10 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       type: walletId,
       backuped: true,
       accounts: [],
-      nextIndex: 0,
       walletNo: walletConfig?.[walletId]?.walletNo ?? 0,
-      nextAccountIds: { 'global': 1 },
+      nextAccountIds: { 'global': 1, 'index': 0 },
     };
     return record;
-  }
-
-  async getRecordsCount<T extends ELocalDBStoreNames>(
-    params: ILocalDBGetRecordsCountParams<T>,
-  ): Promise<ILocalDBGetRecordsCountResult> {
-    const db = await this.readyDb;
-    return db.getRecordsCount(params);
-  }
-
-  async txGetRecordsCount<T extends ELocalDBStoreNames>(
-    params: ILocalDBTxGetRecordsCountParams<T>,
-  ): Promise<ILocalDBGetRecordsCountResult> {
-    const db = await this.readyDb;
-    return db.txGetRecordsCount(params);
-  }
-
-  async getAllRecords<T extends ELocalDBStoreNames>(
-    params: ILocalDBGetAllRecordsParams<T>,
-  ): Promise<ILocalDBGetAllRecordsResult<T>> {
-    const db = await this.readyDb;
-    return db.getAllRecords(params);
-  }
-
-  async getRecordById<T extends ELocalDBStoreNames>(
-    params: ILocalDBGetRecordByIdParams<T>,
-  ): Promise<ILocalDBGetRecordByIdResult<T>> {
-    const db = await this.readyDb;
-    return db.getRecordById(params);
-  }
-
-  async txGetAllRecords<T extends ELocalDBStoreNames>(
-    params: ILocalDBTxGetAllRecordsParams<T>,
-  ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
-    const db = await this.readyDb;
-    return db.txGetAllRecords(params);
-  }
-
-  async txGetRecordById<T extends ELocalDBStoreNames>(
-    params: ILocalDBTxGetRecordByIdParams<T>,
-  ): Promise<ILocalDBTxGetRecordByIdResult<T>> {
-    const db = await this.readyDb;
-    return db.txGetRecordById(params);
-  }
-
-  async txUpdateRecords<T extends ELocalDBStoreNames>(
-    params: ILocalDBTxUpdateRecordsParams<T>,
-  ): Promise<void> {
-    const db = await this.readyDb;
-    // const a = db.txAddRecords['hello-world-test-error-stack-8889273']['name'];
-    return db.txUpdateRecords(params);
-  }
-
-  async txAddRecords<T extends ELocalDBStoreNames>(
-    params: ILocalDBTxAddRecordsParams<T>,
-  ): Promise<ILocalDBTxAddRecordsResult> {
-    const db = await this.readyDb;
-    return db.txAddRecords(params);
-  }
-
-  async txRemoveRecords<T extends ELocalDBStoreNames>(
-    params: ILocalDBTxRemoveRecordsParams<T>,
-  ): Promise<void> {
-    const db = await this.readyDb;
-    return db.txRemoveRecords(params);
-  }
-
-  // ---------------------------------------------- common
-
-  // getDBContext(){
-
-  // }
-
-  // ---------------------------------------------- base
-  abstract reset(): Promise<void>;
-
-  async clearRecords(params: { name: ELocalDBStoreNames }) {
-    const db = await this.readyDb;
-    return db.clearRecords(params);
   }
 
   confirmHDWalletBackuped(walletId: string): Promise<IDBWallet> {
@@ -336,10 +233,10 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     }
     try {
       return (
-        decrypt(
+        decryptVerifyString({
           password,
-          Buffer.from(context.verifyString, 'hex'),
-        ).toString() === DEFAULT_VERIFY_STRING
+          verifyString: context.verifyString,
+        }) === DEFAULT_VERIFY_STRING
       );
     } catch {
       return false;
@@ -441,6 +338,32 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
+  async updateContextVerifyString({ verifyString }: { verifyString: string }) {
+    const db = await this.readyDb;
+    await db.withTransaction(async (tx) => {
+      await this.txUpdateContextVerifyString({
+        tx,
+        verifyString,
+      });
+    });
+  }
+
+  async txUpdateContextVerifyString({
+    tx,
+    verifyString,
+  }: {
+    tx: ILocalDBTransaction;
+    verifyString: string;
+  }) {
+    await this.txUpdateContext({
+      tx,
+      updater: (record) => {
+        record.verifyString = verifyString;
+        return record;
+      },
+    });
+  }
+
   async updatePassword({
     oldPassword,
     newPassword,
@@ -468,15 +391,9 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       }
 
       // update context verifyString
-      await this.txUpdateContext({
+      await this.txUpdateContextVerifyString({
         tx,
-        updater: (record) => {
-          record.verifyString = encrypt(
-            newPassword,
-            Buffer.from(DEFAULT_VERIFY_STRING),
-          ).toString('hex');
-          return record;
-        },
+        verifyString: encryptVerifyString({ password: newPassword }),
       });
     });
   }
@@ -824,22 +741,27 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       records,
     });
     console.log('txAddIndexedAccount txGetWallet');
-    const [wallet] = await this.txGetWallet({
-      tx,
-      walletId,
-    });
-    const { nextIndex } = wallet;
-    const maxIndex = max(indexes);
-    if (!isNil(maxIndex) && maxIndex >= nextIndex) {
-      await this.txUpdateWallet({
-        tx,
-        walletId,
-        updater: (w) => {
-          w.nextIndex = maxIndex + 1;
-          return w;
-        },
-      });
-    }
+    // const [wallet] = await this.txGetWallet({
+    //   tx,
+    //   walletId,
+    // });
+    // const nextIndex = this.getWalletNextAccountId({
+    //   wallet,
+    //   key: 'index',
+    //   defaultValue: 0,
+    // });
+    // const maxIndex = max(indexes);
+    // if (!isNil(maxIndex) && maxIndex >= nextIndex) {
+    //   await this.txUpdateWallet({
+    //     tx,
+    //     walletId,
+    //     updater: (w) => {
+    //       w.nextAccountIds = w.nextAccountIds || {};
+    //       w.nextAccountIds.index = maxIndex + 1;
+    //       return w;
+    //     },
+    //   });
+    // }
   }
 
   async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
@@ -871,16 +793,60 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       walletId,
     });
     console.log('txAddHDNextIndexedAccount get wallet', wallet);
-    let { nextIndex } = wallet;
+    let nextIndex = this.getWalletNextAccountId({
+      wallet,
+      key: 'index',
+      defaultValue: 0,
+    });
+
+    let maxLoop = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId,
+        index: nextIndex,
+      });
+      try {
+        const result = await this.txGetRecordById({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+          id: indexedAccountId,
+        });
+        const indexedAccount = result?.[0];
+        if (!indexedAccount || !result) {
+          break;
+        }
+      } catch (error) {
+        break;
+      }
+      if (maxLoop >= 1000) {
+        break;
+      }
+      nextIndex += 1;
+      maxLoop += 1;
+    }
+
     if (onlyAddFirst) {
       nextIndex = 0;
     }
+
     await this.txAddIndexedAccount({
       tx,
       walletId,
       indexes: [nextIndex],
       skipIfExists: true,
     });
+
+    await this.txUpdateWallet({
+      tx,
+      walletId,
+      updater: (w) => {
+        w.nextAccountIds = w.nextAccountIds || {};
+        w.nextAccountIds.index = nextIndex + 1;
+        return w;
+      },
+    });
+
     return {
       nextIndex,
       indexedAccountId: accountUtils.buildIndexedAccountId({
@@ -952,9 +918,10 @@ export abstract class LocalDbBase implements ILocalDBAgent {
             avatar: avatar && JSON.stringify(avatar), // TODO save object to realmDB?
             type: WALLET_TYPE_HD,
             backuped,
-            nextAccountIds: {},
+            nextAccountIds: {
+              index: firstAccountIndex,
+            },
             accounts: [],
-            nextIndex: firstAccountIndex,
             walletNo: context.nextWalletNo,
           },
         ],
@@ -1099,24 +1066,21 @@ export abstract class LocalDbBase implements ILocalDBAgent {
           },
         });
       } else {
-        await this.txAddRecords({
+        await this.txAddDbDevice({
           tx,
-          name: ELocalDBStoreNames.Device,
           skipIfExists: true,
-          records: [
-            {
-              id: dbDeviceId,
-              name: deviceName,
-              connectId: '',
-              uuid: '',
-              deviceId: rawDeviceId,
-              deviceType,
-              features: '',
-              settingsRaw: '',
-              createdAt: now,
-              updatedAt: now,
-            },
-          ],
+          device: {
+            id: dbDeviceId,
+            name: deviceName,
+            connectId: '',
+            uuid: '',
+            deviceId: rawDeviceId,
+            deviceType,
+            features: '',
+            settingsRaw: '',
+            createdAt: now,
+            updatedAt: now,
+          },
         });
 
         await this.txUpdateRecords({
@@ -1145,8 +1109,9 @@ export abstract class LocalDbBase implements ILocalDBAgent {
             associatedDevice: dbDeviceId,
             isTemp: false,
             passphraseState: '',
-            nextIndex: firstAccountIndex,
-            nextAccountIds: {},
+            nextAccountIds: {
+              index: firstAccountIndex,
+            },
             accounts: [],
             walletNo: context.nextWalletNo,
             xfp,
@@ -1197,6 +1162,40 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     });
   }
 
+  async addDbDevice({
+    device,
+    skipIfExists,
+  }: {
+    device: IDBDevice;
+    skipIfExists?: boolean;
+  }) {
+    const db = await this.readyDb;
+    return db.withTransaction(async (tx) =>
+      this.txAddDbDevice({
+        tx,
+        device,
+        skipIfExists,
+      }),
+    );
+  }
+
+  async txAddDbDevice({
+    tx,
+    device,
+    skipIfExists,
+  }: {
+    tx: ILocalDBTransaction;
+    device: IDBDevice;
+    skipIfExists?: boolean;
+  }) {
+    return this.txAddRecords({
+      tx,
+      name: ELocalDBStoreNames.Device,
+      skipIfExists,
+      records: [device],
+    });
+  }
+
   // TODO remove unused hidden wallet first
   async createHWWallet(params: IDBCreateHWWalletParams) {
     const db = await this.readyDb;
@@ -1218,7 +1217,7 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     let walletName = name || deviceName;
     if (passphraseState) {
       // TODO use nextHidden in IDBWallet
-      walletName = 'Hidden Wallet #1';
+      walletName = name || 'Hidden Wallet #1';
     }
     const avatar: IAvatarInfo = {
       img: deviceType,
@@ -1242,26 +1241,23 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     await db.withTransaction(async (tx) => {
       // add db device
       const now = Date.now();
-      await this.txAddRecords({
+      await this.txAddDbDevice({
         tx,
-        name: ELocalDBStoreNames.Device,
         skipIfExists: true,
-        records: [
-          {
-            id: dbDeviceId,
-            name: deviceName,
-            connectId: connectId || '',
-            uuid: deviceUUID,
-            deviceId: rawDeviceId,
-            deviceType,
-            features: featuresStr,
-            settingsRaw: JSON.stringify({
-              inputPinOnSoftware: true,
-            } as IDBDeviceSettings),
-            createdAt: now,
-            updatedAt: now,
-          },
-        ],
+        device: {
+          id: dbDeviceId,
+          name: deviceName,
+          connectId: connectId || '',
+          uuid: deviceUUID,
+          deviceId: rawDeviceId,
+          deviceType,
+          features: featuresStr,
+          settingsRaw: JSON.stringify({
+            inputPinOnSoftware: true,
+          } as IDBDeviceSettings),
+          createdAt: now,
+          updatedAt: now,
+        },
       });
 
       // update exists db device
@@ -1314,8 +1310,9 @@ export abstract class LocalDbBase implements ILocalDBAgent {
             associatedDevice: dbDeviceId,
             isTemp: false,
             passphraseState,
-            nextIndex: firstAccountIndex,
-            nextAccountIds: {},
+            nextAccountIds: {
+              index: firstAccountIndex,
+            },
             accounts: [],
             walletNo: context.nextWalletNo,
           },
@@ -1711,14 +1708,17 @@ export abstract class LocalDbBase implements ILocalDBAgent {
     key,
     defaultValue,
   }: {
-    nextAccountIds: {
-      [key: string]: number;
-    };
+    nextAccountIds:
+      | {
+          [key: string]: number;
+        }
+      | undefined;
     key: string;
     defaultValue: number;
   }) {
-    const val = nextAccountIds[key];
+    const val = nextAccountIds?.[key];
 
+    // RealmDB ERROR: RangeError: number is not integral
     // realmDB return NaN, indexedDB return undefined
     if (Number.isNaN(val) || isNil(val)) {
       // realmDB RangeError: number is not integral
@@ -1727,6 +1727,22 @@ export abstract class LocalDbBase implements ILocalDBAgent {
       return defaultValue;
     }
     return val ?? defaultValue;
+  }
+
+  getWalletNextAccountId({
+    wallet,
+    key,
+    defaultValue,
+  }: {
+    wallet: IDBWallet | RealmSchemaWallet;
+    key: 'global' | 'index';
+    defaultValue: number;
+  }) {
+    return this.getNextAccountId({
+      nextAccountIds: wallet.nextAccountIds,
+      key,
+      defaultValue,
+    });
   }
 
   async addAccountsToWallet({
@@ -1744,9 +1760,11 @@ export abstract class LocalDbBase implements ILocalDBAgent {
 
     this.validateAccountsFields(accounts);
 
-    let nextAccountId = await this.getWalletNextAccountId({
-      walletId,
+    const wallet = await this.getWallet({ walletId });
+    let nextAccountId: number = this.getWalletNextAccountId({
+      wallet,
       key: 'global',
+      defaultValue: 1,
     });
 
     await db.withTransaction(async (tx) => {
@@ -1819,14 +1837,12 @@ export abstract class LocalDbBase implements ILocalDBAgent {
           updater: (w) => {
             w.nextAccountIds = w.nextAccountIds || {};
 
-            w.nextAccountIds.global =
-              // RealmDB return NaN, indexedDB return undefined
-              // RealmDB ERROR: RangeError: number is not integral
-              this.getNextAccountId({
-                nextAccountIds: w.nextAccountIds,
-                key: 'global',
-                defaultValue: 1,
-              }) + actualAdded;
+            const currentNextAccountId = this.getWalletNextAccountId({
+              wallet: w,
+              key: 'global',
+              defaultValue: 1,
+            });
+            w.nextAccountIds.global = currentNextAccountId + actualAdded;
 
             // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
             // w.accounts is List not Array in realmDB
@@ -1867,17 +1883,6 @@ export abstract class LocalDbBase implements ILocalDBAgent {
 
       // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
     });
-  }
-
-  async getWalletNextAccountId({
-    walletId,
-    key = 'global',
-  }: {
-    walletId: IDBWalletId;
-    key?: string | 'global';
-  }) {
-    const wallet = await this.getWallet({ walletId });
-    return wallet.nextAccountIds[key] ?? 1;
   }
 
   // ---------------------------------------------- account

@@ -31,6 +31,7 @@ module.exports = [
   'usb',
   'nocache',
   'ethereumjs',
+  'pwkey',
   'uid',
   'rdns',
   'rnd',

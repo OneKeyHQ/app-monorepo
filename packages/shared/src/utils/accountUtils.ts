@@ -1,5 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
-import { add, isNil } from 'lodash';
+import { isNil } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
@@ -30,10 +30,7 @@ import { CoreSDKLoader } from '../hardware/instance';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import networkUtils from './networkUtils';
 
-import type {
-  IOneKeyDeviceFeatures,
-  IQrWalletDevice,
-} from '../../types/device';
+import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -220,6 +217,28 @@ function buildPathFromTemplate({
     INDEX_PLACEHOLDER,
     index.toString(),
   );
+}
+
+function findIndexFromTemplate({
+  template,
+  path,
+}: {
+  template: string;
+  path: string;
+}) {
+  const templateItems = template.split('/');
+  const pathItems = path.split('/');
+  for (let i = 0; i < templateItems.length; i += 1) {
+    const tplItem = templateItems[i];
+    const pathItem = pathItems[i];
+    if (tplItem === INDEX_PLACEHOLDER && pathItem) {
+      return Number(pathItem);
+    }
+    if (tplItem === `${INDEX_PLACEHOLDER}'` && pathItem) {
+      return Number(pathItem.replace(/'+$/, ''));
+    }
+  }
+  return undefined;
 }
 
 function buildHDAccountId({
@@ -658,4 +677,5 @@ export default {
   getWalletConnectMergedNetwork,
   formatUtxoPath,
   buildPathFromTemplate,
+  findIndexFromTemplate,
 };

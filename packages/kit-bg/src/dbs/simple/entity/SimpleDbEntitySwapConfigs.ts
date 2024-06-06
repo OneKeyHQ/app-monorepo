@@ -1,6 +1,6 @@
 import type { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ISwapConfigs {
   providerSort: ESwapProviderSort;

@@ -48,7 +48,7 @@ function Demo() {
 
       <Button
         onPress={async () => {
-          const c = await serviceAccount.addHDIndexedAccount({
+          const c = await serviceAccount.addIndexedAccount({
             walletId: hdId,
             indexes: [0],
             skipIfExists: false,
@@ -60,7 +60,7 @@ function Demo() {
       </Button>
       <Button
         onPress={async () => {
-          const c = await serviceAccount.addHDIndexedAccount({
+          const c = await serviceAccount.addIndexedAccount({
             walletId: hdId,
             indexes: [0],
             skipIfExists: true,

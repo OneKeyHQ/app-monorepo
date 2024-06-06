@@ -4,7 +4,7 @@ import { getPresetNetworks } from './presetNetworks';
 
 export const NETWORK_ID_ETC = 'evm--61';
 
-type INetworkShortCode =
+export type INetworkShortCode =
   | 'eth'
   | 'goerli'
   | 'arbitrum'
@@ -12,6 +12,24 @@ type INetworkShortCode =
   | 'avalanche'
   | 'bsc'
   | 'sol'
+  | 'near'
+  | 'algo'
+  | 'stc'
+  | 'cfx'
+  | 'apt'
+  | 'doge'
+  | 'xna'
+  | 'bch'
+  | 'xrp'
+  | 'ada'
+  | 'sui'
+  | 'fil'
+  | 'dot'
+  | 'kaspa'
+  | 'nexa'
+  | 'nostr'
+  | 'dnx'
+  | 'ckb'
   | 'btc'
   | 'tbtc'
   | 'juno'

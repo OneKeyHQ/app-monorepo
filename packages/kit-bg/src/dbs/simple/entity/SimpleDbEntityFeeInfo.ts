@@ -1,6 +1,6 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IFeeInfoDb {
   presetIndex: Record<string, number>; // <networkId, presetIndex>
