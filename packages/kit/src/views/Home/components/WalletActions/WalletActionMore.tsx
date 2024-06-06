@@ -15,6 +15,8 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
+
 import { RawActions } from './RawActions';
 
 export function WalletActionMore() {
@@ -67,6 +69,30 @@ export function WalletActionMore() {
           icon: 'MinusLargeOutline',
           disabled: !isSupported,
           onPress: sellCrypto,
+        },
+      ],
+    });
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    sections.unshift({
+      items: [
+        {
+          label: 'Export Private Key',
+          icon: 'MinusLargeOutline',
+          onPress: () => {
+            void (async () => {
+              const r =
+                await backgroundApiProxy.serviceAccount.exportAccountSecretKeys(
+                  {
+                    accountId: account?.id || '',
+                    networkId: network?.id || '',
+                  },
+                );
+
+              console.log(r);
+            })();
+          },
         },
       ],
     });
