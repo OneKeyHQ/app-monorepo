@@ -47,7 +47,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
   onCancel?: () => void;
 }
 
-export interface IDialogTitleContextTitleProps {
+export interface IDialogHeaderProps {
   icon?: IKeyOfIcons;
   title?: string;
   description?: string;
@@ -55,9 +55,9 @@ export interface IDialogTitleContextTitleProps {
   tone?: 'default' | 'destructive' | 'warning' | 'success';
 }
 
-export interface IDialogTitleContextType {
-  titleProps: IDialogTitleContextTitleProps;
-  setTitleProps: Dispatch<SetStateAction<IDialogTitleContextTitleProps>>;
+export interface IDialogHeaderContextType {
+  headerProps: IDialogHeaderProps;
+  setHeaderProps: Dispatch<SetStateAction<IDialogHeaderProps>>;
 }
 
 interface IBasicDialogProps extends TMDialogProps {

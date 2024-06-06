@@ -26,21 +26,20 @@ import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
+import { DialogHeader, DialogHeaderContext, SetDialogHeader } from './Header';
 import { renderToContainer } from './renderToContainer';
-import { DialogTitle, DialogTitleContext, SetDialogTitle } from './Title';
 
 import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogHeaderProps,
   IDialogInstance,
   IDialogProps,
   IDialogShowProps,
-  IDialogTitleContextTitleProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
-import type { ColorTokens } from 'tamagui';
 
 export * from './hooks';
 export type {
@@ -58,12 +57,9 @@ function DialogFrame({
   open,
   onClose,
   title,
-  icon,
   modal,
-  description,
   renderContent,
   showFooter = true,
-  showExitButton = true,
   footerProps,
   onConfirm,
   onConfirmText = 'Confirm',
@@ -123,7 +119,7 @@ function DialogFrame({
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
-      <DialogTitle onClose={handleCancelButtonPress} />
+      <DialogHeader onClose={handleCancelButtonPress} />
       {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
@@ -219,12 +215,6 @@ function DialogFrame({
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex}
             />
-            {
-              /* fix missing title warnings in html dialog element on Web */
-              platformEnv.isRuntimeBrowser ? (
-                <TMDialog.Title display="none">{title}</TMDialog.Title>
-              ) : null
-            }
             <TMDialog.Content
               elevate
               key="content"
@@ -318,20 +308,20 @@ function BaseDialogContainer(
     }),
     [handleImperativeClose],
   );
-  const [titleProps, setTitleProps] = useState<IDialogTitleContextTitleProps>({
+  const [headerProps, setHeaderProps] = useState<IDialogHeaderProps>({
     title,
     tone,
     description,
     icon,
     showExitButton,
   });
-  const titleContextValue = useMemo(
-    () => ({ titleProps, setTitleProps }),
-    [titleProps],
+  const headerContextValue = useMemo(
+    () => ({ headerProps, setHeaderProps }),
+    [headerProps],
   );
   return (
     <DialogContext.Provider value={contextValue}>
-      <DialogTitleContext.Provider value={titleContextValue}>
+      <DialogHeaderContext.Provider value={headerContextValue}>
         <DialogFrame
           contextValue={contextValue}
           open={isOpen}
@@ -340,7 +330,7 @@ function BaseDialogContainer(
           onClose={handleContainerClose}
           {...props}
         />
-      </DialogTitleContext.Provider>
+      </DialogHeaderContext.Provider>
     </DialogContext.Provider>
   );
 }
@@ -485,7 +475,7 @@ const dialogCancel = (props: IDialogCancelProps) =>
   });
 
 export const Dialog = {
-  Title: SetDialogTitle,
+  Header: SetDialogHeader,
   Footer: FooterAction,
   Form: DialogForm,
   FormField: Form.Field,
