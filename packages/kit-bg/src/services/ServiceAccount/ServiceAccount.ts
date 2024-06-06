@@ -1,3 +1,5 @@
+import { isEmpty } from 'lodash';
+
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   decodeSensitiveText,
@@ -1396,6 +1398,10 @@ class ServiceAccount extends ServiceBase {
     // getHWAccountAddresses
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
+        const addresses = await vault.keyring.batchGetAddresses(prepareParams);
+        if (!isEmpty(addresses)) {
+          return addresses.map((address) => address.address);
+        }
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
         return accounts.map((account) => account.address);
       },
