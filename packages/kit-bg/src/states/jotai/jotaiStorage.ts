@@ -52,7 +52,7 @@ export const onekeyJotaiStorage = platformEnv.isExtensionUi
   : new JotaiStorage();
 
 export function buildJotaiStorageKey(name: string) {
-  const key = `global_states:${name}`;
+  const key = `g_states_v5:${name}`;
   return key;
 }
 
