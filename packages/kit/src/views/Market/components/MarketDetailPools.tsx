@@ -218,8 +218,9 @@ export function MarketDetailPools({
   onContentSizeChange,
 }: ITabPageProps & { pools: IMarketResponsePool[] }) {
   const { gtMd, gtXl } = useMedia();
-  const onekeyNetworkIds = useMemo(
-    () => pools.map((i) => i.onekeyNetworkId),
+  const oneKeyNetworkIds = useMemo(
+    () =>
+      pools.map((i) => i.onekeyNetworkId).filter((i) => Boolean(i)) as string[],
     [pools],
   );
   const [index, selectIndex] = useState(0);
@@ -255,7 +256,7 @@ export function MarketDetailPools({
       ListHeaderComponent={
         <YStack pb="$2" pt="$5">
           <NetworkIdSelect
-            options={onekeyNetworkIds}
+            options={oneKeyNetworkIds}
             value={index}
             onChange={handleChange}
           />
