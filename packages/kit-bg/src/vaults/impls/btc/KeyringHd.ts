@@ -49,9 +49,8 @@ export class KeyringHd extends KeyringHdBase {
       if (!addressEncoding) {
         throw new Error('addressEncoding not found');
       }
-      const versionBytesInfo = (network.segwitVersionBytes || {})[
-        addressEncoding
-      ];
+      const versionBytesInfo =
+        (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
       const xprvVersionBytes = versionBytesInfo?.private;
       if (!xprvVersionBytes) {
         throw new Error('xprvVersionBytes not found');
