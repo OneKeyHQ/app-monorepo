@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import * as ExpoSharing from 'expo-sharing';
+import { BackHandler } from 'react-native';
 
 import {
   HeaderIconButton,
@@ -191,29 +192,37 @@ function MarketDetail({
 
   const navigation = useAppNavigation();
 
+  const popPage = useCallback(() => {
+    navigation.dispatch((state) => {
+      console.log(state);
+      if (state.routes.length > 1) {
+        return CommonActions.goBack();
+      }
+      return CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: ETabMarketRoutes.TabMarket,
+          },
+        ],
+      });
+    });
+  }, [navigation]);
+
   const renderHeaderLeft = useCallback(
-    () => (
-      <NavBackButton
-        onPress={() => {
-          navigation.dispatch((state) => {
-            console.log(state);
-            if (state.routes.length > 1) {
-              return CommonActions.goBack();
-            }
-            return CommonActions.reset({
-              index: 0,
-              routes: [
-                {
-                  name: ETabMarketRoutes.TabMarket,
-                },
-              ],
-            });
-          });
-        }}
-      />
-    ),
-    [navigation],
+    () => <NavBackButton onPress={popPage} />,
+    [popPage],
   );
+
+  useEffect(() => {
+    if (platformEnv.isNativeAndroid) {
+      const backHandler = BackHandler.addEventListener(
+        'hardwareBackPress',
+        pop,
+      );
+      return () => backHandler.remove();
+    }
+  }, []);
 
   const tokenDetailHeader = useMemo(() => {
     if (tokenDetail) {
