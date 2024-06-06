@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
-import { openSettings } from 'react-native-permissions';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
@@ -43,10 +42,10 @@ import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErro
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   PERMISSIONS,
-  PermissionStatus,
   RESULTS,
   check,
-  checkMultiple,
+  openSettings,
+  requestMultiple,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-permissions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
@@ -342,12 +341,15 @@ function ConnectByUSBOrBLE({
     }
 
     if (platformEnv.isNativeAndroid) {
-      const statuses = checkMultiple([
+      const permissions = [
         PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
         PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
-      ]);
-      console.log('---statuses', statuses);
-      return true;
+      ];
+      const statuses = await requestMultiple(permissions);
+      return (
+        statuses[PERMISSIONS.ANDROID.BLUETOOTH_CONNECT] === RESULTS.GRANTED &&
+        statuses[PERMISSIONS.ANDROID.BLUETOOTH_SCAN] === RESULTS.GRANTED
+      );
     }
   }, []);
 
@@ -451,8 +453,14 @@ function ConnectByUSBOrBLE({
   const checkBLEState = useCallback(async () => {
     const bleManager = await uiDeviceUtils.getBleManager();
     const checkState = await bleManager?.checkState();
+    alert(JSON.stringify({ checkState }));
     return checkState === 'on';
   }, []);
+
+  const listingDevice = useCallback(() => {
+    setConnectStatus(EConnectionStatus.listing);
+    scanDevice();
+  }, [scanDevice]);
 
   const startBLEConnection = useCallback(async () => {
     const isGranted = await checkBLEPermission();
@@ -473,15 +481,17 @@ function ConnectByUSBOrBLE({
         title: 'Turn on Bluetooth Switch',
         description: 'To connect via Bluetooth, please Turn on Bluetooth.',
       });
+      return
     }
+
+    listingDevice()
   }, [checkBLEPermission, checkBLEState]);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
-      setConnectStatus(EConnectionStatus.listing);
-      scanDevice();
+      listingDevice();
     }
-  }, [checkBLEPermission, scanDevice]);
+  }, [listingDevice]);
 
   switch (connectStatus) {
     case EConnectionStatus.init:
