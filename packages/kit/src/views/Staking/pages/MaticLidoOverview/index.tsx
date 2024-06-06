@@ -23,6 +23,7 @@ import {
 import type {
   ILidoMaticOverview,
   ILidoMaticRequest,
+  ILidoTokenItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { MaticLidoFAQs } from '../../components/LidoFAQs';
@@ -31,10 +32,11 @@ import {
   MaticWithdrawShouldUnderstand,
 } from '../../components/LidoShouldUnderstand';
 import { NftListItemStatus } from '../../components/NftListItemStatus';
-import { PageSkeleton } from '../../components/PageSkeleton';
+import { PageFrame } from '../../components/PageFrame';
 import { ProtocolIntro } from '../../components/ProtocolIntro';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { StakingProfit } from '../../components/StakingProfit';
+import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useLidoMaticClaim } from '../../hooks/useLidoMaticHooks';
 import {
   LIDO_LOGO_URI,
@@ -73,25 +75,38 @@ const ListItemClaim = ({
   requests,
   accountId,
   networkId,
+  token,
 }: {
   requests: ILidoMaticRequest[];
   accountId: string;
   networkId: string;
+  token: ILidoTokenItem;
 }) => {
+  const appNavigation = useAppNavigation();
   const lidoClaim = useLidoMaticClaim({ accountId, networkId });
   const amount = useMemo(
     () => requests.reduce((a, b) => a + Number(b.amount), 0),
     [requests],
   );
   const onClaim = useCallback(async () => {
-    await lidoClaim({
-      tokenId: Number(requests[0].id),
-      stakingInfo: {
-        protocol: 'lido',
-        tags: ['lido-matic'],
-      },
-    });
-  }, [lidoClaim, requests]);
+    if (requests.length === 1) {
+      await lidoClaim({
+        tokenId: Number(requests[0].id),
+        stakingInfo: {
+          protocol: 'lido',
+          tags: ['lido-matic'],
+          receive: { token: token.info, amount: String(amount) },
+        },
+      });
+    } else {
+      appNavigation.push(EModalStakingRoutes.MaticLidoClaim, {
+        accountId,
+        networkId,
+        requests,
+        token: token.info,
+      });
+    }
+  }, [lidoClaim, requests, appNavigation, accountId, networkId, token, amount]);
   if (requests.length === 0) {
     return null;
   }
@@ -200,7 +215,7 @@ const MaticLidoOverviewContent = ({
   }, [requests]);
 
   return (
-    <Stack px="$5">
+    <Stack px="$5" pt="$5">
       <YStack>
         <Stack>
           <SizableText size="$headingLg">Staked Value</SizableText>
@@ -227,6 +242,7 @@ const MaticLidoOverviewContent = ({
             requests={nfts.finished}
             accountId={accountId}
             networkId={networkId}
+            token={matic}
           />
         </YStack>
         <ProtocolIntro
@@ -262,6 +278,12 @@ const MaticLidoOverviewContent = ({
         networkId={networkId}
         stakeTag="lido-matic"
         onRefresh={onRefresh}
+        onPress={() =>
+          appNavigation.push(EModalStakingRoutes.MaticLidoHistory, {
+            accountId,
+            networkId,
+          })
+        }
       />
     </Stack>
   );
@@ -291,7 +313,8 @@ const MaticLidoOverview = () => {
     <Page scrollEnabled>
       <Page.Header title="Stake MATIC" />
       <Page.Body>
-        <PageSkeleton
+        <PageFrame
+          LoadingSkeleton={OverviewSkeleton}
           loading={Boolean(result === undefined && isLoading === true)}
           error={Boolean(result === undefined && isLoading === false)}
           onRefresh={run}
@@ -305,7 +328,7 @@ const MaticLidoOverview = () => {
               onRefresh={run}
             />
           ) : null}
-        </PageSkeleton>
+        </PageFrame>
       </Page.Body>
     </Page>
   );
