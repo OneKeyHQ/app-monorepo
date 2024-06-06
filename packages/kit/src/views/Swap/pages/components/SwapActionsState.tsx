@@ -40,6 +40,7 @@ const SwapActionsState = ({
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const { cleanQuoteInterval } = useSwapActions().current;
   const swapActionState = useSwapActionState();
+
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
@@ -88,7 +89,7 @@ const SwapActionsState = ({
 
   return (
     <YStack p="$5">
-      {swapActionState.isApprove ? (
+      {swapActionState.isApprove && !swapActionState.isLoading ? (
         <XStack pb="$5" space="$1">
           <Popover
             title="Approve"

@@ -1,12 +1,16 @@
+import type { ILidoMaticRequest } from '../../types/staking';
 import type { IToken } from '../../types/token';
 
 export enum EModalStakingRoutes {
   EthLidoOverview = 'EthLidoOverview',
   EthLidoStake = 'EthLidoStake',
   EthLidoWithdraw = 'EthLidoWithdraw',
+  EthLidoHistory = 'EthLidoHistory',
   MaticLidoOverview = 'MaticLidoOverview',
   MaticLidoStake = 'MaticLidoStake',
   MaticLidoWithdraw = 'MaticLidoWithdraw',
+  MaticLidoHistory = 'MaticLidoHistory',
+  MaticLidoClaim = 'MaticLidoClaim',
 }
 
 type IBaseRouteParams = {
@@ -30,6 +34,7 @@ export type IModalStakingParamList = {
     receivingToken: IToken;
     rate?: string;
   };
+  [EModalStakingRoutes.EthLidoHistory]: IBaseRouteParams;
   [EModalStakingRoutes.MaticLidoOverview]: IBaseRouteParams;
   [EModalStakingRoutes.MaticLidoStake]: IBaseRouteParams & {
     price: string;
@@ -46,5 +51,10 @@ export type IModalStakingParamList = {
     token: IToken;
     receivingToken: IToken;
     rate?: string;
+  };
+  [EModalStakingRoutes.MaticLidoHistory]: IBaseRouteParams;
+  [EModalStakingRoutes.MaticLidoClaim]: IBaseRouteParams & {
+    requests: ILidoMaticRequest[];
+    token: IToken;
   };
 };
