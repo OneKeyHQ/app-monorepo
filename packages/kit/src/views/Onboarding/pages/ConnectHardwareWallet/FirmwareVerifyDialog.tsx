@@ -4,7 +4,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type { IButtonProps, IKeyOfIcons } from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -12,11 +12,8 @@ import {
   Spinner,
   Stack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
-import type {
-  IDialogProps,
-  IDialogTitleContextTitleProps,
-} from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -38,7 +35,7 @@ export enum EFirmwareAuthenticationDialogContentType {
   network_error = 'network_error',
   unofficial_device_detected = 'unofficial_device_detected',
   verification_temporarily_unavailable = 'verification_temporarily_unavailable',
-  show_risky_warning = 'show_risky_warning',
+  error_fallback = 'error_fallback',
 }
 
 function useFirmwareVerifyBase({
@@ -49,9 +46,11 @@ function useFirmwareVerifyBase({
   skipDeviceCancel?: boolean;
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
+  const [errorCode, setErrorCode] = useState(0);
   const [contentType, setContentType] = useState(
     EFirmwareAuthenticationDialogContentType.default,
   );
+  const dialogInstance = useDialogInstance();
   const verify = useCallback(async () => {
     setContentType(EFirmwareAuthenticationDialogContentType.verifying);
     try {
@@ -74,9 +73,11 @@ function useFirmwareVerifyBase({
       }
     } catch (error) {
       setResult('error');
-      switch ((error as OneKeyError).code) {
+      const code = (error as OneKeyError).code;
+      console.log('HardwareErrorCode---code', code);
+      switch (code) {
         case HardwareErrorCode.ActionCancelled:
-          setContentType(EFirmwareAuthenticationDialogContentType.default);
+          void dialogInstance.close();
           break;
         case HardwareErrorCode.NetworkError:
         case HardwareErrorCode.BridgeNetworkError:
@@ -85,10 +86,16 @@ function useFirmwareVerifyBase({
           );
           break;
         case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
+          );
+          setErrorCode(code);
+          break;
         default:
           setContentType(
-            EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+            EFirmwareAuthenticationDialogContentType.error_fallback,
           );
+          setErrorCode(code);
           break;
       }
       throw error;
@@ -98,7 +105,7 @@ function useFirmwareVerifyBase({
         skipDeviceCancel,
       });
     }
-  }, [device, skipDeviceCancel]);
+  }, [device, dialogInstance, skipDeviceCancel]);
 
   useEffect(() => {
     void verify();
@@ -114,240 +121,270 @@ function useFirmwareVerifyBase({
     setResult('unknown');
   }, []);
 
-  return { result, reset, verify, contentType, setContentType };
-}
-
-export interface IBasicFirmwareAuthenticationDialogContent {
-  titleProps?: IDialogTitleContextTitleProps;
-  showLoading?: boolean;
-  showActions?: boolean;
-  actionsProps?: IButtonProps;
-  showContinueAnyway?: boolean;
-  onActionPress?: () => void;
-  onContinuePress?: () => void;
-}
-export function BasicFirmwareAuthenticationDialogContent({
-  titleProps,
-  showLoading,
-  showActions,
-  actionsProps,
-  showContinueAnyway,
-  onContinuePress,
-}: IBasicFirmwareAuthenticationDialogContent) {
-  const intl = useIntl();
-  const [showRiskyWarning, setShowRiskyWarning] = useState(false);
-
-  const content = useMemo(
-    () => (
-      <>
-        <Dialog.Header {...titleProps} />
-
-        {showLoading ? (
-          <Stack
-            p="$5"
-            alignItems="center"
-            justifyContent="center"
-            bg="$bgStrong"
-            borderRadius="$3"
-            borderCurve="continuous"
-          >
-            <Spinner size="large" />
-          </Stack>
-        ) : null}
-
-        {showActions ? (
-          <Button
-            $md={
-              {
-                size: 'large',
-              } as IButtonProps
-            }
-            variant="primary"
-            {...actionsProps}
-          />
-        ) : null}
-
-        {showContinueAnyway ? (
-          <Stack pt="$4">
-            {!showRiskyWarning ? (
-              <Button
-                $md={
-                  {
-                    size: 'large',
-                  } as IButtonProps
-                }
-                onPress={() => setShowRiskyWarning(true)}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_continue_anyway,
-                })}
-              </Button>
-            ) : (
-              <YStack
-                p="$5"
-                space="$5"
-                bg="$bgCautionSubdued"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$borderCautionSubdued"
-                borderRadius="$3"
-                borderCurve="continuous"
-              >
-                <SizableText size="$bodyLgMedium" color="$textCaution">
-                  {intl.formatMessage({
-                    id: ETranslations.device_auth_continue_anyway_warning_message,
-                  })}
-                </SizableText>
-                <Button
-                  $md={
-                    {
-                      size: 'large',
-                    } as IButtonProps
-                  }
-                  onPress={onContinuePress}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.global_i_understand,
-                  })}
-                </Button>
-              </YStack>
-            )}
-          </Stack>
-        ) : null}
-      </>
-    ),
-    [
-      actionsProps,
-      intl,
-      onContinuePress,
-      showActions,
-      showContinueAnyway,
-      showLoading,
-      showRiskyWarning,
-      titleProps,
-    ],
-  );
-  return <YStack>{content}</YStack>;
+  return { result, reset, verify, contentType, setContentType, errorCode };
 }
 
 export function EnumBasicDialogContentContainer({
   contentType,
   onActionPress,
   onContinuePress,
+  errorCode,
 }: {
   contentType: EFirmwareAuthenticationDialogContentType;
-} & IBasicFirmwareAuthenticationDialogContent) {
+  errorCode: number;
+  onActionPress?: () => void;
+  onContinuePress?: () => void;
+}) {
   const intl = useIntl();
 
-  const restProps = useMemo(() => {
+  const [showRiskyWarning, setShowRiskyWarning] = useState(false);
+  const renderFooter = useCallback(
+    () => (
+      <Stack pt="$4">
+        {!showRiskyWarning ? (
+          <Button
+            $md={
+              {
+                size: 'large',
+              } as IButtonProps
+            }
+            onPress={() => setShowRiskyWarning(true)}
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_continue_anyway,
+            })}
+          </Button>
+        ) : (
+          <YStack
+            p="$5"
+            space="$5"
+            bg="$bgCautionSubdued"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderCautionSubdued"
+            borderRadius="$3"
+            borderCurve="continuous"
+          >
+            <SizableText size="$bodyLgMedium" color="$textCaution">
+              {intl.formatMessage({
+                id: ETranslations.device_auth_continue_anyway_warning_message,
+              })}
+            </SizableText>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              onPress={onContinuePress}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_i_understand,
+              })}
+            </Button>
+          </YStack>
+        )}
+      </Stack>
+    ),
+    [intl, onContinuePress, showRiskyWarning],
+  );
+
+  const content = useMemo(() => {
     switch (contentType) {
       case EFirmwareAuthenticationDialogContentType.default:
-        return {
-          titleProps: {
-            tone: 'success' as IDialogProps['tone'],
-            icon: 'DocumentSearch2Outline' as IKeyOfIcons,
-            title: intl.formatMessage({
-              id: ETranslations.device_auth_request_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.device_auth_request_desc,
-            }),
-          },
-        };
+        return (
+          <Dialog.Header>
+            <Dialog.Icon icon="DocumentSearch2Outline" tone="success" />
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.device_auth_request_title,
+              })}
+            </Dialog.Title>
+            <Dialog.Description>
+              {intl.formatMessage({
+                id: ETranslations.device_auth_request_desc,
+              })}
+            </Dialog.Description>
+          </Dialog.Header>
+        );
       case EFirmwareAuthenticationDialogContentType.verifying:
-        return {
-          titleProps: {
-            tone: 'success' as IDialogProps['tone'],
-            icon: 'DotHorOutline' as IKeyOfIcons,
-            title: intl.formatMessage({
-              id: ETranslations.device_auth_verifying_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.device_auth_verifying_desc,
-            }),
-          },
-          showLoading: true,
-        };
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="DotHorOutline" tone="success" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_verifying_title,
+                })}
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_verifying_desc,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Stack
+              p="$5"
+              alignItems="center"
+              justifyContent="center"
+              bg="$bgStrong"
+              borderRadius="$3"
+              borderCurve="continuous"
+            >
+              <Spinner size="large" />
+            </Stack>
+          </>
+        );
       case EFirmwareAuthenticationDialogContentType.verification_successful:
-        return {
-          titleProps: {
-            tone: 'success' as IDialogProps['tone'],
-            icon: 'BadgeVerifiedSolid' as IKeyOfIcons,
-            title: intl.formatMessage({
-              id: ETranslations.device_auth_successful_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.device_auth_successful_desc,
-            }),
-          },
-          showActions: true,
-          actionsProps: {
-            onPress: onActionPress,
-            children: intl.formatMessage({ id: ETranslations.global_continue }),
-          },
-        };
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="BadgeVerifiedSolid" tone="success" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_successful_title,
+                })}
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_successful_desc,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={onActionPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_continue })}
+            </Button>
+          </>
+        );
       case EFirmwareAuthenticationDialogContentType.network_error:
-        return {
-          titleProps: {
-            icon: 'WorldOutline' as IKeyOfIcons,
-            title: intl.formatMessage({
-              id: ETranslations.global_network_error,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.global_network_error_help_text,
-            }),
-          },
-          showActions: true,
-          actionsProps: {
-            onPress: onActionPress,
-            children: intl.formatMessage({ id: ETranslations.global_retry }),
-          },
-          showContinueAnyway: true,
-        };
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="WorldOutline" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.global_network_error,
+                })}
+                <SizableText>{`(${errorCode})`}</SizableText>
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.global_network_error_help_text,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={onActionPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+            {renderFooter()}
+          </>
+        );
       case EFirmwareAuthenticationDialogContentType.unofficial_device_detected:
-        return {
-          titleProps: {
-            icon: 'ErrorOutline' as IKeyOfIcons,
-            tone: 'destructive' as IDialogProps['tone'],
-            title: intl.formatMessage({
-              id: ETranslations.device_auth_unofficial_device_detected,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.device_auth_unofficial_device_detected_help_text,
-            }),
-          },
-          showActions: true,
-          actionsProps: {
-            children: intl.formatMessage({
-              id: ETranslations.global_contact_us,
-            }),
-            onPress: () =>
-              Linking.openURL('https://help.onekey.so/hc/requests/new'),
-          },
-        };
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="ErrorOutline" tone="destructive" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_unofficial_device_detected,
+                })}
+                <SizableText>{`(${errorCode})`}</SizableText>
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_unofficial_device_detected_help_text,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={() =>
+                Linking.openURL('https://help.onekey.so/hc/requests/new')
+              }
+            >
+              {intl.formatMessage({ id: ETranslations.global_contact_us })}
+            </Button>
+          </>
+        );
       case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
-        return {
-          titleProps: {
-            icon: 'ServerOutline' as IKeyOfIcons,
-            title: intl.formatMessage({
-              id: ETranslations.device_auth_temporarily_unavailable,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.device_auth_temporarily_unavailable_help_text,
-            }),
-          },
-          showActions: true,
-          actionsProps: {
-            onPress: onActionPress,
-            children: intl.formatMessage({ id: ETranslations.global_retry }),
-          },
-          showContinueAnyway: true,
-          onContinuePress,
-        };
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="ServerOutline" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_temporarily_unavailable,
+                })}
+                <SizableText>{`(${errorCode})`}</SizableText>
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_temporarily_unavailable_help_text,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={onActionPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+            {renderFooter()}
+          </>
+        );
       default:
-        return undefined;
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="ErrorOutline" />
+              <Dialog.Title>
+                Error
+                <SizableText>{`(${errorCode})`}</SizableText>
+              </Dialog.Title>
+              <Dialog.Description>Error Description</Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={onActionPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+            {renderFooter()}
+          </>
+        );
     }
-  }, [contentType, intl, onActionPress, onContinuePress]);
-  return <BasicFirmwareAuthenticationDialogContent {...restProps} />;
+  }, [contentType, errorCode, intl, onActionPress, renderFooter]);
+  return <YStack>{content}</YStack>;
 }
 
 export function FirmwareAuthenticationDialogContent({
@@ -361,7 +398,7 @@ export function FirmwareAuthenticationDialogContent({
   skipDeviceCancel?: boolean;
   noContinue?: boolean;
 }) {
-  const { result, reset, verify, contentType, setContentType } =
+  const { result, reset, verify, contentType, setContentType, errorCode } =
     useFirmwareVerifyBase({
       device,
       skipDeviceCancel,
@@ -384,10 +421,8 @@ export function FirmwareAuthenticationDialogContent({
   const handleContinuePress = useCallback(() => {
     if (noContinue) {
       onContinue({ checked: false });
-      return;
     }
-    setContentType(EFirmwareAuthenticationDialogContentType.show_risky_warning);
-  }, [noContinue, onContinue, setContentType]);
+  }, [noContinue, onContinue]);
 
   const content = useMemo(() => {
     if (result === 'unknown') {
@@ -430,6 +465,7 @@ export function FirmwareAuthenticationDialogContent({
 
     return (
       <EnumBasicDialogContentContainer
+        errorCode={errorCode}
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
         onContinuePress={handleContinuePress}
@@ -437,6 +473,7 @@ export function FirmwareAuthenticationDialogContent({
     );
   }, [
     result,
+    errorCode,
     contentType,
     handleContinuePress,
     onContinue,

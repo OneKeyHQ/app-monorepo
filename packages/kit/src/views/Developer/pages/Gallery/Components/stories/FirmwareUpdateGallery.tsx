@@ -178,25 +178,12 @@ function StaticUIDialog() {
             renderContent: (
               <EnumBasicDialogContentContainer
                 {...form.getValues()}
-                actionsProps={{
-                  onPress: () => {
-                    alert('actionsProps');
-                  },
-                  children: 'Retry',
+                errorCode={800}
+                onActionPress={() => {
+                  alert('onActionPress');
                 }}
-                continueProps={{
-                  key: 'continue-anyway',
-                  variant: 'tertiary',
-                  children: 'Continue Anyway',
-                  onPress: () => alert('Continue Anyway'),
-                }}
-                riskyWarningProps={{
-                  message: `We're currently unable to verify your device. Continuing may pose
-              security risks.`,
-                  buttonProps: {
-                    onPress: () => alert('riskyWarningProps'),
-                    children: 'I Understand',
-                  },
+                onContinuePress={() => {
+                  alert('onContinuePress');
                 }}
               />
             ),

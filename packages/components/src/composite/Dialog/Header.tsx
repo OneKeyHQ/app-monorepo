@@ -8,16 +8,19 @@ import { IconButton } from '../../actions/IconButton';
 import { Icon, SizableText, Stack } from '../../primitives';
 
 import type { IDialogHeaderContextType, IDialogHeaderProps } from './type';
-import type { ColorTokens } from '../../primitives';
+import type { ColorTokens, ISizableTextProps } from '../../primitives';
 
 export const DialogHeaderContext = createContext<IDialogHeaderContextType>(
   {} as IDialogHeaderContextType,
 );
 
-function BasicDialogHeader({ onClose }: { onClose: () => void }) {
-  const { headerProps } = useContext(DialogHeaderContext);
-  const { icon, title, description, showExitButton = true, tone } = headerProps;
-
+export function DialogIcon({
+  icon,
+  tone,
+}: {
+  icon: IDialogHeaderProps['icon'];
+  tone?: IDialogHeaderProps['tone'];
+}) {
   const colors: {
     iconWrapperBg: ColorTokens;
     iconColor: ColorTokens;
@@ -49,37 +52,68 @@ function BasicDialogHeader({ onClose }: { onClose: () => void }) {
       }
     }
   }, [tone]);
+  return icon ? (
+    <Stack
+      alignSelf="flex-start"
+      p="$3"
+      ml="$5"
+      mt="$5"
+      borderRadius="$full"
+      bg={colors.iconWrapperBg}
+    >
+      <Icon name={icon} size="$8" color={colors.iconColor} />
+    </Stack>
+  ) : null;
+}
+
+export function DialogTitle({ children, ...props }: ISizableTextProps) {
   return (
     <>
-      {/* leading icon */}
-      {icon ? (
-        <Stack
-          alignSelf="flex-start"
-          p="$3"
-          ml="$5"
-          mt="$5"
-          borderRadius="$full"
-          bg={colors.iconWrapperBg}
-        >
-          <Icon name={icon} size="$8" color={colors.iconColor} />
-        </Stack>
-      ) : null}
+      <SizableText m="$5" mb={0} mr="$16" size="$headingXl" py="$px" {...props}>
+        {children}
+      </SizableText>
+      {
+        /* fix missing title warnings in html dialog element on Web */
+        platformEnv.isRuntimeBrowser ? (
+          <TMDialog.Title display="none">{children}</TMDialog.Title>
+        ) : null
+      }
+    </>
+  );
+}
 
-      {/* title and description */}
-      {title || description ? (
-        <Stack p="$5" pr="$16">
-          {title ? (
-            <SizableText size="$headingXl" py="$px">
-              {title}
-            </SizableText>
+export function DialogDescription(props: ISizableTextProps) {
+  return <SizableText m="$5" mr="$16" size="$bodyLg" mt="$1.5" {...props} />;
+}
+
+function BasicDialogHeader({ onClose }: { onClose: () => void }) {
+  const { headerProps } = useContext(DialogHeaderContext);
+  const {
+    icon,
+    title,
+    description,
+    showExitButton = true,
+    tone,
+    children,
+  } = headerProps;
+
+  return (
+    <>
+      {children || (
+        <>
+          {/* leading icon */}
+          <DialogIcon icon={icon} tone={tone} />
+          {/* title and description */}
+          {title || description ? (
+            <>
+              {title ? <DialogTitle>{title}</DialogTitle> : null}
+              {description ? (
+                <DialogDescription>{description}</DialogDescription>
+              ) : null}
+            </>
           ) : null}
-          {description ? (
-            <SizableText size="$bodyLg" pt="$1.5">
-              {description}
-            </SizableText>
-          ) : null}
-        </Stack>
-      ) : null}
+        </>
+      )}
 
       {/* close button */}
       {showExitButton ? (
@@ -96,12 +130,6 @@ function BasicDialogHeader({ onClose }: { onClose: () => void }) {
           onPress={onClose}
         />
       ) : null}
-      {
-        /* fix missing title warnings in html dialog element on Web */
-        platformEnv.isRuntimeBrowser ? (
-          <TMDialog.Title display="none">{title}</TMDialog.Title>
-        ) : null
-      }
     </>
   );
 }

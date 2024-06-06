@@ -26,7 +26,7 @@ import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
-import { DialogHeader, DialogHeaderContext, SetDialogHeader } from './Header';
+import { DialogDescription, DialogHeader, DialogHeaderContext, DialogIcon, DialogTitle, SetDialogHeader } from './Header';
 import { renderToContainer } from './renderToContainer';
 
 import type {
@@ -476,6 +476,9 @@ const dialogCancel = (props: IDialogCancelProps) =>
 
 export const Dialog = {
   Header: SetDialogHeader,
+  Title: DialogTitle,
+  Description: DialogDescription,
+  Icon: DialogIcon,
   Footer: FooterAction,
   Form: DialogForm,
   FormField: Form.Field,
