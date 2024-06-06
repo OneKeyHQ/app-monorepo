@@ -162,7 +162,7 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
     const tableRowConfig: ITableColumnConfig = {
       'serialNumber': (item) => (
         <SizableText size="$bodyMd" color="$textSubdued">
-          {item.serialNumber}
+          {item.serialNumber || '-'}
         </SizableText>
       ),
       'name': (item) => (
