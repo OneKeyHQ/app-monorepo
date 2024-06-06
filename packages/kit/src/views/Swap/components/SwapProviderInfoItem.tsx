@@ -6,6 +6,7 @@ import {
   Badge,
   Icon,
   Image,
+  NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
@@ -41,12 +42,15 @@ const SwapProviderInfoItem = ({
   const rateContent = useMemo(() => {
     if (!rateIsExit || !fromToken || !toToken) return 'Insufficient liquidity';
     const rateBN = new BigNumber(rate ?? 0);
-    const formatRate = numberFormat(rateBN.toFixed(), {
-      formatter: 'balance',
-    });
-    return `1 ${fromToken.symbol.toUpperCase()} = ${formatRate as string} ${
-      toToken.symbol
-    }`;
+    return (
+      <SizableText size="$bodyMdMedium" pl="$1">
+        {`1 ${fromToken.symbol.toUpperCase()} =`}
+        <NumberSizeableText formatter="balance">
+          {rateBN.toFixed()}
+        </NumberSizeableText>
+        <SizableText>{toToken.symbol}</SizableText>
+      </SizableText>
+    );
   }, [fromToken, rate, rateIsExit, toToken]);
   return (
     <XStack justifyContent="space-between" alignItems="center">
@@ -80,9 +84,7 @@ const SwapProviderInfoItem = ({
               borderRadius="$1"
             />
           )}
-          <SizableText size="$bodyMdMedium" pl="$1">
-            {rateContent}
-          </SizableText>
+          {rateContent}
           {showLock ? (
             <Icon name="LockOutline" color="$iconSubdued" ml="$1" size="$5" />
           ) : null}
