@@ -4,11 +4,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type {
-  IButtonProps,
-  IKeyOfIcons,
-  IStackProps,
-} from '@onekeyhq/components';
+import type { IButtonProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -35,8 +31,6 @@ type IFirmwareAuthenticationState =
   | 'unofficial'
   | 'error';
 
-type IFirmwareErrorState = 'UnexpectedBootloaderMode' | undefined;
-
 export enum EFirmwareAuthenticationDialogContentType {
   default = 'default',
   verifying = 'verifying',
@@ -55,14 +49,12 @@ function useFirmwareVerifyBase({
   skipDeviceCancel?: boolean;
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
-  const [errorState, setErrorState] = useState<IFirmwareErrorState>();
   const [contentType, setContentType] = useState(
     EFirmwareAuthenticationDialogContentType.default,
   );
   const verify = useCallback(async () => {
     setContentType(EFirmwareAuthenticationDialogContentType.verifying);
     try {
-      setErrorState(undefined);
       const authResult =
         await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
           device,
@@ -82,15 +74,23 @@ function useFirmwareVerifyBase({
       }
     } catch (error) {
       setResult('error');
-      if (
-        (error as OneKeyError).code ===
-        HardwareErrorCode.DeviceUnexpectedBootloaderMode
-      ) {
-        setErrorState('UnexpectedBootloaderMode');
+      switch ((error as OneKeyError).code) {
+        case HardwareErrorCode.ActionCancelled:
+          setContentType(EFirmwareAuthenticationDialogContentType.default);
+          break;
+        case HardwareErrorCode.NetworkError:
+        case HardwareErrorCode.BridgeNetworkError:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.network_error,
+          );
+          break;
+        case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
+        default:
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+          );
+          break;
       }
-      setContentType(
-        EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
-      );
       throw error;
     } finally {
       await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
@@ -112,10 +112,9 @@ function useFirmwareVerifyBase({
 
   const reset = useCallback(() => {
     setResult('unknown');
-    setErrorState(undefined);
   }, []);
 
-  return { result, reset, errorState, verify, contentType, setContentType };
+  return { result, reset, verify, contentType, setContentType };
 }
 
 export interface IBasicFirmwareAuthenticationDialogContent {
@@ -362,7 +361,7 @@ export function FirmwareAuthenticationDialogContent({
   skipDeviceCancel?: boolean;
   noContinue?: boolean;
 }) {
-  const { result, reset, errorState, verify, contentType, setContentType } =
+  const { result, reset, verify, contentType, setContentType } =
     useFirmwareVerifyBase({
       device,
       skipDeviceCancel,
@@ -414,7 +413,6 @@ export function FirmwareAuthenticationDialogContent({
       },
       official: {
         onPress: () => onContinue({ checked: true }),
-        button: 'Continue',
       },
       unofficial: {
         onPress: async () => {
