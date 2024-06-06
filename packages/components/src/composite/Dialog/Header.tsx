@@ -19,7 +19,7 @@ export function DialogIcon({
   tone,
 }: {
   icon: IDialogHeaderProps['icon'];
-  tone: IDialogHeaderProps['tone'];
+  tone?: IDialogHeaderProps['tone'];
 }) {
   const colors: {
     iconWrapperBg: ColorTokens;
