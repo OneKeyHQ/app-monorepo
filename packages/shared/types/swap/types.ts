@@ -52,12 +52,16 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   logoURI?: string;
   explorers?: INetworkExplorerConfig[];
 }
-export interface ISwapToken {
+
+export interface ISwapTokenBase {
   networkId: string;
   contractAddress: string;
-  isNative: boolean | undefined;
+  isNative?: boolean;
   symbol: string;
   decimals: number;
+}
+
+export interface ISwapToken extends ISwapTokenBase {
   name?: string;
   logoURI?: string;
 
@@ -172,6 +176,8 @@ export interface IFetchQuoteResult {
   quoteExtraData?: IQuoteExtraData;
   autoSuggestedSlippage?: number;
   unSupportSlippage?: boolean;
+  fromTokenInfo?: ISwapTokenBase;
+  toTokenInfo?: ISwapTokenBase;
 }
 
 export interface IAllowanceResult {

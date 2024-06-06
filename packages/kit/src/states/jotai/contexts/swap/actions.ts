@@ -411,6 +411,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       let rateDifferenceRes:
         | { value: string; unit: ESwapRateDifferenceUnit }
         | undefined;
+      if (
+        quoteResult &&
+        fromToken &&
+        toToken &&
+        (quoteResult?.fromTokenInfo?.networkId !== fromToken?.networkId ||
+          quoteResult?.toTokenInfo?.networkId !== toToken?.networkId ||
+          quoteResult?.fromTokenInfo?.contractAddress !==
+            fromToken?.contractAddress ||
+          quoteResult?.toTokenInfo?.contractAddress !==
+            toToken?.contractAddress)
+      ) {
+        return;
+      }
       if (!networks.length || !swapFromAddressInfo.accountInfo?.ready) return;
       // check account
       if (!swapFromAddressInfo.accountInfo?.wallet) {
