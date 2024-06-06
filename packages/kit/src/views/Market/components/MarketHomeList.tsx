@@ -21,6 +21,7 @@ import {
   Select,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   View,
   XStack,
@@ -594,6 +595,9 @@ function TableMdSkeletonRow() {
 
 function ListEmptyComponent() {
   const { gtMd } = useMedia();
+  if (platformEnv.isNativeAndroid) {
+    return null;
+  }
   return gtMd ? (
     <YStack>
       {new Array(6).fill(0).map((i) => (
@@ -937,6 +941,14 @@ export function MarketHomeList({
       listViewRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
   }, []);
+
+  if (platformEnv.isNativeAndroid && !sortedListData?.length) {
+    return (
+      <YStack flex={1} ai="center" jc="center">
+        <Spinner size="large" />
+      </YStack>
+    );
+  }
 
   return (
     <>
