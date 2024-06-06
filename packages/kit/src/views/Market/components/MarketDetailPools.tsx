@@ -282,6 +282,7 @@ export function MarketDetailPools({
             <XStack
               px="$5"
               py="$2"
+              borderRadius="$3"
               {...listItemPressStyle}
               onPress={() => {
                 Dialog.confirm({
