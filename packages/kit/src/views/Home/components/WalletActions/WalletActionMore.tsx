@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { useClipboard } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -14,8 +15,6 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { RawActions } from './RawActions';
 
