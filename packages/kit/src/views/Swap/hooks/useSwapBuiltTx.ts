@@ -185,6 +185,7 @@ export function useSwapBuildTx() {
             isMax,
             tokenInfo: {
               ...fromToken,
+              isNative: !!fromToken.isNative,
               address: fromToken.contractAddress,
               name: fromToken.name ?? fromToken.symbol,
             },
@@ -259,9 +260,12 @@ export function useSwapBuildTx() {
             transferInfo = {
               from: swapFromAddressInfo.address,
               tokenInfo: {
-                ...fromToken,
-                address: fromToken.contractAddress,
-                name: fromToken.name ?? fromToken.symbol,
+                ...res.result.fromTokenInfo,
+                isNative: !!res.result.fromTokenInfo.isNative,
+                address: res.result.fromTokenInfo.contractAddress,
+                name:
+                  res.result.fromTokenInfo.name ??
+                  res.result.fromTokenInfo.symbol,
               },
               to: res.swftOrder.platformAddr,
               amount: res.swftOrder.depositCoinAmt,
@@ -272,9 +276,12 @@ export function useSwapBuildTx() {
             transferInfo = {
               from: swapFromAddressInfo.address,
               tokenInfo: {
-                ...fromToken,
-                address: fromToken.contractAddress,
-                name: fromToken.name ?? fromToken.symbol,
+                ...res.result.fromTokenInfo,
+                isNative: !!res.result.fromTokenInfo.isNative,
+                address: res.result.fromTokenInfo.contractAddress,
+                name:
+                  res.result.fromTokenInfo.name ??
+                  res.result.fromTokenInfo.symbol,
               },
               to: swapToAddressInfo.address,
               opReturn: res.thorSwapCallData.hasStreamingSwap

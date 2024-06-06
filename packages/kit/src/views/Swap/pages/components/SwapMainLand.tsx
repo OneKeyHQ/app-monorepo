@@ -145,7 +145,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           <SwapQuoteResult
             onOpenProviderList={onOpenProviderList}
             quoteResult={quoteResult}
-            pageType={pageType}
           />
         ) : null}
       </YStack>

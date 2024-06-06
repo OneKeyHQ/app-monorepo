@@ -16,7 +16,6 @@ import {
   swapQuoteFetchInterval,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
-  swapSlippageAutoValue,
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -55,6 +54,7 @@ import {
   swapSelectedToTokenBalanceAtom,
   swapSilenceQuoteLoading,
   swapSlippagePercentageAtom,
+  swapSlippagePercentageModeAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
 } from './atoms';
@@ -74,10 +74,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   resetSwapSlippage = contextAtomMethod((get, set) => {
-    set(swapSlippagePercentageAtom(), {
-      key: ESwapSlippageSegmentKey.AUTO,
-      value: swapSlippageAutoValue,
-    });
+    set(swapSlippagePercentageModeAtom(), ESwapSlippageSegmentKey.AUTO);
   });
 
   cleanManualSelectQuoteProviders = contextAtomMethod((get, set) => {
@@ -206,6 +203,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       toToken: ISwapToken,
       fromTokenAmount: string,
       slippagePercentage: number,
+      autoSlippage?: boolean,
       address?: string,
       loadingDelayEnable?: boolean,
       blockNumber?: number,
@@ -221,6 +219,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromTokenAmount,
           userAddress: address,
           slippagePercentage,
+          autoSlippage,
           blockNumber,
         });
         if (!loadingDelayEnable) {
@@ -269,6 +268,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           toToken,
           fromTokenAmount,
           swapSlippage.value,
+          swapSlippage.key === ESwapSlippageSegmentKey.AUTO,
           address,
           false,
           blockNumber,
@@ -368,6 +368,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             toToken,
             fromTokenAmount,
             swapSlippage.value,
+            swapSlippage.key === ESwapSlippageSegmentKey.AUTO,
             address,
             true,
           );
@@ -381,6 +382,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       clearTimeout(this.quoteInterval);
       this.quoteInterval = undefined;
     }
+    void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
   };
 
   cleanApprovingInterval = () => {
@@ -409,6 +411,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       let rateDifferenceRes:
         | { value: string; unit: ESwapRateDifferenceUnit }
         | undefined;
+      if (
+        quoteResult &&
+        fromToken &&
+        toToken &&
+        (quoteResult?.fromTokenInfo?.networkId !== fromToken?.networkId ||
+          quoteResult?.toTokenInfo?.networkId !== toToken?.networkId ||
+          quoteResult?.fromTokenInfo?.contractAddress !==
+            fromToken?.contractAddress ||
+          quoteResult?.toTokenInfo?.contractAddress !==
+            toToken?.contractAddress)
+      ) {
+        return;
+      }
       if (!networks.length || !swapFromAddressInfo.accountInfo?.ready) return;
       // check account
       if (!swapFromAddressInfo.accountInfo?.wallet) {
