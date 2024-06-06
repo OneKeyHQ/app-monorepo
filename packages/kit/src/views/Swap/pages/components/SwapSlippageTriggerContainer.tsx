@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -12,14 +11,12 @@ import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 
 interface ISwapSlippageTriggerContainerProps {
   isLoading: boolean;
-  popoverOnOpenChange: (open: boolean) => void;
-  renderPopoverContent: () => ReactNode;
+  onPress: () => void;
 }
 
 const SwapSlippageTriggerContainer = ({
   isLoading,
-  popoverOnOpenChange,
-  renderPopoverContent,
+  onPress,
 }: ISwapSlippageTriggerContainerProps) => {
   const intl = useIntl();
   const [swapSlippage] = useSwapSlippagePercentageAtom();
@@ -53,11 +50,9 @@ const SwapSlippageTriggerContainer = ({
     <SwapCommonInfoItem
       title="Slippage tolerance"
       isLoading={isLoading}
-      onPress={() => {}}
+      onPress={onPress}
       questionMarkContent="Slippage tolerance is a setting for the amount of price slippage you are willing to accept for a trade."
       valueComponent={valueComponent}
-      popoverOnOpenChange={popoverOnOpenChange}
-      renderPopoverContent={renderPopoverContent}
     />
   );
 };
