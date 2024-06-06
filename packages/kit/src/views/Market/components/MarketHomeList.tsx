@@ -1,6 +1,7 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 import {
   Fragment,
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -650,7 +651,7 @@ const TouchableContainer = platformEnv.isNative
   ? Fragment
   : TouchableWithoutFeedback;
 
-export function MarketHomeList({
+function BasicMarketHomeList({
   category,
   tabIndex = 0,
   showMoreAction = false,
@@ -1064,3 +1065,5 @@ export function MarketHomeList({
     </>
   );
 }
+
+export const MarketHomeList = memo(BasicMarketHomeList);

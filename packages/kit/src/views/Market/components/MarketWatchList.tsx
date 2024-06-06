@@ -128,6 +128,16 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     ),
     [coingeckoIds.length, handleAddTokens],
   );
+  const listCategory = useMemo(
+    () =>
+      ({
+        categoryId: 'all',
+        coingeckoIds: watchListCoingeckoIds?.map(
+          ({ coingeckoId }) => coingeckoId,
+        ),
+      } as IMarketCategory),
+    [watchListCoingeckoIds],
+  );
   const renderRecommend = useCallback(() => {
     if (category?.recommendedTokens) {
       return (
@@ -185,16 +195,6 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   return watchListCoingeckoIds?.length === 0 ? (
     renderRecommend()
   ) : (
-    <MarketHomeList
-      showMoreAction={gtMd}
-      category={
-        {
-          categoryId: 'all',
-          coingeckoIds: watchListCoingeckoIds?.map(
-            ({ coingeckoId }) => coingeckoId,
-          ),
-        } as IMarketCategory
-      }
-    />
+    <MarketHomeList showMoreAction={gtMd} category={listCategory} />
   );
 }

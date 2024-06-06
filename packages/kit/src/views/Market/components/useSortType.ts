@@ -6,10 +6,7 @@ export const useSortType = (
 ) => {
   const listDataRef = useRef<typeof listData | undefined>();
   const extraDataRef = useRef<any>(extraData);
-  if (
-    (!listDataRef.current && listData?.length) ||
-    listDataRef.current?.length !== listData?.length
-  ) {
+  if (listDataRef.current !== listData) {
     listDataRef.current = listData;
   }
   if (extraDataRef.current !== extraData) {
