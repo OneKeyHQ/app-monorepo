@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { useClipboard } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -67,6 +68,30 @@ export function WalletActionMore() {
           icon: 'MinusLargeOutline',
           disabled: !isSupported,
           onPress: sellCrypto,
+        },
+      ],
+    });
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    sections.unshift({
+      items: [
+        {
+          label: 'Export Private Key',
+          icon: 'MinusLargeOutline',
+          onPress: () => {
+            void (async () => {
+              const r =
+                await backgroundApiProxy.serviceAccount.exportAccountSecretKeys(
+                  {
+                    accountId: account?.id || '',
+                    networkId: network?.id || '',
+                  },
+                );
+
+              console.log(r);
+            })();
+          },
         },
       ],
     });

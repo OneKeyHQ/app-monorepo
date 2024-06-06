@@ -19,6 +19,8 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 
 import { LIDO_LOGO_URI } from '../../utils/const';
 
+const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
+
 type ILidoWithdrawProps = {
   balance: string;
   price: string;
@@ -113,6 +115,7 @@ export const LidoWithdraw = ({
         <SizableText>
           <NumberSizeableText
             formatter="balance"
+            size="$bodyLgMedium"
             formatterOptions={{ tokenSymbol: receivingTokenSymbol }}
           >
             {receivingAmount}
@@ -120,6 +123,7 @@ export const LidoWithdraw = ({
           (
           <NumberSizeableText
             formatter="value"
+            size="$bodyLgMedium"
             formatterOptions={{ currency: symbol }}
           >
             {receivingValue}
@@ -176,15 +180,16 @@ export const LidoWithdraw = ({
           </Stack>
           <YStack>
             {receiving ? (
-              <ListItem title="Receive" titleProps={{ color: '$textSubdued' }}>
+              <ListItem title="Receive" titleProps={fieldTitleProps}>
                 {receiving}
               </ListItem>
             ) : null}
             {amountValue ? (
-              <ListItem title="Pay with" titleProps={{ color: '$textSubdued' }}>
+              <ListItem title="Pay with" titleProps={fieldTitleProps}>
                 <SizableText>
                   <NumberSizeableText
                     formatter="balance"
+                    size="$bodyLgMedium"
                     formatterOptions={{ tokenSymbol }}
                   >
                     {amountValue}
@@ -192,16 +197,13 @@ export const LidoWithdraw = ({
                 </SizableText>
               </ListItem>
             ) : null}
-            <ListItem title="Protocol" titleProps={{ color: '$textSubdued' }}>
+            <ListItem title="Protocol" titleProps={fieldTitleProps}>
               <XStack space="$2" alignItems="center">
-                <Token size="sm" tokenImageUri={LIDO_LOGO_URI} />
-                <SizableText size="$bodyMdMedium">Lido</SizableText>
+                <Token size="xs" tokenImageUri={LIDO_LOGO_URI} />
+                <SizableText size="$bodyLgMedium">Lido</SizableText>
               </XStack>
             </ListItem>
-            <ListItem
-              title="Stake Release Period"
-              titleProps={{ color: '$textSubdued' }}
-            >
+            <ListItem title="Stake Release Period" titleProps={fieldTitleProps}>
               <ListItem.Text primary="< 4 Days" />
             </ListItem>
           </YStack>

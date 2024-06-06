@@ -186,7 +186,9 @@ const SwapTxHistoryViewInBrowser = ({
 
   const providerExplorer = useMemo(() => {
     const logo = item.swapInfo.provider?.providerLogo;
-    const url = item.swapInfo.socketBridgeScanUrl;
+    const url = item.swapInfo.socketBridgeScanUrl
+      ? `${item.swapInfo.socketBridgeScanUrl}${item.txInfo.txId}`
+      : undefined;
     return {
       name: item.swapInfo.provider.providerName,
       url,
@@ -199,6 +201,7 @@ const SwapTxHistoryViewInBrowser = ({
     item.swapInfo.provider?.providerLogo,
     item.swapInfo.provider.providerName,
     item.swapInfo.socketBridgeScanUrl,
+    item.txInfo.txId,
   ]);
 
   const onHandleExplorer = useCallback(
