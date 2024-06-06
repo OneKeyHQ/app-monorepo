@@ -26,17 +26,17 @@ import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
-import { DialogHeader, DialogTitleContext, SetDialogHeader } from './Header';
+import { DialogHeader, DialogHeaderContext, SetDialogHeader } from './Header';
 import { renderToContainer } from './renderToContainer';
 
 import type {
   IDialogCancelProps,
   IDialogConfirmProps,
   IDialogContainerProps,
+  IDialogHeaderProps,
   IDialogInstance,
   IDialogProps,
   IDialogShowProps,
-  IDialogTitleContextTitleProps,
 } from './type';
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
@@ -308,7 +308,7 @@ function BaseDialogContainer(
     }),
     [handleImperativeClose],
   );
-  const [titleProps, setTitleProps] = useState<IDialogTitleContextTitleProps>({
+  const [titleProps, setTitleProps] = useState<IDialogHeaderProps>({
     title,
     tone,
     description,
@@ -321,7 +321,7 @@ function BaseDialogContainer(
   );
   return (
     <DialogContext.Provider value={contextValue}>
-      <DialogTitleContext.Provider value={titleContextValue}>
+      <DialogHeaderContext.Provider value={titleContextValue}>
         <DialogFrame
           contextValue={contextValue}
           open={isOpen}
@@ -330,7 +330,7 @@ function BaseDialogContainer(
           onClose={handleContainerClose}
           {...props}
         />
-      </DialogTitleContext.Provider>
+      </DialogHeaderContext.Provider>
     </DialogContext.Provider>
   );
 }
