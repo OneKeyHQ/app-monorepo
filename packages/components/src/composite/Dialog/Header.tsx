@@ -1,21 +1,22 @@
 import { createContext, memo, useContext, useEffect, useMemo } from 'react';
 
+import { Dialog as TMDialog } from 'tamagui';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { IconButton } from '../../actions/IconButton';
 import { Icon, SizableText, Stack } from '../../primitives';
 
-import type {
-  IDialogTitleContextTitleProps,
-  IDialogTitleContextType,
-} from './type';
+import type { IDialogHeaderContextType, IDialogHeaderProps } from './type';
 import type { ColorTokens } from '../../primitives';
 
-export const DialogTitleContext = createContext<IDialogTitleContextType>(
-  {} as IDialogTitleContextType,
+export const DialogHeaderContext = createContext<IDialogHeaderContextType>(
+  {} as IDialogHeaderContextType,
 );
 
-function BasicDialogTitle({ onClose }: { onClose: () => void }) {
-  const { titleProps } = useContext(DialogTitleContext);
-  const { icon, title, description, showExitButton, tone } = titleProps;
+function BasicDialogHeader({ onClose }: { onClose: () => void }) {
+  const { headerProps } = useContext(DialogHeaderContext);
+  const { icon, title, description, showExitButton = true, tone } = headerProps;
 
   const colors: {
     iconWrapperBg: ColorTokens;
@@ -95,18 +96,24 @@ function BasicDialogTitle({ onClose }: { onClose: () => void }) {
           onPress={onClose}
         />
       ) : null}
+      {
+        /* fix missing title warnings in html dialog element on Web */
+        platformEnv.isRuntimeBrowser ? (
+          <TMDialog.Title display="none">{title}</TMDialog.Title>
+        ) : null
+      }
     </>
   );
 }
 
-export const DialogTitle = memo(BasicDialogTitle);
+export const DialogHeader = memo(BasicDialogHeader);
 
-function BasicSetDialogTitle(props: IDialogTitleContextTitleProps) {
-  const { setTitleProps } = useContext(DialogTitleContext);
+function BasicSetDialogHeader(props: IDialogHeaderProps) {
+  const { setHeaderProps } = useContext(DialogHeaderContext);
   useEffect(() => {
-    setTitleProps(props);
-  }, [props, setTitleProps]);
+    setHeaderProps(props);
+  }, [props, setHeaderProps]);
   return null;
 }
 
-export const SetDialogTitle = memo(BasicSetDialogTitle);
+export const SetDialogHeader = memo(BasicSetDialogHeader);

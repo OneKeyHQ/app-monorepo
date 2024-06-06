@@ -26,8 +26,8 @@ import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
+import { DialogHeader, DialogTitleContext, SetDialogHeader } from './Header';
 import { renderToContainer } from './renderToContainer';
-import { DialogTitle, DialogTitleContext, SetDialogTitle } from './Title';
 
 import type {
   IDialogCancelProps,
@@ -57,12 +57,9 @@ function DialogFrame({
   open,
   onClose,
   title,
-  icon,
   modal,
-  description,
   renderContent,
   showFooter = true,
-  showExitButton = true,
   footerProps,
   onConfirm,
   onConfirmText = 'Confirm',
@@ -122,7 +119,7 @@ function DialogFrame({
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
     <Stack {...(bottom && { pb: bottom })}>
-      <DialogTitle onClose={handleCancelButtonPress} />
+      <DialogHeader onClose={handleCancelButtonPress} />
       {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
         {renderContent}
@@ -218,12 +215,6 @@ function DialogFrame({
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex}
             />
-            {
-              /* fix missing title warnings in html dialog element on Web */
-              platformEnv.isRuntimeBrowser ? (
-                <TMDialog.Title display="none">{title}</TMDialog.Title>
-              ) : null
-            }
             <TMDialog.Content
               elevate
               key="content"
@@ -484,7 +475,7 @@ const dialogCancel = (props: IDialogCancelProps) =>
   });
 
 export const Dialog = {
-  Title: SetDialogTitle,
+  Header: SetDialogHeader,
   Footer: FooterAction,
   Form: DialogForm,
   FormField: Form.Field,
