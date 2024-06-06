@@ -12,6 +12,7 @@ import {
   Spinner,
   Stack,
   YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import type {
   IDialogProps,
@@ -39,6 +40,7 @@ export enum EFirmwareAuthenticationDialogContentType {
   unofficial_device_detected = 'unofficial_device_detected',
   verification_temporarily_unavailable = 'verification_temporarily_unavailable',
   show_risky_warning = 'show_risky_warning',
+  unknown_error = 'unknown_error',
 }
 
 function useFirmwareVerifyBase({
@@ -52,6 +54,7 @@ function useFirmwareVerifyBase({
   const [contentType, setContentType] = useState(
     EFirmwareAuthenticationDialogContentType.default,
   );
+  const dialogInstance = useDialogInstance();
   const verify = useCallback(async () => {
     setContentType(EFirmwareAuthenticationDialogContentType.verifying);
     try {
@@ -76,7 +79,7 @@ function useFirmwareVerifyBase({
       setResult('error');
       switch ((error as OneKeyError).code) {
         case HardwareErrorCode.ActionCancelled:
-          setContentType(EFirmwareAuthenticationDialogContentType.default);
+          void dialogInstance.close();
           break;
         case HardwareErrorCode.NetworkError:
         case HardwareErrorCode.BridgeNetworkError:
@@ -98,7 +101,7 @@ function useFirmwareVerifyBase({
         skipDeviceCancel,
       });
     }
-  }, [device, skipDeviceCancel]);
+  }, [device, dialogInstance, skipDeviceCancel]);
 
   useEffect(() => {
     void verify();
