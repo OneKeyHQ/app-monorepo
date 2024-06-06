@@ -35,6 +35,8 @@ export interface IConfirmOnDeviceToastContentProps {
 export function ConfirmOnDeviceToastContent({
   deviceType,
 }: IConfirmOnDeviceToastContentProps) {
+  const intl = useIntl();
+
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong" btlr="$2" bblr="$2">
@@ -46,7 +48,7 @@ export function ConfirmOnDeviceToastContent({
       </Stack>
       <XStack flex={1} alignItems="center" px="$3" space="$5">
         <SizableText flex={1} size="$bodyLgMedium">
-          Confirm on Device
+          {intl.formatMessage({ id: ETranslations.global_confirm_on_device })}
         </SizableText>
         <Toast.Close>
           <IconButton size="small" icon="CrossedSmallOutline" />

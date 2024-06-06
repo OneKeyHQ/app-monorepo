@@ -50,7 +50,6 @@ function HardwareSingletonDialogCmp(
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
 
   const title = useRef('Loading');
-  const description = useRef('');
   const content = useRef(
     <CommonDeviceLoading>
       <SizableText size="$bodySmMedium">{action}</SizableText>
@@ -79,9 +78,6 @@ function HardwareSingletonDialogCmp(
   if (action === EHardwareUiStateAction.REQUEST_PIN) {
     title.current = intl.formatMessage({
       id: ETranslations.enter_pin_title,
-    });
-    description.current = intl.formatMessage({
-      id: ETranslations.enter_pin_desc,
     });
     content.current = (
       <EnterPin
@@ -145,7 +141,6 @@ function HardwareSingletonDialogCmp(
     <DialogContainer
       ref={ref}
       title={title.current}
-      description={description.current}
       renderContent={content.current}
       {...props} // pass down cloneElement props
     />
