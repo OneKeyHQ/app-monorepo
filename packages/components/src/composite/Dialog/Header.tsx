@@ -66,7 +66,7 @@ export function DialogIcon({
   ) : null;
 }
 
-export function DialogTitle({ children }: ISizableTextProps) {
+export function DialogTitle({ children, ...props }: ISizableTextProps) {
   return (
     <>
       <SizableText p="$5" pb={0} pr="$16" size="$headingXl" py="$px" {...props}>
