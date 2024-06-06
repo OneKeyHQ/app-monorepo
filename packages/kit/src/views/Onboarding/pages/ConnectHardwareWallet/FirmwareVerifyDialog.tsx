@@ -51,6 +51,7 @@ function useFirmwareVerifyBase({
   skipDeviceCancel?: boolean;
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
+  const [errorCode, setErrorCode] = useState(0);
   const [contentType, setContentType] = useState(
     EFirmwareAuthenticationDialogContentType.default,
   );
@@ -77,7 +78,8 @@ function useFirmwareVerifyBase({
       }
     } catch (error) {
       setResult('error');
-      switch ((error as OneKeyError).code) {
+      const code = (error as OneKeyError).code;
+      switch (code) {
         case HardwareErrorCode.ActionCancelled:
           void dialogInstance.close();
           break;
@@ -90,8 +92,9 @@ function useFirmwareVerifyBase({
         case HardwareErrorCode.DeviceUnexpectedBootloaderMode:
         default:
           setContentType(
-            EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable,
+            EFirmwareAuthenticationDialogContentType.network_error,
           );
+          setErrorCode(code);
           break;
       }
       throw error;
@@ -117,7 +120,7 @@ function useFirmwareVerifyBase({
     setResult('unknown');
   }, []);
 
-  return { result, reset, verify, contentType, setContentType };
+  return { result, reset, verify, contentType, setContentType, errorCode };
 }
 
 export interface IBasicFirmwareAuthenticationDialogContent {
@@ -236,7 +239,9 @@ export function EnumBasicDialogContentContainer({
   contentType,
   onActionPress,
   onContinuePress,
+  errorCode,
 }: {
+  errorCode: number;
   contentType: EFirmwareAuthenticationDialogContentType;
 } & IBasicFirmwareAuthenticationDialogContent) {
   const intl = useIntl();
@@ -364,7 +369,7 @@ export function FirmwareAuthenticationDialogContent({
   skipDeviceCancel?: boolean;
   noContinue?: boolean;
 }) {
-  const { result, reset, verify, contentType, setContentType } =
+  const { result, reset, verify, contentType, setContentType, errorCode } =
     useFirmwareVerifyBase({
       device,
       skipDeviceCancel,
@@ -433,6 +438,7 @@ export function FirmwareAuthenticationDialogContent({
 
     return (
       <EnumBasicDialogContentContainer
+        errorCode={errorCode}
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
         onContinuePress={handleContinuePress}
@@ -440,6 +446,7 @@ export function FirmwareAuthenticationDialogContent({
     );
   }, [
     result,
+    errorCode,
     contentType,
     handleContinuePress,
     onContinue,

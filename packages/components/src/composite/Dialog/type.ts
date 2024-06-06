@@ -47,13 +47,13 @@ export interface IDialogFooterProps extends PropsWithChildren {
   onCancel?: () => void;
 }
 
-export interface IDialogHeaderProps {
+export type IDialogHeaderProps = PropsWithChildren<{
   icon?: IKeyOfIcons;
   title?: string;
   description?: string;
   showExitButton?: boolean;
   tone?: 'default' | 'destructive' | 'warning' | 'success';
-}
+}>;
 
 export interface IDialogHeaderContextType {
   headerProps: IDialogHeaderProps;
