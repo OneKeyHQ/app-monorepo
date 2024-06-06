@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import type { ColorTokens } from '@onekeyhq/components';
 import { Icon, Page, Tab, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -32,7 +35,7 @@ function MarketHome() {
           index === 0 ? (
             <MarketWatchList category={category} />
           ) : (
-            <MarketHomeList category={category} />
+            <MarketHomeList category={category} tabIndex={index} />
           ),
       })) || [],
     [categories],
@@ -53,8 +56,11 @@ function MarketHome() {
                 <Tab.SelectedLabel {...(titleStyle as any)} />
               ),
           }}
-          onSelectedPageIndex={(index: number) => {
-            console.log('选中', index);
+          onSelectedPageIndex={(tabIndex: number) => {
+            console.log('选中', tabIndex);
+            appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
+              tabIndex,
+            });
           }}
         />
       </Page.Body>

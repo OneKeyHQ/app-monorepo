@@ -1,5 +1,12 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { StyleSheet } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
@@ -31,6 +38,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -594,7 +605,7 @@ function TableMdSkeletonRow() {
 }
 
 function ListEmptyComponent() {
-  const { gtMd } = useMedia();
+  const { gtMd, md } = useMedia();
   if (platformEnv.isNativeAndroid) {
     return null;
   }
@@ -641,8 +652,10 @@ const TouchableContainer = platformEnv.isNative
 
 export function MarketHomeList({
   category,
+  tabIndex = 0,
   showMoreAction = false,
 }: {
+  tabIndex?: number;
   category: IMarketCategory;
   showMoreAction?: boolean;
 }) {
@@ -674,7 +687,7 @@ export function MarketHomeList({
     [navigation],
   );
 
-  const { gtMd } = useMedia();
+  const { gtMd, md } = useMedia();
 
   const tableHeaderConfig = useBuildTableHeaderConfig();
 
@@ -941,6 +954,30 @@ export function MarketHomeList({
       listViewRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
   }, []);
+
+  const onSwitchMarketHomeTabCallback = useCallback(
+    ({ tabIndex: currentTabIndex }: { tabIndex: number }) => {
+      if (currentTabIndex !== tabIndex) {
+        handleMdSortByTypeChange('default');
+      }
+    },
+    [handleMdSortByTypeChange, tabIndex],
+  );
+
+  useEffect(() => {
+    if (md) {
+      appEventBus.on(
+        EAppEventBusNames.SwitchMarketHomeTab,
+        onSwitchMarketHomeTabCallback,
+      );
+      return () => {
+        appEventBus.off(
+          EAppEventBusNames.SwitchMarketHomeTab,
+          onSwitchMarketHomeTabCallback,
+        );
+      };
+    }
+  }, [md, onSwitchMarketHomeTabCallback, tabIndex]);
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (

@@ -39,6 +39,7 @@ export enum EAppEventBusNames {
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
+  SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -104,6 +105,9 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+  [EAppEventBusNames.SwitchMarketHomeTab]: {
+    tabIndex: number;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
