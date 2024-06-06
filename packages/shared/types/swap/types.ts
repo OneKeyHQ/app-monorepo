@@ -59,12 +59,11 @@ export interface ISwapTokenBase {
   isNative?: boolean;
   symbol: string;
   decimals: number;
+  name?: string;
+  logoURI?: string;
 }
 
 export interface ISwapToken extends ISwapTokenBase {
-  name?: string;
-  logoURI?: string;
-
   balanceParsed?: string;
   price?: string;
   fiatValue?: string;
@@ -176,8 +175,8 @@ export interface IFetchQuoteResult {
   quoteExtraData?: IQuoteExtraData;
   autoSuggestedSlippage?: number;
   unSupportSlippage?: boolean;
-  fromTokenInfo?: ISwapTokenBase;
-  toTokenInfo?: ISwapTokenBase;
+  fromTokenInfo: ISwapTokenBase;
+  toTokenInfo: ISwapTokenBase;
 }
 
 export interface IAllowanceResult {

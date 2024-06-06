@@ -20,7 +20,7 @@ export const swapSlippageMaxValue = 50;
 
 export const swapSlippageWillFailMinValue = 0.1;
 
-export const swapSlippageWillAheadMinValue = 5;
+export const swapSlippageWillAheadMinValue = 10;
 
 export const swapSlippage = 50;
 

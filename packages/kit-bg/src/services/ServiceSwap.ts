@@ -231,7 +231,13 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
     }
-    return [{ info: { provider: '', providerName: '' } }]; //  no support providers
+    return [
+      {
+        info: { provider: '', providerName: '' },
+        fromTokenInfo: fromToken,
+        toTokenInfo: toToken,
+      },
+    ]; //  no support providers
   }
 
   @backgroundMethod()
