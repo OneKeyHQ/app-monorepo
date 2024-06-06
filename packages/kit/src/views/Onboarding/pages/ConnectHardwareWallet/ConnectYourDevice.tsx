@@ -453,7 +453,6 @@ function ConnectByUSBOrBLE({
   const checkBLEState = useCallback(async () => {
     const bleManager = await uiDeviceUtils.getBleManager();
     const checkState = await bleManager?.checkState();
-    alert(JSON.stringify({ checkState }));
     return checkState === 'on';
   }, []);
 
@@ -480,12 +479,17 @@ function ConnectByUSBOrBLE({
       Dialog.confirm({
         title: 'Turn on Bluetooth Switch',
         description: 'To connect via Bluetooth, please Turn on Bluetooth.',
+        onConfirmText: 'Go to Settings',
+        onConfirm: () =>
+          platformEnv.isNativeIOS
+            ? Linking.openURL('App-Prefs:Bluetooth')
+            : Linking.sendIntent('android.settings.BLUETOOTH_SETTINGS'),
       });
-      return
+      return;
     }
 
-    listingDevice()
-  }, [checkBLEPermission, checkBLEState]);
+    listingDevice();
+  }, [checkBLEPermission, checkBLEState, listingDevice]);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
