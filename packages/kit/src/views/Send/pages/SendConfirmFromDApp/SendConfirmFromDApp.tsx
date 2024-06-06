@@ -12,6 +12,7 @@ import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
 import type { StackActionType } from '@react-navigation/native';
+import useDappApproveAction from '../../../../hooks/useDappApproveAction';
 
 function SendConfirmFromDApp() {
   const navigation = useNavigation();
@@ -34,6 +35,11 @@ function SendConfirmFromDApp() {
     useFeeInTx: boolean;
     _$t: number | undefined;
   }>();
+
+  useDappApproveAction({
+    id: $sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
 
   useEffect(() => {
     // OK-16560: navigate when app in background would cause modal render in wrong size
