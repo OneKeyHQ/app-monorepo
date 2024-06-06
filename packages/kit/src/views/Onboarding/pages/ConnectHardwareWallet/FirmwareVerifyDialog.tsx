@@ -140,7 +140,7 @@ export function BasicFirmwareAuthenticationDialogContent({
   const content = useMemo(
     () => (
       <>
-        <Dialog.Header showExitButton {...titleProps} />
+        <Dialog.Header {...titleProps} />
 
         {showLoading ? (
           <Stack
