@@ -253,16 +253,20 @@ export function ConnectYourDevicePage() {
   const handleNotActivatedDevicePress = useCallback(() => {
     const dialog = Dialog.show({
       icon: 'WalletCryptoOutline',
-      title: 'Activate Your Device',
-      description: 'Set up your hardware wallet to get started.',
+      title: ETranslations.onboarding_activate_device,
+      description: ETranslations.onboarding_activate_device_help_text,
       dismissOnOverlayPress: false,
       renderContent: (
         <Stack>
           <ListItem
             alignItems="flex-start"
             icon="PlusCircleOutline"
-            title="Set Up New Wallet"
-            subtitle="Configure your device to create a new wallet."
+            title={intl.formatMessage({
+              id: ETranslations.onboarding_activate_device_by_set_up_new_wallet,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.onboarding_activate_device_by_set_up_new_wallet_help_text,
+            })}
             drillIn
             onPress={async () => {
               await dialog.close();
@@ -277,8 +281,12 @@ export function ConnectYourDevicePage() {
           <ListItem
             alignItems="flex-start"
             icon="ArrowBottomCircleOutline"
-            title="Restore Wallet"
-            subtitle="Restore your wallet using an existing recovery phrase."
+            title={intl.formatMessage({
+              id: ETranslations.onboarding_activate_device_by_restore,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.onboarding_activate_device_by_restore_help_text,
+            })}
             drillIn
             onPress={async () => {
               await dialog.close();
@@ -308,7 +316,7 @@ export function ConnectYourDevicePage() {
       ),
       showFooter: false,
     });
-  }, [handleSetupNewWalletPress, requestsUrl]);
+  }, [handleSetupNewWalletPress, intl, requestsUrl]);
 
   const createHwWallet = useCallback(
     async ({
