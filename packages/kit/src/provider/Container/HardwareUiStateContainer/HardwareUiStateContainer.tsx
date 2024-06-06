@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { Semaphore } from 'async-mutex';
+import { useIntl } from 'react-intl';
 
 import type { IDialogInstance, IToastShowResult } from '@onekeyhq/components';
 import {
@@ -21,6 +22,7 @@ import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
@@ -42,11 +44,13 @@ function HardwareSingletonDialogCmp(
   const action = state?.action;
   const connectId = state?.connectId || '';
   const { serviceHardware, serviceHardwareUI } = backgroundApiProxy;
+  const intl = useIntl();
 
   // TODO make sure toast is last session action
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
 
   const title = useRef('Loading');
+  const description = useRef('');
   const content = useRef(
     <CommonDeviceLoading>
       <SizableText size="$bodySmMedium">{action}</SizableText>
@@ -65,13 +69,20 @@ function HardwareSingletonDialogCmp(
 
   // EnterPin on Device
   if (action === EHardwareUiStateAction.EnterPinOnDevice) {
-    title.current = 'Enter PIN on Device';
+    title.current = intl.formatMessage({
+      id: ETranslations.enter_pin_enter_on_device,
+    });
     content.current = <EnterPinOnDevice />;
   }
 
   // EnterPin on App
   if (action === EHardwareUiStateAction.REQUEST_PIN) {
-    title.current = 'Enter PIN';
+    title.current = intl.formatMessage({
+      id: ETranslations.enter_pin_title,
+    });
+    description.current = intl.formatMessage({
+      id: ETranslations.enter_pin_desc,
+    });
     content.current = (
       <EnterPin
         onConfirm={async (value) => {
@@ -134,6 +145,7 @@ function HardwareSingletonDialogCmp(
     <DialogContainer
       ref={ref}
       title={title.current}
+      description={description.current}
       renderContent={content.current}
       {...props} // pass down cloneElement props
     />

@@ -18,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -110,137 +111,6 @@ function useFirmwareVerifyBase({
   return { result, reset, errorState, verify, contentType, setContentType };
 }
 
-export function FirmwareAuthenticationDialogContentLegacy({
-  onContinue,
-  device,
-  skipDeviceCancel,
-}: {
-  onContinue: (params: { checked: boolean }) => void;
-  device: SearchDevice;
-  skipDeviceCancel?: boolean;
-}) {
-  const { result, reset, verify } = useFirmwareVerifyBase({
-    device,
-    skipDeviceCancel,
-  });
-  const requestsUrl = useHelpLink({ path: 'requests/new' });
-
-  return (
-    <Stack>
-      <HeightTransition initialHeight={106}>
-        <Stack
-          borderRadius="$3"
-          p="$5"
-          bg="$bgSubdued"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$transparent"
-          {...(result === 'official' && {
-            bg: '$bgSuccessSubdued',
-            borderColor: '$borderSuccessSubdued',
-          })}
-          {...(result === 'unofficial' && {
-            bg: '$bgCriticalSubdued',
-            borderColor: '$borderCriticalSubdued',
-          })}
-          {...(result === 'error' && {
-            bg: '$bgCautionSubdued',
-            borderColor: '$borderCautionSubdued',
-          })}
-          borderCurve="continuous"
-        >
-          <Stack>
-            <Stack justifyContent="center" alignItems="center">
-              {result === 'unknown' ? (
-                <Spinner size="large" />
-              ) : (
-                <Icon
-                  name="BadgeVerifiedSolid"
-                  size="$9"
-                  color="$iconSuccess"
-                  {...(result === 'unofficial' && {
-                    name: 'ErrorSolid',
-                    color: '$iconCritical',
-                  })}
-                  {...(result === 'error' && {
-                    name: 'ErrorSolid',
-                    color: '$iconCaution',
-                  })}
-                />
-              )}
-            </Stack>
-
-            <SizableText
-              textAlign="center"
-              mt="$5"
-              {...(result === 'official' && {
-                color: '$textSuccess',
-              })}
-              {...(result === 'unofficial' && {
-                color: '$textCritical',
-              })}
-              {...(result === 'error' && {
-                color: '$textCaution',
-              })}
-            >
-              {result === 'unknown' ? 'Verifying official firmware' : null}
-              {result === 'official'
-                ? 'Your device is running official firmware'
-                : null}
-              {result === 'unofficial' ? 'Unofficial firmware detected!' : null}
-              {result === 'error'
-                ? 'Unable to verify firmware: internet connection required'
-                : null}
-            </SizableText>
-          </Stack>
-        </Stack>
-        {result !== 'unknown' ? (
-          <Stack pt="$5">
-            <Button
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              variant="primary"
-              {...(result === 'official' && {
-                onPress: () => onContinue({ checked: true }),
-              })}
-              {...(result === 'unofficial' && {
-                onPress: async () => {
-                  // Contact OneKey Support
-                  await Linking.openURL(requestsUrl);
-                },
-              })}
-              {...(result === 'error' && {
-                onPress: async () => {
-                  reset();
-                  // Retry
-                  await verify();
-                },
-              })}
-            >
-              {result === 'official' ? 'Continue' : null}
-              {result === 'unofficial' ? 'Contact OneKey Support' : null}
-              {result === 'error' ? 'Retry' : null}
-            </Button>
-          </Stack>
-        ) : null}
-        {result === 'error' ? (
-          <Stack pt="$3">
-            <Button
-              variant="tertiary"
-              m="$0"
-              onPress={() => onContinue({ checked: false })}
-            >
-              Continue Anyway(Legacy)
-            </Button>
-          </Stack>
-        ) : null}
-      </HeightTransition>
-    </Stack>
-  );
-}
-
 function BasicDialogContentContainer({ children, ...props }: IStackProps) {
   return (
     <Stack
@@ -263,42 +133,34 @@ export interface IBasicFirmwareAuthenticationDialogContent {
   showLoading?: boolean;
   showActions?: boolean;
   actionsProps?: IButtonProps;
-  showContinue?: boolean;
-  continueProps?: IButtonProps;
-  showRiskyWarning?: boolean;
-  riskyWarningProps?: {
-    buttonProps: IButtonProps;
-    message: string;
-  };
+  showContinueAnyway?: boolean;
 }
 export function BasicFirmwareAuthenticationDialogContent({
   titleProps,
   showLoading,
   showActions,
   actionsProps,
-  showContinue,
-  continueProps,
-  showRiskyWarning,
-  textContent,
-  textContentContainerProps,
-  riskyWarningProps,
+  showContinueAnyway,
 }: IBasicFirmwareAuthenticationDialogContent) {
-  const content = useMemo(() => {
-    if (showLoading) {
-      return (
-        <>
-          <Dialog.Title {...titleProps} />
-          <Spinner />
-        </>
-      );
-    }
-    return (
+  const intl = useIntl();
+  const [showRiskyWarning, setShowRiskyWarning] = useState(false);
+
+  const content = useMemo(
+    () => (
       <>
-        <Dialog.Title {...titleProps} />
-        {textContent ? (
-          <BasicDialogContentContainer {...textContentContainerProps}>
-            <SizableText textAlign="center">{textContent}</SizableText>
-          </BasicDialogContentContainer>
+        <Dialog.Title showExitButton {...titleProps} />
+
+        {showLoading ? (
+          <Stack
+            p="$5"
+            alignItems="center"
+            justifyContent="center"
+            bg="$bgStrong"
+            borderRadius="$3"
+            borderCurve="continuous"
+          >
+            <Spinner size="large" />
+          </Stack>
         ) : null}
 
         {showActions ? (
@@ -313,146 +175,178 @@ export function BasicFirmwareAuthenticationDialogContent({
           />
         ) : null}
 
-        {showContinue ? (
-          <Button
-            $md={
-              {
-                size: 'large',
-              } as IButtonProps
-            }
-            {...continueProps}
-          />
-        ) : null}
-        {showRiskyWarning ? (
-          <YStack p="$5" space="$5" bg="$bgCautionSubdued">
-            <SizableText size="$bodyLgMedium" color="$textCaution">
-              {riskyWarningProps?.message}
-            </SizableText>
-            <Button
-              bg="transparent"
-              borderColor="$bgStrong"
-              $md={
-                {
-                  size: 'large',
-                } as IButtonProps
-              }
-              {...riskyWarningProps?.buttonProps}
-            />
-          </YStack>
+        {showContinueAnyway ? (
+          <Stack pt="$4">
+            {!showRiskyWarning ? (
+              <Button
+                $md={
+                  {
+                    size: 'large',
+                  } as IButtonProps
+                }
+                onPress={() => setShowRiskyWarning(true)}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_continue_anyway,
+                })}
+              </Button>
+            ) : (
+              <YStack
+                p="$5"
+                space="$5"
+                bg="$bgCautionSubdued"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$borderCautionSubdued"
+                borderRadius="$3"
+                borderCurve="continuous"
+              >
+                <SizableText size="$bodyLgMedium" color="$textCaution">
+                  {intl.formatMessage({
+                    id: ETranslations.device_auth_continue_anyway_warning_message,
+                  })}
+                </SizableText>
+                <Button
+                  $md={
+                    {
+                      size: 'large',
+                    } as IButtonProps
+                  }
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_i_understand,
+                  })}
+                </Button>
+              </YStack>
+            )}
+          </Stack>
         ) : null}
       </>
-    );
-  }, [
-    actionsProps,
-    continueProps,
-    riskyWarningProps?.buttonProps,
-    riskyWarningProps?.message,
-    showActions,
-    showContinue,
-    showLoading,
-    showRiskyWarning,
-    textContent,
-    textContentContainerProps,
-    titleProps,
-  ]);
-  return <YStack space="$5">{content} </YStack>;
+    ),
+    [
+      actionsProps,
+      intl,
+      showActions,
+      showContinueAnyway,
+      showLoading,
+      showRiskyWarning,
+      titleProps,
+    ],
+  );
+  return <YStack>{content} </YStack>;
 }
 
 export function EnumBasicDialogContentContainer({
   contentType,
-  textContent,
-  textContentContainerProps,
-  actionsProps,
-  continueProps,
-  riskyWarningProps,
 }: {
   contentType: EFirmwareAuthenticationDialogContentType;
 } & IBasicFirmwareAuthenticationDialogContent) {
+  const intl = useIntl();
+
   const restProps = useMemo(() => {
     switch (contentType) {
       case EFirmwareAuthenticationDialogContentType.default:
         return {
           titleProps: {
-            title: 'default',
-            description: 'default description',
+            tone: 'success',
+            icon: 'DocumentSearch2Outline',
+            title: intl.formatMessage({
+              id: ETranslations.device_auth_request_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.device_auth_request_desc,
+            }),
           },
-          textContent,
-          textContentContainerProps,
         };
       case EFirmwareAuthenticationDialogContentType.verifying:
         return {
           titleProps: {
-            title: 'verifying',
+            tone: 'success',
+            icon: 'DotHorOutline',
+            title: intl.formatMessage({
+              id: ETranslations.device_auth_verifying_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.device_auth_verifying_desc,
+            }),
           },
           showLoading: true,
         };
       case EFirmwareAuthenticationDialogContentType.verification_successful:
         return {
           titleProps: {
-            title: 'verification_successful',
+            tone: 'success',
+            icon: 'BadgeVerifiedSolid',
+            title: intl.formatMessage({
+              id: ETranslations.device_auth_successful_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.device_auth_successful_desc,
+            }),
           },
-          textContent,
-          textContentContainerProps,
           showActions: true,
-          actionsProps,
+          actionsProps: {
+            children: intl.formatMessage({ id: ETranslations.global_continue }),
+          },
         };
       case EFirmwareAuthenticationDialogContentType.network_error:
         return {
           titleProps: {
-            title: 'network_error',
+            icon: 'WorldOutline',
+            title: intl.formatMessage({
+              id: ETranslations.global_network_error,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.global_network_error_help_text,
+            }),
           },
-          textContent,
-          textContentContainerProps,
           showActions: true,
-          actionsProps,
-          showContinue: true,
-          continueProps,
+          actionsProps: {
+            children: intl.formatMessage({ id: ETranslations.global_retry }),
+          },
+          showContinueAnyway: true,
         };
       case EFirmwareAuthenticationDialogContentType.unofficial_device_detected:
         return {
           titleProps: {
-            title: 'unofficial_device_detected',
+            icon: 'ErrorOutline',
+            tone: 'destructive',
+            title: intl.formatMessage({
+              id: ETranslations.device_auth_unofficial_device_detected,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.device_auth_unofficial_device_detected_help_text,
+            }),
           },
-          textContent,
-          textContentContainerProps,
           showActions: true,
-          actionsProps,
+          actionsProps: {
+            children: intl.formatMessage({
+              id: ETranslations.global_contact_us,
+            }),
+            onPress: () =>
+              Linking.openURL('https://help.onekey.so/hc/requests/new'),
+          },
         };
       case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
         return {
           titleProps: {
-            title: 'verification_temporarily_unavailable',
+            icon: 'ServerOutline',
+            title: intl.formatMessage({
+              id: ETranslations.device_auth_temporarily_unavailable,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.device_auth_temporarily_unavailable_help_text,
+            }),
           },
-          textContent,
-          textContentContainerProps,
           showActions: true,
-          actionsProps,
-          showContinue: true,
-          continueProps,
-        };
-      case EFirmwareAuthenticationDialogContentType.show_risky_warning:
-        return {
-          titleProps: {
-            title: 'show_risky_warning',
+          actionsProps: {
+            children: intl.formatMessage({ id: ETranslations.global_retry }),
           },
-          textContent,
-          textContentContainerProps,
-          showActions: true,
-          actionsProps,
-          showRiskyWarning: true,
-          riskyWarningProps,
+          showContinueAnyway: true,
         };
       default:
         return undefined;
     }
-  }, [
-    actionsProps,
-    contentType,
-    continueProps,
-    riskyWarningProps,
-    textContent,
-    textContentContainerProps,
-  ]);
+  }, [contentType, intl]);
   return <BasicFirmwareAuthenticationDialogContent {...restProps} />;
 }
 
@@ -577,8 +471,6 @@ export function FirmwareAuthenticationDialogContent({
           onPress: propsMap[result].onPress,
           children: propsMap[result].button,
         }}
-        continueProps={continueProps}
-        riskyWarningProps={riskyWarningProps}
       />
     );
   }, [
@@ -602,8 +494,6 @@ export function useFirmwareVerifyDialog({
 }: {
   noContinue?: boolean;
 } = {}) {
-  const intl = useIntl();
-
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,

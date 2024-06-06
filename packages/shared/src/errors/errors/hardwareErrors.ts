@@ -2,6 +2,7 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
+import { ETranslations } from '../../locale';
 import {
   ECustomOneKeyHardwareError,
   EOneKeyErrorClassNames,
@@ -36,7 +37,7 @@ export class InvalidPIN extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'HardwareInvalidPIN',
-        defaultKey: 'msg__hardware_invalid_pin_error',
+        defaultKey: ETranslations.enter_pin_invalid_pin,
         defaultAutoToast: true,
       }),
     );

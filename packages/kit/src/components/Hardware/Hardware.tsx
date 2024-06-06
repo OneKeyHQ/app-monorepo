@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { useForm } from 'react-hook-form';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IButtonProps, IColorTokens } from '@onekeyhq/components';
@@ -18,6 +19,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export const CONFIRM_ON_DEVICES = {
   classic: require('@onekeyhq/kit/assets/animations/confirm-on-classic.json'),
@@ -108,6 +110,7 @@ export function EnterPin({
   switchOnDevice: () => void;
 }) {
   const [val, setVal] = useState('');
+  const intl = useIntl();
   const varMask = useMemo(
     () =>
       val
@@ -204,7 +207,7 @@ export function EnterPin({
           onConfirm(val);
         }}
       >
-        Confirm
+        {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
       <Button
         m="$0"
@@ -219,7 +222,7 @@ export function EnterPin({
           switchOnDevice();
         }}
       >
-        Enter on Device
+        {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
       </Button>
     </Stack>
   );

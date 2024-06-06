@@ -174,11 +174,6 @@ function StaticUIDialog() {
       <Button
         onPress={() => {
           Dialog.show({
-            tone: 'success',
-            icon: 'DocumentSearch2Outline',
-            title: 'Device Authentication',
-            description:
-              'Confirm on your device to verify its authenticity and secure your connection.',
             showFooter: false,
             renderContent: (
               <EnumBasicDialogContentContainer

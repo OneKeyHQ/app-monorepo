@@ -103,7 +103,7 @@ export function getDeviceErrorPayloadMessage(
 export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
-    defaultMessage?: string;
+    defaultMessage?: string | ETranslations;
     defaultKey?: ETranslations;
     defaultAutoToast?: boolean;
     alwaysAppendDefaultMessage?: boolean;

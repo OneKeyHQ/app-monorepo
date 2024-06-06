@@ -4,6 +4,7 @@ export const LOCALES = {
   'ar': () => import('./json/ar.json'),
   'bn': () => import('./json/bn.json'),
   'de': () => import('./json/de.json'),
+  'en': () => import('./json/en.json'),
   'en-US': enUS,
   'es': () => import('./json/es.json'),
   'fr-FR': () => import('./json/fr_FR.json'),
