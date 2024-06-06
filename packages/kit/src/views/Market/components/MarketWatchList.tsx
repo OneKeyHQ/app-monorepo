@@ -4,6 +4,7 @@ import {
   Button,
   Icon,
   Image,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -111,60 +112,71 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   }, [actions, coingeckoIds]);
 
   const { gtMd } = useMedia();
+  const confirmButton = useMemo(
+    () => (
+      <Button
+        width="100%"
+        size="large"
+        disabled={!coingeckoIds.length}
+        variant="primary"
+        onPress={handleAddTokens}
+      >
+        {coingeckoIds.length
+          ? `Add ${coingeckoIds.length} tokens`
+          : 'Add tokens'}
+      </Button>
+    ),
+    [coingeckoIds.length, handleAddTokens],
+  );
   const renderRecommend = useCallback(() => {
     if (category?.recommendedTokens) {
       return (
-        <YStack flex={1} ai="center" px="$5" py="$8" overflow="scroll">
-          <SizableText size="$heading3xl">Your watchlist is empty</SizableText>
-          <SizableText size="$bodyLgMedium" pt="$2">
-            Add your favorite tokens to watchlist
-          </SizableText>
-          <YStack
-            pt="$8"
-            space="$2.5"
-            flexWrap="wrap"
-            width="100%"
-            $gtMd={{ maxWidth: 480 }}
-          >
-            {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
-              <XStack space="$2.5" key={i}>
-                {new Array(2).fill(0).map((__, j) => {
-                  const item = category.recommendedTokens?.[i * 2 + j];
-                  return item ? (
-                    <RecommendItem
-                      key={item.coingeckoId}
-                      coingeckoId={item.coingeckoId}
-                      checked={coingeckoIds.includes(item.coingeckoId)}
-                      icon={item.iconUrl}
-                      symbol={item.symbol}
-                      tokenName={item.name}
-                      onChange={handleRecommendItemChange}
-                    />
-                  ) : null;
-                })}
-              </XStack>
-            ))}
-            <Button
-              mt="$8"
+        <>
+          <ScrollView contentContainerStyle={{ ai: 'center' }} px="$5" py="$8">
+            <SizableText size="$heading3xl">
+              Your watchlist is empty
+            </SizableText>
+            <SizableText size="$bodyLgMedium" pt="$2">
+              Add your favorite tokens to watchlist
+            </SizableText>
+            <YStack
+              pt="$8"
+              space="$2.5"
+              flexWrap="wrap"
               width="100%"
-              size="large"
-              disabled={!coingeckoIds.length}
-              variant="primary"
-              onPress={handleAddTokens}
+              $gtMd={{ maxWidth: 480 }}
             >
-              {coingeckoIds.length
-                ? `Add ${coingeckoIds.length} tokens`
-                : 'Add tokens'}
-            </Button>
-          </YStack>
-        </YStack>
+              {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
+                <XStack space="$2.5" key={i}>
+                  {new Array(2).fill(0).map((__, j) => {
+                    const item = category.recommendedTokens?.[i * 2 + j];
+                    return item ? (
+                      <RecommendItem
+                        key={item.coingeckoId}
+                        coingeckoId={item.coingeckoId}
+                        checked={coingeckoIds.includes(item.coingeckoId)}
+                        icon={item.iconUrl}
+                        symbol={item.symbol}
+                        tokenName={item.name}
+                        onChange={handleRecommendItemChange}
+                      />
+                    ) : null;
+                  })}
+                </XStack>
+              ))}
+              {gtMd ? <YStack mt="$8">{confirmButton}</YStack> : null}
+            </YStack>
+          </ScrollView>
+          {gtMd ? null : <YStack p="$5">{confirmButton}</YStack>}
+        </>
       );
     }
     return null;
   }, [
     category.recommendedTokens,
     coingeckoIds,
-    handleAddTokens,
+    confirmButton,
+    gtMd,
     handleRecommendItemChange,
   ]);
   if (loading) {
