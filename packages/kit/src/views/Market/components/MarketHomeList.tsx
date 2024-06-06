@@ -36,6 +36,7 @@ import {
   YStack,
   useMedia,
   usePopoverContext,
+  useThemeValue,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -158,6 +159,11 @@ const useBuildTableHeaderConfig = () =>
 
 const useBuildTableRowConfig = (showMoreAction = false) => {
   const navigation = useAppNavigation();
+  const colors = useThemeValue(
+    ['textSuccess', 'textCritical'],
+    undefined,
+    true,
+  );
   return useMemo(() => {
     const tableRowConfig: ITableColumnConfig = {
       'serialNumber': (item) => (
@@ -263,8 +269,8 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
             lineColor={
               item.priceChangePercentage24H &&
               Number(item.priceChangePercentage24H) >= 0
-                ? '#33C641'
-                : '#FF6259'
+                ? colors[0]
+                : colors[1]
             }
             linearGradientColor={
               item.priceChangePercentage24H &&
