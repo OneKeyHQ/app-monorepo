@@ -268,7 +268,7 @@ export function EnumBasicDialogContentContainer({
         return (
           <>
             <Dialog.Header>
-              <Dialog.Icon icon="WorldOutline" tone="success" />
+              <Dialog.Icon icon="WorldOutline" />
               <Dialog.Title>
                 {intl.formatMessage({
                   id: ETranslations.global_network_error,
