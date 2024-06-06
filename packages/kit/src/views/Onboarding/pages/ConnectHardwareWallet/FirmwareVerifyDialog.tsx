@@ -35,8 +35,7 @@ export enum EFirmwareAuthenticationDialogContentType {
   network_error = 'network_error',
   unofficial_device_detected = 'unofficial_device_detected',
   verification_temporarily_unavailable = 'verification_temporarily_unavailable',
-  show_risky_warning = 'show_risky_warning',
-  unknown_error = 'unknown_error',
+  error_fallback = 'error_fallback',
 }
 
 function useFirmwareVerifyBase({
@@ -94,7 +93,7 @@ function useFirmwareVerifyBase({
           break;
         default:
           setContentType(
-            EFirmwareAuthenticationDialogContentType.network_error,
+            EFirmwareAuthenticationDialogContentType.error_fallback,
           );
           setErrorCode(code);
           break;
@@ -359,7 +358,30 @@ export function EnumBasicDialogContentContainer({
           </>
         );
       default:
-        return undefined;
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="ErrorOutline" />
+              <Dialog.Title>
+                Error
+                <SizableText>{`(${errorCode})`}</SizableText>
+              </Dialog.Title>
+              <Dialog.Description>Error Description</Dialog.Description>
+            </Dialog.Header>
+            <Button
+              $md={
+                {
+                  size: 'large',
+                } as IButtonProps
+              }
+              variant="primary"
+              onPress={onActionPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+            {renderFooter()}
+          </>
+        );
     }
   }, [contentType, errorCode, intl, onActionPress, renderFooter]);
   return <YStack>{content}</YStack>;
@@ -399,10 +421,8 @@ export function FirmwareAuthenticationDialogContent({
   const handleContinuePress = useCallback(() => {
     if (noContinue) {
       onContinue({ checked: false });
-      return;
     }
-    setContentType(EFirmwareAuthenticationDialogContentType.show_risky_warning);
-  }, [noContinue, onContinue, setContentType]);
+  }, [noContinue, onContinue]);
 
   const content = useMemo(() => {
     if (result === 'unknown') {
