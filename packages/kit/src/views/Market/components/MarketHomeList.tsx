@@ -291,7 +291,7 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
       ),
     };
     return tableRowConfig;
-  }, [showMoreAction]);
+  }, [colors, showMoreAction]);
 };
 
 function TableRow({
