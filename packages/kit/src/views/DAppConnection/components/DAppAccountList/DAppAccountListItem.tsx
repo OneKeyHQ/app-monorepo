@@ -55,6 +55,7 @@ function DAppAccountListItem({
   compressionUiMode,
   initFromHome,
   beforeShowTrigger,
+  skeletonRenderDuration,
 }: {
   num: number;
   handleAccountChanged?: IHandleAccountChanged;
@@ -63,6 +64,7 @@ function DAppAccountListItem({
   compressionUiMode?: boolean;
   initFromHome?: boolean;
   beforeShowTrigger?: () => Promise<void>;
+  skeletonRenderDuration?: number;
 }) {
   useHandleDiscoveryAccountChanged({
     num,
@@ -70,7 +72,8 @@ function DAppAccountListItem({
   });
 
   const shouldSyncFromHome = initFromHome && !readonly;
-  const loadingDuration = shouldSyncFromHome ? 800 : 500;
+  const loadingDuration =
+    skeletonRenderDuration || (shouldSyncFromHome ? 800 : 500);
   return (
     <>
       <XGroup
