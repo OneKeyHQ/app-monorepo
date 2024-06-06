@@ -1,8 +1,30 @@
-import type { PropsWithChildren } from 'react';
+import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
 
-import { Empty, Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
+const HistorySkeletonItem = () => (
+  <XStack justifyContent="space-between">
+    <XStack>
+      <Skeleton width={40} height={40} />
+      <YStack pl="$2" justifyContent="space-around">
+        <Skeleton height={12} width={60} />
+        <Skeleton height={12} width={50} />
+      </YStack>
+    </XStack>
+    <YStack pl="$2" justifyContent="space-around" alignItems="flex-end">
+      <Skeleton height={12} width={60} />
+      <Skeleton height={12} width={50} />
+    </YStack>
+  </XStack>
+);
 
-const PageSkeletonContentItem = () => (
+export const HistorySkeleton = () => (
+  <YStack width="100%" px="$5" space="$5">
+    <HistorySkeletonItem />
+    <HistorySkeletonItem />
+    <HistorySkeletonItem />
+  </YStack>
+);
+
+const OverviewSkeletonItem = () => (
   <YStack $md={{ width: '50%' }} $gtMd={{ width: '25%' }} mb="$2">
     <Skeleton width={48} height={12} />
     <Stack h="$1" />
@@ -10,7 +32,7 @@ const PageSkeletonContentItem = () => (
   </YStack>
 );
 
-const PageSkeletonContent = () => (
+export const OverviewSkeleton = () => (
   <Stack px="$5">
     <YStack>
       <Skeleton width={100} height={16} />
@@ -35,10 +57,10 @@ const PageSkeletonContent = () => (
       </XStack>
     </YStack>
     <Stack mt="$16" flexDirection="row" flexWrap="wrap">
-      <PageSkeletonContentItem />
-      <PageSkeletonContentItem />
-      <PageSkeletonContentItem />
-      <PageSkeletonContentItem />
+      <OverviewSkeletonItem />
+      <OverviewSkeletonItem />
+      <OverviewSkeletonItem />
+      <OverviewSkeletonItem />
     </Stack>
     <Stack mt="$16">
       <Skeleton width={60} height={12} />
@@ -50,33 +72,3 @@ const PageSkeletonContent = () => (
     </Stack>
   </Stack>
 );
-
-const PageErrOccurred = ({ onPress }: { onPress?: () => void }) => (
-  <Empty
-    icon="ErrorOutline"
-    title="An error occurred"
-    description="We're unable to complete your request. Please refresh the page in a few minutes."
-    buttonProps={{ onPress, children: 'Refresh' }}
-  />
-);
-
-type IPageSkeletonProps = {
-  loading?: boolean;
-  error?: boolean;
-  onRefresh?: () => void;
-};
-
-export const PageSkeleton = ({
-  children,
-  loading,
-  error,
-  onRefresh,
-}: PropsWithChildren<IPageSkeletonProps>) => {
-  if (loading) {
-    return <PageSkeletonContent />;
-  }
-  if (error) {
-    return <PageErrOccurred onPress={onRefresh} />;
-  }
-  return <Stack>{children}</Stack>;
-};

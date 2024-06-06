@@ -41,6 +41,8 @@ type ILidoApproveBaseStakeProps = {
   onConfirm?: (amount: string) => Promise<void>;
 };
 
+const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
+
 export const LidoApproveBaseStake = ({
   price,
   balance,
@@ -172,6 +174,7 @@ export const LidoApproveBaseStake = ({
         <SizableText>
           <NumberSizeableText
             formatter="value"
+            size="$bodyLgMedium"
             formatterOptions={{ tokenSymbol: token.symbol }}
           >
             {amountBN.toFixed()}
@@ -179,6 +182,7 @@ export const LidoApproveBaseStake = ({
           (
           <NumberSizeableText
             formatter="value"
+            size="$bodyLgMedium"
             formatterOptions={{ currency: symbol }}
           >
             {amountBN.multipliedBy(price).toFixed()}
@@ -239,21 +243,16 @@ export const LidoApproveBaseStake = ({
       <Stack>
         <YStack>
           {estAnnualRewards ? (
-            <ListItem
-              title="Est. annual rewards"
-              titleProps={{ color: '$textSubdued' }}
-            >
+            <ListItem title="Est. annual rewards" titleProps={fieldTitleProps}>
               {estAnnualRewards}
             </ListItem>
           ) : null}
           {receivingTokenAmount ? (
-            <ListItem
-              title="Est. receive"
-              titleProps={{ color: '$textSubdued' }}
-            >
+            <ListItem title="Est. receive" titleProps={fieldTitleProps}>
               <SizableText>
                 <NumberSizeableText
                   formatter="balance"
+                  size="$bodyLgMedium"
                   formatterOptions={{ tokenSymbol: receivingTokenSymbol }}
                 >
                   {receivingTokenAmount}
@@ -261,22 +260,19 @@ export const LidoApproveBaseStake = ({
               </SizableText>
             </ListItem>
           ) : null}
-          <ListItem title="APR" titleProps={{ color: '$textSubdued' }}>
+          <ListItem title="APR" titleProps={fieldTitleProps}>
             <ListItem.Text
               primary={`${apr}%`}
               primaryTextProps={{ color: '$textSuccess' }}
             />
           </ListItem>
-          <ListItem title="Protocol" titleProps={{ color: '$textSubdued' }}>
+          <ListItem title="Protocol" titleProps={fieldTitleProps}>
             <XStack space="$2" alignItems="center">
-              <Token size="sm" tokenImageUri={LIDO_LOGO_URI} />
-              <SizableText size="$bodyMdMedium">Lido</SizableText>
+              <Token size="xs" tokenImageUri={LIDO_LOGO_URI} />
+              <SizableText size="$bodyLgMedium">Lido</SizableText>
             </XStack>
           </ListItem>
-          <ListItem
-            title="Stake Release Period"
-            titleProps={{ color: '$textSubdued' }}
-          >
+          <ListItem title="Stake Release Period" titleProps={fieldTitleProps}>
             <ListItem.Text primary="< 4 Days" />
           </ListItem>
         </YStack>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Button,
@@ -16,7 +16,7 @@ type INftListItemStatusProps = {
   tokenImageUri: string;
   confirmText?: string;
   status: INftStatus;
-  onClaim?: () => void;
+  onClaim?: () => Promise<void>;
 };
 
 export const NftListItemStatus = ({
@@ -34,18 +34,34 @@ export const NftListItemStatus = ({
     };
     return statuses[status];
   }, [status]);
+  const [loading, setLoading] = useState(false);
+  const onPress = useCallback(async () => {
+    try {
+      setLoading(true);
+      await onClaim?.();
+    } finally {
+      setLoading(false);
+    }
+  }, [onClaim]);
   return (
     <XStack justifyContent="space-between">
-      <XStack space="$1">
-        <Token size="sm" tokenImageUri={tokenImageUri} />
-        <NumberSizeableText size="$bodyLgMedium" formatter="balance">
-          {amount}
-        </NumberSizeableText>
-        <SizableText size="$bodyLgMedium">{symbol}</SizableText>
-        <SizableText size="$bodyLg">is {statusText}</SizableText>
+      <XStack alignItems="center">
+        <Token size="xs" tokenImageUri={tokenImageUri} />
+        <XStack ml="$2" space="$1" alignItems="center">
+          <NumberSizeableText size="$bodyLgMedium" formatter="balance">
+            {amount}
+          </NumberSizeableText>
+          <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+          <SizableText size="$bodyLg">is {statusText}</SizableText>
+        </XStack>
       </XStack>
       {onClaim ? (
-        <Button size="small" onPress={onClaim}>
+        <Button
+          size="small"
+          variant="primary"
+          loading={loading}
+          onPress={onPress}
+        >
           Claim
         </Button>
       ) : null}

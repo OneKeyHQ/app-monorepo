@@ -46,7 +46,7 @@ const ShouldUnderstand = ({
 }: IShouldUnderstandProps) => (
   <YStack flex={1}>
     <ScrollView maxHeight={560}>
-      <YStack p="$5">
+      <YStack py="$5">
         <Stack>
           <Image w="$14" h="$14" src={LIDO_LOGO_URI} />
           <YStack mt="$5">

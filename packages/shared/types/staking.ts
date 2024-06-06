@@ -61,3 +61,11 @@ export type IStakingInfo = {
   send?: { amount: string; token: IToken };
   receive?: { amount: string; token: IToken };
 };
+
+export type ILidoHistoryItem = {
+  label: string;
+  send?: { amount: string; token: IToken };
+  receive?: { amount: string; token: IToken };
+  txHash: string;
+  timestamp: number;
+};

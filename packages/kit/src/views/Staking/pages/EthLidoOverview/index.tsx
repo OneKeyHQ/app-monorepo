@@ -23,6 +23,7 @@ import {
 import type {
   ILidoEthOverview,
   ILidoEthRequest,
+  ILidoTokenItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { EthLidoFAQs } from '../../components/LidoFAQs';
@@ -31,10 +32,11 @@ import {
   EthWithdrawShouldUnderstand,
 } from '../../components/LidoShouldUnderstand';
 import { NftListItemStatus } from '../../components/NftListItemStatus';
-import { PageSkeleton } from '../../components/PageSkeleton';
+import { PageFrame } from '../../components/PageFrame';
 import { ProtocolIntro } from '../../components/ProtocolIntro';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { StakingProfit } from '../../components/StakingProfit';
+import { OverviewSkeleton } from '../../components/StakingSkeleton';
 import { useLidoClaim } from '../../hooks/useLidoEthHooks';
 import {
   LIDO_ETH_LOGO_URI,
@@ -73,10 +75,12 @@ const ListItemClaim = ({
   requests,
   accountId,
   networkId,
+  token,
 }: {
   requests: ILidoEthRequest[];
   networkId: string;
   accountId: string;
+  token: ILidoTokenItem;
 }) => {
   const requestIds = useMemo(() => requests.map((o) => o.id), [requests]);
   const amount = useMemo(
@@ -90,9 +94,10 @@ const ListItemClaim = ({
       stakingInfo: {
         protocol: 'lido',
         tags: ['lido-eth'],
+        receive: { token: token.info, amount: String(amount) },
       },
     });
-  }, [lidoClaim, requestIds]);
+  }, [lidoClaim, requestIds, token.info, amount]);
   if (requests.length === 0) {
     return null;
   }
@@ -184,7 +189,7 @@ const EthLidoOverviewContent = ({
   ] = useSettingsPersistAtom();
 
   return (
-    <Stack px="$5">
+    <Stack px="$5" pt="$5">
       <YStack>
         <SizableText size="$headingLg">Staked Value</SizableText>
         <NumberSizeableText
@@ -209,6 +214,7 @@ const EthLidoOverviewContent = ({
             accountId={accountId}
             networkId={networkId}
             requests={nfts.finished}
+            token={eth}
           />
         </YStack>
         <ProtocolIntro
@@ -243,6 +249,12 @@ const EthLidoOverviewContent = ({
         networkId={networkId}
         stakeTag="lido-eth"
         onRefresh={onRefresh}
+        onPress={() => {
+          appNavigation.push(EModalStakingRoutes.EthLidoHistory, {
+            accountId,
+            networkId,
+          });
+        }}
       />
     </Stack>
   );
@@ -272,7 +284,8 @@ const EthLidoOverview = () => {
     <Page scrollEnabled>
       <Page.Header title="Stake ETH" />
       <Page.Body>
-        <PageSkeleton
+        <PageFrame
+          LoadingSkeleton={OverviewSkeleton}
           loading={Boolean(result === undefined && isLoading === true)}
           error={Boolean(result === undefined && isLoading === false)}
           onRefresh={run}
@@ -286,7 +299,7 @@ const EthLidoOverview = () => {
               onRefresh={run}
             />
           ) : null}
-        </PageSkeleton>
+        </PageFrame>
       </Page.Body>
     </Page>
   );
