@@ -11,7 +11,7 @@ import type { IBasicPageProps } from './type';
 function Loading() {
   return (
     <Stack flex={1} alignContent="center" justifyContent="center">
-      <Spinner size="small" />
+      <Spinner size="large" />
     </Stack>
   );
 }

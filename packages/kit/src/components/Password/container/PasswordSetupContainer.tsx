@@ -10,6 +10,7 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { UniversalContainerWithSuspense } from '../../BiologyAuthComponent/container/UniversalContainer';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
@@ -40,17 +41,17 @@ const BiologyAuthContainer = ({
         authType.includes(AuthenticationType.IRIS))
     ) {
       return intl.formatMessage(
-        { id: 'content__authentication_with' },
-        { 0: 'FaceID' },
+        { id: ETranslations.auth_with_biometric },
+        { biometric: 'FaceID' },
       );
     }
     return intl.formatMessage(
-      { id: 'content__authentication_with' },
-      { 0: 'TouchID' },
+      { id: ETranslations.auth_with_biometric },
+      { biometric: 'TouchID' },
     );
   }, [authType, biologyAuthIsSupport, intl]);
   return biologyAuthIsSupport || webAuthIsSupport ? (
-    <XStack justifyContent="space-between" alignItems="center">
+    <XStack mt="$5" justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMdMedium">{settingsTitle}</SizableText>
       <Stack>
         <UniversalContainerWithSuspense skipAuth={skipAuth} />
@@ -60,6 +61,7 @@ const BiologyAuthContainer = ({
 };
 
 const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
@@ -85,7 +87,9 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
               encodePassword,
             );
           onSetupRes(setUpPasswordRes);
-          Toast.success({ title: 'Password Set Success' });
+          Toast.success({
+            title: intl.formatMessage({ id: ETranslations.auth_password_set }),
+          });
         } catch (e) {
           console.log('e.stack', (e as Error)?.stack);
           console.error(e);
@@ -95,7 +99,7 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         }
       }
     },
-    [isBiologyAuthSwitchOn, isSupport, onSetupRes, setWebAuthEnable],
+    [intl, isBiologyAuthSwitchOn, isSupport, onSetupRes, setWebAuthEnable],
   );
 
   return (

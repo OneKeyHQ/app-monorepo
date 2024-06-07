@@ -6,6 +6,7 @@ import {
   ConfirmOnDeviceToast,
   confirmByPin,
   confirmOnDevice,
+  confirmOnDeviceToastSample,
   confirmPassphrase,
   confirmPhrase,
   confirmPhraseOnDevice,
@@ -29,7 +30,15 @@ const HardwareGallery = () => (
                 void confirmOnDevice();
               }}
             >
-              Confirm On Device
+              Confirm On Device (Dialog)
+            </Button>
+
+            <Button
+              onPress={() => {
+                void confirmOnDeviceToastSample();
+              }}
+            >
+              Confirm On Device (Toast)
             </Button>
 
             <Button

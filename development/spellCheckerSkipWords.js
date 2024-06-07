@@ -27,6 +27,7 @@ module.exports = [
   'derivetype',
   'xfp',
   'Markt',
+  'lottie',
   'sys',
   'usb',
   'nocache',
