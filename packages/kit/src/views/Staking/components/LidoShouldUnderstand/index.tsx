@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react';
+
 import {
   Image,
   ScrollView,
@@ -9,9 +11,11 @@ import {
 
 import { LIDO_LOGO_URI } from '../../utils/const';
 
+type IListItemTypography = string | ReactElement;
+
 type IShouldUnderstandListItemProps = {
-  title: string;
-  description: string;
+  title: IListItemTypography;
+  description: IListItemTypography;
   index: number;
 };
 
@@ -36,7 +40,7 @@ const ShouldUnderstandListItemListItem = ({
 type IShouldUnderstandProps = {
   title: string;
   subtitle?: string;
-  items: { title: string; description: string }[];
+  items: { title: IListItemTypography; description: IListItemTypography }[];
 };
 
 const ShouldUnderstand = ({
@@ -73,22 +77,36 @@ const ShouldUnderstand = ({
   </YStack>
 );
 
-export const EthStakeShouldUnderstand = () => (
+export const EthStakeShouldUnderstand = ({ apr }: { apr: number }) => (
   <ShouldUnderstand
     title="Lido ETH Staking"
     items={[
       {
-        title: 'Earn up to 3.67% per year',
+        title: (
+          <SizableText>
+            Earn up to{' '}
+            <SizableText color="$textInteractive">{apr}%</SizableText> per year
+          </SizableText>
+        ),
         description:
           'The APR is updated hourly and adjusted according to changes in TVL',
       },
       {
-        title: 'Receive stETH',
+        title: (
+          <SizableText>
+            Receive <SizableText color="$textInteractive">stETH</SizableText>{' '}
+          </SizableText>
+        ),
         description:
           'When you stake ETH you receive 1:1 stETH. You can unstake and trade this liquid asset at any time',
       },
       {
-        title: 'Rewards updated daily',
+        title: (
+          <SizableText>
+            Rewards updated{' '}
+            <SizableText color="$textInteractive">daily</SizableText>{' '}
+          </SizableText>
+        ),
         description:
           "There'll be a daily update on your stETH balances, which includes the staking rewards.",
       },
@@ -120,22 +138,36 @@ export const EthWithdrawShouldUnderstand = () => (
   />
 );
 
-export const MaticStakeShouldUnderstand = () => (
+export const MaticStakeShouldUnderstand = ({ apr }: { apr: number }) => (
   <ShouldUnderstand
     title="Lido MATIC Staking"
     items={[
       {
-        title: 'Earn up to 3.67% per year',
+        title: (
+          <SizableText>
+            Earn up to{' '}
+            <SizableText color="$textInteractive">{apr}%</SizableText> per year
+          </SizableText>
+        ),
         description:
           'The APR is updated hourly and adjusted according to changes in TVL',
       },
       {
-        title: 'Receive stMATIC',
+        title: (
+          <SizableText>
+            Receive <SizableText color="$textInteractive">stMatic</SizableText>{' '}
+          </SizableText>
+        ),
         description:
           'When you stake MATIC you receive stMATIC. You can unstake and trade this liquid asset at any time.',
       },
       {
-        title: 'Rewards updated daily',
+        title: (
+          <SizableText>
+            Rewards updated{' '}
+            <SizableText color="$textInteractive">daily</SizableText>{' '}
+          </SizableText>
+        ),
         description:
           'During the staking period, the value of stMATIC changes to reflect earnings',
       },

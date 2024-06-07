@@ -132,7 +132,7 @@ const EthLidoOverviewContent = ({
 
   const onStake = useCallback(async () => {
     Dialog.show({
-      renderContent: <EthStakeShouldUnderstand />,
+      renderContent: <EthStakeShouldUnderstand apr={apr} />,
       onConfirm: () => {
         appNavigation.push(EModalStakingRoutes.EthLidoStake, {
           accountId,

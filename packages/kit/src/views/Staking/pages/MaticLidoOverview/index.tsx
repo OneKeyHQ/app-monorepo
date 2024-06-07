@@ -141,7 +141,7 @@ const MaticLidoOverviewContent = ({
   const [loading, setLoading] = useState<boolean>(false);
   const onStake = useCallback(async () => {
     Dialog.show({
-      renderContent: <MaticStakeShouldUnderstand />,
+      renderContent: <MaticStakeShouldUnderstand apr={apr} />,
       showCancelButton: false,
       onConfirmText: 'Got it!',
       onConfirm: async ({ close }) => {

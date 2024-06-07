@@ -4,6 +4,11 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EthereumMatic,
+  SepoliaMatic,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -41,6 +46,15 @@ class ServiceToken extends ServiceBase {
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
     const { mergeTokens, flag, ...rest } = params;
+    const { networkId, contractList = [] } = rest;
+    if (
+      [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
+    ) {
+      // Add native/matic token address to the contract list, due to the fact that lack of native/matic staking entry page
+      const maticAddress =
+        networkId === getNetworkIdsMap().eth ? EthereumMatic : SepoliaMatic;
+      rest.contractList = ['', maticAddress, ...contractList];
+    }
     const vault = await vaultFactory.getChainOnlyVault({
       networkId: rest.networkId,
     });

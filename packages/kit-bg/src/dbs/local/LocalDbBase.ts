@@ -2359,6 +2359,48 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async removeAllSignedMessage() {
+    const db = await this.readyDb;
+    const allSignedMessage = await db.getAllRecords({
+      name: ELocalDBStoreNames.SignedMessage,
+    });
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        name: ELocalDBStoreNames.SignedMessage,
+        tx,
+        ids: allSignedMessage.records.map((item) => item.id),
+      });
+    });
+  }
+
+  async removeAllSignedTransaction() {
+    const db = await this.readyDb;
+    const allSignedTransaction = await db.getAllRecords({
+      name: ELocalDBStoreNames.SignedTransaction,
+    });
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        name: ELocalDBStoreNames.SignedTransaction,
+        tx,
+        ids: allSignedTransaction.records.map((item) => item.id),
+      });
+    });
+  }
+
+  async removeAllConnectedSite() {
+    const db = await this.readyDb;
+    const allConnectedSite = await db.getAllRecords({
+      name: ELocalDBStoreNames.ConnectedSite,
+    });
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        name: ELocalDBStoreNames.ConnectedSite,
+        tx,
+        ids: allConnectedSite.records.map((item) => item.id),
+      });
+    });
+  }
+
   // ---------------------------------------------- demo
   async demoGetDbContext() {
     const db = await this.readyDb;

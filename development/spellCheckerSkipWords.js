@@ -719,4 +719,5 @@ module.exports = [
   'dex',
   'Dex',
   'whitepaper',
+  'sepolia',
 ];

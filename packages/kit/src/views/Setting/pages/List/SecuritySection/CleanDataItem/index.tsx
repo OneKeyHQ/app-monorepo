@@ -21,7 +21,8 @@ const ClearCacheOnAppContent = () => (
         browserCache: true,
         browserHistory: false,
         connectSites: false,
-      },
+        signatureRecord: false,
+      } as IClearCacheOnAppState,
     }}
   >
     <Stack>
@@ -38,10 +39,13 @@ const ClearCacheOnAppContent = () => (
         <Checkbox label="Browser Cache" />
       </Dialog.FormField>
       <Dialog.FormField name="browserHistory">
-        <Checkbox label="Browser History, Bookmarks, Pins" />
+        <Checkbox label="Browser history, bookmarks, pins, risk dApp whitelist" />
       </Dialog.FormField>
       <Dialog.FormField name="connectSites">
         <Checkbox label="Connected Sites" />
+      </Dialog.FormField>
+      <Dialog.FormField name="signatureRecord">
+        <Checkbox label="Signature record" />
       </Dialog.FormField>
     </Stack>
   </Dialog.Form>

@@ -3,7 +3,8 @@ import { type FC, useCallback, useMemo, useState } from 'react';
 import { SearchBar, Stack } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { BaseListView, filterNetwork } from '../BaseView';
+import { networkFuseSearch } from '../../utils';
+import { BaseListView } from '../BaseView';
 
 type IImmutableViewProps = {
   networks: IServerNetwork[];
@@ -21,10 +22,12 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
     setText(value.trim());
   }, []);
 
-  const data = useMemo(
-    () => networks.filter(filterNetwork(text.toLowerCase())),
-    [networks, text],
-  );
+  const data = useMemo(() => {
+    if (!text) {
+      return networks;
+    }
+    return networkFuseSearch(networks, text);
+  }, [networks, text]);
   return (
     <Stack flex={1}>
       <Stack px="$4">

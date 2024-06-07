@@ -1,6 +1,8 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 
 import { Page, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { BIP39_DOT_MAP_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { RatioImage } from '../../components/RatioImage';
 
@@ -12,7 +14,7 @@ const BackupStep = ({
 }: {
   index: number;
   title: string;
-  desc: string[];
+  desc: (string | ReactElement)[];
   image: ComponentProps<typeof RatioImage>;
 }) => (
   <Stack position="relative">
@@ -65,7 +67,20 @@ const BackupDocs = () => (
           }}
           title="Step 1: Get your BIP39 Dotmap"
           desc={[
-            'Visit the BIP39-Dotmap online or refer to the physical map in your KeyTag starter guide.',
+            <SizableText key="1" size="$bodyLg" color="$textSubdued">
+              Visit the{' '}
+              <SizableText
+                size="$bodyLg"
+                color="$textSubdued"
+                textDecorationLine="underline"
+                onPress={() => {
+                  openUrlExternal(BIP39_DOT_MAP_URL);
+                }}
+              >
+                BIP39-Dotmap
+              </SizableText>{' '}
+              online or refer to the physical map in your KeyTag starter guide.
+            </SizableText>,
           ]}
         />
         <BackupStep

@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type {
@@ -29,7 +30,16 @@ class ServiceSignature extends ServiceBase {
 
   @backgroundMethod()
   public async addSignedMessage(params: ICreateSignedMessageParams) {
-    await localDb.addSignedMessage(params);
+    try {
+      await localDb.addSignedMessage(params);
+    } catch (e) {
+      const errMsg = (e as Error).message;
+      defaultLogger.signatureRecord.normal.failToCreateSignedMessage({
+        params,
+        error: errMsg,
+      });
+      console.error(errMsg);
+    }
   }
 
   @backgroundMethod()
@@ -74,7 +84,16 @@ class ServiceSignature extends ServiceBase {
 
   @backgroundMethod()
   public async addSignedTransaction(params: ICreateSignedTransactionParams) {
-    await localDb.addSignedTransaction(params);
+    try {
+      await localDb.addSignedTransaction(params);
+    } catch (e: unknown) {
+      const errMsg = (e as Error).message;
+      defaultLogger.signatureRecord.normal.failToCreateSignedTransaction({
+        params,
+        error: errMsg,
+      });
+      console.error(errMsg);
+    }
   }
 
   @backgroundMethod()
@@ -128,7 +147,16 @@ class ServiceSignature extends ServiceBase {
     const { url, items } = params;
     const networkIds = items.map((item) => item.networkId);
     const addresses = items.map((item) => item.address);
-    await localDb.addConnectedSite({ url, networkIds, addresses });
+    try {
+      await localDb.addConnectedSite({ url, networkIds, addresses });
+    } catch (e) {
+      const errMsg = (e as Error).message;
+      defaultLogger.signatureRecord.normal.failToAddConnectedSite({
+        params: { url, networkIds, addresses },
+        error: errMsg,
+      });
+      console.error(errMsg);
+    }
   }
 
   @backgroundMethod()
@@ -173,8 +201,7 @@ class ServiceSignature extends ServiceBase {
     return items;
   }
 
-  @backgroundMethod()
-  async addItemFromSendProcess(
+  private async addSignedTransactionFromSend(
     data: ISendTxOnSuccessData,
     sourceInfo?: IDappSourceInfo,
   ) {
@@ -271,7 +298,18 @@ class ServiceSignature extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addItemFromSignMessage(data: {
+  async addItemFromSendProcess(
+    data: ISendTxOnSuccessData,
+    sourceInfo?: IDappSourceInfo,
+  ) {
+    try {
+      await this.addSignedTransactionFromSend(data, sourceInfo);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  private async addSignMessageFromDapp(data: {
     networkId: string;
     accountId: string;
     message: string;
@@ -288,8 +326,8 @@ class ServiceSignature extends ServiceBase {
       });
     const getContentType = (str: string): IBaseSignedMessageContentType => {
       try {
-        JSON.parse(str);
-        return 'json';
+        const obj = JSON.parse(str);
+        return typeof obj === 'object' ? 'json' : 'text';
       } catch {
         return 'text';
       }
@@ -301,6 +339,27 @@ class ServiceSignature extends ServiceBase {
       message,
       contentType: getContentType(message),
     });
+  }
+
+  @backgroundMethod()
+  async addItemFromSignMessage(data: {
+    networkId: string;
+    accountId: string;
+    message: string;
+    sourceInfo?: IDappSourceInfo;
+  }) {
+    try {
+      await this.addSignMessageFromDapp(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  @backgroundMethod()
+  async deleteAllSignatureRecords() {
+    await localDb.removeAllSignedTransaction();
+    await localDb.removeAllSignedMessage();
+    await localDb.removeAllConnectedSite();
   }
 }
 
