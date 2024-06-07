@@ -81,7 +81,7 @@ import type { ImageSourcePropType } from 'react-native';
 type IConnectYourDeviceItem = {
   title: string;
   src: ImageSourcePropType;
-  onPress: (params: any) => void | Promise<void>;
+  onPress: () => void | Promise<void>;
   opacity?: number;
   device: SearchDevice | undefined;
 };
@@ -487,19 +487,22 @@ function ConnectByUSBOrBLE({
             {
               title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
               src: HwWalletAvatarImages.classic1s,
-              onPress: handleNotActivatedDevicePress,
+              onPress: () =>
+                handleNotActivatedDevicePress({ deviceType: 'classic' }),
               device: undefined,
             },
             {
               title: 'OneKey Pro(Activate Your Device)',
               src: HwWalletAvatarImages.pro,
-              onPress: handleSetupNewWalletPress,
+              onPress: () =>
+                handleSetupNewWalletPress({ deviceType: 'classic' }),
               device: undefined,
             },
             {
               title: 'OneKey Touch2(buy)',
               src: HwWalletAvatarImages.touch,
               onPress: toOneKeyHardwareWalletPage,
+              device: undefined,
             },
           ]
         : []),

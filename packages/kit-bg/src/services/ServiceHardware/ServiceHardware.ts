@@ -309,7 +309,12 @@ class ServiceHardware extends ServiceBase {
       /**
        * USB does not need the extra getFeatures call
        */
-      return (device as KnownDevice).features;
+      try {
+        const features = await this.getFeaturesWithoutCache({ connectId });
+        return features;
+      } catch (e: any) {
+        return (device as KnownDevice).features;
+      }
     }
   }
 
