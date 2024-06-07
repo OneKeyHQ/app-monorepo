@@ -11,6 +11,8 @@ import { generateUnsignedTransaction } from './utils';
 import type VaultAptos from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
@@ -25,6 +27,12 @@ export class KeyringImported extends KeyringImportedBase {
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult> {
     return this.baseGetPrivateKeys(params);
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(
