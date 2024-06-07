@@ -2983,7 +2983,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'name': 'Polygon Zkevm',
     'shortcode': 'polygonzkevm',
     'shortname': 'polygonzkevm',
-    'symbol': 'polygon-zkevm',
+    'symbol': 'ETH',
     'feeMeta': {
       'code': 'polygonzkevm',
       'decimals': 9,
@@ -2993,7 +2993,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'priceConfigs': [
       {
         'channel': 'coingecko',
-        'native': 'eth',
+        'native': 'ethereum',
       },
     ],
     'explorers': [
