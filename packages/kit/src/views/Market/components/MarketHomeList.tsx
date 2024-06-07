@@ -1,5 +1,13 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { StyleSheet } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
@@ -21,14 +29,22 @@ import {
   Select,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
+  View,
   XStack,
   YStack,
   useMedia,
   usePopoverContext,
+  useThemeValue,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IMarketCategory,
@@ -112,12 +128,7 @@ function Column({
     >
       {jc === 'flex-end' ? renderSortIcon() : null}
       {typeof children === 'string' ? (
-        <SizableText
-          cursor={cursor}
-          color="$textSubdued"
-          size="$bodySmMedium"
-          selectable={false}
-        >
+        <SizableText cursor={cursor} color="$textSubdued" size="$bodySmMedium">
           {children}
         </SizableText>
       ) : (
@@ -148,11 +159,16 @@ const useBuildTableHeaderConfig = () =>
 
 const useBuildTableRowConfig = (showMoreAction = false) => {
   const navigation = useAppNavigation();
+  const colors = useThemeValue(
+    ['textSuccess', 'textCritical'],
+    undefined,
+    true,
+  );
   return useMemo(() => {
     const tableRowConfig: ITableColumnConfig = {
       'serialNumber': (item) => (
         <SizableText size="$bodyMd" color="$textSubdued">
-          {item.serialNumber}
+          {item.serialNumber || '-'}
         </SizableText>
       ),
       'name': (item) => (
@@ -245,35 +261,37 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
         </NumberSizeableText>
       ),
       'sparkline': (item) => (
-        <SparklineChart
-          data={item.sparkline}
-          width={144}
-          height={40}
-          lineColor={
-            item.priceChangePercentage24H &&
-            Number(item.priceChangePercentage24H) >= 0
-              ? '#33C641'
-              : '#FF6259'
-          }
-          linearGradientColor={
-            item.priceChangePercentage24H &&
-            Number(item.priceChangePercentage24H) >= 0
-              ? 'rgba(0, 184, 18, 0.2)'
-              : 'rgba(255, 98, 89, 0.2)'
-          }
-        />
+        <View>
+          <SparklineChart
+            data={item.sparkline}
+            width={100}
+            height={40}
+            lineColor={
+              item.priceChangePercentage24H &&
+              Number(item.priceChangePercentage24H) >= 0
+                ? colors[0]
+                : colors[1]
+            }
+            linearGradientColor={
+              item.priceChangePercentage24H &&
+              Number(item.priceChangePercentage24H) >= 0
+                ? 'rgba(0, 184, 18, 0.2)'
+                : 'rgba(255, 98, 89, 0.2)'
+            }
+          />
+        </View>
       ),
       'actions': (item) => (
         <XStack>
-          <MarketStar coingeckoId={item.coingeckoId} mx="$3" />
+          <MarketStar coingeckoId={item.coingeckoId} width={44} mx={0} />
           {showMoreAction ? (
-            <MarketMore coingeckoId={item.coingeckoId} />
+            <MarketMore coingeckoId={item.coingeckoId} width={44} />
           ) : null}
         </XStack>
       ),
     };
     return tableRowConfig;
-  }, [showMoreAction]);
+  }, [colors, showMoreAction]);
 };
 
 function TableRow({
@@ -314,7 +332,7 @@ function TableRow({
     sparkline,
     actions,
   } = tableConfig;
-  const { gtLg } = useMedia();
+  const { gtLg, gtXl } = useMedia();
   const handlePress = useCallback(() => {
     onPress?.(item);
   }, [item, onPress]);
@@ -398,22 +416,24 @@ function TableRow({
       >
         {isLoading ? <Skeleton w="$20" h="$3" /> : price?.(item)}
       </Column>
-      <Column
-        name="priceChangePercentage1H"
-        alignRight
-        flexGrow={1}
-        flexBasis={0}
-        sortType={sortType?.columnName}
-        order={sortType?.order}
-        onPress={handleColumnPress}
-        cursor={cursor}
-      >
-        {isLoading ? (
-          <Skeleton w="$10" h="$3" />
-        ) : (
-          priceChangePercentage1H?.(item)
-        )}
-      </Column>
+      {gtLg ? (
+        <Column
+          name="priceChangePercentage1H"
+          alignRight
+          flexGrow={1}
+          flexBasis={0}
+          sortType={sortType?.columnName}
+          order={sortType?.order}
+          onPress={handleColumnPress}
+          cursor={cursor}
+        >
+          {isLoading ? (
+            <Skeleton w="$10" h="$3" />
+          ) : (
+            priceChangePercentage1H?.(item)
+          )}
+        </Column>
+      ) : null}
       <Column
         name="priceChangePercentage24H"
         alignRight
@@ -430,22 +450,24 @@ function TableRow({
           priceChangePercentage24H?.(item)
         )}
       </Column>
-      <Column
-        flexGrow={1}
-        flexBasis={0}
-        name="priceChangePercentage7D"
-        alignRight
-        sortType={sortType?.columnName}
-        order={sortType?.order}
-        onPress={handleColumnPress}
-        cursor={cursor}
-      >
-        {isLoading ? (
-          <Skeleton w="$10" h="$3" />
-        ) : (
-          priceChangePercentage7D?.(item)
-        )}
-      </Column>
+      {gtLg ? (
+        <Column
+          flexGrow={1}
+          flexBasis={0}
+          name="priceChangePercentage7D"
+          alignRight
+          sortType={sortType?.columnName}
+          order={sortType?.order}
+          onPress={handleColumnPress}
+          cursor={cursor}
+        >
+          {isLoading ? (
+            <Skeleton w="$10" h="$3" />
+          ) : (
+            priceChangePercentage7D?.(item)
+          )}
+        </Column>
+      ) : null}
       <Column
         flexGrow={1}
         flexBasis={0}
@@ -470,16 +492,15 @@ function TableRow({
       >
         {isLoading ? <Skeleton w="$20" h="$3" /> : marketCap?.(item)}
       </Column>
-      {gtLg ? (
+      {gtXl ? (
         <Column
-          minWidth={160}
+          minWidth={100}
+          flexGrow={1}
+          flexBasis={0}
           name="sparkline"
           alignRight
-          pl="$4"
-          sortType={sortType?.columnName}
-          order={sortType?.order}
+          ml="$4"
           onPress={handleColumnPress}
-          cursor={cursor}
         >
           {isLoading ? <Skeleton w="$20" h="$3" /> : sparkline?.(item)}
         </Column>
@@ -488,7 +509,6 @@ function TableRow({
         name="action"
         width={showMoreAction ? 88 : 64}
         jc="center"
-        px="$3"
         onPress={handleColumnPress}
         cursor={cursor}
       >
@@ -589,7 +609,10 @@ function TableMdSkeletonRow() {
 }
 
 function ListEmptyComponent() {
-  const { gtMd } = useMedia();
+  const { gtMd, md } = useMedia();
+  if (platformEnv.isNativeAndroid) {
+    return null;
+  }
   return gtMd ? (
     <YStack>
       {new Array(6).fill(0).map((i) => (
@@ -627,10 +650,16 @@ function MdPlaceholder() {
 }
 
 type IKeyOfMarketToken = keyof IMarketToken;
-export function MarketHomeList({
+const TouchableContainer = platformEnv.isNative
+  ? Fragment
+  : TouchableWithoutFeedback;
+
+function BasicMarketHomeList({
   category,
+  tabIndex = 0,
   showMoreAction = false,
 }: {
+  tabIndex?: number;
   category: IMarketCategory;
   showMoreAction?: boolean;
 }) {
@@ -644,6 +673,9 @@ export function MarketHomeList({
         true,
       ),
     [category.categoryId, category.coingeckoIds],
+    {
+      checkIsFocused: false,
+    },
   );
 
   const tableRowConfig = useBuildTableRowConfig(showMoreAction);
@@ -659,7 +691,7 @@ export function MarketHomeList({
     [navigation],
   );
 
-  const { gtMd } = useMedia();
+  const { gtMd, md } = useMedia();
 
   const tableHeaderConfig = useBuildTableHeaderConfig();
 
@@ -761,87 +793,95 @@ export function MarketHomeList({
   );
 
   const renderMdItem = useCallback(
-    ({ item }: { item: IMarketToken }) => (
-      <TouchableWithoutFeedback
-        onPress={() => toDetailPage(item)}
-        onLongPress={() => handleMdItemAction(item)}
-      >
-        <XStack
-          px="$5"
-          height={60}
-          justifyContent="space-between"
-          userSelect="none"
-          {...listItemPressStyle}
+    ({ item }: { item: IMarketToken }) => {
+      const pressEvents = {
+        onPress: () => toDetailPage(item),
+        onLongPress: () => handleMdItemAction(item),
+      };
+      return (
+        <TouchableContainer
+          {...(platformEnv.isNative ? undefined : pressEvents)}
         >
-          <XStack space="$3" ai="center">
-            <Image
-              src={decodeURIComponent(item.image)}
-              size="$10"
-              borderRadius="$full"
-            />
-            <YStack>
-              <SizableText size="$bodyLgMedium">
-                {item.symbol.toUpperCase()}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {`VOL `}
-                <NumberSizeableText
-                  size="$bodySm"
-                  formatter="marketCap"
-                  color="$textSubdued"
-                  formatterOptions={{ currency: '$' }}
-                >
-                  {item.totalVolume}
-                </NumberSizeableText>
-              </SizableText>
-            </YStack>
-          </XStack>
-          <XStack ai="center" space="$5" flexShrink={1}>
-            <NumberSizeableText
-              flexShrink={1}
-              numberOfLines={1}
-              size="$bodyLgMedium"
-              formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
-              formatterOptions={{ currency: '$' }}
-            >
-              {item[mdColumnKeys[0]] as string}
-            </NumberSizeableText>
-            {item[mdColumnKeys[1]] ? (
-              <XStack
-                width="$20"
-                height="$8"
-                jc="center"
-                ai="center"
-                backgroundColor={
-                  Number(item.priceChangePercentage24H) > 0
-                    ? '$bgSuccessStrong'
-                    : '$bgCriticalStrong'
-                }
-                borderRadius="$2"
+          <XStack
+            px="$5"
+            height={60}
+            justifyContent="space-between"
+            userSelect="none"
+            {...listItemPressStyle}
+            {...(platformEnv.isNative ? pressEvents : undefined)}
+          >
+            <XStack space="$3" ai="center">
+              <Image
+                src={decodeURIComponent(item.image)}
+                size="$10"
+                borderRadius="$full"
+              />
+              <YStack>
+                <SizableText size="$bodyLgMedium">
+                  {item.symbol.toUpperCase()}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {`VOL `}
+                  <NumberSizeableText
+                    size="$bodySm"
+                    formatter="marketCap"
+                    color="$textSubdued"
+                    formatterOptions={{ currency: '$' }}
+                  >
+                    {item.totalVolume}
+                  </NumberSizeableText>
+                </SizableText>
+              </YStack>
+            </XStack>
+            <XStack ai="center" space="$5" flexShrink={1}>
+              <NumberSizeableText
+                flexShrink={1}
+                numberOfLines={1}
+                size="$bodyLgMedium"
+                formatter={mdColumnKeys[0] === 'price' ? 'price' : 'marketCap'}
+                formatterOptions={{ currency: '$' }}
               >
-                <NumberSizeableText
-                  size="$bodyMdMedium"
-                  color="white"
-                  formatter="priceChange"
+                {item[mdColumnKeys[0]] as string}
+              </NumberSizeableText>
+              {item[mdColumnKeys[1]] ? (
+                <XStack
+                  width="$20"
+                  height="$8"
+                  jc="center"
+                  ai="center"
+                  backgroundColor={
+                    Number(item.priceChangePercentage24H) > 0
+                      ? '$bgSuccessStrong'
+                      : '$bgCriticalStrong'
+                  }
+                  borderRadius="$2"
                 >
-                  {item[mdColumnKeys[1]] as string}
-                </NumberSizeableText>
-              </XStack>
-            ) : (
-              <MdPlaceholder />
-            )}
+                  <NumberSizeableText
+                    size="$bodyMdMedium"
+                    color="white"
+                    formatter="priceChange"
+                  >
+                    {item[mdColumnKeys[1]] as string}
+                  </NumberSizeableText>
+                </XStack>
+              ) : (
+                <MdPlaceholder />
+              )}
+            </XStack>
           </XStack>
-        </XStack>
-      </TouchableWithoutFeedback>
-    ),
+        </TouchableContainer>
+      );
+    },
     [handleMdItemAction, mdColumnKeys, toDetailPage],
   );
 
   const renderSelectTrigger = useCallback(
     ({ label }: { label?: string }) => (
       <XStack ai="center" space="$1">
-        <SizableText>{label}</SizableText>
-        <Icon name="ChevronBottomSolid" size="$4" />
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {label || 'Default'}
+        </SizableText>
+        <Icon name="ChevronDownSmallSolid" size="$4" />
       </XStack>
     ),
     [],
@@ -860,12 +900,18 @@ export function MarketHomeList({
     [],
   );
 
-  const [mdSortByType, setMdSortByType] = useState<string | undefined>();
+  const [mdSortByType, setMdSortByType] = useState<string | undefined>(
+    'Default',
+  );
   const selectOptions = useMemo(
     () => [
       {
+        label: 'Default',
+        value: 'Default',
+      },
+      {
         label: 'Last price',
-        value: 'last_price',
+        value: 'Last price',
         options: { columnName: 'price', order: 'desc' },
       },
       {
@@ -896,9 +942,7 @@ export function MarketHomeList({
     (value: string) => {
       setMdSortByType(value);
       const item = selectOptions.find((v) => v.value === value);
-      if (item?.options) {
-        setSortByType(item?.options as typeof sortByType);
-      }
+      setSortByType(item?.options as typeof sortByType);
     },
     [selectOptions, setSortByType],
   );
@@ -916,6 +960,38 @@ export function MarketHomeList({
       listViewRef.current?.scrollToOffset({ offset: 0, animated: true });
     }
   }, []);
+
+  const onSwitchMarketHomeTabCallback = useCallback(
+    ({ tabIndex: currentTabIndex }: { tabIndex: number }) => {
+      if (currentTabIndex !== tabIndex) {
+        handleMdSortByTypeChange('Default');
+      }
+    },
+    [handleMdSortByTypeChange, tabIndex],
+  );
+
+  useEffect(() => {
+    if (md) {
+      appEventBus.on(
+        EAppEventBusNames.SwitchMarketHomeTab,
+        onSwitchMarketHomeTabCallback,
+      );
+      return () => {
+        appEventBus.off(
+          EAppEventBusNames.SwitchMarketHomeTab,
+          onSwitchMarketHomeTabCallback,
+        );
+      };
+    }
+  }, [md, onSwitchMarketHomeTabCallback, tabIndex]);
+
+  if (platformEnv.isNativeAndroid && !sortedListData?.length) {
+    return (
+      <YStack flex={1} ai="center" jc="center">
+        <Spinner size="large" />
+      </YStack>
+    );
+  }
 
   return (
     <>
@@ -936,7 +1012,7 @@ export function MarketHomeList({
                 renderTrigger={renderSelectTrigger}
               />
             </XStack>
-            <Popover
+            {/* <Popover
               title="Settings"
               renderTrigger={
                 <IconButton
@@ -954,12 +1030,12 @@ export function MarketHomeList({
                   onConfirm={handleSettingsContentChange}
                 />
               }
-            />
+            /> */}
           </XStack>
         </YStack>
       )}
 
-      <YStack flex={1} py="$3">
+      <YStack flex={1} $gtMd={{ py: '$3' }}>
         {gtMd ? HeaderColumns : undefined}
         <ListView
           ref={listViewRef}
@@ -969,7 +1045,7 @@ export function MarketHomeList({
           scrollEventThrottle={100}
           data={sortedListData as unknown as IMarketToken[]}
           renderItem={gtMd ? renderItem : renderMdItem}
-          ListFooterComponent={<Stack height={60} />}
+          ListFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           ListEmptyComponent={<ListEmptyComponent />}
           extraData={gtMd ? undefined : mdColumnKeys}
         />
@@ -994,3 +1070,5 @@ export function MarketHomeList({
     </>
   );
 }
+
+export const MarketHomeList = memo(BasicMarketHomeList);
