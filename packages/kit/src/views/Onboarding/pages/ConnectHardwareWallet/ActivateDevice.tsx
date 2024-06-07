@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   Divider,
   Group,
@@ -8,141 +10,162 @@ import {
   Stack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IStep = {
-  title?: string;
-  description?: string;
+  title?: ETranslations;
+  description?: ETranslations;
   type: 'classic' | 'mini' | 'touch' | 'pro';
 };
 
-const getCreateNewWalletStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-create-new-wallet.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-create-new-wallet.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-  };
-
-  return {
-    title: 'Select "Create New Wallet"',
-    description:
-      "Initiate your wallet setup by selecting 'Create New Wallet.' You will be guided through creating a unique recovery phrase and setting a secure PIN.",
-    uri: images[type],
-  };
-};
-
-const getWriteDownRecoveryPhraseStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-write-down-recovery-phrase.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-write-down-recovery-phrase.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
-  };
-
-  return {
-    title: 'Write Down All Recovery Phrase',
-    description:
-      "Securely record your recovery phrase and complete the check. It's crucial for accessing your wallet if you forget your PIN or lose your device.",
-    uri: images[type],
-  };
-};
-
-const getSetPinStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-set-pin.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-set-pin.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
-  };
-
-  return {
-    title: 'Set PIN',
-    description:
-      'Create a strong PIN to protect your wallet just like you would with a bank card. Avoid easy sequences or repeated numbers.',
-    uri: images[type],
-  };
-};
-
-const getImportWalletStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-import-wallet.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-import-wallet.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
-  };
-
-  return {
-    title:
-      type === 'mini' ? 'Select "Restore Wallet"' : 'Select "Import Wallet"',
-    description:
-      'Follow the prompts to secure your wallet with a PIN and enter your recovery phrase to complete the process.',
-    uri: images[type],
-  };
-};
-
-const getEnterRecoveryPhraseStep = (type: IStep['type']) => {
-  const images = {
-    classic: require('@onekeyhq/kit/assets/onboarding/classic-enter-recovery-phrase.png'),
-    mini: require('@onekeyhq/kit/assets/onboarding/mini-enter-recovery-phrase.png'),
-    touch: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
-    pro: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
-  };
-
-  return {
-    title: 'Enter Recovery Phrase',
-    description:
-      'Carefully enter your recovery phrase word by word. This unique phrase is essential for the security and recovery of your wallet.',
-    uri: images[type],
-  };
-};
-
-const classicCreateNewWalletSteps = [
-  getCreateNewWalletStep('classic'),
-  getWriteDownRecoveryPhraseStep('classic'),
-  getSetPinStep('classic'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const classicImportWalletSteps = [
-  getImportWalletStep('classic'),
-  getEnterRecoveryPhraseStep('classic'),
-  getSetPinStep('classic'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const miniCreateNewWalletSteps = [
-  getCreateNewWalletStep('mini'),
-  getWriteDownRecoveryPhraseStep('mini'),
-  getSetPinStep('mini'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const miniImportWalletSteps = [
-  getImportWalletStep('mini'),
-  getEnterRecoveryPhraseStep('mini'),
-  getSetPinStep('mini'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const touchCreateNewWalletSteps = [
-  getCreateNewWalletStep('touch'),
-  getSetPinStep('touch'),
-  getWriteDownRecoveryPhraseStep('touch'),
-];
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const touchImportWalletSteps = [
-  getImportWalletStep('touch'),
-  getSetPinStep('touch'),
-  getEnterRecoveryPhraseStep('touch'),
-];
-
 export function ActivateDevice() {
   const navigation = useAppNavigation();
+  const intl = useIntl();
 
   const handleConfirmPress = () => {
     navigation.pop();
   };
+
+  const getCreateNewWalletStep = (type: IStep['type']) => {
+    const images = {
+      classic: require('@onekeyhq/kit/assets/onboarding/classic-create-new-wallet.png'),
+      mini: require('@onekeyhq/kit/assets/onboarding/mini-create-new-wallet.png'),
+      touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
+      pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
+    };
+
+    return {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_device_set_up_create_new_wallet,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.onboarding_device_set_up_create_new_wallet_desc,
+      }),
+      uri: images[type],
+    };
+  };
+
+  const getWriteDownRecoveryPhraseStep = (type: IStep['type']) => {
+    const images = {
+      classic: require('@onekeyhq/kit/assets/onboarding/classic-write-down-recovery-phrase.png'),
+      mini: require('@onekeyhq/kit/assets/onboarding/mini-write-down-recovery-phrase.png'),
+      touch: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
+      pro: require('@onekeyhq/kit/assets/onboarding/touch-write-down-recovery-phrase.png'),
+    };
+
+    return {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_device_set_up_backup,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.onboarding_device_set_up_backup_desc,
+      }),
+      uri: images[type],
+    };
+  };
+
+  const getSetPinStep = (type: IStep['type']) => {
+    const images = {
+      classic: require('@onekeyhq/kit/assets/onboarding/classic-set-pin.png'),
+      mini: require('@onekeyhq/kit/assets/onboarding/mini-set-pin.png'),
+      touch: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
+      pro: require('@onekeyhq/kit/assets/onboarding/touch-set-pin.png'),
+    };
+
+    return {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_device_set_up_pin,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.onboarding_device_set_up_pin_desc,
+      }),
+      uri: images[type],
+    };
+  };
+
+  const getImportWalletStep = (type: IStep['type']) => {
+    const images = {
+      classic: require('@onekeyhq/kit/assets/onboarding/classic-import-wallet.png'),
+      mini: require('@onekeyhq/kit/assets/onboarding/mini-import-wallet.png'),
+      touch: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
+      pro: require('@onekeyhq/kit/assets/onboarding/touch-create-new-wallet.png'),
+    };
+
+    return {
+      title:
+        type === 'mini'
+          ? intl.formatMessage({
+              id: ETranslations.onboarding_device_mini_set_up_import,
+            })
+          : intl.formatMessage({
+              id: ETranslations.onboarding_device_set_up_import,
+            }),
+      description: intl.formatMessage({
+        id: ETranslations.onboarding_device_set_up_import_desc,
+      }),
+      uri: images[type],
+    };
+  };
+
+  const getEnterRecoveryPhraseStep = (type: IStep['type']) => {
+    const images = {
+      classic: require('@onekeyhq/kit/assets/onboarding/classic-enter-recovery-phrase.png'),
+      mini: require('@onekeyhq/kit/assets/onboarding/mini-enter-recovery-phrase.png'),
+      touch: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
+      pro: require('@onekeyhq/kit/assets/onboarding/touch-enter-recovery-phrase.png'),
+    };
+
+    return {
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_device_set_up_enter_recovery_phrase,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.onboarding_device_set_up_enter_recovery_phrase_desc,
+      }),
+      uri: images[type],
+    };
+  };
+
+  const classicCreateNewWalletSteps = [
+    getCreateNewWalletStep('classic'),
+    getWriteDownRecoveryPhraseStep('classic'),
+    getSetPinStep('classic'),
+  ];
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const classicImportWalletSteps = [
+    getImportWalletStep('classic'),
+    getEnterRecoveryPhraseStep('classic'),
+    getSetPinStep('classic'),
+  ];
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const miniCreateNewWalletSteps = [
+    getCreateNewWalletStep('mini'),
+    getWriteDownRecoveryPhraseStep('mini'),
+    getSetPinStep('mini'),
+  ];
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const miniImportWalletSteps = [
+    getImportWalletStep('mini'),
+    getEnterRecoveryPhraseStep('mini'),
+    getSetPinStep('mini'),
+  ];
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const touchCreateNewWalletSteps = [
+    getCreateNewWalletStep('touch'),
+    getSetPinStep('touch'),
+    getWriteDownRecoveryPhraseStep('touch'),
+  ];
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const touchImportWalletSteps = [
+    getImportWalletStep('touch'),
+    getSetPinStep('touch'),
+    getEnterRecoveryPhraseStep('touch'),
+  ];
 
   return (
     <Page scrollEnabled>
