@@ -5,6 +5,7 @@ export type IClearCacheOnAppState = {
   browserCache: boolean;
   browserHistory: boolean;
   connectSites: boolean;
+  signatureRecord: boolean;
 };
 
 export enum EReasonForNeedPassword {
