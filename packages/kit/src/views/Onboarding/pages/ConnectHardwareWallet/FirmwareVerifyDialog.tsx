@@ -108,7 +108,9 @@ function useFirmwareVerifyBase({
   }, [device, dialogInstance, skipDeviceCancel]);
 
   useEffect(() => {
-    void verify();
+    setTimeout(async () => {
+      await verify();
+    }, 50);
     // setTimeout(() => {
     //   setIsConfirmOnDevice(true);
     //   setTimeout(() => {
@@ -425,18 +427,18 @@ export function FirmwareAuthenticationDialogContent({
   }, [noContinue, onContinue]);
 
   const content = useMemo(() => {
-    if (result === 'unknown') {
-      return (
-        <Stack
-          p="$5"
-          bg="$bgSubdued"
-          borderRadius="$3"
-          borderCurve="continuous"
-        >
-          <Spinner size="large" />
-        </Stack>
-      );
-    }
+    // if (result === 'unknown') {
+    //   return (
+    //     <Stack
+    //       p="$5"
+    //       bg="$bgSubdued"
+    //       borderRadius="$3"
+    //       borderCurve="continuous"
+    //     >
+    //       <Spinner size="large" />
+    //     </Stack>
+    //   );
+    // }
     const propsMap: Record<
       IFirmwareAuthenticationState,
       {
@@ -502,9 +504,8 @@ export function useFirmwareVerifyDialog({
       const firmwareAuthenticationDialog = Dialog.show({
         tone: 'success',
         icon: 'DocumentSearch2Outline',
-        title: 'Device Authentication',
-        description:
-          'Confirm on your device to verify its authenticity and secure your connection.',
+        title: ' ',
+        description: ' ',
         dismissOnOverlayPress: false,
         showFooter: false,
         renderContent: (
