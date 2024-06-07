@@ -1,7 +1,6 @@
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
@@ -10,6 +9,8 @@ import { toTransaction } from './sdkSui/utils';
 import type IVaultSui from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
@@ -24,6 +25,12 @@ export class KeyringImported extends KeyringImportedBase {
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult> {
     return this.baseGetPrivateKeys(params);
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(
