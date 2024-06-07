@@ -34,6 +34,7 @@ export const RateAppItem = () => {
       onPress={onPress}
       icon="StarOutline"
       title={intl.formatMessage({ id: 'form__rate_our_app' })}
+      drillIn
     />
   ) : null;
 };

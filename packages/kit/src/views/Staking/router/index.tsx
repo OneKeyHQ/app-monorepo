@@ -15,6 +15,10 @@ const EthLidoWithdraw = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/EthLidoWithdraw'),
 );
 
+const EthLidoHistory = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/EthLidoHistory'),
+);
+
 const MaticLidoOverview = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoOverview'),
 );
@@ -25,6 +29,14 @@ const MaticLidoStake = LazyLoad(
 
 const MaticLidoWithdraw = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoWithdraw'),
+);
+
+const MaticLidoHistory = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoHistory'),
+);
+
+const MaticLidoClaim = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/MaticLidoClaim'),
 );
 
 export const StakingModalRouter: IModalFlowNavigatorConfig<
@@ -44,6 +56,10 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     component: EthLidoWithdraw,
   },
   {
+    name: EModalStakingRoutes.EthLidoHistory,
+    component: EthLidoHistory,
+  },
+  {
     name: EModalStakingRoutes.MaticLidoOverview,
     component: MaticLidoOverview,
   },
@@ -54,5 +70,13 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.MaticLidoWithdraw,
     component: MaticLidoWithdraw,
+  },
+  {
+    name: EModalStakingRoutes.MaticLidoHistory,
+    component: MaticLidoHistory,
+  },
+  {
+    name: EModalStakingRoutes.MaticLidoClaim,
+    component: MaticLidoClaim,
   },
 ];

@@ -13,13 +13,12 @@ const LidoFAQ = ({ question, answer }: ILidoFAQProps) => {
   return (
     <YStack>
       <YStack>
-        <XStack mb="$2">
+        <XStack mb="$2" onPress={onToggle}>
           <XStack flex={1}>
             <SizableText size="$headingMd">{question}</SizableText>
           </XStack>
           <XStack>
             <IconButton
-              onPress={onToggle}
               variant="tertiary"
               icon={show ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
             />

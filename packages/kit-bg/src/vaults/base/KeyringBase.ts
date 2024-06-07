@@ -2,11 +2,8 @@
 import { isNil } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
-import type {
-  ISignedMessagePro,
-  ISignedTxPro,
-  IVerifiedMessagePro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -23,6 +20,8 @@ import type {
   IDBVariantAccount,
 } from '../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IPrepareAccountsParams,
   IPrepareHdAccountsOptions,
   IPrepareHdAccountsParamsBase,
@@ -244,6 +243,12 @@ export abstract class KeyringBase extends VaultContext {
     return ret;
   }
 
+  async batchGetAddresses(
+    params: IPrepareAccountsParams,
+  ): Promise<{ address: string; path: string }[]> {
+    return [];
+  }
+
   abstract signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro>;
@@ -253,6 +258,13 @@ export abstract class KeyringBase extends VaultContext {
   abstract prepareAccounts(
     params: IPrepareAccountsParams,
   ): Promise<IDBAccount[]>;
+
+  async exportAccountSecretKeys(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    throw new NotImplemented();
+  }
 }
 
 // @ts-ignore
