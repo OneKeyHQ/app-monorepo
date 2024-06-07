@@ -6,7 +6,7 @@ import {
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { decrypt } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { EAddressEncodings, type ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -49,9 +49,16 @@ export class KeyringHd extends KeyringHdBase {
       if (!addressEncoding) {
         throw new Error('addressEncoding not found');
       }
-      const versionBytesInfo =
-        (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
-      const xprvVersionBytes = versionBytesInfo?.private;
+      const networkVersionBytesMap = {
+        ...network.segwitVersionBytes,
+        [EAddressEncodings.P2PKH]: network.bip32,
+      };
+      const bip32Info = networkVersionBytesMap[addressEncoding];
+      if (!bip32Info) {
+        throw new Error('Unsupported address encoding');
+      }
+
+      const xprvVersionBytes = bip32Info.private;
       if (!xprvVersionBytes) {
         throw new Error('xprvVersionBytes not found');
       }
