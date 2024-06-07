@@ -11,9 +11,8 @@ const langDir = path.join(
 const readJson = (langFile) => fs.readJsonSync(path.join(langDir, langFile));
 
 const files = fs.readdirSync(langDir);
-const enUSJson = files.find((file) => file === 'en-US.json');
 
-const defaultLang = enUSJson || files.find((file) => file === 'en.json');
+const defaultLang = files.find((file) => file === 'en_US.json');
 const jsonFileNames = files.filter(
   (file) => file.endsWith('.json') && file !== defaultLang,
 );

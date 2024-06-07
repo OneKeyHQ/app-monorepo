@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
 import {
@@ -14,11 +15,13 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
 
 export function OneKeyHardwareWallet() {
   const { bottom } = useSafeAreaInsets();
+  const intl = useIntl();
 
   const handleBuyButtonPress = useCallback(async () => {
     const url = 'https://shop.onekey.so/';
@@ -34,7 +37,10 @@ export function OneKeyHardwareWallet() {
 
   return (
     <Page safeAreaEnabled={false}>
-      <Page.Header title="OneKey Hardware Wallet" headerTransparent />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.onboarding_onekey_hw })}
+        headerTransparent
+      />
       <Page.Body>
         <Video
           muted
@@ -74,20 +80,26 @@ export function OneKeyHardwareWallet() {
               }}
             >
               <Heading size="$heading4xl" color="$whiteA12">
-                Your Secure Crypto Solution
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_onekey_hw_intro_title,
+                })}
               </Heading>
               <SizableText pt="$3" pb="$6" color="$whiteA11">
-                OneKey Hardware Wallet, a secure and user-friendly solution for
-                crypto management. It supports multiple cryptocurrencies and
-                ensures robust encryption for safe transactions.
+                {intl.formatMessage({
+                  id: ETranslations.onboarding_onekey_hw_intro_desc,
+                })}
               </SizableText>
               <XStack
-                $md={{
-                  w: '100%',
-                }}
                 justifyContent="center"
+                alignItems="center"
                 py="$4"
                 px="$12"
+                w="100%"
+                $gtMd={{
+                  px: '$5',
+                  py: '$2',
+                  w: 'auto',
+                }}
                 bg="$whiteA3"
                 borderWidth={StyleSheet.hairlineWidth}
                 borderColor="$whiteA4"
@@ -108,9 +120,11 @@ export function OneKeyHardwareWallet() {
                 userSelect="none"
                 onPress={handleBuyButtonPress}
               >
-                <Icon name="BagSmileOutline" color="$whiteA12" />
+                <Icon name="BagSmileOutline" color="$whiteA12" size="$5" />
                 <SizableText color="$whiteA12" pl="$2.5" size="$bodyLgMedium">
-                  Buy One
+                  {intl.formatMessage({
+                    id: ETranslations.global_buy_one,
+                  })}
                 </SizableText>
               </XStack>
             </Stack>

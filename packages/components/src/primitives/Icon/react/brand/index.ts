@@ -22,6 +22,7 @@ export { default as Snapchat } from './Snapchat';
 export { default as Telegram } from './Telegram';
 export { default as Threads } from './Threads';
 export { default as Tiktok } from './Tiktok';
+export { default as Walletconnect } from './Walletconnect';
 export { default as Whatsapp } from './Whatsapp';
 export { default as X } from './X';
 export { default as Youtube } from './Youtube';

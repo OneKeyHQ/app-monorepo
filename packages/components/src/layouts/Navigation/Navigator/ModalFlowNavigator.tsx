@@ -2,7 +2,7 @@ import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EPageType, PageTypeHOC } from '../../../hocs';
 import { useThemeValue } from '../../../hooks';
@@ -20,7 +20,7 @@ export interface IModalFlowNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
 > extends ICommonNavigatorConfig<RouteName, P> {
-  translationId?: ILocaleIds | string;
+  translationId?: ETranslations | string;
   allowDisableClose?: boolean;
   disableClose?: boolean;
   shouldPopOnClickBackdrop?: boolean;
@@ -74,7 +74,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             shouldPopOnClickBackdrop,
             title: translationId
               ? intl.formatMessage({
-                  id: translationId as ILocaleIds,
+                  id: translationId as ETranslations,
                 })
               : '',
           };

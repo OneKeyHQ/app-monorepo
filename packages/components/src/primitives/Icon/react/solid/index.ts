@@ -493,6 +493,7 @@ export { default as Library } from './Library';
 export { default as LightBulb } from './LightBulb';
 export { default as LightRain } from './LightRain';
 export { default as Lightning } from './Lightning';
+export { default as Link2 } from './Link2';
 export { default as Link } from './Link';
 export { default as ListSearch } from './ListSearch';
 export { default as Loader } from './Loader';

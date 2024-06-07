@@ -1,4 +1,4 @@
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
@@ -39,7 +39,7 @@ export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
 }
 
 export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
-  key: ILocaleIds;
+  key: ETranslations;
   color: ColorValue;
 } {
   if (status === ESwapTxHistoryStatus.PENDING) {

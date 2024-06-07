@@ -38,10 +38,10 @@ function SegmentControlItem({
     <YStack
       py="$1"
       px="$2"
-      flex={1}
       $gtMd={{ zIndex: 4 }}
       onPress={handleChange}
       borderRadius="$2"
+      borderCurve="continuous"
       userSelect="none"
       focusable={!disabled}
       focusStyle={{
@@ -100,6 +100,7 @@ function SegmentControlFrame({
       alignSelf={fullWidth ? undefined : 'flex-start'}
       backgroundColor="$neutral5"
       borderRadius="$2.5"
+      borderCurve="continuous"
       p="$0.5"
     >
       {options.map(({ label, value: v }, index) => (
@@ -111,6 +112,10 @@ function SegmentControlFrame({
           onChange={handleChange}
           {...(index !== 0 && {
             ml: '$0.5',
+          })}
+          {...(fullWidth && {
+            flexGrow: 1,
+            flexBasis: 0,
           })}
         />
       ))}

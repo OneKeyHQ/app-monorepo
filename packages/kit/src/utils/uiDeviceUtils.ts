@@ -10,7 +10,7 @@ import {
   EOneKeyErrorClassNames,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -183,7 +183,7 @@ class DeviceUtils {
     return { error: null, needUpdate: false };
   }
 
-  showErrorToast(error: any, defKey?: ILocaleIds): boolean {
+  showErrorToast(error: any, defKey?: ETranslations): boolean {
     console.error('deviceUtils.showErrorToast ERROR: ', error);
 
     try {

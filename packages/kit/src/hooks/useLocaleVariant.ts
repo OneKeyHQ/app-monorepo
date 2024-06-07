@@ -9,9 +9,7 @@ import { useSystemLocale } from './useSystemLocale';
 export function useLocaleVariant() {
   const [{ locale }] = useSettingsPersistAtom();
   const systemLocale = useSystemLocale();
-  const currentVariant = (
-    locale === 'system' ? systemLocale : locale
-  ) as ILocaleSymbol;
+  const currentVariant = locale === 'system' ? systemLocale : locale;
   const [localeVariant, setLocaleVariant] = useState(() => {
     const data = LOCALES[currentVariant];
     if (typeof data === 'object') {
@@ -22,6 +20,7 @@ export function useLocaleVariant() {
   useEffect(() => {
     const data = LOCALES[currentVariant];
     if (typeof data === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       void data().then((module) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         LOCALES[currentVariant] = module.default;

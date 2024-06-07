@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IActionListSection } from '../../../actions';
 import type { IKeyOfIcons } from '../../../primitives';
@@ -22,7 +22,7 @@ export interface ITabSubNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase = ParamListBase,
 > extends ICommonNavigatorConfig<RouteName, P> {
-  translationId?: ILocaleIds;
+  translationId?: ETranslations;
   headerShown?: boolean;
   disable?: boolean;
 }
@@ -30,7 +30,7 @@ export interface ITabSubNavigatorConfig<
 export interface ITabNavigatorConfig<RouteName extends string> {
   name: RouteName;
   tabBarIcon: (focused?: boolean) => IKeyOfIcons;
-  translationId: ILocaleIds;
+  translationId: ETranslations;
   children: ITabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;
   disable?: boolean;

@@ -118,6 +118,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
           skipDeviceCancel: true, // firmwareAuthenticate close dialog before api call
           connectId,
         });
+        appEventBus.emit(
+          EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
+          undefined,
+        );
         const client = await this.serviceHardware.getClient(
           EServiceEndpointEnum.Wallet,
         );

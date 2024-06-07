@@ -1,6 +1,6 @@
 /* eslint max-classes-per-file: "off" */
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -347,11 +347,11 @@ export class NumberLimit<T = INumberLimitInfo> extends OneKeyError<T> {
     defaultMessage,
   }: {
     limit: number;
-    key?: ILocaleIds;
+    key?: ETranslations;
     defaultMessage?: string;
   }) {
     const info: INumberLimitInfo = { limit: limit.toString() };
-    const keyWithDefault: ILocaleIds =
+    const keyWithDefault: ETranslations =
       key || ('generic_number_limitation' as any);
     super(
       normalizeErrorProps(
@@ -370,7 +370,7 @@ export class NumberLimit<T = INumberLimitInfo> extends OneKeyError<T> {
 export class TooManyWatchingAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine_too_many_watching_accounts',
+    key: ETranslations = 'msg__engine_too_many_watching_accounts',
   ) {
     super({ limit, key, defaultMessage: 'TooManyWatchingAccounts' });
   }
@@ -379,7 +379,7 @@ export class TooManyWatchingAccounts extends NumberLimit {
 export class TooManyExternalAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine_too_many_external_accounts',
+    key: ETranslations = 'msg__engine_too_many_external_accounts',
   ) {
     super({ limit, key, defaultMessage: 'TooManyExternalAccounts' });
   }
@@ -388,7 +388,7 @@ export class TooManyExternalAccounts extends NumberLimit {
 export class TooManyImportedAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__too_many_imported_accounts',
+    key: ETranslations = 'msg__engine__too_many_imported_accounts',
   ) {
     super({ limit, key, defaultMessage: 'TooManyImportedAccounts' });
   }
@@ -397,7 +397,7 @@ export class TooManyImportedAccounts extends NumberLimit {
 export class TooManyHDWallets extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__too_many_hd_wallets',
+    key: ETranslations = 'msg__engine__too_many_hd_wallets',
   ) {
     super({ limit, key, defaultMessage: 'TooManyHDWallets' });
   }
@@ -406,7 +406,7 @@ export class TooManyHDWallets extends NumberLimit {
 export class TooManyHWWallets extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__too_many_hw_wallets',
+    key: ETranslations = 'msg__engine__too_many_hw_wallets',
   ) {
     super({ limit, key, defaultMessage: 'TooManyHWWallets' });
   }
@@ -415,7 +415,7 @@ export class TooManyHWWallets extends NumberLimit {
 export class TooManyHWPassphraseWallets extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__too_many_hw_passphrase_wallets' as any,
+    key: ETranslations = 'msg__engine__too_many_hw_passphrase_wallets' as any,
   ) {
     super({ limit, key, defaultMessage: 'TooManyHWPassphraseWallets' });
   }
@@ -424,7 +424,7 @@ export class TooManyHWPassphraseWallets extends NumberLimit {
 export class PendingQueueTooLong extends NumberLimit {
   constructor(
     limit: number,
-    key: ILocaleIds = 'msg__engine__pending_queue_too_long',
+    key: ETranslations = 'msg__engine__pending_queue_too_long',
   ) {
     super({ limit, key, defaultMessage: 'PendingQueueTooLong' });
   }

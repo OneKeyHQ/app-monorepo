@@ -1,6 +1,6 @@
 import { isObject, isString, isUndefined, omitBy } from 'lodash';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
@@ -103,8 +103,8 @@ export function getDeviceErrorPayloadMessage(
 export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
-    defaultMessage?: string;
-    defaultKey?: ILocaleIds;
+    defaultMessage?: string | ETranslations;
+    defaultKey?: ETranslations;
     defaultAutoToast?: boolean;
     alwaysAppendDefaultMessage?: boolean;
   },

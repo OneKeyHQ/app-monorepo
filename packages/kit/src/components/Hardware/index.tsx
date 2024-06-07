@@ -64,6 +64,25 @@ export const confirmOnDevice = async () => {
   await event.run();
 };
 
+export const confirmOnDeviceToastSample = async () => {
+  const event = mockListenDeviceResult();
+
+  const toast = Toast.show({
+    children: <ConfirmOnDeviceToastContent deviceType="pro" />,
+    dismissOnOverlayPress: false,
+    disableSwipeGesture: false,
+    onClose: async (params) => {
+      console.log('close ConfirmOnDeviceToastContent');
+    },
+  });
+
+  setTimeout(async () => {
+    event.confirm();
+    await toast.close();
+  }, 3500);
+  await event.run();
+};
+
 export const confirmPinOnDevice = async () => {
   const event = mockListenDeviceResult();
   const dialog = Dialog.show({

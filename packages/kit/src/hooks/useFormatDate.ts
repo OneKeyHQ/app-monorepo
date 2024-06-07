@@ -21,8 +21,8 @@ const parseLocal = (localeSymbol: ILocaleSymbol) => {
       return zhCN;
     case 'en-US':
       return enUS;
-    case 'zh-HK':
-      return zhHK;
+    // case 'zh-HK':
+    //   return zhHK;
     case 'ja-JP':
       return ja;
     case 'ko-KR':

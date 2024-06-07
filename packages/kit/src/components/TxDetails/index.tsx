@@ -9,11 +9,11 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type ITxDetailsProps = {
   details: {
-    key: ILocaleIds;
+    key: ETranslations;
     value?: string;
     iconAfter?: IKeyOfIcons;
     onPress?: () => void;
