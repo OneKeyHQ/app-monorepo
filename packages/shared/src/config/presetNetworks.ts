@@ -2994,6 +2994,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
       {
         'channel': 'coingecko',
         'native': 'ethereum',
+        'platform': 'arbitrum-one',
       },
     ],
     'explorers': [
