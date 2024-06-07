@@ -1,4 +1,5 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { decrypt } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
@@ -13,7 +14,6 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import { decrypt } from '@onekeyhq/core/src/secret';
 
 export class KeyringHd extends KeyringHdBase {
   override coreApi = coreChainApi.fil.hd;

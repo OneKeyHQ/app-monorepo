@@ -1,7 +1,10 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { decrypt } from '@onekeyhq/core/src/secret';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
+
+import sdkAlgo from './sdkAlgo';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -13,8 +16,6 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import { decrypt } from '@onekeyhq/core/src/secret';
-import sdkAlgo from './sdkAlgo';
 
 export class KeyringImported extends KeyringImportedBase {
   override coreApi = coreChainApi.algo.imported;
