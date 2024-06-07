@@ -19,14 +19,17 @@ import {
   vi,
   zhCN,
   zhHK,
+  zhTW,
 } from 'date-fns/locale';
 
 import type { ILocaleSymbol } from './type';
 
 const DateLocaleMap: Record<Exclude<ILocaleSymbol, 'system'>, Locale> = {
   'en-US': enUS,
+  'en': enUS,
   'zh-CN': zhCN,
-  // 'zh-HK': zhHK,
+  'zh-HK': zhHK,
+  'zh-TW': zhTW,
   'ja-JP': ja,
   'ko-KR': ko,
   'bn': bn,
