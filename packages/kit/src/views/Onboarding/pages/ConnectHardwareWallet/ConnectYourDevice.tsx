@@ -396,10 +396,6 @@ function ConnectByUSBOrBLE({
         });
         return;
       }
-      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-        handleNotActivatedDevicePress({ deviceType });
-        return;
-      }
 
       if (
         await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
@@ -409,6 +405,11 @@ function ConnectByUSBOrBLE({
         await showFirmwareVerifyDialog({
           device,
           onContinue: async ({ checked }) => {
+            if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+              handleNotActivatedDevicePress({ deviceType });
+              return;
+            }
+
             await createHwWallet({
               device,
               isFirmwareVerified: checked,
@@ -416,6 +417,11 @@ function ConnectByUSBOrBLE({
             });
           },
         });
+        return;
+      }
+
+      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+        handleNotActivatedDevicePress({ deviceType });
         return;
       }
 
