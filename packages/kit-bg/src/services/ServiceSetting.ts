@@ -155,6 +155,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.signatureRecord) {
       // clear signature record
+      await this.backgroundApi.serviceSignature.deleteAllSignatureRecords();
     }
   }
 
