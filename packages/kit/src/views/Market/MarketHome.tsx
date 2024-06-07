@@ -1,6 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import type { ForwardedRef } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { Icon, Page, Tab, useMedia } from '@onekeyhq/components';
+import type { IColorTokens } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -15,6 +24,31 @@ import { MarketHomeHeader as MDMarketHomeHeader } from './components/MarketHomeH
 import { MarketHomeList } from './components/MarketHomeList';
 import { MarketWatchList } from './components/MarketWatchList';
 import { MarketWatchListProviderMirror } from './MarketWatchListProviderMirror';
+
+type IAnimatedIconRef = { setIsSelected: (isSelected: boolean) => void };
+function BasicAnimatedIcon(
+  {
+    normalColor,
+    selectedColor,
+  }: {
+    normalColor: IColorTokens;
+    selectedColor: IColorTokens;
+  },
+  ref: ForwardedRef<IAnimatedIconRef>,
+) {
+  const [color, setColor] = useState(selectedColor);
+  useImperativeHandle(
+    ref,
+    () => ({
+      setIsSelected: (isSelected: boolean) =>
+        setColor(isSelected ? selectedColor : normalColor),
+    }),
+    [normalColor, selectedColor],
+  );
+  return <Icon name="StarOutline" color={color} size="$4.5" px="$1" />;
+}
+
+const AnimatedIcon = forwardRef(BasicAnimatedIcon);
 
 function MarketHome() {
   const [categories, setCategories] = useState<IMarketCategory[]>([]);
@@ -41,6 +75,7 @@ function MarketHome() {
     [categories],
   );
 
+  const ref = useRef<IAnimatedIconRef>(null);
   return (
     <Page>
       {gtMd ? <MarketHomeHeader /> : <MDMarketHomeHeader />}
@@ -51,16 +86,26 @@ function MarketHome() {
             contentContainerStyle: { paddingRight: '$5' },
             renderItem: (item, index, titleStyle) =>
               index === 0 && !gtMd ? (
-                <Icon name="StarOutline" size="$4.5" px="$1" />
+                <AnimatedIcon
+                  ref={ref}
+                  normalColor={
+                    (titleStyle as { normalColor: IColorTokens })?.normalColor
+                  }
+                  selectedColor={
+                    (titleStyle as { selectedColor: IColorTokens })
+                      ?.selectedColor
+                  }
+                />
               ) : (
                 <Tab.SelectedLabel {...(titleStyle as any)} />
               ),
           }}
-          onSelectedPageIndex={(tabIndex: number) => {
-            console.log('选中', tabIndex);
+          onSelectedPageIndex={(index: number) => {
+            ref?.current?.setIsSelected?.(index === 0);
             appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
               tabIndex,
             });
+            console.log('选中', index, index === 0 ? 1 : 0);
           }}
         />
       </Page.Body>
