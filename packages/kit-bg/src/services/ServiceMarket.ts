@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
@@ -113,6 +114,7 @@ class ServiceMarket extends ServiceBase {
           }>('/utility/v1/market/pools', {
             params: {
               query: detailPlatforms[key].contract_address,
+              network: detailPlatforms[key].coingeckoNetworkId,
             },
           }),
         ),
