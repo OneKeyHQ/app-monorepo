@@ -126,12 +126,7 @@ function BasicTokenDetailTabs({
               ),
             },
           ].filter(Boolean)
-        : [
-            {
-              title: '',
-              page: () => null,
-            },
-          ],
+        : [],
     [md, pools, token],
   );
   return (
