@@ -27,6 +27,7 @@ module.exports = [
   'derivetype',
   'xfp',
   'Markt',
+  'lottie',
   'sys',
   'usb',
   'nocache',
@@ -718,4 +719,5 @@ module.exports = [
   'dex',
   'Dex',
   'whitepaper',
+  'sepolia',
 ];

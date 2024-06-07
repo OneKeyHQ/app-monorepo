@@ -111,7 +111,7 @@ export function PriceChart({
     data && data.length > 0 ? (
       <ChartView
         isFetching={isFetching}
-        height={gtMd ? 346 : 326}
+        height={gtMd ? 298 : 326}
         data={data}
         onHover={onHover}
       />
@@ -133,7 +133,13 @@ export function PriceChart({
         )}
         {children}
       </XStack>
-      <Stack h={240} mt={32} justifyContent="center" alignItems="center">
+      <Stack
+        h={240}
+        mt={32}
+        $gtMd={{ mt: '$1' }}
+        justifyContent="center"
+        alignItems="center"
+      >
         {chartViewWithSpinner}
       </Stack>
     </>

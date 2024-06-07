@@ -89,10 +89,10 @@ export function MarketAbout({
 }: {
   children: ISizableTextProps['children'];
 }) {
-  return (
+  return children ? (
     <YStack space="$3" pt="$10">
       <SizableText size="$headingSm">About</SizableText>
       <ViewMoreText color="$textSubdued">{children}</ViewMoreText>
     </YStack>
-  );
+  ) : null;
 }

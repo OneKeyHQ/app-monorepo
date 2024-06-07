@@ -108,34 +108,38 @@ export function UniversalSearch({
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     const input = val?.trim?.() || '';
-    const result =
-      await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-        input,
-        networkId: activeAccount?.network?.id,
-        searchTypes: [searchType || EUniversalSearchType.Address],
-      });
-    const searchResultSections: {
-      title: string;
-      data: IUniversalSearchResultItem[];
-    }[] = [];
-    if (result?.[EUniversalSearchType.Address]?.items) {
-      searchResultSections.push({
-        title: 'Wallet',
-        data: result?.[EUniversalSearchType.Address]
-          ?.items as IUniversalSearchResultItem[],
-      });
-    }
+    if (input) {
+      const result =
+        await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+          input,
+          networkId: activeAccount?.network?.id,
+          searchTypes: [searchType || EUniversalSearchType.Address],
+        });
+      const searchResultSections: {
+        title: string;
+        data: IUniversalSearchResultItem[];
+      }[] = [];
+      if (result?.[EUniversalSearchType.Address]?.items?.length) {
+        searchResultSections.push({
+          title: 'Wallet',
+          data: result?.[EUniversalSearchType.Address]
+            ?.items as IUniversalSearchResultItem[],
+        });
+      }
 
-    if (result?.[EUniversalSearchType.MarketToken]?.items) {
-      searchResultSections.push({
-        title: 'Market Token',
-        data: result?.[EUniversalSearchType.MarketToken]
-          ?.items as IUniversalSearchResultItem[],
-      });
+      if (result?.[EUniversalSearchType.MarketToken]?.items?.length) {
+        searchResultSections.push({
+          title: 'Market Token',
+          data: result?.[EUniversalSearchType.MarketToken]
+            ?.items as IUniversalSearchResultItem[],
+        });
+      }
+      setSections(searchResultSections);
+      console.log('---searchResultSections', searchResultSections);
+      setSearchStatus(ESearchStatus.done);
+    } else {
+      setSearchStatus(ESearchStatus.init);
     }
-
-    setSections(searchResultSections);
-    setSearchStatus(ESearchStatus.done);
   }, 1200);
 
   const handleChangeText = useCallback(() => {
@@ -275,7 +279,11 @@ export function UniversalSearch({
             sections={sections}
             // renderSectionHeader={renderSectionHeader}
             ListEmptyComponent={
-              <Empty icon="SearchOutline" title="No Results" />
+              <Empty
+                icon="SearchOutline"
+                title="No Results"
+                description="Try to change the search keyword"
+              />
             }
             renderItem={renderItem}
             estimatedItemSize="$16"
