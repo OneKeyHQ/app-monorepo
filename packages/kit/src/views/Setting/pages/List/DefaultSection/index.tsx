@@ -33,9 +33,9 @@ const AddressBookItem = () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EModalAddressBookRoutes.ListItemModal);
   }, [navigation]);
-  const [{ updateTimestamp }] = useAddressBookPersistAtom();
+  const [{ hideDialogInfo }] = useAddressBookPersistAtom();
   const onPress = useCallback(async () => {
-    if (!updateTimestamp) {
+    if (!hideDialogInfo) {
       Dialog.show({
         title: 'Encrypted storage',
         icon: 'PlaceholderOutline',
@@ -47,6 +47,7 @@ const AddressBookItem = () => {
         onConfirm: async (inst) => {
           await inst.close();
           await showAddressBook();
+          await backgroundApiProxy.serviceAddressBook.hideDialogInfo();
         },
         confirmButtonProps: {
           testID: 'encrypted-storage-confirm',
@@ -55,7 +56,7 @@ const AddressBookItem = () => {
     } else {
       await showAddressBook();
     }
-  }, [showAddressBook, updateTimestamp]);
+  }, [showAddressBook, hideDialogInfo]);
   return (
     <ListItem
       icon="BookOpenOutline"

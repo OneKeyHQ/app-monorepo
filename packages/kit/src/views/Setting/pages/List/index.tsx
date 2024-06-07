@@ -7,6 +7,7 @@ import {
   ScrollView,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -31,20 +32,27 @@ import { SecuritySection } from './SecuritySection';
 type ISocialButtonProps = {
   icon: ComponentProps<typeof IconButton>['icon'];
   url: string;
+  text: string;
 };
 
-const SocialButton: FC<ISocialButtonProps> = ({ icon, url }) => {
+const SocialButton: FC<ISocialButtonProps> = ({ icon, url, text }) => {
   const onPress = useCallback(() => {
     openUrlExternal(url);
   }, [url]);
   return (
-    <IconButton
-      bg="$bgSubdued"
-      width="$14"
-      height="$14"
-      icon={icon}
-      borderRadius="$full"
-      onPress={onPress}
+    <Tooltip
+      renderTrigger={
+        <IconButton
+          bg="$bgSubdued"
+          width="$14"
+          height="$14"
+          icon={icon}
+          borderRadius="$full"
+          onPress={onPress}
+        />
+      }
+      renderContent={text}
+      placement="top"
     />
   );
 };
@@ -53,10 +61,14 @@ const SocialButtonGroup = () => (
   <YStack>
     <XStack justifyContent="center">
       <XStack space="$3" paddingVertical="$3" my="$3">
-        <SocialButton icon="OnekeyBrand" url={ONEKEY_URL} />
-        <SocialButton icon="DiscordBrand" url={DISCORD_URL} />
-        <SocialButton icon="Xbrand" url={TWITTER_URL} />
-        <SocialButton icon="GithubBrand" url={GITHUB_URL} />
+        <SocialButton
+          icon="OnekeyBrand"
+          url={ONEKEY_URL}
+          text="Official website"
+        />
+        <SocialButton icon="DiscordBrand" url={DISCORD_URL} text="Discord" />
+        <SocialButton icon="Xbrand" url={TWITTER_URL} text="Twitter" />
+        <SocialButton icon="GithubBrand" url={GITHUB_URL} text="Github" />
       </XStack>
     </XStack>
     <XStack justifyContent="center" py="$4">

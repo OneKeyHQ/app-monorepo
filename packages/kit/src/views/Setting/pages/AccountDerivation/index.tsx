@@ -47,7 +47,7 @@ const AccountDerivation = () => {
     },
   );
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Derivation Path" />
       <Stack px="$5" py="$3">
         <SizableText size="$bodyLg">
@@ -67,7 +67,7 @@ const AccountDerivation = () => {
           <Stack>
             {items.map((o) => (
               <AccountDerivationListItem
-                key={o.num}
+                key={o.icon}
                 title={o.title}
                 icon={o.icon}
                 num={o.num}

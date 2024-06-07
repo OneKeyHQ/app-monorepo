@@ -41,7 +41,7 @@ export function buildFuse<T>(
     index,
   );
   fuse.search = function (pattern: string) {
-    return Fuse.prototype.search.bind(fuse)(`'${pattern}`);
+    return Fuse.prototype.search.bind(fuse)(`'"${pattern}"`);
   };
   return fuse;
 }
