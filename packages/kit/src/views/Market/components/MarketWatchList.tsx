@@ -11,6 +11,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import { useMarketWatchListAtom } from '../../../states/jotai/contexts/market';
@@ -39,8 +40,8 @@ function RecommendItem({
       flexGrow={1}
       flexBasis={0}
       justifyContent="space-between"
-      px="$4"
-      py="$3.5"
+      px={platformEnv.isExtensionUiPopup ? '$3' : '$4'}
+      py={platformEnv.isExtensionUiPopup ? '$1.5' : '$3.5'}
       bg="$bgSubdued"
       borderColor="$borderSubdued"
       borderWidth="$px"
@@ -142,15 +143,30 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     if (category?.recommendedTokens) {
       return (
         <>
-          <ScrollView contentContainerStyle={{ ai: 'center' }} px="$5" py="$8">
-            <SizableText size="$heading3xl">
+          <ScrollView
+            contentContainerStyle={{ ai: 'center' }}
+            px="$5"
+            py={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
+          >
+            <SizableText
+              size={
+                platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'
+              }
+            >
               Your watchlist is empty
             </SizableText>
-            <SizableText size="$bodyLgMedium" pt="$2">
+            <SizableText
+              size={
+                platformEnv.isExtensionUiPopup
+                  ? '$bodyMdMedium'
+                  : '$bodyLgMedium'
+              }
+              pt="$2"
+            >
               Add your favorite tokens to watchlist
             </SizableText>
             <YStack
-              pt="$8"
+              pt={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
               space="$2.5"
               flexWrap="wrap"
               width="100%"
