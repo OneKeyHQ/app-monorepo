@@ -120,7 +120,7 @@ export default class VaultAptos extends VaultBase {
 
     const amountValue = new BigNumber(amount)
       .shiftedBy(tokenInfo.decimals)
-      .toFixed();
+      .toFixed(0);
 
     const encodedTx: IEncodedTxAptos = {
       ...generateTransferCoin(
@@ -372,7 +372,7 @@ export default class VaultAptos extends VaultBase {
       const decimals = unsignedTx.transfersInfo[0].tokenInfo?.decimals ?? 0;
       const amount = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
         .shiftedBy(decimals)
-        .toFixed();
+        .toFixed(0);
 
       const [to] = encodedTx.arguments || [];
       encodedTx.arguments = [to, amount];

@@ -228,7 +228,7 @@ export default class VaultDot extends VaultBase {
     if (tokenInfo && tokenInfo?.address && !tokenInfo.isNative) {
       amountValue = new BigNumber(amount)
         .shiftedBy(tokenInfo.decimals)
-        .toFixed();
+        .toFixed(0);
       if (keepAlive) {
         unsigned = methods.assets.transferKeepAlive(
           {
@@ -251,7 +251,9 @@ export default class VaultDot extends VaultBase {
         );
       }
     } else {
-      amountValue = new BigNumber(amount).shiftedBy(network.decimals).toFixed();
+      amountValue = new BigNumber(amount)
+        .shiftedBy(network.decimals)
+        .toFixed(0);
       if (keepAlive) {
         unsigned = methods.balances.transferKeepAlive(
           {
@@ -524,7 +526,7 @@ export default class VaultDot extends VaultBase {
         const network = await this.getNetwork();
         const amountValue = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
           .shiftedBy(network.decimals)
-          .toFixed();
+          .toFixed(0);
         const dest = decodeUnsignedTx.method.args.dest as { id: string };
 
         let tx;
