@@ -96,7 +96,7 @@ function CurrentConnectionModal() {
   }, [origin, accountsInfo, navigation]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Connect" />
       <Page.Body>
         <XStack p="$5" space="$3">
