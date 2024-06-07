@@ -2,7 +2,6 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
