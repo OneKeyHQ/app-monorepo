@@ -5,12 +5,16 @@ import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import { decrypt } from '@onekeyhq/core/src/secret';
+import sdkAlgo from './sdkAlgo';
 
 export class KeyringImported extends KeyringImportedBase {
   override coreApi = coreChainApi.algo.imported;
@@ -38,5 +42,23 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<ISignedMessagePro> {
     // throw new NotImplemented();
     return this.baseSignMessage(params);
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    const { password } = params;
+    const result: IExportAccountSecretKeysResult = {};
+    if (params.privateKey) {
+      const privateKeysMap = await this.getPrivateKeys({
+        password,
+      });
+      const [encryptedPrivateKey] = Object.values(privateKeysMap);
+      result.privateKey = sdkAlgo.mnemonicFromSeed(
+        decrypt(password, encryptedPrivateKey),
+      );
+    }
+
+    return result;
   }
 }
