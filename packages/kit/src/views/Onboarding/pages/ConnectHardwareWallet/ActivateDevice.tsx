@@ -146,7 +146,17 @@ export function ActivateDevice({
     };
   };
 
-  const deviceSteps = {
+  const deviceSteps: Record<
+    IDeviceType,
+    Record<
+      'create' | 'restore',
+      {
+        title: string;
+        description: string;
+        uri: any;
+      }[]
+    >
+  > = {
     classic: {
       create: [
         getCreateNewWalletStep('classic'),
@@ -194,6 +204,14 @@ export function ActivateDevice({
         getEnterRecoveryPhraseStep('pro'),
         getSetPinStep('pro'),
       ],
+    },
+    unknown: {
+      create: [],
+      restore: [],
+    },
+    classic1s: {
+      create: [],
+      restore: [],
     },
   };
 
