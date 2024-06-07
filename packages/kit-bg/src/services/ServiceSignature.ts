@@ -33,10 +33,12 @@ class ServiceSignature extends ServiceBase {
     try {
       await localDb.addSignedMessage(params);
     } catch (e) {
+      const errMsg = (e as Error).message;
       defaultLogger.signatureRecord.normal.failToCreateSignedMessage({
         params,
-        error: (e as Error).message,
+        error: errMsg,
       });
+      console.error(errMsg);
     }
   }
 
@@ -85,10 +87,12 @@ class ServiceSignature extends ServiceBase {
     try {
       await localDb.addSignedTransaction(params);
     } catch (e: unknown) {
+      const errMsg = (e as Error).message;
       defaultLogger.signatureRecord.normal.failToCreateSignedTransaction({
         params,
-        error: (e as Error).message,
+        error: errMsg,
       });
+      console.error(errMsg);
     }
   }
 
@@ -146,10 +150,12 @@ class ServiceSignature extends ServiceBase {
     try {
       await localDb.addConnectedSite({ url, networkIds, addresses });
     } catch (e) {
+      const errMsg = (e as Error).message;
       defaultLogger.signatureRecord.normal.failToAddConnectedSite({
         params: { url, networkIds, addresses },
-        error: (e as Error).message,
+        error: errMsg,
       });
+      console.error(errMsg);
     }
   }
 
