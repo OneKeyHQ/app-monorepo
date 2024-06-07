@@ -1,5 +1,6 @@
 import { useIntl } from 'react-intl';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Divider,
   Group,
@@ -11,6 +12,10 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EOnboardingPages,
+  IOnboardingParamList,
+} from '@onekeyhq/shared/src/routes';
 
 type IStep = {
   title?: ETranslations;
@@ -18,9 +23,13 @@ type IStep = {
   type: 'classic' | 'mini' | 'touch' | 'pro';
 };
 
-export function ActivateDevice() {
+export function ActivateDevice({
+  route,
+}: IPageScreenProps<IOnboardingParamList, EOnboardingPages.ActivateDevice>) {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const { tutorialType, deviceType } = route.params;
+  console.log(tutorialType, deviceType);
 
   const handleConfirmPress = () => {
     navigation.pop();
@@ -169,11 +178,22 @@ export function ActivateDevice() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Activate Your Device" />
+      <Page.Header
+        title={
+          tutorialType === 'create'
+            ? intl.formatMessage({
+                id: ETranslations.onboarding_activate_device_by_set_up_new_wallet,
+              })
+            : intl.formatMessage({
+                id: ETranslations.onboarding_activate_device_by_restore,
+              })
+        }
+      />
       <Page.Body px="$5">
         <SizableText color="$textSubdued">
-          After choosing a language on your device and reviewing the basic
-          guide:
+          {intl.formatMessage({
+            id: ETranslations.onboarding_activate_device_choosing_language_message,
+          })}
         </SizableText>
         <Group separator={<Divider />}>
           {classicCreateNewWalletSteps.map(
@@ -239,7 +259,12 @@ export function ActivateDevice() {
           )}
         </Group>
       </Page.Body>
-      <Page.Footer onConfirmText="All Set!" onConfirm={handleConfirmPress} />
+      <Page.Footer
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.onboarding_activate_device_all_set,
+        })}
+        onConfirm={handleConfirmPress}
+      />
     </Page>
   );
 }

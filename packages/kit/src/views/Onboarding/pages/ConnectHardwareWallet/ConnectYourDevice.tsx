@@ -217,7 +217,15 @@ function ConnectByUSBOrBLE({
   );
 
   const handleSetupNewWalletPress = useCallback(() => {
-    navigation.push(EOnboardingPages.ActivateDevice);
+    navigation.push(EOnboardingPages.ActivateDevice, {
+      tutorialType: 'create',
+    });
+  }, [navigation]);
+
+  const handleRestoreWalletPress = useCallback(() => {
+    navigation.push(EOnboardingPages.ActivateDevice, {
+      tutorialType: 'restore',
+    });
   }, [navigation]);
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
@@ -296,7 +304,7 @@ function ConnectByUSBOrBLE({
                       $gtMd={{ size: 'medium' } as IButtonProps}
                       onPress={async () => {
                         await packageAlertDialog.close();
-                        handleSetupNewWalletPress();
+                        handleRestoreWalletPress();
                       }}
                     >
                       {intl.formatMessage({
@@ -318,7 +326,7 @@ function ConnectByUSBOrBLE({
       ),
       showFooter: false,
     });
-  }, [handleSetupNewWalletPress, intl, requestsUrl]);
+  }, [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl]);
 
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
@@ -482,7 +490,9 @@ function ConnectByUSBOrBLE({
             error instanceof InitIframeTimeout
           ) {
             Toast.error({
-              title: 'Network error',
+              title: intl.formatMessage({
+                id: ETranslations.global_network_error,
+              }),
               // error.message i18n should set InitIframeLoadFail.defaultKey, InitIframeTimeout.defaultKey
               message: error.message || 'DeviceScanError',
               // message: "Check your connection and retry",
@@ -495,7 +505,9 @@ function ConnectByUSBOrBLE({
             error instanceof BridgeTimeoutErrorForDesktop
           ) {
             Toast.error({
-              title: 'Connection failed',
+              title: intl.formatMessage({
+                id: ETranslations.global_connection_failed,
+              }),
               // error.message i18n should set BridgeTimeoutError.defaultKey...
               message: error.message || 'DeviceScanError',
               // message: "Please reconnect the USB and try again", // USB only
@@ -508,7 +520,9 @@ function ConnectByUSBOrBLE({
             error instanceof DeviceMethodCallTimeout
           ) {
             Toast.error({
-              title: 'Connection failed',
+              title: intl.formatMessage({
+                id: ETranslations.global_connection_failed,
+              }),
               // error.message i18n should set ConnectTimeoutError.defaultKey...
               message: error.message || 'DeviceScanError',
               // message: "Please reconnect device and try again", // USB or BLE
@@ -518,12 +532,19 @@ function ConnectByUSBOrBLE({
 
           if (error instanceof NeedOneKeyBridge) {
             Dialog.confirm({
-              icon: 'BluetoothOutline',
-              title: 'Install OneKey Bridge',
+              icon: 'OnekeyBrand',
+              title: intl.formatMessage({
+                id: ETranslations.onboarding_install_onekey_bridge,
+              }),
               // error.message i18n should set NeedOneKeyBridge.defaultKey...
               description:
                 error.message ||
                 'OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.',
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_download_and_install,
+              }),
+              onConfirm: () =>
+                Linking.openURL('https://onekey.so/download/?client=bridge'),
             });
 
             deviceScanner.stopScan();
@@ -540,7 +561,7 @@ function ConnectByUSBOrBLE({
         searchStateRef.current = state;
       },
     );
-  }, []);
+  }, [intl]);
 
   const checkBLEState = useCallback(async () => {
     // hack missing getBleManager.
@@ -661,8 +682,12 @@ function ConnectByUSBOrBLE({
             pb="$5"
           >
             {platformEnv.isNative
-              ? 'Looking for devices...'
-              : 'Connect your device via USB'}
+              ? `${intl.formatMessage({
+                  id: ETranslations.onboarding_bluetooth_connect_help_text,
+                })}...`
+              : intl.formatMessage({
+                  id: ETranslations.onboarding_usb_connect_help_text,
+                })}
           </SizableText>
           {devicesData.map((item, index) => (
             <DeviceListItem item={item} key={index} />

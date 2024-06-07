@@ -134,7 +134,7 @@ export class NeedOneKeyBridge extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedOneKeyBridge',
-        defaultKey: 'modal__need_install_onekey_bridge',
+        defaultKey: ETranslations.onboarding_install_onekey_bridge_help_text,
       }),
     );
   }
@@ -209,7 +209,7 @@ export class BridgeTimeoutErrorForDesktop extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BridgeTimeoutErrorForDesktop',
-        defaultKey: 'msg__hardware_bridge_timeout_for_desktop',
+        defaultKey: ETranslations.global_connection_failed_usb_help_text,
       }),
     );
   }
@@ -223,7 +223,7 @@ export class ConnectTimeoutError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'ConnectTimeoutError',
-        defaultKey: 'msg__hardware_polling_connect_timeout_error',
+        defaultKey: ETranslations.global_connection_failed_help_text,
         // defaultAutoToast: true,
       }),
     );
@@ -568,7 +568,7 @@ export class InitIframeLoadFail extends OneKeyHardwareError {
       // Hardware SDK initialization failed. Please check your network or switch the proxy then try again.
       normalizeErrorProps(props, {
         defaultMessage: 'InitIframeLoadFail',
-        defaultKey: 'msg__hardware_init_iframe_load_error',
+        defaultKey: ETranslations.global_network_error_help_text,
         defaultAutoToast: true,
       }),
     );
@@ -582,7 +582,7 @@ export class InitIframeTimeout extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InitIframeTimeout',
-        defaultKey: 'msg__hardware_init_iframe_load_error',
+        defaultKey: ETranslations.global_network_error_help_text,
       }),
     );
   }

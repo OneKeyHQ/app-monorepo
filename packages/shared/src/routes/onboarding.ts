@@ -33,7 +33,10 @@ export type IOnboardingParamList = {
   // connect hardware wallet
   [EOnboardingPages.ConnectYourDevice]: undefined;
   [EOnboardingPages.OneKeyHardwareWallet]: undefined;
-  [EOnboardingPages.ActivateDevice]: undefined;
+  [EOnboardingPages.ActivateDevice]: {
+    tutorialType?: 'create' | 'restore' | string;
+    deviceType?: 'mini' | 'classic' | 'touch' | 'pro' | string;
+  };
 
   // create wallet
   [EOnboardingPages.BeforeShowRecoveryPhrase]: {
