@@ -123,11 +123,11 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkUrlSecurity(url: string, whiteListEnabled = false) {
-    if (whiteListEnabled && (await this._isUrlExistInRiskWhiteList(url))) {
+  async checkUrlSecurity(url: string) {
+    if (await this._isUrlExistInRiskWhiteList(url)) {
       return {
         host: url,
-        level: 'security',
+        level: 'unknown',
         attackTypes: [],
         phishingSite: false,
         alert: '',
