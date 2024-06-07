@@ -31,7 +31,6 @@ export function ActivateDevice({
   const navigation = useAppNavigation();
   const intl = useIntl();
   const { tutorialType, deviceType } = route.params;
-  console.log(tutorialType, deviceType);
 
   const handleConfirmPress = () => {
     navigation.pop();
@@ -147,17 +146,58 @@ export function ActivateDevice({
     };
   };
 
-  const steps =
-    tutorialType === 'create'
-      ? [
-          getCreateNewWalletStep(deviceType),
-          getWriteDownRecoveryPhraseStep(deviceType),
-          getSetPinStep(deviceType),
-        ]
-      : [
-          getImportWalletStep(deviceType),
-          getEnterRecoveryPhraseStep(deviceType),
-        ];
+  const deviceSteps = {
+    classic: {
+      create: [
+        getCreateNewWalletStep('classic'),
+        getWriteDownRecoveryPhraseStep('classic'),
+        getSetPinStep('classic'),
+      ],
+      restore: [
+        getImportWalletStep('classic'),
+        getEnterRecoveryPhraseStep('classic'),
+        getSetPinStep('classic'),
+      ],
+    },
+    mini: {
+      create: [
+        getCreateNewWalletStep('mini'),
+        getWriteDownRecoveryPhraseStep('mini'),
+        getSetPinStep('mini'),
+      ],
+      restore: [
+        getImportWalletStep('mini'),
+        getEnterRecoveryPhraseStep('mini'),
+        getSetPinStep('mini'),
+      ],
+    },
+    touch: {
+      create: [
+        getCreateNewWalletStep('touch'),
+        getWriteDownRecoveryPhraseStep('touch'),
+        getSetPinStep('touch'),
+      ],
+      restore: [
+        getImportWalletStep('touch'),
+        getEnterRecoveryPhraseStep('touch'),
+        getSetPinStep('touch'),
+      ],
+    },
+    pro: {
+      create: [
+        getCreateNewWalletStep('pro'),
+        getWriteDownRecoveryPhraseStep('pro'),
+        getSetPinStep('pro'),
+      ],
+      restore: [
+        getImportWalletStep('pro'),
+        getEnterRecoveryPhraseStep('pro'),
+        getSetPinStep('pro'),
+      ],
+    },
+  };
+
+  const steps = deviceSteps[deviceType][tutorialType];
 
   return (
     <Page scrollEnabled>

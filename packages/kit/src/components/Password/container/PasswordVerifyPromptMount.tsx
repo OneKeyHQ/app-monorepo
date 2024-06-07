@@ -1,16 +1,20 @@
 import { Suspense, useCallback, useEffect, useRef } from 'react';
 
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { Dialog, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EPasswordPromptType } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import PasswordSetupContainer from './PasswordSetupContainer';
 import PasswordVerifyContainer from './PasswordVerifyContainer';
 
 const PasswordVerifyPromptMount = () => {
+  const intl = useIntl();
+
   const [{ passwordPromptPromiseTriggerData }] =
     usePasswordPromptPromiseTriggerAtom();
   const onClose = useCallback((id: number) => {
@@ -24,7 +28,7 @@ const PasswordVerifyPromptMount = () => {
   const showPasswordSetupPrompt = useCallback(
     (id: number) => {
       dialogRef.current = Dialog.show({
-        title: 'Setup Password',
+        title: intl.formatMessage({ id: ETranslations.global_set_password }),
         onClose() {
           onClose(id);
         },
@@ -45,12 +49,14 @@ const PasswordVerifyPromptMount = () => {
         showFooter: false,
       });
     },
-    [onClose],
+    [intl, onClose],
   );
   const showPasswordVerifyPrompt = useCallback(
     (id: number) => {
       dialogRef.current = Dialog.show({
-        title: 'ConfirmPassword',
+        title: intl.formatMessage({
+          id: ETranslations.auth_confirm_password_form_label,
+        }),
         onClose() {
           onClose(id);
         },
@@ -71,7 +77,7 @@ const PasswordVerifyPromptMount = () => {
         showFooter: false,
       });
     },
-    [onClose],
+    [intl, onClose],
   );
   useEffect(() => {
     if (
