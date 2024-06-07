@@ -26,7 +26,14 @@ import { Content } from './Content';
 import { DialogContext } from './context';
 import { DialogForm } from './DialogForm';
 import { Footer, FooterAction } from './Footer';
-import { DialogDescription, DialogHeader, DialogHeaderContext, DialogIcon, DialogTitle, SetDialogHeader } from './Header';
+import {
+  DialogDescription,
+  DialogHeader,
+  DialogHeaderContext,
+  DialogIcon,
+  DialogTitle,
+  SetDialogHeader,
+} from './Header';
 import { renderToContainer } from './renderToContainer';
 
 import type {
@@ -215,6 +222,8 @@ function DialogFrame({
               onPress={handleBackdropPress}
               zIndex={floatingPanelProps?.zIndex}
             />
+            {/* /* fix missing title warnings in html dialog element on Web */}
+            <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
               key="content"

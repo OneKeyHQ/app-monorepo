@@ -1,9 +1,5 @@
 import { createContext, memo, useContext, useEffect, useMemo } from 'react';
 
-import { Dialog as TMDialog } from 'tamagui';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { IconButton } from '../../actions/IconButton';
 import { Heading, Icon, SizableText, Stack } from '../../primitives';
 
@@ -67,17 +63,9 @@ export function DialogIcon({
 
 export function DialogTitle({ children, ...props }: ISizableTextProps) {
   return (
-    <>
-      <Heading size="$headingXl" py="$px" {...props}>
-        {children}
-      </Heading>
-      {
-        /* fix missing title warnings in html dialog element on Web */
-        platformEnv.isRuntimeBrowser ? (
-          <TMDialog.Title display="none">{children}</TMDialog.Title>
-        ) : null
-      }
-    </>
+    <Heading size="$headingXl" py="$px" {...props}>
+      {children}
+    </Heading>
   );
 }
 

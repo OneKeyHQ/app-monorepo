@@ -517,21 +517,15 @@ function ConnectByUSBOrBLE({
           }
 
           if (error instanceof NeedOneKeyBridge) {
-            Toast.error({
+            Dialog.confirm({
+              icon: 'BluetoothOutline',
               title: 'Install OneKey Bridge',
               // error.message i18n should set NeedOneKeyBridge.defaultKey...
-              message: error.message || 'DeviceScanError',
-              // message: "OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.",
+              description:
+                error.message ||
+                'OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.',
             });
 
-            // TODO Dialog.confirm throw error cause white screen
-            // Dialog.confirm({
-            //   icon: 'BluetoothOutline',
-            //   title: 'Install OneKey Bridge',
-            //   // error.message i18n should set NeedOneKeyBridge.defaultKey...
-            //   description: error.message || 'DeviceScanError',
-            //   // description: "OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.",
-            // });
             deviceScanner.stopScan();
           }
 
