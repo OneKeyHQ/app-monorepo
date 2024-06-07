@@ -146,6 +146,19 @@ export function ActivateDevice({
     };
   };
 
+  const classicDevice = {
+    create: [
+      getCreateNewWalletStep('classic'),
+      getWriteDownRecoveryPhraseStep('classic'),
+      getSetPinStep('classic'),
+    ],
+    restore: [
+      getImportWalletStep('classic'),
+      getEnterRecoveryPhraseStep('classic'),
+      getSetPinStep('classic'),
+    ],
+  };
+
   const deviceSteps: Record<
     IDeviceType,
     Record<
@@ -157,18 +170,9 @@ export function ActivateDevice({
       }[]
     >
   > = {
-    classic: {
-      create: [
-        getCreateNewWalletStep('classic'),
-        getWriteDownRecoveryPhraseStep('classic'),
-        getSetPinStep('classic'),
-      ],
-      restore: [
-        getImportWalletStep('classic'),
-        getEnterRecoveryPhraseStep('classic'),
-        getSetPinStep('classic'),
-      ],
-    },
+    unknown: classicDevice,
+    classic: classicDevice,
+    classic1s: classicDevice,
     mini: {
       create: [
         getCreateNewWalletStep('mini'),
@@ -204,14 +208,6 @@ export function ActivateDevice({
         getEnterRecoveryPhraseStep('pro'),
         getSetPinStep('pro'),
       ],
-    },
-    unknown: {
-      create: [],
-      restore: [],
-    },
-    classic1s: {
-      create: [],
-      restore: [],
     },
   };
 
