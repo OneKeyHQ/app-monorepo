@@ -363,12 +363,16 @@ export function EnumBasicDialogContentContainer({
         return (
           <>
             <Dialog.Header>
-              <Dialog.Icon icon="ErrorOutline" />
+              <Dialog.Icon tone="warning" icon="ErrorOutline" />
               <Dialog.Title>
-                Error
-                <SizableText>{`(${errorCode})`}</SizableText>
+                {intl.formatMessage({ id: ETranslations.global_unknown_error })}{' '}
+                (code {errorCode})
               </Dialog.Title>
-              <Dialog.Description>Error Description</Dialog.Description>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.global_unknown_error_retry_message,
+                })}
+              </Dialog.Description>
             </Dialog.Header>
             <Button
               $md={
@@ -381,7 +385,7 @@ export function EnumBasicDialogContentContainer({
             >
               {intl.formatMessage({ id: ETranslations.global_retry })}
             </Button>
-            {renderFooter()}
+            {/* {renderFooter()} */}
           </>
         );
     }

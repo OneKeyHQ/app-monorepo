@@ -93,7 +93,7 @@ export class UserCancel extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UserCancel',
-        defaultKey: 'msg__hardware_user_cancel_error',
+        defaultKey: ETranslations.global_cancel_confirm_on_device_feedback,
         // defaultAutoToast: true,
       }),
     );
@@ -107,7 +107,7 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UserCancelFromOutside',
-        defaultKey: 'msg__hardware_user_cancel_error',
+        defaultKey: ETranslations.global_cancel_confirm_on_device_feedback,
         // defaultAutoToast: true,
       }),
     );

@@ -9,6 +9,7 @@ import {
   Button,
   Dialog,
   Divider,
+  Heading,
   LottieView,
   Page,
   ScrollView,
@@ -213,8 +214,12 @@ function ConnectByUSBOrBLE({
   const handleNotActivatedDevicePress = useCallback(() => {
     const dialog = Dialog.show({
       icon: 'WalletCryptoOutline',
-      title: ETranslations.onboarding_activate_device,
-      description: ETranslations.onboarding_activate_device_help_text,
+      title: intl.formatMessage({
+        id: ETranslations.onboarding_activate_device,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.onboarding_activate_device_help_text,
+      }),
       dismissOnOverlayPress: false,
       renderContent: (
         <Stack>
@@ -251,18 +256,44 @@ function ConnectByUSBOrBLE({
             onPress={async () => {
               await dialog.close();
               const packageAlertDialog = Dialog.show({
+                tone: 'warning',
                 icon: 'PackageDeliveryOutline',
-                title: 'Package Security Check',
+                title: intl.formatMessage({
+                  id: ETranslations.onboarding_activate_device_by_restore_warning,
+                }),
                 dismissOnOverlayPress: false,
-                description:
-                  'Your package should not contain any pre-set PINs or Recovery Phrases. If such items are found, stop using the device and immediately reach out to OneKey Support for assistance.',
-                onCancel: () => Linking.openURL(requestsUrl),
-                onCancelText: 'Get Help',
-                onConfirm: async () => {
-                  await packageAlertDialog.close();
-                  handleSetupNewWalletPress();
-                },
-                onConfirmText: 'Understood',
+                description: intl.formatMessage({
+                  id: ETranslations.onboarding_activate_device_by_restore_warning_help_text,
+                }),
+                showFooter: false,
+                renderContent: (
+                  <XStack space="$2.5">
+                    <Button
+                      flex={1}
+                      size="large"
+                      $gtMd={{ size: 'medium' } as IButtonProps}
+                      onPress={() => Linking.openURL(requestsUrl)}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_contact_us,
+                      })}
+                    </Button>
+                    <Button
+                      flex={1}
+                      variant="primary"
+                      size="large"
+                      $gtMd={{ size: 'medium' } as IButtonProps}
+                      onPress={async () => {
+                        await packageAlertDialog.close();
+                        handleSetupNewWalletPress();
+                      }}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_continue,
+                      })}
+                    </Button>
+                  </XStack>
+                ),
               });
             }}
             borderWidth={StyleSheet.hairlineWidth}
@@ -467,10 +498,16 @@ function ConnectByUSBOrBLE({
     const isGranted = await checkBLEPermission();
     if (!isGranted) {
       Dialog.confirm({
-        title: 'Bluetooth permission needed',
-        description:
-          'To connect via Bluetooth, please enable access in Settings.',
-        onConfirmText: 'Go to Settings',
+        icon: 'BluetoothOutline',
+        title: intl.formatMessage({
+          id: ETranslations.onboarding_bluetooth_permission_needed,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.onboarding_bluetooth_permission_needed_help_text,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_go_to_settings,
+        }),
         onConfirm: openSettings,
         onClose: () => setIsChecking(false),
       });
@@ -480,9 +517,16 @@ function ConnectByUSBOrBLE({
     const checkState = await checkBLEState();
     if (!checkState) {
       Dialog.confirm({
-        title: 'Turn on Bluetooth Switch',
-        description: 'To connect via Bluetooth, please Turn on Bluetooth.',
-        onConfirmText: 'Go to Settings',
+        icon: 'BluetoothOutline',
+        title: intl.formatMessage({
+          id: ETranslations.onboarding_enable_bluetooth,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.onboarding_enable_bluetooth_help_text,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_go_to_settings,
+        }),
         onConfirm: () =>
           platformEnv.isNativeIOS
             ? Linking.openURL('App-Prefs:Bluetooth')
@@ -494,7 +538,7 @@ function ConnectByUSBOrBLE({
 
     setIsChecking(false);
     listingDevice();
-  }, [checkBLEPermission, checkBLEState, listingDevice]);
+  }, [checkBLEPermission, checkBLEState, intl, listingDevice]);
 
   useEffect(() => {
     if (!platformEnv.isNative) {
@@ -502,80 +546,79 @@ function ConnectByUSBOrBLE({
     }
   }, [listingDevice]);
 
-  switch (connectStatus) {
-    case EConnectionStatus.init:
-      return (
-        <>
-          {/* connecting animation */}
-          <Stack alignItems="center" bg="$bgSubdued">
-            <LottieView
-              width="100%"
-              height="$56"
-              source={
-                platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
-              }
-            />
-          </Stack>
+  return (
+    <>
+      <Stack alignItems="center" bg="$bgSubdued">
+        <LottieView
+          width="100%"
+          height="$56"
+          source={
+            platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
+          }
+        />
+      </Stack>
 
-          <YStack>
-            <SizableText>Keep the device nearby</SizableText>
-            <SizableText>
-              Ensure the device is powered on and within range, then press
-              "Connect device" below to start the connection
-            </SizableText>
-            <Button loading={isChecking} onPress={startBLEConnection}>
-              Start connection
-            </Button>
-          </YStack>
-        </>
-      );
-    case EConnectionStatus.listing:
-      return (
-        <>
-          {/* connecting animation */}
-          <Stack alignItems="center" bg="$bgSubdued">
-            <LottieView
-              width="100%"
-              height="$56"
-              source={
-                platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
-              }
-            />
-          </Stack>
+      {connectStatus === EConnectionStatus.init ? (
+        <YStack pt="$8">
+          <Heading size="$headingMd" textAlign="center">
+            {intl.formatMessage({
+              id: ETranslations.onboarding_bluetooth_prepare_to_connect,
+            })}
+          </Heading>
+          <SizableText
+            pt="$2"
+            pb="$5"
+            color="$textSubdued"
+            textAlign="center"
+            maxWidth="$80"
+            mx="auto"
+          >
+            {intl.formatMessage({
+              id: ETranslations.onboarding_bluetooth_prepare_to_connect_help_text,
+            })}
+          </SizableText>
+          <Button
+            mx="auto"
+            size="large"
+            variant="primary"
+            loading={isChecking}
+            onPress={startBLEConnection}
+          >
+            {intl.formatMessage({ id: ETranslations.global_start_connection })}
+          </Button>
+        </YStack>
+      ) : null}
 
-          {/* list devices */}
-          <ScrollView flex={1}>
-            <SizableText
-              textAlign="center"
-              color="$textSubdued"
-              pt="$2.5"
-              pb="$5"
+      {connectStatus === EConnectionStatus.listing ? (
+        <ScrollView flex={1}>
+          <SizableText
+            textAlign="center"
+            color="$textSubdued"
+            pt="$2.5"
+            pb="$5"
+          >
+            {platformEnv.isNative
+              ? 'Looking for devices...'
+              : 'Connect your device via USB'}
+          </SizableText>
+          {devicesData.map((item, index) => (
+            <DeviceListItem item={item} key={index} />
+          ))}
+          {platformEnv.isDev ? (
+            <Button
+              onPress={() => {
+                void fwUpdateActions.showForceUpdate({
+                  connectId: undefined,
+                });
+              }}
             >
-              {platformEnv.isNative
-                ? 'Please make sure your Bluetooth is enabled'
-                : 'Connect your device via USB'}
-            </SizableText>
-            {devicesData.map((item, index) => (
-              <DeviceListItem item={item} key={index} />
-            ))}
-            {platformEnv.isDev ? (
-              <Button
-                onPress={() => {
-                  void fwUpdateActions.showForceUpdate({
-                    connectId: undefined,
-                  });
-                }}
-              >
-                ForceUpdate
-              </Button>
-            ) : null}
-          </ScrollView>
-        </>
-      );
-
-    default:
-      return null;
-  }
+              ForceUpdate
+            </Button>
+          ) : null}
+        </ScrollView>
+      ) : null}
+    </>
+  );
 }
 enum EConnectDeviceTab {
   usbOrBle = 'usbOrBle',

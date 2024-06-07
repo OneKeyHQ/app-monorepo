@@ -5,7 +5,7 @@ import { Dialog as TMDialog } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { IconButton } from '../../actions/IconButton';
-import { Icon, SizableText, Stack } from '../../primitives';
+import { Heading, Icon, SizableText, Stack } from '../../primitives';
 
 import type { IDialogHeaderContextType, IDialogHeaderProps } from './type';
 import type { ColorTokens, ISizableTextProps } from '../../primitives';
@@ -56,8 +56,7 @@ export function DialogIcon({
     <Stack
       alignSelf="flex-start"
       p="$3"
-      ml="$5"
-      mt="$5"
+      mb="$5"
       borderRadius="$full"
       bg={colors.iconWrapperBg}
     >
@@ -69,9 +68,9 @@ export function DialogIcon({
 export function DialogTitle({ children, ...props }: ISizableTextProps) {
   return (
     <>
-      <SizableText m="$5" mb={0} mr="$16" size="$headingXl" py="$px" {...props}>
+      <Heading size="$headingXl" py="$px" {...props}>
         {children}
-      </SizableText>
+      </Heading>
       {
         /* fix missing title warnings in html dialog element on Web */
         platformEnv.isRuntimeBrowser ? (
@@ -83,7 +82,7 @@ export function DialogTitle({ children, ...props }: ISizableTextProps) {
 }
 
 export function DialogDescription(props: ISizableTextProps) {
-  return <SizableText m="$5" mr="$16" size="$bodyLg" mt="$1.5" {...props} />;
+  return <SizableText size="$bodyLg" mt="$1.5" {...props} />;
 }
 
 function BasicDialogHeader({ onClose }: { onClose: () => void }) {
@@ -98,7 +97,7 @@ function BasicDialogHeader({ onClose }: { onClose: () => void }) {
   } = headerProps;
 
   return (
-    <>
+    <Stack p="$5" pr="$16">
       {children || (
         <>
           {/* leading icon */}
@@ -130,7 +129,7 @@ function BasicDialogHeader({ onClose }: { onClose: () => void }) {
           onPress={onClose}
         />
       ) : null}
-    </>
+    </Stack>
   );
 }
 
