@@ -185,6 +185,7 @@ class ProviderApiCardano extends ProviderApiBase {
         encodedTx,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
+        signOnly: true,
       });
     return result;
   }
