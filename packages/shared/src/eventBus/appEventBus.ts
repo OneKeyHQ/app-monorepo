@@ -108,13 +108,10 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
-<<<<<<< HEAD
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
-=======
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
->>>>>>> origin/x
 }
 
 export enum EEventBusBroadcastMethodNames {
