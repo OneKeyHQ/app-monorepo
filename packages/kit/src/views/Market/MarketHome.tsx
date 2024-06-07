@@ -103,7 +103,7 @@ function MarketHome() {
           onSelectedPageIndex={(index: number) => {
             ref?.current?.setIsSelected?.(index === 0);
             appEventBus.emit(EAppEventBusNames.SwitchMarketHomeTab, {
-              tabIndex,
+              tabIndex: index,
             });
             console.log('选中', index, index === 0 ? 1 : 0);
           }}
