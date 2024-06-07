@@ -257,24 +257,33 @@ export const AddressBookListContent = ({
   const memoSections = useMemo(() => {
     let sections: ISectionItem[] = [];
     if (searchKey) {
-      const fuse = buildFuse(items, { keys: ['address', 'name'] });
-      const itemSearched = fuse.search(searchKey).map((o) => ({
+      const exactMatch = (match: IFuseResultMatch) => {
+        const result =
+          match.indices.length === 1 &&
+          match.value &&
+          match.indices[0][1] - match.indices[0][0] === match.value.length - 1;
+        return result;
+      };
+      const fuse = buildFuse(items, {
+        keys: ['address', 'name'],
+      });
+      let itemSearched = fuse.search(searchKey).map((o) => ({
         ...o.item,
         nameMatch: o.matches?.find((i) => i.key === 'name'),
-        // Require an exact match for address search.
-        addressMatch: o.matches?.find((i) => {
-          try {
-            return (
-              i.key === 'address' &&
-              i.indices.length === 1 &&
-              i.value &&
-              i.indices[0][1] - i.indices[0][0] === i.value.length - 1
-            );
-          } catch {
-            return false;
-          }
-        }),
+        addressMatch: o.matches?.find(
+          (i) => i.key === 'address' && exactMatch(i),
+        ),
       }));
+      // Require an exact match for address search.
+      itemSearched = itemSearched.filter((o) => {
+        if (!o.nameMatch && !o.addressMatch) {
+          return false;
+        }
+        if (!o.nameMatch && o.addressMatch) {
+          return exactMatch(o.addressMatch);
+        }
+        return true;
+      });
       sections = buildSections(itemSearched);
     } else {
       sections = buildSections(items);
