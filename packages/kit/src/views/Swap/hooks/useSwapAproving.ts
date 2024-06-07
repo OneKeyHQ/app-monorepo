@@ -48,6 +48,11 @@ export function useSwapApproving() {
       ESwapApproveTransactionStatus.SUCCESS
     ) {
       Toast.success({ title: 'Approve success' });
+    } else if (
+      swapApprovingTransactionAtom?.status ===
+      ESwapApproveTransactionStatus.DISCARD
+    ) {
+      Toast.error({ title: 'Approve discarded' });
     }
     return () => {
       cleanApprovingInterval();
