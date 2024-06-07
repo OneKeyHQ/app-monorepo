@@ -58,6 +58,11 @@ export function getNip19EncodedPubkey(pubkey: string) {
   return bech32.encode('npub', words, 1000);
 }
 
+export function getPrivateEncodedByNip19(privateKey: Buffer) {
+  const words = bech32.toWords(privateKey);
+  return bech32.encode('nsec', words, 1000);
+}
+
 export function encrypt(
   privateKey: string,
   pubkey: string,

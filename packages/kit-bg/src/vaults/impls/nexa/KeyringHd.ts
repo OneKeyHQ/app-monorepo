@@ -1,10 +1,13 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
@@ -27,6 +30,16 @@ export class KeyringHd extends KeyringHdBase {
     return this.basePrepareAccountsHdUtxo(params, {
       checkIsAccountUsed: () => Promise.resolve({ isUsed: true }),
     });
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    const result = await this.baseExportAccountSecretKeys(params);
+    if (result.privateKey) {
+      result.privateKey = hexUtils.stripHexPrefix(result.privateKey);
+    }
+    return result;
   }
 
   override async signTransaction(

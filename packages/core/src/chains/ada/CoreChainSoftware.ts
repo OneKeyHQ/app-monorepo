@@ -233,4 +233,15 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
     return { addresses };
   }
+
+  async getExportedCredentialHd({
+    password,
+    account,
+    hdCredential,
+  }: ICoreApiGetPrivateKeysMapHdQuery): Promise<string> {
+    const { path } = account;
+
+    const xprv = await generateExportedCredential(password, hdCredential, path);
+    return xprv
+  }
 }

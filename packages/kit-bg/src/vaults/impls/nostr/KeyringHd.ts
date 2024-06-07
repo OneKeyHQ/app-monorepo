@@ -1,4 +1,9 @@
+import {
+  getNip19EncodedPubkey,
+  getPrivateEncodedByNip19,
+} from '@onekeyhq/core/src/chains/nostr/sdkNostr';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { decrypt } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
@@ -6,6 +11,8 @@ import { KeyringHdBase } from '../../base/KeyringHdBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
@@ -20,6 +27,24 @@ export class KeyringHd extends KeyringHdBase {
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult> {
     return this.baseGetPrivateKeys(params);
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    const { password } = params;
+    const result: IExportAccountSecretKeysResult = {};
+
+    if (params.privateKey) {
+      const privateKeysMap = await this.getPrivateKeys({
+        password,
+      });
+      const [encryptedPrivateKey] = Object.values(privateKeysMap);
+      const privateKey = decrypt(password, encryptedPrivateKey);
+      const nostrPrivateKey = getPrivateEncodedByNip19(privateKey);
+      result.privateKey = nostrPrivateKey;
+    }
+    return result;
   }
 
   override async prepareAccounts(
