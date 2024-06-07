@@ -18,7 +18,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { appEventBus, EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -51,8 +53,24 @@ function useFirmwareVerifyBase({
     EFirmwareAuthenticationDialogContentType.default,
   );
   const dialogInstance = useDialogInstance();
+  useEffect(() => {
+    if (platformEnv.isNative) {
+      const callback = () => {
+        setContentType(EFirmwareAuthenticationDialogContentType.verifying);
+      };
+      appEventBus.on(
+        EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
+        callback,
+      );
+      return () => {
+        appEventBus.off(
+          EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
+          callback,
+        );
+      };
+    }
+  }, []);
   const verify = useCallback(async () => {
-    setContentType(EFirmwareAuthenticationDialogContentType.verifying);
     try {
       const authResult =
         await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
