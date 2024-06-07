@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { Linking, PermissionsAndroid, Platform, StyleSheet } from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
@@ -373,6 +373,12 @@ function ConnectByUSBOrBLE({
     }
 
     if (platformEnv.isNativeAndroid) {
+      if ((Platform.Version as number) < 31) {
+        const status = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        );
+        return status === RESULTS.GRANTED;
+      }
       const permissions = [
         PERMISSIONS.ANDROID.BLUETOOTH_CONNECT,
         PERMISSIONS.ANDROID.BLUETOOTH_SCAN,
