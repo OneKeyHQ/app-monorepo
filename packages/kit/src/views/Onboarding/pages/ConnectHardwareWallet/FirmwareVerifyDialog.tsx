@@ -57,21 +57,19 @@ function useFirmwareVerifyBase({
   );
   const dialogInstance = useDialogInstance();
   useEffect(() => {
-    if (platformEnv.isNative) {
-      const callback = () => {
-        setContentType(EFirmwareAuthenticationDialogContentType.verifying);
-      };
-      appEventBus.on(
+    const callback = () => {
+      setContentType(EFirmwareAuthenticationDialogContentType.verifying);
+    };
+    appEventBus.on(
+      EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
+      callback,
+    );
+    return () => {
+      appEventBus.off(
         EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
         callback,
       );
-      return () => {
-        appEventBus.off(
-          EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
-          callback,
-        );
-      };
-    }
+    };
   }, []);
   const verify = useCallback(async () => {
     try {
