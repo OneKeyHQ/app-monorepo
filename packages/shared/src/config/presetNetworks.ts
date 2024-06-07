@@ -2974,7 +2974,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
   const chainsOnlyEnabledInDev = [
     tatom, // Cosmos Testnet
     nexaTestnet,
-    tlightning,
   ];
 
   return [
@@ -3034,6 +3033,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
 
     aptos,
     lightning,
+    tlightning,
     cardano,
     ripple,
     nostr,
