@@ -292,7 +292,7 @@ class ServiceHardware extends ServiceBase {
     }
     if (platformEnv.isNative) {
       try {
-        const features = await this.getFeatures({ connectId });
+        const features = await this.getFeaturesWithoutCache({ connectId });
         return features;
       } catch (e: any) {
         const error: deviceErrors.OneKeyHardwareError | undefined =

@@ -37,6 +37,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
+import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -64,20 +65,23 @@ import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+import {
+  EOneKeyDeviceMode,
+  type IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import useScanQrCode from '../../../ScanQrCode/hooks/useScanQrCode';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
 
-import type { SearchDevice } from '@onekeyfe/hd-core';
+import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
 type IConnectYourDeviceItem = {
   title: string;
   src: ImageSourcePropType;
-  onPress: () => void | Promise<void>;
+  onPress: (params: any) => void | Promise<void>;
   opacity?: number;
   device: SearchDevice | undefined;
 };
@@ -217,117 +221,129 @@ function ConnectByUSBOrBLE({
     [actions, navigation],
   );
 
-  const handleSetupNewWalletPress = useCallback(() => {
-    navigation.push(EOnboardingPages.ActivateDevice, {
-      tutorialType: 'create',
-    });
-  }, [navigation]);
+  const handleSetupNewWalletPress = useCallback(
+    ({ deviceType }: { deviceType: IDeviceType }) => {
+      navigation.push(EOnboardingPages.ActivateDevice, {
+        tutorialType: 'create',
+        deviceType,
+      });
+    },
+    [navigation],
+  );
 
-  const handleRestoreWalletPress = useCallback(() => {
-    navigation.push(EOnboardingPages.ActivateDevice, {
-      tutorialType: 'restore',
-    });
-  }, [navigation]);
+  const handleRestoreWalletPress = useCallback(
+    ({ deviceType }: { deviceType: IDeviceType }) => {
+      navigation.push(EOnboardingPages.ActivateDevice, {
+        tutorialType: 'restore',
+        deviceType,
+      });
+    },
+    [navigation],
+  );
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
-  const handleNotActivatedDevicePress = useCallback(() => {
-    const dialog = Dialog.show({
-      icon: 'WalletCryptoOutline',
-      title: intl.formatMessage({
-        id: ETranslations.onboarding_activate_device,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.onboarding_activate_device_help_text,
-      }),
-      dismissOnOverlayPress: false,
-      renderContent: (
-        <Stack>
-          <ListItem
-            alignItems="flex-start"
-            icon="PlusCircleOutline"
-            title={intl.formatMessage({
-              id: ETranslations.onboarding_activate_device_by_set_up_new_wallet,
-            })}
-            subtitle={intl.formatMessage({
-              id: ETranslations.onboarding_activate_device_by_set_up_new_wallet_help_text,
-            })}
-            drillIn
-            onPress={async () => {
-              await dialog.close();
-              handleSetupNewWalletPress();
-            }}
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            m="$0"
-            py="$2.5"
-            bg="$bgSubdued"
-          />
-          <ListItem
-            alignItems="flex-start"
-            icon="ArrowBottomCircleOutline"
-            title={intl.formatMessage({
-              id: ETranslations.onboarding_activate_device_by_restore,
-            })}
-            subtitle={intl.formatMessage({
-              id: ETranslations.onboarding_activate_device_by_restore_help_text,
-            })}
-            drillIn
-            onPress={async () => {
-              await dialog.close();
-              const packageAlertDialog = Dialog.show({
-                tone: 'warning',
-                icon: 'PackageDeliveryOutline',
-                title: intl.formatMessage({
-                  id: ETranslations.onboarding_activate_device_by_restore_warning,
-                }),
-                dismissOnOverlayPress: false,
-                description: intl.formatMessage({
-                  id: ETranslations.onboarding_activate_device_by_restore_warning_help_text,
-                }),
-                showFooter: false,
-                renderContent: (
-                  <XStack space="$2.5">
-                    <Button
-                      flex={1}
-                      size="large"
-                      $gtMd={{ size: 'medium' } as IButtonProps}
-                      onPress={() => Linking.openURL(requestsUrl)}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.global_contact_us,
-                      })}
-                    </Button>
-                    <Button
-                      flex={1}
-                      variant="primary"
-                      size="large"
-                      $gtMd={{ size: 'medium' } as IButtonProps}
-                      onPress={async () => {
-                        await packageAlertDialog.close();
-                        handleRestoreWalletPress();
-                      }}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.global_continue,
-                      })}
-                    </Button>
-                  </XStack>
-                ),
-              });
-            }}
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            m="$0"
-            mt="$2.5"
-            py="$2.5"
-            bg="$bgSubdued"
-          />
-        </Stack>
-      ),
-      showFooter: false,
-    });
-  }, [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl]);
+  const handleNotActivatedDevicePress = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ({ deviceType }: { deviceType: IDeviceType }) => {
+      const dialog = Dialog.show({
+        icon: 'WalletCryptoOutline',
+        title: intl.formatMessage({
+          id: ETranslations.onboarding_activate_device,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.onboarding_activate_device_help_text,
+        }),
+        dismissOnOverlayPress: false,
+        renderContent: (
+          <Stack>
+            <ListItem
+              alignItems="flex-start"
+              icon="PlusCircleOutline"
+              title={intl.formatMessage({
+                id: ETranslations.onboarding_activate_device_by_set_up_new_wallet,
+              })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.onboarding_activate_device_by_set_up_new_wallet_help_text,
+              })}
+              drillIn
+              onPress={async () => {
+                await dialog.close();
+                handleSetupNewWalletPress({ deviceType });
+              }}
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              m="$0"
+              py="$2.5"
+              bg="$bgSubdued"
+            />
+            <ListItem
+              alignItems="flex-start"
+              icon="ArrowBottomCircleOutline"
+              title={intl.formatMessage({
+                id: ETranslations.onboarding_activate_device_by_restore,
+              })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.onboarding_activate_device_by_restore_help_text,
+              })}
+              drillIn
+              onPress={async () => {
+                await dialog.close();
+                const packageAlertDialog = Dialog.show({
+                  tone: 'warning',
+                  icon: 'PackageDeliveryOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.onboarding_activate_device_by_restore_warning,
+                  }),
+                  dismissOnOverlayPress: false,
+                  description: intl.formatMessage({
+                    id: ETranslations.onboarding_activate_device_by_restore_warning_help_text,
+                  }),
+                  showFooter: false,
+                  renderContent: (
+                    <XStack space="$2.5">
+                      <Button
+                        flex={1}
+                        size="large"
+                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        onPress={() => Linking.openURL(requestsUrl)}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_contact_us,
+                        })}
+                      </Button>
+                      <Button
+                        flex={1}
+                        variant="primary"
+                        size="large"
+                        $gtMd={{ size: 'medium' } as IButtonProps}
+                        onPress={async () => {
+                          await packageAlertDialog.close();
+                          handleRestoreWalletPress({ deviceType });
+                        }}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_continue,
+                        })}
+                      </Button>
+                    </XStack>
+                  ),
+                });
+              }}
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderSubdued"
+              m="$0"
+              mt="$2.5"
+              py="$2.5"
+              bg="$bgSubdued"
+            />
+          </Stack>
+        ),
+        showFooter: false,
+      });
+    },
+    [handleRestoreWalletPress, handleSetupNewWalletPress, intl, requestsUrl],
+  );
 
   const handleHwWalletCreateFlow = useCallback(
     async ({ device }: { device: SearchDevice }) => {
@@ -353,12 +369,35 @@ function ConnectByUSBOrBLE({
       const features = await backgroundApiProxy.serviceHardware.connect({
         device,
       });
+
       if (!features) {
         throw new Error('connect device failed, no features returned');
       }
 
       if (await deviceUtils.isBootloaderModeByFeatures({ features })) {
         handleBootloaderMode();
+        return;
+      }
+
+      let deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+        features,
+      });
+      if (deviceType === 'unknown') {
+        deviceType = device.deviceType || deviceType;
+      }
+
+      const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
+        features,
+      });
+      // const deviceMode = EOneKeyDeviceMode.notInitialized;
+      if (deviceMode === EOneKeyDeviceMode.backupMode) {
+        Toast.error({
+          title: 'Device is in backup mode',
+        });
+        return;
+      }
+      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+        handleNotActivatedDevicePress({ deviceType });
         return;
       }
 
@@ -382,7 +421,12 @@ function ConnectByUSBOrBLE({
 
       await createHwWallet({ device, features });
     },
-    [createHwWallet, fwUpdateActions, showFirmwareVerifyDialog],
+    [
+      createHwWallet,
+      fwUpdateActions,
+      handleNotActivatedDevicePress,
+      showFirmwareVerifyDialog,
+    ],
   );
 
   const checkBLEPermission = useCallback(async () => {
@@ -547,8 +591,7 @@ function ConnectByUSBOrBLE({
               onConfirmText: intl.formatMessage({
                 id: ETranslations.global_download_and_install,
               }),
-              onConfirm: () =>
-                Linking.openURL('https://onekey.so/download/?client=bridge'),
+              onConfirm: () => Linking.openURL(HARDWARE_BRIDGE_DOWNLOAD_URL),
             });
 
             deviceScanner.stopScan();

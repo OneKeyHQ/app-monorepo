@@ -1,4 +1,5 @@
 import type { IWalletConnectConnectToWalletParams } from '../walletConnect/types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export enum EOnboardingPages {
   GetStarted = 'GetStarted',
@@ -34,8 +35,8 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ConnectYourDevice]: undefined;
   [EOnboardingPages.OneKeyHardwareWallet]: undefined;
   [EOnboardingPages.ActivateDevice]: {
-    tutorialType?: 'create' | 'restore' | string;
-    deviceType?: 'mini' | 'classic' | 'touch' | 'pro' | string;
+    tutorialType: 'create' | 'restore';
+    deviceType: IDeviceType;
   };
 
   // create wallet
