@@ -38,6 +38,7 @@ function SegmentControlItem({
     <YStack
       py="$1"
       px="$2"
+      $gtMd={{ zIndex: 4 }}
       onPress={handleChange}
       borderRadius="$2"
       borderCurve="continuous"

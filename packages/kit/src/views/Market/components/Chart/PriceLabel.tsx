@@ -1,8 +1,9 @@
 import {
   NumberSizeableText,
   SizableText,
+  Stack,
   XStack,
-  YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IStackProps } from '@onekeyhq/components';
 
@@ -111,7 +112,11 @@ export function PriceLabel({
     // });
     displayInfo = (
       <>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          $md={{ size: '$bodySm', color: '$text' }}
+        >
           {time}
         </SizableText>
         {/* <SizableText size="$bodyMdMedium" color={gainTextColor}>
@@ -129,15 +134,20 @@ export function PriceLabel({
   // }
   // const { selectedFiatMoneySymbol } = useSettings();
   return (
-    <YStack opacity={opacity}>
+    <Stack
+      opacity={opacity}
+      flexDirection="column"
+      $md={{ flexDirection: 'row', pt: '$6' }}
+    >
       <XStack>{displayInfo}</XStack>
       <NumberSizeableText
         size="$bodyMdMedium"
         formatter="price"
         formatterOptions={{ currency: '$' }}
+        $md={{ size: '$bodySmMedium', ml: '$2' }}
       >
         {String(price)}
       </NumberSizeableText>
-    </YStack>
+    </Stack>
   );
 }

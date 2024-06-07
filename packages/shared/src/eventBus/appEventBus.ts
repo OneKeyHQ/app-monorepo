@@ -41,6 +41,7 @@ export enum EAppEventBusNames {
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
+  SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -107,7 +108,13 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+<<<<<<< HEAD
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
+=======
+  [EAppEventBusNames.SwitchMarketHomeTab]: {
+    tabIndex: number;
+  };
+>>>>>>> origin/x
 }
 
 export enum EEventBusBroadcastMethodNames {
