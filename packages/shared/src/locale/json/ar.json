@@ -1,13 +1,15 @@
 {
   "auth.confirm_password_form_label": "تأكيد كلمة المرور",
   "auth.confirm_password_form_placeholder": "أعد إدخال كلمة المرور الخاصة بك",
-  "auth.erro_password_to_long": "لا يمكن أن تتجاوز كلمة المرور {length} حرفًا",
+  "auth.enter_your_password": "ادخل رقمك السري",
+  "auth.erro_password_too_long": "لا يمكن أن تتجاوز كلمة المرور {length} حرفًا",
   "auth.error_password_empty": "الرجاء إدخال كلمة مرور",
   "auth.error_password_incorrect": "كلمة المرور غير صحيحة",
   "auth.error_password_not_match": "كلمات السر غير متطابقة",
   "auth.error_password_too_short": "يجب أن تكون الكلمة السرية على الأقل {length} حروف",
   "auth.new_password_form_label": "كلمة المرور الجديدة",
   "auth.new_password_form_placeholder": "أنشئ كلمة مرور قوية",
+  "auth.password_set": "تم تعيين كلمة المرور",
   "auth.set_password": "تعيين كلمة المرور",
   "auth.with_biometric": "المصادقة باستخدام {biometric}",
   "backup.address_book_labels": "دفتر العناوين والملصقات",
@@ -38,6 +40,7 @@
   "backup.off_device": "خارج الجهاز ( {number} )",
   "backup.on_device": "على الجهاز",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey لا يقوم بنسخ احتياطي لمحافظ الأجهزة، يرجى تسجيل وحماية عبارة الاستعادة الخاصة بك.",
+  "backup.only_accounts_with_addresses_will_be_backed_up": "سيتم الاحتفاظ بنسخة احتياطية من الحسابات ذات العناوين فقط.",
   "backup.please_log_in_to_your_apple_account_and_activate_icloud_drive": "يرجى تسجيل الدخول إلى حساب Apple الخاص بك وتفعيل ميزة iCloud Drive قبل المتابعة.",
   "backup.please_upgrade_app_to_import_data": "يرجى ترقية تطبيقك لاستيراد البيانات من إصدار أحدث.",
   "backup.securely_store_recent_backups": "سنقوم بتخزين 30 نسخة احتياطية يومية أخيرة بشكل آمن بالإضافة إلى آخر نسخة احتياطية شهرية لكل من الأشهر الـ24 الماضية، جاهزة للإستعادة في أي وقت.",
@@ -177,6 +180,7 @@
   "global.crypto": "العملات المشفرة",
   "global.current": "الحالي",
   "global.dark": "داكن",
+  "global.default": "الافتراضي",
   "global.delete": "يمسح",
   "global.deny": "ينكر",
   "global.dev_mode": "وضع التطوير",
@@ -187,7 +191,6 @@
   "global.edit": "تعديل",
   "global.enter_on_device": "أدخل على الجهاز",
   "global.enter_recovery_phrase": "أدخل عبارة الاستعادة",
-  "global.enter_your_password": "ادخل رقمك السري",
   "global.expand_view": "توسيع العرض",
   "global.export": "يصدّر",
   "global.face_id": "معرف الوجه",
@@ -211,6 +214,7 @@
   "global.learn_more": "تعرف أكثر",
   "global.light": "ضوء",
   "global.market": "السوق",
+  "global.market_cap": "القيمة السوقية",
   "global.more": "المزيد",
   "global.multi_chain_wallet": "محفظة متعددة السلاسل",
   "global.name": "الاسم",
@@ -247,6 +251,7 @@
   "global.scan_to_connect": "مسح للاتصال",
   "global.search": "بحث",
   "global.search_address": "بحث عن العنوان",
+  "global.search_tokens": "رموز البحث",
   "global.security": "حماية",
   "global.sell": "بيع",
   "global.send": "إرسال",
@@ -263,10 +268,12 @@
   "global.unknown": "مجهول",
   "global.unknown_error": "خطأ غير معروف",
   "global.unknown_error_retry_message": "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
+  "global.update_failed": "فشل التحديث",
   "global.upgrade": "يرقي",
   "global.url": "URL",
   "global.value": "القيمة",
   "global.verify": "تحقق",
+  "global.view": "عرض",
   "global.view_in_blockchain_explorer": "عرض في مستكشف البلوكشين",
   "global.view_tutorial": "عرض البرنامج التعليمي",
   "global.wallet": "محفظة",
@@ -309,6 +316,11 @@
   "hardware.set_onekey_lite_pin_desc": "قم بتعيين رقم تعريف شخصي مكون من 6 أرقام لـ OneKey Lite الخاص بك. ",
   "hardware.transferring_data": "جاري نقل البيانات...",
   "hardware.two_onekey_lite_not_same": "الاثنين OneKey Lite المستخدمين للاتصال ليسوا متشابهين.",
+  "market.last_seven_days": "السبعة أيام الأخيرة",
+  "market.one_hour_percentage": "1h%",
+  "market.seven_day_percentage": "7د%",
+  "market.twenty_four_hour_percentage": "24h%",
+  "market.twenty_four_hour_volume": "حجم 24 ساعة",
   "nft.already_collected": "تم جمع هذا الـ NFT بالفعل.",
   "nft.attributes": "السمات",
   "nft.collect_failed ": "فشل جمع NFT، يرجى المحاولة مرة أخرى.",
@@ -478,5 +490,23 @@
   "settings.unable_to_connect": "غير قادر على الاتصال",
   "settings.user_agreement": "اتفاقية المستخدم",
   "settings.whats_new": "ما الجديد",
-  "terms_privacy": "الاستخدام يعني الموافقة على <termsTag>الشروط</termsTag> و <privacyTag>الخصوصية</privacyTag> الخاصة بنا"
+  "terms_privacy": "الاستخدام يعني الموافقة على <termsTag>الشروط</termsTag> و <privacyTag>الخصوصية</privacyTag> الخاصة بنا",
+  "update.app_version_ready_for_update": "التطبيق {version} جاهز للتحديث",
+  "update.download_on_github": "تنزيل على Github",
+  "update.download_timed_out_check_connection": "تعذر التنزيل بسبب انقطاع الاتصال بالإنترنت، يرجى التحقق من اتصالك بالإنترنت.",
+  "update.downloading_package": "جاري تحميل الحزمة... {progress}",
+  "update.install_now": "قم بالتثبيت الآن",
+  "update.insufficient_disk_space_clear_retry": "مساحة القرص غير كافية، يرجى التنظيف وإعادة المحاولة.",
+  "update.manual_update": "تحديث يدوي",
+  "update.network_exception_check_connection": "استثناء في الشبكة، يرجى التحقق من اتصالك بالإنترنت.",
+  "update.network_instability_check_connection": "عدم استقرار في الشبكة، يرجى التحقق من اتصالك بالإنترنت.",
+  "update.new_app_version": "نسخة جديدة من التطبيق 🎉",
+  "update.package_name_mismatch": "اسم حزمة التثبيت غير متطابق",
+  "update.progress_downloading": "{progress} جاري التحميل...",
+  "update.restart_to_update": "أعد التشغيل للتحديث",
+  "update.server_not_responding_try_later": "الخادم لا يستجيب، يرجى المحاولة مرة أخرى لاحقا.",
+  "update.update_app_available": "التحديث المتاح للتطبيق إلى الإصدار {version}",
+  "update.update_history": "تاريخ التحديث",
+  "update.update_now": "قم بالتحديث الآن",
+  "update.whats_new_in_onekey_version": "ما الجديد في OneKey {version} 👋🏻"
 }
