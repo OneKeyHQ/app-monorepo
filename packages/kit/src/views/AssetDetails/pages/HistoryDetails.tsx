@@ -23,7 +23,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import {
@@ -48,7 +48,7 @@ import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
 
 function getTxStatusTextProps(status: EDecodedTxStatus): {
-  key: ILocaleIds;
+  key: ETranslations;
   color: ColorValue;
 } {
   if (status === EDecodedTxStatus.Pending) {

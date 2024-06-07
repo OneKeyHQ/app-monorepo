@@ -109,9 +109,26 @@ async function getDeviceModeFromFeatures({
   features: IOneKeyDeviceFeatures;
 }): Promise<EOneKeyDeviceMode> {
   // https://github.com/OneKeyHQ/hardware-js-sdk/blob/onekey/packages/core/src/device/Device.ts#L503
-  if (features?.bootloader_mode) return EOneKeyDeviceMode.bootloader;
-  if (!features?.initialized) return EOneKeyDeviceMode.initialize;
-  if (features?.no_backup) return EOneKeyDeviceMode.seedless;
+  // if (features?.bootloader_mode) return EOneKeyDeviceMode.bootloader;
+  // if (!features?.initialized) return EOneKeyDeviceMode.initialize;
+  // if (features?.no_backup) return EOneKeyDeviceMode.seedless;
+  // return EOneKeyDeviceMode.normal;
+
+  if (features?.bootloader_mode) {
+    // bootloader mode
+    return EOneKeyDeviceMode.bootloader;
+  }
+  if (!features?.initialized) {
+    // not initialized
+    return EOneKeyDeviceMode.notInitialized;
+  }
+
+  if (features?.no_backup) {
+    // backup mode
+    return EOneKeyDeviceMode.backupMode;
+  }
+
+  // normal mode
   return EOneKeyDeviceMode.normal;
 }
 
