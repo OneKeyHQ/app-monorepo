@@ -1,7 +1,7 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { IMarketWatchListData } from '@onekeyhq/shared/types/market';
 
-import { SimpleDbEntityBase } from './SimpleDbEntityBase';
+import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export class SimpleDbEntityMarketWatchList extends SimpleDbEntityBase<IMarketWatchListData> {
   entityName = 'marketWatchList';

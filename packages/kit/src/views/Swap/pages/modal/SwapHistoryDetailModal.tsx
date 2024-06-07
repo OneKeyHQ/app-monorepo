@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -253,14 +254,14 @@ const SwapHistoryDetailModal = () => {
               label="Swap duration"
               renderContent={durationTime}
             />
-            {txHistory.swapInfo.oneKeyFee ? (
+            {!isNil(txHistory.swapInfo.oneKeyFee) ? (
               <InfoItem
                 disabledCopy
                 label="Service Fee"
                 renderContent={`${txHistory.swapInfo.oneKeyFee} %`}
               />
             ) : null}
-            {txHistory.swapInfo.protocolFee ? (
+            {!isNil(txHistory.swapInfo.protocolFee) ? (
               <InfoItem
                 disabledCopy
                 label="Protocol Fee"

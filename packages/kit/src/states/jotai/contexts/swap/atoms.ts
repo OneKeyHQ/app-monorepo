@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import {
   ESwapProviderSort,
@@ -109,6 +110,8 @@ export const {
   use: useSwapSortedQuoteListAtom,
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
   const list = get(swapQuoteListAtom());
+  const fromTokenAmount = get(swapFromTokenAmountAtom());
+  const fromTokenAmountBN = new BigNumber(fromTokenAmount);
   const sortType = get(swapProviderSortAtom());
   let sortedList = [...list];
   const gasFeeSorted = list.slice().sort((a, b) => {
@@ -129,10 +132,20 @@ export const {
   const receivedSorted = list.slice().sort((a, b) => {
     const aVal = new BigNumber(a.toAmount || 0);
     const bVal = new BigNumber(b.toAmount || 0);
-    if (aVal.isZero() || aVal.isNaN()) {
+    if (
+      aVal.isZero() ||
+      aVal.isNaN() ||
+      fromTokenAmountBN.lt(new BigNumber(a.limit?.min || 0)) ||
+      fromTokenAmountBN.gt(new BigNumber(a.limit?.max || Infinity))
+    ) {
       return 1;
     }
-    if (bVal.isZero() || bVal.isNaN()) {
+    if (
+      bVal.isZero() ||
+      bVal.isNaN() ||
+      fromTokenAmountBN.lt(new BigNumber(b.limit?.min || 0)) ||
+      fromTokenAmountBN.gt(new BigNumber(b.limit?.max || Infinity))
+    ) {
       return -1;
     }
     return bVal.comparedTo(aVal);
@@ -231,17 +244,44 @@ export const {
 } = contextAtom<ISwapApproveTransaction | undefined>(undefined);
 
 // swap slippage
+
+export const {
+  atom: swapSlippagePercentageModeAtom,
+  use: useSwapSlippagePercentageModeAtom,
+} = contextAtom<ESwapSlippageSegmentKey>(ESwapSlippageSegmentKey.AUTO);
+
+export const {
+  atom: swapSlippagePercentageCustomValueAtom,
+  use: useSwapSlippagePercentageCustomValueAtom,
+} = contextAtom<number>(swapSlippageAutoValue);
+
 export const {
   atom: swapSlippagePercentageAtom,
   use: useSwapSlippagePercentageAtom,
-} = contextAtom<ISwapSlippageSegmentItem>({
-  key: ESwapSlippageSegmentKey.AUTO,
-  value: swapSlippageAutoValue,
+} = contextAtomComputed<ISwapSlippageSegmentItem>((get) => {
+  const mode = get(swapSlippagePercentageModeAtom());
+  const quoteResult = get(swapQuoteCurrentSelectAtom());
+  if (mode === ESwapSlippageSegmentKey.AUTO) {
+    if (isNil(quoteResult?.autoSuggestedSlippage)) {
+      return {
+        key: mode,
+        value: swapSlippageAutoValue,
+      };
+    }
+    return {
+      key: mode,
+      value: quoteResult.autoSuggestedSlippage,
+    };
+  }
+  return {
+    key: mode,
+    value: get(swapSlippagePercentageCustomValueAtom()),
+  };
 });
 
 export const {
-  atom: swapSlippagePopoverOpeningAtom,
-  use: useSwapSlippagePopoverOpeningAtom,
+  atom: swapSlippageDialogOpeningAtom,
+  use: useSwapSlippageDialogOpeningAtom,
 } = contextAtom<boolean>(false);
 
 // swap build_tx
