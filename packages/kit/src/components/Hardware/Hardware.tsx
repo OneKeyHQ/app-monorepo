@@ -21,30 +21,43 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export const CONFIRM_ON_DEVICES = {
+import { useThemeVariant } from '../../hooks/useThemeVariant';
+
+import type { IDeviceType } from '@onekeyfe/hd-core';
+
+export const CONFIRM_ON_DEVICES: Record<string, any> = {
   classic: require('@onekeyhq/kit/assets/animations/confirm-on-classic.json'),
   mini: require('@onekeyhq/kit/assets/animations/confirm-on-mini.json'),
-  proDark: require('@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'),
-  proLight: require('@onekeyhq/kit/assets/animations/confirm-on-pro-light.json'),
+  pro_dark: require('@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'),
+  pro_light: require('@onekeyhq/kit/assets/animations/confirm-on-pro-light.json'),
   touch: require('@onekeyhq/kit/assets/animations/confirm-on-touch.json'),
 };
 
 export interface IConfirmOnDeviceToastContentProps {
-  deviceType: keyof typeof CONFIRM_ON_DEVICES;
+  deviceType: IDeviceType;
 }
 export function ConfirmOnDeviceToastContent({
   deviceType,
 }: IConfirmOnDeviceToastContentProps) {
   const intl = useIntl();
+  const themeVariant = useThemeVariant();
+
+  const lottieSource = useMemo(() => {
+    let source = CONFIRM_ON_DEVICES[`${deviceType}_${themeVariant}`];
+    if (!source) {
+      source = CONFIRM_ON_DEVICES[deviceType];
+    }
+    if (!source) {
+      source = CONFIRM_ON_DEVICES.classic;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return source;
+  }, [deviceType, themeVariant]);
 
   return (
     <XStack alignItems="center">
       <Stack bg="$bgStrong" btlr="$2" bblr="$2">
-        <LottieView
-          width={72}
-          height={72}
-          source={CONFIRM_ON_DEVICES[deviceType]}
-        />
+        <LottieView width={72} height={72} source={lottieSource} />
       </Stack>
       <XStack flex={1} alignItems="center" px="$3" space="$5">
         <SizableText flex={1} size="$bodyLgMedium">

@@ -35,6 +35,7 @@ import {
   EnterPin,
   EnterPinOnDevice,
 } from '../../../components/Hardware/Hardware';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 function HardwareSingletonDialogCmp(
   props: any,
@@ -155,6 +156,7 @@ function HardwareUiStateContainerCmp() {
 
   const action = state?.action;
   const connectId = state?.connectId; // connectId maybe undefined usb-sdk
+  const deviceType = state?.payload?.deviceType || 'unknown';
 
   const dialogRef = useRef<IDialogInstance | undefined>();
   const toastRef = useRef<IToastShowResult | undefined>();
@@ -256,7 +258,7 @@ function HardwareUiStateContainerCmp() {
       if (shouldShowAction) {
         if (isToastAction) {
           toastRef.current = Toast.show({
-            children: <ConfirmOnDeviceToastContent deviceType="classic" />,
+            children: <ConfirmOnDeviceToastContent deviceType={deviceType} />,
             dismissOnOverlayPress: false,
             disableSwipeGesture: false,
             onClose: async (params) => {
@@ -295,6 +297,7 @@ function HardwareUiStateContainerCmp() {
   }, [
     HardwareSingletonDialogRender,
     connectId,
+    deviceType,
     isDialogAction,
     isToastAction,
     serviceHardware,
