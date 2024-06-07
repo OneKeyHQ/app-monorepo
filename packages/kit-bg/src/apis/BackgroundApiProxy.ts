@@ -48,6 +48,7 @@ import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
+import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 
@@ -122,6 +123,10 @@ class BackgroundApiProxy
   ) as ServiceDiscovery;
 
   serviceDemo = this._createProxyService('serviceDemo') as ServiceDemo;
+
+  serviceV4Migration = this._createProxyService(
+    'serviceV4Migration',
+  ) as ServiceV4Migration;
 
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
 

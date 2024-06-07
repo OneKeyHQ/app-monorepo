@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
   Anchor,
+  Dialog,
   Divider,
   Group,
   Heading,
@@ -13,8 +14,10 @@ import {
   LinearGradient,
   Page,
   SizableText,
+  Spinner,
   Stack,
   ThemeableStack,
+  Toast,
   View,
   XStack,
 } from '@onekeyhq/components';
@@ -33,6 +36,7 @@ type IActionsGroupItem = {
   iconName: IKeyOfIcons;
   label: string;
   primary?: boolean;
+  isLoading?: boolean;
 } & IXStackProps;
 
 type IActionsProp = {
@@ -86,6 +90,11 @@ function ActionsGroup({ items }: IActionsProp) {
             >
               {item.label}
             </SizableText>
+            {item?.isLoading ? (
+              <XStack ml="$2">
+                <Spinner />
+              </XStack>
+            ) : null}
           </XStack>
         </Group.Item>
       ))}
@@ -96,6 +105,9 @@ function ActionsGroup({ items }: IActionsProp) {
 export function GetStarted() {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const { serviceV4Migration } = backgroundApiProxy;
+
+  const [migrateLoading, setMigrateLoading] = useState(false);
 
   const handleCreateWalletPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
@@ -117,6 +129,29 @@ export function GetStarted() {
   const handleTrackAnyAddressPress = async () => {
     navigation.push(EOnboardingPages.ImportAddress);
   };
+
+  const handleMigrateFromV4 = useCallback(async () => {
+    try {
+      setMigrateLoading(true);
+
+      const shouldMigrate = await serviceV4Migration.checkShouldMigrateV4();
+      if (shouldMigrate) {
+        const { shouldBackup } = await serviceV4Migration.prepareMigration();
+        if (shouldBackup) {
+          Toast.message({ title: 'Show backup Modal......' });
+        }
+        await serviceV4Migration.startV4MigrationFlow();
+        Dialog.show({
+          showCancelButton: false,
+          onConfirmText: 'OK',
+          title: 'Migration Complete',
+          description: 'Your V4 data have been migrated successfully.',
+        });
+      }
+    } finally {
+      setMigrateLoading(false);
+    }
+  }, [serviceV4Migration]);
 
   const termsLink = useHelpLink({ path: 'articles/360002014776' });
   const privacyLink = useHelpLink({ path: 'articles/360002003315' });
@@ -294,6 +329,17 @@ export function GetStarted() {
               ]}
             />
           )}
+          <ActionsGroup
+            items={[
+              {
+                iconName: 'StorageOutline',
+                label: 'Migrate from V4',
+                onPress: handleMigrateFromV4,
+                testID: 'migrate-from-v4',
+                isLoading: migrateLoading,
+              },
+            ]}
+          />
         </Stack>
         <SizableText
           size="$bodySm"

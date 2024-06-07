@@ -58,22 +58,26 @@ export const ResourceSection = () => {
         icon="HelpSupportOutline"
         title="Help Center"
         url={helpCenterUrl}
+        drillIn
       />
       <UrlExternalListItem
         icon="EditOutline"
         title="Submit a Request"
         url={requestUrl}
+        drillIn
       />
       <RateAppItem />
       <UrlExternalListItem
         icon="PeopleOutline"
         title={intl.formatMessage({ id: 'form__user_agreement' })}
         url={userAgreementUrl}
+        drillIn
       />
       <UrlExternalListItem
         icon="FileTextOutline"
         title={intl.formatMessage({ id: 'terms__privacy_policy' })}
         url={privacyPolicyUrl}
+        drillIn
       />
       <StateLogsItem />
     </Section>

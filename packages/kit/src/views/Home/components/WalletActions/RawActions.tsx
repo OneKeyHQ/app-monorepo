@@ -1,3 +1,5 @@
+import { Children } from 'react';
+
 import type {
   IActionListProps,
   IButtonProps,
@@ -111,7 +113,7 @@ function RawActions({ children, ...rest }: IXStackProps) {
       }}
       {...rest}
     >
-      {children}
+      {Children.toArray(children)}
     </XStack>
   );
 }

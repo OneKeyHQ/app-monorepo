@@ -157,6 +157,7 @@ export function useFirmwareUpdateErrors({
   result: ICheckAllFirmwareReleaseResult | undefined;
   lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
 }) {
+  console.error('useFirmwareUpdateErrors', error);
   const defaultRetryText = 'Retry';
   return useMemo<{
     content: React.ReactNode;

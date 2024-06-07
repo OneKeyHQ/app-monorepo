@@ -34,6 +34,7 @@ export enum EAppEventBusNames {
   ShowToast = 'ShowToast',
   ShowQrcode = 'ShowQrcode',
   RealmInit = 'RealmInit',
+  V4RealmInit = 'V4RealmInit',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
@@ -96,6 +97,7 @@ export interface IAppEventBusPayload {
     valueUr?: IAirGapUrJson;
   };
   [EAppEventBusNames.RealmInit]: undefined;
+  [EAppEventBusNames.V4RealmInit]: undefined;
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
     connectId: string | undefined;

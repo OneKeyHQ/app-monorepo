@@ -5,6 +5,7 @@ import {
   forwardRef,
   useCallback,
   useContext,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -71,6 +72,7 @@ function DialogFrame({
   onConfirm,
   onConfirmText = 'Confirm',
   onCancel,
+  onOpen,
   onCancelText = 'Cancel',
   tone,
   confirmButtonProps,
@@ -101,6 +103,10 @@ function DialogFrame({
     },
     [onClose],
   );
+
+  useEffect(() => {
+    onOpen?.();
+  }, [onOpen]);
 
   const handleBackPress = useCallback(() => {
     if (!open) {

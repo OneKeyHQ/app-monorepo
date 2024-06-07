@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, Page, YStack } from '@onekeyhq/components';
+import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -17,27 +17,6 @@ import {
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-
-const AddressBookHashButton = () => {
-  const onPress = useCallback(async () => {
-    Dialog.show({
-      title: 'Tamper Address Book',
-      description:
-        'This is a feature specific to development environments. Function used to simulate address data being tampered with',
-      confirmButtonProps: {
-        variant: 'destructive',
-      },
-      onConfirm: () => {
-        void backgroundApiProxy.serviceAddressBook.__dangerTamperVerifyHashForTest();
-      },
-    });
-  }, []);
-  return (
-    <Button onPress={onPress} testID="temper-address-book">
-      Tamper Address Book
-    </Button>
-  );
-};
 
 const TabMe = () => {
   const intl = useIntl();
@@ -73,7 +52,6 @@ const TabMe = () => {
           <Button onPress={onPress} testID="me-settings">
             {intl.formatMessage({ id: 'title__settings' })}
           </Button>
-          <AddressBookHashButton />
           {platformEnv.isExtensionUiPopup ? (
             <Button onPress={onExpand}>
               {intl.formatMessage({ id: 'action__expand' })}
