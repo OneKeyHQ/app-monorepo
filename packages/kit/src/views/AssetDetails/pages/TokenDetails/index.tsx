@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -409,21 +410,25 @@ export function TokenDetails() {
                   </XStack>
                   {/* Actions */}
                   <RawActions>
-                    <ActionBuy
-                      networkId={networkId}
-                      accountId={accountId}
-                      tokenAddress={tokenInfo.address}
-                    />
+                    <ReviewControl>
+                      <ActionBuy
+                        networkId={networkId}
+                        accountId={accountId}
+                        tokenAddress={tokenInfo.address}
+                      />
+                    </ReviewControl>
+
                     <RawActions.Swap onPress={handleOnSwap} />
 
                     <RawActions.Send onPress={handleSendPress} />
                     <RawActions.Receive onPress={handleReceivePress} />
-
-                    <ActionSell
-                      networkId={networkId}
-                      accountId={accountId}
-                      tokenAddress={tokenInfo.address}
-                    />
+                    <ReviewControl>
+                      <ActionSell
+                        networkId={networkId}
+                        accountId={accountId}
+                        tokenAddress={tokenInfo.address}
+                      />
+                    </ReviewControl>
                   </RawActions>
                 </Stack>
 
