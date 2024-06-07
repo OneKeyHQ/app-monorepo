@@ -31,6 +31,7 @@ declare global {
   var $backgroundApi: IBackgroundApi; // not available for ext ui
   var $jotaiBgSync: JotaiBgSync;
 
+  var $$Toast: any;
   var $$navigationShortcuts: any;
   var $$jotaiContextStore: any;
   var $$jotaiContextStorePrint: any;

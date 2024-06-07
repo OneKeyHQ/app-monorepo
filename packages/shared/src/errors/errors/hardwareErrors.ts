@@ -129,17 +129,6 @@ export class UnknownMethod extends OneKeyHardwareError {
   override code = HardwareErrorCode.RuntimeError;
 }
 
-export class ConnectTimeout extends OneKeyHardwareError {
-  constructor(props?: IOneKeyErrorHardwareProps) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'ConnectTimeout',
-        defaultKey: 'msg__hardware_connect_timeout_error',
-      }),
-    );
-  }
-}
-
 export class NeedOneKeyBridge extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
@@ -229,6 +218,7 @@ export class BridgeTimeoutErrorForDesktop extends OneKeyHardwareError {
 }
 
 export class ConnectTimeoutError extends OneKeyHardwareError {
+  // defaultKey: 'msg__hardware_connect_timeout_error',
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {

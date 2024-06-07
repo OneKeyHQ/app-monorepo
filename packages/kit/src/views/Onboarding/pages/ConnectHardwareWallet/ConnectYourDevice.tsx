@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Linking, PermissionsAndroid, Platform, StyleSheet } from 'react-native';
+import {
+  Linking,
+  PermissionsAndroid,
+  Platform,
+  StyleSheet,
+} from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
@@ -34,10 +39,15 @@ import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contex
 import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
 import {
   BleLocationServiceError,
+  BridgeTimeoutError,
+  BridgeTimeoutErrorForDesktop,
+  ConnectTimeoutError,
+  DeviceMethodCallTimeout,
   InitIframeLoadFail,
   InitIframeTimeout,
   NeedBluetoothPermissions,
   NeedBluetoothTurnedOn,
+  NeedOneKeyBridge,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -472,10 +482,59 @@ function ConnectByUSBOrBLE({
             error instanceof InitIframeTimeout
           ) {
             Toast.error({
-              title: error.message || 'DeviceScanError',
+              title: 'Network error',
+              // error.message i18n should set InitIframeLoadFail.defaultKey, InitIframeTimeout.defaultKey
+              message: error.message || 'DeviceScanError',
+              // message: "Check your connection and retry",
             });
             deviceScanner.stopScan();
           }
+
+          if (
+            error instanceof BridgeTimeoutError ||
+            error instanceof BridgeTimeoutErrorForDesktop
+          ) {
+            Toast.error({
+              title: 'Connection failed',
+              // error.message i18n should set BridgeTimeoutError.defaultKey...
+              message: error.message || 'DeviceScanError',
+              // message: "Please reconnect the USB and try again", // USB only
+            });
+            deviceScanner.stopScan();
+          }
+
+          if (
+            error instanceof ConnectTimeoutError ||
+            error instanceof DeviceMethodCallTimeout
+          ) {
+            Toast.error({
+              title: 'Connection failed',
+              // error.message i18n should set ConnectTimeoutError.defaultKey...
+              message: error.message || 'DeviceScanError',
+              // message: "Please reconnect device and try again", // USB or BLE
+            });
+            deviceScanner.stopScan();
+          }
+
+          if (error instanceof NeedOneKeyBridge) {
+            Toast.error({
+              title: 'Install OneKey Bridge',
+              // error.message i18n should set NeedOneKeyBridge.defaultKey...
+              message: error.message || 'DeviceScanError',
+              // message: "OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.",
+            });
+
+            // TODO Dialog.confirm throw error cause white screen
+            // Dialog.confirm({
+            //   icon: 'BluetoothOutline',
+            //   title: 'Install OneKey Bridge',
+            //   // error.message i18n should set NeedOneKeyBridge.defaultKey...
+            //   description: error.message || 'DeviceScanError',
+            //   // description: "OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.",
+            // });
+            deviceScanner.stopScan();
+          }
+
           setIsSearching(false);
           return;
         }
