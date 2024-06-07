@@ -5,7 +5,7 @@
 // @ts-expect-error
 import { bech32, mnemonicToRootKeypair, toPublic } from 'cardano-crypto.js';
 
-import { mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
+import { decrypt, mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
 
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
@@ -100,19 +100,14 @@ export function encodePrivateKey(privateKey: Buffer) {
 }
 
 export function generateXprvFromPrivateKey(privateKey: Buffer) {
-  // const { rootKey, index } = encodePrivateKey(privateKey);
-  // const xprv = bech32.encode(
-  //   'xprv',
-  //   Buffer.concat([
-  //     rootKey.slice(0, 64),
-  //     rootKey.slice(96, 128),
-  //     Buffer.from(index, 'utf8'),
-  //   ]),
-  // ) as string;
-
+  const { rootKey, index } = encodePrivateKey(privateKey);
   const xprv = bech32.encode(
     'xprv',
-    Buffer.concat([privateKey.slice(0, 64), privateKey.slice(96)]),
+    Buffer.concat([
+      rootKey.slice(0, 64),
+      rootKey.slice(96, 128),
+      Buffer.from(index, 'utf8'),
+    ]),
   ) as string;
 
   return xprv;
