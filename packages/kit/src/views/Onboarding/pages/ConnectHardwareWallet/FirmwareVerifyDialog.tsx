@@ -18,7 +18,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
-import { appEventBus, EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -383,7 +386,7 @@ export function EnumBasicDialogContentContainer({
             <Dialog.Header>
               <Dialog.Icon tone="warning" icon="ErrorOutline" />
               <Dialog.Title>
-                {intl.formatMessage({ id: ETranslations.global_unknown_error })}{' '}
+                {intl.formatMessage({ id: ETranslations.global_unknown_error })}
                 (code {errorCode})
               </Dialog.Title>
               <Dialog.Description>
