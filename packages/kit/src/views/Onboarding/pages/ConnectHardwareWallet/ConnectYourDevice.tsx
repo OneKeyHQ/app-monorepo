@@ -52,6 +52,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
@@ -483,6 +484,9 @@ function ConnectByUSBOrBLE({
   }, []);
 
   const checkBLEState = useCallback(async () => {
+    // hack missing getBleManager.
+    await uiDeviceUtils.getBleManager();
+    await timerUtils.wait(100);
     const bleManager = await uiDeviceUtils.getBleManager();
     const checkState = await bleManager?.checkState();
     return checkState === 'on';
