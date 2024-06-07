@@ -680,11 +680,13 @@ function ConnectByUSBOrBLE({
     listingDevice();
   }, [checkBLEPermission, checkBLEState, intl, listingDevice]);
 
-  useEffect(() => {
-    if (!platformEnv.isNative) {
+  const handleCheckConnection = useCallback(() => {
+    if (platformEnv.isNative) {
+      void startBLEConnection();
+    } else {
       listingDevice();
     }
-  }, [listingDevice]);
+  }, [listingDevice, startBLEConnection]);
 
   return (
     <>
@@ -722,7 +724,7 @@ function ConnectByUSBOrBLE({
             size="large"
             variant="primary"
             loading={isChecking}
-            onPress={startBLEConnection}
+            onPress={handleCheckConnection}
           >
             {intl.formatMessage({ id: ETranslations.global_start_connection })}
           </Button>
