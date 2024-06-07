@@ -76,7 +76,7 @@ function HeaderBackButton({
   return (
     <HeaderButtonGroup mr="$4">
       {renderCollapseButton()}
-      {!disableClose ? renderBackButton() : null}
+      {!disableClose && !renderLeft ? renderBackButton() : null}
       {renderLeft
         ? renderLeft({
             canGoBack,

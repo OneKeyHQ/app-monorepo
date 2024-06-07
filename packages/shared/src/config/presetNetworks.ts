@@ -2971,6 +2971,45 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     'updatedAt': '2024-05-24T00:29:24.951Z',
   };
 
+  const polygonZkevm = {
+    'balance2FeeDecimals': 9,
+    'chainId': '1101',
+    'code': 'polygonzkevm',
+    'decimals': 18,
+    'id': 'evm--1101',
+    'impl': 'evm',
+    'isTestnet': false,
+    'logoURI': 'https://uni.onekey-asset.com/static/chain/polygon.png',
+    'name': 'Polygon Zkevm',
+    'shortcode': 'polygonzkevm',
+    'shortname': 'polygonzkevm',
+    'symbol': 'ETH',
+    'feeMeta': {
+      'code': 'polygonzkevm',
+      'decimals': 9,
+      'symbol': 'Gwei',
+    },
+    'defaultEnabled': true,
+    'priceConfigs': [
+      {
+        'channel': 'coingecko',
+        'native': 'ethereum',
+        'platform': 'arbitrum-one',
+      },
+    ],
+    'explorers': [
+      {
+        'address': 'https://zkevm.polygonscan.com/address/{address}',
+        'block': 'https://zkevm.polygonscan.com/block/{block}',
+        'name': 'https://zkevm.polygonscan.com/',
+        'transaction': 'https://zkevm.polygonscan.com/tx/{transaction}',
+      },
+    ],
+    'status': ENetworkStatus.LISTED,
+    'createdAt': '2024-06-07T00:29:24.951Z',
+    'updatedAt': '2024-06-07T00:29:24.951Z',
+  };
+
   const chainsOnlyEnabledInDev = [
     tatom, // Cosmos Testnet
     nexaTestnet,
@@ -3015,6 +3054,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     mantapacific,
     blast,
     octa,
+    polygonZkevm,
     // cosmos
     celestia,
     secret,

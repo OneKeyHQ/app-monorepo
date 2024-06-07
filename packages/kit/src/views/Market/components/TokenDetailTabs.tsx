@@ -68,23 +68,20 @@ function BasicTokenDetailTabs({
 
   const { result: pools } = usePromiseResult(
     () =>
-      token?.symbol
-        ? backgroundApiProxy.serviceMarket.fetchPools(token?.symbol)
+      token?.detailPlatforms
+        ? backgroundApiProxy.serviceMarket.fetchPools(token.detailPlatforms)
         : Promise.resolve(undefined),
-    [token?.symbol],
+    [token?.detailPlatforms],
   );
 
   const renderPoolSkeleton = useMemo(
     () =>
       md ? (
-        <YStack>
-          {listHeaderComponent}
-          <YStack space="$10" px="$5" pt="$11">
-            <MdSkeletonRow />
-            <MdSkeletonRow />
-            <MdSkeletonRow />
-            <MdSkeletonRow />
-          </YStack>
+        <YStack space="$10" px="$5" pt="$11">
+          <MdSkeletonRow />
+          <MdSkeletonRow />
+          <MdSkeletonRow />
+          <MdSkeletonRow />
         </YStack>
       ) : (
         <YStack space="$6" px="$5" pt="$11">
@@ -94,57 +91,61 @@ function BasicTokenDetailTabs({
           <SkeletonRow />
         </YStack>
       ),
-    [listHeaderComponent, md],
+    [md],
   );
 
   const tabConfig = useMemo(
     () =>
-      [
-        pools?.length && token
-          ? {
-              title: 'Pools',
+      pools
+        ? [
+            pools.length && token
+              ? {
+                  title: 'Pools',
+                  // eslint-disable-next-line react/no-unstable-nested-components
+                  page: (props: ITabPageProps) => (
+                    <MarketDetailPools {...props} pools={pools} />
+                  ),
+                }
+              : undefined,
+            md && token
+              ? {
+                  title: 'Overview',
+                  // eslint-disable-next-line react/no-unstable-nested-components
+                  page: (props: ITabPageProps) => (
+                    <Stack px="$5">
+                      <MarketDetailOverview {...props} token={token} />
+                    </Stack>
+                  ),
+                }
+              : undefined,
+            token && {
+              title: 'Links',
               // eslint-disable-next-line react/no-unstable-nested-components
               page: (props: ITabPageProps) => (
-                <MarketDetailPools {...props} pools={pools} />
+                <MarketDetailLinks {...props} token={token} />
               ),
-            }
-          : undefined,
-        md && token
-          ? {
-              title: 'Overview',
-              // eslint-disable-next-line react/no-unstable-nested-components
-              page: (props: ITabPageProps) => (
-                <Stack px="$5">
-                  <MarketDetailOverview {...props} token={token} />
-                </Stack>
-              ),
-            }
-          : undefined,
-        token && {
-          title: 'Links',
-          // eslint-disable-next-line react/no-unstable-nested-components
-          page: (props: ITabPageProps) => (
-            <MarketDetailLinks {...props} token={token} />
-          ),
-        },
-      ].filter(Boolean),
+            },
+          ].filter(Boolean)
+        : [],
     [md, pools, token],
   );
-  return pools ? (
+  return (
     <Tab
-      $gtMd={{ mt: '$8', mx: '$5' }}
-      mt="$5"
+      $gtMd={{ px: '$5' }}
+      $md={{ mt: '$5' }}
       data={tabConfig}
-      ListHeaderComponent={<Stack mb="$5">{listHeaderComponent}</Stack>}
+      ListHeaderComponent={
+        <Stack mb="$5">
+          {listHeaderComponent}
+          {pools ? null : (
+            <YStack $gtMd={{ px: '$5' }}>{renderPoolSkeleton}</YStack>
+          )}
+        </Stack>
+      }
       onSelectedPageIndex={(index: number) => {
         console.log('选中', index);
       }}
     />
-  ) : (
-    <>
-      {md ? null : listHeaderComponent}
-      {renderPoolSkeleton}
-    </>
   );
 }
 

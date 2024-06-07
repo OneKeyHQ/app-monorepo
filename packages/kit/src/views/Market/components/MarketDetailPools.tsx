@@ -1,8 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { groupBy } from 'lodash';
-
 import type { ISizableTextProps, ITabPageProps } from '@onekeyhq/components';
 import {
   Dialog,
@@ -17,7 +15,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
+import type { IMarketResponsePool } from '@onekeyhq/shared/types/market';
 
 import { listItemPressStyle } from '../../../components/ListItem';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
@@ -101,7 +99,7 @@ function HeaderRow({
     order: 'asc' | 'desc' | undefined;
   }) => void;
 }) {
-  const { gtMd } = useMedia();
+  const { gtMd, gtXl } = useMedia();
   const useSortFunc = !!(sortType || onSortTypeChange);
   const handleColumnPress = useCallback(
     (key: string) => {
@@ -151,7 +149,7 @@ function HeaderRow({
           Price
         </HeaderColumn>
       ) : null}
-      {gtMd ? (
+      {gtXl ? (
         <HeaderColumn
           name="txTotal"
           jc="flex-end"
@@ -180,7 +178,9 @@ function HeaderRow({
       >
         Liquidity
       </HeaderColumn>
-      <Stack h="$4" w={platformEnv.isNative ? '$4' : '$7'} />
+      <View flex={1}>
+        <View w="$4" h="$4" />
+      </View>
     </XStack>
   );
 }
@@ -195,7 +195,7 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack space="$2" px="$5">
+    <XStack space="$2" px="$5" py="$2">
       {options.map((networkId, index) => (
         <Stack
           key={networkId}
@@ -216,16 +216,16 @@ export function MarketDetailPools({
   pools,
   // eslint-disable-next-line react/prop-types
   onContentSizeChange,
-}: ITabPageProps & { pools: IMarketDetailPool[] }) {
-  const { gtMd } = useMedia();
-  const partitions = useMemo(() => groupBy(pools, 'onekeyNetworkId'), [pools]);
-  const onekeyNetworkIds = useMemo(() => Object.keys(partitions), [partitions]);
-  const [index, selectIndex] = useState(0);
-  const listData = useMemo(
-    () => partitions[onekeyNetworkIds[index]],
-    [index, onekeyNetworkIds, partitions],
+}: ITabPageProps & { pools: IMarketResponsePool[] }) {
+  const { gtMd, gtXl } = useMedia();
+  const oneKeyNetworkIds = useMemo(
+    () =>
+      pools.map((i) => i.onekeyNetworkId).filter((i) => Boolean(i)) as string[],
+    [pools],
   );
-  const formatListData = listData.map((i) => ({
+  const [index, selectIndex] = useState(0);
+  const listData = useMemo(() => pools[index], [index, pools]);
+  const formatListData = listData.data.map((i) => ({
     ...i,
     dexDataName: i.relationships.dex.data.id
       .split('_')
@@ -256,7 +256,7 @@ export function MarketDetailPools({
       ListHeaderComponent={
         <YStack pb="$2" pt="$5">
           <NetworkIdSelect
-            options={onekeyNetworkIds}
+            options={oneKeyNetworkIds}
             value={index}
             onChange={handleChange}
           />
@@ -282,6 +282,7 @@ export function MarketDetailPools({
             <XStack
               px="$5"
               py="$2"
+              borderRadius="$3"
               {...listItemPressStyle}
               onPress={() => {
                 Dialog.confirm({
@@ -320,7 +321,7 @@ export function MarketDetailPools({
                   </NumberSizeableText>
                 </ItemColumn>
               ) : null}
-              {gtMd ? (
+              {gtXl ? (
                 <ItemColumn>
                   <NumberSizeableText
                     size="$bodyMd"
@@ -349,8 +350,8 @@ export function MarketDetailPools({
                   {reserveInUsd}
                 </NumberSizeableText>
               </ItemColumn>
-              <View jc="center">
-                <Icon name="ChevronRightSmallOutline" size="$4" pl="$3" />
+              <View jc="center" ai="center" flex={1}>
+                <Icon name="ChevronRightSmallOutline" size="$4" />
               </View>
             </XStack>
           );

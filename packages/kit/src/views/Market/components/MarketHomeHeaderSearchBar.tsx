@@ -19,7 +19,7 @@ export function MarketHomeHeaderSearchBar() {
   return (
     <XStack $gtMd={{ minWidth: 280 }}>
       <SearchBar
-        placeholder="Search symbol, contract address"
+        placeholder="Search tokens"
         containerProps={{ w: '100%' }}
         $gtMd={{ size: 'small' }}
         key="MarketHomeSearchInput"

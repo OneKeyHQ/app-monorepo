@@ -5,6 +5,7 @@ import {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
+  IMarketDetailPlatform,
   IMarketDetailPool,
   IMarketToken,
   IMarketTokenChart,
@@ -60,10 +61,14 @@ class ServiceMarket extends ServiceBase {
       category: string;
       sparkline: boolean;
       ids?: string;
+      sparklinePoints?: number;
     } = {
       category,
       sparkline,
     };
+    if (requestParams.sparkline) {
+      requestParams.sparklinePoints = 100;
+    }
     if (coingeckoIds.length) {
       requestParams.ids = encodeURI(coingeckoIds.join(','));
     }
@@ -97,18 +102,28 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchPools(query: string) {
+  async fetchPools(detailPlatforms: IMarketDetailPlatform) {
+    const keys = Object.keys(detailPlatforms);
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     try {
-      const response = await client.get<{
-        data: IMarketDetailPool[];
-      }>('/utility/v1/market/pools', {
-        params: {
-          query,
-        },
-      });
-      const { data } = response.data;
-      return data;
+      const poolsData = await Promise.all(
+        keys.map((key) =>
+          client.get<{
+            data: IMarketDetailPool[];
+          }>('/utility/v1/market/pools', {
+            params: {
+              query: detailPlatforms[key].contract_address,
+              network: detailPlatforms[key].coingeckoNetworkId,
+            },
+          }),
+        ),
+      );
+      return keys
+        .map((key, index) => ({
+          ...detailPlatforms[key],
+          data: poolsData[index].data.data,
+        }))
+        .filter((i) => i.data.length);
     } catch {
       return [];
     }

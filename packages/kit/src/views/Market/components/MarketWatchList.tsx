@@ -4,12 +4,14 @@ import {
   Button,
   Icon,
   Image,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import { useMarketWatchListAtom } from '../../../states/jotai/contexts/market';
@@ -38,8 +40,8 @@ function RecommendItem({
       flexGrow={1}
       flexBasis={0}
       justifyContent="space-between"
-      px="$4"
-      py="$3.5"
+      px={platformEnv.isExtensionUiPopup ? '$3' : '$4'}
+      py={platformEnv.isExtensionUiPopup ? '$1.5' : '$3.5'}
       bg="$bgSubdued"
       borderColor="$borderSubdued"
       borderWidth="$px"
@@ -111,60 +113,96 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   }, [actions, coingeckoIds]);
 
   const { gtMd } = useMedia();
+  const confirmButton = useMemo(
+    () => (
+      <Button
+        width="100%"
+        size="large"
+        disabled={!coingeckoIds.length}
+        variant="primary"
+        onPress={handleAddTokens}
+      >
+        {coingeckoIds.length
+          ? `Add ${coingeckoIds.length} tokens`
+          : 'Add tokens'}
+      </Button>
+    ),
+    [coingeckoIds.length, handleAddTokens],
+  );
+  const listCategory = useMemo(
+    () =>
+      ({
+        categoryId: 'all',
+        coingeckoIds: watchListCoingeckoIds?.map(
+          ({ coingeckoId }) => coingeckoId,
+        ),
+      } as IMarketCategory),
+    [watchListCoingeckoIds],
+  );
   const renderRecommend = useCallback(() => {
     if (category?.recommendedTokens) {
       return (
-        <YStack flex={1} ai="center" jc="center" px="$5" py="$8">
-          <SizableText size="$heading3xl">Your watchlist is empty</SizableText>
-          <SizableText size="$bodyLgMedium" pt="$2">
-            Add your favorite tokens to watchlist
-          </SizableText>
-          <YStack
-            pt="$8"
-            space="$2.5"
-            flexWrap="wrap"
-            width="100%"
-            $gtMd={{ maxWidth: 480 }}
+        <>
+          <ScrollView
+            contentContainerStyle={{ ai: 'center' }}
+            px="$5"
+            py={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
           >
-            {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
-              <XStack space="$2.5" key={i}>
-                {new Array(2).fill(0).map((__, j) => {
-                  const item = category.recommendedTokens?.[i * 2 + j];
-                  return item ? (
-                    <RecommendItem
-                      key={item.coingeckoId}
-                      coingeckoId={item.coingeckoId}
-                      checked={coingeckoIds.includes(item.coingeckoId)}
-                      icon={item.iconUrl}
-                      symbol={item.symbol}
-                      tokenName={item.name}
-                      onChange={handleRecommendItemChange}
-                    />
-                  ) : null;
-                })}
-              </XStack>
-            ))}
-            <Button
-              mt="$8"
-              width="100%"
-              size="large"
-              disabled={!coingeckoIds.length}
-              variant="primary"
-              onPress={handleAddTokens}
+            <SizableText
+              size={
+                platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'
+              }
             >
-              {coingeckoIds.length
-                ? `Add ${coingeckoIds.length} tokens`
-                : 'Add tokens'}
-            </Button>
-          </YStack>
-        </YStack>
+              Your watchlist is empty
+            </SizableText>
+            <SizableText
+              size={
+                platformEnv.isExtensionUiPopup
+                  ? '$bodyMdMedium'
+                  : '$bodyLgMedium'
+              }
+              pt="$2"
+            >
+              Add your favorite tokens to watchlist
+            </SizableText>
+            <YStack
+              pt={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
+              space="$2.5"
+              flexWrap="wrap"
+              width="100%"
+              $gtMd={{ maxWidth: 480 }}
+            >
+              {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
+                <XStack space="$2.5" key={i}>
+                  {new Array(2).fill(0).map((__, j) => {
+                    const item = category.recommendedTokens?.[i * 2 + j];
+                    return item ? (
+                      <RecommendItem
+                        key={item.coingeckoId}
+                        coingeckoId={item.coingeckoId}
+                        checked={coingeckoIds.includes(item.coingeckoId)}
+                        icon={item.iconUrl}
+                        symbol={item.symbol}
+                        tokenName={item.name}
+                        onChange={handleRecommendItemChange}
+                      />
+                    ) : null;
+                  })}
+                </XStack>
+              ))}
+              {gtMd ? <YStack mt="$8">{confirmButton}</YStack> : null}
+            </YStack>
+          </ScrollView>
+          {gtMd ? null : <YStack p="$5">{confirmButton}</YStack>}
+        </>
       );
     }
     return null;
   }, [
     category.recommendedTokens,
     coingeckoIds,
-    handleAddTokens,
+    confirmButton,
+    gtMd,
     handleRecommendItemChange,
   ]);
   if (loading) {
@@ -173,16 +211,6 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   return watchListCoingeckoIds?.length === 0 ? (
     renderRecommend()
   ) : (
-    <MarketHomeList
-      showMoreAction={gtMd}
-      category={
-        {
-          categoryId: 'all',
-          coingeckoIds: watchListCoingeckoIds?.map(
-            ({ coingeckoId }) => coingeckoId,
-          ),
-        } as IMarketCategory
-      }
-    />
+    <MarketHomeList showMoreAction category={listCategory} />
   );
 }

@@ -39,6 +39,7 @@ function SegmentControlItem({
       py="$1"
       px="$2"
       flex={1}
+      $gtMd={{ zIndex: 4 }}
       onPress={handleChange}
       borderRadius="$2"
       userSelect="none"
