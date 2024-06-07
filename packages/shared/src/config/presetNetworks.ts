@@ -3001,8 +3001,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
         'address': 'https://zkevm.polygonscan.com/address/{address}',
         'block': 'https://zkevm.polygonscan.com/block/{block}',
         'name': 'https://zkevm.polygonscan.com/',
-        'transaction':
-          'https://polygon-zkevm.drpc.org/transaction/{transaction}',
+        'transaction': 'https://zkevm.polygonscan.com/tx/{transaction}',
       },
     ],
     'status': ENetworkStatus.LISTED,
