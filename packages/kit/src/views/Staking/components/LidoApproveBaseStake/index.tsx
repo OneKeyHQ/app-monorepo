@@ -110,13 +110,15 @@ export const LidoApproveBaseStake = ({
     return false;
   }, [minAmount, amountValue]);
 
-  const isDisable = useMemo(
-    () =>
-      BigNumber(amountValue).isNaN() ||
+  const isDisable = useMemo(() => {
+    const amountValueBN = BigNumber(amountValue);
+    return (
+      amountValueBN.isNaN() ||
+      amountValueBN.lte(0) ||
       isInsufficientBalance ||
-      isLessThanMinAmount,
-    [amountValue, isInsufficientBalance, isLessThanMinAmount],
-  );
+      isLessThanMinAmount
+    );
+  }, [amountValue, isInsufficientBalance, isLessThanMinAmount]);
 
   const isApprove = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
