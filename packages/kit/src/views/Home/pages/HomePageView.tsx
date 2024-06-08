@@ -5,6 +5,7 @@ import { Animated, Easing } from 'react-native';
 
 import { Empty, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -91,14 +92,14 @@ export function HomePageView({
       [
         {
           title: intl.formatMessage({
-            id: 'asset__tokens',
+            id: ETranslations.global_crypto,
           }),
           page: memo(TokenListContainerWithProvider, () => true),
         },
         isNFTEnabled
           ? {
               title: intl.formatMessage({
-                id: 'asset__collectibles',
+                id: ETranslations.global_nft,
               }),
               page: memo(NFTListContainerWithProvider, () => true),
             }
@@ -109,7 +110,7 @@ export function HomePageView({
         // },
         {
           title: intl.formatMessage({
-            id: 'transaction__history',
+            id: ETranslations.global_history,
           }),
           page: memo(TxHistoryListContainerWithProvider, () => true),
         },

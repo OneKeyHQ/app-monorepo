@@ -3,7 +3,7 @@
 import { Web3RpcError } from '@onekeyfe/cross-inpage-provider-errors';
 import { isObject, isString } from 'lodash';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 
@@ -29,7 +29,7 @@ export class OneKeyError<
   className?: EOneKeyErrorClassNames;
 
   // i18n key
-  readonly key?: ILocaleIds = 'onekey_error' as ILocaleIds;
+  readonly key?: ETranslations = 'onekey_error' as ETranslations;
 
   // i18n params
   readonly info?: I18nInfoT;

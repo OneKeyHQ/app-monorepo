@@ -7,6 +7,7 @@ import {
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import {
@@ -59,7 +60,7 @@ function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
               color="$textSubdued"
               size="$headingSm"
             >
-              Tokens
+              {intl.formatMessage({ id: ETranslations.global_asset })}
             </SizableText>
             <SizableText
               flexGrow={1}
@@ -67,7 +68,7 @@ function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
               color="$textSubdued"
               size="$headingSm"
             >
-              {intl.formatMessage({ id: 'form__balance' })}
+              {intl.formatMessage({ id: ETranslations.global_balance })}
             </SizableText>
           </XStack>
           <Stack w="$8" />
@@ -78,7 +79,7 @@ function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
               color="$textSubdued"
               size="$headingSm"
             >
-              {intl.formatMessage({ id: 'content__price' })}
+              {intl.formatMessage({ id: ETranslations.global_price })}
             </SizableText>
             <SizableText
               flexGrow={1}
@@ -87,7 +88,7 @@ function TokenListHeader({ tableLayout, tokens, filteredTokens }: IProps) {
               color="$textSubdued"
               size="$headingSm"
             >
-              {intl.formatMessage({ id: 'form__value' })}
+              {intl.formatMessage({ id: ETranslations.global_value })}
             </SizableText>
           </XStack>
         </XStack>
