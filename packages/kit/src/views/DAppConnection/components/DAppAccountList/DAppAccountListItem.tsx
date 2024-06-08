@@ -22,6 +22,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -47,6 +48,21 @@ function DAppAccountListInitFromHome({ num }: { num: number }) {
   return null;
 }
 
+const getLoadingDuration = ({
+  skeletonRenderDuration,
+  shouldSyncFromHome,
+}: {
+  skeletonRenderDuration?: number;
+  shouldSyncFromHome?: boolean;
+}) => {
+  if (skeletonRenderDuration) {
+    return skeletonRenderDuration;
+  }
+  const syncFromHomeDuration = platformEnv.isNative ? 1200 : 1000;
+  const normalLoadingDuration = platformEnv.isNative ? 800 : 500;
+  return shouldSyncFromHome ? syncFromHomeDuration : normalLoadingDuration;
+};
+
 function DAppAccountListItem({
   num,
   handleAccountChanged,
@@ -55,6 +71,7 @@ function DAppAccountListItem({
   compressionUiMode,
   initFromHome,
   beforeShowTrigger,
+  skeletonRenderDuration,
 }: {
   num: number;
   handleAccountChanged?: IHandleAccountChanged;
@@ -63,6 +80,7 @@ function DAppAccountListItem({
   compressionUiMode?: boolean;
   initFromHome?: boolean;
   beforeShowTrigger?: () => Promise<void>;
+  skeletonRenderDuration?: number;
 }) {
   useHandleDiscoveryAccountChanged({
     num,
@@ -70,7 +88,10 @@ function DAppAccountListItem({
   });
 
   const shouldSyncFromHome = initFromHome && !readonly;
-  const loadingDuration = shouldSyncFromHome ? 800 : 500;
+  const loadingDuration = getLoadingDuration({
+    skeletonRenderDuration,
+    shouldSyncFromHome,
+  });
   return (
     <>
       <XGroup
