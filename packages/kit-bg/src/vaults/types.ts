@@ -1,6 +1,7 @@
 import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
 import type {
   EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
   ICoreApiGetAddressItem,
   ICoreApiPrivateKeysMap,
   ICoreImportedCredentialEncryptHex,
@@ -29,6 +30,11 @@ import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import type { SignClientTypes } from '@walletconnect/types';
+import type { MessageDescriptor } from 'react-intl';
+import type { IBackgroundApi } from '../apis/IBackgroundApi';
+import type { EDBAccountType } from '../dbs/local/consts';
+import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type {
   IAccountDeriveInfoMapBtc,
   IAccountDeriveTypesBtc,
@@ -38,11 +44,6 @@ import type {
   IAccountDeriveInfoMapEvm,
   IAccountDeriveTypesEvm,
 } from './impls/evm/settings';
-import type { IBackgroundApi } from '../apis/IBackgroundApi';
-import type { EDBAccountType } from '../dbs/local/consts';
-import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
-import type { SignClientTypes } from '@walletconnect/types';
-import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
@@ -164,6 +165,12 @@ export type IVaultOptions = IVaultFactoryOptions & {
 };
 
 // PrepareAccounts ----------------------------------------------
+export type IGetDefaultPrivateKeyParams = {
+  password: string;
+};
+export type IGetDefaultPrivateKeyResult = {
+  privateKeyRaw: string; // encrypted privateKey hex of default full path
+};
 export type IGetPrivateKeysParams = {
   password: string;
   relPaths?: string[] | undefined;
@@ -234,19 +241,10 @@ export type IPrepareAccountByAddressIndexParams = {
 
 export type IExportAccountSecretKeysParams = {
   password: string;
-  publicKey?: boolean;
-  privateKey?: boolean;
-  xpub?: boolean;
-  xprvt?: boolean;
+  keyType: ECoreApiExportedSecretKeyType;
 };
 
-export type IExportAccountSecretKeysResult = {
-  publicKey?: string;
-  privateKey?: string;
-  xpub?: string;
-  xprvt?: string;
-};
-
+export type IExportAccountSecretKeysResult = string;
 // GetAddress ----------------------------------------------
 export type IHardwareGetAddressParams = {
   path: string;

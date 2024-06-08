@@ -11,6 +11,7 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import type { IAirGapMultiAccounts } from '@onekeyhq/qr-wallet-sdk';
 import {
   EAirGapURType,
@@ -542,9 +543,11 @@ class ServiceAccount extends ServiceBase {
   async exportAccountSecretKeys({
     accountId,
     networkId,
+    keyType,
   }: {
     accountId: string;
     networkId: string;
+    keyType: ECoreApiExportedSecretKeyType;
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const { password } =
@@ -554,10 +557,7 @@ class ServiceAccount extends ServiceBase {
       });
     return vault.keyring.exportAccountSecretKeys({
       password,
-      publicKey: true,
-      privateKey: true,
-      xprvt: true,
-      xpub: true,
+      keyType,
     });
   }
 

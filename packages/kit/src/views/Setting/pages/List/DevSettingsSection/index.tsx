@@ -4,10 +4,15 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, ESwitchSize, Switch, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  isWebInDappMode,
+  switchWebDappMode,
+} from '@onekeyhq/shared/src/utils/devModeUtils';
 
 import { Section } from '../Section';
 
@@ -167,6 +172,19 @@ export const DevSettingsSection = () => {
             title={`Desktop arch: ${window?.desktopApi?.arch || ''}`}
           />
         </>
+      ) : null}
+      {platformEnv.isWeb ? (
+        <ListItem
+          drillIn
+          onPress={() => {
+            switchWebDappMode();
+            window.location.reload();
+          }}
+          title={`Switch web mode: ${
+            isWebInDappMode() ? 'dapp' : 'wallet'
+          } mode`}
+          titleProps={{ color: '$textCritical' }}
+        />
       ) : null}
       <AddressBookDevSetting />
     </Section>

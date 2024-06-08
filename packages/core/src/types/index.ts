@@ -75,7 +75,25 @@ export type ICoreApiGetAddressItem = {
 export type ICoreApiGetAddressesResult = {
   addresses: ICoreApiGetAddressItem[];
 };
-
+export enum ECoreApiExportedSecretKeyType {
+  publicKey = 'publicKey',
+  privateKey = 'privateKey',
+  xpub = 'xpub',
+  xprvt = 'xprvt',
+}
+export enum ECoreApiPrivateKeySource {
+  hd = 'hd',
+  imported = 'imported',
+}
+export type ICoreApiGetExportedSecretKey = {
+  password: string;
+  keyType: ECoreApiExportedSecretKeyType;
+  privateKeyRaw: string;
+  privateKeySource?: ECoreApiPrivateKeySource;
+  networkInfo?: ICoreApiNetworkInfo;
+  xpub?: string;
+  addressEncoding?: EAddressEncodings;
+};
 // ----------------------------------------------
 export type ICoreApiPrivateKeysMap = {
   // path type

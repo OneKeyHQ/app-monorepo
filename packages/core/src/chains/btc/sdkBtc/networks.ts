@@ -197,9 +197,10 @@ export function getBtcForkNetwork(
     throw new Error('getBtcForkNetwork ERROR: chainCode is undefined');
   }
   const network = extendedNetworks[chainCode];
-  network.networkChainCode = chainCode;
-  if (typeof network === 'undefined') {
+  if (typeof network === 'undefined' || !network) {
     throw new Error(`Network not found. chainCode: ${chainCode}`);
   }
+
+  network.networkChainCode = chainCode;
   return network;
 }

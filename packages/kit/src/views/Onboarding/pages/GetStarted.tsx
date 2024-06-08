@@ -156,7 +156,7 @@ export function GetStarted() {
   const termsLink = useHelpLink({ path: 'articles/360002014776' });
   const privacyLink = useHelpLink({ path: 'articles/360002003315' });
 
-  const isDappMode = platformEnv.isWeb;
+  const isDappMode = platformEnv.isWebDappMode;
 
   const renderAnchor = useCallback(
     (link: string, chunks: string[]) =>
@@ -230,6 +230,8 @@ export function GetStarted() {
               }}
             />
             <Stack zIndex={1}>
+              {/* Welcome to OneKey
+              Simple, secure crypto management */}
               <Heading size="$heading4xl" textAlign="center">
                 {intl.formatMessage({
                   id: ETranslations.onboarding_welcome_message,
