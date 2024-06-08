@@ -27,7 +27,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
     if (payload.credentials.hd) {
-      payload.account.relPaths = payload.account.relPaths || [
+      payload.relPaths = payload?.relPaths || [
         // NEXA use single address mode of utxo,
         //    so we should set first address relPaths
         firstAddressRelPath,

@@ -1,13 +1,10 @@
 import { checkBtcAddressIsUsed } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import {
-  ECoreApiPrivateKeySource,
-  type ISignedTxPro,
-} from '@onekeyhq/core/src/types';
+import { type ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
-import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
+import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IExportAccountSecretKeysParams,
   IExportAccountSecretKeysResult,
@@ -30,84 +27,7 @@ export class KeyringHd extends KeyringHdBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const { password, keyType } = params;
-    const account = await this.vault.getAccount();
-    const xpub = (account as IDBUtxoAccount)?.xpub;
-    const networkInfo = await this.getCoreApiNetworkInfo();
-
-    const { privateKeyRaw } = await this.getDefaultPrivateKey({
-      password,
-    });
-
-    const { deriveInfo } =
-      await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
-        networkId: this.networkId,
-        template: account.template,
-      });
-    const addressEncoding = deriveInfo?.addressEncoding;
-    if (!addressEncoding) {
-      throw new Error('addressEncoding not found');
-    }
-
-    return this.coreApi.getExportedSecretKey({
-      password,
-      keyType,
-      privateKeyRaw,
-      privateKeySource: ECoreApiPrivateKeySource.hd,
-      networkInfo,
-      xpub,
-      addressEncoding,
-    });
-
-    // const result: IExportAccountSecretKeysResult = {};
-    // if (params.xprvt) {
-    //   const { deriveInfo } =
-    //     await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
-    //       networkId: this.networkId,
-    //       template: account.template,
-    //     });
-    //   const addressEncoding = deriveInfo?.addressEncoding;
-    //   if (!addressEncoding) {
-    //     throw new Error('addressEncoding not found');
-    //   }
-    //   const networkVersionBytesMap = {
-    //     ...network.segwitVersionBytes,
-    //     [EAddressEncodings.P2PKH]: network.bip32,
-    //   };
-    //   const bip32Info = networkVersionBytesMap[addressEncoding];
-    //   if (!bip32Info) {
-    //     throw new Error('Unsupported address encoding');
-    //   }
-
-    //   const xprvVersionBytes = bip32Info.private;
-    //   if (!xprvVersionBytes) {
-    //     throw new Error('xprvVersionBytes not found');
-    //   }
-
-    //   const privateKeysMap = await this.getPrivateKeys({
-    //     password,
-    //     // relPaths: ['0/0'],
-    //   });
-    //   const [encryptedPrivateKey] = Object.values(privateKeysMap);
-    //   result.xprvt = bs58check.encode(
-    //     Buffer.from(bs58check.decode((account as IDBUtxoAccount).xpub))
-    //       .fill(
-    //         Buffer.from(xprvVersionBytes.toString(16).padStart(8, '0'), 'hex'),
-    //         0,
-    //         4,
-    //       )
-    //       .fill(
-    //         Buffer.concat([
-    //           Buffer.from([0]),
-    //           decrypt(password, encryptedPrivateKey),
-    //         ]),
-    //         45,
-    //         78,
-    //       ),
-    //   );
-    // }
-
-    // return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(

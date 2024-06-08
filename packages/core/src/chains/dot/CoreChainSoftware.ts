@@ -53,10 +53,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }: {
     payload: ICoreApiSignBasePayload;
   }): Promise<ICoreApiPrivateKeysMap> {
-    const { credentials, account, password } = payload;
+    const { credentials, account, password,relPaths } = payload;
     let privateKeys: ICoreApiPrivateKeysMap = {};
     if (credentials.hd) {
-      const { relPaths } = account;
       const pathComponents = account.path.split('/');
       const usedRelativePaths = relPaths || [pathComponents.pop() as string];
       const basePath = pathComponents.join('/');

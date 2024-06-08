@@ -22,7 +22,7 @@ import { RawActions } from './RawActions';
 
 export function WalletActionMore() {
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -78,42 +78,45 @@ export function WalletActionMore() {
   }
 
   if (process.env.NODE_ENV !== 'production') {
+    const exportAccountSecretKeys = async ({
+      keyType,
+    }: {
+      keyType: ECoreApiExportedSecretKeyType;
+    }) => {
+      console.log('ExportSecretKeys >>>> ', keyType);
+      const r = await backgroundApiProxy.serviceAccount.exportAccountSecretKeys(
+        {
+          accountId: account?.id || '',
+          networkId: network?.id || '',
+          keyType,
+        },
+      );
+      console.log('ExportSecretKeys >>>> ', r);
+      console.log(
+        'ExportSecretKeys >>>> ',
+        wallet?.type,
+        keyType,
+        account?.address,
+      );
+    };
     sections.unshift({
       items: [
         {
           label: 'Export Private Key',
           icon: 'MinusLargeOutline',
           onPress: () => {
-            void (async () => {
-              const r =
-                await backgroundApiProxy.serviceAccount.exportAccountSecretKeys(
-                  {
-                    accountId: account?.id || '',
-                    networkId: network?.id || '',
-                    keyType: ECoreApiExportedSecretKeyType.privateKey,
-                  },
-                );
-
-              console.log(r);
-            })();
+            void exportAccountSecretKeys({
+              keyType: ECoreApiExportedSecretKeyType.privateKey,
+            });
           },
         },
         {
           label: 'Export xprvt',
           icon: 'MinusLargeOutline',
           onPress: () => {
-            void (async () => {
-              const r =
-                await backgroundApiProxy.serviceAccount.exportAccountSecretKeys(
-                  {
-                    accountId: account?.id || '',
-                    networkId: network?.id || '',
-                    keyType: ECoreApiExportedSecretKeyType.xprvt,
-                  },
-                );
-
-              console.log(r);
-            })();
+            void exportAccountSecretKeys({
+              keyType: ECoreApiExportedSecretKeyType.xprvt,
+            });
           },
         },
       ],

@@ -17,20 +17,22 @@ import {
 import { EAdaNetworkId } from './types';
 
 import type { ISigner } from '../../base/ChainSigner';
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesResult,
-  ICoreApiGetPrivateKeysMapHdQuery,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignAccount,
-  ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
-  ICoreApiSignTxPayload,
-  ICurveName,
-  ISignedTxPro,
-  IUnsignedMessageAda,
+import {
+  ECoreApiExportedSecretKeyType,
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressesQueryHd,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiGetPrivateKeysMapHdQuery,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignAccount,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignMsgPayload,
+  type ICoreApiSignTxPayload,
+  type ICurveName,
+  type ISignedTxPro,
+  type IUnsignedMessageAda,
 } from '../../types';
 import type { IAdaBaseAddressInfo, IAdaStakingAddressInfo } from './sdkAda';
 import type { IAdaUTXO, IEncodedTxAda } from './types';
@@ -242,6 +244,29 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { path } = account;
 
     const xprv = await generateExportedCredential(password, hdCredential, path);
-    return xprv
+    return xprv;
+  }
+
+  override async getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    console.log('getExportedSecretKey evm');
+    const {
+      // networkInfo,
+      privateKeyRaw,
+      // privateKeySource,
+      password,
+      keyType,
+      // xpub,
+      // addressEncoding,
+    } = query;
+
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.xprvt) {
+      return await generateExportedCredential(password, hdCredential, path);
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
   }
 }

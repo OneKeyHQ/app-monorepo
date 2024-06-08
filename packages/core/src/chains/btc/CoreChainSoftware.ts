@@ -32,7 +32,6 @@ import {
 import {
   EAddressEncodings,
   ECoreApiExportedSecretKeyType,
-  ECoreApiPrivateKeySource,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImportedBtc,
   type ICoreApiGetAddressQueryPublicKey,
@@ -118,30 +117,34 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getExportedSecretKey(
     query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
-    console.log('getExportedSecretKey btc');
     const {
-      networkInfo,
-      privateKeyRaw,
-      privateKeySource,
-      password,
+      account,
       keyType,
-      xpub,
       addressEncoding,
+
+      networkInfo,
+      password,
+      credentials,
     } = query;
+    console.log(
+      'ExportSecretKeys >>>> btc',
+      this.baseGetCredentialsType({ credentials }),
+    );
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
       throw new Error('privateKeyRaw is required');
     }
 
     if (keyType === ECoreApiExportedSecretKeyType.xprvt) {
-      if (privateKeySource === ECoreApiPrivateKeySource.hd) {
+      if (credentials.hd) {
         if (!addressEncoding) {
           throw new Error('addressEncoding is required');
         }
-        if (!xpub) {
+        if (!account.xpub) {
           throw new Error('xpub is required');
         }
-        const network = getBtcForkNetwork(networkInfo.networkChainCode);
+        const network = getBtcForkNetwork(networkInfo?.networkChainCode);
         const networkVersionBytesMap = {
           ...network.segwitVersionBytes,
           [EAddressEncodings.P2PKH]: network.bip32,
@@ -155,7 +158,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           throw new Error('xprvVersionBytes not found');
         }
         return bs58check.encode(
-          Buffer.from(bs58check.decode(xpub))
+          Buffer.from(bs58check.decode(account.xpub))
             .fill(
               Buffer.from(
                 xprvVersionBytes.toString(16).padStart(8, '0'),
@@ -174,7 +177,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
             ),
         );
       }
-      if (privateKeySource === ECoreApiPrivateKeySource.imported) {
+      if (credentials.imported) {
         return bs58check.encode(decrypt(password, privateKeyRaw));
       }
     }
@@ -652,14 +655,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    const { password, account } = payload;
+    const { password, relPaths } = payload;
     const isImported = !!payload.credentials.imported;
     const privateKeys = await this.baseGetPrivateKeys({
       payload,
       curve: curveName,
     });
     if (isImported) {
-      const { relPaths } = account;
       this.appendImportedRelPathPrivateKeys({
         privateKeys,
         password,
@@ -833,12 +835,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const {
       unsignedTx,
       networkInfo: { networkChainCode },
-      account,
+      relPaths,
     } = payload;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
     const { psbtHex, inputsToSign } = encodedTx;
 
-    if (!account.relPaths?.length) {
+    if (!relPaths?.length) {
       throw new Error('BTC sign transaction need relPaths');
     }
 
@@ -908,9 +910,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const {
       account,
       networkInfo: { networkChainCode },
+      relPaths,
     } = payload;
 
-    if (!account.relPaths?.length) {
+    if (!relPaths?.length) {
       throw new Error('BTC sign message need relPaths');
     }
 

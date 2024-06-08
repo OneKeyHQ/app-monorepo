@@ -85,13 +85,8 @@ export enum ECoreApiPrivateKeySource {
   hd = 'hd',
   imported = 'imported',
 }
-export type ICoreApiGetExportedSecretKey = {
-  password: string;
+export type ICoreApiGetExportedSecretKey = ICoreApiSignBasePayload & {
   keyType: ECoreApiExportedSecretKeyType;
-  privateKeyRaw: string;
-  privateKeySource?: ECoreApiPrivateKeySource;
-  networkInfo?: ICoreApiNetworkInfo;
-  xpub?: string;
   addressEncoding?: EAddressEncodings;
 };
 // ----------------------------------------------
@@ -107,15 +102,18 @@ export type ICoreApiSignAccount = {
   path: string;
   pub?: string;
   pubKey?: string; // TODO rename to pub?
+  xpub?: string;
   template?: string;
-  relPaths?: string[]; // used for get privateKey of other utxo address
 };
 export type ICoreApiSignBasePayload = {
   networkInfo: ICoreApiNetworkInfo;
-  password: string;
-  account: ICoreApiSignAccount;
-  credentials: ICoreCredentialsInfo;
   btcExtraInfo?: ICoreApiSignBtcExtraInfo;
+
+  password: string;
+  credentials: ICoreCredentialsInfo;
+
+  account: ICoreApiSignAccount;
+  relPaths?: string[]; // used for get privateKey of other utxo address
 };
 export type ICoreApiSignBtcExtraInfo = {
   inputAddressesEncodings?: Array<EAddressEncodings | undefined>;
@@ -156,6 +154,10 @@ export type ICoreHdCredential = {
 };
 export type ICoreHdCredentialEncryptHex = string;
 
+export enum ECoreCredentialType {
+  hd = 'hd',
+  imported = 'imported',
+}
 export type ICoreCredentialsInfo = {
   hd?: ICoreHdCredentialEncryptHex;
   imported?: ICoreImportedCredentialEncryptHex;
