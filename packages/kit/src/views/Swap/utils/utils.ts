@@ -56,6 +56,13 @@ export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
     };
   }
 
+  if (status === ESwapTxHistoryStatus.DISCARD) {
+    return {
+      key: 'action__discard',
+      color: '$textCritical',
+    };
+  }
+
   return {
     key: 'transaction__failed',
     color: '$textCritical',
