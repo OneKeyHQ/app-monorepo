@@ -1,5 +1,5 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { type ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -26,7 +26,17 @@ export class KeyringHd extends KeyringHdBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    return this.baseExportAccountSecretKeys(params);
+    const { password, keyType } = params;
+
+    const { privateKeyRaw } = await this.getDefaultPrivateKey({
+      password,
+    });
+
+    return this.coreApi.getExportedSecretKey({
+      password,
+      keyType,
+      privateKeyRaw,
+    });
   }
 
   override async prepareAccounts(

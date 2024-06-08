@@ -202,6 +202,8 @@ export function GetStarted() {
               }}
             />
             <Stack zIndex={1}>
+              {/* Welcome to OneKey
+              Simple, secure crypto management */}
               <Heading size="$heading4xl" textAlign="center">
                 {intl.formatMessage({
                   id: ETranslations.onboarding_welcome_message,

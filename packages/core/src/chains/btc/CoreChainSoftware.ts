@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { mnemonicToSeedSync } from 'bip39';
 import {
   address as BitcoinJsAddress,
@@ -29,12 +30,15 @@ import {
   verify,
 } from '../../secret';
 import {
-  type EAddressEncodings,
+  EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
+  ECoreApiPrivateKeySource,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImportedBtc,
   type ICoreApiGetAddressQueryPublicKey,
   type ICoreApiGetAddressesQueryHdBtc,
   type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
   type ICoreApiPrivateKeysMap,
   type ICoreApiSignAccount,
   type ICoreApiSignBasePayload,
@@ -57,12 +61,18 @@ import {
   getBtcXpubFromXprvt,
   getInputsToSignFromPsbt,
   initBitcoinEcc,
+  loadOPReturn,
+  pubkeyToPayment,
   tweakSigner,
 } from './sdkBtc';
 import { buildPsbt } from './sdkBtc/providerUtils';
 
 import type { IGetAddressFromXpubResult } from './sdkBtc';
-import type { IBtcForkNetwork, IEncodedTxBtc } from './types';
+import type {
+  IBtcForkNetwork,
+  IBtcForkTransactionMixin,
+  IEncodedTxBtc,
+} from './types';
 import type { ISigner } from '../../base/ChainSigner';
 import type { IBip32ExtendedKey, IBip32KeyDeriver } from '../../secret';
 import type { PsbtInput } from 'bip174/src/lib/interfaces';
@@ -105,6 +115,72 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
   protected getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
     return new Psbt({ network });
+  }
+
+  override async getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    console.log('getExportedSecretKey btc');
+    const {
+      networkInfo,
+      privateKeyRaw,
+      privateKeySource,
+      password,
+      keyType,
+      xpub,
+      addressEncoding,
+    } = query;
+
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+
+    if (keyType === ECoreApiExportedSecretKeyType.xprvt) {
+      if (privateKeySource === ECoreApiPrivateKeySource.hd) {
+        if (!addressEncoding) {
+          throw new Error('addressEncoding is required');
+        }
+        if (!xpub) {
+          throw new Error('xpub is required');
+        }
+        const network = getBtcForkNetwork(networkInfo?.networkChainCode);
+        const networkVersionBytesMap = {
+          ...network.segwitVersionBytes,
+          [EAddressEncodings.P2PKH]: network.bip32,
+        };
+        const bip32Info = networkVersionBytesMap?.[addressEncoding];
+        if (!bip32Info) {
+          throw new Error(`Unsupported address encoding:${addressEncoding}`);
+        }
+        const xprvVersionBytes = bip32Info.private;
+        if (!xprvVersionBytes) {
+          throw new Error('xprvVersionBytes not found');
+        }
+        return bs58check.encode(
+          Buffer.from(bs58check.decode(xpub))
+            .fill(
+              Buffer.from(
+                xprvVersionBytes.toString(16).padStart(8, '0'),
+                'hex',
+              ),
+              0,
+              4,
+            )
+            .fill(
+              Buffer.concat([
+                Buffer.from([0]),
+                decrypt(password, privateKeyRaw),
+              ]),
+              45,
+              78,
+            ),
+        );
+      }
+      if (privateKeySource === ECoreApiPrivateKeySource.imported) {
+        return bs58check.encode(decrypt(password, privateKeyRaw));
+      }
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
   }
 
   override async getAddressFromPublic(

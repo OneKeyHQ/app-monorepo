@@ -17,7 +17,6 @@ import { slicePathTemplate } from '../utils';
 
 import { ChainSigner } from './ChainSigner';
 
-import type { ISigner } from './ChainSigner';
 import type { ISecretPrivateKeyInfo, ISecretPublicKeyInfo } from '../secret';
 import type {
   ICoreApiGetAddressItem,
@@ -25,6 +24,7 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
   ICoreApiGetPrivateKeysMapHdQuery,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
@@ -33,6 +33,7 @@ import type {
   ICurveName,
   ISignedTxPro,
 } from '../types';
+import type { ISigner } from './ChainSigner';
 
 export abstract class CoreChainApiBase {
   protected baseGetCurve(curveName: ICurveName) {
@@ -266,4 +267,8 @@ export abstract class CoreChainApiBase {
   abstract getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem>;
+
+  abstract getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string>;
 }

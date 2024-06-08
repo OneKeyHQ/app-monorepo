@@ -1,6 +1,6 @@
 import { isNil } from 'lodash';
 
-import { decrypt, decryptImportedCredential } from '@onekeyhq/core/src/secret';
+import { decryptImportedCredential } from '@onekeyhq/core/src/secret';
 import type {
   ICoreCredentialsInfo,
   ICoreHdCredentialEncryptHex,
@@ -25,8 +25,8 @@ import type {
 } from '../../dbs/local/types';
 import type VaultBtc from '../impls/btc/Vault';
 import type {
-  IExportAccountSecretKeysParams,
-  IExportAccountSecretKeysResult,
+  IGetDefaultPrivateKeyParams,
+  IGetDefaultPrivateKeyResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsOptions,
@@ -357,25 +357,6 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     });
   }
 
-  async baseExportAccountSecretKeys(
-    params: IExportAccountSecretKeysParams,
-  ): Promise<IExportAccountSecretKeysResult> {
-    const { password } = params;
-    const result: IExportAccountSecretKeysResult = {};
-    if (params.privateKey) {
-      const privateKeysMap = await this.getPrivateKeys({
-        password,
-        // relPaths: ['0/0'],
-      });
-      const [encryptedPrivateKey] = Object.values(privateKeysMap);
-      result.privateKey = `0x${decrypt(password, encryptedPrivateKey).toString(
-        'hex',
-      )}`;
-    }
-
-    return result;
-  }
-
   async baseGetPrivateKeys(
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult> {
@@ -397,7 +378,19 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     return privateKeys;
   }
 
-  // TODO import type { Signer } from '../../proxy';
+  async getDefaultPrivateKey(
+    params: IGetDefaultPrivateKeyParams,
+  ): Promise<IGetDefaultPrivateKeyResult> {
+    const privateKeysMap = await this.getPrivateKeys({
+      password: params.password,
+      // relPaths: ['0/0'],
+    });
+    const [encryptedPrivateKey] = Object.values(privateKeysMap);
+    return {
+      privateKeyRaw: encryptedPrivateKey,
+    };
+  }
+
   abstract getPrivateKeys(
     params: IGetPrivateKeysParams,
   ): Promise<IGetPrivateKeysResult>;
