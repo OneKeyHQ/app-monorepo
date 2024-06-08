@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -50,7 +50,7 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const [days, setDays] = useState<string>(options[0].value);
   const intl = useIntl();
-  const intlId = options.find((v) => v.value === days)?.id as ILocaleIds;
+  const intlId = options.find((v) => v.value === days)?.id as ETranslations;
 
   useEffect(() => {
     const key = [coinGeckoId, days, 100].join('-');

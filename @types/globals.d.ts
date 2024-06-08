@@ -5,7 +5,7 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOffscreenApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebembedApi';
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
@@ -31,6 +31,7 @@ declare global {
   var $backgroundApi: IBackgroundApi; // not available for ext ui
   var $jotaiBgSync: JotaiBgSync;
 
+  var $$Toast: any;
   var $$navigationShortcuts: any;
   var $$jotaiContextStore: any;
   var $$jotaiContextStorePrint: any;
@@ -102,7 +103,7 @@ declare global {
   namespace FormatjsIntl {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     interface Message {
-      ids: ILocaleIds;
+      ids: ETranslations;
     }
   }
 }

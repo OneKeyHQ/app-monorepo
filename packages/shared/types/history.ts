@@ -1,4 +1,4 @@
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAccountNFT } from './nft';
 import type { IStakingInfo } from './staking';
@@ -103,7 +103,7 @@ export type IAccountHistoryTx = {
 
 export type IHistoryListSectionGroup = {
   title?: string;
-  titleKey?: ILocaleIds;
+  titleKey?: ETranslations;
   data: IAccountHistoryTx[];
 };
 

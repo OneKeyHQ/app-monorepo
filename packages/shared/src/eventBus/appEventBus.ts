@@ -40,6 +40,7 @@ export enum EAppEventBusNames {
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
+  HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
@@ -107,6 +108,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+  [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
