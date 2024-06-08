@@ -68,7 +68,7 @@ const PasswordVerify = ({
           authType &&
           (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
             authType.includes(AuthenticationType.IRIS))
-            ? 'FaceArcSolid'
+            ? 'FaceIdOutline'
             : 'TouchId2Outline',
         onPress: onBiologyAuth,
         loading: status.value === EPasswordVerifyStatus.VERIFYING,

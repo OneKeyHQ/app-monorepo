@@ -53,6 +53,10 @@
   "backup.verify_google_account_and_google_drive_enabled": "يرجى التحقق من تسجيل الدخول إلى حساب Google الخاص بك والتأكد من تمكين Google Drive وتفويضه لـ OneKey.",
   "browser.bookmark": "إشارة مرجعية",
   "browser.import": "استيراد",
+  "coming_soon": "قريبا",
+  "copy_anyway": "انسخ على أي حال",
+  "copy_recovery_phrases_warning_desc": "يمكن أن يعرض الوصول إلى الحافظة عبارة الاستعادة الخاصة بك للتطبيقات غير المصرح بها.",
+  "copy_recovery_phrases_warning_title": "هل تريد نسخ عبارة الاستعادة؟",
   "device_auth.continue_anyway_warning_message": "نحن حاليًا غير قادرين على التحقق من جهازك. الاستمرار قد يشكل مخاطر أمنية.",
   "device_auth.request_desc": "قم بالتأكيد على جهازك للتحقق من صحته وتأمين اتصالك.",
   "device_auth.request_title": "المصادقة على الجهاز",
@@ -64,6 +68,55 @@
   "device_auth.unofficial_device_detected_help_text": "لا يمكن التحقق من جهازك كجهاز رسمي. يرجى الاتصال بنا فورًا.",
   "device_auth.verifying_desc": "يرجى الانتظار...",
   "device_auth.verifying_title": "جاري التحقق من الجهاز",
+  "earn.annually": "سنويا",
+  "earn.available_to_stake": "متاح للرهان",
+  "earn.claim": "مطالبة",
+  "earn.claim_eth_desc": "اطلب ETH الخاص بك بعد أن يتم معالجة طلب السحب.",
+  "earn.claim_limitations": "نظرًا للقيود المفروضة على Lido، يجب عليك المطالبة بكل من مكافآتك بشكل منفصل.",
+  "earn.daily": "يوميا",
+  "earn.earn_up_to_number_per_year": "اكسب حتى <highLight>{number}</highLight> في السنة",
+  "earn.earn_up_to_number_per_year_desc": "يتم تحديث النسبة المئوية السنوية بشكل ساعي وتعديلها وفقًا للتغييرات في القيمة الإجمالية المقفلة.",
+  "earn.est_annual_rewards": "المكافآت السنوية المقدرة",
+  "earn.est_receive": "تقدير الاستلام",
+  "earn.how_does_the_lido_protocol_work": "كيف يعمل بروتوكول ليدو؟",
+  "earn.how_does_the_lido_protocol_work_desc": "تقدم Lido حلاً مبتكرًا للعقبات التي تقدمها الرهان التقليدي PoS من خلال خفض الحواجز أمام الدخول والتكاليف المرتبطة بقفل الأصول الخاصة بالمرء في بروتوكول واحد. عندما يودع المستخدم أصوله في Lido، يتم رهن الرموز على سلسلة الكتل Lido عبر البروتوكول.",
+  "earn.insufficient_staked_balance": "رصيد الرهن غير كاف.",
+  "earn.is_claimable": "قابل للمطالبة",
+  "earn.is_pending": "قيد الانتظار",
+  "earn.is_staked": "تم رهنه",
+  "earn.less_than_number_days": "< {number} أيام",
+  "earn.lido_token_redemption": "استرداد ليدو {token}",
+  "earn.lido_token_staking": "التحصيص في Lido {token}",
+  "earn.monthly": "شهريا",
+  "earn.pay_with": "ادفع بواسطة",
+  "earn.receive": "تلقي",
+  "earn.receive_lido_nft": "تلقي NFT ليدو",
+  "earn.receive_lido_nft_desc": "كل طلب سحب يولد NFT ليدو، وتتغير مظهره عندما يصبح ETH الخاص بك متاحًا للسحب.",
+  "earn.receive_steth": "تلقي <highLight>stETH</highLight>",
+  "earn.receive_steth_desc": "عندما تقوم برهنة ETH، تحصل على 1:1 stETH. يمكنك إلغاء الرهن وتداول هذا الأصل السائل في أي وقت.",
+  "earn.receive_stmatic": "تلقي<highLight>stMATIC</highLight>",
+  "earn.receive_stmatic_desc": "عندما تقوم برهنة MATIC، تحصل على stMATIC. يمكنك إلغاء الرهن وتداول هذا الأصل السائل في أي وقت.",
+  "earn.redeem": "استرد",
+  "earn.request_withdrawal": "طلب السحب",
+  "earn.request_withdrawal_steth_desc": "قم بقفل stETH / wstETH الخاص بك عن طريق تقديم طلب سحب. بعد 1-5 أيام، سيتم تدمير stETH المقفل وسيصبح ETH الخاص بك متاحًا للسحب.",
+  "earn.request_withdrawal_stmatic_desc": "بعد 1-5 أيام من تقديم طلب السحب، سيتم تدمير stMATIC المقفل وسيصبح MATIC الخاص بك متاحًا للسحب.",
+  "earn.rewards_updated_daily": "تم تحديث الجوائز <highLight>يوميا</highLight>",
+  "earn.rewards_updated_daily_steth_desc": "سيكون هناك تحديث يومي على رصيدك من stETH، والذي يتضمن مكافآت الإستيكينج.",
+  "earn.rewards_updated_daily_stmatic_desc": "خلال فترة الرهن، يتغير قيمة stMATIC لتعكس الأرباح.",
+  "earn.stake": "رهن",
+  "earn.stake_release_period": "فترة إطلاق الحصة",
+  "earn.stake_token": "رهن {token}",
+  "earn.staked_value": "القيمة المراهن عليها",
+  "earn.updated_daily": "يتم التحديث يوميا",
+  "earn.wallet_not_support_stake": "المحفظة المتصلة لا تدعم الرهان. حاول التبديل إلى واحدة أخرى.",
+  "earn.weekly": "أسبوعي",
+  "earn.what_is_the_possible_risk_of_lido": "ما هو الخطر المحتمل لليدو؟",
+  "earn.what_is_the_possible_risk_of_lido_desc": "هناك مخاطر معينة في استخدام Lido للرهان، مثل فشل الشبكة أو المصادقة التي قد تؤدي إلى فقدان الأصول المراهنة (العقوبات)، أو ثغرات عقد Lido الذكي أو الأخطاء. على الرغم من أن الكود تم فتح مصدره وتدقيقه وتغطيته على نطاق واسع، فإن أي استثمار في العملات المشفرة يحمل مخاطر ويحتاج إلى تقييم مستقل.",
+  "earn.why_do_you_receive_steth": "لماذا تتلقى stETH؟",
+  "earn.why_do_you_receive_steth_desc": "عندما تقوم بإيداع ETH في Lido، تحصل على رمز Lido السائل للمشاركة، وهو stETH، الذي يمثل مطالبتك النسبية لـ ETH في Lido. بما أن المصادقين الذين يعملون على Lido يتلقون المكافآت، فأنت مؤهل لتلقي مكافآت نسبية لحصتك، والتي من المتوقع عادة أن تحدث يوميا.",
+  "earn.why_do_you_receive_stmatic": "لماذا تتلقى stMATIC؟",
+  "earn.why_do_you_receive_stmatic_desc": "عندما تقوم بإيداع MATIC في Lido، تحصل على رمز Lido السائل للمشاركة، وهو stMATIC، الذي يمثل مطالبتك النسبية لـ MATIC في Lido. بما أن المصادقين الذين يعملون على Lido يتلقون المكافآت، فأنت مؤهل لتلقي مكافآت نسبية لحصتك، والتي من المتوقع عادة أن تحدث يوميا.",
+  "earn.withdrawal_process_desc": "عملية السحب بسيطة وسيتم تقسيمها إلى الخطوات التالية:",
   "enter_pin.desc": "تحقق من شاشة الجهاز لتخطيط لوحة المفاتيح.",
   "enter_pin.enter_on_device": "أدخل الرقم السري على الجهاز",
   "enter_pin.invalid_pin": "رمز الدبوس غير صالح",
@@ -140,13 +193,23 @@
   "explore.unable_to_connect": "غير قادر على الاتصال",
   "explore.unpin": "إلغاء التثبيت",
   "explore.unsupported_chain": "غير مدعوم بعد",
+  "feedback.copied": "تم النسخ",
+  "feedback.invalid_words_title": "كلمات غير صالحة",
+  "feedback.invalid_words_title_message": "تحقق مرة أخرى وحاول مجددا",
+  "global.about": "حول",
   "global.account_name": "اسم الحساب",
+  "global.acknowledged": "تم التأكيد",
   "global.address": "العنوان",
   "global.advanced": "متقدم",
+  "global.age": "العمر",
+  "global.all": "الكل",
   "global.allow": "السماح",
   "global.always": "دائماً",
+  "global.an_error_occurred": "حدث خطأ",
+  "global.an_error_occurred_desc": "نحن غير قادرين على إكمال طلبك. يرجى تحديث الصفحة بعد بضع دقائق.",
   "global.app_wallet": "محفظة التطبيق",
   "global.approve": "وافق",
+  "global.apr": "أبريل",
   "global.asset": "الأصول",
   "global.auto": "آلي",
   "global.backup": "احتياطي",
@@ -157,10 +220,13 @@
   "global.buy_one": "اشتر واحدة",
   "global.cancel": "إلغاء",
   "global.cancel_confirm_on_device_feedback": "غير مؤكد",
+  "global.cancel_copy": "إلغاء النسخ",
   "global.chain": "سلسلة",
   "global.change_password": "تغيير كلمة المرور",
+  "global.circulating_supply": "العرض المتداول",
   "global.clear": "واضح",
   "global.close": "إغلاق",
+  "global.community": "المجتمع",
   "global.confirm": "تأكيد",
   "global.confirm_on_device": "تأكيد على الجهاز",
   "global.connect": "اتصل",
@@ -173,9 +239,11 @@
   "global.contact_us": "اتصل بنا",
   "global.continue": "استمر",
   "global.continue_anyway": "تابع على أي حال",
+  "global.contract": "عقد",
   "global.copied": "تم النسخ",
   "global.copy": "نسخ",
   "global.copy_address": "نسخ العنوان",
+  "global.copy_recovery_phrase": "نسخ عبارة الاستعادة",
   "global.create_wallet": "إنشاء محفظة",
   "global.crypto": "العملات المشفرة",
   "global.current": "الحالي",
@@ -184,6 +252,7 @@
   "global.delete": "يمسح",
   "global.deny": "ينكر",
   "global.dev_mode": "وضع التطوير",
+  "global.dex": "DEX",
   "global.discord": "Discord",
   "global.done": "تم",
   "global.download": "تحميل",
@@ -192,8 +261,11 @@
   "global.enter_on_device": "أدخل على الجهاز",
   "global.enter_recovery_phrase": "أدخل عبارة الاستعادة",
   "global.expand_view": "توسيع العرض",
+  "global.explorers": "متصفح",
   "global.export": "يصدّر",
   "global.face_id": "معرف الوجه",
+  "global.faqs": "الأسئلة الشائعة",
+  "global.fdv": "FDV",
   "global.follow_the_system": "اتبع النظام",
   "global.general": "عام",
   "global.get_one": "احصل على واحد",
@@ -213,12 +285,19 @@
   "global.language": "لغة",
   "global.learn_more": "تعرف أكثر",
   "global.light": "ضوء",
+  "global.links": "روابط",
+  "global.liquidity": "السيولة",
   "global.market": "السوق",
   "global.market_cap": "القيمة السوقية",
+  "global.max": "ماكس",
+  "global.max_supply": "العرض الأقصى",
+  "global.month_date": "{month} {date}",
   "global.more": "المزيد",
   "global.multi_chain_wallet": "محفظة متعددة السلاسل",
+  "global.multi_networks": "شبكات متعددة",
   "global.name": "الاسم",
   "global.names_of_wallets_and_accounts": "أسماء المحافظ والحسابات",
+  "global.network": "الشبكة",
   "global.network_error": "خطأ في الشبكة",
   "global.network_error_help_text": "تحقق من اتصالك وحاول مرة أخرى",
   "global.network_type": "نوع الشبكة",
@@ -226,9 +305,12 @@
   "global.nft": "NFT",
   "global.no_data": "لا يوجد بيانات",
   "global.no_results": "لا نتائج",
+  "global.no_transactions_yet": "لا توجد معاملات بعد",
+  "global.no_transactions_yet_desc": "سيظهر لك هنا المعاملات الخاصة بك",
   "global.number_accounts": "{number} حسابات",
   "global.number_items": "{number} عناصر",
   "global.off": "عن",
+  "global.official_links": "الروابط الرسمية",
   "global.official_website": "الموقع الرسمي",
   "global.on": "تشغيل",
   "global.onekey_keytag": "OneKey KeyTag",
@@ -237,32 +319,48 @@
   "global.onekey_wallet": "محفظة OneKey",
   "global.other_wallet": "محفظة أخرى",
   "global.others": "آخرون",
+  "global.overview": "نظرة عامة",
   "global.overwritten": "تم الكتابة فوقه",
+  "global.pair": "زوج",
+  "global.pair_contract": "عقد الزوج:",
+  "global.pending": "قيد الانتظار",
+  "global.pools": "حمامات السباحة",
   "global.popular": "جمع",
   "global.preferences": "التفضيلات",
   "global.price": "السعر",
   "global.private_key": "المفتاح الخاص",
+  "global.profit": "الربح",
+  "global.protocol": "بروتوكول",
   "global.qr_code": "رمز الاستجابة السريعة",
   "global.receive": "تلقي",
+  "global.recent_searched": "البحث الأخير",
   "global.recents": "الأخيرة",
   "global.recovery_phrase": "عبارة الاستعادة",
+  "global.refresh": "تحديث",
   "global.reset": "إعادة ضبط",
   "global.retry": "أعد المحاولة",
+  "global.saved_the_phrases": "لقد حفظت العبارات",
   "global.scan_to_connect": "مسح للاتصال",
   "global.search": "بحث",
   "global.search_address": "بحث عن العنوان",
+  "global.search_no_results_desc": "حاول تغيير كلمة البحث",
+  "global.search_no_results_title": "لا توجد نتائج",
   "global.search_tokens": "رموز البحث",
   "global.security": "حماية",
+  "global.select_network": "اختر الشبكة",
+  "global.select_wallet": "اختر المحفظة",
   "global.sell": "بيع",
   "global.send": "إرسال",
   "global.set_password": "قم بتعيين كلمة المرور",
   "global.setings_up": "الإعداد",
+  "global.show_recovery_phrase": "أظهر عبارة الاستعادة",
   "global.single_chain_account": "حساب سلسلة واحدة",
   "global.start_connection": "بدء الاتصال",
   "global.swap": "تبديل",
   "global.sync_error": "خطأ في المزامنة",
   "global.synced": "متزامن",
   "global.syncing": "جاري المزامنة...",
+  "global.total_supply": "الإمداد الكلي",
   "global.touch_id": "Touch ID",
   "global.track_any_address": "تتبع أي عنوان",
   "global.unknown": "مجهول",
@@ -275,10 +373,14 @@
   "global.verify": "تحقق",
   "global.view": "عرض",
   "global.view_in_blockchain_explorer": "عرض في مستكشف البلوكشين",
+  "global.view_less": "عرض أقل",
+  "global.view_more": "عرض المزيد",
   "global.view_tutorial": "عرض البرنامج التعليمي",
   "global.wallet": "محفظة",
   "global.wallet_avatar": "صورة رمزية للمحفظة",
   "global.watchlist": "قائمة المراقبة",
+  "global.website": "موقع الكتروني",
+  "global.white_paper": "ورقة بيضاء",
   "global.x": "X",
   "hardware.backup_completed": "اكتمل النسخ الاحتياطي!",
   "hardware.confirm_onekey_lite_pin": "تأكيد رقم OneKey Lite السري",
@@ -316,9 +418,38 @@
   "hardware.set_onekey_lite_pin_desc": "قم بتعيين رقم تعريف شخصي مكون من 6 أرقام لـ OneKey Lite الخاص بك. ",
   "hardware.transferring_data": "جاري نقل البيانات...",
   "hardware.two_onekey_lite_not_same": "الاثنين OneKey Lite المستخدمين للاتصال ليسوا متشابهين.",
+  "login.forgot_password": "نسيت كلمة المرور؟",
+  "login.welcome_message": "مرحبًا بك مجددًا",
+  "market.1d": "1D",
+  "market.1h": "1H",
+  "market.1m": "1 مليون",
+  "market.1w": "1W",
+  "market.1y": "1Y",
+  "market.24h": "24 ساعة",
+  "market.24h_price_range": "نطاق السعر خلال 24 ساعة",
+  "market.24h_txns": "المعاملات خلال 24 ساعة",
+  "market.24h_vol_usd": "حجم التداول في 24 ساعة (بالدولار الأمريكي)",
+  "market.30d": "30D",
+  "market.7d": "7D",
+  "market.add_number_tokens": "أضف {number} رموز",
+  "market.add_to_watchlist": "أضف إلى القائمة المراقبة",
+  "market.added_to_watchlist": "تمت الإضافة إلى القائمة المراقبة",
+  "market.empty_watchlist_desc": "أضف الرموز المفضلة لديك إلى القائمة المراقبة",
+  "market.empty_watchlist_title": "قائمة المراقبة الخاصة بك فارغة",
+  "market.high": "عالي",
+  "market.last_price": "آخر سعر",
   "market.last_seven_days": "السبعة أيام الأخيرة",
+  "market.low": "منخفض",
+  "market.most_24h_volume": "الحجم الأكبر في 24 ساعة",
+  "market.most_market_cap": "الغالبية في رأس المال السوقي",
+  "market.move_to_top": "انتقل إلى الأعلى",
   "market.one_hour_percentage": "1h%",
+  "market.pool_details": "تفاصيل المسبح",
+  "market.price_change_down": "تغيير السعر للأسفل",
+  "market.price_change_up": "تغيير السعر للأعلى",
+  "market.remove_from_watchlist": "إزالة من القائمة المراقبة",
   "market.seven_day_percentage": "7د%",
+  "market.trending": "المُتداول",
   "market.twenty_four_hour_percentage": "24h%",
   "market.twenty_four_hour_volume": "حجم 24 ساعة",
   "nft.already_collected": "تم جمع هذا الـ NFT بالفعل.",
@@ -353,11 +484,18 @@
   "onboarding.activate_device_by_set_up_new_wallet_help_text": "قم بتكوين جهازك لإنشاء محفظة جديدة.",
   "onboarding.activate_device_choosing_language_message": "بعد اختيار اللغة على جهازك ومراجعة الدليل الأساسي:",
   "onboarding.activate_device_help_text": "قم بإعداد محفظتك الأجهزة للبدء.",
+  "onboarding.backup_recovery_phrase_help_text": "اكتب كل عبارة بالترتيب واحفظها في مكان آمن",
+  "onboarding.backup_recovery_phrase_title": "نسخ احتياطية لعبارات الاستعادة",
+  "onboarding.before_reveal_message": "قبل أن تتابع",
   "onboarding.bluetooth_connect_help_text": "بحث عن الأجهزة",
   "onboarding.bluetooth_permission_needed": "مطلوب إذن البلوتوث",
   "onboarding.bluetooth_permission_needed_help_text": "للاتصال عبر البلوتوث، يرجى تمكين الوصول في الإعدادات.",
   "onboarding.bluetooth_prepare_to_connect": "ابق الجهاز بالقرب منك",
   "onboarding.bluetooth_prepare_to_connect_help_text": "تأكد من تشغيل الجهاز وأنه ضمن المدى، ثم اضغط على \"بدء الاتصال\" أدناه لبدء الاتصال",
+  "onboarding.bullet_forgot_password_use_recovery": "إذا نسيت كلمة المرور الخاصة بك، يمكنك استخدام عبارة الاستعادة للعودة إلى محفظتك.",
+  "onboarding.bullet_never_share_recovery_phrase": "أبداً لا تشاركه مع أي شخص أو تدخله في أي نموذج.",
+  "onboarding.bullet_onekey_support_no_recovery_phrase": "لن يطلب منك دعم OneKey عبارة الاستعادة أبدًا.",
+  "onboarding.bullet_recovery_phrase_full_access": "العبارة الاستعادية لوحدها تمنحك الوصول الكامل إلى محافظك وأموالك.",
   "onboarding.connect_your_device": "قم بتوصيل جهازك",
   "onboarding.create_qr_wallet_desc": "لعرض الرمز الشريطي QR الخاص بك في الجهاز، انتقل إلى \"توصيل محفظة التطبيق\" > \"الرمز الشريطي QR\" > \"OneKey Wallet\"",
   "onboarding.create_qr_wallet_title": "أنشئ محفظة بناءً على QR باستخدام OneKey Pro",
@@ -379,14 +517,33 @@
   "onboarding.finalize_generating_accounts": "جاري إنشاء حساباتك",
   "onboarding.finalize_ready": "محفظتك جاهزة الآن",
   "onboarding.finalize_wallet_setup": "أنهاء إعداد المحفظة",
+  "onboarding.import_recovery_phrase_warning": "تنبيه الأمان",
+  "onboarding.import_recovery_phrase_warning_help_text": "من أجل سلامة أصولك، تجنب استيراد عبارة الاستعادة لمحفظتك الأجهزة واستخدم \"ربط محفظة الأجهزة\" للحصول على الأمان الأمثل.",
   "onboarding.install_onekey_bridge": "تثبيت OneKey Bridge",
   "onboarding.install_onekey_bridge_help_text": "يسهل جسر OneKey التواصل السلس بين OneKey ومتصفحك لتجربة أفضل.",
+  "onboarding.migrate_from_v4": "الانتقال من الإصدار 4",
   "onboarding.onekey_hw": "محفظة OneKey الأجهزة",
   "onboarding.onekey_hw_intro_desc": "محفظة OneKey Hardware، حل آمن وسهل الاستخدام لإدارة العملات المشفرة. تدعم العديد من العملات المشفرة وتضمن التشفير القوي للمعاملات الآمنة.",
   "onboarding.onekey_hw_intro_title": "حلك الآمن للعملات الرقمية المشفرة",
+  "onboarding.save_phrase_securely_instruction": "اقرأ ما يلي، ثم احفظ العبارة بأمان.",
   "onboarding.usb_connect_help_text": "قم بتوصيل جهازك عبر USB",
+  "onboarding.verify_recovery_phrase_title": "تحقق من عبارة الاستعادة الخاصة بك",
   "onboarding.welcome_description": "إدارة العملات المشفرة بسهولة وأمان",
   "onboarding.welcome_message": "مرحبًا بك في OneKey",
+  "provider.amount_received": "{amount} {token}",
+  "provider.fee": "$0.16 ",
+  "provider.label_fastest": "الأسرع",
+  "provider.label_max_received": "تلقى ماكس",
+  "provider.label_overall_best": "الأفضل على الإطلاق",
+  "provider.min_amount_required": "الحد الأدنى المطلوب {amount} {token}",
+  "provider.recommend": "أوصي",
+  "provider.route": "الطريق",
+  "provider.route_no_information": "المزود ليس لديه حاليًا معلومات عن الطريق. أموالك في أمان.",
+  "provider.route_swft": "يرجى العلم أن هذه العملية تستخدم جسر SWFT_BRIDGE للسلسلة المتقاطعة الخاص بجهة ثالثة، والذي ينطوي على تنفيذ مركزي ويحمل المخاطر المرتبطة به.",
+  "provider.time": "< 1 دقيقة",
+  "provider.title": "اختر المزود",
+  "provider.token_not_supported": "الرمز غير مدعوم",
+  "provider.unavailable": "غير متوفر",
   "scan.camera_access_denied": "تم رفض الوصول إلى الكاميرا",
   "scan.enable_camera_permissions": "OneKey يتطلب الوصول إلى الكاميرا لمسح رموز الاستجابة السريعة. يرجى الانتقال إلى \"الإعدادات\" وتمكين أذونات الكاميرا لاستخدام هذه الميزة.",
   "scan.grant_camera_access_in_expand_view": "يرجى منح الوصول إلى الكاميرا في وضع العرض الموسع.",
@@ -490,7 +647,90 @@
   "settings.unable_to_connect": "غير قادر على الاتصال",
   "settings.user_agreement": "اتفاقية المستخدم",
   "settings.whats_new": "ما الجديد",
+  "slippage_tolerance.button_save": "حفظ",
+  "slippage_tolerance.description": "الانزلاق التلقائي يحسن الانزلاق بناءً على سيولة البول وحجم التداول، مما يقلل من فشل المعاملات ومخاطر هجمات MEV.",
+  "slippage_tolerance.error_message": "يجب أن تكون نسبة التسرب بين 0 إلى 50٪.",
+  "slippage_tolerance.input_placeholder": "0.005",
+  "slippage_tolerance.switch_auto": "أوتو",
+  "slippage_tolerance.switch_custom": "مخصص",
+  "slippage_tolerance.title": "تسامح الانزلاق",
+  "slippage_tolerance.warning_message_1": "قد يتسبب تسامح الانزلاق العالي في خسارة أصولك.",
+  "slippage_tolerance.warning_message_2": "قد يتسبب تسامح الانزلاق العالي في خسارة أصولك.",
+  "swap_history.amount_received": "+{amount} {token}",
+  "swap_history.amount_sent": "-{amount} {token}",
+  "swap_history.date_time_format": "{date} {time}",
+  "swap_history.status_failed": "فشل",
+  "swap_history.status_pending": "قيد الانتظار",
+  "swap_history.title": "التاريخ",
+  "swap_history.transaction_format": "{token_from} → {token_to}",
+  "swap_history_detail.date": "التاريخ",
+  "swap_history_detail.from": "من",
+  "swap_history_detail.network_fee": "رسوم الشبكة",
+  "swap_history_detail.order_status": "حالة الطلب",
+  "swap_history_detail.protocol_fee": "رسوم البروتوكول",
+  "swap_history_detail.provider": "مقدم الخدمة",
+  "swap_history_detail.rate": "معدل",
+  "swap_history_detail.receive_amount": "+استلام المبلغ",
+  "swap_history_detail.send_amount": "-إرسال المبلغ",
+  "swap_history_detail.service_fee": "رسوم الخدمة",
+  "swap_history_detail.status_pending": "قيد الانتظار",
+  "swap_history_detail.swap_duration": "مدة الاستبدال",
+  "swap_history_detail.title": "المعاملة",
+  "swap_history_detail.to": "إلى",
+  "swap_history_detail.transaction_hash": "تجزئة المعاملة",
+  "swap_history_detail.transaction_price": "سعر المعاملة",
+  "swap_history_detail.view_in_browser": "عرض في المتصفح",
+  "swap_page.account": "الحساب {number}",
+  "swap_page.alert.account_does_not_support_swap": "الحساب المتصل لا يدعم الاستبدال. حاول مع آخر.",
+  "swap_page.alert.fee_exceeds_amount": "رسوم شبكة Est تتجاوز مبلغ الصرف، توخى الحذر عند المتابعة.",
+  "swap_page.alert.minimum_amount": "الحد الأدنى للمبلغ {number} USDT.",
+  "swap_page.alert.network_fee_deducted": "سيتم خصم رسوم الشبكة بالإيثريوم تلقائيًا في الخطوة التالية.",
+  "swap_page.alert.no_provider_supports_trade": "لا يدعم أي مزود هذه التجارة.",
+  "swap_page.alert.not_best_rate": "المزود الحالي لا يقدم أفضل سعر لهذه الصفقة.",
+  "swap_page.alert.value_drop": "انخفاض القيمة بنسبة {number}%! قد يتسبب تأثير السعر العالي في خسارة أصولك.",
+  "swap_page.amount ": "{number}",
+  "swap_page.balance": "الرصيد: {number}",
+  "swap_page.from": "من",
+  "swap_page.limit": "حد",
+  "swap_page.max": "ماكس",
+  "swap_page.percentage_change": "(+{number}٪)",
+  "swap_page.provider.approve": "موافق",
+  "swap_page.provider.approve_amount": "الموافقة على المبلغ",
+  "swap_page.provider.est_network_fee": "رسوم شبكة Est",
+  "swap_page.provider.exchange_rate ": "1 إيث = {number} يو إس دي سي",
+  "swap_page.provider.fee_amount": "${number}",
+  "swap_page.provider.provider": "مقدم الخدمة",
+  "swap_page.provider.slippage_auto": "تلقائي ({number}%)",
+  "swap_page.provider.slippage_tolerance": "تسامح الانزلاق",
+  "swap_page.swap": "تبديل",
+  "swap_page.swap_button": "تبديل",
+  "swap_page.swap_steps": "1. الموافقة → 2. الاستبدال",
+  "swap_page.to": "إلى",
+  "swap_page.toast.address_generated": "تم إنشاء العنوان",
+  "swap_page.toast.approve_failed": "فشلت الموافقة",
+  "swap_page.toast.approve_failed_detail": "{token}",
+  "swap_page.toast.approve_successful": "تمت الموافقة بنجاح",
+  "swap_page.toast.approve_successful_detail": "{token}",
+  "swap_page.toast.swap_failed": "فشل الاستبدال",
+  "swap_page.toast.swap_failed_detail": "{number} إيث → {number} يو إس دي تي",
+  "swap_page.toast.swap_successful": "تم التبديل بنجاح",
+  "swap_page.toast.swap_successful_detail": "{number} إيث → {number} يو إس دي تي",
+  "swap_page.usd_value": "${number}",
   "terms_privacy": "الاستخدام يعني الموافقة على <termsTag>الشروط</termsTag> و <privacyTag>الخصوصية</privacyTag> الخاصة بنا",
+  "token_selector.empty_content": "الرمز المحدد لا يدعم العبور بين السلاسل إلى هذه الشبكة.",
+  "token_selector.empty_title": "غير مدعوم",
+  "token_selector.network": "الشبكة",
+  "token_selector.risk_reminder.button_cancel": "إلغاء",
+  "token_selector.risk_reminder.button_ok": "حسنًا",
+  "token_selector.risk_reminder.checkbox": "لا تظهر هذا التنبيه لجميع الرموز غير المتحقق منها",
+  "token_selector.risk_reminder.message": "يمكن لأي شخص إصدار الرموز، بما في ذلك الرموز المزورة تحت مشاريع صالحة. قد لا يتمكن المستخدم الذي اشترى الرموز المزورة من بيعها، مما يؤدي إلى خسارة الأصول. إذا قررت المتابعة في تداول هذا الرمز المخصص، ستكون مسؤولاً عن جميع المخاطر والمسؤوليات المحتملة.",
+  "token_selector.risk_reminder.title": "تذكير بالمخاطر",
+  "token_selector.risk_reminder.token_address": "{token_address}",
+  "token_selector.risk_reminder.token_name": "{token_name}",
+  "token_selector.risk_reminder.token_symbol": "{token_symbol}",
+  "token_selector.search_placeholder": "ابحث عن الرمز أو عنوان العقد",
+  "token_selector.title": "حدد الرمز",
+  "token_selector.unverified_token_warning": "الرمز غير المتحقق أدناه. تقدم بحذر.",
   "update.app_version_ready_for_update": "التطبيق {version} جاهز للتحديث",
   "update.download_on_github": "تنزيل على Github",
   "update.download_timed_out_check_connection": "تعذر التنزيل بسبب انقطاع الاتصال بالإنترنت، يرجى التحقق من اتصالك بالإنترنت.",
@@ -508,5 +748,6 @@
   "update.update_app_available": "التحديث المتاح للتطبيق إلى الإصدار {version}",
   "update.update_history": "تاريخ التحديث",
   "update.update_now": "قم بالتحديث الآن",
-  "update.whats_new_in_onekey_version": "ما الجديد في OneKey {version} 👋🏻"
+  "update.whats_new_in_onekey_version": "ما الجديد في OneKey {version} 👋🏻",
+  "word": "كلمة"
 }

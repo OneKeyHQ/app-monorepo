@@ -131,7 +131,11 @@ function DialogFrame({
   const media = useMedia();
   const keyboardHeight = useKeyboardHeight();
   const renderDialogContent = (
-    <Stack {...(bottom && { pb: bottom })}>
+    <Stack
+      {...(bottom &&
+        // remove safe area padding when keyboard is shown
+        !keyboardHeight && { pb: bottom })}
+    >
       <DialogHeader onClose={handleCancelButtonPress} />
       {/* extra children */}
       <Content testID={testID} estimatedContentHeight={estimatedContentHeight}>
