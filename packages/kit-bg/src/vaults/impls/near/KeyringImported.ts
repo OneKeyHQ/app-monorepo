@@ -1,11 +1,15 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { decrypt, ed25519 } from '@onekeyhq/core/src/secret';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
+import { baseEncode } from './utils';
+
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
@@ -39,5 +43,25 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<ISignedMessagePro> {
     // throw new NotImplemented();
     return this.baseSignMessage(params);
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    const { password } = params;
+    const result: IExportAccountSecretKeysResult = {};
+    if (params.privateKey) {
+      const privateKeysMap = await this.getPrivateKeys({
+        password,
+      });
+      const [encryptedPrivateKey] = Object.values(privateKeysMap);
+      const privateKey = decrypt(password, encryptedPrivateKey);
+      const publicKey = ed25519.publicFromPrivate(privateKey);
+      result.privateKey = `ed25519:${baseEncode(
+        Buffer.concat([privateKey, publicKey]),
+      )}`;
+    }
+
+    return result;
   }
 }
