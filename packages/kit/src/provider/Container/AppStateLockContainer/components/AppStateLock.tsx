@@ -1,6 +1,7 @@
 import type { ForwardedRef } from 'react';
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -19,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
@@ -56,6 +58,7 @@ const AppStateLock = ({
   lockContainerRef,
   ...props
 }: IAppStateLockProps) => {
+  const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const resetApp = useResetApp({ inAppStateLock: true });
 
@@ -84,7 +87,7 @@ const AppStateLock = ({
           <Stack space="$4" alignItems="center">
             <Image w={72} h={72} source={Logo} />
             <Heading size="$headingLg" textAlign="center">
-              Welcome Back
+              {intl.formatMessage({ id: ETranslations.login_welcome_message })}
             </Heading>
           </Stack>
           <Stack
@@ -100,7 +103,7 @@ const AppStateLock = ({
         </Stack>
         <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
           <Button size="small" variant="tertiary" onPress={resetApp}>
-            Forgot Password?
+            {intl.formatMessage({ id: ETranslations.login_forgot_password })}
           </Button>
         </Stack>
       </ThemeableStack>

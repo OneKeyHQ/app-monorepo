@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useRoute } from '@react-navigation/core';
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type { IPropsWithTestId } from '@onekeyhq/components';
 import {
@@ -24,6 +25,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -64,6 +66,7 @@ function FocusDisplayInput({
 }
 
 export function RecoveryPhrase() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
   const { servicePassword } = backgroundApiProxy;
@@ -150,31 +153,38 @@ export function RecoveryPhrase() {
     () => (
       <ActionList
         title="More"
-        renderTrigger={
-          <HeaderIconButton title="Actions" icon="DotHorOutline" />
-        }
+        renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
         items={[
           {
-            label: 'Copy recovery phrase',
+            label: intl.formatMessage({
+              id: ETranslations.global_copy_recovery_phrase,
+            }),
             icon: 'Copy1Outline',
             onPress: () => {
               Dialog.show({
                 icon: 'ErrorOutline',
                 tone: 'destructive',
-                title: 'Copy recovery phrase?',
-                description:
-                  'Clipboard access can expose your recovery phrase to unauthorized apps.',
+                title: intl.formatMessage({
+                  id: ETranslations.copy_recovery_phrases_warning_title,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.copy_recovery_phrases_warning_desc,
+                }),
                 footerProps: {
                   flexDirection: 'row-reverse',
                 },
-                onConfirmText: 'Copy anyway',
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.copy_anyway,
+                }),
                 onConfirm: () => {
                   copyText(mnemonic);
                 },
                 confirmButtonProps: {
                   variant: 'secondary',
                 },
-                onCancelText: 'Cancel copy',
+                onCancelText: intl.formatMessage({
+                  id: ETranslations.global_cancel_copy,
+                }),
                 cancelButtonProps: {
                   variant: 'primary',
                 },
@@ -184,15 +194,22 @@ export function RecoveryPhrase() {
         ]}
       />
     ),
-    [copyText, mnemonic],
+    [copyText, intl, mnemonic],
   );
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Backup recovery phrases" headerRight={headerRight} />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_backup_recovery_phrase_title,
+        })}
+        headerRight={headerRight}
+      />
       <Page.Body p="$5" pt="$0">
-        <SizableText pt="$2" pb="$4" px="$1" size="$headingMd">
-          Write down each phrase in order and store them in a secure location
+        <SizableText pt="$2" pb="$4" px="$1" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.onboarding_backup_recovery_phrase_help_text,
+          })}
         </SizableText>
 
         <SecureView>
@@ -217,7 +234,9 @@ export function RecoveryPhrase() {
         </SecureView>
       </Page.Body>
       <Page.Footer
-        onConfirmText="I've Saved the Phrase"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_saved_the_phrases,
+        })}
         onConfirm={handleConfirmPress}
         confirmButtonProps={{ testID: 'saved-the-phrase' }}
       />

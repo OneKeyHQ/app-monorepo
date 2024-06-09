@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { getStringAsync, setStringAsync } from 'expo-clipboard';
 import { useIntl } from 'react-intl';
 
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Toast } from '../actions/Toast';
 
@@ -20,7 +20,9 @@ export function useClipboard() {
       if (!text) return;
       setTimeout(() => setStringAsync(text), 200);
       Toast.success({
-        title: intl.formatMessage({ id: successMessageId || 'msg__copied' }),
+        title: intl.formatMessage({
+          id: successMessageId || ETranslations.global_copied,
+        }),
       });
     },
     [intl],

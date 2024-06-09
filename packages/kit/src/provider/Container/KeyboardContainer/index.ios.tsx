@@ -3,6 +3,8 @@ import { useLayoutEffect } from 'react';
 import { useIntl } from 'react-intl';
 import KeyboardManager from 'react-native-keyboard-manager';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 export function KeyboardContainer() {
   const intl = useIntl();
 
@@ -14,7 +16,7 @@ export function KeyboardContainer() {
     KeyboardManager.setLayoutIfNeededOnUpdate(true);
     KeyboardManager.setEnableAutoToolbar(true);
     KeyboardManager.setToolbarDoneBarButtonItemText(
-      intl.formatMessage({ id: 'action__done' }),
+      intl.formatMessage({ id: ETranslations.global_done }),
     );
     KeyboardManager.setToolbarPreviousNextButtonEnable(false);
     KeyboardManager.setKeyboardAppearance('default');
