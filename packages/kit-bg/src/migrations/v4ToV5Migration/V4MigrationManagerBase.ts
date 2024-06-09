@@ -1,3 +1,5 @@
+import { ensureRunOnBackground } from '@onekeyhq/shared/src/utils/assertUtils';
+
 import v4dbHubs from './v4dbHubs';
 
 import type { V4DbHubs } from './v4dbHubs';
@@ -6,6 +8,7 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 export class V4MigrationManagerBase {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     this.backgroundApi = backgroundApi;
+    ensureRunOnBackground();
   }
 
   backgroundApi: IBackgroundApi;

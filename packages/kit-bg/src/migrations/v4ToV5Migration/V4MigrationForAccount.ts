@@ -1,15 +1,24 @@
 import { isNil, uniq } from 'lodash';
 import natsort from 'natsort';
 
+import type { CoreChainScopeBase } from '@onekeyhq/core/src/base/CoreChainScopeBase';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decrypt,
+  encodeSensitiveText,
+  encryptImportedCredential,
   fixV4VerifyStringToV5,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
 import {
+  ECoreApiExportedSecretKeyType,
+  type ICoreCredentialsInfo,
+} from '@onekeyhq/core/src/types';
+import {
   DB_MAIN_CONTEXT_ID,
   WALLET_TYPE_HD,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { IMPL_BTC, IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -22,6 +31,7 @@ import { v4CoinTypeToNetworkId } from './v4CoinTypeToNetworkId';
 import v4dbHubs from './v4dbHubs';
 import { EV4LocalDBStoreNames } from './v4local/v4localDBStoreNames';
 import { V4MigrationManagerBase } from './V4MigrationManagerBase';
+import { EV4DBAccountType } from './v4types';
 
 import type {
   IV4MigrationHdCredential,
@@ -48,6 +58,11 @@ import type {
   IAccountDeriveTypes,
 } from '../../vaults/types';
 
+const coreApiMap: Record<string, CoreChainScopeBase> = {
+  [IMPL_EVM]: coreChainApi.evm,
+  [IMPL_BTC]: coreChainApi.btc,
+};
+
 export class V4MigrationForAccount extends V4MigrationManagerBase {
   async decryptV4ImportedCredential({
     v4dbCredential,
@@ -67,7 +82,46 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         name: EV4LocalDBStoreNames.Account,
         id: v4dbCredential.id,
       });
+      const networkId = v4CoinTypeToNetworkId[account.coinType];
+      if (!networkId) {
+        throw new Error(`Unsupported coinType: ${account.coinType}`);
+      }
+      const impl = networkUtils.getNetworkImpl({ networkId });
+      const coreApi = coreApiMap[impl];
+      if (!coreApi) {
+        throw new Error(`Unsupported networkImpl: ${impl}`);
+      }
+      const credentials: ICoreCredentialsInfo = {
+        imported: encryptImportedCredential({
+          credential: {
+            privateKey,
+          },
+          password: encodedPassword,
+        }),
+      };
+      const { deriveInfo } =
+        await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
+          networkId,
+          template: account.template,
+        });
+      const addressEncoding = deriveInfo?.addressEncoding;
+
+      const exportedPrivateKey = await coreApi.imported.getExportedSecretKey({
+        networkInfo: undefined as any, // only works for HD
+
+        password: encodedPassword,
+        credentials,
+
+        account,
+
+        keyType:
+          account.type === EV4DBAccountType.UTXO
+            ? ECoreApiExportedSecretKeyType.xprvt
+            : ECoreApiExportedSecretKeyType.privateKey,
+        addressEncoding,
+      });
       return {
+        exportedPrivateKey,
         privateKey,
         account,
         dbCredentialRaw: credentialImported,
@@ -198,7 +252,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       ids: v4wallet.accounts,
     });
     const v4accounts: IV4DBAccount[] = r?.records || [];
-    return v4accounts;
+    return v4accounts.filter(Boolean);
   }
 
   async revealV4HdMnemonic({ hdWalletId }: { hdWalletId: string }) {
@@ -213,15 +267,24 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     });
   }
 
-  async revealV4ImportedPrivateKey({ accountId }: { accountId: string }) {
+  async revealV4ImportedPrivateKey({
+    accountId,
+    password,
+  }: {
+    accountId: string;
+    password?: string;
+  }) {
     const v4dbCredential: IV4DBCredentialBase =
       await v4dbHubs.v4localDb.getRecordById({
         name: EV4LocalDBStoreNames.Credential,
         id: accountId,
       });
+
     return this.decryptV4ImportedCredential({
       v4dbCredential,
-      encodedPassword: await this.getMigrationPassword(),
+      encodedPassword: password
+        ? encodeSensitiveText({ text: password })
+        : await this.getMigrationPassword(),
     });
   }
 
@@ -234,38 +297,21 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     for (const v4account of v4accounts) {
       const networkId = v4CoinTypeToNetworkId[v4account.coinType];
       if (networkId) {
-        const { deriveType: deriveTypeInTpl } =
-          await serviceNetwork.getDeriveTypeByTemplate({
-            networkId,
-            template: v4account.template,
-          });
-        let deriveTypes: IAccountDeriveTypes[] = [deriveTypeInTpl];
-
         const v4accountUtxo = v4account as IV4DBUtxoAccount;
         const input =
           // v4accountUtxo?.xpubSegwit || // xpubSegwit import not support yet
           v4accountUtxo?.xpub || v4account?.pub || v4account?.address;
 
-        const validateResult =
-          await serviceAccount.validateGeneralInputOfImporting({
+        const deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes(
+          {
             networkId,
             input: await servicePassword.encodeSensitiveText({ text: input }),
             validateAddress: true,
             validateXpub: true,
-          });
-        if (validateResult?.deriveInfoItems?.length) {
-          const availableDeriveTypes = (
-            await serviceNetwork.getDeriveInfoItemsOfNetwork({
-              networkId,
-              enabledItems: validateResult.deriveInfoItems,
-            })
-          ).map((item) => item.value);
-          deriveTypes = [
-            ...deriveTypes,
-            ...(availableDeriveTypes as IAccountDeriveTypes[]),
-          ];
-        }
-        deriveTypes = uniq(deriveTypes);
+            template: v4account.template,
+          },
+        );
+
         for (const deriveType of deriveTypes) {
           // TODO save error log if failed
           await serviceAccount.addWatchingAccount({
@@ -291,21 +337,30 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       const credential = await this.revealV4ImportedPrivateKey({
         accountId: v4account.id,
       });
-      const { privateKey: v4privateKey } = credential;
+      const { privateKey: v4privateKey, exportedPrivateKey } = credential;
       const networkId = v4CoinTypeToNetworkId[v4account.coinType];
       if (networkId) {
-        const { deriveType } = await serviceNetwork.getDeriveTypeByTemplate({
-          networkId,
-          template: v4account.template,
-        });
-        await serviceAccount.addImportedAccountWithCredential({
-          name: v4account.name,
-          credential: await servicePassword.encodeSensitiveText({
-            text: v4privateKey,
-          }),
-          networkId,
-          deriveType,
-        });
+        const input = exportedPrivateKey;
+        const deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes(
+          {
+            networkId,
+            input: await servicePassword.encodeSensitiveText({ text: input }),
+            validatePrivateKey: true,
+            validateXprvt: true,
+            template: v4account.template,
+          },
+        );
+        for (const deriveType of deriveTypes) {
+          await serviceAccount.addImportedAccountWithCredential({
+            credential: await servicePassword.encodeSensitiveText({
+              text: v4privateKey,
+            }),
+            name: v4account.name,
+            networkId,
+            deriveType,
+            skipAddIfNotEqualToAddress: v4account.address,
+          });
+        }
       }
     }
   }

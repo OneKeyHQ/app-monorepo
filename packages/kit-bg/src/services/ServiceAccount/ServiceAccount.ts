@@ -593,11 +593,13 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     name,
+    skipAddIfNotEqualToAddress,
   }: {
     name?: string;
     credential: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
+    skipAddIfNotEqualToAddress?: string;
   }) {
     const walletId = WALLET_TYPE_IMPORTED;
     const vault = await vaultFactory.getWalletOnlyVault({
@@ -636,6 +638,20 @@ class ServiceAccount extends ServiceBase {
 
     // addImportedAccount
     const accounts = await vault.keyring.prepareAccounts(params);
+
+    if (
+      skipAddIfNotEqualToAddress &&
+      accounts.length === 1 &&
+      accounts?.[0]?.address &&
+      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+    ) {
+      return {
+        networkId,
+        walletId,
+        accounts: [],
+      };
+    }
+
     await localDb.addAccountsToWallet({
       walletId,
       accounts,
