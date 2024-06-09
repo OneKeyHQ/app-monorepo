@@ -19,6 +19,7 @@ try {
   const result = execSync(
     `sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty'`,
   ).toString('utf-8');
+  console.log(result);
 } catch (error) {
   const errorMsg = error.stdout.toString('utf-8');
   handleProblems(errorMsg);
