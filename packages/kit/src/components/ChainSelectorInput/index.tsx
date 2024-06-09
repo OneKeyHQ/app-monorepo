@@ -58,12 +58,19 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   }, [openChainSelector, current, onChange, title]);
   return (
     <Stack
-      {...sharedStyles}
-      position="relative"
+      userSelect="none"
       onPress={disabled ? undefined : onPress}
       flexDirection="row"
       alignItems="center"
       testID="network-selector-input"
+      {...(!disabled && {
+        hoverStyle: {
+          bg: '$bgHover',
+        },
+        pressStyle: {
+          bg: '$bgActive',
+        },
+      })}
       {...rest}
     >
       <NetworkAvatar networkId={current?.id} size="$6" />
@@ -74,7 +81,7 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       >
         {current?.name ?? ''}
       </SizableText>
-      <Icon name="ChevronGrabberVerOutline" />
+      <Icon name="ChevronDownSmallOutline" mr="$-0.5" color="$iconSubdued" />
     </Stack>
   );
 };

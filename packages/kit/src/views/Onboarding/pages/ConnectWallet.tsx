@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IDialogInstance } from '@onekeyhq/components';
+import type { IButtonProps, IDialogInstance } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -23,6 +24,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
@@ -123,15 +125,10 @@ function WalletItemView({
       <Stack
         justifyContent="center"
         alignItems="center"
-        bg="$bgSubdued"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
+        bg="$bgStrong"
         borderRadius="$3"
         borderCurve="continuous"
         p="$4"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
         pressStyle={{
           bg: '$bgActive',
         }}
@@ -147,17 +144,19 @@ function WalletItemView({
         <Stack
           w="$8"
           h="$8"
+          alignItems="center"
+          justifyContent="center"
           borderRadius="$2"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
           borderCurve="continuous"
           overflow="hidden"
         >
-          <Image w="100%" h="100%" source={logo} />
+          {!loading ? (
+            <Image w="100%" h="100%" source={logo} />
+          ) : (
+            <Spinner size="small" />
+          )}
         </Stack>
         <XStack alignItems="center">
-          {loading ? <Spinner size="small" /> : null}
-
           <SizableText userSelect="none" mt="$2" size="$bodyMdMedium">
             {name}
           </SizableText>
@@ -173,35 +172,48 @@ function ConnectToWalletDialogContent({
   onRetryPress: () => void;
 }) {
   const [loading] = useOnboardingConnectWalletLoadingAtom();
+  const intl = useIntl();
+
   return (
-    <Stack
-      justifyContent="center"
-      alignItems="center"
-      p="$5"
-      bg="$bgSubdued"
-      borderRadius="$3"
-      borderCurve="continuous"
-    >
-      <XStack>
+    <Stack>
+      <Stack
+        justifyContent="center"
+        alignItems="center"
+        p="$5"
+        bg="$bgStrong"
+        borderRadius="$3"
+        borderCurve="continuous"
+      >
         {loading ? (
           <Spinner size="large" />
         ) : (
-          <Icon size="$10" name="CloudDisconnectedOutline" />
+          <Icon size="$9" name="BrokenLink2Outline" />
         )}
-      </XStack>
 
-      {loading ? (
-        <XStack mt="$4" alignItems="center">
-          <SizableText>Confirm on your wallet to proceed</SizableText>
-        </XStack>
-      ) : null}
-
+        <SizableText textAlign="center" pt="$4">
+          {loading
+            ? intl.formatMessage({
+                id: ETranslations.global_connect_to_wallet_confirm_to_proceed,
+              })
+            : intl.formatMessage({
+                id: ETranslations.global_connect_to_wallet_no_confirmation,
+              })}
+        </SizableText>
+      </Stack>
       {loading ? null : (
-        <XStack mt="$4">
-          <Button variant="primary" onPress={onRetryPress}>
-            Retry
-          </Button>
-        </XStack>
+        <Button
+          mt="$5"
+          variant="primary"
+          size="large"
+          $gtMd={
+            {
+              size: 'medium',
+            } as IButtonProps
+          }
+          onPress={onRetryPress}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
       )}
     </Stack>
   );
@@ -219,6 +231,7 @@ function WalletItem({
   const [jotaiLoading, setJotaiLoading] =
     useOnboardingConnectWalletLoadingAtom();
   const [localLoading, setLocalLoading] = useState(false);
+  const intl = useIntl();
 
   const loading = jotaiLoading || localLoading;
   const setLoading = useCallback(
@@ -317,7 +330,13 @@ function WalletItem({
     }
     await dialogRef.current?.close();
     dialogRef.current = Dialog.show({
-      title: `Connect to ${name || 'Wallet'}`,
+      // title: `Connect to ${name || 'Wallet'}`,
+      title: intl.formatMessage(
+        { id: ETranslations.global_connect_to_wallet },
+        {
+          wallet: name || 'Wallet',
+        },
+      ),
       showFooter: false,
       dismissOnOverlayPress: false,
       onClose() {
@@ -328,7 +347,7 @@ function WalletItem({
       ),
     });
     await connectToWallet();
-  }, [connectToWallet, loading, name]);
+  }, [connectToWallet, intl, loading, name]);
 
   return (
     <WalletItemView
@@ -356,10 +375,13 @@ export function ConnectWallet() {
       }),
     [impl],
   );
+  const intl = useIntl();
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Connect 3rd-party Wallet" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_select_wallet })}
+      />
       <Page.Body>
         <WalletItemViewSection title={pageTitle}>
           <WalletItem

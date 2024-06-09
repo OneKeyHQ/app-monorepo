@@ -14,6 +14,7 @@ import {
 } from 'react';
 
 import { compact, range } from 'lodash';
+import { useIntl } from 'react-intl';
 import { Dimensions, View } from 'react-native';
 
 import type {
@@ -44,6 +45,7 @@ import {
   usePage,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSuggestion } from './hooks';
@@ -62,14 +64,6 @@ const KeyDownView = View as unknown as ComponentType<
   >
 >;
 
-const phraseLengthOptions = [
-  { label: '12 words', value: '12' },
-  { label: '15 words', value: '15' },
-  { label: '18 words', value: '18' },
-  { label: '21 words', value: '21' },
-  { label: '24 words', value: '24' },
-];
-
 interface IWordItemProps {
   word: string;
   onPress: (word: string) => void;
@@ -85,6 +79,7 @@ function WordItem({
   number,
   ...rest
 }: IWordItemProps & Omit<IButtonProps, 'onPress' | 'children'>) {
+  const media = useMedia();
   const handlePress = useCallback(() => {
     onPress(word);
   }, [onPress, word]);
@@ -100,21 +95,23 @@ function WordItem({
       >
         {word}
       </Button>
-      <Stack
-        bg="$bg"
-        position="absolute"
-        right="$px"
-        top="$0"
-        height="$4"
-        width="$4"
-        justifyContent="center"
-        alignItems="center"
-        borderRadius="$full"
-      >
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          {number}
-        </SizableText>
-      </Stack>
+      {media.gtMd ? (
+        <Stack
+          bg="$bg"
+          position="absolute"
+          right="$px"
+          top="$0"
+          height="$4"
+          width="$4"
+          justifyContent="center"
+          alignItems="center"
+          borderRadius="$full"
+        >
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {number}
+          </SizableText>
+        </Stack>
+      ) : null}
     </Stack>
   );
 }
@@ -364,7 +361,7 @@ function BasicPhaseInput(
     size: media.md ? 'large' : 'medium',
     leftAddOnProps: {
       label: `${index + 1}`,
-      minWidth: '$10',
+      pr: '$0',
       justifyContent: 'center',
     },
     error: isShowError,
@@ -450,6 +447,14 @@ export function PhaseInputArea({
   FooterComponent?: ReactElement;
   defaultPhrases?: string[];
 }) {
+  const intl = useIntl();
+
+  const phraseLengths = [12, 15, 18, 21, 24];
+  const phraseLengthOptions = phraseLengths.map((length) => ({
+    label: intl.formatMessage({ id: ETranslations.count_words }, { length }),
+    value: `${length}`,
+  }));
+
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
@@ -547,7 +552,9 @@ export function PhaseInputArea({
           <XStack px="$5" pb="$2" pt="$2" justifyContent="space-between">
             {showPhraseLengthSelector ? (
               <Select
-                title="Select a length"
+                title={intl.formatMessage({
+                  id: ETranslations.select_recovery_phrase_length,
+                })}
                 placement="bottom-start"
                 items={phraseLengthOptions}
                 value={phraseLength}
@@ -559,7 +566,12 @@ export function PhaseInputArea({
                     variant="tertiary"
                     testID="phrase-length"
                   >
-                    {value} words
+                    {intl.formatMessage(
+                      { id: ETranslations.count_words },
+                      {
+                        length: value,
+                      },
+                    )}
                   </Button>
                 )}
               />
@@ -572,7 +584,7 @@ export function PhaseInputArea({
                 onPress={handleClear}
                 testID="clear-all"
               >
-                Clear
+                {intl.formatMessage({ id: ETranslations.global_clear })}
               </Button>
             ) : null}
           </XStack>
@@ -627,7 +639,9 @@ export function PhaseInputArea({
             <XStack pt="$1.5" px="$5" key="invalidPhrase">
               <Icon name="XCircleOutline" size="$5" color="$iconCritical" />
               <SizableText size="$bodyMd" color="$textCritical" pl="$2">
-                Invalid recovery phrase
+                {intl.formatMessage({
+                  id: ETranslations.feedback_invalid_phrases,
+                })}
               </SizableText>
             </XStack>
           ) : null}

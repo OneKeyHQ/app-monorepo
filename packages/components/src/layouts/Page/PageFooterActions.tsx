@@ -2,8 +2,10 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useContext } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
-import { getTokenValue } from '../../hooks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { Button, Stack, XStack } from '../../primitives';
 
 import { PageContext } from './PageContext';
@@ -61,6 +63,7 @@ export function FooterCancelButton({
 }: IButtonProps & {
   onCancel: IFooterActionsProps['onCancel'];
 }) {
+  const intl = useIntl();
   const { pop, popStack } = usePageNavigation();
   const handleCancel = useCallback(async () => {
     await onCancel?.(pop, popStack);
@@ -80,7 +83,7 @@ export function FooterCancelButton({
       testID="page-footer-cancel"
       {...props}
     >
-      {children || 'Cancel'}
+      {children || intl.formatMessage({ id: ETranslations.global_cancel })}
     </Button>
   );
 }
@@ -92,6 +95,7 @@ export function FooterConfirmButton({
 }: IButtonProps & {
   onConfirm: IFooterActionsProps['onConfirm'];
 }) {
+  const intl = useIntl();
   const { pop, popStack } = usePageNavigation();
   const { confirmedRef } = useContext(PageContext);
 
@@ -143,7 +147,7 @@ export function FooterConfirmButton({
       testID="page-footer-confirm"
       {...props}
     >
-      {children || 'Confirm'}
+      {children || intl.formatMessage({ id: ETranslations.global_confirm })}
     </Button>
   );
 }
@@ -182,13 +186,7 @@ export function FooterActions({
     ) : null;
   }, [confirmButton, confirmButtonProps, onConfirm, onConfirmText]);
   return (
-    <Stack
-      p="$5"
-      animation="fast"
-      pb={getTokenValue('$size.5') as number}
-      bg="$bgApp"
-      {...restProps}
-    >
+    <Stack p="$5" animation="fast" bg="$bgApp" {...restProps}>
       {children}
       <XStack justifyContent="flex-end" space="$2.5" {...buttonContainerProps}>
         {renderCancelButton()}

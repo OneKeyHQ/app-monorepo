@@ -244,7 +244,7 @@ export function GetStarted() {
               },
             ]}
           />
-          {!isDappMode ? (
+          {!isDappMode || platformEnv.isDev ? (
             <ActionsGroup
               items={[
                 {

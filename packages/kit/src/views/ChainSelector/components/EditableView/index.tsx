@@ -1,6 +1,8 @@
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { createContext, useContext } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Empty,
   SearchBar,
@@ -11,6 +13,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { networkFuseSearch } from '../../utils';
@@ -160,9 +163,16 @@ type IEditableViewProps = {
   onTopNetworksChange?: (networks: IServerNetwork[]) => void;
 };
 
-const ListEmptyComponent = () => (
-  <Empty icon="SearchOutline" title="No Results" />
-);
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+
+  return (
+    <Empty
+      icon="SearchOutline"
+      title={intl.formatMessage({ id: ETranslations.global_no_results })}
+    />
+  );
+};
 
 export const EditableView: FC<IEditableViewProps> = ({
   allNetworks,
@@ -174,6 +184,7 @@ export const EditableView: FC<IEditableViewProps> = ({
 }) => {
   const [searchText, setSearchText] = useState('');
   const [topNetworks, setTopNetworks] = useState(defaultTopNetworks ?? []);
+  const intl = useIntl();
   const lastIsEditMode = usePrevious(isEditMode);
   const trimSearchText = searchText.trim();
 
@@ -251,10 +262,11 @@ export const EditableView: FC<IEditableViewProps> = ({
   return (
     <EditableViewContext.Provider value={ctx}>
       <Stack flex={1}>
-        <Stack px="$4">
+        <Stack px="$5">
           <SearchBar
-            w="100%"
-            placeholder="Search"
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search,
+            })}
             value={searchText}
             onChangeText={(text) => setSearchText(text.trim())}
           />

@@ -115,6 +115,7 @@ export { default as Bot } from './Bot';
 export { default as Brackets } from './Brackets';
 export { default as BrainAi } from './BrainAi';
 export { default as Branches } from './Branches';
+export { default as BrokenLink2 } from './BrokenLink2';
 export { default as BrokenLink } from './BrokenLink';
 export { default as Broom } from './Broom';
 export { default as Browser } from './Browser';
