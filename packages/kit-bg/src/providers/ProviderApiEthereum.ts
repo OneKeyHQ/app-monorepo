@@ -53,6 +53,14 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   private semaphore = new Semaphore(1);
 
+  // return a mocked chainId in non-evm, as empty string may cause dapp error
+  private _getNetworkMockInfo() {
+    return {
+      chainId: '0x736d17dc',
+      networkVersion: '1936529372',
+    };
+  }
+
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
@@ -194,6 +202,8 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!isNil(networks?.[0]?.chainId)) {
       return hexUtils.hexlify(Number(networks?.[0]?.chainId));
     }
+
+    return this._getNetworkMockInfo().chainId;
   }
 
   @providerApiMethod()
@@ -204,6 +214,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     if (!isNil(networks?.[0]?.chainId)) {
       return networks?.[0]?.chainId;
     }
+    return this._getNetworkMockInfo().networkVersion;
   }
 
   @providerApiMethod()
