@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { Semaphore } from 'async-mutex';
 import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import { isNil } from 'lodash';
@@ -49,6 +50,8 @@ function prefixTxValueToHex(value: string) {
 @backgroundClass()
 class ProviderApiEthereum extends ProviderApiBase {
   public providerName = IInjectedProviderNames.ethereum;
+
+  private semaphore = new Semaphore(1);
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
@@ -104,13 +107,14 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   @providerApiMethod()
   async eth_requestAccounts(request: IJsBridgeMessagePayload) {
-    // throw new Error('some error')
-    const accounts = await this.eth_accounts(request);
-    if (accounts && accounts.length) {
-      return accounts;
-    }
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    return this.eth_accounts(request);
+    return this.semaphore.runExclusive(async () => {
+      const accounts = await this.eth_accounts(request);
+      if (accounts && accounts.length) {
+        return accounts;
+      }
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      return this.eth_accounts(request);
+    });
   }
 
   @providerApiMethod()
