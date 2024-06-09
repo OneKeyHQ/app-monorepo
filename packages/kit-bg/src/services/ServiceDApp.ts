@@ -806,6 +806,11 @@ class ServiceDApp extends ServiceBase {
     return Object.values(rawData.data.injectedProvider);
   }
 
+  @backgroundMethod()
+  async removeDappConnectionAfterWalletRemove(params: { walletId: string }) {
+    return this.backgroundApi.simpleDb.dappConnection.removeWallet(params);
+  }
+
   // notification
   @backgroundMethod()
   async notifyDAppAccountsChanged(targetOrigin: string) {

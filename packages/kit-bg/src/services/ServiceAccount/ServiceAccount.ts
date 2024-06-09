@@ -1348,6 +1348,9 @@ class ServiceAccount extends ServiceBase {
       walletId,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
+      walletId,
+    });
     return result;
   }
 

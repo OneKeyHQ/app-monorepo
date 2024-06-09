@@ -428,4 +428,86 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
       };
     });
   }
+
+  removeFromNetworkImplMap(
+    connectionItem: IConnectionItem,
+    networkImpl: string,
+    index: number,
+  ) {
+    const indices = connectionItem.networkImplMap[networkImpl] || [];
+    const newIndices = indices.filter((idx) => idx !== index);
+    if (newIndices.length === 0) {
+      delete connectionItem.networkImplMap[networkImpl];
+    } else {
+      connectionItem.networkImplMap[networkImpl] = newIndices;
+    }
+  }
+
+  removeFromAddressMap(
+    connectionItem: IConnectionItem,
+    address: string,
+    index: number,
+  ) {
+    const indices = connectionItem.addressMap[address] || [];
+    const newIndices = indices.filter((idx) => idx !== index);
+    if (newIndices.length === 0) {
+      delete connectionItem.addressMap[address];
+    } else {
+      connectionItem.addressMap[address] = newIndices;
+    }
+  }
+
+  removeEntries(
+    connectionItem: IConnectionItem,
+    key: keyof IConnectionAccountInfo,
+    value: string,
+  ) {
+    Object.keys(connectionItem.connectionMap).forEach((i) => {
+      const index = parseInt(i);
+      const item = connectionItem.connectionMap[index];
+      if (item[key] === value) {
+        this.removeFromNetworkImplMap(connectionItem, item.networkImpl, index);
+        this.removeFromAddressMap(connectionItem, item.address, index);
+        delete connectionItem.connectionMap[index];
+      }
+    });
+  }
+
+  @backgroundMethod()
+  async removeWallet({ walletId }: { walletId: string }) {
+    await this.setRawData(({ rawData }) => {
+      if (!rawData || typeof rawData !== 'object' || !rawData.data) {
+        return rawData as IDappConnectionData;
+      }
+
+      Object.keys(rawData.data).forEach((providerType) => {
+        const providers =
+          rawData.data[providerType as keyof IDappConnectionData['data']];
+        Object.values(providers).forEach((provider) => {
+          this.removeEntries(provider, 'walletId', walletId);
+        });
+      });
+
+      return rawData;
+    });
+  }
+
+  @backgroundMethod()
+  async removeAccount({ accountId }: { accountId: string }) {
+    await this.setRawData(({ rawData }) => {
+      if (!rawData || typeof rawData !== 'object' || !rawData.data) {
+        return rawData as IDappConnectionData;
+      }
+
+      Object.keys(rawData.data).forEach((providerType) => {
+        const providers =
+          rawData.data[providerType as keyof IDappConnectionData['data']];
+        Object.values(providers).forEach((provider) => {
+          this.removeEntries(provider, 'accountId', accountId);
+        });
+      });
+
+      return rawData;
+    });
+  }
 }
