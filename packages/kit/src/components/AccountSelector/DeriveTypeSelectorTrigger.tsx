@@ -1,6 +1,8 @@
 import type { ComponentProps } from 'react';
 import { useEffect, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ISelectItem, ISelectProps } from '@onekeyhq/components';
 import { IconButton, Select } from '@onekeyhq/components';
 import type {
@@ -8,6 +10,7 @@ import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -61,6 +64,7 @@ function DeriveTypeSelectorTriggerView({
 }: IDeriveTypeSelectorTriggerProps & {
   testID?: string;
 }) {
+  const intl = useIntl();
   const renderTriggerElement = useMemo(() => {
     if (renderTrigger) {
       return renderTrigger;
@@ -82,7 +86,7 @@ function DeriveTypeSelectorTriggerView({
         placement={placement}
         value={deriveType}
         onChange={onDeriveTypeChange}
-        title="Derivation Path"
+        title={intl.formatMessage({ id: ETranslations.derivation_path })}
         renderTrigger={renderTriggerElement}
       />
     </>

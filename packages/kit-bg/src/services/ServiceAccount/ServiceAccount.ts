@@ -1404,7 +1404,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHWAccountAddresses(params: {
+  async verifyHWAccountAddresses(params: {
     walletId: string;
     networkId: string;
     indexes?: Array<number>;
@@ -1414,6 +1414,8 @@ class ServiceAccount extends ServiceBase {
   }) {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
+
+    prepareParams.isVerifyAddressAction = true;
 
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
@@ -1433,50 +1435,6 @@ class ServiceAccount extends ServiceBase {
         deviceParams,
       },
     );
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async buildAirGapMultiAccounts({
-    scanResult,
-  }: {
-    scanResult: IQRCodeHandlerParseResult<IBaseValue>;
-  }) {
-    const urScanResult =
-      scanResult as IQRCodeHandlerParseResult<IAnimationValue>;
-    const qrcode = urScanResult.data.fullData || urScanResult.raw || '';
-    const ur = await airGapUrUtils.qrcodeToUr(qrcode);
-    const sdk = getAirGapSdk();
-    let airGapMultiAccounts: IAirGapMultiAccounts | undefined;
-    if (ur.type === EAirGapURType.CryptoMultiAccounts) {
-      airGapMultiAccounts = sdk.parseMultiAccounts(ur);
-    } else if (ur.type === EAirGapURType.CryptoHDKey) {
-      const key = sdk.parseHDKey(ur);
-      const name = key.name || 'name';
-      const chain = key.chain || 'chain';
-      const note = key.note || 'note';
-      const xfpOrUUID = key.xfp || generateUUID();
-      const generatedDeviceId = `SingleChainAirGapDevice@${name}-${chain}-${note}-${xfpOrUUID}`;
-      airGapMultiAccounts = {
-        device: key.name,
-        deviceId: generatedDeviceId,
-        deviceVersion: '0.0.1',
-        masterFingerprint: key.xfp || '',
-        keys: [key],
-      };
-    } else {
-      throw new Error(`Invalid UR type: ${ur.type}`);
-    }
-    const qrDevice: IQrWalletDevice = {
-      name: airGapMultiAccounts.device || 'QR Wallet',
-      deviceId: airGapMultiAccounts.deviceId || '',
-      version: airGapMultiAccounts.deviceVersion || '',
-      xfp: airGapMultiAccounts.masterFingerprint || '',
-    };
-    return {
-      qrDevice,
-      airGapAccounts: airGapMultiAccounts.keys,
-    };
   }
 }
 

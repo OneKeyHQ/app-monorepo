@@ -25,7 +25,6 @@ export const BaseListView = ({
 }: IBaseListViewProps) => (
   <ListView
     ListEmptyComponent={ListEmptyComponent}
-    ListHeaderComponent={<Stack h="$2" />}
     ListFooterComponent={<Stack h="$2" />}
     estimatedItemSize={48}
     data={networks}

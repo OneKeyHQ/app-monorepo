@@ -38,7 +38,6 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { OneKeySuiClient } from './sdkSui/ClientSui';
 import { createCoinSendTransaction } from './sdkSui/coin-helper';
@@ -73,9 +72,9 @@ import type {
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sui.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
