@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
@@ -11,9 +11,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
-
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import type {
+  IMarketDetailPool,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/market';
 
 import { MarketDetailLinks } from './MarketDetailLinks';
 import { MarketDetailOverview } from './MarketDetailOverview';
@@ -66,16 +67,22 @@ function BasicTokenDetailTabs({
 }) {
   const { md } = useMedia();
 
-  const { result: pools } = usePromiseResult(
-    () =>
-      token?.detailPlatforms
-        ? backgroundApiProxy.serviceMarket.fetchPools(token.detailPlatforms)
-        : Promise.resolve(undefined),
-    [token?.detailPlatforms],
-    {
-      checkIsFocused: false,
-    },
-  );
+  const [pools, setPools] = useState<
+    | {
+        data: IMarketDetailPool[];
+        contract_address: string;
+        onekeyNetworkId?: string | undefined;
+        coingeckoNetworkId?: string | undefined;
+      }[]
+    | undefined
+  >(undefined);
+  useEffect(() => {
+    if (token?.detailPlatforms) {
+      void backgroundApiProxy.serviceMarket
+        .fetchPools(token.detailPlatforms)
+        .then(setPools);
+    }
+  }, [token?.detailPlatforms]);
 
   const renderPoolSkeleton = useMemo(
     () =>

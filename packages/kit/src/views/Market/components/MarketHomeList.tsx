@@ -675,6 +675,7 @@ function BasicMarketHomeList({
     [category.categoryId, category.coingeckoIds],
     {
       checkIsFocused: false,
+      overrideIsFocused: () => false,
     },
   );
 
