@@ -25,6 +25,9 @@ export function NetworkAvatar({
         ? serviceNetwork.getNetwork({ networkId })
         : Promise.resolve({ logoURI: '' }),
     [networkId, serviceNetwork],
+    {
+      checkIsFocused: false,
+    },
   );
   const { logoURI } = res.result || {};
   return logoURI ? <Image size={size} src={logoURI} /> : null;
