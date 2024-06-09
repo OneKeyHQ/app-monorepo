@@ -72,6 +72,9 @@ function BasicTokenDetailTabs({
         ? backgroundApiProxy.serviceMarket.fetchPools(token.detailPlatforms)
         : Promise.resolve(undefined),
     [token?.detailPlatforms],
+    {
+      checkIsFocused: false,
+    },
   );
 
   const renderPoolSkeleton = useMemo(

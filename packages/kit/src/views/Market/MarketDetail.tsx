@@ -127,6 +127,9 @@ function MarketDetail({
   const { result: tokenDetail } = usePromiseResult(
     () => backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId),
     [coinGeckoId],
+    {
+      checkIsFocused: false,
+    },
   );
 
   const renderHeaderTitle = useCallback(
