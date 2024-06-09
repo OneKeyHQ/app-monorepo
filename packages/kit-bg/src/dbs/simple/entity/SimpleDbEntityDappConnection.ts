@@ -493,17 +493,40 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
   }
 
   @backgroundMethod()
-  async removeAccount({ accountId }: { accountId: string }) {
+  async removeAccount({
+    accountId,
+    indexedAccountId,
+  }: {
+    accountId?: string;
+    indexedAccountId?: string;
+  }) {
     await this.setRawData(({ rawData }) => {
       if (!rawData || typeof rawData !== 'object' || !rawData.data) {
         return rawData as IDappConnectionData;
+      }
+
+      let key: keyof IConnectionAccountInfo | null = null;
+      let value: string | null = null;
+
+      if (accountId) {
+        key = 'accountId';
+        value = accountId;
+      }
+
+      if (indexedAccountId) {
+        key = 'indexedAccountId';
+        value = indexedAccountId;
+      }
+
+      if (!key || !value) {
+        return rawData;
       }
 
       Object.keys(rawData.data).forEach((providerType) => {
         const providers =
           rawData.data[providerType as keyof IDappConnectionData['data']];
         Object.values(providers).forEach((provider) => {
-          this.removeEntries(provider, 'accountId', accountId);
+          this.removeEntries(provider, key, value);
         });
       });
 

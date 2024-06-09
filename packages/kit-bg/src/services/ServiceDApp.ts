@@ -811,6 +811,14 @@ class ServiceDApp extends ServiceBase {
     return this.backgroundApi.simpleDb.dappConnection.removeWallet(params);
   }
 
+  @backgroundMethod()
+  async removeDappConnectionAfterAccountRemove(params: {
+    accountId?: string;
+    indexedAccountId?: string;
+  }) {
+    return this.backgroundApi.simpleDb.dappConnection.removeAccount(params);
+  }
+
   // notification
   @backgroundMethod()
   async notifyDAppAccountsChanged(targetOrigin: string) {
