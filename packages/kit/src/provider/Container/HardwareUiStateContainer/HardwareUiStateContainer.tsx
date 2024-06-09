@@ -44,6 +44,7 @@ function HardwareSingletonDialogCmp(
   const [state] = useHardwareUiStateAtom();
   const action = state?.action;
   const connectId = state?.connectId || '';
+  // state?.payload?.deviceType
   const { serviceHardware, serviceHardwareUI } = backgroundApiProxy;
   const intl = useIntl();
 

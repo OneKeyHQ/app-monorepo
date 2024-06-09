@@ -30,7 +30,7 @@ import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_b
 import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { DeviceAvatar } from '@onekeyhq/kit/src/components/DeviceAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -51,6 +51,7 @@ import {
   NeedOneKeyBridge,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   PERMISSIONS,
@@ -153,7 +154,9 @@ function ConnectByQrCode() {
           try {
             await createQrWallet({ isOnboarding: true });
           } catch (error) {
-            navigation.pop();
+            errorUtils.toastIfError(error);
+            // TODO pop only qrcode scan modal but not device connect modal
+            // navigation.pop();
             throw error;
           }
         }}
@@ -210,6 +213,7 @@ function ConnectByUSBOrBLE({
           }),
         ]);
       } catch (error) {
+        errorUtils.toastIfError(error);
         navigation.pop();
         throw error;
       } finally {

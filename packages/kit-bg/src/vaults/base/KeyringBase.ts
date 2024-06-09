@@ -162,7 +162,9 @@ export abstract class KeyringBase extends VaultContext {
 
     const { checkIsAccountUsed, buildAddressesInfo } = options;
 
-    const ignoreFirst = indexes[0] !== 0;
+    // const ignoreFirst = indexes[0] !== 0;
+    const ignoreFirst = false; // v5 do not check prev account used
+
     // check first prev non-zero index account existing
     const usedIndexes = [...(ignoreFirst ? [indexes[0] - 1] : []), ...indexes];
 
@@ -244,6 +246,7 @@ export abstract class KeyringBase extends VaultContext {
   }
 
   async batchGetAddresses(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: IPrepareAccountsParams,
   ): Promise<{ address: string; path: string }[]> {
     return [];
