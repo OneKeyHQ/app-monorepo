@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
 import { Dialog, QRCode, Stack } from '@onekeyhq/components';
+import { EQRCodeHandlerNames } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -28,18 +29,27 @@ export function QrcodeDialogContainer() {
         onConfirmText: 'Next',
         onConfirm: async () => {
           await dialog.close({ flag: 'skipReject' });
-          // TODO reject at scan onClose
-          const result = await startScan({
-            handlers: [],
-            qrWalletScene: true,
-            autoHandleResult: false,
-          });
-          console.log(result, result.raw);
-          if (event.promiseId) {
-            await backgroundApiProxy.servicePromise.resolveCallback({
-              id: event.promiseId,
-              data: result,
+
+          try {
+            const result = await startScan({
+              handlers: [EQRCodeHandlerNames.animation],
+              qrWalletScene: true,
+              autoHandleResult: false,
             });
+            console.log(result, result.raw);
+            if (event.promiseId) {
+              await backgroundApiProxy.servicePromise.resolveCallback({
+                id: event.promiseId,
+                data: result,
+              });
+            }
+          } catch (error) {
+            if (event.promiseId) {
+              await backgroundApiProxy.servicePromise.rejectCallback({
+                id: event.promiseId,
+                error,
+              });
+            }
           }
         },
         onClose: async (params) => {

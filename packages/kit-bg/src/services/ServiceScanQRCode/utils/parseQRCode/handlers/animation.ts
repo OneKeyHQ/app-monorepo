@@ -56,6 +56,7 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
 export default animation;
 
 export function resetAnimationQrcodeScan() {
+  console.log('resetAnimationQrcodeScan >>>>>> ');
   decoder = new URDecoder();
   parts = [];
 }

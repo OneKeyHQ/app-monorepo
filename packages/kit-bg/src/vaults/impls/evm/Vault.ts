@@ -91,7 +91,7 @@ export default class Vault extends VaultBase {
     return this.baseValidatePrivateKey(privateKey);
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,

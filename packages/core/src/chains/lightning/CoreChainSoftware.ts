@@ -156,13 +156,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }): Promise<ISigner> {
     const btcNetworkInfo = isTestnet
       ? {
-          networkChainCode: IMPL_TBTC,
+          networkChainCode: 'tbtc', // presetNetworks.code not impl
           networkImpl: IMPL_TBTC,
           networkId: 'tbtc--0',
           chainId: '',
         }
       : {
-          networkChainCode: IMPL_BTC,
+          networkChainCode: 'btc', // presetNetworks.code not impl
           networkImpl: IMPL_BTC,
           networkId: 'btc--0',
           chainId: '',

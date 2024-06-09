@@ -3,77 +3,23 @@ import { useCallback } from 'react';
 import { Dialog, SizableText, Stack } from '@onekeyhq/components';
 import type {
   IDBDevice,
-  IDBWallet,
   IDBWalletId,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAddHDOrHWAccountsResult } from '@onekeyhq/kit-bg/src/services/ServiceAccount/ServiceAccount';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import { OneKeyErrorAirGapWalletMismatch } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
-import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
 
-export function useCreateQrWallet() {
-  const {
-    start: startScan,
-    // close,
-  } = useScanQrCode();
-  const actions = useAccountSelectorActions();
-  const navigation = useAppNavigation();
-
-  const createQrWallet = useCallback(
-    async ({
-      isOnboarding,
-      byWallet,
-      byDevice,
-    }: {
-      isOnboarding?: boolean;
-      byWallet?: IDBWallet;
-      byDevice?: IDBDevice;
-    }) => {
-      const scanResult = await startScan({
-        handlers: [],
-        qrWalletScene: true,
-        autoHandleResult: false,
-      });
-      console.log('startScan:', scanResult.raw?.trim());
-      const { qrDevice, airGapAccounts } =
-        await backgroundApiProxy.serviceAccount.buildAirGapMultiAccounts({
-          scanResult,
-        });
-      if (byDevice?.deviceId && qrDevice?.deviceId !== byDevice?.deviceId) {
-        throw new OneKeyErrorAirGapWalletMismatch();
-      }
-      if (byWallet?.xfp && qrDevice?.xfp !== byWallet?.xfp) {
-        throw new OneKeyErrorAirGapWalletMismatch();
-      }
-      if (isOnboarding) {
-        navigation.push(EOnboardingPages.FinalizeWalletSetup);
-      }
-      const result = await actions.current.createQrWallet({
-        qrDevice,
-        airGapAccounts,
-        isOnboarding,
-      });
-      return result;
-    },
-    [actions, navigation, startScan],
-  );
-  return {
-    createQrWallet,
-  };
-}
+import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
-  const { serviceAccount } = backgroundApiProxy;
+  const { serviceAccount, serviceQrWallet } = backgroundApiProxy;
 
   const actions = useAccountSelectorActions();
-  const { createQrWallet } = useCreateQrWallet();
+  const { createQrWallet, createQrWalletByUr } = useCreateQrWallet();
 
   const createAddress = useCallback(
     async ({
@@ -143,8 +89,20 @@ export function useAccountSelectorCreateAddress() {
             });
           }
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { wallet: walletCreated } = await createQrWallet({
-            isOnboarding: false,
+          // const { wallet: walletCreated } = await createQrWallet({
+          //   isOnboarding: false,
+          //   byDevice,
+          //   byWallet,
+          // });
+          const urJson = await serviceQrWallet.prepareQrcodeWalletAddressCreate(
+            {
+              walletId: account.walletId,
+              networkId: account.networkId,
+              indexedAccountId: account.indexedAccountId,
+            },
+          );
+          const { wallet: walletCreated } = await createQrWalletByUr({
+            urJson,
             byDevice,
             byWallet,
           });
@@ -184,7 +142,7 @@ export function useAccountSelectorCreateAddress() {
         }
       }
     },
-    [actions, createQrWallet, serviceAccount],
+    [actions, createQrWalletByUr, serviceAccount, serviceQrWallet],
   );
 
   return {

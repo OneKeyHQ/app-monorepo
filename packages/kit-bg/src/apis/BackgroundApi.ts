@@ -295,12 +295,22 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceWalletConnect() {
-    const ServiceWalletConnect =
+    const Service =
       require('../services/ServiceWalletConnect') as typeof import('../services/ServiceWalletConnect');
-    const value = new ServiceWalletConnect.default({
+    const value = new Service.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceWalletConnect', { value });
+    return value;
+  }
+
+  get serviceQrWallet() {
+    const Service =
+      require('../services/ServiceQrWallet') as typeof import('../services/ServiceQrWallet');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceQrWallet', { value });
     return value;
   }
 
@@ -405,9 +415,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceLogger() {
-    const ServiceLogger =
+    const Service =
       require('../services/ServiceLogger') as typeof import('../services/ServiceLogger');
-    const value = new ServiceLogger.default({
+    const value = new Service.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceLogger', { value });

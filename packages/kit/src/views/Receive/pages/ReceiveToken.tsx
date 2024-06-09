@@ -28,6 +28,7 @@ import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
@@ -68,16 +69,22 @@ function ReceiveToken() {
 
   const { copyText } = useClipboard();
 
-  const isHardwareWallet = wallet?.type === WALLET_TYPE_HW;
+  const isDeviceWallet =
+    accountUtils.isQrWallet({
+      walletId,
+    }) ||
+    accountUtils.isHwWallet({
+      walletId,
+    });
 
   const isShowAddress =
-    !isHardwareWallet ||
+    !isDeviceWallet ||
     addressState === EAddressState.ForceShow ||
     addressState === EAddressState.Verifying ||
     addressState === EAddressState.Verified;
 
   const isShowQRCode =
-    !isHardwareWallet ||
+    !isDeviceWallet ||
     addressState === EAddressState.ForceShow ||
     addressState === EAddressState.Verified;
 
@@ -85,7 +92,7 @@ function ReceiveToken() {
     setAddressState(EAddressState.Verifying);
     try {
       const addresses =
-        await backgroundApiProxy.serviceAccount.getHWAccountAddresses({
+        await backgroundApiProxy.serviceAccount.verifyHWAccountAddresses({
           walletId,
           networkId,
           indexedAccountId: account?.indexedAccountId,
@@ -259,7 +266,7 @@ function ReceiveToken() {
               ) : null}
             </ConfirmHighlighter>
 
-            {isHardwareWallet && addressState === EAddressState.Unverified ? (
+            {isDeviceWallet && addressState === EAddressState.Unverified ? (
               <Button variant="primary" onPress={handleVerifyOnDevicePress}>
                 Verify on Device
               </Button>
@@ -281,7 +288,7 @@ function ReceiveToken() {
     addressType,
     copyText,
     handleVerifyOnDevicePress,
-    isHardwareWallet,
+    isDeviceWallet,
     isShowAddress,
     isShowQRCode,
     network,
@@ -294,7 +301,7 @@ function ReceiveToken() {
     <Page scrollEnabled>
       <Page.Header
         title="Receive"
-        headerRight={isHardwareWallet ? headerRight : undefined}
+        headerRight={isDeviceWallet ? headerRight : undefined}
       />
       <Page.Body>{renderReceiveToken()}</Page.Body>
     </Page>

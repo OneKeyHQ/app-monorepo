@@ -12,6 +12,7 @@ import ServiceBase from './ServiceBase';
 
 import type {
   IDevSettingsKeys,
+  IDevSettingsPersistAtom,
   IFirmwareUpdateDevSettings,
   IFirmwareUpdateDevSettingsKeys,
 } from '../states/jotai/atoms/devSettings';
@@ -39,6 +40,11 @@ class ServiceDevSetting extends ServiceBase {
         [name]: value,
       },
     }));
+  }
+
+  @backgroundMethod()
+  public async getDevSetting(): Promise<IDevSettingsPersistAtom> {
+    return devSettingsPersistAtom.get();
   }
 
   @backgroundMethod()

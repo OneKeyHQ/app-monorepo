@@ -212,6 +212,7 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
           }
 
           const sdk = getAirGapSdk();
+          // sdk.btc.generatePSBT
           // return childrenPath "0/*" of accountBySdk
           const accountBySdk = sdk.parseHDKey(ur);
           // generateAddress by index

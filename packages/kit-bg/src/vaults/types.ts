@@ -11,6 +11,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
+import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
@@ -200,9 +201,13 @@ export type IPrepareHdAccountsParamsBase = {
   names?: Array<string>; // custom names
   deriveInfo: IAccountDeriveInfo;
   skipCheckAccountExist?: boolean; // BTC required
+  isVerifyAddressAction?: boolean;
 };
 export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
+};
+export type IPrepareQrAccountsParams = IPrepareHdAccountsParamsBase & {
+  // isVerifyAddress?: boolean;
 };
 export type IPrepareHdAccountsOptions = {
   checkIsAccountUsed?: (query: {
@@ -222,6 +227,7 @@ export type IPrepareAccountsParams =
   | IPrepareImportedAccountsParams
   | IPrepareHdAccountsParams
   | IPrepareHardwareAccountsParams
+  | IPrepareQrAccountsParams
   | IPrepareExternalAccountsParams;
 
 // PrepareAccountByAddressIndex
@@ -422,4 +428,22 @@ export type IValidateGeneralInputParams = {
   validateXpub?: boolean;
   validateXprvt?: boolean;
   validatePrivateKey?: boolean;
+};
+
+export type IGetChildPathTemplatesParams = {
+  airGapAccount: IAirGapAccount;
+  index: number;
+};
+
+export type IGetChildPathTemplatesResult = {
+  childPathTemplates: string[];
+};
+
+export type IQrWalletGetVerifyAddressChainParamsQuery = {
+  fullPath: string;
+};
+
+export type IQrWalletGetVerifyAddressChainParamsResult = {
+  scriptType?: string; // BTC only
+  chainId?: string; // EVM only
 };

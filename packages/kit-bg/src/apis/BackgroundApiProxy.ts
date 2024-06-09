@@ -40,6 +40,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
@@ -137,6 +138,10 @@ class BackgroundApiProxy
   serviceWalletConnect = this._createProxyService(
     'serviceWalletConnect',
   ) as ServiceWalletConnect;
+
+  serviceQrWallet = this._createProxyService(
+    'serviceQrWallet',
+  ) as ServiceQrWallet;
 
   serviceAccountProfile = this._createProxyService(
     'serviceAccountProfile',

@@ -160,6 +160,16 @@ function autoPrintErrorIgnore(error: unknown | undefined) {
   }
 }
 
+function toastIfError(error: unknown) {
+  if (error instanceof Error) {
+    const e = error as IOneKeyError | undefined;
+    if (e) {
+      // handle autoToast error by BackgroundApiProxyBase
+      e.autoToast = true;
+    }
+  }
+}
+
 export default {
   autoPrintErrorIgnore,
   normalizeErrorProps,
@@ -168,4 +178,5 @@ export default {
   interceptConsoleErrorWithExtraInfo,
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
+  toastIfError,
 };

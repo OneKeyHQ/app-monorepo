@@ -175,6 +175,7 @@ export type IQrWalletDevice = {
   deviceId: string;
   version: string;
   xfp: string;
+  buildBy: 'hdkey' | 'multiAccounts';
 };
 
 export type IDeviceFirmwareType = 'firmware' | 'ble' | 'bootloader';
