@@ -413,7 +413,7 @@ export default class Vault extends VaultBase {
             cardanoPubKey: xpub,
           });
         if (!utxoList || isEmpty(utxoList)) {
-          throw new OneKeyInternalError('Failed to get UTXO list.');
+          return [];
         }
 
         const pathIndex = path.split('/')[3];
