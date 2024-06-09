@@ -11,3 +11,17 @@ export function devOnlyData<T>(
   }
   return fallback;
 }
+
+export const WEB_DAPP_MODE_STORAGE_KEY = '$onekey_is_dapp_mode';
+export function isWebInDappMode() {
+  if (localStorage.getItem(WEB_DAPP_MODE_STORAGE_KEY) === 'wallet') {
+    return false; // wallet mode
+  }
+  return true; // dapp mode
+}
+export function switchWebDappMode() {
+  localStorage.setItem(
+    WEB_DAPP_MODE_STORAGE_KEY,
+    isWebInDappMode() ? 'wallet' : 'dapp',
+  );
+}
