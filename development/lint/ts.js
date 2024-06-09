@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
-const MAX_PROBLEM_COUNT = 375;
+const MAX_PROBLEM_COUNT = 372;
 
 function handleProblems(result) {
   console.log(result);
