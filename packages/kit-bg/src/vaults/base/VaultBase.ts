@@ -233,7 +233,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   keyring!: KeyringBase;
 
-  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase>;
+  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase | undefined>;
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);

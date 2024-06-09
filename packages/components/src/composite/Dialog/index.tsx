@@ -398,51 +398,6 @@ function dialogShow({
         }, 300);
       });
 
-  if (platformEnv.isDev) {
-    const {
-      showFooter = true,
-      onCancel,
-      onCancelText,
-      cancelButtonProps,
-      showConfirmButton = true,
-      showCancelButton = true,
-      onConfirm,
-      onConfirmText,
-      confirmButtonProps,
-    } = props;
-    if (
-      showFooter === false &&
-      (onCancel ||
-        onCancelText ||
-        cancelButtonProps ||
-        onConfirm ||
-        onConfirmText ||
-        confirmButtonProps)
-    ) {
-      throw new Error(
-        'When showFooter is false, onCancel, onCancelText, cancelButtonProps, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
-      );
-    }
-
-    if (
-      showConfirmButton === false &&
-      (onConfirm || onConfirmText || confirmButtonProps)
-    ) {
-      throw new Error(
-        'When showConfirmButton is false, onConfirm, onConfirmText, confirmButtonProps cannot assign value',
-      );
-    }
-
-    if (
-      showCancelButton === false &&
-      (onCancel || onCancelText || cancelButtonProps)
-    ) {
-      throw new Error(
-        'When showCancelButton is false, onCancel, onCancelText, cancelButtonProps cannot assign value',
-      );
-    }
-  }
-
   const element = (() => {
     if (dialogContainer) {
       const e = dialogContainer({ ref: instanceRef });

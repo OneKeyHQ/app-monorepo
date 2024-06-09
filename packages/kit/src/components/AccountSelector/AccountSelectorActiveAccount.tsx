@@ -1,16 +1,15 @@
 import { useCallback } from 'react';
 
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   SizableText,
   Tooltip,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
@@ -41,8 +40,16 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   }, [activeAccount, selectedAccount]);
 
   const handleAddressOnPress = useCallback(() => {
-    if (!account || !network || !deriveInfo) return;
-    if (wallet?.type === WALLET_TYPE_HW) {
+    if (!account || !network || !deriveInfo || !wallet) return;
+    if (
+      wallet?.id &&
+      (accountUtils.isHwWallet({
+        walletId: wallet?.id,
+      }) ||
+        accountUtils.isQrWallet({
+          walletId: wallet?.id,
+        }))
+    ) {
       navigation.pushModal(EModalRoutes.ReceiveModal, {
         screen: EModalReceiveRoutes.ReceiveToken,
         params: {

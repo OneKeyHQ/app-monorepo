@@ -4,7 +4,7 @@ import {
 } from '@keystonehq/bc-ur-registry-eth';
 import { KeystoneEthereumSDK } from '@keystonehq/keystone-sdk';
 
-export class AirGapEthereumSDK extends KeystoneEthereumSDK {
+export class AirGapEthSDK extends KeystoneEthereumSDK {
   generateAddressFromXpub(params: { xpub: string; derivePath: string }) {
     // derivePath: `m/0/0`, `m/0/1` `m/0/2`
     return generateAddressFromXpub(params.xpub, params.derivePath);

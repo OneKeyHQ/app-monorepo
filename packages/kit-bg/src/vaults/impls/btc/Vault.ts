@@ -383,7 +383,7 @@ export default class VaultBtc extends VaultBase {
     ).then((results) => results.map((i) => i.encoding));
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: KeyringQr,
     hw: KeyringHardware,
@@ -743,8 +743,8 @@ export default class VaultBtc extends VaultBase {
     },
   );
 
-  async _getRelPathToAddressByApi({
-    addresses,
+  async _getRelPathsToAddressByApi({
+    addresses, // addresses in tx.inputs
     account,
   }: {
     addresses: string[];
@@ -781,6 +781,7 @@ export default class VaultBtc extends VaultBase {
       };
     }
 
+    // TODO uniq
     const relPaths: string[] = Object.values(pathToAddresses).map(
       (item) => item.relPath,
     );
@@ -844,11 +845,13 @@ export default class VaultBtc extends VaultBase {
         .concat(account.address);
     }
 
+    // TODO generate relPaths from inputs/inputsToSign/inputsForCoinSelect
+
     const {
       // required for multiple address signing
       relPaths,
       pathToAddresses,
-    } = await this._getRelPathToAddressByApi({
+    } = await this._getRelPathsToAddressByApi({
       addresses,
       account,
     });
