@@ -30,7 +30,7 @@ import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_b
 import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
 import { DeviceAvatar } from '@onekeyhq/kit/src/components/DeviceAvatar';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -50,7 +50,9 @@ import {
   NeedBluetoothTurnedOn,
   NeedOneKeyBridge,
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   PERMISSIONS,
@@ -864,3 +866,86 @@ export function ConnectYourDevice() {
   );
 }
 export default ConnectYourDevice;
+
+// return (
+//   <>
+//     <ScrollView flex={1}>
+//       <Stack alignItems="center" justifyContent="center">
+//         <DeviceAvatar deviceType="pro" size={40} />
+//         <SizableText textAlign="center">
+//           Create QR-based wallet with OneKey Pro
+//         </SizableText>
+//         <SizableText textAlign="center">
+//           To display your QR code in device, navigate to "Connect App Wallet"{' '}
+//           {'>'} "QR Code" {'>'} "OneKey Wallet".
+//         </SizableText>
+//         <Button
+//           variant="primary"
+//           onPress={async () => {
+//             try {
+//               await createQrWallet({ isOnboarding: true });
+//             } catch (error) {
+//               errorUtils.toastIfError(error);
+//               // TODO pop only qrcode scan modal but not device connect modal
+//               // navigation.pop();
+//               throw error;
+//             }
+//           }}
+//         >
+//           Scan to connect
+//         </Button>
+//       </Stack>
+//     </ScrollView>
+//   </>
+// );
+// }
+
+// function ConnectByUSBOrBLE({
+// devicesData,
+// }: {
+// devicesData: IConnectYourDeviceItem[];
+// }) {
+// const fwUpdateActions = useFirmwareUpdateActions();
+
+// return (
+//   <>
+//     {/* connecting animation */}
+//     <Stack alignItems="center" bg="$bgSubdued">
+//       <LottieView
+//         width="100%"
+//         height="$56"
+//         source={
+//           platformEnv.isNative ? ConnectByBluetoothAnim : ConnectByUSBAnim
+//         }
+//       />
+//     </Stack>
+
+//     {/* list devices */}
+//     <ScrollView flex={1}>
+//       <SizableText textAlign="center" color="$textSubdued" pt="$2.5" pb="$5">
+//         {platformEnv.isNative
+//           ? 'Please make sure your Bluetooth is enabled'
+//           : 'Connect your device via USB'}
+//       </SizableText>
+//       {devicesData.map((item, index) => (
+//         <DeviceListItem item={item} key={index} />
+//       ))}
+//       {platformEnv.isDev ? (
+//         <Button
+//           onPress={() => {
+//             void fwUpdateActions.showForceUpdate({ connectId: undefined });
+//           }}
+//         >
+//           ForceUpdate
+//         </Button>
+//       ) : null}
+//     </ScrollView>
+//   </>
+// );
+// }
+// enum EConnectDeviceTab {
+// usbOrBle = 'usbOrBle',
+// qr = 'qr',
+// }
+// export function ConnectYourDevicePage() {
+// const navigation = useAppNavigation();

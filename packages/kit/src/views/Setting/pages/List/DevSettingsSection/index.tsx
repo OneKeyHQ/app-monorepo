@@ -71,6 +71,13 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        name="alwaysSignOnlySendTx"
+        title="始终只签名不广播"
+        testID="always-sign-only-send-tx"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
       <SectionPressItem
         title="FirmwareUpdateDevSettings"
         testID="firmware-update-dev-settings-menu"
