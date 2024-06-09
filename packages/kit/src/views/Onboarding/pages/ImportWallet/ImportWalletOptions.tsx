@@ -1,14 +1,20 @@
+import { useCallback, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 import { InteractionManager, Keyboard } from 'react-native';
 
 import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
+  Divider,
   Icon,
   KEYBOARD_HIDE_EVENT_NAME,
   Page,
   SectionList,
+  SizableText,
   Stack,
+  Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
@@ -17,6 +23,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -26,6 +33,8 @@ type IOptionItem = IPropsWithTestId<{
   icon: IIconProps['name'];
   iconColor?: IIconProps['color'];
   onPress?: IListItemProps['onPress'];
+  isLoading?: boolean;
+  comingSoon?: boolean;
 }>;
 
 type IOptionSection = {
@@ -58,8 +67,34 @@ const closeKeyboard = platformEnv.isNative
   : () => Promise.resolve();
 
 export function ImportWalletOptions() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
+  const [migrateLoading, setMigrateLoading] = useState(false);
+  const { serviceV4Migration } = backgroundApiProxy;
+
+  const handleMigrateFromV4 = useCallback(async () => {
+    try {
+      setMigrateLoading(true);
+
+      const shouldMigrate = await serviceV4Migration.checkShouldMigrateV4();
+      if (shouldMigrate) {
+        const { shouldBackup } = await serviceV4Migration.prepareMigration();
+        if (shouldBackup) {
+          Toast.message({ title: 'Show backup Modal......' });
+        }
+        await serviceV4Migration.startV4MigrationFlow();
+        Dialog.show({
+          showCancelButton: false,
+          onConfirmText: 'OK',
+          title: 'Migration Complete',
+          description: 'Your V4 data have been migrated successfully.',
+        });
+      }
+    } finally {
+      setMigrateLoading(false);
+    }
+  }, [serviceV4Migration]);
 
   const handleConnectHardwareWalletPress = async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
@@ -93,20 +128,22 @@ export function ImportWalletOptions() {
 
   const options: IOptionSection[] = [
     {
-      sectionTitle: 'Muti-chain Wallet',
       data: [
         {
-          title: 'Recovery Phrase',
+          title: intl.formatMessage({
+            id: ETranslations.global_recovery_phrase,
+          }),
           icon: 'Document2Outline',
-          description:
-            'Import a 12-24 word phrase to set up your multi-chain wallet.',
           onPress: () => {
             const dialog = Dialog.show({
               tone: 'warning',
               icon: 'ErrorOutline',
-              title: 'Security Alert',
-              description:
-                "For the safety of your assets, please do not import the recovery phrase of your hardware wallet. Use 'Connect Hardware Wallet' to maintain the highest level of security.",
+              title: intl.formatMessage({
+                id: ETranslations.onboarding_import_recovery_phrase_warning,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.onboarding_import_recovery_phrase_warning_help_text,
+              }),
               renderContent: (
                 <Stack>
                   <Button
@@ -117,7 +154,9 @@ export function ImportWalletOptions() {
                     }}
                     testID="acknowledged"
                   >
-                    Acknowledged
+                    {intl.formatMessage({
+                      id: ETranslations.global_acknowledged,
+                    })}
                   </Button>
                   <Button
                     variant="tertiary"
@@ -129,7 +168,9 @@ export function ImportWalletOptions() {
                     }}
                     testID="hardware-wallet"
                   >
-                    Connect Hardware Wallet
+                    {intl.formatMessage({
+                      id: ETranslations.global_connect_hardware_wallet,
+                    })}
                   </Button>
                 </Stack>
               ),
@@ -143,7 +184,6 @@ export function ImportWalletOptions() {
               {
                 title: 'OneKey Lite',
                 icon: 'OnekeyLiteOutline',
-                description: 'Import recovery phrase from your OneKey Lite',
                 onPress: liteCard.importWallet,
               } as IOptionItem,
             ]
@@ -151,86 +191,85 @@ export function ImportWalletOptions() {
         {
           icon: 'OnekeyKeytagOutline',
           title: 'OneKey KeyTag',
-          description: 'Import recovery phrase from your OneKey KeyTag',
-          onPress: () => {
-            const dialog = Dialog.show({
-              tone: 'warning',
-              icon: 'ErrorOutline',
-              title: 'Security Alert',
-              description:
-                "For the safety of your assets, please do not import the recovery phrase of your hardware wallet. Use 'Connect Hardware Wallet' to maintain the highest level of security.",
-              renderContent: (
-                <Stack>
-                  <Button
-                    variant="secondary"
-                    onPress={async () => {
-                      await dialog.close();
-                      await handleImportKeyTag();
-                    }}
-                    testID="acknowledged"
-                  >
-                    Acknowledged
-                  </Button>
-                </Stack>
-              ),
-              showFooter: false,
-            });
-          },
+          onPress: handleImportKeyTag,
         },
       ],
     },
     {
-      sectionTitle: 'Single-chain Account',
       data: [
         {
-          title: 'Private Key',
+          title: intl.formatMessage({ id: ETranslations.global_private_key }),
           icon: 'KeyOutline',
-          description: 'Import private key to generate a single-chain account.',
           onPress: handleImportPrivateKeyPress,
           testID: 'import-private-key',
         },
         {
-          title: 'Address',
+          title: intl.formatMessage({ id: ETranslations.global_address }),
           icon: 'EyeOutline',
-          description: 'Import address to monitor a single-chain account.',
           onPress: handleImportAddressPress,
           testID: 'import-address',
         },
       ],
     },
-    ...(platformEnv.isNative
-      ? [
-          {
-            sectionTitle: 'Others',
-            data: [
+    {
+      data: [
+        ...(platformEnv.isNative
+          ? [
               {
-                icon: 'CloudSyncOutline',
+                icon: 'CloudOutline',
                 title: backupPlatform().cloudName,
-                description: `Import your wallet from ${
-                  backupPlatform().cloudName
-                }`,
                 onPress: handleImportFromCloud,
-              },
-            ],
-          } as IOptionSection,
-        ]
-      : []),
+              } as IOptionItem,
+            ]
+          : []),
+        {
+          title: intl.formatMessage({
+            id: ETranslations.onboarding_migrate_from_v4,
+          }),
+          icon: 'StorageOutline',
+          onPress: handleMigrateFromV4,
+          testID: 'connect-hardware-wallet',
+          isLoading: migrateLoading,
+        },
+      ],
+    },
   ];
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Import Wallet" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_import_wallet })}
+      />
       <Page.Body>
         {options.map(({ sectionTitle, data }, index) => (
           <Stack
-            key={sectionTitle}
-            {...(index !== 0 && { mt: '$5' })}
-            {...(index === options.length - 1 && { pb: '$5' })}
+            key={sectionTitle || index}
+            // {...(index !== 0 && { mt: '$5' })}
+            // {...(index === options.length - 1 && { pb: '$5' })}
           >
-            <SectionList.SectionHeader title={sectionTitle} />
+            {sectionTitle ? (
+              <SectionList.SectionHeader title={sectionTitle} />
+            ) : null}
+            {index !== 0 ? <Divider m="$5" /> : null}
             {data.map(
-              ({ title, icon, description, iconColor, onPress, testID }) => (
-                <ListItem key={title} onPress={onPress} drillIn testID={testID}>
+              ({
+                title,
+                icon,
+                description,
+                iconColor,
+                onPress,
+                testID,
+                isLoading,
+                comingSoon,
+              }) => (
+                <ListItem
+                  key={title}
+                  onPress={onPress}
+                  drillIn
+                  disabled={comingSoon}
+                  isLoading={isLoading}
+                  testID={testID}
+                >
                   <Stack
                     bg="$bgStrong"
                     p="$2"
@@ -251,6 +290,9 @@ export function ImportWalletOptions() {
                     primary={title}
                     secondary={description}
                   />
+                  {comingSoon ? (
+                    <SizableText color="$textSubdued">Coming soon</SizableText>
+                  ) : null}
                 </ListItem>
               ),
             )}
