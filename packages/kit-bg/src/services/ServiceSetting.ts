@@ -153,6 +153,10 @@ class ServiceSetting extends ServiceBase {
       // clear connect sites
       await this.backgroundApi.simpleDb.dappConnection.clearRawData();
     }
+    if (values.signatureRecord) {
+      // clear signature record
+      await this.backgroundApi.serviceSignature.deleteAllSignatureRecords();
+    }
   }
 
   @backgroundMethod()

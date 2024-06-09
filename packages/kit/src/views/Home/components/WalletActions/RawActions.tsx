@@ -86,6 +86,9 @@ function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
   return (
     <ActionList
       title="More"
+      floatingPanelProps={{
+        w: '$60',
+      }}
       renderTrigger={
         <ActionItem
           icon="DotHorOutline"

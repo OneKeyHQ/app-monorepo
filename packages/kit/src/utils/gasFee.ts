@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EFeeType,
   type IFeeInfoUnit,
@@ -188,7 +188,7 @@ export function getFeeLabel({
   }
 
   return (PRESET_FEE_LABEL[presetIndex ?? 1] ??
-    PRESET_FEE_LABEL[0]) as ILocaleIds;
+    PRESET_FEE_LABEL[0]) as ETranslations;
 }
 export function getFeeIcon({
   feeType,

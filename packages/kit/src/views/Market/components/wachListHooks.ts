@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { Toast } from '@onekeyhq/components';
+
 import { useWatchListActions } from '../../../states/jotai/contexts/market';
 
 export const useWatchListAction = () => {
@@ -16,8 +18,8 @@ export const useWatchListAction = () => {
   const addIntoWatchList = useCallback(
     (coingeckoIds: string | string[]) => {
       const ids = Array.isArray(coingeckoIds) ? coingeckoIds : [coingeckoIds];
-
       actions.current.addIntoWatchList(ids.map((id) => ({ coingeckoId: id })));
+      Toast.success({ title: 'Added to watchlist' });
     },
     [actions],
   );

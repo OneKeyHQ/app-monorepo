@@ -292,7 +292,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
         if (
           txState.state === ESwapTxHistoryStatus.SUCCESS ||
-          txState.state === ESwapTxHistoryStatus.FAILED
+          txState.state === ESwapTxHistoryStatus.FAILED ||
+          txState.state === ESwapTxHistoryStatus.DISCARD
         ) {
           enableInterval = false;
           set(swapApprovingTransactionAtom(), (pre) => {
@@ -304,10 +305,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 status: ESwapApproveTransactionStatus.SUCCESS,
               };
             }
+            if (txState.state === ESwapTxHistoryStatus.FAILED) {
+              return {
+                ...pre,
+                txId: undefined,
+                status: ESwapApproveTransactionStatus.FAILED,
+              };
+            }
             return {
               ...pre,
               txId: undefined,
-              status: ESwapApproveTransactionStatus.FAILED,
+              status: ESwapApproveTransactionStatus.CANCEL,
             };
           });
           set(swapBuildTxFetchingAtom(), false);

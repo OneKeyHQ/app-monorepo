@@ -60,12 +60,14 @@ const HeaderComponent = (
   );
   const rawStyle = useStyle(
     {
-      ...{
-        h: '$11',
-        bg: '$bgApp',
-        borderBottomColor: '$borderSubdued',
-        borderBottomWidth: StyleSheet.hairlineWidth,
-      },
+      ...(props.data.length > 0
+        ? {
+            h: '$11',
+            bg: '$bgApp',
+            borderBottomColor: '$borderSubdued',
+            borderBottomWidth: StyleSheet.hairlineWidth,
+          }
+        : {}),
       ...style,
     } as Record<string, unknown>,
     {
