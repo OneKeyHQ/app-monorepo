@@ -1442,12 +1442,27 @@ class ServiceAccount extends ServiceBase {
         if (!isEmpty(addresses)) {
           return addresses.map((address) => address.address);
         }
+
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
-        return accounts.map((account) =>
-          vaultSettings.accountType === EDBAccountType.VARIANT
-            ? (account as IDBVariantAccount).addresses[networkId]
-            : account.address,
-        );
+        const results: string[] = [];
+        for (let i = 0; i < accounts.length; i += 1) {
+          const account = accounts[i];
+          if (vaultSettings.accountType === EDBAccountType.VARIANT) {
+            const address = (account as IDBVariantAccount).addresses[networkId];
+            if (address) {
+              results.push(address);
+            } else {
+              const addressInfo = await vault.buildAccountAddressDetail({
+                networkId,
+                account,
+                networkInfo: await vault.getNetworkInfo(),
+              });
+              results.push(addressInfo.displayAddress);
+            }
+          } else {
+            results.push(account.address);
+          }
+        }
       },
       {
         deviceParams,
