@@ -114,8 +114,15 @@ function WeblnSendPaymentModal() {
         await sendConfirm.normalizeSendConfirm({
           transfersInfo,
           sameModal: true,
-          onSuccess: () => dappApprove.resolve({ close, result: paymentHash }),
-          onFail: () => dappApprove.reject(),
+          onSuccess: () => {
+            void dappApprove.resolve({ close, result: paymentHash });
+          },
+          onFail: () => {
+            void dappApprove.reject();
+          },
+          onCancel: () => {
+            void dappApprove.reject();
+          },
         });
       } catch (e: any) {
         console.log('lnurl withdraw error: ', e);

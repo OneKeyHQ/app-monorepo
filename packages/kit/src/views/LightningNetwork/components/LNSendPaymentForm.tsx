@@ -208,7 +208,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
         // description="$40"
       >
         <Input
-          readOnly={amountReadOnly}
+          readonly={amountReadOnly}
           placeholder={intl.formatMessage({ id: 'form__enter_amount' })}
           flex={1}
           addOns={[
