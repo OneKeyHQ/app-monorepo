@@ -30,7 +30,6 @@ export { enUS };
 `,
 );
 
-// fix lint of type file.
 const typeFile = path.join(__dirname, '../src/locale/enum/translations.ts');
 
 const text = fs.readFileSync(typeFile, 'utf8');
@@ -38,6 +37,9 @@ fs.writeFileSync(
   typeFile,
   text
     .replace('export enum Translations {', 'export enum ETranslations {')
-    .replaceAll('	', '  '),
+    // fix lint of type file.
+    // Simply lint the file, it's faster than eslint.
+    .replaceAll('	', '  ')
+    .replaceAll('  =', ' ='),
   'utf8',
 );

@@ -40,6 +40,10 @@ export function MarketTokenAddress({
         networkId,
       }),
     [networkId],
+    {
+      checkIsFocused: false,
+      overrideIsFocused: () => false,
+    },
   );
   const handleOpenUrl = useCallback(async () => {
     if (network?.explorers[0].address) {
