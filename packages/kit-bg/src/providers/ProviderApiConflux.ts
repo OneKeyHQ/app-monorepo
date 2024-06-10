@@ -47,12 +47,16 @@ class ProviderApiConflux extends ProviderApiBase {
 
   _getCurrentNetworkExtraInfo = memoizee(
     async (request: IJsBridgeMessagePayload) => {
+      let networkInfo = {
+        chainId: '0x405',
+        networkVersion: '1029',
+      };
       const vault = await this._getCfxVault(request);
       if (!vault) {
-        throw new Error('Not connected to any account.');
+        return networkInfo;
       }
       const status = await (await vault.getClient()).getStatus();
-      const networkInfo = {
+      networkInfo = {
         chainId: toBigIntHex(new BigNumber(status.chainId)),
         networkVersion: new BigNumber(status.networkId).toFixed(),
       };

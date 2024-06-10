@@ -43,6 +43,7 @@ export function useNetworkSelectorTrigger({ num }: { num: number }) {
 
   return {
     activeAccount,
+    networkIds,
     showChainSelector,
   };
 }

@@ -22,7 +22,10 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   const {
     activeAccount: { network },
     showChainSelector,
+    networkIds,
   } = useNetworkSelectorTrigger({ num });
+
+  const triggerDisabled = disabled || (networkIds ?? []).length <= 1;
 
   const handlePress = useCallback(async () => {
     await beforeShowTrigger?.();
@@ -49,22 +52,22 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
       bg="$bgSubdued"
       w="$16"
       hoverStyle={
-        disabled
+        triggerDisabled
           ? undefined
           : {
               bg: '$bgHover',
             }
       }
       pressStyle={
-        disabled
+        triggerDisabled
           ? undefined
           : {
               bg: '$bgActive',
             }
       }
-      focusable={!disabled}
+      focusable={!triggerDisabled}
       focusStyle={
-        disabled
+        triggerDisabled
           ? undefined
           : {
               outlineWidth: 2,
@@ -73,11 +76,11 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
             }
       }
       borderCurve="continuous"
-      disabled={disabled}
+      disabled={triggerDisabled}
       {...rest}
     >
       {renderNetworkIcon()}
-      {disabled ? null : (
+      {triggerDisabled ? null : (
         <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
       )}
     </XStack>
@@ -88,10 +91,12 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
     activeAccount: { network },
     showChainSelector,
+    networkIds,
   } = useNetworkSelectorTrigger({ num });
 
   const media = useMedia();
 
+  const triggerDisabled = (networkIds ?? []).length <= 1;
   const handlePress = useCallback(async () => {
     showChainSelector();
   }, [showChainSelector]);
@@ -102,19 +107,32 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
       alignItems="center"
       p="$1.5"
       borderRadius="$2"
-      hoverStyle={{
-        bg: '$bgHover',
-      }}
-      pressStyle={{
-        bg: '$bgActive',
-      }}
-      focusable
-      focusStyle={{
-        outlineWidth: 2,
-        outlineColor: '$focusRing',
-        outlineStyle: 'solid',
-      }}
+      hoverStyle={
+        triggerDisabled
+          ? undefined
+          : {
+              bg: '$bgHover',
+            }
+      }
+      pressStyle={
+        triggerDisabled
+          ? undefined
+          : {
+              bg: '$bgActive',
+            }
+      }
+      focusable={!triggerDisabled}
+      focusStyle={
+        triggerDisabled
+          ? undefined
+          : {
+              outlineWidth: 2,
+              outlineColor: '$focusRing',
+              outlineStyle: 'solid',
+            }
+      }
       onPress={handlePress}
+      disabled={triggerDisabled}
     >
       <NetworkAvatar networkId={network?.id} size="$6" />
       {media.gtMd ? (
@@ -122,7 +140,13 @@ export function NetworkSelectorTriggerBrowserSingle({ num }: { num: number }) {
           <SizableText pl="$2" size="$bodyMdMedium" numberOfLines={1}>
             {network?.name}
           </SizableText>
-          <Icon name="ChevronDownSmallOutline" color="$iconSubdued" size="$5" />
+          {triggerDisabled ? null : (
+            <Icon
+              name="ChevronDownSmallOutline"
+              color="$iconSubdued"
+              size="$5"
+            />
+          )}
         </>
       ) : null}
     </XStack>

@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { Semaphore } from 'async-mutex';
 import BigNumber from 'bignumber.js';
 import { Psbt } from 'bitcoinjs-lib';
 import { isEmpty, isNil } from 'lodash';
@@ -41,6 +42,8 @@ import type * as BitcoinJS from 'bitcoinjs-lib';
 @backgroundClass()
 class ProviderApiBtc extends ProviderApiBase {
   public providerName = IInjectedProviderNames.btc;
+
+  private semaphore = new Semaphore(1);
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
@@ -93,12 +96,14 @@ class ProviderApiBtc extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   public async requestAccounts(request: IJsBridgeMessagePayload) {
-    const accounts = await this.getAccounts(request);
-    if (accounts && accounts.length) {
-      return accounts;
-    }
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    return this.getAccounts(request);
+    return this.semaphore.runExclusive(async () => {
+      const accounts = await this.getAccounts(request);
+      if (accounts && accounts.length) {
+        return accounts;
+      }
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      return this.getAccounts(request);
+    });
   }
 
   @providerApiMethod()
