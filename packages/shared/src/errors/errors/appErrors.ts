@@ -1,6 +1,6 @@
 /* eslint max-classes-per-file: "off" */
 
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 // import type { LocaleKeyInfoMap } from '@onekeyhq/shared/src/localeKeyInfoMap';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
@@ -175,7 +175,7 @@ export class InvalidMnemonic extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidMnemonic',
-        defaultKey: 'msg__engine__invalid_mnemonic',
+        defaultKey: ETranslations.feedback_invalid_phrases,
         defaultAutoToast: true,
       }),
     );

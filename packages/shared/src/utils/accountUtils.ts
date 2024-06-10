@@ -91,7 +91,8 @@ function isHwWallet({ walletId }: { walletId: string | undefined }) {
 function isHwHiddenWallet({ wallet }: { wallet: IDBWallet | undefined }) {
   return (
     wallet &&
-    isHwWallet({ walletId: wallet.id }) &&
+    (isHwWallet({ walletId: wallet.id }) ||
+      isQrWallet({ walletId: wallet.id })) &&
     Boolean(wallet.passphraseState)
   );
 }
@@ -634,6 +635,17 @@ function buildUtxoAddressRelPath({
   return addressRelPath;
 }
 
+function removePathLastSegment({
+  path,
+  removeCount,
+}: {
+  path: string;
+  removeCount: number;
+}) {
+  const arr = path.split('/');
+  return arr.slice(0, -removeCount).filter(Boolean).join('/');
+}
+
 export default {
   buildUtxoAddressRelPath,
   buildBaseAccountName,
@@ -678,4 +690,5 @@ export default {
   formatUtxoPath,
   buildPathFromTemplate,
   findIndexFromTemplate,
+  removePathLastSegment,
 };

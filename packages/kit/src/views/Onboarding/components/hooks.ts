@@ -2,10 +2,12 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
+import { useIntl } from 'react-intl';
 import { InteractionManager, Keyboard } from 'react-native';
 
 import type { useForm } from '@onekeyhq/components';
 import { Toast, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const isValidWord = (word: string) => wordLists.includes(word);
@@ -51,6 +53,7 @@ export const useSuggestion = (
   form: ReturnType<typeof useForm>,
   phraseLength = 12,
 ) => {
+  const intl = useIntl();
   const { fetchSuggestions, suggestions, updateSuggestions, suggestionsRef } =
     useSearchWords();
 
@@ -225,7 +228,11 @@ export const useSuggestion = (
       if (arrays.length === phraseLength) {
         setTimeout(() => {
           clearText();
-          Toast.success({ title: 'Pasted and clipboard cleared' });
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_pasted_and_cleared,
+            }),
+          });
           form.reset(
             arrays.reduce((prev, next, index) => {
               prev[`phrase${index + 1}`] = next;
@@ -238,7 +245,7 @@ export const useSuggestion = (
       }
       return false;
     },
-    [clearText, form, phraseLength, resetSuggestions],
+    [clearText, form, intl, phraseLength, resetSuggestions],
   );
 
   const closePopover = useCallback(() => {

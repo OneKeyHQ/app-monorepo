@@ -128,7 +128,7 @@ export function GetStarted() {
   const termsLink = useHelpLink({ path: 'articles/360002014776' });
   const privacyLink = useHelpLink({ path: 'articles/360002003315' });
 
-  const isDappMode = platformEnv.isWeb;
+  const isDappMode = platformEnv.isWebDappMode;
 
   const renderAnchor = useCallback(
     (link: string, chunks: string[]) =>
@@ -244,7 +244,7 @@ export function GetStarted() {
               },
             ]}
           />
-          {!isDappMode ? (
+          {!isDappMode || platformEnv.isDev ? (
             <ActionsGroup
               items={[
                 {

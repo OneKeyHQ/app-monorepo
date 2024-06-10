@@ -291,11 +291,15 @@ export function QRCode({
       if (!valueUr) {
         throw new Error('valueUr is required for animated QRCode');
       }
-      const { nextPart } = airGapUrUtils.createAnimatedUREncoder({
+      const { nextPart, encodeWhole } = airGapUrUtils.createAnimatedUREncoder({
         ur: valueUr,
         maxFragmentLength: 100,
         firstSeqNum: 0,
       });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('QRCode >>>> encodeWhole', encodeWhole());
+        console.log(`\n\n ${encodeWhole().join('\n\n').toUpperCase()} \n\n`);
+      }
       // const urEncoder = new UREncoder(UR.fromBuffer(Buffer.from(value)));
       timerId = setInterval(() => {
         const part = nextPart();
