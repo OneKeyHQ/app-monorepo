@@ -100,6 +100,22 @@ function qrcodeToUr(qrcode: string | string[]): Promise<AirGapUR> {
   return decoder.promiseResultUR;
 }
 
+function urToQrcode(ur: AirGapUR | IAirGapUrJson) {
+  // eslint-disable-next-line no-param-reassign
+  ur = jsonToUr({ ur });
+  const encoder = createAnimatedUREncoder({
+    ur,
+    maxFragmentLength: 100,
+    firstSeqNum: 0,
+  });
+  const allParts = encoder.encodeWhole();
+  const single = AirGapUREncoder.encodeSinglePart(ur);
+  return {
+    allParts,
+    single,
+  };
+}
+
 export default {
   decodeUrToDataItem,
   createAnimatedURDecoder,
@@ -107,4 +123,5 @@ export default {
   urToJson,
   jsonToUr,
   qrcodeToUr,
+  urToQrcode,
 };

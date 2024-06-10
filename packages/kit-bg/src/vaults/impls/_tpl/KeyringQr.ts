@@ -6,7 +6,7 @@ import { KeyringQrBase } from '../../base/KeyringQrBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
-  IPrepareHardwareAccountsParams,
+  IPrepareQrAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
@@ -28,7 +28,7 @@ export class KeyringQr extends KeyringQrBase {
 
   override async prepareAccounts(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    params: IPrepareHardwareAccountsParams,
+    params: IPrepareQrAccountsParams,
   ): Promise<IDBAccount[]> {
     throw new NotImplemented();
   }

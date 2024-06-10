@@ -1,23 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/require-await */
 import type {
+  ICoreApiGetAddressItem,
   ISignedMessageItemPro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type {
   AirGapUR,
-  IAirGapAccount,
   IAirGapGenerateSignRequestParams,
   IAirGapSignature,
 } from '@onekeyhq/qr-wallet-sdk';
-import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
+import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
 import {
   NotImplemented,
   OneKeyErrorAirGapInvalidQrCode,
 } from '@onekeyhq/shared/src/errors';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -27,17 +23,18 @@ import type {
 } from '@onekeyhq/shared/types/account';
 
 import localDb from '../../dbs/local/localDb';
+import { UR_DEFAULT_ORIGIN } from '../../services/ServiceQrWallet/qrWalletConsts';
 import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
 import type { IDBWallet } from '../../dbs/local/types';
 import type {
-  IAnimationValue,
-  IQRCodeHandlerParseResult,
-} from '../../services/ServiceScanQRCode/utils/parseQRCode/type';
-import type {
-  IPrepareHardwareAccountsParams,
+  IPrepareQrAccountsParams,
+  IGetChildPathTemplatesParams as IQrWalletGetChildPathTemplatesParams,
+  IGetChildPathTemplatesResult as IQrWalletGetChildPathTemplatesResult,
+  IQrWalletGetVerifyAddressChainParamsQuery,
+  IQrWalletGetVerifyAddressChainParamsResult,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../types';
@@ -55,43 +52,16 @@ export abstract class KeyringQrBase extends KeyringBase {
     throw new NotImplemented();
   }
 
-  buildAirGapAccountChildPathTemplate(params: {
-    airGapAccount: IAirGapAccount;
-  }): string {
+  getChildPathTemplates(
+    params: IQrWalletGetChildPathTemplatesParams,
+  ): IQrWalletGetChildPathTemplatesResult {
     throw new NotImplemented();
   }
 
-  async startTwoWayQrcodeScan(deviceScanApp: AirGapUR): Promise<AirGapUR> {
-    // **** 2. app scan device Qrcode
-    const appScanDeviceResult = await new Promise<
-      IQRCodeHandlerParseResult<IAnimationValue>
-    >((resolve, reject) => {
-      const promiseId = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-      // **** 1. Device scan App Qrcode
-      appEventBus.emit(EAppEventBusNames.ShowQrcode, {
-        drawType: 'animated',
-        valueUr: airGapUrUtils.urToJson({ ur: deviceScanApp }),
-        promiseId,
-      });
-    });
-
-    let appScanDeviceUr: AirGapUR | undefined;
-
-    try {
-      const qrcode =
-        appScanDeviceResult.data.fullData || appScanDeviceResult.raw || '';
-      appScanDeviceUr = await airGapUrUtils.qrcodeToUr(qrcode);
-    } catch (error) {
-      console.error(error);
-    }
-
-    if (!appScanDeviceUr) {
-      throw new OneKeyErrorAirGapInvalidQrCode();
-    }
-    return appScanDeviceUr;
+  async getVerifyAddressChainParams(
+    query: IQrWalletGetVerifyAddressChainParamsQuery,
+  ): Promise<IQrWalletGetVerifyAddressChainParamsResult> {
+    throw new NotImplemented();
   }
 
   async baseSignByQrcode<T extends ISignedMessageItemPro | ISignedTxPro>(
@@ -138,11 +108,14 @@ export abstract class KeyringQrBase extends KeyringBase {
       wallet,
     });
 
-    const signatureUr = await this.startTwoWayQrcodeScan(signRequestUr);
+    const { responseUr: signatureUr } =
+      await this.backgroundApi.serviceQrWallet.startTwoWayAirGapScanUr({
+        requestUr: signRequestUr,
+      });
 
     let sig: IAirGapSignature | undefined;
     try {
-      sig = await this.parseSignature(signatureUr);
+      sig = await this.parseSignature(checkIsDefined(signatureUr));
     } catch (error) {
       console.error(error);
       throw new OneKeyErrorAirGapInvalidQrCode();
@@ -152,10 +125,13 @@ export abstract class KeyringQrBase extends KeyringBase {
       console.error(new Error('Signature requestId not match'));
       throw new OneKeyErrorAirGapInvalidQrCode();
     }
-    if (sig.origin !== device.name) {
-      console.error(new Error('Signature origin not match'));
-      throw new OneKeyErrorAirGapInvalidQrCode();
-    }
+
+    // TODO do not check origin, device give origin is not reliable
+    // if (sig.origin !== device.name) {
+    //   console.error(new Error('Signature origin not match'));
+    //   throw new OneKeyErrorAirGapInvalidQrCode();
+    // }
+
     return options.signedResultBuilder({ signature: sig });
   }
 
@@ -173,29 +149,40 @@ export abstract class KeyringQrBase extends KeyringBase {
     childPathTemplate: string | undefined;
   }> {
     let childPathTemplate: string | undefined;
-    const airGapAccount = wallet?.airGapAccountsInfo?.accounts?.find((item) => {
-      if (item.path === fullPath) {
-        return true;
-      }
-      const tpl = this.buildAirGapAccountChildPathTemplate({
-        airGapAccount: item,
-      });
-      const template = [item.path, tpl].filter(Boolean).join('/');
-      const fullPathInPubKey = accountUtils.buildPathFromTemplate({
-        template,
-        index,
-      });
-      const r = fullPathInPubKey === fullPath;
-      if (r) {
-        childPathTemplate = tpl;
-      }
-      return r;
-    });
+    const settings = await this.getVaultSettings();
+    // settings.accountDeriveInfo;
+    const airGapAccount = wallet?.airGapAccountsInfo?.accounts?.find(
+      (eachAirGapAccount: IQrWalletAirGapAccount) => {
+        // airGapAccount.path may be fullPath already
+        if (eachAirGapAccount.path === fullPath) {
+          return true;
+        }
+        const { childPathTemplates } = this.getChildPathTemplates({
+          airGapAccount: eachAirGapAccount,
+          index,
+        });
+        for (const childPathTpl of childPathTemplates) {
+          const template = [eachAirGapAccount.path, childPathTpl]
+            .filter(Boolean)
+            .join('/');
+          const fullPathGenerated = accountUtils.buildPathFromTemplate({
+            template,
+            index,
+          });
+          const r = fullPathGenerated === fullPath;
+          if (r) {
+            childPathTemplate = childPathTpl;
+            return true;
+          }
+        }
+        return false;
+      },
+    );
     return { airGapAccount, fullPath, childPathTemplate };
   }
 
   async findQrWalletAirGapAccount(
-    params: IPrepareHardwareAccountsParams,
+    params: IPrepareQrAccountsParams,
     {
       index,
       wallet,
@@ -217,5 +204,67 @@ export abstract class KeyringQrBase extends KeyringBase {
       index,
       path: fullPath,
     });
+  }
+
+  async verifyQrWalletAddressByTwoWayScan(
+    params: IPrepareQrAccountsParams,
+    {
+      indexes,
+    }: {
+      indexes: number[];
+    },
+  ): Promise<ICoreApiGetAddressItem[]> {
+    const ret: ICoreApiGetAddressItem[] = [];
+    const chain =
+      await this.backgroundApi.serviceQrWallet.getDeviceChainNameByNetworkId({
+        networkId: this.networkId,
+      });
+
+    const wallet = await this.backgroundApi.serviceAccount.getWallet({
+      walletId: this.walletId,
+    });
+
+    const fullPath = accountUtils.buildPathFromTemplate({
+      template: params.deriveInfo.template,
+      index: indexes[0],
+    });
+
+    const requestQR = new OneKeyRequestDeviceQR({
+      requestId: generateUUID(),
+      xfp: wallet.xfp || '',
+      // deviceId: byDevice?.deviceId || '',
+      origin: UR_DEFAULT_ORIGIN,
+
+      //
+      method: 'verifyAddress',
+      params: [
+        {
+          chain,
+          address: '',
+          path: fullPath, // fullPath
+          ...(await this.getVerifyAddressChainParams({
+            fullPath,
+          })),
+        },
+      ],
+    });
+
+    console.log('verifyAddressByTwoWayScan', requestQR);
+
+    const requestUr = requestQR.toUR();
+    const { raw } =
+      await this.backgroundApi.serviceQrWallet.startTwoWayAirGapScanUr({
+        requestUr,
+        allowPlainTextResponse: true,
+      });
+    ret.push({
+      address: raw || '',
+      publicKey: '',
+      path: fullPath,
+      xpub: '',
+      relPath: accountUtils.buildUtxoAddressRelPath(),
+      addresses: {},
+    });
+    return ret;
   }
 }

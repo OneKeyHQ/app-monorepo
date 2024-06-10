@@ -1,7 +1,10 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Page } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableView } from '../EditableView';
@@ -24,30 +27,35 @@ type IChainSelectorPageViewProps = IChainSelectorEditableViewProps & {
 };
 
 const ChainSelectorImmutableView: FC<IChainSelectorViewProps> = ({
-  title = 'Networks',
   networks,
   networkId,
   onPressItem,
-}) => (
-  <Page>
-    <Page.Header title={title} />
-    <Page.Body>
-      <ImmutableView
-        networkId={networkId}
-        networks={networks}
-        onPressItem={onPressItem}
+}) => {
+  const intl = useIntl();
+
+  return (
+    <Page>
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_networks })}
       />
-    </Page.Body>
-  </Page>
-);
+      <Page.Body>
+        <ImmutableView
+          networkId={networkId}
+          networks={networks}
+          onPressItem={onPressItem}
+        />
+      </Page.Body>
+    </Page>
+  );
+};
 
 function getHeaderRightComponent(
-  isEditMode: boolean,
+  label: string,
   handleEditButtonPress: () => void,
 ) {
   return (
     <Button variant="tertiary" onPress={handleEditButtonPress}>
-      {isEditMode ? 'Done' : 'Edit'}
+      {label}
     </Button>
   );
 }
@@ -58,8 +66,8 @@ const ChainSelectorEditableView: FC<IChainSelectorEditableViewProps> = ({
   onPressItem,
   defaultTopNetworks = [],
   onTopNetworksChange,
-  title = 'Networks',
 }) => {
+  const intl = useIntl();
   const [isEditMode, setIsEditMode] = useState(false);
   const handleEditButtonPress = () => {
     setIsEditMode(!isEditMode);
@@ -67,9 +75,14 @@ const ChainSelectorEditableView: FC<IChainSelectorEditableViewProps> = ({
   return (
     <Page>
       <Page.Header
-        title={title}
+        title={intl.formatMessage({ id: ETranslations.global_networks })}
         headerRight={() =>
-          getHeaderRightComponent(isEditMode, handleEditButtonPress)
+          getHeaderRightComponent(
+            isEditMode
+              ? intl.formatMessage({ id: ETranslations.global_done })
+              : intl.formatMessage({ id: ETranslations.global_edit }),
+            handleEditButtonPress,
+          )
         }
       />
       <Page.Body>
