@@ -275,8 +275,8 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
             linearGradientColor={
               item.priceChangePercentage24H &&
               Number(item.priceChangePercentage24H) >= 0
-                ? 'rgba(0, 184, 18, 0.2)'
-                : 'rgba(255, 98, 89, 0.2)'
+                ? colors[0]
+                : colors[1]
             }
           />
         </View>
@@ -675,6 +675,7 @@ function BasicMarketHomeList({
     [category.categoryId, category.coingeckoIds],
     {
       checkIsFocused: false,
+      overrideIsFocused: () => false,
     },
   );
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import * as ExpoSharing from 'expo-sharing';
@@ -31,7 +31,6 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { OpenInAppButton } from '../../components/OpenInAppButton';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
@@ -124,10 +123,15 @@ function MarketDetail({
   const { icon, coinGeckoId, symbol } = route.params;
   const { gtMd } = useMedia();
 
-  const { result: tokenDetail } = usePromiseResult(
-    () => backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId),
-    [coinGeckoId],
-  );
+  const [tokenDetail, setTokenDetail] = useState<
+    IMarketTokenDetail | undefined
+  >(undefined);
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceMarket
+      .fetchTokenDetail(coinGeckoId)
+      .then(setTokenDetail);
+  }, [coinGeckoId]);
 
   const renderHeaderTitle = useCallback(
     () => (
