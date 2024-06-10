@@ -44,6 +44,7 @@ import { KeyringWatching } from './KeyringWatching';
 import { EProtocolIndicator, ETransferMethod } from './types';
 
 import type {
+  IDBAccount,
   IDBVariantAccount,
   IDBWalletType,
 } from '../../../dbs/local/types';
@@ -364,6 +365,14 @@ export default class Vault extends VaultBase {
       normalizedAddress: '',
       displayAddress: '',
     };
+  }
+
+  override async addressFromBase(account: IDBAccount): Promise<string> {
+    const { isTestnet } = await this.getNetwork();
+    return encode(
+      isTestnet ? CoinType.TEST : CoinType.MAIN,
+      decode(account.address),
+    );
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {

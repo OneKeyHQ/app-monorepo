@@ -44,6 +44,7 @@ import ClientCfx from './sdkCfx/ClientCfx';
 
 import type { ISdkCfxContract } from './types';
 import type {
+  IDBAccount,
   IDBVariantAccount,
   IDBWalletType,
 } from '../../../dbs/local/types';
@@ -555,7 +556,6 @@ export default class Vault extends VaultBase {
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const isValid = confluxAddress.isValidCfxAddress(address);
-    const chainId = await this.getNetworkChainId();
     if (isValid) {
       return Promise.resolve({
         normalizedAddress: address.toLowerCase(),
@@ -564,24 +564,24 @@ export default class Vault extends VaultBase {
       });
     }
 
-    const isValidHexAddress = confluxAddress.isValidHexAddress(address);
-    if (isValidHexAddress) {
-      const displayAddress = confluxAddress.encodeCfxAddress(
-        address,
-        parseInt(chainId),
-      );
-      return Promise.resolve({
-        normalizedAddress: address.toLowerCase(),
-        displayAddress,
-        isValid: true,
-      });
-    }
-
     return Promise.resolve({
       normalizedAddress: '',
       displayAddress: '',
       isValid,
     });
+  }
+
+  override async addressFromBase(account: IDBAccount) {
+    const chainId = await this.getNetworkChainId();
+    return confluxAddress.encodeCfxAddress(account.address, parseInt(chainId));
+  }
+
+  override async addressToBase(address: string) {
+    return Promise.resolve(
+      `0x${confluxAddress
+        .decodeCfxAddress(address)
+        .hexAddress.toString('hex')}`,
+    );
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
