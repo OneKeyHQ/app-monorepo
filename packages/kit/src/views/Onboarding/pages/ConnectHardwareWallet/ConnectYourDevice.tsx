@@ -56,8 +56,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   PERMISSIONS,
   RESULTS,
-  check,
   openSettings,
+  request,
   requestMultiple,
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-permissions';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -441,7 +441,7 @@ function ConnectByUSBOrBLE({
 
   const checkBLEPermission = useCallback(async () => {
     if (platformEnv.isNativeIOS) {
-      const status = await check(PERMISSIONS.IOS.BLUETOOTH);
+      const status = await request(PERMISSIONS.IOS.BLUETOOTH);
       return status === RESULTS.GRANTED;
     }
 
