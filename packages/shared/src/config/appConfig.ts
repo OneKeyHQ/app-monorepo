@@ -39,7 +39,7 @@ export const DISCORD_URL = 'https://www.discord.gg/onekey';
 export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
 export const ONEKEY_URL = 'https://onekey.so';
-export const ONEKEY_API_HOST = 'onekeytest.com';
+export const ONEKEY_API_HOST = 'onekeycn.com';
 export const ONEKEY_TEST_API_HOST = 'onekeytest.com';
 // https://1key.so
 export const WEB_APP_URL = 'https://app.onekeytest.com';
