@@ -340,6 +340,7 @@ class ServiceAccount extends ServiceBase {
     const { isHardware, password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
+        reason: EReasonForNeedPassword.Default,
       });
 
     // canAutoCreateNextAccount

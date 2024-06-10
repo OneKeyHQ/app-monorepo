@@ -44,6 +44,7 @@ const MaticLidoWithdraw = () => {
       price={price}
       balance={balance}
       tokenSymbol={token.symbol}
+      minAmount={BigNumber(1).shiftedBy(-token.decimals).toFixed()}
       tokenImageUri={LIDO_MATIC_LOGO_URI}
       onConfirm={onConfirm}
       rate={rate}

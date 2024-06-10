@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { IconButton, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 type ILidoFAQProps = {
   question: string;
@@ -18,9 +18,8 @@ const LidoFAQ = ({ question, answer }: ILidoFAQProps) => {
             <SizableText size="$headingMd">{question}</SizableText>
           </XStack>
           <XStack>
-            <IconButton
-              variant="tertiary"
-              icon={show ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
+            <Icon
+              name={show ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
             />
           </XStack>
         </XStack>

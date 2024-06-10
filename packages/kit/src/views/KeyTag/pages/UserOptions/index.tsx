@@ -4,7 +4,6 @@ import { ImageBackground } from 'react-native';
 
 import {
   Button,
-  Dialog,
   Icon,
   Page,
   SizableText,
@@ -31,31 +30,10 @@ const UserOptions = () => {
       screen: EModalKeyTagRoutes.BackupWallet,
     });
   }, [navigation]);
-  const onImport = useCallback(() => {
-    const dialog = Dialog.show({
-      tone: 'warning',
-      icon: 'ErrorOutline',
-      title: 'Security Alert',
-      description:
-        "For the safety of your assets, please do not import the recovery phrase of your hardware wallet. Use 'Connect Hardware Wallet' to maintain the highest level of security.",
-      renderContent: (
-        <Stack>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              await dialog.close();
-              await backgroundApiProxy.servicePassword.promptPasswordVerify();
-              navigation.pushModal(EModalRoutes.OnboardingModal, {
-                screen: EOnboardingPages.ImportKeyTag,
-              });
-            }}
-            testID="acknowledged"
-          >
-            Acknowledged
-          </Button>
-        </Stack>
-      ),
-      showFooter: false,
+  const onImport = useCallback(async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    navigation.pushModal(EModalRoutes.OnboardingModal, {
+      screen: EOnboardingPages.ImportKeyTag,
     });
   }, [navigation]);
   const onGetOne = useCallback(() => {

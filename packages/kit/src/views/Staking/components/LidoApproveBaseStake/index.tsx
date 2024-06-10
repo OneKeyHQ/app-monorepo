@@ -97,7 +97,7 @@ export const LidoApproveBaseStake = ({
   }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo<boolean>(
-    () => new BigNumber(amountValue).gte(balance),
+    () => new BigNumber(amountValue).gt(balance),
     [amountValue, balance],
   );
 
@@ -110,13 +110,15 @@ export const LidoApproveBaseStake = ({
     return false;
   }, [minAmount, amountValue]);
 
-  const isDisable = useMemo(
-    () =>
-      BigNumber(amountValue).isNaN() ||
+  const isDisable = useMemo(() => {
+    const amountValueBN = BigNumber(amountValue);
+    return (
+      amountValueBN.isNaN() ||
+      amountValueBN.lte(0) ||
       isInsufficientBalance ||
-      isLessThanMinAmount,
-    [amountValue, isInsufficientBalance, isLessThanMinAmount],
-  );
+      isLessThanMinAmount
+    );
+  }, [amountValue, isInsufficientBalance, isLessThanMinAmount]);
 
   const isApprove = useMemo(() => {
     const amountValueBN = BigNumber(amountValue);
@@ -162,6 +164,10 @@ export const LidoApproveBaseStake = ({
       setLoading(false);
     }
   }, [onConfirm, amountValue]);
+
+  const onMax = useCallback(() => {
+    onChangeAmountValue(balance);
+  }, [onChangeAmountValue, balance]);
 
   const estAnnualRewards = useMemo(() => {
     const bn = BigNumber(amountValue);
@@ -214,6 +220,7 @@ export const LidoApproveBaseStake = ({
           }}
           balanceProps={{
             value: balance,
+            onPress: onMax,
           }}
           inputProps={{
             placeholder: '0',
@@ -222,6 +229,7 @@ export const LidoApproveBaseStake = ({
             value: currentValue,
             currency: currentValue ? symbol : undefined,
           }}
+          enableMaxAmount
         />
         <YStack>
           {isLessThanMinAmount ? (
