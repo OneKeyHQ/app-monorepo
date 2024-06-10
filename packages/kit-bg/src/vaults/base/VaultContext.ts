@@ -84,7 +84,7 @@ export class VaultContext {
     const { networkId } = this;
     return {
       isTestnet,
-      networkChainCode: networkImpl,
+      networkChainCode: network.code,
       chainId,
       networkId,
       networkImpl,

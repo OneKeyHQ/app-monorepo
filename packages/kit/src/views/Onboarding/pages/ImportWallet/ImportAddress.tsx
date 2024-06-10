@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IValidateGeneralInputParams } from '@onekeyhq/kit-bg/src/vaults/types';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { Tutorials } from '../../components';
@@ -16,6 +19,7 @@ import {
 } from './ImportSingleChainBase';
 
 function ImportAddress() {
+  const intl = useIntl();
   const validationParams = useMemo<IValidateGeneralInputParams>(
     () => ({
       input: '',
@@ -30,11 +34,17 @@ function ImportAddress() {
 
   return (
     <ImportSingleChainBase
-      title="Add to Watchlist"
-      inputLabel="Address"
-      inputPlaceholder="Address or domain name"
+      title={intl.formatMessage({ id: ETranslations.global_import_address })}
+      inputLabel={intl.formatMessage({
+        id: ETranslations.global_address,
+      })}
+      inputPlaceholder={intl.formatMessage({
+        id: ETranslations.form_address_placeholder,
+      })}
       inputTestID="address"
-      invalidMessage="Invalid address, domain or xpub"
+      invalidMessage={intl.formatMessage({
+        id: ETranslations.form_address_error_invalid,
+      })}
       validationParams={validationParams}
       onConfirm={async (form) => {
         const values = form.getValues();
@@ -60,9 +70,12 @@ function ImportAddress() {
       <Tutorials
         list={[
           {
-            title: 'What is a watch-only account?',
-            description:
-              "Watch-only account in OneKey allows monitoring of a specific address but cannot send or receive funds. It's useful for tracking transactions or monitoring holdings.",
+            title: intl.formatMessage({
+              id: ETranslations.faq_watched_account,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.faq_watched_account_desc,
+            }),
           },
         ]}
       />

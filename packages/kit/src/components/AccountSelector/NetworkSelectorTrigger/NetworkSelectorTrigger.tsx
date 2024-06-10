@@ -141,7 +141,7 @@ export function ControlledNetworkSelectorTrigger({
       borderRadius="$3"
       borderWidth={1}
       borderCurve="continuous"
-      borderColor="$borderSubdued"
+      borderColor="$borderStrong"
       userSelect="none"
       px="$3"
       py="$2.5"
