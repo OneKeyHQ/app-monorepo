@@ -18,7 +18,7 @@ function useRiskDetection({
 
   const { result: urlSecurityInfo } = usePromiseResult(async () => {
     if (!origin) return {} as IHostSecurity;
-    return backgroundApiProxy.serviceDiscovery.checkUrlSecurity(origin);
+    return backgroundApiProxy.serviceDiscovery.checkUrlSecurity(origin, true);
   }, [origin]);
 
   const riskLevel = useMemo(

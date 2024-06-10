@@ -12,12 +12,13 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type {
-  ICategory,
-  IDApp,
-  IDiscoveryHomePageData,
-  IDiscoveryListParams,
-  IHostSecurity,
+import {
+  EHostSecurityLevel,
+  type ICategory,
+  type IDApp,
+  type IDiscoveryHomePageData,
+  type IDiscoveryListParams,
+  type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -127,7 +128,7 @@ class ServiceDiscovery extends ServiceBase {
     if (whiteListEnabled && (await this._isUrlExistInRiskWhiteList(url))) {
       return {
         host: url,
-        level: 'security',
+        level: EHostSecurityLevel.Unknown,
         attackTypes: [],
         phishingSite: false,
         alert: '',

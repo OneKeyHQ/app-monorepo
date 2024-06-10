@@ -38,13 +38,12 @@ function ConnectionList() {
   );
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      const fullList = await serviceDApp.getAllConnectedList();
-      setData(fullList.slice(0, pageSize));
-    };
-
-    void loadInitialData();
-  }, [serviceDApp]);
+    setData(() => {
+      const startIndex = page * pageSize;
+      const endIndex = startIndex + pageSize;
+      return (result ?? []).slice(0, endIndex);
+    });
+  }, [result, page]);
 
   const loadMoreItems = useCallback(async () => {
     const nextPage = page + 1;
@@ -53,10 +52,10 @@ function ConnectionList() {
     const moreItems = (result ?? []).slice(startIndex, endIndex);
 
     if (moreItems.length > 0) {
-      setData([...data, ...moreItems]);
+      setData((currentData) => [...currentData, ...moreItems]);
       setPage(nextPage);
     }
-  }, [result, data, page]);
+  }, [result, page]);
 
   const handleDAppDisconnect = useCallback(
     async (origin: string, storageType: IConnectionStorageType) => {
