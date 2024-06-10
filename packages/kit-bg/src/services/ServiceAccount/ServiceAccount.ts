@@ -73,6 +73,7 @@ import type {
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
   IDBSetWalletNameAndAvatarParams,
+  IDBVariantAccount,
   IDBWallet,
   IDBWalletId,
   IDBWalletIdSingleton,
@@ -1431,6 +1432,9 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
     });
+
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     // getHWAccountAddresses
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
@@ -1439,7 +1443,11 @@ class ServiceAccount extends ServiceBase {
           return addresses.map((address) => address.address);
         }
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
-        return accounts.map((account) => account.address);
+        return accounts.map((account) =>
+          vaultSettings.accountType === EDBAccountType.VARIANT
+            ? (account as IDBVariantAccount).addresses[networkId]
+            : account.address,
+        );
       },
       {
         deviceParams,
