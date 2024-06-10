@@ -75,8 +75,11 @@ import type { Cell } from '@ckb-lumos/base';
 import type { CKBIndexerQueryOptions } from '@ckb-lumos/ckb-indexer/src/type';
 import type { Config } from '@ckb-lumos/config-manager';
 import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.ckb.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: undefined,

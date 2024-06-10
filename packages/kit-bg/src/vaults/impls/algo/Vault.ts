@@ -58,8 +58,11 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.algo.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: undefined,

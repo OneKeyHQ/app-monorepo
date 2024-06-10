@@ -62,12 +62,15 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 const { Conflux, address: confluxAddress } = sdkCfx;
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.cfx.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: undefined,
