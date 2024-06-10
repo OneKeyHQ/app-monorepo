@@ -200,17 +200,17 @@ export function usePromiseResult<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-  // const isFocusedRefValue = isFocusedRef.current;
-  // useEffect(() => {
-  //   if (
-  //     isFocusedRefValue &&
-  //     optionsRef.current.checkIsFocused &&
-  //     isDepsChangedOnBlur.current
-  //   ) {
-  //     isDepsChangedOnBlur.current = false;
-  //     void runRef.current({ pollingNonce: pollingNonceRef.current });
-  //   }
-  // }, [isFocusedRefValue]);
+  const isFocusedRefValue = isFocusedRef.current;
+  useEffect(() => {
+    if (
+      isFocusedRefValue &&
+      optionsRef.current.checkIsFocused &&
+      isDepsChangedOnBlur.current
+    ) {
+      isDepsChangedOnBlur.current = false;
+      void runRef.current({ pollingNonce: pollingNonceRef.current });
+    }
+  }, [isFocusedRefValue]);
 
   return { result, isLoading, run };
 }
