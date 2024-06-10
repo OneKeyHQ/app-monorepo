@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { Semaphore } from 'async-mutex';
+import { useIntl } from 'react-intl';
 
 import type { IDialogInstance, IToastShowResult } from '@onekeyhq/components';
 import {
@@ -21,6 +22,7 @@ import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
@@ -33,6 +35,7 @@ import {
   EnterPin,
   EnterPinOnDevice,
 } from '../../../components/Hardware/Hardware';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 function HardwareSingletonDialogCmp(
   props: any,
@@ -41,7 +44,9 @@ function HardwareSingletonDialogCmp(
   const [state] = useHardwareUiStateAtom();
   const action = state?.action;
   const connectId = state?.connectId || '';
+  // state?.payload?.deviceType
   const { serviceHardware, serviceHardwareUI } = backgroundApiProxy;
+  const intl = useIntl();
 
   // TODO make sure toast is last session action
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
@@ -65,13 +70,17 @@ function HardwareSingletonDialogCmp(
 
   // EnterPin on Device
   if (action === EHardwareUiStateAction.EnterPinOnDevice) {
-    title.current = 'Enter PIN on Device';
+    title.current = intl.formatMessage({
+      id: ETranslations.enter_pin_enter_on_device,
+    });
     content.current = <EnterPinOnDevice />;
   }
 
   // EnterPin on App
   if (action === EHardwareUiStateAction.REQUEST_PIN) {
-    title.current = 'Enter PIN';
+    title.current = intl.formatMessage({
+      id: ETranslations.enter_pin_title,
+    });
     content.current = (
       <EnterPin
         onConfirm={async (value) => {
@@ -148,6 +157,7 @@ function HardwareUiStateContainerCmp() {
 
   const action = state?.action;
   const connectId = state?.connectId; // connectId maybe undefined usb-sdk
+  const deviceType = state?.payload?.deviceType || 'unknown';
 
   const dialogRef = useRef<IDialogInstance | undefined>();
   const toastRef = useRef<IToastShowResult | undefined>();
@@ -249,7 +259,7 @@ function HardwareUiStateContainerCmp() {
       if (shouldShowAction) {
         if (isToastAction) {
           toastRef.current = Toast.show({
-            children: <ConfirmOnDeviceToastContent deviceType="classic" />,
+            children: <ConfirmOnDeviceToastContent deviceType={deviceType} />,
             dismissOnOverlayPress: false,
             disableSwipeGesture: false,
             onClose: async (params) => {
@@ -288,6 +298,7 @@ function HardwareUiStateContainerCmp() {
   }, [
     HardwareSingletonDialogRender,
     connectId,
+    deviceType,
     isDialogAction,
     isToastAction,
     serviceHardware,

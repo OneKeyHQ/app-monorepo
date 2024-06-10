@@ -154,6 +154,10 @@ function NostrSignEventModal() {
             walletId,
             accountId,
             networkId,
+            options: {
+              origin: $sourceInfo?.origin ?? '',
+              autoSign,
+            },
           });
         } else if (signType === ENostrSignType.encrypt) {
           result = await serviceNostr.encrypt({
@@ -203,6 +207,8 @@ function NostrSignEventModal() {
       plaintext,
       ciphertext,
       sigHash,
+      autoSign,
+      $sourceInfo?.origin,
     ],
   );
 

@@ -12,7 +12,6 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapProviderInfoItemProps {
@@ -43,7 +42,7 @@ const SwapProviderInfoItem = ({
     if (!rateIsExit || !fromToken || !toToken) return 'Insufficient liquidity';
     const rateBN = new BigNumber(rate ?? 0);
     return (
-      <SizableText size="$bodyMdMedium" pl="$1">
+      <SizableText size="$bodyMdMedium" pl="$1" maxWidth={177}>
         {`1 ${fromToken.symbol.toUpperCase()} =`}
         <NumberSizeableText formatter="balance">
           {rateBN.toFixed()}

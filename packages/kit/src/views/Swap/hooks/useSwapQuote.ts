@@ -99,7 +99,8 @@ export function useSwapQuote() {
     quoteAction,
     swapAddressInfo.address,
     fromToken,
-    toToken,
+    toToken?.networkId,
+    toToken?.contractAddress,
     alignmentDecimal,
   ]);
 

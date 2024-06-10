@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
-import { isNil, uniq } from 'lodash';
+import { isNil, max, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
 
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
@@ -552,9 +552,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     wallet.avatarInfo = avatarInfo;
     wallet.walletOrder = wallet.walletNo;
     if (accountUtils.isHwHiddenWallet({ wallet })) {
-      const parentWalletId = accountUtils.buildHwWalletId({
+      let parentWalletId = accountUtils.buildHwWalletId({
         dbDeviceId: wallet.associatedDevice || '',
       });
+      if (wallet.type === 'qr') {
+        parentWalletId = accountUtils.buildQrWalletId({
+          dbDeviceId: wallet.associatedDevice || '',
+          xfpHash: '',
+        });
+      }
       const parentWallet = await db.getRecordById({
         name: ELocalDBStoreNames.Wallet,
         id: parentWalletId,
@@ -1026,11 +1032,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingDevice = await this.getDeviceByQuery({
       featuresDeviceId: rawDeviceId,
     });
+    // TODO deviceId is connectId
     const dbDeviceId = existingDevice?.id || generateUUID();
+
+    let passphraseState = '';
+    let xfpHash = '';
 
     // TODO support OneKey Pro device only
     const deviceType: IDeviceType = 'pro';
-    const deviceName = qrDevice.name || 'OneKey Pro';
+    // TODO name should be OneKey Pro-xxxxxx
+    let deviceName = qrDevice.name || 'OneKey Pro';
+    const nameArr = deviceName.split('-');
+    if (nameArr.length >= 2) {
+      const lastHash = nameArr[nameArr.length - 1];
+      if (lastHash.length === 8) {
+        // hidden wallet
+        passphraseState = lastHash;
+        deviceName = nameArr.slice(0, nameArr.length - 1).join('');
+      }
+    }
+
+    if (passphraseState || qrDevice.buildBy === 'hdkey') {
+      xfpHash = bufferUtils.bytesToHex(
+        sha256(bufferUtils.toBuffer(xfp, 'utf8')),
+      );
+    }
     const walletName = deviceName;
     const now = Date.now();
 
@@ -1038,10 +1064,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       img: deviceType,
     };
     const context = await this.getContext();
-
-    const xfpHash = bufferUtils.bytesToHex(
-      sha256(bufferUtils.toBuffer(xfp, 'utf8')),
-    );
 
     const dbWalletId = accountUtils.buildQrWalletId({
       dbDeviceId,
@@ -1108,7 +1130,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             backuped: true,
             associatedDevice: dbDeviceId,
             isTemp: false,
-            passphraseState: '',
+            passphraseState,
             nextAccountIds: {
               index: firstAccountIndex,
             },
@@ -1125,8 +1147,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         updater: (item) => {
           item.isTemp = false;
           item.xfp = xfp;
+
+          let currentAirGapAccountsInfo:
+            | IQrWalletAirGapAccountsInfo
+            | undefined;
+          if (item.airGapAccountsInfoRaw) {
+            try {
+              currentAirGapAccountsInfo = JSON.parse(
+                item.airGapAccountsInfoRaw,
+              );
+            } catch (error) {
+              //
+            }
+          }
+
+          const accountsMerged = uniqBy(
+            [
+              ...(currentAirGapAccountsInfo?.accounts || []),
+              ...(airGapAccounts || []),
+            ],
+            (a) => a.path + a.chain,
+          );
           const keysInfo: IQrWalletAirGapAccountsInfo = {
-            accounts: airGapAccounts || [],
+            accounts: accountsMerged || [],
           };
           item.airGapAccountsInfoRaw = JSON.stringify(keysInfo);
           return item;
@@ -2182,17 +2225,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return devices;
   }
 
+  async getSameDeviceByUUIDEvenIfReset(uuid: string) {
+    const devices = await this.getAllDevices();
+    return devices.find((item) => uuid && item.uuid === uuid);
+  }
+
   async getExistingDevice({
+    // required: After resetting, the device will be considered as a new one.
+    //      use the getSameDeviceByUUIDEvenIfReset() method if you want to find the same device even if it is reset.
     rawDeviceId,
     uuid,
   }: {
     rawDeviceId: string;
     uuid: string;
   }): Promise<IDBDevice | undefined> {
+    if (!rawDeviceId) {
+      return undefined;
+    }
     const devices = await this.getAllDevices();
-    return devices.find(
-      (item) => item.deviceId === rawDeviceId && item.uuid === uuid,
-    );
+    return devices.find((item) => {
+      let deviceIdMatched = rawDeviceId && item.deviceId === rawDeviceId;
+      if (uuid && item.uuid) {
+        deviceIdMatched = deviceIdMatched && item.uuid === uuid;
+      }
+      return deviceIdMatched;
+    });
   }
 
   async getWalletDevice({
@@ -2355,6 +2412,48 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           r.nextConnectedSiteId += 1;
           return r;
         },
+      });
+    });
+  }
+
+  async removeAllSignedMessage() {
+    const db = await this.readyDb;
+    const allSignedMessage = await db.getAllRecords({
+      name: ELocalDBStoreNames.SignedMessage,
+    });
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        name: ELocalDBStoreNames.SignedMessage,
+        tx,
+        ids: allSignedMessage.records.map((item) => item.id),
+      });
+    });
+  }
+
+  async removeAllSignedTransaction() {
+    const db = await this.readyDb;
+    const allSignedTransaction = await db.getAllRecords({
+      name: ELocalDBStoreNames.SignedTransaction,
+    });
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        name: ELocalDBStoreNames.SignedTransaction,
+        tx,
+        ids: allSignedTransaction.records.map((item) => item.id),
+      });
+    });
+  }
+
+  async removeAllConnectedSite() {
+    const db = await this.readyDb;
+    const allConnectedSite = await db.getAllRecords({
+      name: ELocalDBStoreNames.ConnectedSite,
+    });
+    await db.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        name: ELocalDBStoreNames.ConnectedSite,
+        tx,
+        ids: allConnectedSite.records.map((item) => item.id),
       });
     });
   }

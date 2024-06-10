@@ -67,7 +67,12 @@ const SignTextItem = ({ item }: { item: ISignedMessage }) => {
             borderWidth={0}
           />
         ) : (
-          <SizableText maxHeight="$24" size="$bodyLgMedium">
+          <SizableText
+            maxWidth="100%"
+            color="$textDisabled"
+            maxHeight="$24"
+            size="$bodyLg"
+          >
             {item.message}
           </SizableText>
         )}

@@ -4,9 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -41,26 +42,45 @@ const options = [
   },
 ];
 
+// TODO: Use a simple cache to prevent re-rendering.
+const cacheMap = new Map<string, [IMarketTokenChart, number]>();
+
 function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
   const [points, setPoints] = useState<IMarketTokenChart>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [days, setDays] = useState<string>(options[0].value);
   const intl = useIntl();
-  const intlId = options.find((v) => v.value === days)?.id as ILocaleIds;
+  const intlId = options.find((v) => v.value === days)?.id as ETranslations;
 
   useEffect(() => {
-    setIsLoading(true);
+    const key = [coinGeckoId, days, 100].join('-');
+    const item = cacheMap.get(key);
+    if (item) {
+      const [cachedResponse] = item;
+      setPoints(cachedResponse);
+    }
+    setIsLoading(!item);
     void backgroundApiProxy.serviceMarket
       .fetchTokenChart(coinGeckoId, days, 100)
       .then((response) => {
         setPoints(response);
+        cacheMap.set(key, [response, Date.now()]);
+        for (const pair of cacheMap) {
+          const [cacheKey, value] = pair;
+          const now = Date.now();
+          const minute = timerUtils.getTimeDurationMs({ minute: 1 });
+          const [, timestamp] = value;
+          if (now - timestamp > minute) {
+            cacheMap.delete(cacheKey);
+          }
+        }
         setIsLoading(false);
       });
   }, [coinGeckoId, days]);
   const { gtMd } = useMedia();
   return (
     <YStack px="$5">
-      <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ pl: '$5', h: 346 }}>
+      <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ h: 298 }}>
         <PriceChart
           isFetching={isLoading}
           data={points}

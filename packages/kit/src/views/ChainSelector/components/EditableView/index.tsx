@@ -1,6 +1,8 @@
 import { type FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { createContext, useContext } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Empty,
   SearchBar,
@@ -11,9 +13,12 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { filterNetwork } from '../BaseView';
+import { networkFuseSearch } from '../../utils';
+
+import type { IServerNetworkMatch } from '../../types';
 
 type IEditableViewContext = {
   isEditMode?: boolean;
@@ -32,7 +37,7 @@ const EditableViewContext = createContext<IEditableViewContext>({
 
 const CELL_HEIGHT = 48;
 
-const EditableViewListItem = ({ item }: { item: IServerNetwork }) => {
+const EditableViewListItem = ({ item }: { item: IServerNetworkMatch }) => {
   const {
     isEditMode,
     networkId,
@@ -44,6 +49,7 @@ const EditableViewListItem = ({ item }: { item: IServerNetwork }) => {
   return (
     <ListItem
       title={item.name}
+      titleMatch={item.titleMatch}
       h={CELL_HEIGHT}
       renderAvatar={<NetworkAvatar networkId={item?.id} size="$8" />}
       onPress={!isEditMode ? () => onPressItem?.(item) : undefined}
@@ -96,16 +102,12 @@ const ListHeaderComponent = () => {
     searchText,
     onPressItem,
   } = useContext(EditableViewContext);
-  const networks = useMemo(
-    () => topNetworks.filter(filterNetwork(searchText?.trim() ?? '')),
-    [topNetworks, searchText],
-  );
   if (searchText) {
     return null;
   }
   return (
     <SortableListView
-      data={networks}
+      data={topNetworks}
       enabled={isEditMode}
       keyExtractor={(item) => `${item.id}`}
       getItemLayout={(_, index) => ({
@@ -161,9 +163,16 @@ type IEditableViewProps = {
   onTopNetworksChange?: (networks: IServerNetwork[]) => void;
 };
 
-const ListEmptyComponent = () => (
-  <Empty icon="SearchOutline" title="No Results" />
-);
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+
+  return (
+    <Empty
+      icon="SearchOutline"
+      title={intl.formatMessage({ id: ETranslations.global_no_results })}
+    />
+  );
+};
 
 export const EditableView: FC<IEditableViewProps> = ({
   allNetworks,
@@ -175,6 +184,7 @@ export const EditableView: FC<IEditableViewProps> = ({
 }) => {
   const [searchText, setSearchText] = useState('');
   const [topNetworks, setTopNetworks] = useState(defaultTopNetworks ?? []);
+  const intl = useIntl();
   const lastIsEditMode = usePrevious(isEditMode);
   const trimSearchText = searchText.trim();
 
@@ -190,9 +200,7 @@ export const EditableView: FC<IEditableViewProps> = ({
 
   const sections = useMemo<{ title?: string; data: IServerNetwork[] }[]>(() => {
     if (trimSearchText) {
-      const data = allNetworks.filter(
-        filterNetwork(trimSearchText.toLowerCase(), true),
-      );
+      const data = networkFuseSearch(allNetworks, trimSearchText);
       return data.length === 0
         ? []
         : [
@@ -254,10 +262,11 @@ export const EditableView: FC<IEditableViewProps> = ({
   return (
     <EditableViewContext.Provider value={ctx}>
       <Stack flex={1}>
-        <Stack px="$4">
+        <Stack px="$5">
           <SearchBar
-            w="100%"
-            placeholder="Search"
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search,
+            })}
             value={searchText}
             onChangeText={(text) => setSearchText(text.trim())}
           />

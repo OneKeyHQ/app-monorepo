@@ -336,7 +336,10 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
       borderRadius="$3"
       borderCurve="continuous"
       onPress={onPress}
-      {...(onPress && listItemPressStyle)}
+      {...(props.disabled && {
+        opacity: 0.5,
+      })}
+      {...(onPress && !props.disabled && listItemPressStyle)}
       {...rest}
     >
       {renderWithFallback(

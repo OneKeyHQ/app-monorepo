@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import * as ExpoSharing from 'expo-sharing';
+import { BackHandler } from 'react-native';
 
 import {
   HeaderIconButton,
@@ -30,7 +31,6 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { OpenInAppButton } from '../../components/OpenInAppButton';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';
 import { MarketHomeHeaderSearchBar } from './components/MarketHomeHeaderSearchBar';
@@ -62,26 +62,25 @@ function TokenDetailHeader({
   } = token;
   const { gtMd } = useMedia();
   return (
-    <YStack px="$5">
-      <XStack ai="center">
-        <YStack flex={1}>
-          <SizableText size="$headingMd" color="$textSubdued">
-            {name}
-          </SizableText>
+    <YStack px="$5" $md={{ minHeight: 150 }}>
+      <YStack flex={1}>
+        <SizableText size="$headingMd" color="$textSubdued">
+          {name}
+        </SizableText>
+        <XStack ai="center" jc="space-between" pt="$2">
           <NumberSizeableText
-            pt="$2"
             size="$heading3xl"
             formatterOptions={{ currency: '$' }}
             formatter="price"
           >
             {currentPrice || 0}
           </NumberSizeableText>
-          <PriceChangePercentage pt="$0.5">
-            {performance.priceChangePercentage24h}
-          </PriceChangePercentage>
-        </YStack>
-        <MarketStar coingeckoId={coinGeckoId} mr="$-2" />
-      </XStack>
+          <MarketStar coingeckoId={coinGeckoId} mr="$-2" size="medium" />
+        </XStack>
+        <PriceChangePercentage pt="$0.5">
+          {performance.priceChangePercentage24h}
+        </PriceChangePercentage>
+      </YStack>
       {gtMd ? (
         <MarketDetailOverview token={token} onContentSizeChange={() => {}} />
       ) : (
@@ -124,10 +123,15 @@ function MarketDetail({
   const { icon, coinGeckoId, symbol } = route.params;
   const { gtMd } = useMedia();
 
-  const { result: tokenDetail } = usePromiseResult(
-    () => backgroundApiProxy.serviceMarket.fetchTokenDetail(coinGeckoId),
-    [coinGeckoId],
-  );
+  const [tokenDetail, setTokenDetail] = useState<
+    IMarketTokenDetail | undefined
+  >(undefined);
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceMarket
+      .fetchTokenDetail(coinGeckoId)
+      .then(setTokenDetail);
+  }, [coinGeckoId]);
 
   const renderHeaderTitle = useCallback(
     () => (
@@ -192,28 +196,26 @@ function MarketDetail({
 
   const navigation = useAppNavigation();
 
+  const popPage = useCallback(() => {
+    navigation.dispatch((state) => {
+      console.log(state);
+      if (state.routes.length > 1) {
+        return CommonActions.goBack();
+      }
+      return CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: ETabMarketRoutes.TabMarket,
+          },
+        ],
+      });
+    });
+  }, [navigation]);
+
   const renderHeaderLeft = useCallback(
-    () => (
-      <NavBackButton
-        onPress={() => {
-          navigation.dispatch((state) => {
-            console.log(state);
-            if (state.routes.length > 1) {
-              return CommonActions.goBack();
-            }
-            return CommonActions.reset({
-              index: 0,
-              routes: [
-                {
-                  name: ETabMarketRoutes.TabMarket,
-                },
-              ],
-            });
-          });
-        }}
-      />
-    ),
-    [navigation],
+    () => <NavBackButton onPress={popPage} />,
+    [popPage],
   );
 
   const tokenDetailHeader = useMemo(() => {
@@ -252,7 +254,7 @@ function MarketDetail({
             </YStack>
           </YStack>
         ) : (
-          <YStack space="$10" py="$3">
+          <YStack space="$6" pt="$1">
             <SkeletonHeader />
             <XStack>
               <SkeletonHeaderOverItemItem />
@@ -273,7 +275,6 @@ function MarketDetail({
   return (
     <Page>
       <Page.Header
-        disableClose
         headerTitle={renderHeaderTitle}
         headerRight={renderHeaderRight}
         headerLeft={renderHeaderLeft}
@@ -288,7 +289,7 @@ function MarketDetail({
               <YStack flex={1}>
                 <TokenDetailTabs
                   token={tokenDetail}
-                  listHeaderComponent={<YStack>{tokenPriceChart}</YStack>}
+                  listHeaderComponent={tokenPriceChart}
                 />
               </YStack>
             </XStack>

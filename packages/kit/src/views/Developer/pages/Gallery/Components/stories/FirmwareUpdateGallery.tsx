@@ -1,4 +1,15 @@
-import { Button, SizableText, Stack } from '@onekeyhq/components';
+import { useState } from 'react';
+
+import {
+  Button,
+  Dialog,
+  Form,
+  Select,
+  SizableText,
+  Stack,
+  Switch,
+  useForm,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -15,6 +26,10 @@ import { FirmwareUpdateProgressBarView } from '@onekeyhq/kit/src/views/FirmwareU
 import { FirmwareUpdateWarningMessage } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/FirmwareUpdateWarningMessage';
 import { FirmwareUpdateReminderAlert } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import {
+  EFirmwareAuthenticationDialogContentType,
+  EnumBasicDialogContentContainer,
+} from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import {
@@ -136,6 +151,48 @@ function FirmwareUpdateErrorDemo({
       {content}
       {detail}
     </>
+  );
+}
+
+function StaticUIDialog() {
+  const form = useForm({
+    defaultValues: {
+      contentType: EFirmwareAuthenticationDialogContentType.default,
+    },
+  });
+  return (
+    <Form form={form}>
+      <Form.Field name="contentType" label="contentType">
+        <Select
+          title=""
+          items={Object.keys(EFirmwareAuthenticationDialogContentType).map(
+            (i) => ({ label: i, value: i }),
+          )}
+        />
+      </Form.Field>
+
+      <Button
+        onPress={() => {
+          Dialog.show({
+            showFooter: false,
+            renderContent: (
+              <EnumBasicDialogContentContainer
+                {...form.getValues()}
+                errorCode={800}
+                onActionPress={() => {
+                  alert('onActionPress');
+                }}
+                onContinuePress={() => {
+                  alert('onContinuePress');
+                }}
+              />
+            ),
+          });
+        }}
+      >
+        FirmwareVerify UI Dialog
+      </Button>
+    </Form>
   );
 }
 
@@ -305,6 +362,11 @@ function FirmwareUpdateGalleryStaticUI() {
           tipMessage={EFirmwareUpdateTipMessages.AutoRebootToBootloader}
           retryInfo={undefined}
         />
+      </Stack>
+
+      <Stack my="$8">
+        <SizableText size="$heading2xl">* StaticUIDialog</SizableText>
+        <StaticUIDialog />
       </Stack>
     </Stack>
   );

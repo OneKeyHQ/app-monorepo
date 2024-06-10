@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
@@ -16,6 +18,7 @@ import {
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EOnboardingPages,
@@ -35,6 +38,7 @@ function FinalizeWalletSetupPage({
   IOnboardingParamList,
   EOnboardingPages.FinalizeWalletSetup
 >) {
+  const intl = useIntl();
   const [currentStep, setCurrentStep] = useState<EFinalizeWalletSetupSteps>(
     EFinalizeWalletSetupSteps.CreatingWallet,
   );
@@ -44,10 +48,18 @@ function FinalizeWalletSetupPage({
 
   const actions = useAccountSelectorActions();
   const steps: Record<EFinalizeWalletSetupSteps, string> = {
-    [EFinalizeWalletSetupSteps.CreatingWallet]: 'Creating your wallet',
-    [EFinalizeWalletSetupSteps.GeneratingAccounts]: 'Generating your accounts',
-    [EFinalizeWalletSetupSteps.EncryptingData]: 'Encrypting your data',
-    [EFinalizeWalletSetupSteps.Ready]: 'Your wallet is now ready',
+    [EFinalizeWalletSetupSteps.CreatingWallet]: intl.formatMessage({
+      id: ETranslations.onboarding_finalize_creating_wallet,
+    }),
+    [EFinalizeWalletSetupSteps.GeneratingAccounts]: intl.formatMessage({
+      id: ETranslations.onboarding_finalize_generating_accounts,
+    }),
+    [EFinalizeWalletSetupSteps.EncryptingData]: intl.formatMessage({
+      id: ETranslations.onboarding_finalize_encrypting_data,
+    }),
+    [EFinalizeWalletSetupSteps.Ready]: intl.formatMessage({
+      id: ETranslations.onboarding_finalize_ready,
+    }),
   };
 
   const created = useRef(false);
@@ -115,7 +127,12 @@ function FinalizeWalletSetupPage({
 
   return (
     <Page>
-      <Page.Header disableClose title="Finalize Wallet Setup" />
+      <Page.Header
+        disableClose
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_finalize_wallet_setup,
+        })}
+      />
       <Page.Body p="$5" justifyContent="center" alignItems="center">
         <Stack
           w="$16"

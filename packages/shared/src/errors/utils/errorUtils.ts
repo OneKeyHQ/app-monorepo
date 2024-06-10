@@ -1,6 +1,6 @@
 import { isObject, isString, isUndefined, omitBy } from 'lodash';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
@@ -103,8 +103,8 @@ export function getDeviceErrorPayloadMessage(
 export function normalizeErrorProps(
   props?: IOneKeyError | string,
   config?: {
-    defaultMessage?: string;
-    defaultKey?: ILocaleIds;
+    defaultMessage?: string | ETranslations;
+    defaultKey?: ETranslations;
     defaultAutoToast?: boolean;
     alwaysAppendDefaultMessage?: boolean;
   },
@@ -160,6 +160,16 @@ function autoPrintErrorIgnore(error: unknown | undefined) {
   }
 }
 
+function toastIfError(error: unknown) {
+  if (error instanceof Error) {
+    const e = error as IOneKeyError | undefined;
+    if (e) {
+      // handle autoToast error by BackgroundApiProxyBase
+      e.autoToast = true;
+    }
+  }
+}
+
 export default {
   autoPrintErrorIgnore,
   normalizeErrorProps,
@@ -168,4 +178,5 @@ export default {
   interceptConsoleErrorWithExtraInfo,
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
+  toastIfError,
 };

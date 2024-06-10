@@ -108,6 +108,7 @@ export abstract class CoreChainApiBase {
       );
     }
     if (credentials.hd) {
+      // build account.relPaths by _getRelPathsToAddressByApi()
       const { relPaths } = account;
       privateKeys = await this.baseGetPrivateKeysHd({
         curve,
