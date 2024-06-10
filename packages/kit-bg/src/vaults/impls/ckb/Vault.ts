@@ -14,6 +14,7 @@ import {
   scriptToAddress,
 } from '@onekeyhq/core/src/chains/ckb/sdkCkb';
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
@@ -75,7 +76,6 @@ import type { Cell } from '@ckb-lumos/base';
 import type { CKBIndexerQueryOptions } from '@ckb-lumos/ckb-indexer/src/type';
 import type { Config } from '@ckb-lumos/config-manager';
 import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
-import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.ckb.hd;

@@ -6,6 +6,7 @@ import type {
   IEncodedTxDnx,
   IUnspentOutput,
 } from '@onekeyhq/core/src/chains/dnx/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { coinSelect } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import {
@@ -50,7 +51,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 const DEFAULT_TX_FEE = 1000000;
 

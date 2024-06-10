@@ -12,6 +12,7 @@ import { ethers } from 'ethers';
 import { isEmpty, isNil, isObject } from 'lodash';
 
 import type { IEncodedTxFil } from '@onekeyhq/core/src/chains/fil/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -61,7 +62,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.fil.hd;

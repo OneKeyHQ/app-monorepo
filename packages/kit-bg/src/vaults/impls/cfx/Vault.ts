@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
 import type { IEncodedTxCfx } from '@onekeyhq/core/src/chains/cfx/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -64,7 +65,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 
 const { Conflux, address: confluxAddress } = sdkCfx;
 
