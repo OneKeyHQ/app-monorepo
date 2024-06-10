@@ -120,7 +120,8 @@ class ProviderApiCardano extends ProviderApiBase {
     if (!vault) {
       throw new Error('Not connected to any account.');
     }
-    return vault.getUtxosForDapp(params.amount);
+    const result = await vault.getUtxosForDapp(params.amount);
+    return result ?? [];
   }
 
   @providerApiMethod()

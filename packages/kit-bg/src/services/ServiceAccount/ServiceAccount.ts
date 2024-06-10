@@ -340,6 +340,7 @@ class ServiceAccount extends ServiceBase {
     const { isHardware, password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
+        reason: EReasonForNeedPassword.Default,
       });
 
     // canAutoCreateNextAccount
@@ -1311,12 +1312,18 @@ class ServiceAccount extends ServiceBase {
     if (account) {
       const accountId = account.id;
       await localDb.removeAccount({ accountId, walletId });
+      await this.backgroundApi.serviceDApp.removeDappConnectionAfterAccountRemove(
+        { accountId },
+      );
     }
     if (indexedAccount) {
       await localDb.removeIndexedAccount({
         indexedAccountId: indexedAccount.id,
         walletId,
       });
+      await this.backgroundApi.serviceDApp.removeDappConnectionAfterAccountRemove(
+        { indexedAccountId: indexedAccount.id },
+      );
     }
 
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
@@ -1348,6 +1355,9 @@ class ServiceAccount extends ServiceBase {
       walletId,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
+      walletId,
+    });
     return result;
   }
 
