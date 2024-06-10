@@ -3,12 +3,14 @@ import type {
   checkMultiple as RNCheckMultiple,
   openSettings as RNOpenSettings,
   PermissionStatus as RNPermissionStatus,
+  request as RNRequest,
   requestMultiple as RNRequestMultiple,
   PERMISSIONS as RN_PERMISSIONS,
   RESULTS as RN_RESULTS,
 } from 'react-native-permissions';
 
 export const check = {} as typeof RNCheck;
+export const request = {} as typeof RNRequest;
 export const PERMISSIONS = {} as typeof RN_PERMISSIONS;
 export const RESULTS = {} as typeof RN_RESULTS;
 export const checkMultiple = {} as typeof RNCheckMultiple;
