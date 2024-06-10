@@ -405,7 +405,7 @@ export default class Vault extends VaultBase {
             cardanoPubKey: xpub,
           });
         if (!utxoList || isEmpty(utxoList)) {
-          throw new OneKeyInternalError('Failed to get UTXO list.');
+          return [];
         }
 
         const pathIndex = path.split('/')[3];
@@ -503,35 +503,46 @@ export default class Vault extends VaultBase {
   // Dapp Function
   async getBalanceForDapp() {
     const stakeAddress = await this._getStakeAddress();
-    const [rawBalance, assetsBalance] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
-        IAdaAccount | IAdaAmount[]
-      >({
-        networkId: this.networkId,
-        body: [
-          {
-            route: 'rpc',
-            params: {
-              method: 'GET',
-              params: [],
-              url: `/accounts/${stakeAddress}`,
+    let rawBalance = {
+      controlled_amount: '0',
+    } as IAdaAccount;
+    let assetsBalance: IAdaAmount[] = [];
+    try {
+      const [_rawBalance, _assetsBalance] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
+          IAdaAccount | IAdaAmount[]
+        >({
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'GET',
+                params: [],
+                url: `/accounts/${stakeAddress}`,
+              },
             },
-          },
-          {
-            route: 'rpc',
-            params: {
-              method: 'GET',
-              params: [],
-              url: `/accounts/${stakeAddress}/addresses/assets`,
+            {
+              route: 'rpc',
+              params: {
+                method: 'GET',
+                params: [],
+                url: `/accounts/${stakeAddress}/addresses/assets`,
+              },
             },
-          },
-        ],
-      });
+          ],
+        });
+      rawBalance = _rawBalance as IAdaAccount;
+      assetsBalance = _assetsBalance as IAdaAmount[];
+    } catch (e) {
+      // ignore error
+      console.error(e);
+    }
     const balance = {
       unit: 'lovelace',
-      quantity: (rawBalance as IAdaAccount).controlled_amount,
+      quantity: rawBalance.controlled_amount,
     };
-    const result = [balance, ...(assetsBalance as IAdaAmount[])];
+    const result = [balance, ...assetsBalance];
     const CardanoApi = await sdk.getCardanoApi();
     return CardanoApi.dAppGetBalance(result);
   }
