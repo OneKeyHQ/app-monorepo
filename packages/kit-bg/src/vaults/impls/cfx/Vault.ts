@@ -8,7 +8,9 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import numberUtils, {
+  toBigIntHex,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
@@ -544,10 +546,12 @@ export default class Vault extends VaultBase {
     let newValue = encodedTx.value;
 
     if (!isNil(nativeAmountInfo.maxSendAmount)) {
-      newValue = chainValueUtils.convertAmountToChainValue({
-        value: nativeAmountInfo.maxSendAmount,
-        network,
-      });
+      newValue = numberUtils.numberToHex(
+        chainValueUtils.convertAmountToChainValue({
+          value: nativeAmountInfo.maxSendAmount,
+          network,
+        }),
+      );
     }
 
     const tx = {
@@ -616,5 +620,25 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxCfx | undefined;
+  }) {
+    if (!encodedTx) return;
+    const { chainId, nonce, from, to, data, value, epochHeight, storageLimit } =
+      encodedTx;
+    return Promise.resolve({
+      chainId,
+      nonce,
+      from,
+      to,
+      data,
+      value,
+      epochHeight,
+      storageLimit,
+    });
   }
 }
