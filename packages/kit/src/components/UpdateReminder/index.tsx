@@ -1,5 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import type {
   IButtonProps,
@@ -9,52 +11,67 @@ import type {
 import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DownloadProgress } from './DownloadProgress';
 import { useAppUpdateInfo } from './hooks';
 
-const UPDATE_STATUS_TEXT_STYLE: Record<
-  EAppUpdateStatus,
-  | {
-      iconName: IIconProps['name'];
-      iconColor: IIconProps['color'];
-      renderText: (appUpdateInfo: IAppUpdateInfo) => string;
-    }
-  | undefined
-> = {
-  [EAppUpdateStatus.notify]: {
-    iconName: 'DownloadOutline',
-    iconColor: '$iconInfo',
-    renderText(appUpdateInfo) {
-      return `Update App to ${appUpdateInfo.latestVersion || ''} is available`;
-    },
-  },
-  [EAppUpdateStatus.downloading]: {
-    iconName: 'RefreshCcwSolid',
-    iconColor: '$iconInfo',
-    renderText: DownloadProgress,
-  },
-  [EAppUpdateStatus.ready]: {
-    iconName: 'DownloadOutline',
-    iconColor: '$iconSuccess',
-    renderText(appUpdateInfo) {
-      return `App ${appUpdateInfo.latestVersion || ''} Ready for Update`;
-    },
-  },
-  [EAppUpdateStatus.failed]: {
-    iconName: 'ErrorOutline',
-    iconColor: '$iconCritical',
-    renderText(appUpdateInfo) {
-      return appUpdateInfo.errorText || '';
-    },
-  },
-  [EAppUpdateStatus.done]: undefined,
-};
-
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
-  const data = UPDATE_STATUS_TEXT_STYLE[updateInfo.status];
+  const intl = useIntl();
+  const styles = useMemo(
+    () =>
+      ({
+        [EAppUpdateStatus.notify]: {
+          iconName: 'DownloadOutline',
+          iconColor: '$iconInfo',
+          renderText(appUpdateInfo) {
+            return intl.formatMessage(
+              { id: ETranslations.update_update_app_available },
+              {
+                version: appUpdateInfo.latestVersion || '',
+              },
+            );
+          },
+        },
+        [EAppUpdateStatus.downloading]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText: DownloadProgress,
+        },
+        [EAppUpdateStatus.ready]: {
+          iconName: 'DownloadOutline',
+          iconColor: '$iconSuccess',
+          renderText(appUpdateInfo) {
+            return intl.formatMessage(
+              { id: ETranslations.update_app_version_ready_for_update },
+              {
+                version: appUpdateInfo.latestVersion || '',
+              },
+            );
+          },
+        },
+        [EAppUpdateStatus.failed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText(appUpdateInfo) {
+            return appUpdateInfo.errorText || '';
+          },
+        },
+        [EAppUpdateStatus.done]: undefined,
+      } as Record<
+        EAppUpdateStatus,
+        | {
+            iconName: IIconProps['name'];
+            iconColor: IIconProps['color'];
+            renderText: (appUpdateInfo: IAppUpdateInfo) => string;
+          }
+        | undefined
+      >),
+    [intl],
+  );
+  const data = styles[updateInfo.status];
 
   if (!data) {
     return null;
@@ -76,6 +93,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
 }
 
 function OpenOnGithub() {
+  const intl = useIntl();
   const handlePress = useCallback(() => {
     openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
   }, []);
@@ -88,41 +106,12 @@ function OpenOnGithub() {
       onPress={handlePress}
     >
       <SizableText size="$bodyMdMedium" color="$textSubdued">
-        Download on Github
+        {intl.formatMessage({ id: ETranslations.update_download_on_github })}
       </SizableText>
       <Icon name="ArrowTopRightOutline" size="$4.5" />
     </XStack>
   );
 }
-
-const UPDATE_ACTION_STYLE: Record<
-  EAppUpdateStatus,
-  | {
-      label: string;
-      icon?: IIconProps['name'];
-      prefixElement?: ReactElement;
-      variant?: IButtonProps['variant'];
-    }
-  | undefined
-> = {
-  [EAppUpdateStatus.notify]: {
-    label: 'View',
-  },
-  [EAppUpdateStatus.downloading]: {
-    label: 'View',
-  },
-  [EAppUpdateStatus.ready]: {
-    label: platformEnv.isNativeAndroid ? 'Install Now' : 'Restart to Update',
-    icon: 'RestartToUpdateCustom',
-    variant: 'primary',
-  },
-  [EAppUpdateStatus.failed]: {
-    prefixElement: <OpenOnGithub />,
-    label: 'Retry',
-    variant: 'primary',
-  },
-  [EAppUpdateStatus.done]: undefined,
-};
 
 function UpdateAction({
   updateInfo,
@@ -131,7 +120,44 @@ function UpdateAction({
   updateInfo: IAppUpdateInfo;
   onUpdateAction: () => void;
 }) {
-  const data = UPDATE_ACTION_STYLE[updateInfo.status];
+  const intl = useIntl();
+  const styles = useMemo(
+    () =>
+      ({
+        [EAppUpdateStatus.notify]: {
+          label: intl.formatMessage({ id: ETranslations.global_view }),
+        },
+        [EAppUpdateStatus.downloading]: {
+          label: intl.formatMessage({ id: ETranslations.global_view }),
+        },
+        [EAppUpdateStatus.ready]: {
+          label: intl.formatMessage({
+            id: platformEnv.isNativeAndroid
+              ? ETranslations.update_install_now
+              : ETranslations.update_restart_to_update,
+          }),
+          icon: 'RestartToUpdateCustom',
+          variant: 'primary',
+        },
+        [EAppUpdateStatus.failed]: {
+          prefixElement: <OpenOnGithub />,
+          label: ETranslations.global_retry,
+          variant: 'primary',
+        },
+        [EAppUpdateStatus.done]: undefined,
+      } as Record<
+        EAppUpdateStatus,
+        | {
+            label: string;
+            icon?: IIconProps['name'];
+            prefixElement?: ReactElement;
+            variant?: IButtonProps['variant'];
+          }
+        | undefined
+      >),
+    [intl],
+  );
+  const data = styles[updateInfo.status];
   if (!data) {
     return null;
   }
