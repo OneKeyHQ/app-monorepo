@@ -35,17 +35,17 @@ export function KitProvider() {
   useDebugComponentRemountLog({ name: 'KitProvider' });
   return (
     <GlobalJotaiReady>
-      <ThemeProvider>
-        <SplashProvider>
-          <GestureHandlerRootView style={flexStyle}>
+      <GestureHandlerRootView style={flexStyle}>
+        <ThemeProvider>
+          <SplashProvider>
             <Container />
-          </GestureHandlerRootView>
-        </SplashProvider>
-        <PasswordVerifyPromptMount />
-        <WebViewWebEmbedProvider />
-        <LastActivityTracker />
-        <InAppNotification />
-      </ThemeProvider>
+          </SplashProvider>
+          <PasswordVerifyPromptMount />
+          <WebViewWebEmbedProvider />
+          <LastActivityTracker />
+          <InAppNotification />
+        </ThemeProvider>
+      </GestureHandlerRootView>
     </GlobalJotaiReady>
   );
 }
