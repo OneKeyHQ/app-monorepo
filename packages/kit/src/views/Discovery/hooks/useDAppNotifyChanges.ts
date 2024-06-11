@@ -6,6 +6,7 @@ import { useIsMounted } from '@onekeyhq/components/src/hocs/Provider/hooks/useIs
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IConnectionAccountInfo,
   IConnectionStorageType,
@@ -115,7 +116,8 @@ export function useShouldUpdateConnectedAccount() {
       const isValidAccountInfo =
         accountInfo.accountId &&
         accountInfo.walletId &&
-        accountInfo.address &&
+        (networkUtils.isLightningNetworkByNetworkId(accountInfo.networkId) ||
+          accountInfo.address) &&
         accountInfo.networkId;
 
       return prevAccountInfo && hasAccountChanged && isValidAccountInfo;
