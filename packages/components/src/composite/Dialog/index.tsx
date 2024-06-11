@@ -155,12 +155,16 @@ function DialogFrame({
         onCancel={handleCancelButtonPress}
         onConfirmText={
           onConfirmText ||
-          intl.formatMessage({ id: ETranslations.global_confirm })
+          intl.formatMessage({
+            id: ETranslations.global_confirm,
+          })
         }
         confirmButtonProps={confirmButtonProps}
         onCancelText={
           onCancelText ||
-          intl.formatMessage({ id: ETranslations.global_cancel })
+          intl.formatMessage({
+            id: ETranslations.global_cancel,
+          })
         }
       />
     </Stack>
