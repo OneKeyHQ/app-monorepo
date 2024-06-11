@@ -160,6 +160,7 @@ async function expectGetPrivateKeysHdOk({
         hd: hdCredential.hdCredentialHex,
       },
       networkInfo,
+      relPaths: account.relPaths,
     });
     let encryptKey = keys[account.path];
     if (!encryptKey && account.relPaths?.[0]) {
@@ -204,6 +205,7 @@ async function expectSignTransactionOk({
         encodedTx: encodedTx || '',
       },
       btcExtraInfo,
+      relPaths: account.relPaths,
     };
     const resultHd = await coreApi.signTransaction({
       ...signTxPayload,
