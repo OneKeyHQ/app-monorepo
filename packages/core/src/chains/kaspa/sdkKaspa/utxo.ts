@@ -6,11 +6,11 @@ import { CONFIRMATION_COUNT } from './constant';
 import { UnspentOutput } from './types';
 
 import type { RestAPIClient } from './clientRestApi';
-import type { UTXOResponse, UnspentOutputInfo } from './types';
+import type { IKaspaUTXOResponse, IKaspaUnspentOutputInfo } from './types';
 
-function sortUXTO(utxos: UnspentOutputInfo[]) {
+function sortUXTO(utxos: IKaspaUnspentOutputInfo[]) {
   return utxos.sort(
-    (a: UnspentOutputInfo, b: UnspentOutputInfo): number =>
+    (a: IKaspaUnspentOutputInfo, b: IKaspaUnspentOutputInfo): number =>
       a.blockDaaScore - b.blockDaaScore ||
       b.satoshis - a.satoshis ||
       a.txid.localeCompare(b.txid) ||
@@ -18,15 +18,15 @@ function sortUXTO(utxos: UnspentOutputInfo[]) {
   );
 }
 
-function formatUtxo(entries: UTXOResponse[]): UnspentOutputInfo[] {
-  const result: UnspentOutputInfo[] = [];
+function formatUtxo(entries: IKaspaUTXOResponse[]): IKaspaUnspentOutputInfo[] {
+  const result: IKaspaUnspentOutputInfo[] = [];
 
   for (const entry of entries) {
     const { transactionId, index } = entry.outpoint;
     const { address, utxoEntry } = entry;
     const { amount, scriptPublicKey, blockDaaScore } = utxoEntry;
 
-    const item: UnspentOutputInfo = {
+    const item: IKaspaUnspentOutputInfo = {
       txid: transactionId,
       address,
       vout: index,
@@ -59,18 +59,18 @@ export async function queryConfirmUTXOs(
 }
 
 export function selectUTXOs(
-  confirmUtxos: UnspentOutputInfo[],
+  confirmUtxos: IKaspaUnspentOutputInfo[],
   txAmount: number,
-  prioritys?: { satoshis: boolean }
+  prioritys?: { satoshis: boolean },
 ): {
   utxoIds: string[];
-  utxos: UnspentOutputInfo[];
+  utxos: IKaspaUnspentOutputInfo[];
   prioritys?: { satoshis: boolean };
   mass: number;
 } {
   const sortedUtxos = sortUXTO(confirmUtxos);
 
-  const selectedUtxos: UnspentOutputInfo[] = [];
+  const selectedUtxos: IKaspaUnspentOutputInfo[] = [];
   const utxoIds: string[] = [];
   let totalVal = 0;
   let mass = 0;

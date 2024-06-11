@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -10,6 +11,7 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignMsgPayload,
@@ -21,6 +23,12 @@ import type {
 const curve: ICurveName = 'ed25519';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    throw new NotImplemented();
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {

@@ -5,7 +5,8 @@ import { bech32 } from 'bech32';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { IAddressValidation } from '@onekeyhq/shared/types/address';
+import type { IAddressValidation } from '@onekeyhq/shared/types/address';
+
 import type { ICurveName } from '../../../types';
 
 const secp256k1PubkeyToRawAddress = (pubkey: Uint8Array): Uint8Array => {
@@ -46,6 +47,11 @@ export const pubkeyToAddress = (
   return bech32.encode(prefix, bech32.toWords(hexToBytes(digest)));
 };
 
+export const baseAddressToAddress = (
+  prefix: string,
+  baseAddress: string,
+): string => bech32.encode(prefix, bech32.toWords(hexToBytes(baseAddress)));
+
 export function pubkeyToAddressDetail({
   curve,
   publicKey,
@@ -66,11 +72,6 @@ export function pubkeyToAddressDetail({
     address,
   };
 }
-
-export const baseAddressToAddress = (
-  prefix: string,
-  baseAddress: string,
-): string => bech32.encode(prefix, bech32.toWords(hexToBytes(baseAddress)));
 
 export const isValidAddress = (
   input: string,

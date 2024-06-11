@@ -1,7 +1,7 @@
 /* eslint-disable no-bitwise */
 import bigInt from 'big-integer';
 
-export enum NexaAddressType {
+export enum ENexaAddressType {
   PayToPublicKeyHash = 'P2PKH',
   PayToScriptHash = 'SCRIPT',
   PayToScriptTemplate = 'TEMPLATE',
@@ -149,7 +149,7 @@ function base32Decode(string: string) {
 
 export function encode(
   prefix: string,
-  type: NexaAddressType,
+  type: ENexaAddressType,
   hashBuffer: Buffer,
 ) {
   const prefixData = concat(prefixToUint5Array(prefix), new Uint8Array(1));

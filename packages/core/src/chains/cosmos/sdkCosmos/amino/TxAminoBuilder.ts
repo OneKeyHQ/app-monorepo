@@ -1,11 +1,11 @@
 import { TransactionWrapper } from '../wrapper';
 
-import type { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
-import type { TxBuilder } from '../txBuilder';
+import type { ICosmosProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
+import type { ICosmosTxBuilder } from '../txBuilder';
 
-export class TxAminoBuilder implements TxBuilder {
+export class TxAminoBuilder implements ICosmosTxBuilder {
   makeTxWrapper(
-    messages: ProtoMsgsOrWithAminoMsgs,
+    messages: ICosmosProtoMsgsOrWithAminoMsgs,
     params: {
       memo: string;
       gasLimit: string;

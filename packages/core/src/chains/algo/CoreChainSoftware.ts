@@ -1,27 +1,33 @@
-import { ed25519 } from '@onekeyhq/core/src/secret';
-import { NotImplemented, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { isArray } from 'lodash';
+
+import { decrypt, ed25519 } from '@onekeyhq/core/src/secret';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+import {
+  ECoreApiExportedSecretKeyType,
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressQueryPublicKey,
+  type ICoreApiGetAddressesQueryHd,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignTxPayload,
+  type ICurveName,
+  type ISignedTxPro,
+} from '../../types';
 
 import sdkAlgo from './sdkAlgo';
 
 import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IEncodedTxAlgo } from './types';
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesResult,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignBasePayload,
-  ICoreApiSignTxPayload,
-  ICurveName,
-  ISignedTxPro,
-} from '../../types';
-import { ISigner } from '../../base/ChainSigner';
-import { isArray } from 'lodash';
+import type { ISigner } from '../../base/ChainSigner';
 
 const curve: ICurveName = 'ed25519';
 
@@ -52,6 +58,34 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       txid,
       rawTx,
     };
+  }
+
+  override async getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    const {
+      // networkInfo,
+      // privateKeySource,
+      password,
+      keyType,
+      credentials,
+      // xpub,
+      // addressEncoding,
+    } = query;
+    console.log(
+      'ExportSecretKeys >>>> algo',
+      this.baseGetCredentialsType({ credentials }),
+    );
+
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
+
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
+      return sdkAlgo.mnemonicFromSeed(decrypt(password, privateKeyRaw));
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -99,7 +133,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(): Promise<string> {
-    throw new NotImplemented();;
+    throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(

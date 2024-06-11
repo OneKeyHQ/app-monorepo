@@ -2,8 +2,8 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { SignDoc } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
 import type { ICosmosSignDocHex } from '../../types';
-import type { StdSignDoc } from '../amino/types';
-import type { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
+import type { ICosmosStdSignDoc } from '../amino/types';
+import type { ICosmosProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
 import type { ProtoSignDoc } from '../proto/protoSignDoc';
 
 export class TransactionWrapper {
@@ -11,11 +11,11 @@ export class TransactionWrapper {
 
   public readonly mode: 'amino' | 'direct';
 
-  public readonly msg: ProtoMsgsOrWithAminoMsgs | undefined;
+  public readonly msg: ICosmosProtoMsgsOrWithAminoMsgs | undefined;
 
   constructor(
-    public readonly signDoc: StdSignDoc | ICosmosSignDocHex,
-    msg?: ProtoMsgsOrWithAminoMsgs,
+    public readonly signDoc: ICosmosStdSignDoc | ICosmosSignDocHex,
+    msg?: ICosmosProtoMsgsOrWithAminoMsgs,
   ) {
     if ('msgs' in signDoc) {
       this.mode = 'amino';
@@ -26,13 +26,16 @@ export class TransactionWrapper {
   }
 
   static fromAminoSignDoc(
-    signDoc: StdSignDoc,
-    msg: ProtoMsgsOrWithAminoMsgs | undefined,
+    signDoc: ICosmosStdSignDoc,
+    msg: ICosmosProtoMsgsOrWithAminoMsgs | undefined,
   ) {
     return new TransactionWrapper(signDoc, msg);
   }
 
-  static fromDirectSignDoc(signDoc: SignDoc, msg: ProtoMsgsOrWithAminoMsgs) {
+  static fromDirectSignDoc(
+    signDoc: SignDoc,
+    msg: ICosmosProtoMsgsOrWithAminoMsgs,
+  ) {
     const signDocHex: ICosmosSignDocHex = {
       bodyBytes: bytesToHex(signDoc.bodyBytes),
       authInfoBytes: bytesToHex(signDoc.authInfoBytes),
@@ -44,14 +47,14 @@ export class TransactionWrapper {
 
   static fromDirectSignDocHex(
     signDoc: ICosmosSignDocHex,
-    msg: ProtoMsgsOrWithAminoMsgs | undefined,
+    msg: ICosmosProtoMsgsOrWithAminoMsgs | undefined,
   ) {
     return new TransactionWrapper(signDoc, msg);
   }
 
   static fromDirectSignDocBytes(
     signDocBytes: Uint8Array,
-    msg: ProtoMsgsOrWithAminoMsgs,
+    msg: ICosmosProtoMsgsOrWithAminoMsgs,
   ) {
     const sign = SignDoc.decode(signDocBytes);
     return TransactionWrapper.fromDirectSignDoc(sign, msg);

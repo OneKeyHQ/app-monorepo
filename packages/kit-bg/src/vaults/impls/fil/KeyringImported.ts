@@ -46,26 +46,6 @@ export class KeyringImported extends KeyringImportedBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const { password } = params;
-    const result: IExportAccountSecretKeysResult = {};
-    if (params.privateKey) {
-      const privateKeysMap = await this.getPrivateKeys({
-        password,
-      });
-      const [encryptedPrivateKey] = Object.values(privateKeysMap);
-
-      const privateKey = decrypt(password, encryptedPrivateKey).toString(
-        'base64',
-      );
-      // export lotus type private key by default
-      result.privateKey = Buffer.from(
-        JSON.stringify({
-          'Type': 'secp256k1',
-          'PrivateKey': privateKey,
-        }),
-      ).toString('hex');
-    }
-
-    return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 }

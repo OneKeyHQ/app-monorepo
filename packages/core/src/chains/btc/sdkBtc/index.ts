@@ -142,7 +142,6 @@ export function scriptPkToAddress(
 ) {
   initBitcoinEcc();
   try {
-    // 0/0
     const address = BitcoinJsAddress.fromOutputScript(
       typeof scriptPk === 'string' ? Buffer.from(scriptPk, 'hex') : scriptPk,
       psbtNetwork,

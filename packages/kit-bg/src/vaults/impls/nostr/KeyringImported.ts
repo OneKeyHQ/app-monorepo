@@ -23,6 +23,7 @@ export class KeyringImported extends KeyringImportedBase {
   }
 
   override async prepareAccounts(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: IPrepareImportedAccountsParams,
   ): Promise<IDBAccount[]> {
     // return this.basePrepareAccountsImported(params);

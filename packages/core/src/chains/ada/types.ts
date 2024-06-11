@@ -66,7 +66,7 @@ export type IEncodedTxAda = {
     from: string;
     to: string;
     amount: string;
-  }; 
+  };
   tx: IAdaTxInfo;
   changeAddress: IAdaChangeAddress;
   signOnly?: boolean;

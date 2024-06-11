@@ -8,7 +8,7 @@ import { signTransaction, submitTransactionFromString } from './transaction';
 import { UnspentOutput } from './types';
 import { queryConfirmUTXOs, selectUTXOs } from './utxo';
 
-import type { UnspentOutputInfo } from './types';
+import type { IKaspaUnspentOutputInfo } from './types';
 import type { PublicKey } from '@kaspa/core-lib';
 
 jest.setTimeout(3 * 60 * 1000);
@@ -48,7 +48,7 @@ describe('Kaspa transaction Tests', () => {
 
     // process.stdout.write(`>> pubKey ${publicKey.toBuffer().toString('hex')}\n`);
     // process.stdout.write(`>> priKey ${privateKey.toString()}\n`);
-    let utxos: UnspentOutputInfo[] = [];
+    let utxos: IKaspaUnspentOutputInfo[] = [];
     try {
       const confirmUTXOs = await queryConfirmUTXOs(client, from);
       const selectUTXOsRes = selectUTXOs(confirmUTXOs, 100000);

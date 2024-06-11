@@ -1,6 +1,6 @@
 import { Transaction } from '@kaspa/core-lib';
 
-export interface UnspentOutputInfo {
+export interface IKaspaUnspentOutputInfo {
   txid: string;
   address: string;
   vout: number;
@@ -32,7 +32,7 @@ export class UnspentOutput extends Transaction.UnspentOutput {
 
   readonly signatureOPCount: number;
 
-  constructor(o: UnspentOutputInfo) {
+  constructor(o: IKaspaUnspentOutputInfo) {
     super(o);
     this.blockDaaScore = o.blockDaaScore;
     this.scriptPublicKeyVersion = o.scriptPublicKeyVersion;
@@ -57,7 +57,7 @@ export class UnspentOutput extends Transaction.UnspentOutput {
   }
 
   // fromJSON
-  static fromJSON(json: UnspentOutputInfo) {
+  static fromJSON(json: IKaspaUnspentOutputInfo) {
     return new UnspentOutput(json);
   }
 }

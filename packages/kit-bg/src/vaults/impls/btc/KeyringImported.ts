@@ -1,9 +1,8 @@
-import bs58check from 'bs58check';
-
-import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { decrypt } from '@onekeyhq/core/src/secret';
-import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import {
+  type ISignedMessagePro,
+  type ISignedTxPro,
+} from '@onekeyhq/core/src/types';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
@@ -30,19 +29,7 @@ export class KeyringImported extends KeyringImportedBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const { password } = params;
-    const result: IExportAccountSecretKeysResult = {};
-
-    if (params.xprvt) {
-      const privateKeysMap = await this.getPrivateKeys({
-        password,
-        // relPaths: ['0/0'],
-      });
-      const [encryptedPrivateKey] = Object.values(privateKeysMap);
-      result.xprvt = bs58check.encode(decrypt(password, encryptedPrivateKey));
-    }
-
-    return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(

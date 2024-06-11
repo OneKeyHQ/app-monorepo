@@ -175,7 +175,7 @@ export const HISTORY_CONSTS = {
   PENDING_QUEUE_MAX_LENGTH: 10,
 };
 
-export enum SocketEvents {
+export enum EAppSocketEvents {
   'Notification' = 'notification',
 }
 

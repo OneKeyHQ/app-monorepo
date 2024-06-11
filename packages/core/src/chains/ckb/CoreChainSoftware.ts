@@ -14,6 +14,7 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignTxPayload,
@@ -24,6 +25,13 @@ import type {
 const curve: ICurveName = 'secp256k1';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override getExportedSecretKey(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    throw new NotImplemented();
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {

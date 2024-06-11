@@ -1,5 +1,5 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { type ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 

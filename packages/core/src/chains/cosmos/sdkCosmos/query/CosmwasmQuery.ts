@@ -2,14 +2,14 @@ import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 
 import type {
-  Cw20AssetInfo,
-  Cw20TokenBalance,
+  ICosmosCw20AssetInfo,
+  ICosmosCw20TokenBalance,
+  ICosmosQueryChainInfo,
   IQuery,
-  QueryChainInfo,
 } from './IQuery';
 import type { AxiosInstance } from 'axios';
 
-interface Cw20TokenInfoResponse {
+interface ICosmosCw20TokenInfoResponse {
   'name': string;
   'symbol': string;
   'decimals': number;
@@ -53,9 +53,9 @@ export class CosmwasmQuery implements IQuery {
   }
 
   public async queryCw20TokenInfo(
-    chainInfo: QueryChainInfo,
+    chainInfo: ICosmosQueryChainInfo,
     contractAddressArray: string[],
-  ): Promise<Cw20AssetInfo[]> {
+  ): Promise<ICosmosCw20AssetInfo[]> {
     const { axios } = chainInfo;
     if (!axios) throw new Error('axios is not defined');
 
@@ -63,7 +63,7 @@ export class CosmwasmQuery implements IQuery {
       contractAddressArray.map((contractAddress) =>
         this.queryContract(axios, contractAddress, {
           token_info: {},
-        }).then((result: Cw20TokenInfoResponse) => ({
+        }).then((result: ICosmosCw20TokenInfoResponse) => ({
           contractAddress,
           name: result.name,
           decimals: result.decimals,
@@ -74,10 +74,10 @@ export class CosmwasmQuery implements IQuery {
   }
 
   public async queryCw20TokenBalance(
-    chainInfo: QueryChainInfo,
+    chainInfo: ICosmosQueryChainInfo,
     contractAddress: string,
     address: string[],
-  ): Promise<Cw20TokenBalance[]> {
+  ): Promise<ICosmosCw20TokenBalance[]> {
     const { axios } = chainInfo;
     if (!axios) throw new Error('axios is not defined');
 

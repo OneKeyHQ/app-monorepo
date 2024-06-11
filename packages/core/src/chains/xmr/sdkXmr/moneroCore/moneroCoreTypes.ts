@@ -1,4 +1,4 @@
-export interface MoneroCoreInstance
+export interface IMoneroCoreInstance
   extends Record<string, WebAssembly.ExportValue | ArrayBuffer> {
   generate_key_image: (
     txPublicKey: string,

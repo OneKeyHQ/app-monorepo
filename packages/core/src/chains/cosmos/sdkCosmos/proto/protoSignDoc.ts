@@ -6,7 +6,7 @@ import { UnknownMessage } from '../message';
 
 import { defaultProtoDecodeRegistry } from './protoDecode';
 
-import type { ProtoDecode, UnpackedMessage } from './protoDecode';
+import type { ICosmosUnpackedMessage, ProtoDecode } from './protoDecode';
 import type { ICosmosSignDocHex } from '../../types';
 
 export class ProtoSignDoc {
@@ -49,8 +49,8 @@ export class ProtoSignDoc {
     this.signDoc.bodyBytes = bytesToHex(TxBody.encode(txBody).finish());
   }
 
-  get txMsgs(): UnpackedMessage[] {
-    const msgs: UnpackedMessage[] = [];
+  get txMsgs(): ICosmosUnpackedMessage[] {
+    const msgs: ICosmosUnpackedMessage[] = [];
     for (const msg of this.txBody.messages) {
       msgs.push(this.protoDecode.unpackMessage(msg));
     }

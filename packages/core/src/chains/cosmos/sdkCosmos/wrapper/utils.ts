@@ -7,13 +7,13 @@ import Long from 'long';
 
 import { defaultAminoDecodeRegistry } from '../amino/aminoDecode';
 import { defaultAminoMsgOpts } from '../amino/types';
-import { MessageType } from '../message';
+import { ECosmosMessageType } from '../message';
 import { ProtoSignDoc } from '../proto/protoSignDoc';
 
 import type { TransactionWrapper } from '.';
 import type { ICosmosStdFee } from '../../types';
-import type { StdSignDoc } from '../amino/types';
-import type { UnpackedMessage } from '../proto/protoDecode';
+import type { ICosmosStdSignDoc } from '../amino/types';
+import type { ICosmosUnpackedMessage } from '../proto/protoDecode';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 export function getDirectSignDoc(tx: TransactionWrapper): ProtoSignDoc {
@@ -27,7 +27,7 @@ export function getDirectSignDoc(tx: TransactionWrapper): ProtoSignDoc {
   return new ProtoSignDoc(tx.signDoc);
 }
 
-export function getAminoSignDoc(tx: TransactionWrapper): StdSignDoc {
+export function getAminoSignDoc(tx: TransactionWrapper): ICosmosStdSignDoc {
   if (tx.mode === 'direct') {
     throw new Error('Sign doc is encoded as Protobuf');
   }
@@ -47,7 +47,7 @@ export function getChainId(tx: TransactionWrapper) {
   return getDirectSignDoc(tx).chainId;
 }
 
-export function getMsgs(tx: TransactionWrapper): UnpackedMessage[] {
+export function getMsgs(tx: TransactionWrapper): ICosmosUnpackedMessage[] {
   if (tx.mode === 'amino') {
     return getAminoSignDoc(tx).msgs.map((msg) =>
       defaultAminoDecodeRegistry.unpackMessage(msg),
@@ -161,7 +161,7 @@ export function setSendAmount(tx: TransactionWrapper, amount: string) {
   const [protoMsg] = newTx.msg?.protoMsgs ?? [];
   let protoMsgValue;
   if (protoMsg) {
-    if (protoMsg.typeUrl !== MessageType.SEND) {
+    if (protoMsg.typeUrl !== ECosmosMessageType.SEND) {
       throw new Error('Invalid message type');
     }
 
@@ -203,14 +203,14 @@ export function setSendAmount(tx: TransactionWrapper, amount: string) {
 
   const directSignDoc = getDirectSignDoc(newTx);
   const msg = directSignDoc.txMsgs[0];
-  if (msg.typeUrl !== MessageType.SEND) {
+  if (msg.typeUrl !== ECosmosMessageType.SEND) {
     throw new Error('Invalid message type');
   }
   directSignDoc.txBody = {
     ...directSignDoc.txBody,
     messages: [
       {
-        typeUrl: MessageType.SEND,
+        typeUrl: ECosmosMessageType.SEND,
         value: protoMsgValue ?? new Uint8Array(),
       },
     ],
@@ -273,7 +273,10 @@ export function sortedJsonByKeyStringify(obj: Record<string, any>): string {
   return JSON.stringify(sortObjectByKey(obj));
 }
 
-export function getADR36SignDoc(signer: string, data: string): StdSignDoc {
+export function getADR36SignDoc(
+  signer: string,
+  data: string,
+): ICosmosStdSignDoc {
   return {
     chain_id: '',
     account_number: '0',

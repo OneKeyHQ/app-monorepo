@@ -7,12 +7,12 @@ import Long from 'long';
 
 import { TransactionWrapper } from '../wrapper';
 
-import type { ProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
-import type { TxBuilder } from '../txBuilder';
+import type { ICosmosProtoMsgsOrWithAminoMsgs } from '../ITxMsgBuilder';
+import type { ICosmosTxBuilder } from '../txBuilder';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 import type { SignDoc, SignerInfo } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
-export class TxProtoBuilder implements TxBuilder {
+export class TxProtoBuilder implements ICosmosTxBuilder {
   private makeTxBodyBytes(body: Partial<TxBody>): Uint8Array {
     return TxBody.encode(
       TxBody.fromPartial({
@@ -87,7 +87,7 @@ export class TxProtoBuilder implements TxBuilder {
   }
 
   makeTxWrapper(
-    messages: ProtoMsgsOrWithAminoMsgs,
+    messages: ICosmosProtoMsgsOrWithAminoMsgs,
     params: {
       memo: string;
       gasLimit: string;

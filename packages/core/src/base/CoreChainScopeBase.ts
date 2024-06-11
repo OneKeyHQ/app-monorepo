@@ -13,6 +13,8 @@ import type { CoreChainApiBase } from './CoreChainApiBase';
 export abstract class CoreChainScopeBase {
   scopeName = '';
 
+  abstract impl: string;
+
   abstract hd: CoreChainApiBase;
 
   protected abstract _hd: () => Promise<typeof CoreChainApiBase>;

@@ -4,6 +4,8 @@ import type CoreChainHd from './CoreChainHd';
 import type CoreChainImported from './CoreChainImported';
 
 export default class extends CoreChainScopeBase {
+  override impl = ''; // IMPL_EVM
+
   override hd: CoreChainHd = this._createApiProxy('hd') as CoreChainHd;
 
   protected override _hd = async () => (await import('./CoreChainHd')).default;

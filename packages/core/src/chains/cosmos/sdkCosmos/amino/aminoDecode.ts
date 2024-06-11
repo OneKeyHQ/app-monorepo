@@ -3,17 +3,17 @@ import { UnknownMessage } from '../message';
 
 import { defaultAminoMsgOpts } from './types';
 
-import type { StdMsg } from './types';
-import type { UnpackedMessage } from '../proto/protoDecode';
+import type { ICosmosStdMsg } from './types';
+import type { ICosmosUnpackedMessage } from '../proto/protoDecode';
 
-interface AminoFactory {
+interface ICosmosAminoFactory {
   decode: (message: any) => any;
 }
 
 export class AminoDecode {
-  protected typeFactoryMap: Map<string, AminoFactory> = new Map();
+  protected typeFactoryMap: Map<string, ICosmosAminoFactory> = new Map();
 
-  unpackMessage(aminoAny: StdMsg): UnpackedMessage {
+  unpackMessage(aminoAny: ICosmosStdMsg): ICosmosUnpackedMessage {
     const factory = this.typeFactoryMap.get(aminoAny.type);
 
     if (!factory) {
@@ -29,7 +29,7 @@ export class AminoDecode {
     };
   }
 
-  registerFactory(type: string, message: AminoFactory): void {
+  registerFactory(type: string, message: ICosmosAminoFactory): void {
     this.typeFactoryMap.set(type, message);
   }
 }

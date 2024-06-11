@@ -2,8 +2,8 @@
 import BN from 'bn.js';
 
 import {
-  NexaAddressType,
-  Opcode,
+  ENexaAddressType,
+  ENexaOpcode,
   bufferToScripChunk,
   decode,
   decodeScriptBufferToScriptChunks,
@@ -24,7 +24,7 @@ import { InvalidAddress } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { hash160, sha256 } from '../../../secret';
-import { NexaSignature } from '../types';
+import { ENexaSignature } from '../types';
 
 import type { ISigner } from '../../../base/ChainSigner';
 import type { ISignedTxPro, IUnsignedTxPro } from '../../../types';
@@ -97,19 +97,19 @@ function convertScriptToPushBuffer(key: Buffer): Buffer {
 export function publickeyToAddress(
   publicKey: Buffer,
   chainId: string,
-  type: NexaAddressType = NexaAddressType.PayToScriptTemplate,
+  type: ENexaAddressType = ENexaAddressType.PayToScriptTemplate,
 ): string {
   const network = getNexaNetworkInfo(chainId);
   let hashBuffer: Buffer;
-  if (type === NexaAddressType.PayToPublicKeyHash) {
+  if (type === ENexaAddressType.PayToPublicKeyHash) {
     hashBuffer = hash160(publicKey);
-  } else if (type === NexaAddressType.PayToScriptTemplate) {
+  } else if (type === ENexaAddressType.PayToScriptTemplate) {
     const templateChunk = bufferToScripChunk(publicKey);
     const scriptBuffer = scriptChunksToBuffer([templateChunk]);
     const constraintHash = hash160(scriptBuffer);
     const chunks = [
-      { opcodenum: Opcode.OP_FALSE },
-      { opcodenum: Opcode.OP_1 },
+      { opcodenum: ENexaOpcode.OP_FALSE },
+      { opcodenum: ENexaOpcode.OP_1 },
       bufferToScripChunk(constraintHash),
     ];
     hashBuffer = scriptChunksToBuffer([
@@ -273,7 +273,7 @@ export function buildTxid(
     writeInt32LE(inputSignatures.length),
     Buffer.concat(
       inputSignatures.map(({ scriptBuffer }) =>
-        Buffer.concat([scriptBuffer, writeUInt8(Opcode.OP_INVALIDOPCODE)]),
+        Buffer.concat([scriptBuffer, writeUInt8(ENexaOpcode.OP_INVALIDOPCODE)]),
       ),
     ),
   ]);
@@ -334,7 +334,7 @@ function buildSignatures(encodedTx: IEncodedTxNexa, dbAccountAddress: string) {
       inputIndex: index,
       sequenceNumber: input.sequenceNumber || DEFAULT_SEQNUMBER,
       amount: new BN(input.satoshis),
-      sigtype: NexaSignature.SIGHASH_NEXA_ALL,
+      sigtype: ENexaSignature.SIGHASH_NEXA_ALL,
     })),
   };
 }
@@ -386,10 +386,10 @@ export function buildSignatureBuffer(
   const outputHash = sha256sha256(outputBuffer);
   const subScriptBuffer = scriptChunksToBuffer([
     {
-      opcodenum: Opcode.OP_FROMALTSTACK,
+      opcodenum: ENexaOpcode.OP_FROMALTSTACK,
     },
     {
-      opcodenum: Opcode.OP_CHECKSIGVERIFY,
+      opcodenum: ENexaOpcode.OP_CHECKSIGVERIFY,
     },
   ]);
   const signatureBuffer = Buffer.concat([
@@ -458,28 +458,28 @@ export function decodeScriptBufferToNexaAddress(
     const constraintHash = hash160(chunks[0].buf);
     const scriptTemplate = scriptChunksToBuffer([
       {
-        opcodenum: Opcode.OP_FALSE,
+        opcodenum: ENexaOpcode.OP_FALSE,
       },
       {
-        opcodenum: Opcode.OP_1,
+        opcodenum: ENexaOpcode.OP_1,
       },
       bufferToScripChunk(constraintHash),
     ]);
     const hashBuffer = convertScriptToPushBuffer(scriptTemplate);
-    return encode(prefix, NexaAddressType.PayToScriptTemplate, hashBuffer);
+    return encode(prefix, ENexaAddressType.PayToScriptTemplate, hashBuffer);
   }
   if (isPublicKeyTemplateOut(chunks) && chunks[2].buf) {
     const scriptTemplate = scriptChunksToBuffer([
       {
-        opcodenum: Opcode.OP_FALSE,
+        opcodenum: ENexaOpcode.OP_FALSE,
       },
       {
-        opcodenum: Opcode.OP_1,
+        opcodenum: ENexaOpcode.OP_1,
       },
       bufferToScripChunk(chunks[2].buf),
     ]);
     const hashBuffer = convertScriptToPushBuffer(scriptTemplate);
-    return encode(prefix, NexaAddressType.PayToScriptTemplate, hashBuffer);
+    return encode(prefix, ENexaAddressType.PayToScriptTemplate, hashBuffer);
   }
   return '';
 }

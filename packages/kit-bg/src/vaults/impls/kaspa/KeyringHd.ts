@@ -28,21 +28,7 @@ export class KeyringHd extends KeyringHdBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const { password } = params;
-    const result: IExportAccountSecretKeysResult = {};
-    const chainId = await this.getNetworkChainId();
-
-    if (params.privateKey) {
-      const privateKeysMap = await this.getPrivateKeys({
-        password,
-        // relPaths: ['0/0'],
-      });
-      const [encryptedPrivateKey] = Object.values(privateKeysMap);
-      const privateKey = decrypt(password, encryptedPrivateKey);
-      const kaspaPrivateKey = privateKeyFromBuffer(privateKey, chainId);
-      result.privateKey = kaspaPrivateKey.toWIF();
-    }
-    return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(

@@ -1,28 +1,39 @@
-import { NotImplemented, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import { getMoneroApi } from './sdkXmr';
-import { MoneroNetTypeEnum } from './sdkXmr/moneroUtil/moneroUtilTypes';
+import { EMoneroNetTypeEnum } from './sdkXmr/moneroUtil/moneroUtilTypes';
 
+import type { IEncodedTxXmr, ISendFundsArgs } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
   ICoreApiSignTxPayload,
   ICurveName,
   ISignedTxPro,
 } from '../../types';
-import type { IEncodedTxXmr, ISendFundsArgs } from './types';
 
 const curve: ICurveName = 'ed25519';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override getExportedSecretKey(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    throw new NotImplemented();
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
@@ -97,7 +108,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(): Promise<string> {
-    throw new NotImplemented();;
+    throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(
@@ -119,8 +130,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const address = moneroApi.pubKeysToAddress(
       networkInfo.isTestnet
-        ? MoneroNetTypeEnum.TestNet
-        : MoneroNetTypeEnum.MainNet,
+        ? EMoneroNetTypeEnum.TestNet
+        : EMoneroNetTypeEnum.MainNet,
       index !== 0,
       bufferUtils.toBuffer(publicSpendKey),
       bufferUtils.toBuffer(publicViewKey),

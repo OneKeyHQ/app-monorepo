@@ -7,7 +7,7 @@ import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
 import { Any } from 'cosmjs-types/google/protobuf/any';
 import Long from 'long';
 
-import { MessageType } from '../message';
+import { ECosmosMessageType } from '../message';
 
 import type { ITxMsgBuilder } from '../ITxMsgBuilder';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
@@ -147,7 +147,7 @@ export function makeMsgSend(
   denom: string,
 ): Any {
   return {
-    typeUrl: MessageType.SEND,
+    typeUrl: ECosmosMessageType.SEND,
     value: MsgSend.encode(
       MsgSend.fromPartial({
         fromAddress,
@@ -186,7 +186,7 @@ export function makeMsgExecuteContract(
   funds?: Array<Coin>,
 ): Any {
   return {
-    typeUrl: MessageType.EXECUTE_CONTRACT,
+    typeUrl: ECosmosMessageType.EXECUTE_CONTRACT,
     value: MsgExecuteContract.encode(
       MsgExecuteContract.fromPartial({
         sender,
@@ -205,7 +205,7 @@ export function makeTerraMsgExecuteContract(
   funds?: Array<Coin>,
 ): Any {
   return {
-    typeUrl: MessageType.TERRA_EXECUTE_CONTRACT,
+    typeUrl: ECosmosMessageType.TERRA_EXECUTE_CONTRACT,
     value: MsgExecuteContract.encode(
       MsgExecuteContract.fromPartial({
         sender,
@@ -233,7 +233,7 @@ export class TxProtoMsgBuilder implements ITxMsgBuilder {
       }),
     ).finish();
     return {
-      typeUrl: MessageType.EXECUTE_CONTRACT,
+      typeUrl: ECosmosMessageType.EXECUTE_CONTRACT,
       value: bytesToHex(value),
     };
   }
@@ -257,7 +257,7 @@ export class TxProtoMsgBuilder implements ITxMsgBuilder {
       }),
     ).finish();
     return {
-      typeUrl: MessageType.SEND,
+      typeUrl: ECosmosMessageType.SEND,
       value: bytesToHex(valueU8),
     };
   }

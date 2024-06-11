@@ -1,8 +1,8 @@
-import type { MoneroCoreInstance } from './moneroCoreTypes';
+import type { IMoneroCoreInstance } from './moneroCoreTypes';
 
-let inst: MoneroCoreInstance | null = null;
+let inst: IMoneroCoreInstance | null = null;
 
-export const getMoneroCoreInstance = async (): Promise<MoneroCoreInstance> => {
+export const getMoneroCoreInstance = async (): Promise<IMoneroCoreInstance> => {
   const { loadWasmInstance } = require('./load') as typeof import('./load');
   if (!inst) {
     inst = await loadWasmInstance({});

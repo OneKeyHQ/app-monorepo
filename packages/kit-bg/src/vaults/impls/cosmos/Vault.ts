@@ -1,8 +1,8 @@
 import BigNumber from 'bignumber.js';
 
-import type { UnpackedMessage } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import type { ICosmosUnpackedMessage } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import {
-  MessageType,
+  ECosmosMessageType,
   TransactionWrapper,
   TxAminoBuilder,
   TxMsgBuilder,
@@ -16,7 +16,7 @@ import {
   setSendAmount,
   validateCosmosAddress,
 } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
-import type { ProtoMsgsOrWithAminoMsgs } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/ITxMsgBuilder';
+import type { ICosmosProtoMsgsOrWithAminoMsgs } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos/ITxMsgBuilder';
 import type {
   ICosmosStdFee,
   IEncodedTxCosmos,
@@ -147,7 +147,7 @@ export default class VaultCosmos extends VaultBase {
     const network = await this.getNetwork();
     const networkInfo = await this.getNetworkInfo();
     const mainCoinDenom = networkInfo.nativeTokenAddress ?? '';
-    const msgs: ProtoMsgsOrWithAminoMsgs = {
+    const msgs: ICosmosProtoMsgsOrWithAminoMsgs = {
       protoMsgs: [],
       aminoMsgs: [],
     };
@@ -245,11 +245,11 @@ export default class VaultCosmos extends VaultBase {
   }
 
   private _getTransactionTypeByMessage(
-    message: UnpackedMessage,
+    message: ICosmosUnpackedMessage,
   ): EDecodedTxActionType {
     if ('unpacked' in message) {
       if (
-        message.typeUrl === MessageType.SEND ||
+        message.typeUrl === ECosmosMessageType.SEND ||
         message.typeUrl === defaultAminoMsgOpts.send.native.type
       ) {
         return EDecodedTxActionType.ASSET_TRANSFER;

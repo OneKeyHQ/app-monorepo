@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
-import type { UnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import type { IKaspaUnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
   CONFIRMATION_COUNT,
   DUST_AMOUNT,
@@ -340,7 +340,7 @@ export default class Vault extends VaultBase {
   }
 
   _collectUTXOsInfoByApi = memoizee(
-    async (params: { address: string }): Promise<UnspentOutputInfo[]> => {
+    async (params: { address: string }): Promise<IKaspaUnspentOutputInfo[]> => {
       const { address } = params;
       try {
         const { utxoList: utxos } =
@@ -402,7 +402,7 @@ export default class Vault extends VaultBase {
     amountValue,
     priority,
   }: {
-    confirmUtxos: UnspentOutputInfo[];
+    confirmUtxos: IKaspaUnspentOutputInfo[];
     amountValue: string;
     priority?: { satoshis: boolean };
   }) {
@@ -450,7 +450,7 @@ export default class Vault extends VaultBase {
     transferInfo,
     priority,
   }: {
-    confirmUtxos: UnspentOutputInfo[];
+    confirmUtxos: IKaspaUnspentOutputInfo[];
     transferInfo: ITransferInfo;
     priority?: { satoshis: boolean };
   }) {

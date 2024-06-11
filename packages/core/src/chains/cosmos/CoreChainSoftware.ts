@@ -2,8 +2,25 @@ import { sha256 } from '@noble/hashes/sha256';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+import { decrypt } from '../../secret';
+import {
+  ECoreApiExportedSecretKeyType,
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressQueryPublicKey,
+  type ICoreApiGetAddressesQueryHd,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignMsgPayload,
+  type ICoreApiSignTxPayload,
+  type ICurveName,
+  type ISignedTxPro,
+} from '../../types';
 
 import {
   TransactionWrapper,
@@ -13,25 +30,39 @@ import {
   serializeTxForSignature,
 } from './sdkCosmos';
 
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesResult,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
-  ICoreApiSignTxPayload,
-  ICurveName,
-  ISignedTxPro,
-} from '../../types';
 import type { IEncodedTxCosmos } from './types';
 
 const curve: ICurveName = 'secp256k1';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override async getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    const {
+      // networkInfo,
+      // privateKeySource,
+      password,
+      keyType,
+      credentials,
+      // xpub,
+      // addressEncoding,
+    } = query;
+    console.log(
+      'ExportSecretKeys >>>> cosmos',
+      this.baseGetCredentialsType({ credentials }),
+    );
+
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
+
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
+      return `0x${decrypt(password, privateKeyRaw).toString('hex')}`;
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
@@ -82,10 +113,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const [messageData] = Buffer.from(data).toString('base64');
     const unSignDoc = getADR36SignDoc(signer, messageData);
-    const encodedTx = TransactionWrapper.fromAminoSignDoc(
-      unSignDoc,
-      undefined,
-    );
+    const encodedTx = TransactionWrapper.fromAminoSignDoc(unSignDoc, undefined);
 
     const { rawTx } = await this.signTransaction({
       ...payload,

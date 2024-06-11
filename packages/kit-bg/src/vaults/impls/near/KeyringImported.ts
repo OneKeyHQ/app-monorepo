@@ -48,20 +48,6 @@ export class KeyringImported extends KeyringImportedBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const { password } = params;
-    const result: IExportAccountSecretKeysResult = {};
-    if (params.privateKey) {
-      const privateKeysMap = await this.getPrivateKeys({
-        password,
-      });
-      const [encryptedPrivateKey] = Object.values(privateKeysMap);
-      const privateKey = decrypt(password, encryptedPrivateKey);
-      const publicKey = ed25519.publicFromPrivate(privateKey);
-      result.privateKey = `ed25519:${baseEncode(
-        Buffer.concat([privateKey, publicKey]),
-      )}`;
-    }
-
-    return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 }

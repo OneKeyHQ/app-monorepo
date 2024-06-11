@@ -11,7 +11,7 @@ export const pubkeyToCosmosPublic = (pub: Buffer, hrp = 'cosmos') => {
   return bech32.encode(`${hrp}pub`, bech32.toWords(pubBuf));
 };
 
-export interface Publickey {
+export interface ICosmosPublickey {
   '@type': string;
   key: string;
 }

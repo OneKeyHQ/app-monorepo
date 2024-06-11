@@ -12,19 +12,21 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesResult,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
-  ICoreApiSignTxPayload,
-  ICurveName,
-  ISignedTxPro,
+import { decrypt } from '../../secret';
+import { ECoreApiExportedSecretKeyType } from '../../types';
+import {
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressQueryPublicKey,
+  type ICoreApiGetAddressesQueryHd,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignMsgPayload,
+  type ICoreApiSignTxPayload,
+  type ICurveName,
+  type ISignedTxPro,
 } from '../../types';
 
 const curve: ICurveName = 'ed25519';
@@ -38,6 +40,34 @@ export function handleSignData(txnBytes: Uint8Array, isHardware = false) {
 }
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override async getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    const {
+      // networkInfo,
+      // privateKeySource,
+      password,
+      keyType,
+      credentials,
+      // xpub,
+      // addressEncoding,
+    } = query;
+    console.log(
+      'ExportSecretKeys >>>> sui',
+      this.baseGetCredentialsType({ credentials }),
+    );
+
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
+
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
+      return `0x${decrypt(password, privateKeyRaw).toString('hex')}`;
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {

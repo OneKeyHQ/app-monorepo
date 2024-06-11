@@ -6,7 +6,7 @@ import BN from 'bn.js';
 import { decode } from './address';
 import { getBufferFromBN } from './bn';
 
-export enum Opcode {
+export enum ENexaOpcode {
   OP_FALSE = 0,
   OP_0 = 0,
   OP_PUSHDATA1 = 76,
@@ -179,21 +179,21 @@ export enum Opcode {
 
 export interface INexaScriptChunk {
   buf?: Buffer;
-  opcodenum: Opcode;
+  opcodenum: ENexaOpcode;
   len?: number;
 }
 
 export function bufferToScripChunk(buffer: Buffer): INexaScriptChunk {
   let opcodenum;
   const len = buffer.length;
-  if (len >= 0 && len < Opcode.OP_PUSHDATA1) {
+  if (len >= 0 && len < ENexaOpcode.OP_PUSHDATA1) {
     opcodenum = len;
   } else if (len < 2 ** 8) {
-    opcodenum = Opcode.OP_PUSHDATA1;
+    opcodenum = ENexaOpcode.OP_PUSHDATA1;
   } else if (len < 2 ** 16) {
-    opcodenum = Opcode.OP_PUSHDATA2;
+    opcodenum = ENexaOpcode.OP_PUSHDATA2;
   } else if (len < 2 ** 32) {
-    opcodenum = Opcode.OP_PUSHDATA4;
+    opcodenum = ENexaOpcode.OP_PUSHDATA4;
   } else {
     throw new Error("You can't push that much data");
   }
@@ -268,11 +268,11 @@ export function scriptChunksToBuffer(chunks: INexaScriptChunk[]) {
       //   if (opcodenum < Opcode.OP_PUSHDATA1) {
       //      do nothing
       //   }
-      if (opcodenum === Opcode.OP_PUSHDATA1) {
+      if (opcodenum === ENexaOpcode.OP_PUSHDATA1) {
         chunkBuffer = writeUInt8(opcodenum);
-      } else if (opcodenum === Opcode.OP_PUSHDATA2) {
+      } else if (opcodenum === ENexaOpcode.OP_PUSHDATA2) {
         chunkBuffer = writeUInt16LE(chunk.len || 0);
-      } else if (opcodenum === Opcode.OP_PUSHDATA4) {
+      } else if (opcodenum === ENexaOpcode.OP_PUSHDATA4) {
         chunkBuffer = writeUInt32LE(chunk.len || 0);
       }
       if (chunkBuffer) {
@@ -374,14 +374,14 @@ export function decodeScriptBufferToScriptChunks(buffer: Buffer) {
     const opcodenum = readUint8(i);
     i += 1;
     let len = 0;
-    if (opcodenum > 0 && opcodenum < Opcode.OP_PUSHDATA1) {
+    if (opcodenum > 0 && opcodenum < ENexaOpcode.OP_PUSHDATA1) {
       len = opcodenum;
       chunks.push({
         buf: buffer.slice(i, i + len),
         len,
         opcodenum,
       });
-    } else if (opcodenum === Opcode.OP_PUSHDATA1) {
+    } else if (opcodenum === ENexaOpcode.OP_PUSHDATA1) {
       len = buffer.readUint8(i);
       i += 1;
       chunks.push({
@@ -389,7 +389,7 @@ export function decodeScriptBufferToScriptChunks(buffer: Buffer) {
         len,
         opcodenum,
       });
-    } else if (opcodenum === Opcode.OP_PUSHDATA2) {
+    } else if (opcodenum === ENexaOpcode.OP_PUSHDATA2) {
       len = buffer.readUInt16LE(i);
       i += 2;
       chunks.push({
@@ -397,7 +397,7 @@ export function decodeScriptBufferToScriptChunks(buffer: Buffer) {
         len,
         opcodenum,
       });
-    } else if (opcodenum === Opcode.OP_PUSHDATA4) {
+    } else if (opcodenum === ENexaOpcode.OP_PUSHDATA4) {
       len = buffer.readUInt32LE(i);
       i += 4;
       chunks.push({
@@ -441,8 +441,8 @@ export function isPublicKeyTemplateIn(chunks: INexaScriptChunk[]) {
 export function isPublicKeyTemplateOut(chunks: INexaScriptChunk[]) {
   return !!(
     chunks.length === 3 &&
-    chunks[0].opcodenum === Opcode.OP_FALSE &&
-    chunks[1].opcodenum === Opcode.OP_1 &&
+    chunks[0].opcodenum === ENexaOpcode.OP_FALSE &&
+    chunks[1].opcodenum === ENexaOpcode.OP_1 &&
     chunks[2].buf &&
     chunks[2].buf.length === 20
   );

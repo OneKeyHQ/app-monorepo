@@ -20,6 +20,7 @@ export default class CoreChainSoftware extends CoreChainSoftwareBtc {
   override async getCoinName() {
     return Promise.resolve('DOGE');
   }
+
   override getPsbt({ network }: { network: IBtcForkNetwork }): Psbt {
     return new Psbt({
       network,

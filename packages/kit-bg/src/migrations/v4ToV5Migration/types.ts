@@ -30,6 +30,7 @@ export type IV4MigrationHdCredential = {
 };
 export type IV4MigrationImportedCredential = {
   privateKey: string;
+  exportedPrivateKey: string;
   account: IV4DBAccount;
   dbCredentialRaw: IV4DBImportedCredentialRaw;
 };

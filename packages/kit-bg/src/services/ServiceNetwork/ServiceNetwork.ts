@@ -1,3 +1,5 @@
+import { uniq } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -291,6 +293,59 @@ class ServiceNetwork extends ServiceBase {
     return resp.networks.sort(
       (a, b) => networkIdsIndex[a.id] - networkIdsIndex[b.id],
     );
+  }
+
+  async getAccountImportingDeriveTypes({
+    networkId,
+    input,
+    validateAddress,
+    validateXpub,
+    validatePrivateKey,
+    validateXprvt,
+    template,
+  }: {
+    networkId: string;
+    input: string;
+    validateAddress?: boolean;
+    validateXpub?: boolean;
+    validateXprvt?: boolean;
+    validatePrivateKey?: boolean;
+    template: string | undefined;
+  }) {
+    const { serviceAccount, servicePassword, serviceNetwork } =
+      this.backgroundApi;
+
+    const { deriveType: deriveTypeInTpl } =
+      await serviceNetwork.getDeriveTypeByTemplate({
+        networkId,
+        template,
+      });
+    let deriveTypes: IAccountDeriveTypes[] = [deriveTypeInTpl];
+
+    const validateResult = await serviceAccount.validateGeneralInputOfImporting(
+      {
+        networkId,
+        input: await servicePassword.encodeSensitiveText({ text: input }),
+        validateAddress,
+        validateXpub,
+        validatePrivateKey,
+        validateXprvt,
+      },
+    );
+    if (validateResult?.deriveInfoItems?.length) {
+      const availableDeriveTypes = (
+        await serviceNetwork.getDeriveInfoItemsOfNetwork({
+          networkId,
+          enabledItems: validateResult.deriveInfoItems,
+        })
+      ).map((item) => item.value);
+      deriveTypes = [
+        ...deriveTypes,
+        ...(availableDeriveTypes as IAccountDeriveTypes[]),
+      ];
+    }
+    deriveTypes = uniq(deriveTypes);
+    return deriveTypes;
   }
 }
 

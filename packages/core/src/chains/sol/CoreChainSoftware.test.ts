@@ -1,12 +1,12 @@
 import base58 from 'bs58';
 
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
 
 import CoreChainHd from './CoreChainHd';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 const {
   hdCredential,
@@ -110,6 +110,6 @@ describe('SOL Core tests', () => {
   it.skip('signMessage', async () => {
     // const coreApi = new CoreChainHd();
     // coreApi.signMessage
-    throw new NotImplemented();;
+    throw new NotImplemented();
   });
 });

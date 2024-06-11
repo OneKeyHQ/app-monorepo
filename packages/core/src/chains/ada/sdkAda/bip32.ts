@@ -9,7 +9,7 @@ import { decrypt, mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
 
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
-import { ICoreHdCredentialEncryptHex } from '../../../types';
+import type { ICoreHdCredentialEncryptHex } from '../../../types';
 import type { IAdaBIP32Path } from '../types';
 
 export function toBip32StringPath(derivationPath: IAdaBIP32Path) {

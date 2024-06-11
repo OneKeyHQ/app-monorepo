@@ -30,7 +30,7 @@ describe('OneKey Error tests', () => {
   });
 
   it('custom key', () => {
-    const e = new InvalidAccount({ key: 'Handling_Fee' });
+    const e = new InvalidAccount({ key: 'Handling_Fee' as any });
     expect(e.key).toBe('Handling_Fee');
   });
 
@@ -41,7 +41,7 @@ describe('OneKey Error tests', () => {
 
     e = new InvalidAccount({
       message: 'hello',
-      key: 'Handling_Fee',
+      key: 'Handling_Fee' as any, 
     });
     expect(e.message).toBe('hello');
     expect(e.key).toBe('Handling_Fee');

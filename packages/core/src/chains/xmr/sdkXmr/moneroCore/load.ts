@@ -4,7 +4,7 @@ import instantiate from './moneroCore';
 // @ts-ignore
 import wasmBinaryFileName from './moneroCore.wasm.bin';
 
-import type { MoneroCoreInstance } from './moneroCoreTypes';
+import type { IMoneroCoreInstance } from './moneroCoreTypes';
 
 const locateFile = (file: string) => {
   if (file !== 'moneroCore.wasm') {
@@ -15,7 +15,7 @@ const locateFile = (file: string) => {
 
 export const loadWasmInstance = async (
   importObj: any,
-): Promise<MoneroCoreInstance | null> => {
+): Promise<IMoneroCoreInstance | null> => {
   importObj.locateFile = locateFile;
   return instantiate(importObj);
 };

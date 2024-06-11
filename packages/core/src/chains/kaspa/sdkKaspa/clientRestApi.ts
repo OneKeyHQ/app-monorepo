@@ -5,7 +5,7 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import { submitTransactionFromString } from './transaction';
 
-import type { GetTransactionResponse, UTXOResponse } from './types';
+import type { IKaspaGetTransactionResponse, IKaspaUTXOResponse } from './types';
 import type { AxiosError, AxiosInstance } from 'axios';
 
 // https://api.kaspa.org/docs
@@ -81,9 +81,9 @@ export class RestAPIClient {
     }
   }
 
-  async queryUtxos(address: string): Promise<UTXOResponse[]> {
+  async queryUtxos(address: string): Promise<IKaspaUTXOResponse[]> {
     try {
-      const resp = await this.axios.get<UTXOResponse[]>(
+      const resp = await this.axios.get<IKaspaUTXOResponse[]>(
         `/addresses/${address}/utxos`,
         {
           headers: {
@@ -130,8 +130,10 @@ export class RestAPIClient {
       });
   }
 
-  async getTransaction(transactionId: string): Promise<GetTransactionResponse> {
-    const resp = await this.axios.get<GetTransactionResponse>(
+  async getTransaction(
+    transactionId: string,
+  ): Promise<IKaspaGetTransactionResponse> {
+    const resp = await this.axios.get<IKaspaGetTransactionResponse>(
       `/transactions/${transactionId}?inputs=true&outputs=true&resolve_previous_outpoints=light`,
       {
         headers: {
@@ -142,8 +144,10 @@ export class RestAPIClient {
     return resp.data;
   }
 
-  async getTransactions(txIds: string[]): Promise<GetTransactionResponse[]> {
-    const resp = await this.axios.post<GetTransactionResponse[]>(
+  async getTransactions(
+    txIds: string[],
+  ): Promise<IKaspaGetTransactionResponse[]> {
+    const resp = await this.axios.post<IKaspaGetTransactionResponse[]>(
       `/transactions/search?resolve_previous_outpoints=light`,
       {
         transactionIds: [...txIds],
@@ -159,8 +163,8 @@ export class RestAPIClient {
 
   async getTransactionsByAddress(
     address: string,
-  ): Promise<GetTransactionResponse[]> {
-    const resp = await this.axios.get<GetTransactionResponse[]>(
+  ): Promise<IKaspaGetTransactionResponse[]> {
+    const resp = await this.axios.get<IKaspaGetTransactionResponse[]>(
       `/addresses/${address}/full-transactions?limit=50&offset=0&resolve_previous_outpoints=light`,
       {
         headers: {

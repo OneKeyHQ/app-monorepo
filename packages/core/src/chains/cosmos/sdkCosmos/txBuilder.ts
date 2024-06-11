@@ -19,12 +19,12 @@ import {
   sortedJsonByKeyStringify,
 } from './wrapper/utils';
 
-import type { ProtoMsgsOrWithAminoMsgs } from './ITxMsgBuilder';
+import type { ICosmosProtoMsgsOrWithAminoMsgs } from './ITxMsgBuilder';
 import type { TransactionWrapper } from './wrapper';
 
-export interface TxBuilder {
+export interface ICosmosTxBuilder {
   makeTxWrapper(
-    messages: ProtoMsgsOrWithAminoMsgs,
+    messages: ICosmosProtoMsgsOrWithAminoMsgs,
     params: {
       memo: string;
       gasLimit: string;

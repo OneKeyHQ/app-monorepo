@@ -2,7 +2,7 @@
 import { Transaction } from '@kaspa/core-lib';
 
 import {
-  SignType,
+  EKaspaSignType,
   SignatureType,
   SigningMethodType,
   publicKeyFromX,
@@ -107,7 +107,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       lockTime: txn.nLockTime.toString(),
       sigHashType: SignatureType.SIGHASH_ALL,
       sigOpCount: 1,
-      scheme: SignType.Schnorr,
+      scheme: EKaspaSignType.Schnorr,
       prefix: chainId,
     };
 

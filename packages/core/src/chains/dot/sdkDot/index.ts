@@ -1,16 +1,24 @@
-import { u8aToU8a, u8aWrapBytes } from '@polkadot/util';
-import { IEncodedTxDot } from '../types';
-import { construct, createMetadata, getRegistry } from '@substrate/txwrapper-polkadot';
-import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import { EXTRINSIC_VERSION } from '@polkadot/types/extrinsic/v4/Extrinsic';
+import { u8aToU8a, u8aWrapBytes } from '@polkadot/util';
+import {
+  construct,
+  createMetadata,
+  getRegistry,
+} from '@substrate/txwrapper-polkadot';
+
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+
+import type { IEncodedTxDot } from '../types';
 
 export async function serializeMessage(message: string): Promise<Buffer> {
   const encoded = u8aWrapBytes(message);
   return Buffer.from(u8aToU8a(encoded));
 }
 
-export async function serializeUnsignedTransaction(encodedTx: IEncodedTxDot): Promise<{
+export async function serializeUnsignedTransaction(
+  encodedTx: IEncodedTxDot,
+): Promise<{
   rawTx: Uint8Array;
   hash: Uint8Array;
 }> {
@@ -57,14 +65,10 @@ export async function serializeSignedTransaction(
     chainName: encodedTx.chainName ?? '',
   });
 
-  const tx = construct.signedTx(
-    encodedTx,
-    hexUtils.addHexPrefix(signature),
-    {
-      metadataRpc,
-      registry,
-    },
-  );
+  const tx = construct.signedTx(encodedTx, hexUtils.addHexPrefix(signature), {
+    metadataRpc,
+    registry,
+  });
 
   return tx;
 }

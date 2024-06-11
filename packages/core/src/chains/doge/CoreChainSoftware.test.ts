@@ -1,4 +1,5 @@
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
+
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
 
@@ -106,6 +107,6 @@ describe('DOGE Core tests', () => {
   it.skip('signMessage', async () => {
     // const coreApi = new CoreChainHd();
     // coreApi.signMessage
-    throw new NotImplemented();;
+    throw new NotImplemented();
   });
 });

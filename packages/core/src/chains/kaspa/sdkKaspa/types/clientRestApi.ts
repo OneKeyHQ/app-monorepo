@@ -1,31 +1,31 @@
-export interface UTXOResponse {
+export interface IKaspaUTXOResponse {
   address: string;
-  outpoint: Outpoint;
-  utxoEntry: UTXO;
+  outpoint: IKaspaOutpoint;
+  utxoEntry: IKaspaUTXOEntry;
 }
 
-export type IKaspaUTXO = UTXOResponse
+export type IKaspaUTXO = IKaspaUTXOResponse;
 
-export interface Outpoint {
+export interface IKaspaOutpoint {
   transactionId: string;
   index: number;
 }
 
-export interface UTXO {
+export interface IKaspaUTXOEntry {
   amount: string[];
-  scriptPublicKey: ScriptPublicKey;
+  scriptPublicKey: IKaspaScriptPublicKey;
   blockDaaScore: string;
 }
 
-export interface ScriptPublicKey {
+export interface IKaspaScriptPublicKey {
   version: number;
   scriptPublicKey: string;
 }
 
-export interface Transaction {
+export interface IKaspaTransaction {
   version: number;
-  inputs: TransactionInput[];
-  outputs: TransactionOutput[];
+  inputs: IKaspaTransactionInput[];
+  outputs: IKaspaTransactionOutput[];
   lockTime: number | bigint;
   subnetworkId: string;
   gas?: number;
@@ -34,22 +34,22 @@ export interface Transaction {
   fee: number;
 }
 
-export interface TransactionInput {
-  previousOutpoint: Outpoint;
+export interface IKaspaTransactionInput {
+  previousOutpoint: IKaspaOutpoint;
   signatureScript: string;
   sequence: number | bigint;
 }
 
-export interface TransactionOutput {
+export interface IKaspaTransactionOutput {
   amount: number | bigint;
-  scriptPublicKey: ScriptPublicKey;
+  scriptPublicKey: IKaspaScriptPublicKey;
 }
 
-export interface SubmitTransactionRequest {
-  transaction: Transaction;
+export interface IKaspaSubmitTransactionRequest {
+  transaction: IKaspaTransaction;
 }
 
-export interface GetTransactionResponse {
+export interface IKaspaGetTransactionResponse {
   subnetwork_id: string;
   transaction_id: string;
   hash: string;
@@ -59,11 +59,11 @@ export interface GetTransactionResponse {
   is_accepted: boolean;
   accepting_block_hash: string;
   accepting_block_blue_score: number;
-  inputs: GetTransactionInput[];
-  outputs: GetTransactionOutput[];
+  inputs: IKaspaGetTransactionInput[];
+  outputs: IKaspaGetTransactionOutput[];
 }
 
-export interface GetTransactionInput {
+export interface IKaspaGetTransactionInput {
   id: number;
   transaction_id: string;
   index: number;
@@ -75,7 +75,7 @@ export interface GetTransactionInput {
   previous_outpoint_amount: bigint;
 }
 
-export interface GetTransactionOutput {
+export interface IKaspaGetTransactionOutput {
   id: number;
   transaction_id: string;
   index: number;
