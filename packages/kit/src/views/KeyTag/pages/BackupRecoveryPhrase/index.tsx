@@ -57,7 +57,11 @@ export function ImportRecoveryPhrase() {
   );
   return (
     <Page scrollEnabled>
-      <Page.Header title="Import Recovery Phrase" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.global_enter_recovery_phrase,
+        })}
+      />
       {renderPhaseInputArea}
     </Page>
   );

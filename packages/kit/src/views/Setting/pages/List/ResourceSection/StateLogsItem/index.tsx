@@ -10,6 +10,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { exportLogs } from './logs';
 
@@ -50,7 +51,9 @@ export const StateLogsItem = () => {
     <ListItem
       icon="FileDownloadOutline"
       onPress={onPress}
-      title={intl.formatMessage({ id: 'content__state_logs' })}
+      title={intl.formatMessage({
+        id: ETranslations.settings_export_state_logs,
+      })}
       drillIn
     />
   );

@@ -46,32 +46,26 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingListModal,
     component: SettingListModal,
-    translationId: 'title__settings',
   },
   {
     name: EModalSettingRoutes.SettingCurrencyModal,
     component: SettingCurrencyModal,
-    translationId: 'content__currency',
   },
   {
     name: EModalSettingRoutes.SettingSpendUTXOModal,
     component: SettingSpendUTXOModal,
-    translationId: 'form__spend_dust_utxo',
   },
   {
     name: EModalSettingRoutes.SettingAccountDerivationModal,
     component: SettingAccountDerivationModal,
-    translationId: 'form__theme',
   },
   {
     name: EModalSettingRoutes.SettingAppAutoLockModal,
     component: SettingAppAutoLockModal,
-    translationId: 'form__app_lock',
   },
   {
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
-    translationId: 'action__protection',
   },
   {
     name: EModalSettingRoutes.SettingSignatureRecordModal,

@@ -1,5 +1,7 @@
 import { useCallback, useContext, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Page, SearchBar, Stack, Tab } from '@onekeyhq/components';
 import {
   AllNetworksAvatar,
@@ -7,6 +9,7 @@ import {
 } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ConnectedSites } from './ConnectedSites';
 import { SignatureContext } from './Context';
@@ -14,19 +17,23 @@ import { SignText } from './SignText';
 import { Transactions } from './Transactions';
 
 const ListHeaderComponent = () => {
+  const intl = useIntl();
   const { searchContent, setSearchContent } = useContext(SignatureContext);
   return (
     <Stack px="$4" w="100%">
       <SearchBar
         value={searchContent}
         onChangeText={setSearchContent}
-        placeholder="Enter the address to search"
+        placeholder={intl.formatMessage({
+          id: ETranslations.global_search_address,
+        })}
       />
     </Stack>
   );
 };
 
 const PageView = () => {
+  const intl = useIntl();
   const [networkId, setNetworkId] = useState<string>('');
   const [searchContent, setSearchContent] = useState<string>('');
 
@@ -64,16 +71,32 @@ const PageView = () => {
 
   const tabConfig = useMemo(
     () => [
-      { title: 'Transactions', page: Transactions },
-      { title: 'Sign Text', page: SignText },
-      { title: 'Connected Sites', page: ConnectedSites },
+      {
+        title: intl.formatMessage({ id: ETranslations.settings_transactions }),
+        page: Transactions,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.settings_sign_text }),
+        page: SignText,
+      },
+      {
+        title: intl.formatMessage({
+          id: ETranslations.settings_connected_sites,
+        }),
+        page: ConnectedSites,
+      },
     ],
-    [],
+    [intl],
   );
 
   return (
     <Page>
-      <Page.Header title="Signature Record" headerRight={headerRight} />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.settings_signature_record,
+        })}
+        headerRight={headerRight}
+      />
       <SignatureContext.Provider value={memo}>
         <Page.Body>
           <Tab.Page

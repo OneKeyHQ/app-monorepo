@@ -15,6 +15,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export type ICurrencyType = 'crypto' | 'fiat' | 'popular';
 
@@ -44,7 +45,7 @@ const ListHeaderComponent: FC<IListHeaderComponentProps> = ({
       <SearchBar
         value={text}
         onChangeText={onChangeText}
-        placeholder={intl.formatMessage({ id: 'form__search' })}
+        placeholder={intl.formatMessage({ id: ETranslations.global_search })}
       />
     </Stack>
   );
@@ -79,6 +80,7 @@ const CurrencyItem: FC<{ item: ICurrencyItem }> = ({ item }) => {
 
 export default function SettingCurrencyModal() {
   const [text, onChangeText] = useState('');
+  const intl = useIntl();
   const currencyListResult = usePromiseResult<ICurrencyItem[]>(
     async () => {
       const items = await backgroundApiProxy.serviceSetting.getCurrencyList();
@@ -110,19 +112,19 @@ export default function SettingCurrencyModal() {
     }
     return [
       {
-        title: 'popular',
+        title: intl.formatMessage({ id: ETranslations.global_popular }),
         data: section.popular,
       },
       {
-        title: 'crypto',
+        title: intl.formatMessage({ id: ETranslations.global_crypto }),
         data: section.crypto,
       },
       {
-        title: 'fiat',
+        title: intl.formatMessage({ id: ETranslations.settings_fiat }),
         data: section.fiat,
       },
     ].filter((item) => item.data.length > 0);
-  }, [currencyListResult, text]);
+  }, [currencyListResult, text, intl]);
 
   const renderItem = useCallback(
     ({ item }: { item: ICurrencyItem }) => <CurrencyItem item={item} />,
@@ -136,28 +138,39 @@ export default function SettingCurrencyModal() {
   );
   return (
     <Page>
-      {currencyListResult?.isLoading ? (
-        <Stack h="$48" justifyContent="center" alignItems="center">
-          <Spinner />
-        </Stack>
-      ) : (
-        <SectionList
-          estimatedItemSize="$6"
-          ListHeaderComponent={
-            <ListHeaderComponent text={text} onChangeText={onChangeText} />
-          }
-          ListEmptyComponent={
-            <Empty
-              icon="SearchOutline"
-              title="No results"
-              description="Try to change the search keyword"
-            />
-          }
-          sections={sections ?? emptySections}
-          renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-        />
-      )}
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.settings_default_currency,
+        })}
+      />
+      <Page.Body>
+        {currencyListResult?.isLoading ? (
+          <Stack h="$48" justifyContent="center" alignItems="center">
+            <Spinner />
+          </Stack>
+        ) : (
+          <SectionList
+            estimatedItemSize="$6"
+            ListHeaderComponent={
+              <ListHeaderComponent text={text} onChangeText={onChangeText} />
+            }
+            ListEmptyComponent={
+              <Empty
+                icon="SearchOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.global_no_results,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.global_search_no_results_desc,
+                })}
+              />
+            }
+            sections={sections ?? emptySections}
+            renderItem={renderItem}
+            renderSectionHeader={renderSectionHeader}
+          />
+        )}
+      </Page.Body>
     </Page>
   );
 }

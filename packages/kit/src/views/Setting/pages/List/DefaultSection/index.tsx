@@ -16,6 +16,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ECloudBackupRoutes,
@@ -60,7 +61,7 @@ const AddressBookItem = () => {
   return (
     <ListItem
       icon="BookOpenOutline"
-      title={intl.formatMessage({ id: 'title__address_book' })}
+      title={intl.formatMessage({ id: ETranslations.settings_address_book })}
       drillIn
       onPress={onPress}
       testID="setting-address-book"
@@ -84,13 +85,14 @@ const LockNowButton = () => {
   return (
     <ListItem
       icon="LockOutline"
-      title={intl.formatMessage({ id: 'action__lock_now' })}
+      title={intl.formatMessage({ id: ETranslations.settings_lock_now })}
       onPress={onLock}
     />
   );
 };
 
 const DefaultWalletSetting = () => {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { result, isLoading, run } = usePromiseResult(
     async () =>
@@ -110,7 +112,9 @@ const DefaultWalletSetting = () => {
   return (
     <ListItem
       icon="ThumbtackOutline"
-      title="Default Wallet Settings"
+      title={intl.formatMessage({
+        id: ETranslations.settings_default_wallet_settings,
+      })}
       drillIn
       onPress={() => {
         navigation.pushModal(EModalRoutes.DAppConnectionModal, {
@@ -120,7 +124,11 @@ const DefaultWalletSetting = () => {
     >
       {isLoading ? null : (
         <ListItem.Text
-          primary={result?.isDefaultWallet ? 'On' : 'Off'}
+          primary={
+            result?.isDefaultWallet
+              ? intl.formatMessage({ id: ETranslations.global_on })
+              : intl.formatMessage({ id: ETranslations.global_off })
+          }
           align="right"
         />
       )}
@@ -158,7 +166,7 @@ export const DefaultSection = () => {
       {platformEnv.isNative ? (
         <ListItem
           icon="OnekeyLiteOutline"
-          title="OneKey Lite"
+          title={intl.formatMessage({ id: ETranslations.global_onekey_lite })}
           drillIn
           onPress={() => {
             navigation.pushModal(EModalRoutes.LiteCardModal, {
@@ -169,7 +177,7 @@ export const DefaultSection = () => {
       ) : null}
       <ListItem
         icon="OnekeyKeytagOutline"
-        title="OneKey KeyTag"
+        title={intl.formatMessage({ id: ETranslations.global_onekey_keytag })}
         drillIn
         onPress={() => {
           navigation.pushModal(EModalRoutes.KeyTagModal, {

@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   ESwitchSize,
   Page,
@@ -9,13 +11,19 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const SpendUTXO = () => {
+  const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
   return (
     <Page>
       <YStack>
-        <ListItem title="Spend Dust UTXO">
+        <ListItem
+          title={intl.formatMessage({
+            id: ETranslations.settings_spend_dust_utxo,
+          })}
+        >
           <Switch
             size={ESwitchSize.large}
             value={settings.spendDustUTXO}
@@ -26,10 +34,9 @@ const SpendUTXO = () => {
         </ListItem>
         <Stack px="$5">
           <SizableText color="$textSubdued" size="$bodySm">
-            Using dust UTXO will increase unnecessary transaction fee, and may
-            reduce the anonymity and privacy of transactions. It’s recommended
-            to disable this feature in order to avoid malicious tracking on
-            chain.
+            {intl.formatMessage({
+              id: ETranslations.settings_spend_dust_utxo_desc,
+            })}
           </SizableText>
         </Stack>
       </YStack>

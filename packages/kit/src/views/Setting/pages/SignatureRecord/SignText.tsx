@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -15,19 +16,25 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { ISignedMessage } from '@onekeyhq/shared/types/signatureRecord';
 
 import { useGetSignatureSections } from './hooks';
 
-const ListEmptyComponent = () => (
-  <Empty
-    title="No Signed Text"
-    description="All text signed through OneKey will appear here"
-    icon="ClockAlertOutline"
-  />
-);
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      title={intl.formatMessage({ id: ETranslations.settings_no_signed_text })}
+      description={intl.formatMessage({
+        id: ETranslations.settings_no_signed_text_desc,
+      })}
+      icon="ClockAlertOutline"
+    />
+  );
+};
 
 const SignTextItem = ({ item }: { item: ISignedMessage }) => {
   const { copyText } = useClipboard();

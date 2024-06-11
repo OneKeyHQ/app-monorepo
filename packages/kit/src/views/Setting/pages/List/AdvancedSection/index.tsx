@@ -7,6 +7,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { BRIDGE_STATUS_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
@@ -25,7 +26,9 @@ const HardwareBridgeListItems = () => {
       <ListItem
         onPress={onPressBridgeStatus}
         icon="ApiConnectionOutline"
-        title={intl.formatMessage({ id: 'form__hardware_bridge_status' })}
+        title={intl.formatMessage({
+          id: ETranslations.settings_hardware_bridge_status,
+        })}
       >
         <ListItem.IconButton
           disabled
@@ -51,26 +54,36 @@ const SpendDustUTXOItem = () => {
     <ListItem
       onPress={onPress}
       icon="CryptoCoinOutline"
-      title={intl.formatMessage({ id: 'form__spend_dust_utxo' })}
+      title={intl.formatMessage({ id: ETranslations.settings_spend_dust_utxo })}
       drillIn
     >
-      <ListItem.Text primary={spendDustUTXO ? 'On' : 'Off'} align="right" />
+      <ListItem.Text
+        primary={
+          spendDustUTXO
+            ? intl.formatMessage({ id: ETranslations.global_on })
+            : intl.formatMessage({ id: ETranslations.global_off })
+        }
+        align="right"
+      />
     </ListItem>
   );
 };
 
 export const AdvancedSection = () => {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onAccountDerivation = useCallback(() => {
     navigation.push(EModalSettingRoutes.SettingAccountDerivationModal);
   }, [navigation]);
   return (
-    <Section title="Advanced">
+    <Section title={intl.formatMessage({ id: ETranslations.global_advanced })}>
       <ListItem
         onPress={onAccountDerivation}
         icon="OrganisationOutline"
-        title="Account Derivation Path"
+        title={intl.formatMessage({
+          id: ETranslations.settings_account_derivation_path,
+        })}
         drillIn
       />
       {/* <SpendDustUTXOItem />  Hide the spendDustUTXO function; it's not ready yet. */}

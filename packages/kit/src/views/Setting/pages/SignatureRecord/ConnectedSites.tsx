@@ -1,3 +1,4 @@
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -11,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IConnectedSite } from '@onekeyhq/shared/types/signatureRecord';
@@ -74,13 +76,20 @@ type ISectionListData = {
   data: IConnectedSite[];
 };
 
-const ListEmptyComponent = () => (
-  <Empty
-    title="No Connected Sites"
-    description="All sites connected through OneKey will appear here"
-    icon="ClockAlertOutline"
-  />
-);
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      title={intl.formatMessage({
+        id: ETranslations.settings_no_connected_sites,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.settings_no_connected_sites_desc,
+      })}
+      icon="ClockAlertOutline"
+    />
+  );
+};
 
 export const ConnectedSites = () => {
   const { sections, onEndReached } = useGetSignatureSections(async (params) =>

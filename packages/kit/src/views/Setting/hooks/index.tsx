@@ -16,8 +16,7 @@ export function useLocaleOptions() {
       [
         {
           label: intl.formatMessage({
-            id: 'form__auto',
-            defaultMessage: 'System',
+            id: ETranslations.global_auto,
           }),
           value: 'system',
         },
