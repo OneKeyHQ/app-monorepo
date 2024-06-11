@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
@@ -25,7 +26,6 @@ import {
   Image,
   ListView,
   NumberSizeableText,
-  Popover,
   Select,
   SizableText,
   Skeleton,
@@ -44,6 +44,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -144,21 +145,8 @@ type ITableColumnConfig = Record<
   (item: IMarketToken) => ReactElement | string
 >;
 
-const useBuildTableHeaderConfig = () =>
-  ({
-    'serialNumber': () => '#',
-    'name': () => 'Name',
-    'price': () => 'Price',
-    'priceChangePercentage1H': () => '1h%',
-    'priceChangePercentage24H': () => '24h%',
-    'priceChangePercentage7D': () => '7d%',
-    'totalVolume': () => '24h volume',
-    'marketCap': () => 'Market cap',
-    'sparkline': () => 'Last 7 days',
-  } as ITableColumnConfig);
-
 const useBuildTableRowConfig = (showMoreAction = false) => {
-  const navigation = useAppNavigation();
+  // const navigation = useAppNavigation();
   const colors = useThemeValue(
     ['textSuccess', 'textCritical'],
     undefined,
@@ -267,14 +255,14 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
             width={100}
             height={40}
             lineColor={
-              item.priceChangePercentage24H &&
-              Number(item.priceChangePercentage24H) >= 0
+              item.priceChangePercentage7D &&
+              Number(item.priceChangePercentage7D) >= 0
                 ? colors[0]
                 : colors[1]
             }
             linearGradientColor={
-              item.priceChangePercentage24H &&
-              Number(item.priceChangePercentage24H) >= 0
+              item.priceChangePercentage7D &&
+              Number(item.priceChangePercentage7D) >= 0
                 ? colors[0]
                 : colors[1]
             }
@@ -518,77 +506,77 @@ function TableRow({
   );
 }
 
-function PopoverSettingsContent({
-  dataDisplay: defaultDataDisplay,
-  priceChange: defaultPriceChange,
-  onConfirm,
-}: {
-  dataDisplay: IKeyOfMarketToken;
-  priceChange: IKeyOfMarketToken;
-  onConfirm: (value: {
-    dataDisplay: IKeyOfMarketToken;
-    priceChange: IKeyOfMarketToken;
-  }) => void;
-}) {
-  const { closePopover } = usePopoverContext();
-  const [dataDisplay, setDataDisplay] = useState(defaultDataDisplay);
-  const [priceChange, setPriceChange] = useState(defaultPriceChange);
-  return (
-    <YStack px="$5" space="$5">
-      <ToggleButton
-        title="Data Display"
-        value={dataDisplay}
-        onChange={setDataDisplay as (v: string) => void}
-        options={[
-          {
-            label: 'Price',
-            value: 'price',
-          },
-          {
-            label: '24h volume',
-            value: 'totalVolume',
-          },
-          {
-            label: 'Market Cap',
-            value: 'marketCap',
-          },
-        ]}
-      />
-      <ToggleButton
-        title="Price Change"
-        value={priceChange}
-        onChange={setPriceChange as (v: string) => void}
-        options={[
-          {
-            label: '1 hour',
-            value: 'priceChangePercentage1H',
-          },
-          {
-            label: '24 hour',
-            value: 'priceChangePercentage24H',
-          },
-          {
-            label: '7 days',
-            value: 'priceChangePercentage7D',
-          },
-        ]}
-      />
-      <Button
-        my="$5"
-        variant="primary"
-        onPress={async () => {
-          await closePopover?.();
-          onConfirm({
-            dataDisplay,
-            priceChange,
-          });
-        }}
-      >
-        Confirm
-      </Button>
-    </YStack>
-  );
-}
+// function PopoverSettingsContent({
+//   dataDisplay: defaultDataDisplay,
+//   priceChange: defaultPriceChange,
+//   onConfirm,
+// }: {
+//   dataDisplay: IKeyOfMarketToken;
+//   priceChange: IKeyOfMarketToken;
+//   onConfirm: (value: {
+//     dataDisplay: IKeyOfMarketToken;
+//     priceChange: IKeyOfMarketToken;
+//   }) => void;
+// }) {
+//   const { closePopover } = usePopoverContext();
+//   const [dataDisplay, setDataDisplay] = useState(defaultDataDisplay);
+//   const [priceChange, setPriceChange] = useState(defaultPriceChange);
+//   return (
+//     <YStack px="$5" space="$5">
+//       <ToggleButton
+//         title="Data Display"
+//         value={dataDisplay}
+//         onChange={setDataDisplay as (v: string) => void}
+//         options={[
+//           {
+//             label: 'Price',
+//             value: 'price',
+//           },
+//           {
+//             label: '24h volume',
+//             value: 'totalVolume',
+//           },
+//           {
+//             label: 'Market Cap',
+//             value: 'marketCap',
+//           },
+//         ]}
+//       />
+//       <ToggleButton
+//         title="Price Change"
+//         value={priceChange}
+//         onChange={setPriceChange as (v: string) => void}
+//         options={[
+//           {
+//             label: '1 hour',
+//             value: 'priceChangePercentage1H',
+//           },
+//           {
+//             label: '24 hour',
+//             value: 'priceChangePercentage24H',
+//           },
+//           {
+//             label: '7 days',
+//             value: 'priceChangePercentage7D',
+//           },
+//         ]}
+//       />
+//       <Button
+//         my="$5"
+//         variant="primary"
+//         onPress={async () => {
+//           await closePopover?.();
+//           onConfirm({
+//             dataDisplay,
+//             priceChange,
+//           });
+//         }}
+//       >
+//         Confirm
+//       </Button>
+//     </YStack>
+//   );
+// }
 
 function TableMdSkeletonRow() {
   return (
@@ -609,7 +597,7 @@ function TableMdSkeletonRow() {
 }
 
 function ListEmptyComponent() {
-  const { gtMd, md } = useMedia();
+  const { gtMd } = useMedia();
   if (platformEnv.isNativeAndroid) {
     return null;
   }
@@ -663,6 +651,7 @@ function BasicMarketHomeList({
   category: IMarketCategory;
   showMoreAction?: boolean;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const { result: listData } = usePromiseResult(
@@ -694,7 +683,30 @@ function BasicMarketHomeList({
 
   const { gtMd, md } = useMedia();
 
-  const tableHeaderConfig = useBuildTableHeaderConfig();
+  const tableHeaderConfig = useMemo(
+    () => ({
+      'serialNumber': () => '#',
+      'name': () => intl.formatMessage({ id: ETranslations.global_name }),
+      'price': () => intl.formatMessage({ id: ETranslations.global_price }),
+      'priceChangePercentage1H': () =>
+        intl.formatMessage({ id: ETranslations.market_one_hour_percentage }),
+      'priceChangePercentage24H': () =>
+        intl.formatMessage({
+          id: ETranslations.market_twenty_four_hour_percentage,
+        }),
+      'priceChangePercentage7D': () =>
+        intl.formatMessage({ id: ETranslations.market_seven_day_percentage }),
+      'totalVolume': () =>
+        intl.formatMessage({
+          id: ETranslations.market_twenty_four_hour_volume,
+        }),
+      'marketCap': () =>
+        intl.formatMessage({ id: ETranslations.global_market_cap }),
+      'sparkline': () =>
+        intl.formatMessage({ id: ETranslations.market_last_seven_days }),
+    }),
+    [intl],
+  );
 
   const filterCoingeckoIdsListData = useMemo(
     () =>
@@ -756,14 +768,18 @@ function BasicMarketHomeList({
                     {
                       destructive: true,
                       icon: 'DeleteOutline',
-                      label: 'Remove from Favorites',
+                      label: intl.formatMessage({
+                        id: ETranslations.market_remove_from_watchlist,
+                      }),
                       onPress: () => {
                         actions.removeFormWatchList(coingeckoId);
                       },
                     },
                     showMoreAction && {
                       icon: 'ArrowTopOutline',
-                      label: 'Move to Top',
+                      label: intl.formatMessage({
+                        id: ETranslations.market_move_to_top,
+                      }),
                       onPress: () => {
                         actions.MoveToTop(coingeckoId);
                       },
@@ -779,7 +795,10 @@ function BasicMarketHomeList({
                   items: [
                     {
                       icon: 'StarOutline',
-                      label: 'Add to Favorites',
+
+                      label: intl.formatMessage({
+                        id: ETranslations.market_add_to_watchlist,
+                      }),
                       onPress: () => {
                         actions.addIntoWatchList(coingeckoId);
                       },
@@ -790,7 +809,7 @@ function BasicMarketHomeList({
             },
       );
     },
-    [actions, showMoreAction],
+    [actions, intl, showMoreAction],
   );
 
   const renderMdItem = useCallback(
@@ -880,7 +899,7 @@ function BasicMarketHomeList({
     ({ label }: { label?: string }) => (
       <XStack ai="center" space="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {label || 'Default'}
+          {label}
         </SizableText>
         <Icon name="ChevronDownSmallSolid" size="$4" />
       </XStack>
@@ -888,18 +907,18 @@ function BasicMarketHomeList({
     [],
   );
 
-  const handleSettingsContentChange = useCallback(
-    ({
-      dataDisplay,
-      priceChange,
-    }: {
-      dataDisplay: IKeyOfMarketToken;
-      priceChange: IKeyOfMarketToken;
-    }) => {
-      setMdColumnKeys([dataDisplay, priceChange]);
-    },
-    [],
-  );
+  // const handleSettingsContentChange = useCallback(
+  //   ({
+  //     dataDisplay,
+  //     priceChange,
+  //   }: {
+  //     dataDisplay: IKeyOfMarketToken;
+  //     priceChange: IKeyOfMarketToken;
+  //   }) => {
+  //     setMdColumnKeys([dataDisplay, priceChange]);
+  //   },
+  //   [],
+  // );
 
   const [mdSortByType, setMdSortByType] = useState<string | undefined>(
     'Default',
@@ -907,36 +926,38 @@ function BasicMarketHomeList({
   const selectOptions = useMemo(
     () => [
       {
-        label: 'Default',
+        label: intl.formatMessage({ id: ETranslations.global_default }),
         value: 'Default',
       },
       {
-        label: 'Last price',
+        label: intl.formatMessage({ id: ETranslations.market_last_price }),
         value: 'Last price',
         options: { columnName: 'price', order: 'desc' },
       },
       {
-        label: 'Most 24h volume',
+        label: intl.formatMessage({ id: ETranslations.market_most_24h_volume }),
         value: 'Most 24h volume',
         options: { columnName: 'totalVolume', order: 'desc' },
       },
       {
-        label: 'Most market cap',
+        label: intl.formatMessage({ id: ETranslations.market_most_market_cap }),
         value: 'Most market cap',
         options: { columnName: 'marketCap', order: 'desc' },
       },
       {
-        label: 'Price change up',
+        label: intl.formatMessage({ id: ETranslations.market_price_change_up }),
         value: 'Price change up',
         options: { columnName: mdColumnKeys[1], order: 'desc' },
       },
       {
-        label: 'Price change down',
+        label: intl.formatMessage({
+          id: ETranslations.market_price_change_down,
+        }),
         value: 'Price change down',
         options: { columnName: mdColumnKeys[1], order: 'desc' },
       },
     ],
-    [mdColumnKeys],
+    [intl, mdColumnKeys],
   );
 
   const handleMdSortByTypeChange = useCallback(
@@ -1007,7 +1028,7 @@ function BasicMarketHomeList({
               <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
               <Select
                 items={selectOptions}
-                title="Sort by"
+                title={intl.formatMessage({ id: ETranslations.market_sort_by })}
                 value={mdSortByType}
                 onChange={handleMdSortByTypeChange}
                 renderTrigger={renderSelectTrigger}

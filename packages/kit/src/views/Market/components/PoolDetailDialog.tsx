@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import { useMemo } from 'react';
 
 import { differenceInDays } from 'date-fns';
+import { useIntl } from 'react-intl';
 
 import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import {
@@ -10,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
@@ -83,12 +85,19 @@ export function PoolDetailDialog({
 }: {
   item: IMarketDetailPool;
 }) {
+  const intl = useIntl();
   const [baseTokenName, quoteTokenName] = attributes.name.split('/');
   return (
     <YStack space="$3">
       <XStack space="$4">
-        <PoolDetailsItem title="Pair">{attributes.name}</PoolDetailsItem>
-        <PoolDetailsItem title="DEX">
+        <PoolDetailsItem
+          title={intl.formatMessage({ id: ETranslations.global_pair })}
+        >
+          {attributes.name}
+        </PoolDetailsItem>
+        <PoolDetailsItem
+          title={intl.formatMessage({ id: ETranslations.global_dex })}
+        >
           <XStack space="$1.5">
             <MarketPoolIcon uri={dexLogoUrl} />
             <SizableText size="$bodyMdMedium">{id}</SizableText>
@@ -96,10 +105,18 @@ export function PoolDetailDialog({
         </PoolDetailsItem>
       </XStack>
       <XStack space="$4">
-        <PoolDetailsItem title="Price" currency isNumeric formatter="price">
+        <PoolDetailsItem
+          title={intl.formatMessage({ id: ETranslations.global_price })}
+          currency
+          isNumeric
+          formatter="price"
+        >
           {attributes.baseTokenPriceUsd}
         </PoolDetailsItem>
-        <PoolDetailsItem title="24H Txns" isNumeric>
+        <PoolDetailsItem
+          title={intl.formatMessage({ id: ETranslations.market_24h_txns })}
+          isNumeric
+        >
           {String(
             attributes.transactions.h24.buys +
               attributes.transactions.h24.sells,
@@ -107,22 +124,48 @@ export function PoolDetailDialog({
         </PoolDetailsItem>
       </XStack>
       <XStack space="$4">
-        <PoolDetailsItem title="24H Volume" isNumeric>
+        <PoolDetailsItem
+          title={intl.formatMessage({
+            id: ETranslations.market_twenty_four_hour_volume,
+          })}
+          isNumeric
+        >
           {attributes.volumeUsd.h24}
         </PoolDetailsItem>
-        <PoolDetailsItem title="Liquidity" isNumeric>
+        <PoolDetailsItem
+          title={intl.formatMessage({
+            id: ETranslations.global_liquidity,
+          })}
+          isNumeric
+        >
           {attributes.reserveInUsd}
         </PoolDetailsItem>
       </XStack>
       <XStack space="$4">
-        <PoolDetailsItem title="FDV" isNumeric>
+        <PoolDetailsItem
+          title={intl.formatMessage({
+            id: ETranslations.global_fdv,
+          })}
+          isNumeric
+        >
           {attributes.fdvUsd}
         </PoolDetailsItem>
-        <PoolDetailsItem title="Age">
-          {`${differenceInDays(
-            new Date(),
-            new Date(attributes.poolCreatedAt),
-          )} days`}
+        <PoolDetailsItem
+          title={intl.formatMessage({
+            id: ETranslations.global_age,
+          })}
+        >
+          {intl.formatMessage(
+            {
+              id: ETranslations.market_number_of_days,
+            },
+            {
+              number: differenceInDays(
+                new Date(),
+                new Date(attributes.poolCreatedAt),
+              ),
+            },
+          )}
         </PoolDetailsItem>
       </XStack>
       <YStack space="$6" pt="$6" pb="$10">
@@ -140,7 +183,9 @@ export function PoolDetailDialog({
         />
         <MarketTokenAddress
           networkId={onekeyNetworkId}
-          tokenName="Pair Contract"
+          tokenName={intl.formatMessage({
+            id: ETranslations.global_pair_contract,
+          })}
           address={pairAddress.split('_').pop() as string}
         />
       </YStack>

@@ -1,6 +1,8 @@
 import type { ReactElement } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
   Skeleton,
@@ -11,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IMarketDetailPool,
   IMarketTokenDetail,
@@ -65,6 +68,7 @@ function BasicTokenDetailTabs({
   token?: IMarketTokenDetail;
   listHeaderComponent?: ReactElement;
 }) {
+  const intl = useIntl();
   const { md } = useMedia();
 
   const [pools, setPools] = useState<
@@ -110,7 +114,7 @@ function BasicTokenDetailTabs({
         ? [
             pools.length && token
               ? {
-                  title: 'Pools',
+                  title: intl.formatMessage({ id: ETranslations.global_all }),
                   // eslint-disable-next-line react/no-unstable-nested-components
                   page: (props: ITabPageProps) => (
                     <MarketDetailPools {...props} pools={pools} />
@@ -119,7 +123,9 @@ function BasicTokenDetailTabs({
               : undefined,
             md && token
               ? {
-                  title: 'Overview',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_overview,
+                  }),
                   // eslint-disable-next-line react/no-unstable-nested-components
                   page: (props: ITabPageProps) => (
                     <Stack px="$5">
@@ -129,7 +135,9 @@ function BasicTokenDetailTabs({
                 }
               : undefined,
             token && {
-              title: 'Links',
+              title: intl.formatMessage({
+                id: ETranslations.global_links,
+              }),
               // eslint-disable-next-line react/no-unstable-nested-components
               page: (props: ITabPageProps) => (
                 <MarketDetailLinks {...props} token={token} />
@@ -137,7 +145,7 @@ function BasicTokenDetailTabs({
             },
           ].filter(Boolean)
         : [],
-    [md, pools, token],
+    [intl, md, pools, token],
   );
   return (
     <Tab

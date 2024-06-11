@@ -1,6 +1,8 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ISizableTextProps, ITabPageProps } from '@onekeyhq/components';
 import {
   Dialog,
@@ -14,6 +16,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketResponsePool } from '@onekeyhq/shared/types/market';
 
@@ -99,6 +102,7 @@ function HeaderRow({
     order: 'asc' | 'desc' | undefined;
   }) => void;
 }) {
+  const intl = useIntl();
   const { gtMd, gtXl } = useMedia();
   const useSortFunc = !!(sortType || onSortTypeChange);
   const handleColumnPress = useCallback(
@@ -136,7 +140,7 @@ function HeaderRow({
         order={sortType?.order}
         onPress={handleColumnPress}
       >
-        Pair
+        {intl.formatMessage({ id: ETranslations.global_pair })}
       </HeaderColumn>
       {gtMd ? (
         <HeaderColumn
@@ -146,7 +150,7 @@ function HeaderRow({
           order={sortType?.order}
           onPress={handleColumnPress}
         >
-          Price
+          {intl.formatMessage({ id: ETranslations.global_price })}
         </HeaderColumn>
       ) : null}
       {gtXl ? (
@@ -157,7 +161,7 @@ function HeaderRow({
           order={sortType?.order}
           onPress={handleColumnPress}
         >
-          24H Txns
+          {intl.formatMessage({ id: ETranslations.market_24h_txns })}
         </HeaderColumn>
       ) : null}
       <HeaderColumn
@@ -167,7 +171,9 @@ function HeaderRow({
         order={sortType?.order}
         onPress={handleColumnPress}
       >
-        24H Volume
+        {intl.formatMessage({
+          id: ETranslations.market_twenty_four_hour_volume,
+        })}
       </HeaderColumn>
       <HeaderColumn
         name="reserveInUsd"
@@ -176,7 +182,7 @@ function HeaderRow({
         order={sortType?.order}
         onPress={handleColumnPress}
       >
-        Liquidity
+        {intl.formatMessage({ id: ETranslations.global_liquidity })}
       </HeaderColumn>
       <View flex={1}>
         <View w="$4" h="$4" />
@@ -217,6 +223,7 @@ export function MarketDetailPools({
   // eslint-disable-next-line react/prop-types
   onContentSizeChange,
 }: ITabPageProps & { pools: IMarketResponsePool[] }) {
+  const intl = useIntl();
   const { gtMd, gtXl } = useMedia();
   const oneKeyNetworkIds = useMemo(
     () =>
@@ -286,7 +293,9 @@ export function MarketDetailPools({
               {...listItemPressStyle}
               onPress={() => {
                 Dialog.confirm({
-                  title: 'Pool Details',
+                  title: intl.formatMessage({
+                    id: ETranslations.market_pool_details,
+                  }),
                   renderContent: <PoolDetailDialog item={item} />,
                 });
               }}

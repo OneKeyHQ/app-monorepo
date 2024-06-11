@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import type {
   INumberSizeableTextProps,
   ITabPageProps,
@@ -9,9 +11,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IMarketDetailPlatform,
-  IMarketDetailPool,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
@@ -45,16 +47,17 @@ export function Overview24PriceChange({
   low: number;
   high: number;
 }) {
+  const intl = useIntl();
   return (
     <YStack space="$2.5">
       <SizableText size="$bodyMd" color="$textSubdued">
-        24H price range
+        {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
       <Progress value={(low / high) * 100} height="$1" />
       <XStack jc="space-between">
         <XStack space="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
-            Low
+            {intl.formatMessage({ id: ETranslations.market_low })}
           </SizableText>
           <NumberSizeableText
             size="$bodyMdMedium"
@@ -66,7 +69,7 @@ export function Overview24PriceChange({
         </XStack>
         <XStack space="$1">
           <SizableText color="$textSubdued" size="$bodyMd">
-            High
+            {intl.formatMessage({ id: ETranslations.market_high })}
           </SizableText>
           <NumberSizeableText
             size="$bodyMdMedium"
@@ -146,34 +149,53 @@ function OverviewMarketVOL({
   circulatingSupply: number;
   detailPlatforms: IMarketDetailPlatform;
 }) {
+  const intl = useIntl();
   return (
     <YStack pt="$10">
       <YStack space="$3">
         <XStack space="$4">
-          <OverviewMarketVOLItem currency title="24H VOL(USD)">
+          <OverviewMarketVOLItem
+            currency
+            title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
+          >
             {volume24h}
           </OverviewMarketVOLItem>
           <OverviewMarketVOLItem
             currency
-            title="Market Cap"
+            title={intl.formatMessage({ id: ETranslations.global_market_cap })}
             rank={marketCapRank}
           >
             {marketCap}
           </OverviewMarketVOLItem>
         </XStack>
         <XStack space="$4">
-          <OverviewMarketVOLItem currency title="FDV">
+          <OverviewMarketVOLItem
+            currency
+            title={intl.formatMessage({ id: ETranslations.global_fdv })}
+          >
             {fdv}
           </OverviewMarketVOLItem>
-          <OverviewMarketVOLItem title="Circulating Supply">
+          <OverviewMarketVOLItem
+            title={intl.formatMessage({
+              id: ETranslations.global_circulating_supply,
+            })}
+          >
             {circulatingSupply}
           </OverviewMarketVOLItem>
         </XStack>
         <XStack space="$4">
-          <OverviewMarketVOLItem title="Total Supply">
+          <OverviewMarketVOLItem
+            title={intl.formatMessage({
+              id: ETranslations.global_total_supply,
+            })}
+          >
             {totalSupply}
           </OverviewMarketVOLItem>
-          <OverviewMarketVOLItem title="Max Supply">
+          <OverviewMarketVOLItem
+            title={intl.formatMessage({
+              id: ETranslations.global_max_supply,
+            })}
+          >
             {maxSupply || '∞'}
           </OverviewMarketVOLItem>
         </XStack>
@@ -218,6 +240,7 @@ export function MarketDetailOverview({
 }: ITabPageProps & {
   token: IMarketTokenDetail;
 }) {
+  const intl = useIntl();
   return (
     <YStack
       pb="$10"
@@ -234,16 +257,24 @@ export function MarketDetailOverview({
         py="$3"
         my="$6"
       >
-        <OverviewPriceChange title="1H">
+        <OverviewPriceChange
+          title={intl.formatMessage({ id: ETranslations.market_1d })}
+        >
           {performance.priceChangePercentage1h}
         </OverviewPriceChange>
-        <OverviewPriceChange title="24H">
+        <OverviewPriceChange
+          title={intl.formatMessage({ id: ETranslations.market_1w })}
+        >
           {performance.priceChangePercentage24h}
         </OverviewPriceChange>
-        <OverviewPriceChange title="7D">
+        <OverviewPriceChange
+          title={intl.formatMessage({ id: ETranslations.market_1m })}
+        >
           {performance.priceChangePercentage7d}
         </OverviewPriceChange>
-        <OverviewPriceChange title="30D">
+        <OverviewPriceChange
+          title={intl.formatMessage({ id: ETranslations.market_1y })}
+        >
           {performance.priceChangePercentage30d}
         </OverviewPriceChange>
       </XStack>

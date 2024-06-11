@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IButtonProps } from '@onekeyhq/components';
 import { Button, SizableText, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketDetailPlatform } from '@onekeyhq/shared/types/market';
 
 import { MarketTokenAddress } from './MarketTokenAddress';
@@ -12,6 +15,7 @@ export function MarketDetailOverviewContract({
 }: {
   detailPlatforms?: IMarketDetailPlatform;
 }) {
+  const intl = useIntl();
   const keys = useMemo(
     () =>
       detailPlatforms ? Object.keys(detailPlatforms).filter((i) => !!i) : [],
@@ -29,7 +33,7 @@ export function MarketDetailOverviewContract({
   return detailPlatforms && keys.length ? (
     <YStack pt="$3" space="$3">
       <SizableText color="$textSubdued" size="$bodySm">
-        Contract
+        {intl.formatMessage({ id: ETranslations.global_contract })}
       </SizableText>
       {showKeys.map((tokenName) => {
         const platform = detailPlatforms[tokenName];
@@ -51,7 +55,11 @@ export function MarketDetailOverviewContract({
           onPress={handleViewMore}
           $gtMd={{ size: 'small' } as IButtonProps}
         >
-          {isShowMore ? 'View Less' : 'View More'}
+          {intl.formatMessage({
+            id: isShowMore
+              ? ETranslations.global_view_less
+              : ETranslations.global_view_more,
+          })}
         </Button>
       )}
     </YStack>

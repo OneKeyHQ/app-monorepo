@@ -1,12 +1,16 @@
 import { useCallback, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IButtonProps, ISizableTextProps } from '@onekeyhq/components';
 import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { LayoutChangeEvent } from 'react-native';
 
 const DEFAULT_NUMBER_OF_LINES = 6;
 function ViewMoreText({ children, ...props }: ISizableTextProps) {
+  const intl = useIntl();
   const [layoutTimes, setLayoutTimes] = useState(0);
   const [numberOfLines, setNumberOfLines] = useState<number | undefined>(
     DEFAULT_NUMBER_OF_LINES,
@@ -63,7 +67,11 @@ function ViewMoreText({ children, ...props }: ISizableTextProps) {
             onPress={handleViewMore}
             $gtMd={{ size: 'small' } as IButtonProps}
           >
-            {numberOfLines ? 'View More' : 'View Less'}
+            {intl.formatMessage({
+              id: numberOfLines
+                ? ETranslations.global_view_more
+                : ETranslations.global_view_less,
+            })}
           </Button>
         ) : null}
       </YStack>
@@ -89,9 +97,12 @@ export function MarketAbout({
 }: {
   children: ISizableTextProps['children'];
 }) {
+  const intl = useIntl();
   return children ? (
     <YStack space="$3" pt="$10">
-      <SizableText size="$headingSm">About</SizableText>
+      <SizableText size="$headingSm">
+        {intl.formatMessage({ id: ETranslations.global_about })}
+      </SizableText>
       <ViewMoreText color="$textSubdued">{children}</ViewMoreText>
     </YStack>
   ) : null;

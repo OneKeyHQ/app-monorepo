@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -11,6 +12,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { DOWNLOAD_MOBILE_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils, {
   openUrlExternal,
@@ -25,6 +27,7 @@ export function OpenInAppButton({
   buildDeepLinkUrl: () => string;
   buildFullUrl: () => string;
 }) {
+  const intl = useIntl();
   const { result: deepLinkUrl } = usePromiseResult(async () => {
     if (platformEnv.isWeb || platformEnv.isExtension) {
       const url = buildDeepLinkUrl();
@@ -96,14 +99,14 @@ export function OpenInAppButton({
                 openUrlExternal(DOWNLOAD_MOBILE_APP_URL);
               }}
             >
-              Download
+              {intl.formatMessage({ id: ETranslations.global_download })}
             </Button>
           </XStack>
         </Stack>
       ),
       showFooter: false,
     });
-  }, [buildFullUrl, deepLinkUrl, openByAppButtonLabel]);
+  }, [buildFullUrl, deepLinkUrl, intl, openByAppButtonLabel]);
 
   return (
     <Button size="small" onPress={handlePress}>
