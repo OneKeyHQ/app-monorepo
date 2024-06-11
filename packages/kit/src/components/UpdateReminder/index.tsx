@@ -20,13 +20,17 @@ import { useAppUpdateInfo } from './hooks';
 
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const intl = useIntl();
-  const styles = useMemo(
+  const buildStyles = useCallback(
     () =>
       ({
         [EAppUpdateStatus.notify]: {
           iconName: 'DownloadOutline',
           iconColor: '$iconInfo',
-          renderText(appUpdateInfo) {
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
             return intl.formatMessage(
               { id: ETranslations.update_update_app_available },
               {
@@ -43,7 +47,11 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
         [EAppUpdateStatus.ready]: {
           iconName: 'DownloadOutline',
           iconColor: '$iconSuccess',
-          renderText(appUpdateInfo) {
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
             return intl.formatMessage(
               { id: ETranslations.update_app_version_ready_for_update },
               {
@@ -55,7 +63,11 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
         [EAppUpdateStatus.failed]: {
           iconName: 'ErrorOutline',
           iconColor: '$iconCritical',
-          renderText(appUpdateInfo) {
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
             return appUpdateInfo.errorText || '';
           },
         },
@@ -65,19 +77,22 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
         | {
             iconName: IIconProps['name'];
             iconColor: IIconProps['color'];
-            renderText: (appUpdateInfo: IAppUpdateInfo) => string;
+            renderText: ({
+              updateInfo,
+            }: {
+              updateInfo: IAppUpdateInfo;
+            }) => string;
           }
         | undefined
       >),
     [intl],
   );
+  const styles = buildStyles();
   const data = styles[updateInfo.status];
 
-  if (!data) {
-    return null;
-  }
-  const { iconName, iconColor, renderText } = data;
-  return (
+  const { iconName, iconColor, renderText } = data || {};
+  const Component = renderText;
+  return Component ? (
     <XStack alignItems="center" space="$2" flexShrink={1}>
       <Icon name={iconName} color={iconColor} size="$4" flexShrink={0} />
       <SizableText
@@ -86,10 +101,10 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
         flexShrink={1}
         numberOfLines={1}
       >
-        {renderText(updateInfo)}
+        <Component updateInfo={updateInfo} />
       </SizableText>
     </XStack>
-  );
+  ) : null;
 }
 
 function OpenOnGithub() {
