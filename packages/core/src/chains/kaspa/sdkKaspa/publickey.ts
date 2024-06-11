@@ -3,7 +3,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 
 import { tweakPublicKey } from '@onekeyhq/core/src/secret/bip340';
 
-export enum SignType {
+export enum EKaspaSignType {
   Schnorr = 'schnorr',
   ECDSA = 'ecdsa',
 }

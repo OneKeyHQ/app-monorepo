@@ -7,6 +7,7 @@ import type { IBtcForkNetwork } from '../types';
 const btc: IBtcForkNetwork = {
   ...networks.bitcoin,
   segwitVersionBytes: {
+    // [EAddressEncodings.P2PKH]: networks.bitcoin.bip32,
     [EAddressEncodings.P2SH_P2WPKH]: {
       public: 0x049d7cb2,
       private: 0x049d7878,
@@ -25,6 +26,7 @@ const btc: IBtcForkNetwork = {
 const tbtc: IBtcForkNetwork = {
   ...networks.testnet,
   segwitVersionBytes: {
+    // [EAddressEncodings.P2PKH]: networks.testnet.bip32,
     [EAddressEncodings.P2SH_P2WPKH]: {
       public: 0x044a5262,
       private: 0x044a4e28,
@@ -43,6 +45,7 @@ const tbtc: IBtcForkNetwork = {
 const rbtc: IBtcForkNetwork = {
   ...networks.regtest,
   segwitVersionBytes: {
+    // [EAddressEncodings.P2PKH]: networks.regtest.bip32,
     [EAddressEncodings.P2SH_P2WPKH]: {
       public: 0x044a5262,
       private: 0x044a4e28,
@@ -199,9 +202,10 @@ export function getBtcForkNetwork(
     throw new Error('getBtcForkNetwork ERROR: chainCode is undefined');
   }
   const network = extendedNetworks[chainCode];
-  network.networkChainCode = chainCode;
-  if (typeof network === 'undefined') {
+  if (typeof network === 'undefined' || !network) {
     throw new Error(`Network not found. chainCode: ${chainCode}`);
   }
+
+  network.networkChainCode = chainCode;
   return network;
 }

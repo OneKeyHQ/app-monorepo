@@ -32,19 +32,7 @@ export class KeyringHd extends KeyringHdBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const { password } = params;
-    const result: IExportAccountSecretKeysResult = {};
-
-    if (params.privateKey) {
-      const privateKeysMap = await this.getPrivateKeys({
-        password,
-      });
-      const [encryptedPrivateKey] = Object.values(privateKeysMap);
-      const privateKey = decrypt(password, encryptedPrivateKey);
-      const nostrPrivateKey = getPrivateEncodedByNip19(privateKey);
-      result.privateKey = nostrPrivateKey;
-    }
-    return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(

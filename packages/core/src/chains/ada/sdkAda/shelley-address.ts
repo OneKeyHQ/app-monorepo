@@ -8,7 +8,7 @@ import { baseAddressFromXpub, stakingAddressFromXpub } from './addresses';
 import { getRootKey, toBip32StringPath } from './bip32';
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
-import { ICoreHdCredentialEncryptHex } from '../../../types';
+import type { ICoreHdCredentialEncryptHex } from '../../../types';
 import type { EAdaNetworkId, IAdaBIP32Path } from '../types';
 
 const shelleyPath = (account: number): IAdaBIP32Path => [

@@ -7,12 +7,20 @@ import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
   ICoreApiPrivateKeysMap,
   ICoreApiSignTxPayload,
   ISignedTxPro,
 } from '../../types';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override getExportedSecretKey(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    throw new NotImplemented();
+  }
+
   override async getPrivateKeys(): Promise<ICoreApiPrivateKeysMap> {
     throw new NotImplemented('Method not implemented.');
   }
