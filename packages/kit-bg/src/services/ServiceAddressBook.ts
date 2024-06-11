@@ -291,6 +291,19 @@ class ServiceAddressBook extends ServiceBase {
     await this.setItems(items, oldPassword);
     await simpleDb.addressBook.clearBackupHash();
   }
+
+  @backgroundMethod()
+  public async hideDialogInfo() {
+    const { servicePassword } = this.backgroundApi;
+    const passwordSet = await servicePassword.checkPasswordSet();
+    if (!passwordSet) {
+      return;
+    }
+    await addressBookPersistAtom.set((prev) => ({
+      ...prev,
+      hideDialogInfo: true,
+    }));
+  }
 }
 
 export default ServiceAddressBook;

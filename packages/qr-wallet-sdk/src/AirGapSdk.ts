@@ -1,15 +1,24 @@
 import AirGapSdkBase from '@keystonehq/keystone-sdk';
 
-import { AirGapEthereumSDK } from './chains/AirGapEthereumSDK';
+import { AirGapBtcSDK, AirGapEthSDK } from './chains';
 
 export class AirGapSdk extends AirGapSdkBase {
-  private _ethAirGap: AirGapEthereumSDK | undefined;
+  private _ethAirGap: AirGapEthSDK | undefined;
 
   override get eth() {
     if (!this._ethAirGap) {
-      this._ethAirGap = new AirGapEthereumSDK(this.config);
+      this._ethAirGap = new AirGapEthSDK(this.config);
     }
     return this._ethAirGap;
+  }
+
+  private _btcAirGap: AirGapBtcSDK | undefined;
+
+  override get btc() {
+    if (!this._btcAirGap) {
+      this._btcAirGap = new AirGapBtcSDK(this.config);
+    }
+    return this._btcAirGap;
   }
 }
 

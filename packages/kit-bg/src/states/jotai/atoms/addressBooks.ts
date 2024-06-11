@@ -3,6 +3,7 @@ import { globalAtom } from '../utils';
 
 export type IAddressBookPersistAtom = {
   updateTimestamp?: number;
+  hideDialogInfo?: boolean;
 };
 
 export const {

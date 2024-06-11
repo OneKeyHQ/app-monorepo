@@ -19,11 +19,7 @@ import {
   decodeSensitiveText,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InsufficientBalance,
   InvalidAddress,
@@ -54,16 +50,13 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import sdk from './sdkAda';
 import { getChangeAddress } from './sdkAda/adaUtils';
-import settings from './settings';
 
 import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -73,13 +66,12 @@ import type {
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -413,7 +405,7 @@ export default class Vault extends VaultBase {
             cardanoPubKey: xpub,
           });
         if (!utxoList || isEmpty(utxoList)) {
-          throw new OneKeyInternalError('Failed to get UTXO list.');
+          return [];
         }
 
         const pathIndex = path.split('/')[3];
@@ -426,12 +418,14 @@ export default class Vault extends VaultBase {
             utxoPath = pathArray.join('/');
           }
           return {
-            ...utxo,
+            address: utxo.address,
+            amount: utxo.amount ?? [],
+            datum_hash: utxo.datumHash,
+            output_index: utxo.txIndex as number,
+            path: utxoPath,
+            reference_script_hash: utxo.referenceScriptHash,
             tx_hash: utxo.txid,
             tx_index: utxo.txIndex as number,
-            path: utxoPath,
-            output_index: utxo.txIndex as number,
-            amount: utxo.amount ?? [],
           };
         });
       } catch (e) {
@@ -509,33 +503,46 @@ export default class Vault extends VaultBase {
   // Dapp Function
   async getBalanceForDapp() {
     const stakeAddress = await this._getStakeAddress();
-    const [rawBalance, assetsBalance] =
-      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
-        IAdaAccount | IAdaAmount[]
-      >({
-        networkId: this.networkId,
-        body: [
-          {
-            route: 'bf',
-            params: {
-              method: 'accounts',
-              params: [stakeAddress],
+    let rawBalance = {
+      controlled_amount: '0',
+    } as IAdaAccount;
+    let assetsBalance: IAdaAmount[] = [];
+    try {
+      const [_rawBalance, _assetsBalance] =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
+          IAdaAccount | IAdaAmount[]
+        >({
+          networkId: this.networkId,
+          body: [
+            {
+              route: 'rpc',
+              params: {
+                method: 'GET',
+                params: [],
+                url: `/accounts/${stakeAddress}`,
+              },
             },
-          },
-          {
-            route: 'bf',
-            params: {
-              method: 'accountsAddressesAssets',
-              params: [stakeAddress],
+            {
+              route: 'rpc',
+              params: {
+                method: 'GET',
+                params: [],
+                url: `/accounts/${stakeAddress}/addresses/assets`,
+              },
             },
-          },
-        ],
-      });
+          ],
+        });
+      rawBalance = _rawBalance as IAdaAccount;
+      assetsBalance = _assetsBalance as IAdaAmount[];
+    } catch (e) {
+      // ignore error
+      console.error(e);
+    }
     const balance = {
       unit: 'lovelace',
-      quantity: (rawBalance as IAdaAccount).controlled_amount,
+      quantity: rawBalance.controlled_amount,
     };
-    const result = [balance, ...(assetsBalance as IAdaAmount[])];
+    const result = [balance, ...assetsBalance];
     const CardanoApi = await sdk.getCardanoApi();
     return CardanoApi.dAppGetBalance(result);
   }
@@ -577,10 +584,11 @@ export default class Vault extends VaultBase {
         networkId: this.networkId,
         body: [
           {
-            route: 'bf',
+            route: 'rpc',
             params: {
-              method: 'accountsAddresses',
-              params: [stakeAddress],
+              method: 'GET',
+              params: [],
+              url: `/accounts/${stakeAddress}/addresses`,
             },
           },
         ],

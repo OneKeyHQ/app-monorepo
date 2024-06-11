@@ -49,7 +49,6 @@ import { VaultBase } from '../../base/VaultBase';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -90,9 +89,9 @@ export default class VaultCosmos extends VaultBase {
     return result;
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -146,6 +145,8 @@ export default class VaultCosmos extends VaultBase {
   }): Promise<IEncodedTx> {
     const { transfersInfo, feeInfo } = params;
     const network = await this.getNetwork();
+    const networkInfo = await this.getNetworkInfo();
+    const mainCoinDenom = networkInfo.nativeTokenAddress ?? '';
     const msgs: ProtoMsgsOrWithAminoMsgs = {
       protoMsgs: [],
       aminoMsgs: [],
@@ -154,7 +155,9 @@ export default class VaultCosmos extends VaultBase {
       const { amount, from, to } = transfer;
       if (transfer.tokenInfo && transfer.tokenInfo.address) {
         const { address, decimals } = transfer.tokenInfo;
-        const amountValue = new BigNumber(amount).shiftedBy(decimals).toFixed();
+        const amountValue = new BigNumber(amount)
+          .shiftedBy(decimals)
+          .toFixed(0);
         if (transfer.tokenInfo.isNative || this._isIbcToken(address)) {
           const msg = this.txMsgBuilder.makeSendNativeMsg(
             from,
@@ -177,15 +180,12 @@ export default class VaultCosmos extends VaultBase {
       } else {
         const amountValue = new BigNumber(amount)
           .shiftedBy(network.decimals)
-          .toFixed();
-        const providerOptions = network.extensions?.providerOptions as {
-          mainCoinDenom: string;
-        };
+          .toFixed(0);
         const msg = this.txMsgBuilder.makeSendNativeMsg(
           from,
           to,
           amountValue,
-          providerOptions.mainCoinDenom,
+          mainCoinDenom,
         );
         msgs.protoMsgs.push(...msg.protoMsgs);
         msgs.aminoMsgs.push(...msg.aminoMsgs);
@@ -207,8 +207,7 @@ export default class VaultCosmos extends VaultBase {
     const pubkey = bufferUtils.hexToBytes(hexUtils.stripHexPrefix(account.pub));
 
     const gasLimit = '0';
-    const feeAmount = '0';
-    const mainCoinDenom = network.symbol;
+    const feeAmount = '1';
 
     const tx = txBuilder.makeTxWrapper(msgs, {
       memo: '',
@@ -384,7 +383,7 @@ export default class VaultCosmos extends VaultBase {
     const amount = gasLimitNum
       .multipliedBy(gasPriceNum)
       .shiftedBy(common.feeDecimals)
-      .toFixed();
+      .toFixed(0);
     const newAmount = [
       {
         denom: common.feeSymbol,
@@ -436,7 +435,7 @@ export default class VaultCosmos extends VaultBase {
       const tokenInfo = unsignedTx.transfersInfo?.[0].tokenInfo;
       const amount = new BigNumber(params.nativeAmountInfo.maxSendAmount)
         .shiftedBy(tokenInfo?.decimals ?? 0)
-        .toFixed();
+        .toFixed(0);
       unsignedTx.encodedTx = setSendAmount(txWrapper, amount).toObject();
     }
 

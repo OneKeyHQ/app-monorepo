@@ -4,12 +4,16 @@ import {
   checkBtcAddressIsUsed,
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { buildPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { decrypt } from '@onekeyhq/core/src/secret';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { EAddressEncodings, type ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type VaultBtc from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
   IExportAccountSecretKeysParams,
@@ -49,10 +53,16 @@ export class KeyringHd extends KeyringHdBase {
       if (!addressEncoding) {
         throw new Error('addressEncoding not found');
       }
-      const versionBytesInfo = (network.segwitVersionBytes || {})[
-        addressEncoding
-      ];
-      const xprvVersionBytes = versionBytesInfo?.private;
+      const networkVersionBytesMap = {
+        ...network.segwitVersionBytes,
+        [EAddressEncodings.P2PKH]: network.bip32,
+      };
+      const bip32Info = networkVersionBytesMap[addressEncoding];
+      if (!bip32Info) {
+        throw new Error('Unsupported address encoding');
+      }
+
+      const xprvVersionBytes = bip32Info.private;
       if (!xprvVersionBytes) {
         throw new Error('xprvVersionBytes not found');
       }
@@ -97,6 +107,21 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
+    // const { password, unsignedTx } = params;
+    // const vault = this.vault as VaultBtc;
+    // const networkInfo = await this.getCoreApiNetworkInfo();
+    // const { account, btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
+    //   unsignedTx,
+    // });
+    // const credentials = await this.baseGetCredentialsInfo(params);
+
+    // // TODO remove
+    // void buildPsbt({
+    //   network: getBtcForkNetwork(networkInfo.networkChainCode),
+    //   unsignedTx,
+    //   btcExtraInfo,
+    //   getPubKey: () => Promise.resolve(Buffer.from('')),
+    // });
     return this.baseSignTransactionBtc(params);
   }
 

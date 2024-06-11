@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access,@typescript-eslint/restrict-template-expressions */
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import errorUtils from '../errors/utils/errorUtils';
+
 import {
   throwCrossError,
   warningIfNotRunInBackground,
@@ -164,11 +166,7 @@ export function toastIfError() {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
         return await originalMethod.apply(this, args);
       } catch (error: unknown) {
-        const e = error as OneKeyError | undefined;
-        if (e) {
-          // handle autoToast error by BackgroundApiProxyBase
-          e.autoToast = true;
-        }
+        errorUtils.toastIfError(error);
         throw error;
       }
     };

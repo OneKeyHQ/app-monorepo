@@ -1,10 +1,12 @@
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import type { ColorTokens, IIconProps } from '@onekeyhq/components';
 import { Icon, Page, SizableText, Stack } from '@onekeyhq/components';
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -17,36 +19,8 @@ interface IWaningMessage {
   message?: string;
 }
 
-const messages: IWaningMessage[] = [
-  {
-    icon: 'LockOutline',
-    iconColor: '$iconInfo',
-    iconContainerColor: '$bgInfo',
-    message:
-      'The recovery phrase alone gives you full access to your wallets and funds.',
-  },
-  {
-    icon: 'InputOutline',
-    iconColor: '$iconSuccess',
-    iconContainerColor: '$bgSuccess',
-    message:
-      'If you forget your password, you can use the recovery phrase to get back into your wallet.',
-  },
-  {
-    icon: 'EyeOffOutline',
-    iconColor: '$iconCritical',
-    iconContainerColor: '$bgCritical',
-    message: 'Never share it with anyone or enter it into any form.',
-  },
-  {
-    icon: 'ShieldCheckDoneOutline',
-    iconColor: '$iconCaution',
-    iconContainerColor: '$bgCaution',
-    message: 'OneKey Support will never ask for your recovery phrase.',
-  },
-];
-
 export function BeforeShowRecoveryPhrase() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const route =
@@ -64,15 +38,62 @@ export function BeforeShowRecoveryPhrase() {
     });
   };
 
+  const messages: IWaningMessage[] = [
+    {
+      icon: 'LockOutline',
+      iconColor: '$iconInfo',
+      iconContainerColor: '$bgInfo',
+      message: intl.formatMessage({
+        id: ETranslations.onboarding_bullet_recovery_phrase_full_access,
+      }),
+    },
+    {
+      icon: 'InputOutline',
+      iconColor: '$iconSuccess',
+      iconContainerColor: '$bgSuccess',
+      message: intl.formatMessage({
+        id: ETranslations.onboarding_bullet_forgot_password_use_recovery,
+      }),
+    },
+    {
+      icon: 'EyeOffOutline',
+      iconColor: '$iconCritical',
+      iconContainerColor: '$bgCritical',
+      message: intl.formatMessage({
+        id: ETranslations.onboarding_bullet_never_share_recovery_phrase,
+      }),
+    },
+    {
+      icon: 'ShieldCheckDoneOutline',
+      iconColor: '$iconCaution',
+      iconContainerColor: '$bgCaution',
+      message: intl.formatMessage({
+        id: ETranslations.onboarding_bullet_onekey_support_no_recovery_phrase,
+      }),
+    },
+  ];
+
   return (
     <Page safeAreaEnabled>
-      <Page.Header title="Before You Proceed" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_before_reveal_message,
+        })}
+      />
       <Page.Body>
-        <SizableText pt="$2" pb="$4" px="$6" size="$bodyLgMedium">
-          Read the following, then save the phrase securely.
+        <SizableText
+          pt="$2"
+          pb="$4"
+          px="$6"
+          size="$bodyLg"
+          color="$textSubdued"
+        >
+          {intl.formatMessage({
+            id: ETranslations.onboarding_save_phrase_securely_instruction,
+          })}
         </SizableText>
         {messages.map((item) => (
-          <ListItem key={item.message}>
+          <ListItem space="$5" key={item.message}>
             <Stack
               p="$2"
               borderRadius="$3"
@@ -92,7 +113,9 @@ export function BeforeShowRecoveryPhrase() {
         ))}
       </Page.Body>
       <Page.Footer
-        onConfirmText="Show Recovery Phrase"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_show_recovery_phrase,
+        })}
         onConfirm={handleShowRecoveryPhrasePress}
         confirmButtonProps={{ testID: 'show-recovery-phrase' }}
       />

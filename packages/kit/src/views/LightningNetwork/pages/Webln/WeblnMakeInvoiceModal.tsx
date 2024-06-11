@@ -48,7 +48,9 @@ function WeblnMakeInvoiceModal() {
 
   const useFormReturn = useForm<IMakeInvoiceFormValues>({
     defaultValues: {
-      amount: `${makeInvoiceParams.amount ?? ''}`,
+      amount: `${
+        makeInvoiceParams.amount ?? makeInvoiceParams.defaultAmount ?? ''
+      }`,
       description: makeInvoiceParams.defaultMemo ?? '',
     },
   });
