@@ -51,6 +51,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function SendDataInputContainer() {
   const intl = useIntl();
@@ -344,12 +345,25 @@ function SendDataInputContainer() {
       }
 
       if (isInsufficientBalance)
-        return intl.formatMessage({ id: 'msg__insufficient_balance' });
+        return intl.formatMessage(
+          {
+            id: ETranslations.send_error_insufficient_balance,
+          },
+          {
+            token: tokenSymbol,
+          },
+        );
 
       if (isLessThanMinTransferAmount)
-        return `The minimum sent amount is ${
-          vaultSettings?.minTransferAmount ?? '0'
-        } ${tokenSymbol}`;
+        return intl.formatMessage(
+          {
+            id: ETranslations.send_error_minimum_amount,
+          },
+          {
+            amount: vaultSettings?.minTransferAmount ?? '0',
+            token: tokenSymbol,
+          },
+        );
 
       return true;
     },
@@ -398,24 +412,11 @@ function SendDataInputContainer() {
     [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
   );
 
-  const amountInputDescription = useMemo(() => {
-    if (isNil(vaultSettings?.minTransferAmount)) return '';
-
-    if (form.formState.errors.amount) return '';
-
-    return `The minimum sent amount is ${vaultSettings?.minTransferAmount} ${tokenSymbol}`;
-  }, [
-    form.formState.errors.amount,
-    tokenSymbol,
-    vaultSettings?.minTransferAmount,
-  ]);
-
   const renderTokenDataInputForm = useCallback(
     () => (
       <Form.Field
         name="amount"
-        description={amountInputDescription}
-        label={intl.formatMessage({ id: 'form__amount' })}
+        label={intl.formatMessage({ id: ETranslations.send_amount })}
         rules={{
           required: true,
           validate: handleValidateTokenAmount,
@@ -471,7 +472,6 @@ function SendDataInputContainer() {
       </Form.Field>
     ),
     [
-      amountInputDescription,
       currencySymbol,
       form,
       handleOnChangeAmountMode,
@@ -497,7 +497,7 @@ function SendDataInputContainer() {
       return (
         <Form.Field
           name="nftAmount"
-          label={intl.formatMessage({ id: 'form__amount' })}
+          label={intl.formatMessage({ id: ETranslations.send_amount })}
           rules={{ required: true, max: nftDetails?.amount ?? 1, min: 1 }}
         >
           {isLoadingAssets ? null : (
@@ -516,7 +516,7 @@ function SendDataInputContainer() {
             addOns={[
               {
                 loading: isLoadingAssets,
-                label: intl.formatMessage({ id: 'action__max' }),
+                label: intl.formatMessage({ id: ETranslations.send_max }),
                 onPress: () => {
                   form.setValue('nftAmount', nftDetails?.amount ?? '1');
                   void form.trigger('nftAmount');
@@ -547,7 +547,9 @@ function SendDataInputContainer() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Send" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.send_title })}
+      />
       <Page.Body px="$5">
         <AccountSelectorProviderMirror
           config={{
@@ -562,7 +564,7 @@ function SendDataInputContainer() {
           <Form form={form}>
             {isNFT ? (
               <Form.Field
-                label={intl.formatMessage({ id: 'form__nft' })}
+                label={intl.formatMessage({ id: ETranslations.global_nft })}
                 name="nft"
               >
                 <ListItem
@@ -592,7 +594,7 @@ function SendDataInputContainer() {
               </Form.Field>
             ) : null}
             <Form.Field
-              label={intl.formatMessage({ id: 'content__to' })}
+              label={intl.formatMessage({ id: ETranslations.send_to })}
               name="to"
               rules={{
                 required: true,
@@ -603,7 +605,9 @@ function SendDataInputContainer() {
                   if (!value.resolved) {
                     return (
                       value.validateError?.message ??
-                      intl.formatMessage({ id: 'form__address_invalid' })
+                      intl.formatMessage({
+                        id: ETranslations.send_address_invalid,
+                      })
                     );
                   }
                 },
@@ -626,7 +630,9 @@ function SendDataInputContainer() {
       </Page.Body>
       <Page.Footer
         onConfirm={handleOnConfirm}
-        onConfirmText={intl.formatMessage({ id: 'action__next' })}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.send_preview_button,
+        })}
         confirmButtonProps={{
           disabled: isSubmitDisabled,
           loading: isSubmitting,

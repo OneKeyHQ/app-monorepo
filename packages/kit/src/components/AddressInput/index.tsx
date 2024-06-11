@@ -36,6 +36,7 @@ import { BaseInput } from '../BaseInput';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IResolvedAddressProps = {
   value: string;
@@ -310,9 +311,15 @@ export function AddressInput(props: IAddressInputProps) {
         Exclude<IAddressValidateStatus, 'valid'>,
         string
       > = {
-        'unknown': 'Check request error, please refresh again',
-        'prohibit-send-to-self': 'Cannot send to myself',
-        'invalid': intl.formatMessage({ id: 'form__address_invalid' }),
+        'unknown': intl.formatMessage({
+          id: ETranslations.send_check_request_error,
+        }),
+        'prohibit-send-to-self': intl.formatMessage({
+          id: ETranslations.send_cannot_send_to_self,
+        }),
+        'invalid': intl.formatMessage({
+          id: ETranslations.send_address_invalid,
+        }),
       };
       return message[status];
     },
@@ -414,8 +421,7 @@ export function AddressInput(props: IAddressInputProps) {
       onChangeText={onChangeText}
       placeholder={
         placeholder ??
-        // intl.formatMessage({ id: 'form__address_and_domain_placeholder' })
-        'Enter address or domain name'
+        intl.formatMessage({ id: ETranslations.send_to_placeholder })
       }
       extension={AddressInputExtension}
       {...rest}

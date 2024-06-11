@@ -19,6 +19,8 @@ import type {
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IAmountInputFormItemProps = IFormFieldProps<
   string,
@@ -62,6 +64,8 @@ export function AmountInput({
   balanceProps,
   ...rest
 }: IAmountInputFormItemProps) {
+  const intl = useIntl();
+
   const sharedStyles = getSharedInputStyles({
     error: hasError,
   });
@@ -239,23 +243,25 @@ export function AmountInput({
         })}
       >
         <SizableText size="$bodyMd" color="$textSubdued">
-          {`Balance: `}
           <NumberSizeableText
             size="$bodyMd"
             color="$textSubdued"
             formatter="balance"
           >
-            {balanceProps.value}
+            {intl.formatMessage(
+              { id: ETranslations.send_balance },
+              { number: balanceProps.value ?? 0 },
+            )}
           </NumberSizeableText>
         </SizableText>
         {enableMaxAmount ? (
           <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
-            Max
+            {intl.formatMessage({ id: ETranslations.send_max })}
           </SizableText>
         ) : null}
       </XStack>
     );
-  }, [balanceProps, enableMaxAmount]);
+  }, [balanceProps, enableMaxAmount, intl]);
   return (
     <Stack
       borderRadius="$3"

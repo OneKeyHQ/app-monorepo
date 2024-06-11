@@ -6,9 +6,12 @@ import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCod
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import type { IAddressPluginProps } from '../types';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const ScanPluginContent: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   const { start } = useScanQrCode();
+  const intl = useIntl();
   const onPress = useCallback(async () => {
     const address = await start({
       handlers: [],
@@ -18,7 +21,7 @@ const ScanPluginContent: FC<IAddressPluginProps> = ({ onChange, testID }) => {
   }, [onChange, start]);
   return (
     <IconButton
-      title="Scan"
+      title={intl.formatMessage({ id: ETranslations.send_to_scan_tooltip })}
       variant="tertiary"
       icon="ScanSolid"
       onPress={onPress}
