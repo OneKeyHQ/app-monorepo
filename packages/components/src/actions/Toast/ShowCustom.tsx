@@ -137,6 +137,6 @@ export function ShowToasterClose({ children }: PropsWithChildren) {
   return <Trigger onPress={handleClose}>{children}</Trigger>;
 }
 
-export const ShowToaster = forwardRef<IShowToasterInstance, IShowToasterProps>(
+export const ShowCustom = forwardRef<IShowToasterInstance, IShowToasterProps>(
   BasicShowToaster,
 );

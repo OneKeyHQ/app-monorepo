@@ -105,6 +105,7 @@
     "react-native-reanimated": "3.6.1",
     "react-native-web": "0.18.12",
     "react-render-tracker": "^0.7.6",
+    "sonner": "^1.4.41",
     "stream-browserify": "^3.0.0",
     "superagent": "6.1.0",
     "tamagui": "1.79.19",
