@@ -1,6 +1,9 @@
+import { useIntl } from 'react-intl';
+
 import { IconButton } from '@onekeyhq/components';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { showWalletRemoveDialog } from './WalletRemoveDialog';
@@ -35,6 +38,7 @@ function getTitleAndDescription({ wallet }: { wallet?: IDBWallet }) {
 export function WalletRemoveButton({ wallet }: { wallet?: IDBWallet }) {
   const { title, description } = getTitleAndDescription({ wallet });
   const { config } = useAccountSelectorContextData();
+  const intl = useIntl();
   return (
     <IconButton
       title="Remove"

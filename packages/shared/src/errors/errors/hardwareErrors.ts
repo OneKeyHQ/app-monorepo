@@ -249,7 +249,7 @@ export class ConnectPollingStopError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'ConnectPollingStopError',
-        defaultKey: 'msg__hardware_polling_connect_timeout_error',
+        defaultKey: ETranslations.feedback_hw_polling_time_out,
         // defaultAutoToast: true,
       }),
     );
@@ -264,7 +264,7 @@ export class DeviceNotBonded extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotBonded',
-        defaultKey: 'msg__hardware_bluetooth_not_paired_error',
+        defaultKey: ETranslations.feedback_bluetooth_unparied,
       }),
     );
   }
@@ -278,7 +278,7 @@ export class DeviceBondError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceBondError',
-        defaultKey: 'msg__hardware_bluetooth_pairing_failed',
+        defaultKey: ETranslations.feedback_bluetooth_pairing_failed,
       }),
     );
   }

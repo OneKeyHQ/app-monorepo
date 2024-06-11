@@ -287,7 +287,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   }, [sectionData, isEditableRouteParams]);
 
   return (
-    <Stack flex={1} pb={bottom}>
+    <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
         wallet={focusedWalletInfo?.wallet}
         device={focusedWalletInfo?.device}

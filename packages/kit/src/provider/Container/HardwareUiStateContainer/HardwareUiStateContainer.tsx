@@ -103,7 +103,9 @@ function HardwareSingletonDialogCmp(
 
   // EnterPassphrase on App
   if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
-    title.current = 'Enter Passphrase';
+    title.current = intl.formatMessage({
+      id: ETranslations.global_enter_passphrase,
+    });
     content.current = (
       <EnterPhase
         isSingleInput={!!state?.payload?.passphraseState}
