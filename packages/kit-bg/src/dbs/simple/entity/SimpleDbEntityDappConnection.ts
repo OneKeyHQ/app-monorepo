@@ -526,7 +526,9 @@ export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnec
         const providers =
           rawData.data[providerType as keyof IDappConnectionData['data']];
         Object.values(providers).forEach((provider) => {
-          this.removeEntries(provider, key, value);
+          if (provider && key && value) {
+            this.removeEntries(provider, key, value);
+          }
         });
       });
 

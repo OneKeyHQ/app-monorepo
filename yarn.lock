@@ -38,6 +38,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aivenio/tsc-output-parser@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "@aivenio/tsc-output-parser@npm:2.1.1"
+  bin:
+    tsc-output-parser: dist/cli.js
+  checksum: 10/87125352e7e85c77efa3c90083db072ae6a93a8c0d02e6b8174f5faaf87f1efedc1de082f8711969b4f089688a159edb117f6b063d1f43a5948f16fe53d45264
+  languageName: node
+  linkType: hard
+
 "@ampproject/remapping@npm:^2.2.0":
   version: 2.2.1
   resolution: "@ampproject/remapping@npm:2.2.1"
@@ -5682,6 +5691,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/app-monorepo@workspace:."
   dependencies:
+    "@aivenio/tsc-output-parser": "npm:^2.1.1"
     "@babel/plugin-proposal-class-static-block": "npm:^7.21.0"
     "@babel/plugin-proposal-export-namespace-from": "npm:^7.18.9"
     "@babel/plugin-proposal-private-methods": "npm:^7.18.6"
