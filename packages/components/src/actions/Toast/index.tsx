@@ -5,8 +5,6 @@ import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
 import { SizableText, YStack } from 'tamagui';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import { Portal } from '../../hocs';
 import { Icon, XStack } from '../../primitives';
 
