@@ -16,6 +16,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorEditModeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/HiddenWalletAddButton';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalKeyTagRoutes,
@@ -92,7 +93,8 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
       return (
         <>
           <Verification device={device} />
-          <HomeScreen />
+          {/* Homescreen unsupprted yet */}
+          {/* <HomeScreen /> */}
           <Advance wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
         </>
@@ -104,11 +106,11 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
         <ActionList
           offset={{ mainAxis: 0, crossAxis: 18 }}
           placement="bottom-start"
-          title="Backup"
+          title={intl.formatMessage({ id: ETranslations.global_backup })}
           items={[
             {
               label: intl.formatMessage({
-                id: 'backup__manual_backup',
+                id: ETranslations.manual_backup,
               }),
               icon: 'PenOutline',
               onPress: () => void handleBackupPhrase(),
@@ -116,10 +118,8 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
             ...(platformEnv.isNative
               ? [
                   {
-                    label: intl.formatMessage({
-                      id: 'app__hardware_name_onekey_lite',
-                    }),
-                    icon: 'GiroCardOutline' as IKeyOfIcons,
+                    label: 'OneKey Lite',
+                    icon: 'OnekeyLiteOutline' as IKeyOfIcons,
                     onPress: handleBackupLiteCard,
                   },
                 ]
@@ -131,7 +131,10 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
             },
           ]}
           renderTrigger={
-            <WalletOptionItem icon="Shield2CheckOutline" label="Backup" />
+            <WalletOptionItem
+              icon="Shield2CheckOutline"
+              label={intl.formatMessage({ id: ETranslations.global_backup })}
+            />
           }
         />
       );

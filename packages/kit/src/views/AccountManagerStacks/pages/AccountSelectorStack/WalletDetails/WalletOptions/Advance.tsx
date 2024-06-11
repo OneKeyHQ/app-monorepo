@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Dialog,
   ESwitchSize,
@@ -12,6 +14,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { WalletOptionItem } from './WalletOptionItem';
 
@@ -77,6 +80,7 @@ function EnablePassphraseSwitch(
 }
 
 function AdvanceDialogContent(props: IDeviceAdvanceSettingsProps) {
+  const intl = useIntl();
   const { onFail } = props;
   const { result } = usePromiseResult(async () => {
     try {
@@ -100,36 +104,41 @@ function AdvanceDialogContent(props: IDeviceAdvanceSettingsProps) {
   return (
     <Stack mx="$-5">
       {result.inputPinOnSoftwareSupport ? (
-        <ListItem title="Enter Pin on App" pt="$0">
+        <ListItem
+          title={intl.formatMessage({ id: ETranslations.enter_pin_on_app })}
+          pt="$0"
+        >
           <EnterPinOnSoftwareSwitch
             {...props}
             defaultValue={result.inputPinOnSoftware}
           />
         </ListItem>
       ) : null}
-      <ListItem title="Passphrase">
+      <ListItem
+        title={intl.formatMessage({ id: ETranslations.global_passphrase })}
+      >
         <EnablePassphraseSwitch
           {...props}
           defaultValue={result.passphraseEnabled}
         />
       </ListItem>
       <SizableText px="$5" size="$bodyMd">
-        Passphrase adds a custom phrase to your recovery phrase to create a
-        hidden wallet. Each hidden wallet has its passphrase. Do not forget it,
-        as it can't be retrieved & funds will be lost permanently.
+        {intl.formatMessage({ id: ETranslations.global_passphrase_desc })}
       </SizableText>
     </Stack>
   );
 }
 
 export function Advance(props: IDeviceAdvanceSettingsProps) {
+  const intl = useIntl();
+
   return (
     <WalletOptionItem
       icon="SwitchOutline"
-      label="Advance"
+      label={intl.formatMessage({ id: ETranslations.global_advance })}
       onPress={() => {
         const dialog = Dialog.show({
-          title: 'Advance',
+          title: intl.formatMessage({ id: ETranslations.global_advance }),
           renderContent: (
             <AdvanceDialogContent
               {...props}

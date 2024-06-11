@@ -7,6 +7,10 @@ import {
   useState,
 } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { Button, XStack } from '../../primitives';
 
 import { DialogContext } from './context';
@@ -85,6 +89,7 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
 };
 
 export function Footer(props: IDialogFooterProps) {
+  const intl = useIntl();
   const { props: restProps, onConfirm } = useDialogFooterProps(props);
   const {
     showFooter,
@@ -120,7 +125,8 @@ export function Footer(props: IDialogFooterProps) {
           {...cancelButtonProps}
           onPress={onCancel}
         >
-          {onCancelText}
+          {onCancelText ||
+            intl.formatMessage({ id: ETranslations.global_cancel })}
         </Button>
       ) : null}
       {showConfirmButton ? (
@@ -136,7 +142,8 @@ export function Footer(props: IDialogFooterProps) {
           {...restConfirmButtonProps}
           onPress={onConfirm}
         >
-          {onConfirmText}
+          {onConfirmText ||
+            intl.formatMessage({ id: ETranslations.global_confirm })}
         </Button>
       ) : null}
     </XStack>
@@ -150,9 +157,9 @@ function BasicFooterAction({
   showConfirmButton = true,
   cancelButtonProps,
   onConfirm,
-  onConfirmText = 'Confirm',
+  onConfirmText,
   onCancel,
-  onCancelText = 'Cancel',
+  onCancelText,
   confirmButtonProps = {},
   tone,
 }: IDialogFooterProps) {

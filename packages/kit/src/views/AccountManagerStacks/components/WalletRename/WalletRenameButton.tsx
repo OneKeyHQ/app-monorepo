@@ -7,6 +7,7 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
   const { serviceAccount } = backgroundApiProxy;
   return (
     <XStack
+      flex={1}
       py="$1"
       px="$1.5"
       alignItems="center"
@@ -38,7 +39,7 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
         });
       }}
     >
-      <SizableText size="$bodyLgMedium" pr="$1.5">
+      <SizableText size="$bodyLgMedium" pr="$1.5" numberOfLines={1}>
         {wallet?.name}
       </SizableText>
       <Icon flexShrink={0} name="PencilSolid" size="$4" color="$iconSubdued" />

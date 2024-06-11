@@ -1,6 +1,9 @@
+import { useIntl } from 'react-intl';
+
 import { Dialog, IconButton, SizableText, XStack } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 function DescriptionList({
@@ -20,6 +23,8 @@ function DescriptionList({
   );
 }
 export function AboutDevice({ device }: { device?: IDBDevice | undefined }) {
+  const intl = useIntl();
+
   const { result: listData = [] } = usePromiseResult(async () => {
     const featuresInfo = device?.featuresInfo;
     if (!featuresInfo) {
@@ -32,35 +37,37 @@ export function AboutDevice({ device }: { device?: IDBDevice | undefined }) {
       });
     return [
       {
-        label: 'Serial Number',
+        label: intl.formatMessage({ id: ETranslations.global_serial_number }),
         description: device.uuid || '--',
       },
       {
-        label: 'Bluetooth Name',
+        label: intl.formatMessage({ id: ETranslations.global_bluetooth }),
         description: featuresInfo.ble_name || '--',
       },
       {
-        label: 'Firmware Version',
+        label: intl.formatMessage({ id: ETranslations.global_firmware }),
         description: firmwareVersion || '--',
       },
       {
-        label: 'Bluetooth Firmware Version',
+        label: intl.formatMessage({
+          id: ETranslations.global_bluetooth_firmware,
+        }),
         description: bleVersion || '--',
       },
       {
-        label: 'Bootloader Version',
+        label: intl.formatMessage({ id: ETranslations.global_bootloader }),
         description: bootloaderVersion || '--',
       },
     ];
-  }, [device]);
+  }, [device, intl]);
   return (
     <IconButton
-      title="About"
+      title={intl.formatMessage({ id: ETranslations.global_about })}
       icon="InfoCircleOutline"
       variant="tertiary"
       onPress={() =>
         Dialog.show({
-          title: 'About',
+          title: intl.formatMessage({ id: ETranslations.global_about }),
           showFooter: false,
           renderContent: (
             <>

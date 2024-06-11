@@ -107,6 +107,7 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
 
   return (
     <Stack
+      testID="account-selector-wallet-list"
       w="$16"
       $gtMd={{
         w: '$32',

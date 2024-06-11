@@ -1,9 +1,12 @@
 import { useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IButtonProps } from '@onekeyhq/components';
 import { Button } from '@onekeyhq/components';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
@@ -27,6 +30,7 @@ export function AccountSelectorCreateAddressButton({
   };
   buttonRender?: (props: IButtonProps) => React.ReactNode;
 }) {
+  const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
 
   const { createAddress } = useAccountSelectorCreateAddress();
@@ -53,6 +57,8 @@ export function AccountSelectorCreateAddressButton({
         setIsLoading(false);
       }
     },
-    children: children || 'Create Address',
+    children:
+      children ||
+      intl.formatMessage({ id: ETranslations.global_create_address }),
   });
 }

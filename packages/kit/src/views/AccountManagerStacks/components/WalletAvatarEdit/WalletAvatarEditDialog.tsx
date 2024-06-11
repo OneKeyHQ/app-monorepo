@@ -10,6 +10,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { HdWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
 export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
@@ -83,7 +85,9 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
 
 export function showWalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
   Dialog.show({
-    title: 'Edit Avatar',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.global_edit_avatar,
+    }),
     estimatedContentHeight: 276,
     renderContent: <WalletAvatarEditDialog wallet={wallet} />,
   });

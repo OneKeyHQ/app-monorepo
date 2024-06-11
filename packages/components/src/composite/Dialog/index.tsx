@@ -12,9 +12,11 @@ import {
   useState,
 } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SheetGrabber } from '../../content';
@@ -70,10 +72,10 @@ function DialogFrame({
   showFooter = true,
   footerProps,
   onConfirm,
-  onConfirmText = 'Confirm',
+  onConfirmText,
   onCancel,
   onOpen,
-  onCancelText = 'Cancel',
+  onCancelText,
   tone,
   confirmButtonProps,
   cancelButtonProps,
@@ -86,6 +88,7 @@ function DialogFrame({
   showCancelButton = true,
   testID,
 }: IDialogProps) {
+  const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
   const [position, setPosition] = useState(0);
   const onBackdropPress = useMemo(
@@ -150,9 +153,19 @@ function DialogFrame({
         cancelButtonProps={cancelButtonProps}
         onConfirm={onConfirm}
         onCancel={handleCancelButtonPress}
-        onConfirmText={onConfirmText}
+        onConfirmText={
+          onConfirmText ||
+          intl.formatMessage({
+            id: ETranslations.global_confirm,
+          })
+        }
         confirmButtonProps={confirmButtonProps}
-        onCancelText={onCancelText}
+        onCancelText={
+          onCancelText ||
+          intl.formatMessage({
+            id: ETranslations.global_cancel,
+          })
+        }
       />
     </Stack>
   );

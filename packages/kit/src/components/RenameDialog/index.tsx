@@ -1,5 +1,7 @@
 import { Dialog, Input, Toast } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 export const showRenameDialog = (
   name: string,
@@ -13,7 +15,7 @@ export const showRenameDialog = (
   },
 ) =>
   Dialog.show({
-    title: 'Rename',
+    title: appLocale.intl.formatMessage({ id: ETranslations.global_rename }),
     renderContent: (
       <Dialog.Form formProps={{ values: { name } }}>
         <Dialog.FormField
@@ -38,7 +40,9 @@ export const showRenameDialog = (
         // fix toast dropped frames
         await close();
         Toast.success({
-          title: 'Change Saved',
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.feedback_change_saved,
+          }),
         });
       } catch (error: unknown) {
         Toast.error({
