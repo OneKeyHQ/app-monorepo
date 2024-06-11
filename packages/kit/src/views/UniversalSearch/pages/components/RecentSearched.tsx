@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   IconButton,
   SizableText,
@@ -12,6 +14,7 @@ import {
   useUniversalSearchActions,
   useUniversalSearchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EUniversalSearchType,
@@ -51,6 +54,7 @@ export function RecentSearched({
 }: {
   searchType?: EUniversalSearchType;
 }) {
+  const intl = useIntl();
   const [{ recentSearch }] = useUniversalSearchAtom();
 
   const actions = useUniversalSearchActions();
@@ -83,7 +87,7 @@ export function RecentSearched({
     <YStack px="$5" pb="$5">
       <XStack jc="space-between">
         <SizableText size="$headingSm" color="$textSubdued">
-          Recent searched
+          {intl.formatMessage({ id: ETranslations.global_recent_searched })}
         </SizableText>
         <IconButton
           variant="tertiary"

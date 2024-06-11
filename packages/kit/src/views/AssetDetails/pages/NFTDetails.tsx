@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalAssetDetailRoutes,
@@ -109,7 +110,7 @@ export function NFTDetails() {
       });
     } catch (e) {
       Toast.error({
-        title: intl.formatMessage({ id: 'msg__image_download_failed' }),
+        title: intl.formatMessage({ id: ETranslations.update_download_failed }),
       });
       setIsCollecting(false);
       return;
@@ -121,7 +122,9 @@ export function NFTDetails() {
           uploadResParams,
         );
         Toast.success({
-          title: intl.formatMessage({ id: 'msg__change_saved' }),
+          title: intl.formatMessage({
+            id: ETranslations.feedback_change_saved,
+          }),
         });
       } catch (e) {
         Toast.error({ title: (e as Error).message });
@@ -220,8 +223,13 @@ export function NFTDetails() {
                 <ImageContent nft={nft} />
               </Stack>
             </Stack>
-            <Button icon="ArrowTopOutline" mt="$5" onPress={handleSendPress}>
-              {intl.formatMessage({ id: 'action__send' })}
+            <Button
+              icon="ArrowTopOutline"
+              mt="$5"
+              variant="primary"
+              onPress={handleSendPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_send })}
             </Button>
           </Stack>
           <DetailContent networkId={networkId} nft={nft} />

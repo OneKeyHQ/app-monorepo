@@ -35,7 +35,7 @@ export function useSwapBuildTx() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [slippagePercentage] = useSwapSlippagePercentageAtom();
+  const [{ slippageItem }] = useSwapSlippagePercentageAtom();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [, setSwapApprovingTransaction] = useSwapApprovingTransactionAtom();
@@ -119,8 +119,8 @@ export function useSwapBuildTx() {
     ) {
       setSwapBuildTxFetching(true);
       const wrappedType = fromToken.isNative
-        ? EWrappedType.WITHDRAW
-        : EWrappedType.DEPOSIT;
+        ? EWrappedType.DEPOSIT
+        : EWrappedType.WITHDRAW;
       const wrappedInfo: IWrappedInfo = {
         from: swapFromAddressInfo.address,
         type: wrappedType,
@@ -233,7 +233,7 @@ export function useSwapBuildTx() {
       fromToken &&
       toToken &&
       fromTokenAmount &&
-      slippagePercentage &&
+      slippageItem &&
       selectQuote?.toAmount &&
       swapFromAddressInfo.address &&
       swapToAddressInfo.address &&
@@ -246,7 +246,7 @@ export function useSwapBuildTx() {
           toToken,
           toTokenAmount: selectQuote.toAmount,
           fromTokenAmount,
-          slippagePercentage: slippagePercentage.value,
+          slippagePercentage: slippageItem.value,
           receivingAddress: swapToAddressInfo.address,
           userAddress: swapFromAddressInfo.address,
           provider: selectQuote.info.provider,
@@ -283,7 +283,7 @@ export function useSwapBuildTx() {
                   res.result.fromTokenInfo.name ??
                   res.result.fromTokenInfo.symbol,
               },
-              to: swapToAddressInfo.address,
+              to: res.thorSwapCallData.vault,
               opReturn: res.thorSwapCallData.hasStreamingSwap
                 ? res.thorSwapCallData.memoStreamingSwap
                 : res.thorSwapCallData.memo,
@@ -318,7 +318,6 @@ export function useSwapBuildTx() {
             receivingAddress: swapToAddressInfo.address,
             swapBuildResData: res,
           };
-
           await navigationToSendConfirm({
             transfersInfo: transferInfo ? [transferInfo] : undefined,
             encodedTx,
@@ -338,7 +337,7 @@ export function useSwapBuildTx() {
     fromToken,
     toToken,
     fromTokenAmount,
-    slippagePercentage,
+    slippageItem,
     selectQuote,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,

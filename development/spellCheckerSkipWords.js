@@ -723,4 +723,5 @@ module.exports = [
   'Dex',
   'whitepaper',
   'sepolia',
+  'watchlist',
 ];

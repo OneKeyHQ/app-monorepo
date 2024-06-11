@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Divider,
   Icon,
@@ -15,11 +17,13 @@ import { WalletListView } from '@onekeyhq/kit/src/components/WalletListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const ListFooterComponent = ({ walletCount }: { walletCount: number }) => {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.push(EModalKeyTagRoutes.BackupRecoveryPhrase);
@@ -29,8 +33,9 @@ const ListFooterComponent = ({ walletCount }: { walletCount: number }) => {
       {walletCount ? (
         <YStack>
           <SizableText size="$bodySm" color="$textSubdued" px="$5" mt="$5">
-            Hardware wallets do not currently support backup to KeyTag, only App
-            wallets will appear here.
+            {intl.formatMessage({
+              id: ETranslations.settings_hardware_wallets_not_appear,
+            })}
           </SizableText>
           <XStack px="$5" pt="$5" pb="$4">
             <Divider />
@@ -39,7 +44,9 @@ const ListFooterComponent = ({ walletCount }: { walletCount: number }) => {
       ) : null}
       <ListItem
         icon="PencilOutline"
-        title="Enter Recovery Phrase"
+        title={intl.formatMessage({
+          id: ETranslations.global_enter_recovery_phrase,
+        })}
         drillIn
         onPress={onPress}
         renderIcon={
@@ -53,6 +60,7 @@ const ListFooterComponent = ({ walletCount }: { walletCount: number }) => {
 };
 
 const BackupWallet = () => {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const walletList = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets();
@@ -77,7 +85,9 @@ const BackupWallet = () => {
   );
   return (
     <Page>
-      <Page.Header title="Backup Wallet" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.settings_select_wallet })}
+      />
       <Page.Body>
         <WalletListView
           walletList={walletList}
