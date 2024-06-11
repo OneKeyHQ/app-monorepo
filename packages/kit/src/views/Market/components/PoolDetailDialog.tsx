@@ -155,10 +155,17 @@ export function PoolDetailDialog({
             id: ETranslations.global_age,
           })}
         >
-          {`${differenceInDays(
-            new Date(),
-            new Date(attributes.poolCreatedAt),
-          )} days`}
+          {intl.formatMessage(
+            {
+              id: ETranslations.market_number_of_days,
+            },
+            {
+              number: differenceInDays(
+                new Date(),
+                new Date(attributes.poolCreatedAt),
+              ),
+            },
+          )}
         </PoolDetailsItem>
       </XStack>
       <YStack space="$6" pt="$6" pb="$10">
