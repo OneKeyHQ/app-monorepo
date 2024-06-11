@@ -43,7 +43,6 @@ export function KitProvider() {
           <PasswordVerifyPromptMount />
           <LastActivityTracker />
         </ThemeProvider>
-        <PasswordVerifyPromptMount />
         <WebViewWebEmbedProvider />
         <LastActivityTracker />
         <InAppNotification />
