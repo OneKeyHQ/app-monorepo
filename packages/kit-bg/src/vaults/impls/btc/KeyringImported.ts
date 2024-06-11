@@ -1,6 +1,5 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
-  ECoreApiPrivateKeySource,
   type ISignedMessagePro,
   type ISignedTxPro,
 } from '@onekeyhq/core/src/types';
@@ -30,30 +29,7 @@ export class KeyringImported extends KeyringImportedBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const { password, keyType } = params;
-    const networkInfo = await this.getCoreApiNetworkInfo();
-
-    const { privateKeyRaw } = await this.getDefaultPrivateKey({
-      password,
-    });
-
-    return this.coreApi.getExportedSecretKey({
-      password,
-      keyType,
-      privateKeyRaw,
-      privateKeySource: ECoreApiPrivateKeySource.imported,
-      networkInfo,
-    });
-
-    // if (params.xprvt) {
-    //   const privateKeysMap = await this.getPrivateKeys({
-    //     password,
-    //     // relPaths: ['0/0'],
-    //   });
-    //   const [encryptedPrivateKey] = Object.values(privateKeysMap);
-    //   result.xprvt = bs58check.encode(decrypt(password, encryptedPrivateKey));
-    // }
-    // return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(

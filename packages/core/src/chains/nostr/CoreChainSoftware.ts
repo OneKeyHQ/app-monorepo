@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
@@ -20,6 +21,7 @@ import type {
   ICoreApiGetAddressQueryPublicKey,
   ICoreApiGetAddressesQueryHd,
   ICoreApiGetAddressesResult,
+  ICoreApiGetExportedSecretKey,
   ICoreApiNetworkInfo,
   ICoreApiPrivateKeysMap,
   ICoreApiSignBasePayload,
@@ -33,6 +35,13 @@ import type {
 const curve: ICurveName = 'secp256k1';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override getExportedSecretKey(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    throw new NotImplemented('Method not implemented.');
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {

@@ -1,5 +1,5 @@
-import type { StdSignDoc } from './sdkCosmos';
-import type { ProtoMsgsOrWithAminoMsgs } from './sdkCosmos/ITxMsgBuilder';
+import type { ICosmosStdSignDoc } from './sdkCosmos';
+import type { ICosmosProtoMsgsOrWithAminoMsgs } from './sdkCosmos/ITxMsgBuilder';
 
 export interface ICosmosCoin {
   denom: string;
@@ -24,6 +24,6 @@ export interface ICosmosStdFee {
 
 export interface IEncodedTxCosmos {
   mode: string;
-  msg: ProtoMsgsOrWithAminoMsgs | undefined;
-  signDoc: StdSignDoc | ICosmosSignDocHex;
-};
+  msg: ICosmosProtoMsgsOrWithAminoMsgs | undefined;
+  signDoc: ICosmosStdSignDoc | ICosmosSignDocHex;
+}

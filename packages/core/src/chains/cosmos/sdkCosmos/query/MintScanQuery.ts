@@ -3,20 +3,20 @@ import BigNumber from 'bignumber.js';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 
-import type { AxiosInstance } from 'axios';
 import type {
-  Cw20TokenBalance,
-  Cw20AssetInfo as ICw20AssetInfo,
+  ICosmosCw20TokenBalance,
+  ICosmosQueryChainInfo,
+  ICosmosCw20AssetInfo as ICw20AssetInfo,
   IQuery,
-  QueryChainInfo,
 } from './IQuery';
 import type {
-  AssetInfo,
-  ContractsInfo,
-  Cw20AssetInfo,
-  RelayerPaths,
-  Transaction,
+  ICosmosAssetInfo,
+  ICosmosContractsInfo,
+  ICosmosCw20AssetInfo,
+  ICosmosRelayerPaths,
+  ICosmosTransaction,
 } from './mintScanTypes';
+import type { AxiosInstance } from 'axios';
 
 const NetworkIDMinScanMap: Record<string, string> = {
   [getNetworkIdsMap().cryptoorgchain]: 'cryptoorg',
@@ -39,11 +39,13 @@ export class MintScanQuery implements IQuery {
     });
   }
 
-  async fetchCw20TokenInfos(networkId: string): Promise<Cw20AssetInfo[]> {
+  async fetchCw20TokenInfos(
+    networkId: string,
+  ): Promise<ICosmosCw20AssetInfo[]> {
     const chain = NetworkIDMinScanMap[networkId];
     if (!chain) return [];
     try {
-      const resp = await this.axios.get<{ assets: Cw20AssetInfo[] }>(
+      const resp = await this.axios.get<{ assets: ICosmosCw20AssetInfo[] }>(
         `/v2/assets/${chain}/cw20`,
       );
       return resp.data.assets;
@@ -53,7 +55,7 @@ export class MintScanQuery implements IQuery {
   }
 
   async queryCw20TokenInfo(
-    chainInfo: QueryChainInfo,
+    chainInfo: ICosmosQueryChainInfo,
     contractAddressArray: string[],
   ): Promise<ICw20AssetInfo[]> {
     const { networkId } = chainInfo;
@@ -79,25 +81,25 @@ export class MintScanQuery implements IQuery {
   }
 
   async queryCw20TokenBalance(
-    chainInfo: QueryChainInfo,
+    chainInfo: ICosmosQueryChainInfo,
     contractAddress: string,
     address: string[],
-  ): Promise<Cw20TokenBalance[]> {
+  ): Promise<ICosmosCw20TokenBalance[]> {
     const balance = address.reduce((acc, cur) => {
       acc.push({
         address: cur,
         balance: new BigNumber('0'),
       });
       return acc;
-    }, [] as Cw20TokenBalance[]);
+    }, [] as ICosmosCw20TokenBalance[]);
     return Promise.resolve(balance);
   }
 
-  async fetchAssertInfos(networkId: string): Promise<AssetInfo[]> {
+  async fetchAssertInfos(networkId: string): Promise<ICosmosAssetInfo[]> {
     const chain = NetworkIDMinScanMap[networkId];
     if (!chain) return [];
     try {
-      const resp = await this.axios.get<{ assets: AssetInfo[] }>(
+      const resp = await this.axios.get<{ assets: ICosmosAssetInfo[] }>(
         `/v2/assets/${chain}`,
       );
       return resp.data.assets;
@@ -109,12 +111,12 @@ export class MintScanQuery implements IQuery {
   async fetchContractsInfo(
     networkId: string,
     contracts: string,
-  ): Promise<ContractsInfo | undefined> {
+  ): Promise<ICosmosContractsInfo | undefined> {
     try {
       const chain = NetworkIDMinScanMap[networkId];
       if (!chain) return;
 
-      const resp = await this.axios.get<{ contract: ContractsInfo }>(
+      const resp = await this.axios.get<{ contract: ICosmosContractsInfo }>(
         `/v1/${chain}/wasm/contracts/${contracts}`,
       );
       return resp.data.contract;
@@ -128,7 +130,7 @@ export class MintScanQuery implements IQuery {
       const chain = NetworkIDMinScanMap[networkId];
       if (!chain) return;
 
-      const resp = await this.axios.get<{ sendable: RelayerPaths[] }>(
+      const resp = await this.axios.get<{ sendable: ICosmosRelayerPaths[] }>(
         `/v1/relayer/${chain}/paths`,
       );
       return resp.data.sendable;
@@ -148,7 +150,7 @@ export class MintScanQuery implements IQuery {
       const chain = NetworkIDMinScanMap[networkId];
       if (!chain) return;
 
-      const resp = await this.axios.get<Transaction[]>(
+      const resp = await this.axios.get<ICosmosTransaction[]>(
         `/v1/${chain}/account/${address}/txs?limit=${limit}&from=${from}`,
       );
       return resp.data;

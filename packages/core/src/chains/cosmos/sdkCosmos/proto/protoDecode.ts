@@ -13,16 +13,16 @@ import {
 } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
 import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
 
-import { MessageType, UnknownMessage } from '../message';
+import { ECosmosMessageType, UnknownMessage } from '../message';
 
 import type { Any } from 'cosmjs-types/google/protobuf/any';
 import type * as $protobuf from 'protobufjs';
 
-export type UnpackedMessage =
+export type ICosmosUnpackedMessage =
   | Any
-  | (Any & { unpacked: any; factory?: ProtoFactory });
+  | (Any & { unpacked: any; factory?: ICosmosProtoFactory });
 
-interface ProtoFactory {
+interface ICosmosProtoFactory {
   encode: (message: any, writer?: $protobuf.Writer) => $protobuf.Writer;
   decode: (r: $protobuf.Reader | Uint8Array, l?: number) => any;
   fromJSON: (object: any) => any;
@@ -30,9 +30,9 @@ interface ProtoFactory {
 }
 
 export class ProtoDecode {
-  protected typeUrlFactoryMap: Map<string, ProtoFactory> = new Map();
+  protected typeUrlFactoryMap: Map<string, ICosmosProtoFactory> = new Map();
 
-  unpackMessage(any: Any): UnpackedMessage {
+  unpackMessage(any: Any): ICosmosUnpackedMessage {
     const factory = this.typeUrlFactoryMap.get(any.typeUrl);
 
     if (!factory) {
@@ -48,43 +48,52 @@ export class ProtoDecode {
     };
   }
 
-  registerFactory(typeUrl: string, message: ProtoFactory): void {
+  registerFactory(typeUrl: string, message: ICosmosProtoFactory): void {
     this.typeUrlFactoryMap.set(typeUrl, message);
   }
 }
 
 export const defaultProtoDecodeRegistry = new ProtoDecode();
-defaultProtoDecodeRegistry.registerFactory(MessageType.SEND, MsgSend);
-defaultProtoDecodeRegistry.registerFactory(MessageType.DELEGATE, MsgDelegate);
+defaultProtoDecodeRegistry.registerFactory(ECosmosMessageType.SEND, MsgSend);
 defaultProtoDecodeRegistry.registerFactory(
-  MessageType.UNDELEGATE,
+  ECosmosMessageType.DELEGATE,
+  MsgDelegate,
+);
+defaultProtoDecodeRegistry.registerFactory(
+  ECosmosMessageType.UNDELEGATE,
   MsgUndelegate,
 );
 defaultProtoDecodeRegistry.registerFactory(
-  MessageType.REDELEGATE,
+  ECosmosMessageType.REDELEGATE,
   MsgBeginRedelegate,
 );
 defaultProtoDecodeRegistry.registerFactory(
-  MessageType.EXECUTE_CONTRACT,
+  ECosmosMessageType.EXECUTE_CONTRACT,
   MsgExecuteContract,
 );
 defaultProtoDecodeRegistry.registerFactory(
-  MessageType.TERRA_EXECUTE_CONTRACT,
+  ECosmosMessageType.TERRA_EXECUTE_CONTRACT,
   MsgExecuteContract,
 );
 defaultProtoDecodeRegistry.registerFactory(
-  MessageType.INSTANTIATE_CONTRACT,
+  ECosmosMessageType.INSTANTIATE_CONTRACT,
   MsgInstantiateContract,
 );
 defaultProtoDecodeRegistry.registerFactory(
-  MessageType.WITHDRAW_DELEGATOR_REWARD,
+  ECosmosMessageType.WITHDRAW_DELEGATOR_REWARD,
   MsgWithdrawDelegatorReward,
 );
 defaultProtoDecodeRegistry.registerFactory(
-  MessageType.IBC_TRANSFER,
+  ECosmosMessageType.IBC_TRANSFER,
   MsgTransfer,
 );
-defaultProtoDecodeRegistry.registerFactory(MessageType.VOTE, MsgVote);
-defaultProtoDecodeRegistry.registerFactory(MessageType.DEPOSIT, MsgDeposit);
-defaultProtoDecodeRegistry.registerFactory(MessageType.GRANT, MsgGrant);
-defaultProtoDecodeRegistry.registerFactory(MessageType.REVOKE, MsgRevoke);
+defaultProtoDecodeRegistry.registerFactory(ECosmosMessageType.VOTE, MsgVote);
+defaultProtoDecodeRegistry.registerFactory(
+  ECosmosMessageType.DEPOSIT,
+  MsgDeposit,
+);
+defaultProtoDecodeRegistry.registerFactory(ECosmosMessageType.GRANT, MsgGrant);
+defaultProtoDecodeRegistry.registerFactory(
+  ECosmosMessageType.REVOKE,
+  MsgRevoke,
+);

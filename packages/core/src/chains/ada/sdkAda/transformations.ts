@@ -1,6 +1,6 @@
 import type { IAdaUTXO } from '../types';
 
-export enum CardanoAddressType {
+export enum ECardanoAddressType {
   BASE = 0,
   BASE_SCRIPT_KEY = 1,
   BASE_KEY_SCRIPT = 2,
@@ -14,95 +14,95 @@ export enum CardanoAddressType {
   REWARD_SCRIPT = 15,
 }
 
-interface Utxo {
+interface IAdaUtxo {
   address: string;
   txHash: string;
   outputIndex: number;
-  amount: Asset[];
+  amount: IAdaAsset[];
 }
 
-interface Asset {
+interface IAdaAsset {
   unit: string;
   quantity: string;
 }
 
-interface CardanoInput {
+interface ICardanoInput {
   path?: string | number[];
   prev_hash: string;
   prev_index: number;
 }
 
-interface AssetInPolicy {
+interface IAdaAssetInPolicy {
   assetNameBytes: string;
   amount: string;
 }
 
-export interface BaseOutput {
+export interface IAdaBaseOutput {
   setMax?: boolean;
   isChange?: boolean;
-  assets: Asset[];
+  assets: IAdaAsset[];
 }
 
-export interface ExternalOutput extends BaseOutput {
+export interface IAdaExternalOutput extends IAdaBaseOutput {
   amount: string;
   address: string;
   setMax?: false;
 }
 
-export interface ExternalOutputIncomplete extends BaseOutput {
+export interface IAdaExternalOutputIncomplete extends IAdaBaseOutput {
   amount?: string | undefined;
   address?: string;
   setMax: boolean;
 }
 
-export interface ChangeOutput extends BaseOutput {
+export interface IAdaChangeOutput extends IAdaBaseOutput {
   amount: string;
   address: string;
   isChange: true;
 }
 
-export type FinalOutput = ExternalOutput | ChangeOutput;
+export type IAdaFinalOutput = IAdaExternalOutput | IAdaChangeOutput;
 
-export type CardanoToken = {
+export type ICardanoToken = {
   assetNameBytes: string;
   amount: string;
 };
 
-export type CardanoAssetGroup = {
+export type ICardanoAssetGroup = {
   policyId: string;
-  tokenAmounts: CardanoToken[];
+  tokenAmounts: ICardanoToken[];
 };
 
-export interface CardanoCertificatePointer {
+export interface ICardanoCertificatePointer {
   blockIndex: number;
   txIndex: number;
   certificateIndex: number;
 }
 
-export interface CardanoAddressParameters {
-  addressType: CardanoAddressType;
+export interface ICardanoAddressParameters {
+  addressType: ECardanoAddressType;
   path: string | number[];
   stakingPath?: string | number[];
   stakingKeyHash?: string;
-  certificatePointer?: CardanoCertificatePointer;
+  certificatePointer?: ICardanoCertificatePointer;
 }
 
-export type CardanoOutput =
+export type ICardanoOutput =
   | {
-      addressParameters: CardanoAddressParameters;
+      addressParameters: ICardanoAddressParameters;
       amount: string;
-      tokenBundle?: CardanoAssetGroup[];
+      tokenBundle?: ICardanoAssetGroup[];
     }
   | {
       address: string;
       amount: string;
-      tokenBundle?: CardanoAssetGroup[];
+      tokenBundle?: ICardanoAssetGroup[];
     };
 
 export const transformToOneKeyInputs = (
-  utxos: Utxo[],
+  utxos: IAdaUtxo[],
   onekeyUtxos: IAdaUTXO[],
-): CardanoInput[] =>
+): ICardanoInput[] =>
   utxos.map((utxo) => {
     const utxoWithPath = onekeyUtxos.find(
       (u) => u.tx_hash === utxo.txHash && +u.output_index === utxo.outputIndex,
@@ -132,7 +132,7 @@ export const parseAsset = (
   };
 };
 
-export const transformToTokenBundle = (assets: Asset[]) => {
+export const transformToTokenBundle = (assets: IAdaAsset[]) => {
   // prepare token bundle used in trezor output
   if (assets.length === 0) return undefined;
 
@@ -146,10 +146,10 @@ export const transformToTokenBundle = (assets: Asset[]) => {
 
   const assetsByPolicy: {
     policyId: string;
-    tokenAmounts: AssetInPolicy[];
+    tokenAmounts: IAdaAssetInPolicy[];
   }[] = [];
   uniquePolicies.forEach((policyId) => {
-    const assetsInPolicy: AssetInPolicy[] = [];
+    const assetsInPolicy: IAdaAssetInPolicy[] = [];
     assets.forEach((asset) => {
       const assetInfo = parseAsset(asset.unit);
       if (assetInfo.policyId !== policyId) return;
@@ -169,13 +169,13 @@ export const transformToTokenBundle = (assets: Asset[]) => {
 };
 
 export const transformToOneKeyOutputs = (
-  outputs: FinalOutput[],
-  changeAddressParameters: CardanoAddressParameters,
-): CardanoOutput[] =>
+  outputs: IAdaFinalOutput[],
+  changeAddressParameters: ICardanoAddressParameters,
+): ICardanoOutput[] =>
   outputs.map((output) => {
     let params:
       | { address: string }
-      | { addressParameters: CardanoAddressParameters };
+      | { addressParameters: ICardanoAddressParameters };
 
     if (output.isChange) {
       params = {

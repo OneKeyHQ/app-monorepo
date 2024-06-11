@@ -1,7 +1,7 @@
 import type { ICosmosCoin } from '../types';
 import type { Any } from 'cosmjs-types/google/protobuf/any';
 
-export enum MessageType {
+export enum ECosmosMessageType {
   SEND = '/cosmos.bank.v1beta1.MsgSend',
   DELEGATE = '/cosmos.staking.v1beta1.MsgDelegate',
   UNDELEGATE = '/cosmos.staking.v1beta1.MsgUndelegate',
@@ -51,11 +51,11 @@ export class UnknownMessage implements Any {
 }
 
 // ======== RPC ========
-export interface Message {
+export interface ICosmosMessage {
   '@type': string;
 }
 
-export interface SendMessage extends Message {
+export interface ICosmosSendMessage extends ICosmosMessage {
   readonly fromAddress: string;
   readonly toAddress: string;
   amount: ICosmosCoin[];

@@ -1,4 +1,4 @@
-import type { MoneroUtilInstance } from './moneroUtilTypes';
+import type { IMoneroUtilInstance } from './moneroUtilTypes';
 
-declare const instantiate: (importObj: any) => Promise<MoneroUtilInstance>;
+declare const instantiate: (importObj: any) => Promise<IMoneroUtilInstance>;
 export default instantiate;

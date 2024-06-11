@@ -2,7 +2,7 @@ import { Address } from '@kaspa/core-lib';
 
 import type { PublicKey } from '@kaspa/core-lib';
 
-export enum AddressType {
+export enum EKaspaAddressType {
   PayToPublicKey = 'pubkey',
   PayToScriptHash = 'scripthash',
 }
@@ -28,7 +28,7 @@ export function addressFromPublicKey(
 export function fromString(
   address: string,
   chainId: string,
-  addressType: AddressType = AddressType.PayToPublicKey,
+  addressType: EKaspaAddressType = EKaspaAddressType.PayToPublicKey,
 ): Address {
   // @ts-expect-error
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return
@@ -38,7 +38,7 @@ export function fromString(
 export function isValidAddress(
   address: string,
   chainId: string,
-  addressType: AddressType = AddressType.PayToPublicKey,
+  addressType: EKaspaAddressType = EKaspaAddressType.PayToPublicKey,
 ): boolean {
   // @ts-expect-error
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return

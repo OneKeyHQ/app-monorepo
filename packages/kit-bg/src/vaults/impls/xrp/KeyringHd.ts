@@ -27,13 +27,7 @@ export class KeyringHd extends KeyringHdBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const result = await this.baseExportAccountSecretKeys(params);
-    if (result.privateKey) {
-      result.privateKey = `00${hexUtils
-        .stripHexPrefix(result.privateKey)
-        .toUpperCase()}`;
-    }
-    return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(

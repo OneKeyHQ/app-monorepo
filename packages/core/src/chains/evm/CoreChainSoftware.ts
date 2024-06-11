@@ -35,28 +35,24 @@ import {
 const curve: ICurveName = 'secp256k1';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
-  override async getPrivateKeys(
-    payload: ICoreApiSignBasePayload,
-  ): Promise<ICoreApiPrivateKeysMap> {
-    return this.baseGetPrivateKeys({
-      payload,
-      curve,
-    });
-  }
-
   override async getExportedSecretKey(
     query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
-    console.log('getExportedSecretKey evm');
     const {
       // networkInfo,
-      privateKeyRaw,
       // privateKeySource,
       password,
       keyType,
+      credentials,
       // xpub,
       // addressEncoding,
     } = query;
+    console.log(
+      'ExportSecretKeys >>>> evm',
+      this.baseGetCredentialsType({ credentials }),
+    );
+
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
       throw new Error('privateKeyRaw is required');
@@ -65,6 +61,15 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       return `0x${decrypt(password, privateKeyRaw).toString('hex')}`;
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
+  }
+
+  override async getPrivateKeys(
+    payload: ICoreApiSignBasePayload,
+  ): Promise<ICoreApiPrivateKeysMap> {
+    return this.baseGetPrivateKeys({
+      payload,
+      curve,
+    });
   }
 
   override async signTransaction(

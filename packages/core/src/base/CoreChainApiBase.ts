@@ -1,5 +1,9 @@
 import { merge } from 'lodash';
 
+import type {
+  IGetDefaultPrivateKeyParams,
+  IGetDefaultPrivateKeyResult,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -13,27 +17,29 @@ import {
   nistp256,
   secp256k1,
 } from '../secret';
+import {
+  ECoreCredentialType,
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressQueryPublicKey,
+  type ICoreApiGetAddressesQueryHd,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiGetPrivateKeysMapHdQuery,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignMsgPayload,
+  type ICoreApiSignTxPayload,
+  type ICoreCredentialsInfo,
+  type ICurveName,
+  type ISignedTxPro,
+} from '../types';
 import { slicePathTemplate } from '../utils';
 
 import { ChainSigner } from './ChainSigner';
 
-import type { ISecretPrivateKeyInfo, ISecretPublicKeyInfo } from '../secret';
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesResult,
-  ICoreApiGetExportedSecretKey,
-  ICoreApiGetPrivateKeysMapHdQuery,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
-  ICoreApiSignTxPayload,
-  ICurveName,
-  ISignedTxPro,
-} from '../types';
 import type { ISigner } from './ChainSigner';
+import type { ISecretPrivateKeyInfo, ISecretPublicKeyInfo } from '../secret';
 
 export abstract class CoreChainApiBase {
   protected baseGetCurve(curveName: ICurveName) {
@@ -77,7 +83,7 @@ export abstract class CoreChainApiBase {
     let privateKey = privateKeys[accountPath];
 
     // account.path is prefixPath, but privateKeys return fullPath map
-    const firstRelPath = payload.account.relPaths?.[0];
+    const firstRelPath = payload?.relPaths?.[0];
     if (!privateKey && firstRelPath) {
       const fullPath = [accountPath, firstRelPath].join('/');
       privateKey = privateKeys[fullPath];
@@ -101,7 +107,7 @@ export abstract class CoreChainApiBase {
     payload: ICoreApiSignBasePayload;
     curve: ICurveName;
   }): Promise<ICoreApiPrivateKeysMap> {
-    const { credentials, account, password } = payload;
+    const { credentials, account, password, relPaths } = payload;
     let privateKeys: ICoreApiPrivateKeysMap = {};
     if (credentials.hd && credentials.imported) {
       throw new OneKeyInternalError(
@@ -109,13 +115,12 @@ export abstract class CoreChainApiBase {
       );
     }
     if (credentials.hd) {
-      // build account.relPaths by _getRelPathsToAddressByApi()
-      const { relPaths } = account;
       privateKeys = await this.baseGetPrivateKeysHd({
         curve,
         account,
         hdCredential: credentials.hd,
         password,
+        // build account.relPaths by _getRelPathsToAddressByApi()
         relPaths,
       });
     }
@@ -240,6 +245,37 @@ export abstract class CoreChainApiBase {
       }),
     );
     return { addresses };
+  }
+
+  baseGetCredentialsType({
+    credentials,
+  }: {
+    credentials: ICoreCredentialsInfo;
+  }) {
+    if (credentials.hd && credentials.imported) {
+      throw new OneKeyInternalError(
+        'getCredentialsType ERROR: hd and imported credentials can NOT both set.',
+      );
+    }
+    if (credentials.hd) {
+      return ECoreCredentialType.hd;
+    }
+    if (credentials.imported) {
+      return ECoreCredentialType.imported;
+    }
+    throw new OneKeyInternalError(
+      'getCredentialsType ERROR: no credentials found',
+    );
+  }
+
+  async baseGetDefaultPrivateKey(
+    params: IGetDefaultPrivateKeyParams,
+  ): Promise<IGetDefaultPrivateKeyResult> {
+    const privateKeysMap = await this.getPrivateKeys(params);
+    const [encryptedPrivateKey] = Object.values(privateKeysMap);
+    return {
+      privateKeyRaw: encryptedPrivateKey,
+    };
   }
 
   // ----------------------------------------------

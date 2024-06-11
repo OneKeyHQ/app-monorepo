@@ -4,7 +4,7 @@ import instantiate from './moneroUtil';
 // @ts-ignore
 import wasmBinaryFileName from './moneroUtil.wasm.bin';
 
-import type { MoneroUtilInstance } from './moneroUtilTypes';
+import type { IMoneroUtilInstance } from './moneroUtilTypes';
 
 const locateFile = (file: string) => {
   if (file !== 'moneroUtil.wasm') {
@@ -15,7 +15,7 @@ const locateFile = (file: string) => {
 
 export const loadWasmInstance = async (
   importObj: any,
-): Promise<MoneroUtilInstance | null> => {
+): Promise<IMoneroUtilInstance | null> => {
   importObj.locateFile = locateFile;
   return instantiate(importObj);
 };
