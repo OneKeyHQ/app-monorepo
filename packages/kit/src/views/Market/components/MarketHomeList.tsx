@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
@@ -44,6 +45,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -143,19 +145,6 @@ type ITableColumnConfig = Record<
   string,
   (item: IMarketToken) => ReactElement | string
 >;
-
-const useBuildTableHeaderConfig = () =>
-  ({
-    'serialNumber': () => '#',
-    'name': () => 'Name',
-    'price': () => 'Price',
-    'priceChangePercentage1H': () => '1h%',
-    'priceChangePercentage24H': () => '24h%',
-    'priceChangePercentage7D': () => '7d%',
-    'totalVolume': () => '24h volume',
-    'marketCap': () => 'Market cap',
-    'sparkline': () => 'Last 7 days',
-  } as ITableColumnConfig);
 
 const useBuildTableRowConfig = (showMoreAction = false) => {
   const navigation = useAppNavigation();
@@ -267,14 +256,14 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
             width={100}
             height={40}
             lineColor={
-              item.priceChangePercentage24H &&
-              Number(item.priceChangePercentage24H) >= 0
+              item.priceChangePercentage7D &&
+              Number(item.priceChangePercentage7D) >= 0
                 ? colors[0]
                 : colors[1]
             }
             linearGradientColor={
-              item.priceChangePercentage24H &&
-              Number(item.priceChangePercentage24H) >= 0
+              item.priceChangePercentage7D &&
+              Number(item.priceChangePercentage7D) >= 0
                 ? colors[0]
                 : colors[1]
             }
@@ -663,6 +652,7 @@ function BasicMarketHomeList({
   category: IMarketCategory;
   showMoreAction?: boolean;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
 
   const { result: listData } = usePromiseResult(
@@ -694,7 +684,30 @@ function BasicMarketHomeList({
 
   const { gtMd, md } = useMedia();
 
-  const tableHeaderConfig = useBuildTableHeaderConfig();
+  const tableHeaderConfig = useMemo(
+    () => ({
+      'serialNumber': () => '#',
+      'name': () => intl.formatMessage({ id: ETranslations.global_name }),
+      'price': () => intl.formatMessage({ id: ETranslations.global_price }),
+      'priceChangePercentage1H': () =>
+        intl.formatMessage({ id: ETranslations.market_one_hour_percentage }),
+      'priceChangePercentage24H': () =>
+        intl.formatMessage({
+          id: ETranslations.market_twenty_four_hour_percentage,
+        }),
+      'priceChangePercentage7D': () =>
+        intl.formatMessage({ id: ETranslations.market_seven_day_percentage }),
+      'totalVolume': () =>
+        intl.formatMessage({
+          id: ETranslations.market_twenty_four_hour_volume,
+        }),
+      'marketCap': () =>
+        intl.formatMessage({ id: ETranslations.global_market_cap }),
+      'sparkline': () =>
+        intl.formatMessage({ id: ETranslations.market_last_seven_days }),
+    }),
+    [intl],
+  );
 
   const filterCoingeckoIdsListData = useMemo(
     () =>
@@ -880,7 +893,7 @@ function BasicMarketHomeList({
     ({ label }: { label?: string }) => (
       <XStack ai="center" space="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {label || 'Default'}
+          {label}
         </SizableText>
         <Icon name="ChevronDownSmallSolid" size="$4" />
       </XStack>
@@ -907,36 +920,38 @@ function BasicMarketHomeList({
   const selectOptions = useMemo(
     () => [
       {
-        label: 'Default',
+        label: intl.formatMessage({ id: ETranslations.global_default }),
         value: 'Default',
       },
       {
-        label: 'Last price',
+        label: intl.formatMessage({ id: ETranslations.market_last_price }),
         value: 'Last price',
         options: { columnName: 'price', order: 'desc' },
       },
       {
-        label: 'Most 24h volume',
+        label: intl.formatMessage({ id: ETranslations.market_most_24h_volume }),
         value: 'Most 24h volume',
         options: { columnName: 'totalVolume', order: 'desc' },
       },
       {
-        label: 'Most market cap',
+        label: intl.formatMessage({ id: ETranslations.market_most_market_cap }),
         value: 'Most market cap',
         options: { columnName: 'marketCap', order: 'desc' },
       },
       {
-        label: 'Price change up',
+        label: intl.formatMessage({ id: ETranslations.market_price_change_up }),
         value: 'Price change up',
         options: { columnName: mdColumnKeys[1], order: 'desc' },
       },
       {
-        label: 'Price change down',
+        label: intl.formatMessage({
+          id: ETranslations.market_price_change_down,
+        }),
         value: 'Price change down',
         options: { columnName: mdColumnKeys[1], order: 'desc' },
       },
     ],
-    [mdColumnKeys],
+    [intl, mdColumnKeys],
   );
 
   const handleMdSortByTypeChange = useCallback(

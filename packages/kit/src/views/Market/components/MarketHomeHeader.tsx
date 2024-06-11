@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { MarketHomeHeaderSearchBar } from './MarketHomeHeaderSearchBar';
 
@@ -19,7 +20,7 @@ export function MarketHomeHeader() {
   );
   return (
     <Page.Header
-      title={intl.formatMessage({ id: 'title__market' })}
+      title={intl.formatMessage({ id: ETranslations.global_market })}
       headerLeft={renderHeaderLeft}
       headerRight={renderHeaderRight}
     />
