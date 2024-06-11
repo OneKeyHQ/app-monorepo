@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Icon,
@@ -11,6 +13,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
@@ -83,6 +86,7 @@ function RecommendItem({
 
 const maxSize = 8;
 export function MarketWatchList({ category }: { category: IMarketCategory }) {
+  const intl = useIntl();
   const [{ data: watchListCoingeckoIds, loading }] = useMarketWatchListAtom();
 
   const actions = useWatchListAction();
@@ -122,12 +126,15 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
         variant="primary"
         onPress={handleAddTokens}
       >
-        {coingeckoIds.length
-          ? `Add ${coingeckoIds.length} tokens`
-          : 'Add tokens'}
+        {intl.formatMessage(
+          {
+            id: ETranslations.market_add_number_tokens,
+          },
+          { number: coingeckoIds.length || 0 },
+        )}
       </Button>
     ),
-    [coingeckoIds.length, handleAddTokens],
+    [coingeckoIds.length, handleAddTokens, intl],
   );
   const listCategory = useMemo(
     () =>
@@ -153,7 +160,9 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
                 platformEnv.isExtensionUiPopup ? '$headingXl' : '$heading3xl'
               }
             >
-              Your watchlist is empty
+              {intl.formatMessage({
+                id: ETranslations.market_empty_watchlist_title,
+              })}
             </SizableText>
             <SizableText
               size={
@@ -163,7 +172,9 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
               }
               pt="$2"
             >
-              Add your favorite tokens to watchlist
+              {intl.formatMessage({
+                id: ETranslations.market_empty_watchlist_desc,
+              })}
             </SizableText>
             <YStack
               pt={platformEnv.isExtensionUiPopup ? '$5' : '$8'}
@@ -204,6 +215,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     confirmButton,
     gtMd,
     handleRecommendItemChange,
+    intl,
   ]);
   if (loading) {
     return null;
