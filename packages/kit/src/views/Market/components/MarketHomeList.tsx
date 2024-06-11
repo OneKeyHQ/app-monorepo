@@ -810,7 +810,7 @@ function BasicMarketHomeList({
             },
       );
     },
-    [actions, showMoreAction],
+    [actions, intl, showMoreAction],
   );
 
   const renderMdItem = useCallback(
