@@ -90,13 +90,15 @@ export const LidoStake = ({
     return false;
   }, [minAmount, amountValue]);
 
-  const isDisable = useMemo(
-    () =>
-      BigNumber(amountValue).isNaN() ||
+  const isDisable = useMemo(() => {
+    const amountValueBN = BigNumber(amountValue);
+    return (
+      amountValueBN.isNaN() ||
+      amountValueBN.isLessThanOrEqualTo(0) ||
       isInsufficientBalance ||
-      isLessThanMinAmount,
-    [amountValue, isInsufficientBalance, isLessThanMinAmount],
-  );
+      isLessThanMinAmount
+    );
+  }, [amountValue, isInsufficientBalance, isLessThanMinAmount]);
 
   const estAnnualRewards = useMemo(() => {
     const bn = BigNumber(amountValue);

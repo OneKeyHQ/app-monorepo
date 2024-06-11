@@ -13,4 +13,5 @@ export enum EReasonForNeedPassword {
   CreateTransaction = 'CreateTransaction',
   LightningNetworkAuth = 'LightningNetworkAuth',
   Security = 'Security',
+  Default = 'Default', // Default is for the case that the reason is not specified
 }

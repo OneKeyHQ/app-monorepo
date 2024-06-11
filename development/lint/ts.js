@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const { exit } = require('process');
 
-const MAX_PROBLEM_COUNT = 375;
+const MAX_PROBLEM_COUNT = 374;
 
 function handleProblems(result) {
   console.log(result);
@@ -19,6 +19,7 @@ try {
   const result = execSync(
     `sh -c 'npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty'`,
   ).toString('utf-8');
+  console.log(result);
 } catch (error) {
   const errorMsg = error.stdout.toString('utf-8');
   handleProblems(errorMsg);

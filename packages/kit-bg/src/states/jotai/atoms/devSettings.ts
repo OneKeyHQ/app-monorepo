@@ -8,6 +8,8 @@ export interface IDevSettings {
   enableTestEndpoint?: boolean;
   // enable dev overlay window
   showDevOverlayWindow?: boolean;
+  // always signOnly send tx
+  alwaysSignOnlySendTx?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

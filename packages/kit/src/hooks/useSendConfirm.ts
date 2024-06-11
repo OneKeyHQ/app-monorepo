@@ -86,7 +86,7 @@ function useSendConfirm(params: IParams) {
 
   const lightningSendConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
-      const { sameModal, onSuccess, onFail, onCancel } = params;
+      const { onSuccess, onFail, onCancel } = params;
 
       const { transfersInfo } = params;
       if (!transfersInfo?.length || transfersInfo?.length > 1) {

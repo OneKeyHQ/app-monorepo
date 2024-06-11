@@ -98,8 +98,13 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   }
 
   // **** address parser: dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
-  // async addressFromBase(account: DBAccount): Promise<string> {
-  // async addressToBase(address: string): Promise<string> {
+  async addressFromBase(account: IDBAccount): Promise<string> {
+    throw new NotImplemented();
+  }
+
+  async addressToBase(address: string): Promise<string> {
+    throw new NotImplemented();
+  }
   // async getDisplayAddress(address: string): Promise<string> {
 
   abstract validateAddress(address: string): Promise<IAddressValidation>;
@@ -233,7 +238,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   keyring!: KeyringBase;
 
-  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase>;
+  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase | undefined>;
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);

@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { isNil, isObject } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IImageProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   DescriptionList,
   Divider,
@@ -40,6 +40,7 @@ function CommonAssetContent(props: IProps) {
     value: string;
     onPress?: () => void;
     iconAfter?: IKeyOfIcons;
+    source?: IImageProps['source'];
   }[] = useMemo(
     () =>
       [
@@ -50,6 +51,9 @@ function CommonAssetContent(props: IProps) {
         {
           label: intl.formatMessage({ id: 'network__network' }),
           value: network?.name ?? '',
+          source: {
+            uri: network?.logoURI,
+          },
         },
         {
           label: 'Token ID',
@@ -73,6 +77,7 @@ function CommonAssetContent(props: IProps) {
     [
       copyText,
       intl,
+      network?.logoURI,
       network?.name,
       nft.collectionAddress,
       nft.collectionName,
@@ -90,17 +95,24 @@ function CommonAssetContent(props: IProps) {
       space="$5"
     >
       <DescriptionList>
-        {details.map(({ label, value, onPress, iconAfter }) => (
+        {details.map(({ label, value, onPress, iconAfter, source }) => (
           <DescriptionList.Item key={label}>
-            <DescriptionList.Item.Key size="$bodyMd" color="$textSubdued">
+            <DescriptionList.Item.Key
+              maxWidth="30%"
+              size="$bodyMd"
+              color="$textSubdued"
+            >
               {label}
             </DescriptionList.Item.Key>
             <DescriptionList.Item.Value
-              maxWidth="70%"
+              space="$1"
+              maxWidth="60%"
               onPress={onPress}
               iconAfter={iconAfter}
+              source={source}
               textProps={{
-                numberOfLines: 999,
+                wordWrap: 'break-word',
+                numberOfLines: 1,
               }}
             >
               {value}
