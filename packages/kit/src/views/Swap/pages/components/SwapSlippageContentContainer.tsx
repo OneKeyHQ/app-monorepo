@@ -17,6 +17,7 @@ import {
   YStack,
   useSafeKeyboardAnimationStyle,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageItems,
@@ -77,8 +78,10 @@ const SlippageInput = memo(BaseSlippageInput);
 const SwapsSlippageContentContainer = ({
   swapSlippage,
   onSave,
+  autoValue,
 }: {
   swapSlippage: ISwapSlippageSegmentItem;
+  autoValue: number;
   onSave: (slippage: ISwapSlippageSegmentItem) => void;
 }) => {
   const [swapSlippageStatus, setSwapSlippageStatus] = useState(swapSlippage);
@@ -143,13 +146,16 @@ const SwapsSlippageContentContainer = ({
                   ? 'form__auto'
                   : 'content__custom',
             }),
-            value: item.value,
+            value: item.key,
           }))}
           onChange={(value) => {
             const keyValue = value as ESwapSlippageSegmentKey;
             setSwapSlippageStatus({
               key: keyValue,
-              value: swapSlippage.value,
+              value:
+                keyValue === ESwapSlippageSegmentKey.AUTO
+                  ? autoValue
+                  : swapSlippage.value,
             });
           }}
         />
@@ -223,6 +229,9 @@ const SwapsSlippageContentContainer = ({
           onConfirmText="Save"
           confirmButtonProps={{
             variant: 'primary',
+            disabled:
+              swapSlippageStatus.key === ESwapSlippageSegmentKey.CUSTOM &&
+              customValueState.status === ESwapSlippageCustomStatus.ERROR,
           }}
           onConfirm={() => {
             onSave(swapSlippageStatus);

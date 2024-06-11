@@ -346,6 +346,7 @@ module.exports = [
   'priv',
   'Str',
   'tbtc',
+  'sbtc',
   'testnet',
   'rbtc',
   'regtest',
@@ -722,4 +723,5 @@ module.exports = [
   'Dex',
   'whitepaper',
   'sepolia',
+  'watchlist',
 ];

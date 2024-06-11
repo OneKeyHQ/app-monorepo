@@ -254,7 +254,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
-      const swapSlippage = get(swapSlippagePercentageAtom());
+      const { slippageItem } = get(swapSlippagePercentageAtom());
       const fromTokenAmountNumber = Number(fromTokenAmount);
       if (
         fromToken &&
@@ -267,8 +267,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromToken,
           toToken,
           fromTokenAmount,
-          swapSlippage.value,
-          swapSlippage.key === ESwapSlippageSegmentKey.AUTO,
+          slippageItem.value,
+          slippageItem.key === ESwapSlippageSegmentKey.AUTO,
           address,
           false,
           blockNumber,
@@ -361,7 +361,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
-      const swapSlippage = get(swapSlippagePercentageAtom());
+      const { slippageItem } = get(swapSlippagePercentageAtom());
       const fromTokenAmountNumber = Number(fromTokenAmount);
       if (
         fromToken &&
@@ -375,8 +375,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             fromToken,
             toToken,
             fromTokenAmount,
-            swapSlippage.value,
-            swapSlippage.key === ESwapSlippageSegmentKey.AUTO,
+            slippageItem.value,
+            slippageItem.key === ESwapSlippageSegmentKey.AUTO,
             address,
             true,
           );
@@ -412,9 +412,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const networks = get(swapNetworks());
       const quoteResult = get(swapQuoteCurrentSelectAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
-      const swapSelectFromTokenBalance = get(
-        swapSelectedFromTokenBalanceAtom(),
-      );
       let alertsRes: ISwapAlertState[] = [];
       let rateDifferenceRes:
         | { value: string; unit: ESwapRateDifferenceUnit }
@@ -507,68 +504,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
-      // if (
-      //   fromToken &&
-      //   !swapFromAddressInfo.address &&
-      //   (accountUtils.isHdWallet({
-      //     walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-      //   }) ||
-      //     accountUtils.isHwWallet({
-      //       walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-      //     }))
-      // ) {
-      //   alertsRes = [
-      //     ...alertsRes,
-      //     {
-      //       message: `${
-      //         swapFromAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
-      //       } - ${
-      //         swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
-      //       } lacks ${
-      //         swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
-      //       } address. Please try to create one.`,
-      //       alertLevel: ESwapAlertLevel.ERROR,
-      //     },
-      //   ];
-      // }
-
-      // if (
-      //   toToken &&
-      //   !swapToAddressInfo.address &&
-      //   (accountUtils.isHdWallet({
-      //     walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-      //   }) ||
-      //     accountUtils.isHwWallet({
-      //       walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-      //     })) &&
-      //   swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
-      // ) {
-      //   alertsRes = [
-      //     ...alertsRes,
-      //     {
-      //       message: `${
-      //         swapToAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
-      //       } - ${
-      //         swapToAddressInfo.accountInfo?.accountName ?? 'unknown'
-      //       } lacks ${
-      //         swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
-      //       } address. Please try to create one.`,
-      //       alertLevel: ESwapAlertLevel.ERROR,
-      //     },
-      //   ];
-      // }
-
-      // provider toAmount check
-      // if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
-      //   alertsRes = [
-      //     ...alertsRes,
-      //     {
-      //       message: 'No provider supports this trade.',
-      //       alertLevel: ESwapAlertLevel.ERROR,
-      //     },
-      //   ];
-      // }
-
       // provider best check
       if (quoteResult?.toAmount && !quoteResult.isBest) {
         alertsRes = [
@@ -580,25 +515,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           },
         ];
       }
-
-      // price check
-      // if (
-      //   (fromToken &&
-      //     (!fromToken?.price || new BigNumber(fromToken.price).isZero())) ||
-      //   (toToken && (!toToken?.price || new BigNumber(toToken.price).isZero()))
-      // ) {
-      //   alertsRes = [
-      //     ...alertsRes,
-      //     {
-      //       message: `Failed to fetch ${
-      //         !fromToken?.price
-      //           ? fromToken?.name ?? fromToken?.symbol ?? 'unknown'
-      //           : toToken?.name ?? toToken?.symbol ?? 'unknown'
-      //       } price.You can still proceed with the trade.`,
-      //       alertLevel: ESwapAlertLevel.WARNING,
-      //     },
-      //   ];
-      // }
 
       // market rate check
       if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
@@ -706,20 +622,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
-      if (
-        fromToken?.isNative &&
-        fromTokenAmountBN.isEqualTo(
-          new BigNumber(swapSelectFromTokenBalance ?? 0),
-        )
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `Network fee in ${fromToken.symbol} deducted automatically in the next step.`,
-            alertLevel: ESwapAlertLevel.INFO,
-          },
-        ];
-      }
       set(swapAlertsAtom(), alertsRes);
       set(rateDifferenceAtom(), rateDifferenceRes);
     },
