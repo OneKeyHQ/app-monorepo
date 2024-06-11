@@ -10,6 +10,7 @@ import {
   Page,
   SizableText,
   Stack,
+  useClipboard,
   useForm,
   useFormWatch,
   useMedia,
@@ -66,6 +67,7 @@ export function ImportSingleChainBase({
   const {
     activeAccount: { network },
   } = useAccountSelectorTrigger({ num: 0 });
+  const { clearText } = useClipboard();
   const form = useForm<IFormValues>({
     values: {
       networkId: network?.id ?? getNetworkIdsMap().btc,
@@ -100,6 +102,8 @@ export function ImportSingleChainBase({
           );
         setValidateResult(result);
         console.log('validateGeneralInputOfImporting result', result);
+        // TODO: need to replaced by https://github.com/mattermost/react-native-paste-input
+        clearText();
       } catch (error) {
         setValidateResult({
           isValid: false,
@@ -108,7 +112,13 @@ export function ImportSingleChainBase({
     } else {
       setValidateResult(undefined);
     }
-  }, [inputTextDebounced, networkIdText, setValue, validationParams]);
+  }, [
+    clearText,
+    inputTextDebounced,
+    networkIdText,
+    setValue,
+    validationParams,
+  ]);
 
   useEffect(() => {
     void (async () => {
