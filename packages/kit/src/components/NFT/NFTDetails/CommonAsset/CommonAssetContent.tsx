@@ -15,6 +15,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
@@ -45,27 +46,27 @@ function CommonAssetContent(props: IProps) {
     () =>
       [
         {
-          label: intl.formatMessage({ id: 'content__collection' }),
+          label: intl.formatMessage({ id: ETranslations.nft_collection }),
           value: nft.collectionName,
         },
         {
-          label: intl.formatMessage({ id: 'network__network' }),
+          label: intl.formatMessage({ id: ETranslations.global_network }),
           value: network?.name ?? '',
           source: {
             uri: network?.logoURI,
           },
         },
         {
-          label: 'Token ID',
+          label: intl.formatMessage({ id: ETranslations.nft_token_id }),
           value: nft.itemId,
         },
         {
-          label: intl.formatMessage({ id: 'content__nft_standard' }),
+          label: intl.formatMessage({ id: ETranslations.nft_nft_standard }),
           value: nft.collectionType,
         },
         {
           label: intl.formatMessage({
-            id: 'transaction__contract_address',
+            id: ETranslations.nft_contract_address,
           }),
           value: accountUtils.shortenAddress({
             address: nft.collectionAddress,
@@ -123,7 +124,9 @@ function CommonAssetContent(props: IProps) {
       {/* Attributes */}
       <Divider />
       <Stack>
-        <Heading size="$headingSm">Attributes</Heading>
+        <Heading size="$headingSm">
+          {intl.formatMessage({ id: ETranslations.nft_attributes })}
+        </Heading>
         {attributes?.length ? (
           <XStack m="$-1" pt="$2.5" flexWrap="wrap">
             {attributes?.map(({ traitType, value, displayType }) =>
@@ -151,7 +154,9 @@ function CommonAssetContent(props: IProps) {
           </XStack>
         ) : (
           <SizableText size="$bodyMd" mt="$2" color="$textSubdued">
-            🤷‍♂️ We haven't found any attributes for this NFT.
+            {`🤷‍♂️ ${intl.formatMessage({
+              id: ETranslations.nft_no_attributes_found,
+            })}`}
           </SizableText>
         )}
       </Stack>
