@@ -106,6 +106,7 @@ const UserOptions = () => {
             subtitle={intl.formatMessage({
               id: ETranslations.settings_import_recovery_phrase_from_onekey_keytag,
             })}
+            drillIn
             onPress={onImport}
             renderIcon={
               <Stack bg="$bgStrong" p="$2" borderRadius="$3">

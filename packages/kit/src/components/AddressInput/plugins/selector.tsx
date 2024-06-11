@@ -32,20 +32,25 @@ const AddressBookPlugin: FC<ISelectorPluginProps> = ({
       },
     });
   }, [onChange, pick, networkId]);
+  const intl = useIntl();
 
   return (
     <ActionList
-      title="Select Address"
+      title={intl.formatMessage({
+        id: ETranslations.address_book_select_title,
+      })}
       items={[
         {
           icon: 'ContactsOutline' as const,
-          label: 'Address Book',
+          label: intl.formatMessage({ id: ETranslations.address_book_title }),
           onPress: onPickContacts,
         },
       ]}
       renderTrigger={
         <IconButton
-          title="Paste"
+          title={intl.formatMessage({
+            id: ETranslations.send_to_contacts_tooltip,
+          })}
           variant="tertiary"
           icon="DotVerOutline"
           testID={testID}
