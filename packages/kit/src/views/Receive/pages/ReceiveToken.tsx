@@ -101,7 +101,7 @@ function ReceiveToken() {
         });
 
       const isSameAddress =
-        addresses[0].toLowerCase() === account?.address?.toLowerCase();
+        addresses?.[0]?.toLowerCase() === account?.address?.toLowerCase();
       if (!isSameAddress) {
         Toast.error({
           title: intl.formatMessage({

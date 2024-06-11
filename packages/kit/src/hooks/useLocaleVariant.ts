@@ -23,7 +23,7 @@ export function useLocaleVariant() {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       void data().then((module) => {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        LOCALES[currentVariant] = module.default;
+        LOCALES[currentVariant] = module;
         setLocaleVariant(currentVariant);
       });
     } else {
