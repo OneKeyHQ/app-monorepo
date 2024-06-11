@@ -1,12 +1,16 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SearchBar, View, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 export function MarketHomeHeaderSearchBar() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
@@ -19,7 +23,9 @@ export function MarketHomeHeaderSearchBar() {
   return (
     <XStack $gtMd={{ minWidth: 280 }}>
       <SearchBar
-        placeholder="Search tokens"
+        placeholder={intl.formatMessage({
+          id: ETranslations.global_search_tokens,
+        })}
         containerProps={{ w: '100%' }}
         $gtMd={{ size: 'small' }}
         key="MarketHomeSearchInput"

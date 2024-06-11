@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page, SizableText, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketHomeHeaderSearchBar } from './MarketHomeHeaderSearchBar';
@@ -16,7 +17,7 @@ export function MarketHomeHeader() {
         size="$headingLg"
         ml={platformEnv.isNativeIOS ? '$1' : undefined}
       >
-        {intl.formatMessage({ id: 'title__market' })}
+        {intl.formatMessage({ id: ETranslations.global_market })}
       </SizableText>
     ),
     [intl],
