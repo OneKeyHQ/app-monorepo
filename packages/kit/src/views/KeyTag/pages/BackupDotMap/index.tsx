@@ -1,18 +1,21 @@
 import { useCallback } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { IconButton, Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { DotMap } from '@onekeyhq/kit/src/components/DotMap';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalKeyTagParamList } from '@onekeyhq/shared/src/routes';
 import { EModalKeyTagRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { RouteProp } from '@react-navigation/core';
 
 const BackupDotMap = () => {
+  const intl = useIntl();
   const route =
     useRoute<
       RouteProp<IModalKeyTagParamList, EModalKeyTagRoutes.BackupDotMap>
@@ -46,7 +49,9 @@ const BackupDotMap = () => {
         </YStack>
       </Page.Body>
       <Page.Footer
-        onConfirmText="I've Saved the Phrase"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_i_saved_the_phrase,
+        })}
         confirmButtonProps={{
           variant: 'primary',
           onPress: () => {
