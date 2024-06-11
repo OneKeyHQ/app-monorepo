@@ -1,19 +1,20 @@
 import type { RefObject } from 'react';
-import { createRef } from 'react';
+import { createRef, useCallback } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
+import { setStringAsync } from 'expo-clipboard';
 import { useWindowDimensions } from 'react-native';
 import { SizableText, YStack } from 'tamagui';
 
 import { Portal } from '../../hocs';
-import { Icon, XStack } from '../../primitives';
+import { Button, Icon, XStack } from '../../primitives';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
 
 import type { IShowToasterInstance, IShowToasterProps } from './ShowCustom';
 import type { IPortalManager } from '../../hocs';
-import type { ISizableTextProps } from '../../primitives';
+import type { IButtonProps, ISizableTextProps } from '../../primitives';
 
 export interface IToastProps {
   title: string;
@@ -22,6 +23,7 @@ export interface IToastProps {
    * Duration in seconds.
    */
   duration?: number;
+  actionsProps?: IButtonProps;
 }
 
 export interface IToastBaseProps extends IToastProps {
@@ -90,13 +92,14 @@ function Title({
   title,
   message,
   icon,
+  actionsProps,
 }: {
   title: string;
   message?: string;
   icon?: JSX.Element;
+  actionsProps?: IToastProps['actionsProps'];
 }) {
   const { height } = useWindowDimensions();
-
   return (
     <YStack
       flex={1}
@@ -111,6 +114,7 @@ function Title({
           {title}
         </RenderLines>
         <RenderLines size="$bodySm">{message}</RenderLines>
+        {actionsProps ? <Button {...actionsProps} /> : null}
       </YStack>
     </YStack>
   );
@@ -119,9 +123,10 @@ function Title({
 function toastMessage({
   title,
   message,
-  duration = 2000,
+  duration = 5000,
   haptic,
   preset = 'custom',
+  actionsProps,
 }: IToastBaseProps) {
   showMessage({
     title: (
@@ -129,6 +134,7 @@ function toastMessage({
         title={title}
         message={message}
         icon={iconMap[haptic as keyof typeof iconMap]}
+        actionsProps={actionsProps}
       />
     ),
     duration,
