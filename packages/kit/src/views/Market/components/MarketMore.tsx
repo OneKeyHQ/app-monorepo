@@ -24,14 +24,14 @@ function BasicMarketMore({
     () => [
       {
         items: [
-          {
-            destructive: true,
-            icon: 'DeleteOutline',
-            label: intl.formatMessage({
-              id: ETranslations.market_remove_from_watchlist,
-            }),
-            onPress: handleRemove,
-          },
+          // {
+          //   destructive: true,
+          //   icon: 'DeleteOutline',
+          //   label: intl.formatMessage({
+          //     id: ETranslations.market_remove_from_watchlist,
+          //   }),
+          //   onPress: handleRemove,
+          // },
           {
             icon: 'ArrowTopOutline',
             label: intl.formatMessage({ id: ETranslations.market_move_to_top }),
@@ -40,7 +40,7 @@ function BasicMarketMore({
         ] as IActionListItemProps[],
       },
     ],
-    [MoveToTop, handleRemove, intl],
+    [MoveToTop, intl],
   );
   return (
     <ActionList
