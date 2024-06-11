@@ -40,16 +40,16 @@ const SwapQuoteResult = ({
   const swapQuoteLoading = useSwapQuoteLoading();
 
   const [, setSwapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
-  const [swapSlippage] = useSwapSlippagePercentageAtom();
+  const [{ slippageItem, autoValue }] = useSwapSlippagePercentageAtom();
   const [, setSwapSlippageCustomValue] =
     useSwapSlippagePercentageCustomValueAtom();
   const [, setSwapSlippageMode] = useSwapSlippagePercentageModeAtom();
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const slippageOnSave = useCallback(
-    (slippageItem: ISwapSlippageSegmentItem) => {
-      setSwapSlippageMode(slippageItem.key);
-      if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
-        setSwapSlippageCustomValue(slippageItem.value);
+    (item: ISwapSlippageSegmentItem) => {
+      setSwapSlippageMode(item.key);
+      if (item.key === ESwapSlippageSegmentKey.CUSTOM) {
+        setSwapSlippageCustomValue(item.value);
       }
       void dialogRef.current?.close();
     },
@@ -61,7 +61,8 @@ const SwapQuoteResult = ({
       title: 'Slippage tolerance',
       renderContent: (
         <SwapSlippageContentContainer
-          swapSlippage={swapSlippage}
+          swapSlippage={slippageItem}
+          autoValue={autoValue}
           onSave={slippageOnSave}
         />
       ),
@@ -72,7 +73,7 @@ const SwapQuoteResult = ({
         setSwapSlippageDialogOpening(false);
       },
     });
-  }, [setSwapSlippageDialogOpening, slippageOnSave, swapSlippage]);
+  }, [slippageItem, autoValue, slippageOnSave, setSwapSlippageDialogOpening]);
 
   return (
     <YStack space="$4">
