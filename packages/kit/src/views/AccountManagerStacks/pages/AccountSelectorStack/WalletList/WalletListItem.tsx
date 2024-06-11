@@ -1,5 +1,5 @@
 import type { IStackProps } from '@onekeyhq/components';
-import { SizableText, Stack, useMedia } from '@onekeyhq/components';
+import { SizableText, Stack, Tooltip, useMedia } from '@onekeyhq/components';
 import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -39,8 +39,9 @@ export function WalletListItem({
     };
     onPress = () => onWalletPress('$$others');
   }
+  const hiddenWallets = wallet?.hiddenWallets;
 
-  const walletElement = (
+  const basicComponent = (
     <Stack
       role="button"
       alignItems="center"
@@ -84,7 +85,16 @@ export function WalletListItem({
     </Stack>
   );
 
-  const hiddenWallets = wallet?.hiddenWallets;
+  const responsiveComponent = media.md ? (
+    <Tooltip
+      placement="right"
+      renderContent={walletName}
+      renderTrigger={basicComponent}
+    />
+  ) : (
+    basicComponent
+  );
+
   if (hiddenWallets && hiddenWallets.length > 0) {
     return (
       <Stack
@@ -94,7 +104,7 @@ export function WalletListItem({
         space="$3"
         borderCurve="continuous"
       >
-        {walletElement}
+        {responsiveComponent}
         {hiddenWallets.map((hiddenWallet, index) => (
           <WalletListItem
             key={index}
@@ -110,5 +120,5 @@ export function WalletListItem({
     );
   }
 
-  return walletElement;
+  return responsiveComponent;
 }
