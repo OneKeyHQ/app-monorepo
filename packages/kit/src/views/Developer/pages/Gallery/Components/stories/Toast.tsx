@@ -200,6 +200,25 @@ const ToastGallery = () => (
             >
               Long message
             </Button>
+
+            <Button
+              onPress={() => {
+                Toast.error({
+                  duration: 1400,
+                  title: 'Title',
+                  message: `Lorem ipsum dolor sit amet`,
+                  actionsProps: {
+                    children: 'Copy',
+                    my: '$2',
+                    onPress: () => {
+                      alert('Copy it');
+                    },
+                  },
+                });
+              }}
+            >
+              Copy it
+            </Button>
           </YStack>
         ),
       },
