@@ -1,10 +1,13 @@
 import { type FC, useCallback, useEffect, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { ActionList, IconButton } from '@onekeyhq/components';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
 import { useAddressBookPick } from '@onekeyhq/kit/src/views/AddressBook/hooks/useAddressBook';
 import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAddressPluginProps } from '../types';
 
@@ -60,6 +63,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   onBeforeAccountSelectorOpen,
   currentAddress,
 }) => {
+  const intl = useIntl();
   const accountSelectorNum = num ?? 0;
   const accountSelectorOpen = useRef<boolean>(false);
   const showAddressBook = useAddressBookPick();
@@ -111,18 +115,24 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
       items={[
         {
           icon: 'WalletCryptoOutline' as const,
-          label: 'My Accounts',
+          label: intl.formatMessage({
+            id: ETranslations.send_to_contacts_selecor_account,
+          }),
           onPress: onShowAccountSelector,
         },
         {
           icon: 'ContactsOutline' as const,
-          label: 'Address Book',
+          label: intl.formatMessage({
+            id: ETranslations.send_to_contacts_selecor_address_book,
+          }),
           onPress: onContacts,
         },
       ]}
       renderTrigger={
         <IconButton
-          title="Contacts"
+          title={intl.formatMessage({
+            id: ETranslations.send_to_contacts_tooltip,
+          })}
           variant="tertiary"
           icon="DotVerOutline"
           testID={testID}

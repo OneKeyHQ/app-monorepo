@@ -10,6 +10,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const SettingProtectionModal = () => {
@@ -17,57 +18,89 @@ const SettingProtectionModal = () => {
   const [settings, setSettings] = useSettingsPersistAtom();
   return (
     <Page>
-      <YStack>
-        <SectionList.SectionHeader title="Token risk protection" />
-        <ListItem title="Token risk reminder">
-          <Switch
-            value={settings.tokenRiskReminder}
-            onChange={async (value) => {
-              setSettings((v) => ({ ...v, tokenRiskReminder: !!value }));
-            }}
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.settings_protection })}
+      />
+      <Page.Body>
+        <YStack>
+          <SectionList.SectionHeader
+            title={intl.formatMessage({
+              id: ETranslations.settings_token_risk_protection,
+            })}
           />
-        </ListItem>
-        <SizableText pl="$5" size="$bodySm" color="$textSubdued">
-          When enabled, you'll be reminded when selecting non-verified tokens.
-        </SizableText>
-        <SectionList.SectionHeader mt="$5" title="Password bypass" />
-        <ListItem
-          title={intl.formatMessage({ id: 'form__create_transactions' })}
-          subtitle="No password needed for transactions"
-        >
-          <Switch
-            value={settings.protectCreateTransaction}
-            onChange={async (value) => {
-              if (!value) {
-                await backgroundApiProxy.servicePassword.promptPasswordVerify({
-                  reason: EReasonForNeedPassword.Security,
-                });
-              }
-              await backgroundApiProxy.serviceSetting.setProtectCreateTransaction(
-                value,
-              );
-            }}
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.settings_token_risk_reminder,
+            })}
+          >
+            <Switch
+              value={settings.tokenRiskReminder}
+              onChange={async (value) => {
+                setSettings((v) => ({ ...v, tokenRiskReminder: !!value }));
+              }}
+            />
+          </ListItem>
+          <SizableText pl="$5" size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.settings_token_risk_reminder_desc,
+            })}
+          </SizableText>
+          <SectionList.SectionHeader
+            mt="$5"
+            title={intl.formatMessage({
+              id: ETranslations.settings_password_bypass,
+            })}
           />
-        </ListItem>
-        <ListItem
-          title={intl.formatMessage({ id: 'form__create_delete_wallets' })}
-          subtitle="No password needed for creating/removing wallets"
-        >
-          <Switch
-            value={settings.protectCreateOrRemoveWallet}
-            onChange={async (value) => {
-              if (!value) {
-                await backgroundApiProxy.servicePassword.promptPasswordVerify({
-                  reason: EReasonForNeedPassword.Security,
-                });
-              }
-              await backgroundApiProxy.serviceSetting.setProtectCreateOrRemoveWallet(
-                value,
-              );
-            }}
-          />
-        </ListItem>
-      </YStack>
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.settings_create_transactions,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_create_transactions_desc,
+            })}
+          >
+            <Switch
+              value={settings.protectCreateTransaction}
+              onChange={async (value) => {
+                if (!value) {
+                  await backgroundApiProxy.servicePassword.promptPasswordVerify(
+                    {
+                      reason: EReasonForNeedPassword.Security,
+                    },
+                  );
+                }
+                await backgroundApiProxy.serviceSetting.setProtectCreateTransaction(
+                  value,
+                );
+              }}
+            />
+          </ListItem>
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.settings_create_remove_wallets,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_create_remove_wallets_desc,
+            })}
+          >
+            <Switch
+              value={settings.protectCreateOrRemoveWallet}
+              onChange={async (value) => {
+                if (!value) {
+                  await backgroundApiProxy.servicePassword.promptPasswordVerify(
+                    {
+                      reason: EReasonForNeedPassword.Security,
+                    },
+                  );
+                }
+                await backgroundApiProxy.serviceSetting.setProtectCreateOrRemoveWallet(
+                  value,
+                );
+              }}
+            />
+          </ListItem>
+        </YStack>
+      </Page.Body>
     </Page>
   );
 };

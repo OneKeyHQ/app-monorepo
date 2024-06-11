@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -16,6 +17,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import utils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
@@ -196,13 +198,20 @@ type ISectionListData = {
   data: ISignedTransaction[];
 };
 
-const ListEmptyComponent = () => (
-  <Empty
-    title="No Signed Transactions"
-    description="All transactions signed through OneKey will appear here"
-    icon="ClockAlertOutline"
-  />
-);
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      title={intl.formatMessage({
+        id: ETranslations.settings_no_signed_transactions,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.settings_no_signed_transactions_desc,
+      })}
+      icon="ClockAlertOutline"
+    />
+  );
+};
 
 export const Transactions = () => {
   const { sections, onEndReached } = useGetSignatureSections(async (params) =>
