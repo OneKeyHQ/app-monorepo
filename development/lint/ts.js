@@ -52,3 +52,5 @@ try {
   const errorMsg = error.stdout.toString('utf-8');
   handleProblems(errorMsg);
 }
+
+exit(0);
