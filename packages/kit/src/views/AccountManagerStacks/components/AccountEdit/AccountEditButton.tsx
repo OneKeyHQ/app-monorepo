@@ -34,12 +34,14 @@ export function AccountEditButton({
             account={account}
             onClose={handleActionListClose}
           />
-          <AccountRemoveButton
-            name={name}
-            indexedAccount={indexedAccount}
-            account={account}
-            onClose={handleActionListClose}
-          />
+          {!indexedAccount ? (
+            <AccountRemoveButton
+              name={name}
+              indexedAccount={indexedAccount}
+              account={account}
+              onClose={handleActionListClose}
+            />
+          ) : null}
         </AccountSelectorProviderMirror>
       )}
     />

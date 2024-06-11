@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ISectionListRef } from '@onekeyhq/components';
 import {
   ActionList,
@@ -41,6 +43,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -56,6 +59,7 @@ export interface IWalletDetailsProps {
 }
 
 export function WalletDetails({ num }: IWalletDetailsProps) {
+  const intl = useIntl();
   const [editMode, setEditMode] = useAccountSelectorEditModeAtom();
   const { serviceAccount, serviceAccountSelector } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
@@ -239,7 +243,12 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
       if (!address && !isOthersUniversal && linkNetwork && !allowEmptyAddress) {
         // TODO custom style
         return {
-          address: `No ${activeAccount?.network?.shortname || ''} address`,
+          address: intl.formatMessage(
+            { id: ETranslations.global_no_network_address },
+            {
+              network: activeAccount?.network?.shortname || '',
+            },
+          ),
           isEmptyAddress: true,
         };
       }
@@ -252,7 +261,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         isEmptyAddress: false,
       };
     },
-    [activeAccount?.network?.shortname, isOthersUniversal, linkNetwork],
+    [activeAccount?.network?.shortname, intl, isOthersUniversal, linkNetwork],
   );
 
   // const isEmptyData = useMemo(() => {
@@ -287,7 +296,7 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
   }, [sectionData, isEditableRouteParams]);
 
   return (
-    <Stack flex={1} pb={bottom}>
+    <Stack flex={1} pb={bottom} testID="account-selector-accountList">
       <WalletDetailsHeader
         wallet={focusedWalletInfo?.wallet}
         device={focusedWalletInfo?.device}
@@ -370,13 +379,17 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
                         items: [
                           {
                             icon: 'PencilOutline',
-                            label: 'Rename',
+                            label: intl.formatMessage({
+                              id: ETranslations.global_rename,
+                            }),
                             onPress: () => alert('edit 1112'),
                           },
                           {
                             destructive: true,
                             icon: 'DeleteOutline',
-                            label: 'Remove',
+                            label: intl.formatMessage({
+                              id: ETranslations.global_remove,
+                            }),
                             onPress: () => alert('edit 3332'),
                           },
                         ],
@@ -469,7 +482,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               }}
               subtitle={subTitleInfo.address}
               subtitleProps={{
-                color: subTitleInfo.isEmptyAddress ? '$textCaution' : undefined,
+                color: subTitleInfo.isEmptyAddress
+                  ? '$textCaution'
+                  : '$textSubdued',
               }}
               {...(!editMode && {
                 onPress: async () => {
@@ -555,7 +570,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               {/* Add account */}
               <ListItem.Text
                 userSelect="none"
-                primary="Add Account"
+                primary={intl.formatMessage({
+                  id: ETranslations.global_add_account,
+                })}
                 primaryTextProps={{
                   color: '$textSubdued',
                 }}
