@@ -7,6 +7,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -136,17 +137,21 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async notifyFailed(e?: { message: string }) {
     clearTimeout(downloadTimeoutId);
-    let errorText =
-      e?.message || 'Network exception, please check your internet connection.';
+    let errorText: ETranslations | string =
+      e?.message || ETranslations.update_network_exception_check_connection;
 
     if (errorText.includes('Server not responding')) {
-      errorText = 'Server not responding, please try again later.';
+      errorText = ETranslations.update_server_not_responding_try_later;
     } else if (errorText.includes('Software caused connection abort')) {
-      errorText = 'Network instability, please check your internet connection.';
+      errorText = ETranslations.update_network_instability_check_connection;
+    } else if (errorText.includes('Installation package name mismatch')) {
+      errorText = ETranslations.update_package_name_mismatch;
+    } else if (errorText.includes('Insufficient disk space')) {
+      errorText = ETranslations.earn_insufficient_staked_balance;
     }
     void appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      errorText,
+      errorText: errorText as ETranslations,
       status: EAppUpdateStatus.failed,
     }));
   }

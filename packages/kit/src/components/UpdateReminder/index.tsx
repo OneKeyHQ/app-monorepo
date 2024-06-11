@@ -68,7 +68,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           }: {
             updateInfo: IAppUpdateInfo;
           }) {
-            return appUpdateInfo.errorText || '';
+            return intl.formatMessage({ id: appUpdateInfo.errorText });
           },
         },
         [EAppUpdateStatus.done]: undefined,
