@@ -41,11 +41,10 @@ export function KitProvider() {
             <Container />
           </SplashProvider>
           <PasswordVerifyPromptMount />
+          <WebViewWebEmbedProvider />
           <LastActivityTracker />
+          <InAppNotification />
         </ThemeProvider>
-        <WebViewWebEmbedProvider />
-        <LastActivityTracker />
-        <InAppNotification />
       </GestureHandlerRootView>
     </GlobalJotaiReady>
   );
