@@ -1,9 +1,11 @@
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Button, XStack } from '@onekeyhq/components';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletRemoveButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRemove';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { AboutDevice } from './AboutDevice';
@@ -25,6 +27,7 @@ export function WalletDetailsHeader({
   onEditButtonPress,
   ...rest
 }: IWalletDetailsHeaderProps) {
+  const intl = useIntl();
   const showAboutDevice =
     accountUtils.isHwWallet({ walletId: wallet?.id }) &&
     !accountUtils.isHwHiddenWallet({ wallet });
@@ -34,7 +37,12 @@ export function WalletDetailsHeader({
       })
     : false;
   return (
-    <ListItem mt="$1.5" justifyContent="flex-end" {...rest}>
+    <ListItem
+      testID="account-selector-header"
+      mt="$1.5"
+      justifyContent="flex-end"
+      {...rest}
+    >
       {editMode && editable ? (
         <XStack
           pr="$5"
@@ -53,7 +61,9 @@ export function WalletDetailsHeader({
           variant="tertiary"
           onPress={onEditButtonPress}
         >
-          {editMode ? 'Done' : 'Edit'}
+          {editMode
+            ? intl.formatMessage({ id: ETranslations.global_done })
+            : intl.formatMessage({ id: ETranslations.global_edit })}
         </Button>
       ) : null}
     </ListItem>
