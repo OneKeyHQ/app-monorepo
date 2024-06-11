@@ -163,6 +163,7 @@ function BasicFooterAction({
   confirmButtonProps = {},
   tone,
 }: IDialogFooterProps) {
+  const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
   // assign props before component mounted
   useMemo(() => {
@@ -191,9 +192,12 @@ function BasicFooterAction({
       cancelButtonProps,
       onConfirm,
       onCancel,
-      onConfirmText,
+      onConfirmText:
+        onConfirmText ||
+        intl.formatMessage({ id: ETranslations.global_confirm }),
       confirmButtonProps,
-      onCancelText,
+      onCancelText:
+        onCancelText || intl.formatMessage({ id: ETranslations.global_cancel }),
       tone,
     };
     footerRef.notifyUpdate?.();
@@ -210,6 +214,7 @@ function BasicFooterAction({
     onCancelText,
     tone,
     footerRef,
+    intl,
   ]);
   return null;
 }
