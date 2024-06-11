@@ -6,7 +6,9 @@ import { AppState } from 'react-native';
 import { Page, Spinner, Stack } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
@@ -18,17 +20,26 @@ function SendConfirmFromDApp() {
   const {
     $sourceInfo,
     encodedTx,
+    transfersInfo,
     signOnly = false,
     accountId,
     networkId,
+    useFeeInTx = true,
     _$t = undefined,
   } = useDappQuery<{
     encodedTx: IEncodedTx;
+    transfersInfo: ITransferInfo[];
     accountId: string;
     networkId: string;
     signOnly: boolean;
+    useFeeInTx: boolean;
     _$t: number | undefined;
   }>();
+
+  useDappApproveAction({
+    id: $sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
 
   useEffect(() => {
     // OK-16560: navigate when app in background would cause modal render in wrong size
@@ -52,6 +63,7 @@ function SendConfirmFromDApp() {
             accountId,
             networkId,
             encodedTx,
+            transfersInfo,
           });
         const params: IModalSendParamList[EModalSendRoutes.SendConfirm] = {
           networkId,
@@ -59,6 +71,7 @@ function SendConfirmFromDApp() {
           unsignedTxs: [unsignedTx],
           sourceInfo: $sourceInfo,
           signOnly,
+          useFeeInTx,
           // @ts-ignore
           _disabledAnimationOfNavigate: true,
           _$t,
@@ -81,7 +94,17 @@ function SendConfirmFromDApp() {
     return () => {
       appStateListener.remove();
     };
-  }, [encodedTx, navigation, signOnly, networkId, accountId, $sourceInfo, _$t]);
+  }, [
+    encodedTx,
+    navigation,
+    signOnly,
+    networkId,
+    accountId,
+    $sourceInfo,
+    _$t,
+    transfersInfo,
+    useFeeInTx,
+  ]);
 
   return (
     <Page>

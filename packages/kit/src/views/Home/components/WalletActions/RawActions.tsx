@@ -1,3 +1,5 @@
+import { Children } from 'react';
+
 import type {
   IActionListProps,
   IButtonProps,
@@ -84,6 +86,9 @@ function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
   return (
     <ActionList
       title="More"
+      floatingPanelProps={{
+        w: '$60',
+      }}
       renderTrigger={
         <ActionItem
           icon="DotHorOutline"
@@ -108,7 +113,7 @@ function RawActions({ children, ...rest }: IXStackProps) {
       }}
       {...rest}
     >
-      {children}
+      {Children.toArray(children)}
     </XStack>
   );
 }

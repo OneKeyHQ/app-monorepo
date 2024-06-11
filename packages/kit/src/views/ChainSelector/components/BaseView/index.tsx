@@ -5,31 +5,18 @@ import {
   NetworkAvatar,
 } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+
+import type { IServerNetworkMatch } from '../../types';
 
 const ListEmptyComponent = () => (
   <Empty icon="SearchOutline" title="No Results" />
 );
 
-const implArr = ['evm', 'dot', 'cosmos'];
-
 export type IBaseListViewProps = {
-  networks: IServerNetwork[];
-  onPressItem?: (item: IServerNetwork) => void;
+  networks: IServerNetworkMatch[];
+  onPressItem?: (item: IServerNetworkMatch) => void;
   networkId?: string;
 };
-
-export const filterNetwork =
-  (key: string, impl?: boolean) =>
-  (o: IServerNetwork): boolean => {
-    if (impl && implArr.includes(key)) {
-      return o.impl === key;
-    }
-    return (
-      o.name.toLowerCase().includes(key) ||
-      o.shortname.toLowerCase().includes(key)
-    );
-  };
 
 export const BaseListView = ({
   networks,
@@ -38,7 +25,6 @@ export const BaseListView = ({
 }: IBaseListViewProps) => (
   <ListView
     ListEmptyComponent={ListEmptyComponent}
-    ListHeaderComponent={<Stack h="$2" />}
     ListFooterComponent={<Stack h="$2" />}
     estimatedItemSize={48}
     data={networks}
@@ -54,6 +40,7 @@ export const BaseListView = ({
           )
         }
         title={item.name}
+        titleMatch={item.titleMatch}
         onPress={() => onPressItem?.(item)}
         testID={`select-item-${item.id}`}
       >

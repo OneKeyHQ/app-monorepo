@@ -5,7 +5,7 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/IBackgroundApi';
 import type { IOffscreenApi } from '@onekeyhq/kit-bg/src/offscreens/instance/IOffscreenApi';
 import type { JotaiBgSync } from '@onekeyhq/kit-bg/src/states/jotai/jotaiBgSync';
 import type { IWebembedApi } from '@onekeyhq/kit-bg/src/webembeds/instance/IWebembedApi';
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
@@ -24,17 +24,21 @@ declare global {
   // var onekey: WindowOneKey;
 
   var $rootAppNavigation: IAppNavigation | undefined;
+  var $$scanNavigation: IAppNavigation | undefined;
   var $appIsReduxReady: boolean;
   var $onekey: IWindowOneKeyHub;
   var $backgroundApiProxy: IBackgroundApi;
   var $backgroundApi: IBackgroundApi; // not available for ext ui
   var $jotaiBgSync: JotaiBgSync;
 
+  var $$Toast: any;
   var $$navigationShortcuts: any;
   var $$jotaiContextStore: any;
   var $$jotaiContextStorePrint: any;
   var $$simpleDb: any;
+  var $$simpleDbV4: any;
   var $$localDb: LocalDbBase;
+  var $$localDbV4: any;
   var $$appEventBus: any;
   var $$appUIEventBus: any;
   var $$appStore: EnhancedStore;
@@ -99,7 +103,7 @@ declare global {
   namespace FormatjsIntl {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     interface Message {
-      ids: ILocaleIds;
+      ids: ETranslations;
     }
   }
 }

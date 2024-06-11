@@ -45,7 +45,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const nearAddresses = await this.baseGetDeviceAccountAddresses({
+        const addresses = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
           sdkGetAddressFn: async ({
@@ -73,8 +73,8 @@ export class KeyringHardware extends KeyringHardwareBase {
         });
 
         const ret: ICoreApiGetAddressItem[] = [];
-        for (let i = 0; i < nearAddresses.length; i += 1) {
-          const item = nearAddresses[i];
+        for (let i = 0; i < addresses.length; i += 1) {
+          const item = addresses[i];
           const { path, address } = item;
           const { displayAddress } = await this.vault.validateAddress(
             address ?? '',

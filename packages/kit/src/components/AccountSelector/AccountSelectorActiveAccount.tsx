@@ -1,11 +1,15 @@
 import { useCallback } from 'react';
 
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   SizableText,
   Tooltip,
   XStack,
   useClipboard,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import {
@@ -18,9 +22,13 @@ import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddre
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account } = activeAccount;
+  const { account, wallet, network, deriveType, deriveInfo } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
+
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalReceiveParamList>>();
+
   const logActiveAccount = useCallback(() => {
     console.log({
       selectedAccount,
@@ -31,6 +39,42 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     console.log(activeAccount?.wallet?.avatar);
   }, [activeAccount, selectedAccount]);
 
+  const handleAddressOnPress = useCallback(() => {
+    if (!account || !network || !deriveInfo || !wallet) return;
+    if (
+      wallet?.id &&
+      (accountUtils.isHwWallet({
+        walletId: wallet?.id,
+      }) ||
+        accountUtils.isQrWallet({
+          walletId: wallet?.id,
+        }))
+    ) {
+      navigation.pushModal(EModalRoutes.ReceiveModal, {
+        screen: EModalReceiveRoutes.ReceiveToken,
+        params: {
+          networkId: network.id,
+          accountId: account.id,
+          walletId: wallet.id,
+          deriveInfo,
+          deriveType,
+        },
+      });
+    } else {
+      copyText(account.address);
+    }
+    logActiveAccount();
+  }, [
+    account,
+    copyText,
+    deriveInfo,
+    deriveType,
+    logActiveAccount,
+    navigation,
+    network,
+    wallet,
+  ]);
+
   // show address if account has an address
   if (account?.address) {
     return (
@@ -40,10 +84,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
         renderTrigger={
           <XStack
             alignItems="center"
-            onPress={() => {
-              copyText(account.address);
-              logActiveAccount();
-            }}
+            onPress={handleAddressOnPress}
             py="$1"
             px="$2"
             my="$-1"

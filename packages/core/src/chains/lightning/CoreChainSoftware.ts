@@ -62,7 +62,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const { unsignedTx } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
@@ -82,7 +82,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     // eslint-disable-next-line prefer-destructuring
     const unsignedMsg = payload.unsignedMsg;
     const signer = await this.baseGetSingleSigner({
@@ -97,7 +97,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
@@ -110,7 +110,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const { publicKey } = query;
     const address = '';
     return Promise.resolve({
@@ -156,13 +156,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }): Promise<ISigner> {
     const btcNetworkInfo = isTestnet
       ? {
-          networkChainCode: IMPL_TBTC,
+          networkChainCode: 'tbtc', // presetNetworks.code not impl
           networkImpl: IMPL_TBTC,
           networkId: 'tbtc--0',
           chainId: '',
         }
       : {
-          networkChainCode: IMPL_BTC,
+          networkChainCode: 'btc', // presetNetworks.code not impl
           networkImpl: IMPL_BTC,
           networkId: 'btc--0',
           chainId: '',

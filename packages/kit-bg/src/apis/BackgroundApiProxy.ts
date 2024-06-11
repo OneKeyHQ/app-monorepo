@@ -18,6 +18,7 @@ import type ServiceContextMenu from '../services/ServiceContextMenu';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
 import type ServiceDefi from '../services/ServiceDefi';
+import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
 import type ServiceDiscovery from '../services/ServiceDiscovery';
 import type ServiceE2E from '../services/ServiceE2E';
@@ -30,6 +31,7 @@ import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
+import type ServiceMarket from '../services/ServiceMarket';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -38,12 +40,16 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
+import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
+import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
+import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
 
@@ -117,6 +123,12 @@ class BackgroundApiProxy
     'serviceDiscovery',
   ) as ServiceDiscovery;
 
+  serviceDemo = this._createProxyService('serviceDemo') as ServiceDemo;
+
+  serviceV4Migration = this._createProxyService(
+    'serviceV4Migration',
+  ) as ServiceV4Migration;
+
   serviceDApp = this._createProxyService('serviceDApp') as ServiceDApp;
 
   serviceDappSide = this._createProxyService(
@@ -126,6 +138,10 @@ class BackgroundApiProxy
   serviceWalletConnect = this._createProxyService(
     'serviceWalletConnect',
   ) as ServiceWalletConnect;
+
+  serviceQrWallet = this._createProxyService(
+    'serviceQrWallet',
+  ) as ServiceQrWallet;
 
   serviceAccountProfile = this._createProxyService(
     'serviceAccountProfile',
@@ -161,6 +177,8 @@ class BackgroundApiProxy
     'serviceAppUpdate',
   ) as ServiceAppUpdate;
 
+  serviceMarket = this._createProxyService('serviceMarket') as ServiceMarket;
+
   serviceE2E = this._createProxyService('serviceE2E') as ServiceE2E;
 
   serviceLightning = this._createProxyService(
@@ -182,6 +200,12 @@ class BackgroundApiProxy
   ) as ServiceSignature;
 
   serviceNostr = this._createProxyService('serviceNostr') as ServiceNostr;
+
+  serviceUniversalSearch = this._createProxyService(
+    'serviceUniversalSearch',
+  ) as ServiceUniversalSearch;
+
+  serviceStaking = this._createProxyService('serviceStaking') as ServiceStaking;
 }
 
 export default BackgroundApiProxy;

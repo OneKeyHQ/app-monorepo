@@ -18,7 +18,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapSlippagePopoverOpeningAtom,
+  useSwapSlippageDialogOpeningAtom,
 } from '../../../states/jotai/contexts/swap';
 import { truncateDecimalPlaces } from '../utils/utils';
 
@@ -30,7 +30,7 @@ export function useSwapQuote() {
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [swapSlippagePopoverOpening] = useSwapSlippagePopoverOpeningAtom();
+  const [swapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
@@ -59,7 +59,7 @@ export function useSwapQuote() {
   }, [fromToken?.decimals, fromTokenAmount, setFromTokenAmount]);
 
   useEffect(() => {
-    if (swapSlippagePopoverOpening || swapApproveAllowanceSelectOpen) {
+    if (swapSlippageDialogOpening || swapApproveAllowanceSelectOpen) {
       cleanQuoteInterval();
     } else {
       void recoverQuoteInterval(activeAccountAddressRef.current);
@@ -68,7 +68,7 @@ export function useSwapQuote() {
     cleanQuoteInterval,
     recoverQuoteInterval,
     swapApproveAllowanceSelectOpen,
-    swapSlippagePopoverOpening,
+    swapSlippageDialogOpening,
   ]);
 
   useEffect(() => {
@@ -99,7 +99,8 @@ export function useSwapQuote() {
     quoteAction,
     swapAddressInfo.address,
     fromToken,
-    toToken,
+    toToken?.networkId,
+    toToken?.contractAddress,
     alignmentDecimal,
   ]);
 

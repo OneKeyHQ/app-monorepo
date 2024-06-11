@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import { debounce } from 'lodash';
 
 import { EPageType, usePageType } from '@onekeyhq/components';
@@ -26,6 +25,9 @@ import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/co
 export function useSwapFromAccountNetworkSync() {
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const { activeAccount: toActiveAccount } = useActiveAccount({
+    num: 1,
+  });
   const [swapToAnotherAccount] = useSwapToAnotherAccountAddressAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
@@ -35,6 +37,10 @@ export function useSwapFromAccountNetworkSync() {
   const toTokenRef = useRef<ISwapToken | undefined>();
   const swapProviderSupportReceiveAddressRef = useRef<boolean | undefined>();
   const swapToAnotherAccountRef = useRef(swapToAnotherAccount);
+  const swapToAccountRef = useRef(toActiveAccount);
+  if (swapToAccountRef.current !== toActiveAccount) {
+    swapToAccountRef.current = toActiveAccount;
+  }
   if (fromTokenRef.current !== fromToken) {
     fromTokenRef.current = fromToken;
   }
@@ -70,8 +76,14 @@ export function useSwapFromAccountNetworkSync() {
       if (
         (fromTokenRef.current &&
           toTokenRef.current &&
+          swapToAnotherAccountRef.current?.networkId &&
           toTokenRef.current?.networkId !==
-            swapToAnotherAccountRef.current.networkId) ||
+            swapToAnotherAccountRef.current?.networkId) ||
+        (fromTokenRef.current &&
+          toTokenRef.current &&
+          !swapToAnotherAccountRef.current?.networkId &&
+          !swapToAccountRef.current?.account &&
+          swapToAccountRef.current?.wallet) ||
         swapProviderSupportReceiveAddressRef.current === false
       ) {
         setSettings((v) => ({
@@ -96,20 +108,15 @@ export function useSwapFromAccountNetworkSync() {
     },
   );
 
-  const isFocused = useIsFocused();
   useEffect(() => {
     void (async () => {
-      if (pageType === EPageType.modal && isFocused) {
-        await checkTokenForAccountNetworkDebounce();
-      }
+      await checkTokenForAccountNetworkDebounce();
     })();
   }, [
     checkTokenForAccountNetworkDebounce,
     fromToken,
     toToken,
     swapProviderSupportReceiveAddress,
-    isFocused,
-    pageType,
   ]);
 }
 

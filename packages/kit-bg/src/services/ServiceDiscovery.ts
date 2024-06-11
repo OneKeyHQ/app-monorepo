@@ -12,13 +12,15 @@ import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type {
-  ICategory,
-  IDApp,
-  IDiscoveryHomePageData,
-  IDiscoveryListParams,
-  IHostSecurity,
+import {
+  EHostSecurityLevel,
+  type ICategory,
+  type IDApp,
+  type IDiscoveryHomePageData,
+  type IDiscoveryListParams,
+  type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { getEndpoints } from '../endpoints';
 
@@ -56,7 +58,7 @@ class ServiceDiscovery extends ServiceBase {
 
   _fetchDiscoveryHomePageData = memoizee(
     async () => {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
       const res = await client.get<{ data: IDiscoveryHomePageData }>(
         '/utility/v1/discover/dapp/homepage',
       );
@@ -73,7 +75,7 @@ class ServiceDiscovery extends ServiceBase {
     if (!keyword) {
       return [];
     }
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const {
       data: { data: dapps },
     } = await client.get<{ data: IDApp[]; next: string }>(
@@ -89,7 +91,7 @@ class ServiceDiscovery extends ServiceBase {
 
   @backgroundMethod()
   async fetchCategoryList() {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const res = await client.get<{ data: ICategory[] }>(
       '/utility/v1/discover/category/list',
     );
@@ -98,7 +100,7 @@ class ServiceDiscovery extends ServiceBase {
 
   @backgroundMethod()
   async fetchDAppListByCategory(listParams: IDiscoveryListParams) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const res = await client.get<{
       data: { data: IDApp[]; next: string };
     }>('/utility/v1/discover/dapp/list', {
@@ -118,7 +120,7 @@ class ServiceDiscovery extends ServiceBase {
     if (!hostName) return '';
 
     const endpoints = await getEndpoints();
-    return `${endpoints.http}/utility/v1/discover/icon?hostname=${hostName}&size=${size}`;
+    return `${endpoints.utility}/utility/v1/discover/icon?hostname=${hostName}&size=${size}`;
   }
 
   @backgroundMethod()
@@ -126,7 +128,7 @@ class ServiceDiscovery extends ServiceBase {
     if (whiteListEnabled && (await this._isUrlExistInRiskWhiteList(url))) {
       return {
         host: url,
-        level: 'security',
+        level: EHostSecurityLevel.Unknown,
         attackTypes: [],
         phishingSite: false,
         alert: '',
@@ -137,7 +139,7 @@ class ServiceDiscovery extends ServiceBase {
 
   _checkUrlSecurity = memoizee(
     async (url: string) => {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
       const res = await client.get<{ data: IHostSecurity }>(
         '/utility/v1/discover/check-host',
         {

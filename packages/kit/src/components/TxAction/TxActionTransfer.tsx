@@ -13,6 +13,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
@@ -192,9 +193,10 @@ function TxActionTransferListView(props: ITxActionProps) {
   const { type } = payload ?? {};
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
-  const { txFee, txFeeFiatValue, txFeeSymbol } = useFeeInfoInDecodedTx({
-    decodedTx,
-  });
+  const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
+    useFeeInfoInDecodedTx({
+      decodedTx,
+    });
   const vaultSettings = usePromiseResult(
     () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
     [networkId],
@@ -242,7 +244,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
     avatar.src = sendNFTIcon || sendTokenIcon;
-    title = intl.formatMessage({ id: 'action__send' });
+    title = intl.formatMessage({ id: ETranslations.global_send });
   } else if (isEmpty(sends) && !isEmpty(receives)) {
     const changeInfo = buildTransferChangeInfo({
       changePrefix: '+',
@@ -253,7 +255,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     changeSymbol = changeInfo.changeSymbol;
     changeDescription = changeInfo.changeDescription;
     avatar.src = receiveNFTIcon || receiveTokenIcon;
-    title = intl.formatMessage({ id: 'action__receive' });
+    title = intl.formatMessage({ id: ETranslations.global_receive });
   } else if (vaultSettings?.isUtxo) {
     if (type === EOnChainHistoryTxType.Send) {
       const changeInfo = buildTransferChangeInfo({
@@ -267,7 +269,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       changeSymbol = changeInfo.changeSymbol;
       changeDescription = changeInfo.changeDescription;
       avatar.src = sendTokenIcon;
-      title = intl.formatMessage({ id: 'action__send' });
+      title = intl.formatMessage({ id: ETranslations.global_send });
     } else if (type === EOnChainHistoryTxType.Receive) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '+',
@@ -280,7 +282,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       changeSymbol = changeInfo.changeSymbol;
       changeDescription = changeInfo.changeDescription;
       avatar.src = receiveTokenIcon;
-      title = intl.formatMessage({ id: 'action__receive' });
+      title = intl.formatMessage({ id: ETranslations.global_receive });
     }
   } else {
     const sendChangeInfo = buildTransferChangeInfo({
@@ -349,6 +351,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       fee={txFee}
       feeFiatValue={txFeeFiatValue}
       feeSymbol={txFeeSymbol}
+      hideFeeInfo={hideFeeInfo}
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
       {...componentProps}
@@ -451,10 +454,10 @@ function TxActionTransferDetailView(props: ITxActionProps) {
             })}
             content={target}
             description={
-              decodedTx.swapProvider && direction === EDecodedTxDirection.OUT
+              decodedTx.toAddressLabel && direction === EDecodedTxDirection.OUT
                 ? {
                     icon: 'NoteSolid',
-                    content: decodedTx.swapProvider,
+                    content: decodedTx.toAddressLabel,
                   }
                 : undefined
             }
@@ -487,7 +490,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       return <Container.Box>{transferElements}</Container.Box>;
     },
     [
-      decodedTx.swapProvider,
+      decodedTx.toAddressLabel,
       from,
       intl,
       isSendNativeToken,

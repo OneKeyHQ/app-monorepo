@@ -28,11 +28,6 @@ module.exports = async () => {
       'tsx',
     ],
     // 'extensionsToTreatAsEsm': ['.wasm', '.ts'],
-    // 'globals': {
-    //   'ts-jest': {
-    //     'useESM': true,
-    //   },
-    // },
     moduleNameMapper: {
       // '^(\\.{1,2}/.*/cardano_message_signing_bg\\.wasm\\.js)$': '$1',
       '\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$':
@@ -50,7 +45,14 @@ module.exports = async () => {
     // TODO unify with transpile modules
     transformIgnorePatterns: ['nodo_modules/react-native-reanimated'],
     transform: {
-      '^.+\\.(ts|tsx)$': 'ts-jest',
+      '^.+\\.(ts|tsx)$': [
+        'ts-jest',
+        {
+          'diagnostics': {
+            warnOnly: true,
+          },
+        },
+      ],
     },
     reporters: [
       'default',
@@ -67,7 +69,6 @@ module.exports = async () => {
       'packages/core/src/chains/apt',
       'packages/core/src/chains/bch',
       'packages/core/src/chains/cfx',
-      'packages/core/src/chains/cosmos',
       'packages/core/src/chains/doge',
       'packages/core/src/chains/dot',
       'packages/core/src/chains/fil',
@@ -77,7 +78,6 @@ module.exports = async () => {
       'packages/core/src/chains/nexa',
       'packages/core/src/chains/sol',
       'packages/core/src/chains/stc',
-      'packages/core/src/chains/sui',
       'packages/core/src/chains/tron',
       'packages/core/src/chains/xmr',
       'packages/core/src/chains/xrp',

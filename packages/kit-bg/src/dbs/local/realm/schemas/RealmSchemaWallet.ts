@@ -17,8 +17,6 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
 
   public accounts?: string[];
 
-  public nextIndex!: number;
-
   public walletNo!: number;
 
   public nextAccountIds?: Realm.Dictionary<number>;
@@ -28,6 +26,10 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
   public isTemp?: boolean;
 
   public passphraseState?: string;
+
+  public xfp?: string;
+
+  public airGapAccountsInfoRaw?: string;
 
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.Wallet,
@@ -39,7 +41,6 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       type: 'string',
       backuped: { type: 'bool', default: false },
       accounts: 'string?[]',
-      nextIndex: { type: 'int', default: 0 },
       walletNo: 'int',
       nextAccountIds: {
         type: 'dictionary',
@@ -49,6 +50,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       associatedDevice: 'string?',
       isTemp: { type: 'bool', default: false },
       passphraseState: 'string?',
+      xfp: 'string?',
+      airGapAccountsInfoRaw: 'string?',
     },
   };
 
@@ -61,7 +64,6 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       backuped: this.backuped || false,
       // convert RealmDB list to array
       accounts: Array.from(this.accounts || []),
-      nextIndex: this.nextIndex,
       walletNo: this.walletNo,
       nextAccountIds: Object.fromEntries(
         Object.entries(Object(this.nextAccountIds)),
@@ -69,6 +71,8 @@ class RealmSchemaWallet extends RealmObjectBase<IDBWallet> {
       associatedDevice: this.associatedDevice,
       isTemp: this.isTemp,
       passphraseState: this.passphraseState,
+      xfp: this.xfp,
+      airGapAccountsInfoRaw: this.airGapAccountsInfoRaw,
     };
   }
 }

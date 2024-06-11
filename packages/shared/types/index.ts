@@ -39,6 +39,7 @@ export interface INetworkExplorerConfig {
   address?: string;
   transaction?: string;
   block?: string;
+  token?: string;
 }
 
 export type IServerNetwork = {
@@ -68,7 +69,6 @@ export type IServerNetwork = {
 
 export enum EOnekeyDomain {
   ONEKEY_SO = 'onekey.so',
-  ONEKEY_CN = 'onekeycn.com',
 }
 
 export enum EAccountSelectorSceneName {

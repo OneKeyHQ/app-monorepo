@@ -46,7 +46,7 @@ class ProviderApiNostr extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
   }
 
   public async rpcCall(): Promise<any> {

@@ -8,6 +8,8 @@ export interface IDevSettings {
   enableTestEndpoint?: boolean;
   // enable dev overlay window
   showDevOverlayWindow?: boolean;
+  // always signOnly send tx
+  alwaysSignOnlySendTx?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -35,6 +37,8 @@ export type IFirmwareUpdateDevSettings = {
   allIsUpToDate: boolean;
   usePreReleaseConfig: boolean;
   forceUpdateResEvenSameVersion: boolean;
+  forceUpdateFirmware: boolean;
+  forceUpdateBle: boolean;
 };
 export type IFirmwareUpdateDevSettingsKeys = keyof IFirmwareUpdateDevSettings;
 export const {
@@ -51,5 +55,7 @@ export const {
     allIsUpToDate: false,
     usePreReleaseConfig: false,
     forceUpdateResEvenSameVersion: false,
+    forceUpdateFirmware: false,
+    forceUpdateBle: false,
   },
 });

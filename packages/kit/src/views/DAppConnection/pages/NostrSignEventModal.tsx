@@ -27,6 +27,8 @@ import {
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
 
+import DappOpenModalPage from './DappOpenModalPage';
+
 function NostrSignEventModal() {
   const {
     $sourceInfo,
@@ -55,9 +57,9 @@ function NostrSignEventModal() {
   });
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
@@ -152,6 +154,10 @@ function NostrSignEventModal() {
             walletId,
             accountId,
             networkId,
+            options: {
+              origin: $sourceInfo?.origin ?? '',
+              autoSign,
+            },
           });
         } else if (signType === ENostrSignType.encrypt) {
           result = await serviceNostr.encrypt({
@@ -201,6 +207,8 @@ function NostrSignEventModal() {
       plaintext,
       ciphertext,
       sigHash,
+      autoSign,
+      $sourceInfo?.origin,
     ],
   );
 
@@ -261,52 +269,54 @@ function NostrSignEventModal() {
   }, [intl, savedPlaintext, isDMEvent]);
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title="Message Signature Request"
-          subtitle={subtitle}
-          origin={$sourceInfo?.origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          <DAppAccountListStandAloneItem readonly />
-          {/* Content Start */}
-          <YStack space="$2">
-            <SizableText>{eventKindText}</SizableText>
-            <TextArea disabled editable={false} numberOfLines={2}>
-              {content}
-            </TextArea>
-            {renderEncryptSignEventPlaintext()}
-            {renderEventDetails()}
-          </YStack>
-          {signType === ENostrSignType.signEvent ? (
-            <Checkbox
-              label="记住我的选择，不再提示"
-              value={autoSign}
-              onChange={(checked) => setAutoSign(!!checked)}
-            />
-          ) : null}
-          {/* Content End  */}
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          continueOperate={continueOperate}
-          setContinueOperate={(checked) => {
-            setContinueOperate(!!checked);
-          }}
-          onConfirm={onSubmit}
-          onCancel={() => dappApprove.reject()}
-          confirmButtonProps={{
-            loading: isLoading,
-            disabled: !canContinueOperate,
-          }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title="Message Signature Request"
+            subtitle={subtitle}
+            origin={$sourceInfo?.origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            <DAppAccountListStandAloneItem readonly />
+            {/* Content Start */}
+            <YStack space="$2">
+              <SizableText>{eventKindText}</SizableText>
+              <TextArea disabled editable={false} numberOfLines={2}>
+                {content}
+              </TextArea>
+              {renderEncryptSignEventPlaintext()}
+              {renderEventDetails()}
+            </YStack>
+            {signType === ENostrSignType.signEvent ? (
+              <Checkbox
+                label="记住我的选择，不再提示"
+                value={autoSign}
+                onChange={(checked) => setAutoSign(!!checked)}
+              />
+            ) : null}
+            {/* Content End  */}
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+            onConfirm={onSubmit}
+            onCancel={() => dappApprove.reject()}
+            confirmButtonProps={{
+              loading: isLoading,
+              disabled: !continueOperate,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
+          />
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

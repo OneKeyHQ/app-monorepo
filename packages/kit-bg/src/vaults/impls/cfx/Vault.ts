@@ -4,15 +4,10 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
 import type { IEncodedTxCfx } from '@onekeyhq/core/src/chains/cfx/types';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
@@ -72,8 +67,9 @@ const { Conflux, address: confluxAddress } = sdkCfx;
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -83,6 +79,24 @@ export default class Vault extends VaultBase {
   async getClient() {
     return this.getClientCache();
   }
+
+  async getConfluxClient() {
+    return this.getConfluxClientCache();
+  }
+
+  private getConfluxClientCache = memoizee(
+    async () => {
+      const chainId = await this.getNetworkChainId();
+
+      return new Conflux({
+        url: '',
+        networkId: Number(chainId),
+      });
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
 
   private getClientCache = memoizee(
     async () =>
@@ -296,7 +310,7 @@ export default class Vault extends VaultBase {
 
   async _buildTxActionFromContract(params: { encodedTx: IEncodedTxCfx }) {
     const { encodedTx } = params;
-    const client = await this.getClient();
+    const client = await this.getConfluxClient();
     const accountAddress = await this.getAccountAddress();
     let action: IDecodedTxAction | undefined;
     try {
@@ -428,12 +442,13 @@ export default class Vault extends VaultBase {
       }),
     ]);
 
+    tx.chainId = new BigNumber(status.chainId).toNumber();
+    tx.epochHeight = status.epochNumber;
+    tx.storageLimit = new BigNumber(estimate.storageCollateralized).toFixed();
+
     return Promise.resolve({
       encodedTx: tx,
       nonce: isNil(tx.nonce) ? tx.nonce : new BigNumber(tx.nonce).toNumber(),
-      epochHeight: status.epochNumber,
-      chainId: status.chainId,
-      storageLimit: new BigNumber(estimate.storageCollateralized).toFixed(),
     });
   }
 
@@ -538,20 +553,12 @@ export default class Vault extends VaultBase {
     return Promise.resolve(tx);
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
-  }
-
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const isValid = confluxAddress.isValidCfxAddress(address);
     const chainId = await this.getNetworkChainId();
     if (isValid) {
       return Promise.resolve({
-        normalizedAddress: hexUtils.addHexPrefix(
-          confluxAddress.decodeCfxAddress(address).hexAddress.toString('hex'),
-        ),
+        normalizedAddress: address.toLowerCase(),
         displayAddress: address.toLowerCase(),
         isValid,
       });

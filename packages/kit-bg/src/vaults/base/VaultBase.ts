@@ -233,7 +233,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
   keyring!: KeyringBase;
 
-  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase>;
+  abstract keyringMap: Record<IKeyringMapKey, typeof KeyringBase | undefined>;
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);
@@ -261,9 +261,19 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
 
-  abstract broadcastTransaction(
+  async broadcastTransaction(
     params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro>;
+  ): Promise<ISignedTxPro> {
+    const { signedTx } = params;
+    const txid = await this.backgroundApi.serviceSend.broadcastTransaction(
+      params,
+    );
+    return {
+      ...signedTx,
+      txid,
+      encodedTx: signedTx.encodedTx,
+    };
+  }
 
   async validateSendAmount() {
     return Promise.resolve(true);

@@ -165,13 +165,6 @@ export class KeyringHd extends KeyringHdBase {
     ) {
       throw new OneKeyInternalError('Invalid signature');
     }
-    const authParams = {
-      accountId: dbAccount.id,
-      networkId: network.id,
-    };
-    await client.checkAuthWithRefresh(authParams);
-    const sign = await client.getAuthorization(authParams);
-
     const rawTx = {
       amount,
       created: Number(created),
@@ -180,7 +173,6 @@ export class KeyringHd extends KeyringHdBase {
       paymentHash,
       paymentRequest: invoice,
       randomSeed: signTemplate.randomSeed,
-      sign,
       signature,
       testnet: network.isTestnet,
     };
@@ -201,17 +193,25 @@ export class KeyringHd extends KeyringHdBase {
     const credentials = await this.baseGetCredentialsInfo(params);
     const network = await this.getNetwork();
 
+    const networkBtc = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: getNetworkIdsMap().btc,
+    });
+    const networkTbtc = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: getNetworkIdsMap().tbtc,
+    });
+
     const btcPath = accountUtils.buildLnToBtcPath({
       path: account.path,
       isTestnet: network.isTestnet,
     });
     const btcImpl = network.isTestnet ? IMPL_TBTC : IMPL_BTC;
+    const btcCode = network.isTestnet ? networkTbtc.code : networkBtc.code;
     const btcNetworkId = network.isTestnet
       ? getNetworkIdsMap().tbtc
       : getNetworkIdsMap().btc;
     const networkInfo = {
       isTestnet: network.isTestnet,
-      networkChainCode: btcImpl,
+      networkChainCode: btcCode,
       chainId: '0',
       networkId: btcNetworkId,
       networkImpl: btcImpl,
@@ -224,7 +224,7 @@ export class KeyringHd extends KeyringHdBase {
         const signature = await coreChainApi.btc.hd.signMessage({
           networkInfo: {
             isTestnet: networkInfo.isTestnet,
-            networkChainCode: IMPL_BTC,
+            networkChainCode: networkBtc.code,
             chainId: '',
             networkId: getNetworkIdsMap().btc,
             networkImpl: IMPL_BTC,

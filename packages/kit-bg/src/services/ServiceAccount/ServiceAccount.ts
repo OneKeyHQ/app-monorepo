@@ -1,3 +1,5 @@
+import { isEmpty } from 'lodash';
+
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   decodeSensitiveText,
@@ -9,6 +11,12 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { IAirGapMultiAccounts } from '@onekeyhq/qr-wallet-sdk';
+import {
+  EAirGapURType,
+  airGapUrUtils,
+  getAirGapSdk,
+} from '@onekeyhq/qr-wallet-sdk';
 import {
   backgroundClass,
   backgroundMethod,
@@ -30,20 +38,22 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceSharedCallParams,
+  IQrWalletDevice,
+} from '@onekeyhq/shared/types/device';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
@@ -55,6 +65,7 @@ import type {
   IDBAccount,
   IDBCreateHWWalletParams,
   IDBCreateHWWalletParamsBase,
+  IDBCreateQRWalletParams,
   IDBDevice,
   IDBExternalAccount,
   IDBGetWalletsParams,
@@ -74,6 +85,36 @@ import type {
   IPrepareWatchingAccountsParams,
   IValidateGeneralInputParams,
 } from '../../vaults/types';
+import type {
+  IAnimationValue,
+  IBaseValue,
+  IQRCodeHandlerParseResult,
+} from '../ServiceScanQRCode/utils/parseQRCode/type';
+
+export type IAddHDOrHWAccountsParams = {
+  walletId: string | undefined;
+  networkId: string | undefined;
+  indexes?: Array<number>; // multiple add by indexes
+  indexedAccountId: string | undefined; // single add by indexedAccountId
+  deriveType: IAccountDeriveTypes;
+  skipDeviceCancel?: boolean;
+  hideCheckingDeviceLoading?: boolean;
+  // names?: Array<string>;
+  // purpose?: number;
+  // skipRepeat?: boolean;
+  // callback?: (_account: Account) => Promise<boolean>;
+  // isAddInitFirstAccountOnly?: boolean;
+  // template?: string;
+  // skipCheckAccountExist?: boolean;
+};
+export type IAddHDOrHWAccountsResult = {
+  networkId: string;
+  walletId: string;
+  indexedAccountId: string | undefined;
+  accounts: IDBAccount[];
+  indexes: number[] | undefined;
+  deriveType: IAccountDeriveTypes;
+};
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
@@ -240,20 +281,35 @@ class ServiceAccount extends ServiceBase {
       }) ||
       accountUtils.isHwWallet({
         walletId,
+      }) ||
+      accountUtils.isQrWallet({
+        walletId,
       })
     ) {
+      const addedAccounts: Array<{
+        networkId: string;
+        deriveType: IAccountDeriveTypes;
+      }> = [];
       // TODO use consts
-      const networks = ['evm--1', 'btc--0'];
-      for (const id of networks) {
-        await this.addHDOrHWAccounts({
-          walletId,
-          networkId: id,
-          indexedAccountId,
-          deriveType: 'default', // TODO get global deriveType
-          skipDeviceCancel,
-          hideCheckingDeviceLoading,
-        });
+      const networks = ['btc--0', 'evm--1'];
+      for (const networkId of networks) {
+        try {
+          // TODO get global deriveType
+          const deriveType: IAccountDeriveTypes = 'default';
+          await this.addHDOrHWAccounts({
+            walletId,
+            networkId,
+            indexedAccountId,
+            deriveType,
+            skipDeviceCancel,
+            hideCheckingDeviceLoading,
+          });
+          addedAccounts.push({ networkId, deriveType });
+        } catch (error) {
+          //
+        }
       }
+      return { addedAccounts };
     }
   }
 
@@ -284,6 +340,7 @@ class ServiceAccount extends ServiceBase {
     const { isHardware, password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
+        reason: EReasonForNeedPassword.Default,
       });
 
     // canAutoCreateNextAccount
@@ -353,25 +410,10 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
-  async addHDOrHWAccounts(params: {
-    walletId: string | undefined;
-    networkId: string | undefined;
-    indexes?: Array<number>; // multiple add by indexes
-    indexedAccountId: string | undefined; // single add by indexedAccountId
-    deriveType: IAccountDeriveTypes;
-    skipDeviceCancel?: boolean;
-    hideCheckingDeviceLoading?: boolean;
-    // names?: Array<string>;
-    // purpose?: number;
-    // skipRepeat?: boolean;
-    // callback?: (_account: Account) => Promise<boolean>;
-    // isAddInitFirstAccountOnly?: boolean;
-    // template?: string;
-    // skipCheckAccountExist?: boolean;
-  }) {
+  async addHDOrHWAccountsFn(
+    params: IAddHDOrHWAccountsParams,
+  ): Promise<IAddHDOrHWAccountsResult | undefined> {
     // addHDOrHWAccounts
-
     const {
       indexes,
       indexedAccountId,
@@ -413,6 +455,12 @@ class ServiceAccount extends ServiceBase {
         hideCheckingDeviceLoading,
       },
     );
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHDOrHWAccounts(params: IAddHDOrHWAccountsParams) {
+    return this.addHDOrHWAccountsFn(params);
   }
 
   @backgroundMethod()
@@ -460,7 +508,7 @@ class ServiceAccount extends ServiceBase {
       importedCredential,
     });
     if (shouldCreateIndexAccount) {
-      await localDb.addIndexedAccount({
+      await this.addIndexedAccount({
         walletId,
         indexes: accounts.map((account) =>
           account.indexedAccountId
@@ -488,6 +536,30 @@ class ServiceAccount extends ServiceBase {
     });
     const result = await vault.validateGeneralInput({ input, ...others });
     return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async exportAccountSecretKeys({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+        reason: EReasonForNeedPassword.Security,
+      });
+    return vault.keyring.exportAccountSecretKeys({
+      password,
+      publicKey: true,
+      privateKey: true,
+      xprvt: true,
+      xpub: true,
+    });
   }
 
   @backgroundMethod()
@@ -521,7 +593,9 @@ class ServiceAccount extends ServiceBase {
     credential,
     networkId,
     deriveType,
+    name,
   }: {
+    name?: string;
     credential: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
@@ -548,7 +622,7 @@ class ServiceAccount extends ServiceBase {
     });
     const params: IPrepareImportedAccountsParams = {
       password,
-      name: '',
+      name: name || '',
       importedCredential: credentialEncrypt,
       createAtNetwork: networkId,
     };
@@ -576,37 +650,6 @@ class ServiceAccount extends ServiceBase {
       walletId,
       accounts,
     };
-  }
-
-  @backgroundMethod()
-  async testEvmPersonalSign({
-    networkId,
-    accountId,
-  }: {
-    networkId: string;
-    accountId: string;
-  }) {
-    const vault = await vaultFactory.getVault({ networkId, accountId });
-    const address = await vault.getAccountAddress();
-    const message = `My email is john@doe.com`;
-    const hexMsg = bufferUtils.textToHex(message, 'utf-8');
-    // personal_sign params
-    const params = [hexMsg, address];
-    // const payload = {
-    //   method: 'personal_sign',
-    //   params,
-    // };
-
-    return this.backgroundApi.serviceSend.signMessage({
-      // TODO build message in vault
-      unsignedMessage: {
-        type: EMessageTypesEth.PERSONAL_SIGN,
-        message: hexMsg,
-        payload: params,
-      },
-      accountId,
-      networkId,
-    });
   }
 
   @backgroundMethod()
@@ -714,12 +757,16 @@ class ServiceAccount extends ServiceBase {
     input,
     networkId,
     deriveType,
+    name,
     isUrlAccount,
+    skipAddIfNotEqualToAddress,
   }: {
     input: string;
     networkId: string;
+    name?: string;
     deriveType: IAccountDeriveTypes | undefined;
     isUrlAccount?: boolean;
+    skipAddIfNotEqualToAddress?: string;
   }) {
     const walletId = WALLET_TYPE_WATCHING;
 
@@ -752,7 +799,7 @@ class ServiceAccount extends ServiceBase {
     const params: IPrepareWatchingAccountsParams = {
       address,
       xpub,
-      name: '',
+      name: name || '',
       networks: [networkId],
       createAtNetwork: networkId,
       isUrlAccount,
@@ -768,6 +815,20 @@ class ServiceAccount extends ServiceBase {
 
     // addWatchingAccount
     const accounts = await vault.keyring.prepareAccounts(params);
+
+    if (
+      skipAddIfNotEqualToAddress &&
+      accounts.length === 1 &&
+      accounts?.[0]?.address &&
+      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+    ) {
+      return {
+        networkId,
+        walletId,
+        accounts: [],
+      };
+    }
+
     await localDb.addAccountsToWallet({
       walletId,
       accounts,
@@ -1004,7 +1065,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async addHDIndexedAccount({
+  async addIndexedAccount({
     walletId,
     indexes,
     skipIfExists,
@@ -1100,6 +1161,15 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async createQrWallet(params: IDBCreateQRWalletParams) {
+    // const { name, deviceId, xfp, version } = qrDevice;
+    const result = await localDb.createQrWallet(params);
+    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async createHWWallet(params: IDBCreateHWWalletParamsBase) {
     // createHWWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -1129,7 +1199,13 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async createHDWallet({ mnemonic }: { mnemonic: string }) {
+  async createHDWallet({
+    name,
+    mnemonic,
+  }: {
+    mnemonic: string;
+    name?: string;
+  }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.CreateOrRemoveWallet,
@@ -1149,7 +1225,7 @@ class ServiceAccount extends ServiceBase {
       throw new InvalidMnemonic();
     }
 
-    return this.createHDWalletWithRs({ rs, password });
+    return this.createHDWalletWithRs({ rs, password, name });
   }
 
   @backgroundMethod()
@@ -1157,10 +1233,12 @@ class ServiceAccount extends ServiceBase {
     rs,
     password,
     avatarInfo,
+    name,
   }: {
     rs: string;
     password: string;
     avatarInfo?: IAvatarInfo;
+    name?: string;
   }) {
     ensureSensitiveTextEncoded(password);
 
@@ -1169,6 +1247,7 @@ class ServiceAccount extends ServiceBase {
       rs,
       backuped: false,
       avatar: avatarInfo ?? randomAvatar(),
+      name,
     });
 
     await timerUtils.wait(100);
@@ -1233,12 +1312,18 @@ class ServiceAccount extends ServiceBase {
     if (account) {
       const accountId = account.id;
       await localDb.removeAccount({ accountId, walletId });
+      await this.backgroundApi.serviceDApp.removeDappConnectionAfterAccountRemove(
+        { accountId },
+      );
     }
     if (indexedAccount) {
       await localDb.removeIndexedAccount({
         indexedAccountId: indexedAccount.id,
         walletId,
       });
+      await this.backgroundApi.serviceDApp.removeDappConnectionAfterAccountRemove(
+        { indexedAccountId: indexedAccount.id },
+      );
     }
 
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
@@ -1270,6 +1355,9 @@ class ServiceAccount extends ServiceBase {
       walletId,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
+      walletId,
+    });
     return result;
   }
 
@@ -1326,7 +1414,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHWAccountAddresses(params: {
+  async verifyHWAccountAddresses(params: {
     walletId: string;
     networkId: string;
     indexes?: Array<number>;
@@ -1337,6 +1425,8 @@ class ServiceAccount extends ServiceBase {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
 
+    prepareParams.isVerifyAddressAction = true;
+
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
       walletId,
@@ -1344,6 +1434,10 @@ class ServiceAccount extends ServiceBase {
     // getHWAccountAddresses
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
+        const addresses = await vault.keyring.batchGetAddresses(prepareParams);
+        if (!isEmpty(addresses)) {
+          return addresses.map((address) => address.address);
+        }
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
         return accounts.map((account) => account.address);
       },

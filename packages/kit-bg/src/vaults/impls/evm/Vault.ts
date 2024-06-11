@@ -42,7 +42,6 @@ import { VaultBase } from '../../base/VaultBase';
 import {
   EWrappedType,
   type IApproveInfo,
-  type IBroadcastTransactionParams,
   type IBuildAccountAddressDetailParams,
   type IBuildDecodedTxParams,
   type IBuildEncodedTxParams,
@@ -76,6 +75,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -91,8 +91,9 @@ export default class Vault extends VaultBase {
     return this.baseValidatePrivateKey(privateKey);
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -856,6 +857,7 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       collectionAddress: encodedTx.to,
       nftId,
+      accountAddress,
     });
 
     let nftAmount = amount;
@@ -890,20 +892,6 @@ export default class Vault extends VaultBase {
     const rpcUrl = await this.getRpcUrl();
     const client = new EthersJsonRpcProvider(rpcUrl);
     return client;
-  }
-
-  override async broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    const { signedTx } = params;
-    const client = await this.getEthersClient();
-    const result = await client.sendTransaction(signedTx.rawTx);
-    console.log('evm broadcastTransaction result: ', result);
-    return {
-      encodedTx: signedTx.encodedTx,
-      txid: signedTx.txid,
-      rawTx: signedTx.rawTx,
-    };
   }
 
   override async getPrivateKeyFromImported(

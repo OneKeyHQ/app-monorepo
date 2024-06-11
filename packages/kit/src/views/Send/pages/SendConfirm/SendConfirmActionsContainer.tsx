@@ -1,8 +1,8 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Page, Toast } from '@onekeyhq/components';
+import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -44,6 +44,7 @@ function SendConfirmActionsContainer(props: IProps) {
   } = props;
   const intl = useIntl();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmitted = useRef(false);
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
@@ -65,7 +66,7 @@ function SendConfirmActionsContainer(props: IProps) {
   ).result;
   const handleOnConfirm = useCallback(async () => {
     setIsSubmitting(true);
-
+    isSubmitted.current = true;
     try {
       const result =
         await backgroundApiProxy.serviceSend.batchSignAndSendTransaction({
@@ -107,6 +108,7 @@ function SendConfirmActionsContainer(props: IProps) {
       //   title: (e as Error).message,
       // });
       onFail?.(e as Error);
+      isSubmitted.current = false;
       void dappApprove.reject(e);
       throw e;
     }
@@ -132,6 +134,8 @@ function SendConfirmActionsContainer(props: IProps) {
       dappApprove.reject();
       if (!sourceInfo) {
         closePageStack();
+      } else {
+        close();
       }
       onCancel?.();
     },
@@ -152,6 +156,12 @@ function SendConfirmActionsContainer(props: IProps) {
     sendSelectedFeeInfo,
   ]);
 
+  usePageUnMounted(() => {
+    if (!isSubmitted.current) {
+      onCancel?.();
+    }
+  });
+
   if (tableLayout) {
     return (
       <Page.FooterActions
@@ -166,9 +176,9 @@ function SendConfirmActionsContainer(props: IProps) {
           flex: 0,
           disabled: isSubmitting,
         }}
-        onConfirmText="Sign and Broadcast"
+        onConfirmText={signOnly ? 'Sign' : 'Sign and Broadcast'}
         onConfirm={handleOnConfirm}
-        onCancel={() => navigation.popStack()}
+        onCancel={handleOnCancel}
       />
     );
   }

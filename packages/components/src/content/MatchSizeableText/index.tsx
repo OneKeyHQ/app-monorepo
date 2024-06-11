@@ -52,7 +52,7 @@ const composeStrings = (
     strings.push({ text: children.slice(start, end + 1), isMatch: true });
     currentIndex = end + 1;
   }
-  if (currentIndex !== children.length - 1) {
+  if (currentIndex !== children.length) {
     strings.push({
       text: children.slice(currentIndex, children.length),
       isMatch: false,

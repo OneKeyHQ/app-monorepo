@@ -5,6 +5,8 @@ import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
@@ -36,7 +38,13 @@ export class KeyringImported extends KeyringImportedBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    // throw new Error('Method not implemented.')
+    // throw new NotImplemented();
     return this.baseSignMessage(params);
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
   }
 }

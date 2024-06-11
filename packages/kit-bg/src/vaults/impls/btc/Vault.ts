@@ -23,7 +23,6 @@ import {
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
-  ISignedTxPro,
   ITxInput,
   ITxInputToSign,
   IUnsignedMessage,
@@ -61,6 +60,7 @@ import { VaultBase } from '../../base/VaultBase';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 
 import type {
@@ -70,7 +70,6 @@ import type {
 } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -106,7 +105,12 @@ export default class VaultBtc extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
-    const { inputs, outputs } = encodedTx;
+    const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
+
+    // if (psbtHex && inputsToSign) {
+    //   return this.buildPsbtDecodedTx(params);
+    // }
+
     const network = await this.getNetwork();
     const account = await this.getAccount();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
@@ -201,19 +205,25 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    console.log('VaultBtc broadcastTransaction', params, {
-      rawTxOk:
-        params.signedTx.rawTx ===
-        '0200000000010190ed799b5a2d54a743f8c405615ddada3823b2cc1c178a77a15f5e18de45cb390100000000ffffffff02e80300000000000022512017161c749b810cbd8a2aa7310965b5cb025de7afa2e098a9d3b1aba6424302c6f00e02000000000022512017161c749b810cbd8a2aa7310965b5cb025de7afa2e098a9d3b1aba6424302c601402a5758f1759557b6b7a02900339f5ed83984e26a24e22b642f7a3bcd89a13392cf0848d29eb6be2e18e2c040969c37bd44825f8a343db8c530229c0aceecf88200000000',
-      txidOk:
-        params.signedTx.txid ===
-        '17eafe9b6ca10dbdb70f8f37460db13401cccd9cc2bcb4851a31f01799688dd3',
-    });
-    throw new Error('Method not implemented.');
-  }
+  // async buildPsbtDecodedTx(params: IBuildDecodedTxParams): Promise<IDecodedTx> {
+  //   const { unsignedTx } = params;
+  //   const encodedTx = unsignedTx.encodedTx as IEncodedTxBtc;
+  //   const { inputs, outputs, psbtHex, inputsToSign } = encodedTx;
+
+  //   const network = await this.getNetwork();
+  //   const account = await this.getAccount();
+  //   const nativeToken = await this.backgroundApi.serviceToken.getToken({
+  //     networkId: this.networkId,
+  //     tokenIdOnNetwork: '',
+  //     accountAddress: account.address,
+  //   });
+
+  //   if (!nativeToken) {
+  //     throw new OneKeyInternalError('Native token not found');
+  //   }
+
+  //   const actions: IDecodedTxAction[] = [];
+  // }
 
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
@@ -233,7 +243,9 @@ export default class VaultBtc extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const encodedTx = await this.buildEncodedTx(params);
+    const encodedTx =
+      (params.encodedTx as IEncodedTxBtc) ??
+      (await this.buildEncodedTx(params));
 
     if (encodedTx) {
       return this._buildUnsignedTxFromEncodedTx({
@@ -250,7 +262,9 @@ export default class VaultBtc extends VaultBase {
   }): Promise<IUnsignedTxPro> {
     const { unsignedTx, feeInfo } = options;
     let encodedTxNew = unsignedTx.encodedTx as IEncodedTxBtc;
-    if (feeInfo) {
+    const { psbtHex, inputsToSign } = encodedTxNew;
+    const isPsbtTx = psbtHex && inputsToSign;
+    if (feeInfo && !isPsbtTx) {
       if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
         throw new OneKeyInternalError('transfersInfo is required');
       }
@@ -369,8 +383,9 @@ export default class VaultBtc extends VaultBase {
     ).then((results) => results.map((i) => i.encoding));
   }
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -593,12 +608,6 @@ export default class VaultBtc extends VaultBase {
         utxo: { txid: input.txid, vout: input.vout, value },
       });
     }
-    const outputsInUnsignedTx = outputs.map(({ address, value, payload }) => ({
-      address,
-      value: new BigNumber(value),
-      payload,
-    }));
-
     const selectedInputs = inputsForCoinSelect?.filter((input) =>
       inputsInUnsignedTx.some(
         (i) => i.utxo?.txid === input.txId && i.utxo.vout === input.vout,
@@ -613,9 +622,7 @@ export default class VaultBtc extends VaultBase {
         })) ?? [],
       );
     }
-    const ret = {
-      inputs: inputsInUnsignedTx,
-      outputs: outputsInUnsignedTx,
+    const ret: IUnsignedTxPro = {
       txSize,
       encodedTx,
       transfersInfo,
@@ -721,7 +728,7 @@ export default class VaultBtc extends VaultBase {
             xpub: await this.getAccountXpub(),
             withUTXOList: true,
           });
-        if (!utxoList || isEmpty(utxoList)) {
+        if (!utxoList) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
         }
         return utxoList;
@@ -736,8 +743,8 @@ export default class VaultBtc extends VaultBase {
     },
   );
 
-  async _getRelPathToAddressByApi({
-    addresses,
+  async _getRelPathsToAddressByApi({
+    addresses, // addresses in tx.inputs
     account,
   }: {
     addresses: string[];
@@ -774,6 +781,7 @@ export default class VaultBtc extends VaultBase {
       };
     }
 
+    // TODO uniq
     const relPaths: string[] = Object.values(pathToAddresses).map(
       (item) => item.relPath,
     );
@@ -828,22 +836,22 @@ export default class VaultBtc extends VaultBase {
       addresses = [account.address];
     }
     if (unsignedTx) {
+      const { inputs, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
       const emptyInputs: Array<ITxInputToSign | IBtcInput> = [];
       addresses = emptyInputs
-        .concat(
-          unsignedTx.inputsToSign ?? [],
-          (unsignedTx.encodedTx as IEncodedTxBtc)?.inputs ?? [],
-        )
+        .concat(inputsToSign ?? [], inputs ?? [])
         .filter(Boolean)
         .map((input) => input.address)
         .concat(account.address);
     }
 
+    // TODO generate relPaths from inputs/inputsToSign/inputsForCoinSelect
+
     const {
       // required for multiple address signing
       relPaths,
       pathToAddresses,
-    } = await this._getRelPathToAddressByApi({
+    } = await this._getRelPathsToAddressByApi({
       addresses,
       account,
     });

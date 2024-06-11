@@ -15,6 +15,7 @@ import {
   DAppRequestLayout,
 } from '../../components/DAppRequestLayout';
 import { useRiskDetection } from '../../hooks/useRiskDetection';
+import DappOpenModalPage from '../DappOpenModalPage';
 
 import type {
   IHandleAccountChanged,
@@ -35,9 +36,9 @@ function SessionProposalModal() {
   const { origin } = new URL(proposal.params.proposer.metadata.url);
   const favicon = proposal.params.proposer.metadata.icons[0];
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin });
@@ -52,9 +53,9 @@ function SessionProposalModal() {
     [num: number]: IHandleAccountChangedParams;
   }>({});
   const confirmDisabled = useMemo(() => {
-    if (!canContinueOperate) return true;
+    if (!continueOperate) return true;
     return false;
-  }, [canContinueOperate]);
+  }, [continueOperate]);
 
   const onApproval = useCallback(
     async (close: () => void) => {
@@ -140,42 +141,44 @@ function SessionProposalModal() {
   }, [accountChangedParamsMap]);
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title="Connection Request"
-          subtitleShown={false}
-          origin={origin}
-          urlSecurityInfo={urlSecurityInfo}
-          favicon={favicon}
-        >
-          {Array.isArray(sessionAccountsInfo) ? (
-            <WalletConnectAccountTriggerList
-              sceneUrl={origin}
-              sessionAccountsInfo={sessionAccountsInfo}
-              handleAccountChanged={handleAccountChanged}
-            />
-          ) : null}
-          <DAppRequestedPermissionContent />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          continueOperate={continueOperate}
-          setContinueOperate={(value) => setContinueOperate(!!value)}
-          onConfirm={onApproval}
-          onCancel={() => {
-            dappApprove.reject();
-          }}
-          confirmButtonProps={{
-            disabled: confirmDisabled,
-          }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title="Connection Request"
+            subtitleShown={false}
+            origin={origin}
+            urlSecurityInfo={urlSecurityInfo}
+            favicon={favicon}
+          >
+            {Array.isArray(sessionAccountsInfo) ? (
+              <WalletConnectAccountTriggerList
+                sceneUrl={origin}
+                sessionAccountsInfo={sessionAccountsInfo}
+                handleAccountChanged={handleAccountChanged}
+              />
+            ) : null}
+            <DAppRequestedPermissionContent />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            continueOperate={continueOperate}
+            setContinueOperate={(value) => setContinueOperate(!!value)}
+            onConfirm={onApproval}
+            onCancel={() => {
+              dappApprove.reject();
+            }}
+            confirmButtonProps={{
+              disabled: confirmDisabled,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
+          />
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

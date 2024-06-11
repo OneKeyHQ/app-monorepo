@@ -10,7 +10,6 @@ import {
   SizableText,
   Stack,
   TextArea,
-  Toast,
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
@@ -75,29 +74,6 @@ function StartTimePanelContainer() {
   );
 }
 
-function ExternalAccountSign() {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  return (
-    <PartContainer title="ExternalAccountSign">
-      <Button
-        onPress={async () => {
-          const r = await backgroundApiProxy.serviceAccount.testEvmPersonalSign(
-            {
-              networkId: activeAccount.network?.id || '',
-              accountId: activeAccount.account?.id || '',
-            },
-          );
-          Toast.success({
-            title: `Personal Sign success: ${r}`,
-          });
-        }}
-      >
-        personal_sign: ({activeAccount.account?.address})
-      </Button>
-    </PartContainer>
-  );
-}
-
 function ConnectWalletConnectDapp() {
   const [val, setVal] = useState('');
   return (
@@ -129,29 +105,6 @@ function TestRefreshCmp() {
   return <Button>TestRefresh: {accountName}</Button>;
 }
 const TestRefresh = memo(TestRefreshCmp);
-
-function SendTestButton() {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-
-  return (
-    <Stack>
-      <Button
-        onPress={async () => {
-          const r = await backgroundApiProxy.serviceSend.demoSend({
-            networkId: activeAccount.network?.id || '',
-            accountId: activeAccount.account?.id || '',
-          });
-          console.log('demoSend done:', r);
-        }}
-      >
-        测试发送流程(使用首页的账户选择器)
-      </Button>
-      <SizableText>
-        {activeAccount.network?.id}, {activeAccount.account?.id}
-      </SizableText>
-    </Stack>
-  );
-}
 
 const TabDeveloper = () => {
   const navigation =
@@ -263,8 +216,6 @@ const TabDeveloper = () => {
             </PartContainer>
             <StartTimePanelContainer />
             <ConnectWalletConnectDapp />
-            <ExternalAccountSign />
-            <SendTestButton />
             <TestRefresh />
             {/* <WalletConnectModalNative2 /> */}
           </ScrollView>

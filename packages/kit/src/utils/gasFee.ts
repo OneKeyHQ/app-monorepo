@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EFeeType,
   type IFeeInfoUnit,
@@ -92,21 +92,16 @@ export function calculateTotalFeeRange({
     };
   }
 
-  if (feeInfo.feeSol) {
-    const gasInfo = feeInfo.feeSol;
-    const limit = gasInfo.limit;
-    const limitForDisplay = limit;
-    const max = new BigNumber(limit).times(gasInfo.price).toFixed();
-
-    const maxForDisplay = new BigNumber(limitForDisplay)
-      .times(gasInfo.price)
-      .toFixed();
+  if (feeInfo.gasFil) {
+    const gasInfo = feeInfo.gasFil;
+    const limit = gasInfo.gasLimit;
+    const max = new BigNumber(limit).times(gasInfo.gasFeeCap).toFixed();
 
     return {
       min: nanToZeroString(max),
       max: nanToZeroString(max),
-      minForDisplay: nanToZeroString(maxForDisplay),
-      maxForDisplay: nanToZeroString(maxForDisplay),
+      minForDisplay: nanToZeroString(max),
+      maxForDisplay: nanToZeroString(max),
     };
   }
 
@@ -193,7 +188,7 @@ export function getFeeLabel({
   }
 
   return (PRESET_FEE_LABEL[presetIndex ?? 1] ??
-    PRESET_FEE_LABEL[0]) as ILocaleIds;
+    PRESET_FEE_LABEL[0]) as ETranslations;
 }
 export function getFeeIcon({
   feeType,

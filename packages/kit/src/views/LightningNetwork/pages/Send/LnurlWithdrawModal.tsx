@@ -8,6 +8,7 @@ import { Page, Toast, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
+import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type {
   EModalSendRoutes,
@@ -57,9 +58,9 @@ function LnurlWithdrawModal() {
   const [isLoading, setIsLoading] = useState(false);
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
@@ -140,55 +141,57 @@ function LnurlWithdrawModal() {
   );
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title={intl.formatMessage({ id: 'title__lnurl_withdraw' })}
-          subtitleShown={false}
-          origin={origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          {isSendFlow ? (
-            <DAppAccountListStandAloneItemForHomeScene />
-          ) : (
-            <DAppAccountListStandAloneItem readonly />
-          )}
-          <LNMakeInvoiceForm
-            accountId={accountId}
-            networkId={networkId}
-            useFormReturn={useFormReturn}
-            amount={amountMin === amountMax ? amountMin : undefined}
-            amountReadOnly={amountMin === amountMax}
-            minimumAmount={amountMin}
-            maximumAmount={amountMax}
-            descriptionLabelId="form__withdraw_description"
-            memo={lnurlDetails.defaultDescription}
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title={intl.formatMessage({ id: 'title__lnurl_withdraw' })}
+            subtitleShown={false}
+            origin={origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            {isSendFlow ? (
+              <DAppAccountListStandAloneItemForHomeScene />
+            ) : (
+              <DAppAccountListStandAloneItem readonly />
+            )}
+            <LNMakeInvoiceForm
+              accountId={accountId}
+              networkId={networkId}
+              useFormReturn={useFormReturn}
+              amount={amountMin === amountMax ? amountMin : undefined}
+              amountReadOnly={amountMin === amountMax}
+              minimumAmount={amountMin}
+              maximumAmount={amountMax}
+              descriptionLabelId="form__withdraw_description"
+              memo={lnurlDetails.defaultDescription}
+            />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            confirmText="Continue"
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+            onConfirm={onConfirm}
+            onCancel={() => {
+              if (!isSendFlow) {
+                dappApprove.reject();
+              }
+            }}
+            confirmButtonProps={{
+              loading: isLoading,
+              disabled: !continueOperate,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
           />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          confirmText="Continue"
-          continueOperate={continueOperate}
-          setContinueOperate={(checked) => {
-            setContinueOperate(!!checked);
-          }}
-          onConfirm={onConfirm}
-          onCancel={() => {
-            if (!isSendFlow) {
-              dappApprove.reject();
-            }
-          }}
-          confirmButtonProps={{
-            loading: isLoading,
-            disabled: !canContinueOperate,
-          }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

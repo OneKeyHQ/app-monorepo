@@ -51,6 +51,7 @@ import type {
   CommonParams,
   CoreApi,
   CoreMessage,
+  DeviceUploadResourceParams,
   Features,
   IDeviceType,
   KnownDevice,
@@ -291,7 +292,7 @@ class ServiceHardware extends ServiceBase {
     }
     if (platformEnv.isNative) {
       try {
-        const features = await this.getFeatures({ connectId });
+        const features = await this.getFeaturesWithoutCache({ connectId });
         return features;
       } catch (e: any) {
         const error: deviceErrors.OneKeyHardwareError | undefined =
@@ -308,7 +309,12 @@ class ServiceHardware extends ServiceBase {
       /**
        * USB does not need the extra getFeatures call
        */
-      return (device as KnownDevice).features;
+      try {
+        const features = await this.getFeaturesWithoutCache({ connectId });
+        return features;
+      } catch (e: any) {
+        return (device as KnownDevice).features;
+      }
     }
   }
 
@@ -521,6 +527,14 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async firmwareAuthenticate(p: IFirmwareAuthenticateParams) {
     return this.hardwareVerifyManager.firmwareAuthenticate(p);
+  }
+
+  @backgroundMethod()
+  async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
+    const hardwareSDK = await this.getSDKInstance();
+    return convertDeviceResponse(() =>
+      hardwareSDK?.deviceUploadResource(connectId, params),
+    );
   }
 }
 

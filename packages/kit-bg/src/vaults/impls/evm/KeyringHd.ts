@@ -5,6 +5,8 @@ import { KeyringHdBase } from '../../base/KeyringHdBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
@@ -21,6 +23,12 @@ export class KeyringHd extends KeyringHdBase {
     return this.baseGetPrivateKeys(params);
   }
 
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    return this.baseExportAccountSecretKeys(params);
+  }
+
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
@@ -34,7 +42,7 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(params: ISignMessageParams): Promise<string[]> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     return this.baseSignMessage(params);
   }
 }

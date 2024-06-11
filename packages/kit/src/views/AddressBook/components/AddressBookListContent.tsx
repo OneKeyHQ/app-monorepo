@@ -1,4 +1,4 @@
-import { type FC, useMemo } from 'react';
+import { type FC, useEffect, useMemo } from 'react';
 import { useCallback, useState } from 'react';
 
 import { groupBy } from 'lodash';
@@ -206,6 +206,10 @@ export const AddressBookListContent = ({
     [],
   );
 
+  useEffect(() => {
+    setFoldItems([]);
+  }, [searchKey]);
+
   const renderSectionHeader = useCallback(
     ({
       section,
@@ -216,12 +220,12 @@ export const AddressBookListContent = ({
         index: number;
         isFold?: boolean;
       };
-    }) => (
-      <SectionList.SectionHeader
-        title={section.title.toUpperCase()}
-        justifyContent="space-between"
-      >
-        {!searchKey ? (
+    }) =>
+      !searchKey ? (
+        <SectionList.SectionHeader
+          title={section.title.toUpperCase()}
+          justifyContent="space-between"
+        >
           <IconButton
             size="small"
             variant="tertiary"
@@ -235,9 +239,8 @@ export const AddressBookListContent = ({
             }
             onPress={() => onToggle(section.title)}
           />
-        ) : null}
-      </SectionList.SectionHeader>
-    ),
+        </SectionList.SectionHeader>
+      ) : null,
     [onToggle, searchKey],
   );
 
@@ -254,12 +257,33 @@ export const AddressBookListContent = ({
   const memoSections = useMemo(() => {
     let sections: ISectionItem[] = [];
     if (searchKey) {
-      const fuse = buildFuse(items, { keys: ['address', 'name'] });
-      const itemSearched = fuse.search(searchKey).map((o) => ({
+      const exactMatch = (match: IFuseResultMatch) => {
+        const result =
+          match.indices.length === 1 &&
+          match.value &&
+          match.indices[0][1] - match.indices[0][0] === match.value.length - 1;
+        return result;
+      };
+      const fuse = buildFuse(items, {
+        keys: ['address', 'name'],
+      });
+      let itemSearched = fuse.search(searchKey).map((o) => ({
         ...o.item,
-        addressMatch: o.matches?.find((i) => i.key === 'address'),
         nameMatch: o.matches?.find((i) => i.key === 'name'),
+        addressMatch: o.matches?.find(
+          (i) => i.key === 'address' && exactMatch(i),
+        ),
       }));
+      // Require an exact match for address search.
+      itemSearched = itemSearched.filter((o) => {
+        if (!o.nameMatch && !o.addressMatch) {
+          return false;
+        }
+        if (!o.nameMatch && o.addressMatch) {
+          return exactMatch(o.addressMatch);
+        }
+        return true;
+      });
       sections = buildSections(itemSearched);
     } else {
       sections = buildSections(items);

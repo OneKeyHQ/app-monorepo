@@ -1,4 +1,4 @@
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
@@ -33,13 +33,13 @@ export function moveNetworkToFirst(arr: ISwapNetwork[], networkId: string) {
   const index = networks.findIndex((item) => item.networkId === networkId);
   if (index !== -1) {
     const item = networks.splice(index, 1)[0];
-    networks.splice(1, 0, item);
+    networks.splice(0, 0, item);
   }
   return networks;
 }
 
 export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
-  key: ILocaleIds;
+  key: ETranslations;
   color: ColorValue;
 } {
   if (status === ESwapTxHistoryStatus.PENDING) {
@@ -53,6 +53,13 @@ export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
     return {
       key: 'transaction__success',
       color: '$textSuccess',
+    };
+  }
+
+  if (status === ESwapTxHistoryStatus.DISCARD) {
+    return {
+      key: 'action__discard',
+      color: '$textCritical',
     };
   }
 

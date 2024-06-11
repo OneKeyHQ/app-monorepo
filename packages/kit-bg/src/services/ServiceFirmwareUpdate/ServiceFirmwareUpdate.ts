@@ -374,6 +374,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ble?.hasUpgrade ? 'ble' : undefined,
     ];
 
+    if (!hasUpgrade && originalConnectId) {
+      await this.detectMap.deleteUpdateInfo({
+        connectId: originalConnectId,
+      });
+    }
+
     return {
       updatingConnectId,
       originalConnectId,
@@ -505,12 +511,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
 
     const fromVersion = bootloaderVersion;
-    const { hasUpgrade, hasUpgradeForce } = this.getFirmwareHasUpgradeStatus({
-      releasePayload: usedReleasePayload,
-      firmwareType: 'bootloader',
-      fromVersion,
-      toVersion,
-    });
+    const { hasUpgrade, hasUpgradeForce } =
+      await this.getFirmwareHasUpgradeStatus({
+        releasePayload: usedReleasePayload,
+        firmwareType: 'bootloader',
+        fromVersion,
+        toVersion,
+      });
 
     const updateInfo: IBootloaderUpdateInfo = {
       connectId,
@@ -525,7 +532,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     return updateInfo;
   }
 
-  getFirmwareHasUpgradeStatus({
+  async getFirmwareHasUpgradeStatus({
     releasePayload,
     firmwareType,
     fromVersion,
@@ -597,6 +604,21 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade = false;
     }
 
+    const mockUpdateFirmware =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateFirmware',
+      );
+    const mockUpdateBle =
+      await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
+        'forceUpdateBle',
+      );
+    if (firmwareType === 'firmware' && mockUpdateFirmware) {
+      hasUpgrade = true;
+    }
+    if (firmwareType === 'ble' && mockUpdateBle) {
+      hasUpgrade = true;
+    }
+
     return {
       hasUpgradeForce,
       hasUpgrade,
@@ -639,12 +661,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     const fromVersion = firmwareVersion || '';
     const toVersion = this.arrayVersionToString(payload?.release?.version);
-    const { hasUpgrade, hasUpgradeForce } = this.getFirmwareHasUpgradeStatus({
-      releasePayload: payload,
-      firmwareType: 'firmware',
-      fromVersion,
-      toVersion,
-    });
+    const { hasUpgrade, hasUpgradeForce } =
+      await this.getFirmwareHasUpgradeStatus({
+        releasePayload: payload,
+        firmwareType: 'firmware',
+        fromVersion,
+        toVersion,
+      });
 
     const updateInfo: IFirmwareUpdateInfo = {
       connectId,
@@ -682,12 +705,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
     });
     const fromVersion = bleVersion || '';
     const toVersion = this.arrayVersionToString(payload?.release?.version);
-    const { hasUpgrade, hasUpgradeForce } = this.getFirmwareHasUpgradeStatus({
-      releasePayload: payload,
-      firmwareType: 'ble',
-      fromVersion,
-      toVersion,
-    });
+    const { hasUpgrade, hasUpgradeForce } =
+      await this.getFirmwareHasUpgradeStatus({
+        releasePayload: payload,
+        firmwareType: 'ble',
+        fromVersion,
+        toVersion,
+      });
 
     const updateInfo: IBleFirmwareUpdateInfo = {
       connectId,
@@ -1411,32 +1435,56 @@ class ServiceFirmwareUpdate extends ServiceBase {
       throw new NeedFirmwareUpgradeFromWeb();
     }
 
-    // bootloader mode device may return wrong firmware current version. so we skip this check
-    if (params.releaseResult?.isBootloaderMode) {
-      return;
-    }
     const deviceType = params.releaseResult?.deviceType;
 
-    const fwFromVersion =
-      params.releaseResult?.updateInfos?.firmware?.fromVersion;
-    if (
-      fwFromVersion &&
-      deviceType &&
-      minVersionMap?.[deviceType]?.firmware &&
-      semver.lt(fwFromVersion, minVersionMap?.[deviceType]?.firmware || '')
-    ) {
-      throw new NeedFirmwareUpgradeFromWeb();
+    const checkFn = ({
+      updateInfo,
+      minVersion,
+    }: {
+      updateInfo: IFirmwareUpdateInfo | IBootloaderUpdateInfo | undefined;
+      minVersion: string | undefined;
+    }) => {
+      if (
+        deviceType &&
+        updateInfo?.hasUpgrade &&
+        updateInfo?.fromVersion &&
+        minVersion &&
+        semver.lt(updateInfo?.fromVersion || '', minVersion || '')
+      ) {
+        throw new NeedFirmwareUpgradeFromWeb();
+      }
+    };
+
+    // bootloader mode device may return wrong firmware current version. so we skip this check
+    if (params.releaseResult?.isBootloaderMode) {
+      // only check bootloader version at boot mode
+      checkFn({
+        updateInfo: params.releaseResult?.updateInfos?.bootloader,
+        minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
+      });
+      if (
+        params.releaseResult?.updateInfos?.bootloader?.hasUpgrade &&
+        !params.releaseResult?.updateInfos?.bootloader?.fromVersion
+      ) {
+        throw new NeedFirmwareUpgradeFromWeb();
+      }
+      return;
     }
 
-    const bleFromVersion = params.releaseResult?.updateInfos?.ble?.fromVersion;
-    if (
-      bleFromVersion &&
-      deviceType &&
-      minVersionMap?.[deviceType]?.ble &&
-      semver.lt(bleFromVersion, minVersionMap?.[deviceType]?.ble || '')
-    ) {
-      throw new NeedFirmwareUpgradeFromWeb();
-    }
+    checkFn({
+      updateInfo: params.releaseResult?.updateInfos?.firmware,
+      minVersion: minVersionMap?.[deviceType || 'unknown']?.firmware,
+    });
+
+    checkFn({
+      updateInfo: params.releaseResult?.updateInfos?.ble,
+      minVersion: minVersionMap?.[deviceType || 'unknown']?.ble,
+    });
+
+    checkFn({
+      updateInfo: params.releaseResult?.updateInfos?.bootloader,
+      minVersion: minVersionMap?.[deviceType || 'unknown']?.bootloader,
+    });
   }
 
   async validateMnemonicBackuped(params: IUpdateFirmwareWorkflowParams) {

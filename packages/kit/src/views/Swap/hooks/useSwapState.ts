@@ -129,8 +129,21 @@ export function useSwapActionState() {
               quoteCurrentSelect?.info.providerName ?? ''
             }`;
       }
+      if (
+        quoteCurrentSelect &&
+        !quoteCurrentSelect.toAmount &&
+        !quoteCurrentSelect.limit
+      ) {
+        infoRes.label = 'No liquidity for this trade';
+        infoRes.disable = true;
+      }
       const fromTokenAmountBN = new BigNumber(fromTokenAmount);
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
+      const reserveBN = new BigNumber(fromToken?.reservationValue ?? 0);
+      if (!reserveBN.isZero() && fromTokenAmountBN.lte(reserveBN)) {
+        infoRes.label = 'Not enough to cover network fee';
+        infoRes.disable = true;
+      }
       if (
         fromToken &&
         swapFromAddressInfo.address &&

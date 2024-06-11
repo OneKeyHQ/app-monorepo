@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, SizableText, Stack } from '@onekeyhq/components';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import {
@@ -23,38 +22,66 @@ export function FirmwareUpdateCheckList({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
 
-  const [val, setVal] = useState<ICheckedState[]>([false, false, false, false]);
-
-  const isAllChecked = val.every((v) => v);
+  const [checkValueList, setCheckValueList] = useState([
+    {
+      label: "I've backed up my recovery phrase.",
+      emoji: '✅',
+      value: false,
+    },
+    {
+      label: platformEnv.isNative
+        ? 'My device is connected via bluetooth.'
+        : 'My device is connected via USB cable.',
+      emoji: '📲',
+      value: false,
+    },
+    {
+      label: 'The device battery is fully charged.',
+      emoji: '🔋',
+      value: false,
+    },
+    {
+      label: 'Only one device is connected.',
+      emoji: '📱',
+      value: false,
+    },
+    {
+      label: 'All other OneKey Apps and web upgrade tools are closed.',
+      emoji: '🆗',
+      value: false,
+    },
+  ]);
+  const onCheckChanged = useCallback(
+    (checkValue: { value: boolean }) => {
+      checkValue.value = !checkValue.value;
+      setCheckValueList([...checkValueList]);
+    },
+    [checkValueList],
+  );
+  const isAllChecked = useMemo(
+    () => checkValueList.every((x) => x.value),
+    [checkValueList],
+  );
 
   return (
     <Stack>
       <SizableText size="$heading2xl" my="$8">
         Ready to Upgrade? Let’s Check You're all set 📝
       </SizableText>
-      <Checkbox.Group
-        label="Check All"
-        listStyle={
-          {
-            // height: 200,
-          }
-        }
-        options={[
-          { label: "I've backed up my recovery phrase." },
-          {
-            label: platformEnv.isNative
-              ? 'My device is connected via bluetooth.'
-              : 'My device is connected via USB cable.',
-          },
-          { label: 'The device battery is fully charged.' },
-          { label: 'Only one device is connected.' },
-          { label: 'All other OneKey Apps and web upgrade tools are closed.' },
-        ]}
-        value={val}
-        onChange={(value) => {
-          setVal(value);
-        }}
-      />
+      <Stack space="$3">
+        {checkValueList.map((checkValue) => (
+          <Checkbox
+            key={checkValue.label}
+            value={checkValue.value}
+            label={
+              checkValue.value
+                ? `${checkValue.label} ${checkValue.emoji}`
+                : checkValue.label
+            }
+            onChange={() => onCheckChanged(checkValue)}
+          />
+        ))}
+      </Stack>
       <FirmwareUpdatePageFooter
         confirmButtonProps={{
           disabled: !isAllChecked,

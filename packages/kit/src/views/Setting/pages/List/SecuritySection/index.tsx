@@ -110,7 +110,7 @@ const PasswordItem = () => {
 const FaceIdItem = () => {
   const intl = useIntl();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
-  const [{ isSupport: biologyAuthIsSupport, authType }] =
+  const [{ isSupport: biologyAuthIsSupport, authType, isEnable }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
 
@@ -118,13 +118,17 @@ const FaceIdItem = () => {
   let icon: ComponentProps<typeof ListItem>['icon'] = 'TouchIdSolid';
 
   if (biologyAuthIsSupport) {
-    if (authType.includes(AuthenticationType.FACIAL_RECOGNITION)) {
+    if (
+      authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
+      authType.includes(AuthenticationType.IRIS)
+    ) {
       title = intl.formatMessage({ id: 'content__face_id' });
       icon = 'FaceIdSolid';
     }
   }
 
-  return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
+  return isPasswordSet &&
+    ((biologyAuthIsSupport && isEnable) || webAuthIsSupport) ? (
     <ListItem icon={icon} title={title}>
       <UniversalContainerWithSuspense />
     </ListItem>

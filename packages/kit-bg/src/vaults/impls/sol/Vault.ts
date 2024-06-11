@@ -113,8 +113,9 @@ import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -836,7 +837,7 @@ export default class Vault extends VaultBase {
     const swapSendToken = swapInfo.sender.token;
     const action = await this.buildTxTransferAssetAction({
       from: swapInfo.accountAddress,
-      to: '',
+      to: swapInfo.receivingAddress,
       transfers: [
         {
           from: swapInfo.accountAddress,
@@ -869,7 +870,7 @@ export default class Vault extends VaultBase {
 
     return {
       payload: {
-        feePayer: new PublicKey(accountAddress),
+        feePayer: accountAddress,
       },
       encodedTx,
     };
@@ -938,12 +939,6 @@ export default class Vault extends VaultBase {
     }
 
     return Promise.resolve(encodedTx);
-  }
-
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

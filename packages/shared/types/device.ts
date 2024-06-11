@@ -169,6 +169,15 @@ export type IResourceUpdateInfo = {
   limitVersion?: string;
 };
 
+export type IQrWalletDevice = {
+  name: string; // device name like: 'OneKey Pro'
+  // TODO deviceType
+  deviceId: string;
+  version: string;
+  xfp: string;
+  buildBy: 'hdkey' | 'multiAccounts';
+};
+
 export type IDeviceFirmwareType = 'firmware' | 'ble' | 'bootloader';
 
 export const CUSTOM_UI_RESPONSE = {
@@ -200,8 +209,10 @@ export const UI_REQUEST = {
 
 export enum EOneKeyDeviceMode {
   bootloader = 'bootloader',
-  initialize = 'initialize',
-  seedless = 'seedless',
+  notInitialized = 'notInitialized',
+  // initialize = 'initialize',
+  backupMode = 'backupMode',
+  // seedless = 'seedless',
   normal = 'normal',
 }
 

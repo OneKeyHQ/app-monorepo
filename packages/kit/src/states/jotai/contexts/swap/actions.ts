@@ -16,7 +16,6 @@ import {
   swapQuoteFetchInterval,
   swapRateDifferenceMax,
   swapRateDifferenceMin,
-  swapSlippageAutoValue,
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -55,6 +54,7 @@ import {
   swapSelectedToTokenBalanceAtom,
   swapSilenceQuoteLoading,
   swapSlippagePercentageAtom,
+  swapSlippagePercentageModeAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
 } from './atoms';
@@ -74,10 +74,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   });
 
   resetSwapSlippage = contextAtomMethod((get, set) => {
-    set(swapSlippagePercentageAtom(), {
-      key: ESwapSlippageSegmentKey.AUTO,
-      value: swapSlippageAutoValue,
-    });
+    set(swapSlippagePercentageModeAtom(), ESwapSlippageSegmentKey.AUTO);
   });
 
   cleanManualSelectQuoteProviders = contextAtomMethod((get, set) => {
@@ -206,6 +203,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       toToken: ISwapToken,
       fromTokenAmount: string,
       slippagePercentage: number,
+      autoSlippage?: boolean,
       address?: string,
       loadingDelayEnable?: boolean,
       blockNumber?: number,
@@ -221,6 +219,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromTokenAmount,
           userAddress: address,
           slippagePercentage,
+          autoSlippage,
           blockNumber,
         });
         if (!loadingDelayEnable) {
@@ -269,6 +268,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           toToken,
           fromTokenAmount,
           swapSlippage.value,
+          swapSlippage.key === ESwapSlippageSegmentKey.AUTO,
           address,
           false,
           blockNumber,
@@ -292,7 +292,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
         if (
           txState.state === ESwapTxHistoryStatus.SUCCESS ||
-          txState.state === ESwapTxHistoryStatus.FAILED
+          txState.state === ESwapTxHistoryStatus.FAILED ||
+          txState.state === ESwapTxHistoryStatus.DISCARD
         ) {
           enableInterval = false;
           set(swapApprovingTransactionAtom(), (pre) => {
@@ -304,10 +305,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 status: ESwapApproveTransactionStatus.SUCCESS,
               };
             }
+            if (txState.state === ESwapTxHistoryStatus.FAILED) {
+              return {
+                ...pre,
+                txId: undefined,
+                status: ESwapApproveTransactionStatus.FAILED,
+              };
+            }
             return {
               ...pre,
               txId: undefined,
-              status: ESwapApproveTransactionStatus.FAILED,
+              status: ESwapApproveTransactionStatus.CANCEL,
             };
           });
           set(swapBuildTxFetchingAtom(), false);
@@ -368,6 +376,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             toToken,
             fromTokenAmount,
             swapSlippage.value,
+            swapSlippage.key === ESwapSlippageSegmentKey.AUTO,
             address,
             true,
           );
@@ -381,6 +390,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       clearTimeout(this.quoteInterval);
       this.quoteInterval = undefined;
     }
+    void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
   };
 
   cleanApprovingInterval = () => {
@@ -409,6 +419,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       let rateDifferenceRes:
         | { value: string; unit: ESwapRateDifferenceUnit }
         | undefined;
+      if (
+        quoteResult &&
+        fromToken &&
+        toToken &&
+        (quoteResult?.fromTokenInfo?.networkId !== fromToken?.networkId ||
+          quoteResult?.toTokenInfo?.networkId !== toToken?.networkId ||
+          quoteResult?.fromTokenInfo?.contractAddress !==
+            fromToken?.contractAddress ||
+          quoteResult?.toTokenInfo?.contractAddress !==
+            toToken?.contractAddress)
+      ) {
+        return;
+      }
       if (!networks.length || !swapFromAddressInfo.accountInfo?.ready) return;
       // check account
       if (!swapFromAddressInfo.accountInfo?.wallet) {
@@ -484,67 +507,67 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ];
       }
 
-      if (
-        fromToken &&
-        !swapFromAddressInfo.address &&
-        (accountUtils.isHdWallet({
-          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-        }) ||
-          accountUtils.isHwWallet({
-            walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
-          }))
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `${
-              swapFromAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
-            } - ${
-              swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
-            } lacks ${
-              swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
-            } address. Please try to create one.`,
-            alertLevel: ESwapAlertLevel.ERROR,
-          },
-        ];
-      }
+      // if (
+      //   fromToken &&
+      //   !swapFromAddressInfo.address &&
+      //   (accountUtils.isHdWallet({
+      //     walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      //   }) ||
+      //     accountUtils.isHwWallet({
+      //       walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      //     }))
+      // ) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       message: `${
+      //         swapFromAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
+      //       } - ${
+      //         swapFromAddressInfo.accountInfo?.accountName ?? 'unknown'
+      //       } lacks ${
+      //         swapFromAddressInfo.accountInfo?.network?.name ?? 'unknown'
+      //       } address. Please try to create one.`,
+      //       alertLevel: ESwapAlertLevel.ERROR,
+      //     },
+      //   ];
+      // }
 
-      if (
-        toToken &&
-        !swapToAddressInfo.address &&
-        (accountUtils.isHdWallet({
-          walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-        }) ||
-          accountUtils.isHwWallet({
-            walletId: swapToAddressInfo.accountInfo?.wallet?.id,
-          })) &&
-        swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `${
-              swapToAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
-            } - ${
-              swapToAddressInfo.accountInfo?.accountName ?? 'unknown'
-            } lacks ${
-              swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
-            } address. Please try to create one.`,
-            alertLevel: ESwapAlertLevel.ERROR,
-          },
-        ];
-      }
+      // if (
+      //   toToken &&
+      //   !swapToAddressInfo.address &&
+      //   (accountUtils.isHdWallet({
+      //     walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+      //   }) ||
+      //     accountUtils.isHwWallet({
+      //       walletId: swapToAddressInfo.accountInfo?.wallet?.id,
+      //     })) &&
+      //   swapFromAddressInfo.networkId !== swapToAddressInfo.networkId
+      // ) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       message: `${
+      //         swapToAddressInfo.accountInfo?.wallet?.name ?? 'unknown'
+      //       } - ${
+      //         swapToAddressInfo.accountInfo?.accountName ?? 'unknown'
+      //       } lacks ${
+      //         swapToAddressInfo.accountInfo?.network?.name ?? 'unknown'
+      //       } address. Please try to create one.`,
+      //       alertLevel: ESwapAlertLevel.ERROR,
+      //     },
+      //   ];
+      // }
 
       // provider toAmount check
-      if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: 'No provider supports this trade.',
-            alertLevel: ESwapAlertLevel.ERROR,
-          },
-        ];
-      }
+      // if (quoteResult && !quoteResult?.toAmount && !quoteResult?.limit) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       message: 'No provider supports this trade.',
+      //       alertLevel: ESwapAlertLevel.ERROR,
+      //     },
+      //   ];
+      // }
 
       // provider best check
       if (quoteResult?.toAmount && !quoteResult.isBest) {
@@ -559,23 +582,23 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
 
       // price check
-      if (
-        (fromToken &&
-          (!fromToken?.price || new BigNumber(fromToken.price).isZero())) ||
-        (toToken && (!toToken?.price || new BigNumber(toToken.price).isZero()))
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            message: `Failed to fetch ${
-              !fromToken?.price
-                ? fromToken?.name ?? fromToken?.symbol ?? 'unknown'
-                : toToken?.name ?? toToken?.symbol ?? 'unknown'
-            } price.You can still proceed with the trade.`,
-            alertLevel: ESwapAlertLevel.WARNING,
-          },
-        ];
-      }
+      // if (
+      //   (fromToken &&
+      //     (!fromToken?.price || new BigNumber(fromToken.price).isZero())) ||
+      //   (toToken && (!toToken?.price || new BigNumber(toToken.price).isZero()))
+      // ) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       message: `Failed to fetch ${
+      //         !fromToken?.price
+      //           ? fromToken?.name ?? fromToken?.symbol ?? 'unknown'
+      //           : toToken?.name ?? toToken?.symbol ?? 'unknown'
+      //       } price.You can still proceed with the trade.`,
+      //       alertLevel: ESwapAlertLevel.WARNING,
+      //     },
+      //   ];
+      // }
 
       // market rate check
       if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
@@ -719,9 +742,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const accountXpub = (
         swapAddressInfo.accountInfo?.account as IDBUtxoAccount
       )?.xpub;
-      if (accountNetworkId !== token?.networkId) return;
       let balanceDisplay;
-      if (token && accountAddress && accountNetworkId) {
+      if (
+        token &&
+        accountAddress &&
+        accountNetworkId &&
+        accountNetworkId === token?.networkId
+      ) {
         if (
           token.accountAddress === accountAddress &&
           accountNetworkId === token.networkId &&
@@ -768,6 +795,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                         price: detailInfo[0].price,
                         fiatValue: detailInfo[0].fiatValue,
                         balanceParsed: detailInfo[0].balanceParsed,
+                        reservationValue: detailInfo[0].reservationValue,
                         accountAddress,
                       };
                     }
@@ -780,6 +808,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                         price: detailInfo[0].price,
                         fiatValue: detailInfo[0].fiatValue,
                         balanceParsed: detailInfo[0].balanceParsed,
+                        reservationValue: detailInfo[0].reservationValue,
                         accountAddress,
                       };
                     }
@@ -787,6 +816,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 }
               }
             }
+          } catch (e) {
+            balanceDisplay = '0.0';
           } finally {
             set(swapSelectTokenDetailFetchingAtom(), (pre) => ({
               ...pre,
@@ -814,7 +845,7 @@ export const useSwapActions = () => {
   const syncNetworksSort = actions.syncNetworksSort.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
-  const quoteAction = debounce(actions.quoteAction.use(), 100);
+  const quoteAction = debounce(actions.quoteAction.use(), 500);
   const approvingStateAction = actions.approvingStateAction.use();
   const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 200);
   const tokenListFetchAction = actions.tokenListFetchAction.use();

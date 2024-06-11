@@ -1,4 +1,5 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 export enum EQRCodeHandlerType {
@@ -13,6 +14,7 @@ export enum EQRCodeHandlerType {
   ANIMATION_CODE = 'ANIMATION_CODE',
   DEEPLINK = 'DEEPLINK',
   URL_ACCOUNT = 'URL_ACCOUNT',
+  MARKET_DETAIL = 'MARKET_DETAIL',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -69,14 +71,20 @@ export interface IUrlAccountValue extends IBaseValue {
   networkId: string;
   address: string;
 }
+export interface IMarketDetailValue extends IBaseValue {
+  origin: string;
+  coinGeckoId: string;
+}
 export interface IMigrateValue extends IBaseValue {
   address?: string;
 }
 export interface IAnimationValue extends IBaseValue {
-  partIndex: number;
+  partIndexes: number[];
   partSize: number;
-  partData: string;
+  parts: string[];
   fullData?: string;
+  fullUr?: IAirGapUrJson;
+  progress: number;
 }
 export interface IUrlValue extends IBaseValue {
   url: string;
@@ -108,9 +116,27 @@ export type IQRCodeHandler<T extends IBaseValue> = (
 export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
 
-export type IQRCodeHandlerParseOptions = {
+export enum EQRCodeHandlerNames {
+  bitcoin,
+  ethereum,
+  solana,
+  walletconnect,
+  migrate,
+  animation,
+  urlAccount,
+  marketDetail,
+}
+
+export type IQRCodeHandlerParseOutsideOptions = {
+  handlers: EQRCodeHandlerNames[];
   autoHandleResult?: boolean;
-} & IQRCodeHandlerOptions;
+  accountId?: string;
+  qrWalletScene?: boolean;
+  showProTutorial?: boolean;
+};
+
+export type IQRCodeHandlerParseOptions = IQRCodeHandlerParseOutsideOptions &
+  IQRCodeHandlerOptions;
 
 export type IQRCodeHandlerParse<T extends IBaseValue> = (
   value: string,

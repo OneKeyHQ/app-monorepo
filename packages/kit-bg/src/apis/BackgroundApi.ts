@@ -54,6 +54,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceDemo() {
+    const Service =
+      require('../services/ServiceDemo') as typeof import('../services/ServiceDemo');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceDemo', { value });
+    return value;
+  }
+
+  get serviceV4Migration() {
+    const Service =
+      require('../services/ServiceV4Migration') as typeof import('../services/ServiceV4Migration');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceV4Migration', { value });
+    return value;
+  }
+
   get servicePassword() {
     const Service =
       require('../services/ServicePassword') as typeof import('../services/ServicePassword');
@@ -275,12 +295,22 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceWalletConnect() {
-    const ServiceWalletConnect =
+    const Service =
       require('../services/ServiceWalletConnect') as typeof import('../services/ServiceWalletConnect');
-    const value = new ServiceWalletConnect.default({
+    const value = new Service.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceWalletConnect', { value });
+    return value;
+  }
+
+  get serviceQrWallet() {
+    const Service =
+      require('../services/ServiceQrWallet') as typeof import('../services/ServiceQrWallet');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceQrWallet', { value });
     return value;
   }
 
@@ -354,6 +384,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceMarket() {
+    const ServiceMarket =
+      require('../services/ServiceMarket') as typeof import('../services/ServiceMarket');
+    const value = new ServiceMarket.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceMarket', { value });
+    return value;
+  }
+
   get serviceE2E() {
     const Service =
       require('../services/ServiceE2E') as typeof import('../services/ServiceE2E');
@@ -375,9 +415,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceLogger() {
-    const ServiceLogger =
+    const Service =
       require('../services/ServiceLogger') as typeof import('../services/ServiceLogger');
-    const value = new ServiceLogger.default({
+    const value = new Service.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceLogger', { value });
@@ -421,6 +461,26 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceNostr', { value });
+    return value;
+  }
+
+  get serviceUniversalSearch() {
+    const ServiceUniversalSearch =
+      require('../services/ServiceUniversalSearch') as typeof import('../services/ServiceUniversalSearch');
+    const value = new ServiceUniversalSearch.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceUniversalSearch', { value });
+    return value;
+  }
+
+  get serviceStaking() {
+    const ServiceStaking =
+      require('../services/ServiceStaking') as typeof import('../services/ServiceStaking');
+    const value = new ServiceStaking.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceStaking', { value });
     return value;
   }
 }

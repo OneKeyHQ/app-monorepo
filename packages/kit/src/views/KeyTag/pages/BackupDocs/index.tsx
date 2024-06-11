@@ -1,6 +1,8 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactElement } from 'react';
 
 import { Page, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { BIP39_DOT_MAP_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { RatioImage } from '../../components/RatioImage';
 
@@ -8,14 +10,32 @@ const BackupStep = ({
   title,
   desc,
   image,
+  index,
 }: {
+  index: number;
   title: string;
-  desc: string[];
+  desc: (string | ReactElement)[];
   image: ComponentProps<typeof RatioImage>;
 }) => (
-  <Stack>
+  <Stack position="relative">
     <Stack borderRadius={12} overflow="hidden" mb="$5">
       <RatioImage {...image} />
+    </Stack>
+    <Stack
+      width="$5"
+      height="$5"
+      backgroundColor="$bgInfo"
+      position="absolute"
+      top={10}
+      left={10}
+      justifyContent="center"
+      alignItems="center"
+      display="flex"
+      borderRadius={5}
+    >
+      <SizableText size="$bodySmMedium" color="$textInfo">
+        {index}
+      </SizableText>
     </Stack>
     <SizableText size="$headingMd">{title}</SizableText>
     <YStack mt="$1">
@@ -32,8 +52,9 @@ const BackupDocs = () => (
   <Page scrollEnabled>
     <Page.Header title="Back Up with OneKey KeyTag" />
     <Page.Body>
-      <YStack p="$5" separator={<Stack h="$5" />}>
+      <YStack p="$5" separator={<Stack h="$10" />}>
         <BackupStep
+          index={1}
           image={{
             sm: {
               ratio: 353 / 224,
@@ -46,10 +67,24 @@ const BackupDocs = () => (
           }}
           title="Step 1: Get your BIP39 Dotmap"
           desc={[
-            'Visit the BIP39-Dotmap online or refer to the physical map in your KeyTag starter guide.',
+            <SizableText key="1" size="$bodyLg" color="$textSubdued">
+              Visit the{' '}
+              <SizableText
+                size="$bodyLg"
+                color="$textSubdued"
+                textDecorationLine="underline"
+                onPress={() => {
+                  openUrlExternal(BIP39_DOT_MAP_URL);
+                }}
+              >
+                BIP39-Dotmap
+              </SizableText>{' '}
+              online or refer to the physical map in your KeyTag starter guide.
+            </SizableText>,
           ]}
         />
         <BackupStep
+          index={2}
           image={{
             sm: {
               ratio: 353 / 224,
@@ -66,6 +101,7 @@ const BackupDocs = () => (
           ]}
         />
         <BackupStep
+          index={3}
           image={{
             sm: {
               ratio: 353 / 224,

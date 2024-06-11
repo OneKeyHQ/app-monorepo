@@ -7,6 +7,10 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
@@ -39,7 +43,7 @@ class ProviderApiCardano extends ProviderApiBase {
   }
 
   public override notifyDappChainChanged(): void {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -116,7 +120,8 @@ class ProviderApiCardano extends ProviderApiBase {
     if (!vault) {
       throw new Error('Not connected to any account.');
     }
-    return vault.getUtxosForDapp(params.amount);
+    const result = await vault.getUtxosForDapp(params.amount);
+    return result ?? [];
   }
 
   @providerApiMethod()
@@ -181,6 +186,7 @@ class ProviderApiCardano extends ProviderApiBase {
         encodedTx,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
+        signOnly: true,
       });
     return result;
   }

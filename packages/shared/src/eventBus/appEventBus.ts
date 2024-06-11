@@ -1,7 +1,9 @@
 /* eslint-disable import/no-named-as-default-member */
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
+import type { IQrcodeDrawType } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
 import platformEnv from '../platformEnv';
 
@@ -30,12 +32,16 @@ export enum EAppEventBusNames {
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
   ShowToast = 'ShowToast',
+  ShowQrcode = 'ShowQrcode',
   RealmInit = 'RealmInit',
+  V4RealmInit = 'V4RealmInit',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
+  HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
+  SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -84,7 +90,15 @@ export interface IAppEventBusPayload {
     message?: string;
     duration?: number;
   };
+  [EAppEventBusNames.ShowQrcode]: {
+    title?: string;
+    drawType: IQrcodeDrawType;
+    promiseId?: number;
+    value?: string;
+    valueUr?: IAirGapUrJson;
+  };
   [EAppEventBusNames.RealmInit]: undefined;
+  [EAppEventBusNames.V4RealmInit]: undefined;
   [EAppEventBusNames.ExtensionContextMenuUpdate]: undefined;
   [EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode]: {
     connectId: string | undefined;
@@ -94,6 +108,10 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
+  [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
+  [EAppEventBusNames.SwitchMarketHomeTab]: {
+    tabIndex: number;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

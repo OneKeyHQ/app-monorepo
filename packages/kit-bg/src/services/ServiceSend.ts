@@ -1,4 +1,5 @@
-import { isNil, random } from 'lodash';
+import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
@@ -10,15 +11,12 @@ import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type {
   IDecodedTx,
   ISendTxBaseParams,
   ISendTxOnSuccessData,
-} from '@onekeyhq/shared/types/tx';
-import {
-  EDecodedTxActionType,
-  EDecodedTxStatus,
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
@@ -31,7 +29,6 @@ import type {
   IBuildDecodedTxParams,
   IBuildUnsignedTxParams,
   ISignTransactionParamsBase,
-  ITransferInfo,
   IUpdateUnsignedTxParams,
 } from '../vaults/types';
 
@@ -39,142 +36,6 @@ import type {
 class ServiceSend extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  public async demoSend({
-    networkId,
-    accountId,
-  }: {
-    networkId: string;
-    accountId: string;
-  }) {
-    const vault = await vaultFactory.getVault({
-      networkId,
-      accountId,
-    });
-    const account = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-    const transferInfo: ITransferInfo = {
-      from: account.address,
-      to: account.address,
-      amount: `0.00000${random(1, 20)}`,
-      tokenInfo: {
-        address: '',
-        decimals: 18,
-        name: 'Ethereum',
-        symbol: 'ETH',
-        isNative: true,
-      },
-    };
-
-    // PagePreSend -> TokenInput、AmountInput、ReceiverInput -> unsignedTx
-    // PageSendConfirm
-    let unsignedTx = await vault.buildUnsignedTx({
-      transfersInfo: [transferInfo],
-    });
-
-    // PageSendConfirm -> feeInfoEditor -> rebuild unsignedTx
-    unsignedTx = await vault.updateUnsignedTx({
-      unsignedTx,
-      feeInfo: {
-        common: {
-          nativeDecimals: 18,
-          nativeSymbol: 'ETH',
-          feeDecimals: 9,
-          feeSymbol: 'Gwei',
-          nativeTokenPrice: 2000,
-        },
-        gas: {
-          gasPrice: '0x2a', // 42
-          gasLimit: '0x5208', // 21000
-        },
-      },
-    });
-
-    // @ts-ignore
-    unsignedTx.encodedTx.nonce = '0x817'; // Nonce: 2071
-
-    // PageSendConfirm -> password auth -> send tx
-    const signedTxWithoutBroadcast = await this.signTransaction({
-      networkId,
-      accountId,
-      unsignedTx,
-      signOnly: false,
-    });
-
-    // const txid = await this.broadcastTransaction({
-    //   networkId,
-    //   signedTx: signedTxWithoutBroadcast,
-    // });
-    const txid = await this.broadcastTransactionLegacy({
-      accountId,
-      networkId,
-      accountAddress: '',
-      signedTx: signedTxWithoutBroadcast,
-    });
-
-    const signedTx = {
-      ...signedTxWithoutBroadcast,
-      txid,
-    };
-
-    console.log({
-      vault,
-      unsignedTx,
-      signedTx,
-      transferInfo,
-      signedTxWithoutBroadcast,
-    });
-    return Promise.resolve('hello world');
-  }
-
-  @backgroundMethod()
-  public async demoBuildDecodedTx(): Promise<IDecodedTx> {
-    const networkId = 'evm--5';
-    const accountId = "hd-1--m/44'/60'/0'/0/0";
-    return Promise.resolve({
-      txid: '0x1234567890',
-
-      owner: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-      signer: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-
-      nonce: 1,
-      actions: [
-        {
-          type: EDecodedTxActionType.ASSET_TRANSFER,
-          assetTransfer: {
-            from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-            to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-            label: 'Send',
-            sends: [
-              {
-                from: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-                to: '0x1959f5f4979c5cd87d5cb75c678c770515cb5e0e',
-                tokenIdOnNetwork: '',
-                label: '',
-                amount: '1',
-                name: 'Ethereum',
-                symbol: 'ETH',
-                icon: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63530be6e374711a8554f31b17e4cb92c25fa5/128/color/eth.png',
-              },
-            ],
-            receives: [],
-          },
-        },
-      ],
-
-      createdAt: new Date().getTime(),
-      updatedAt: new Date().getTime(),
-
-      status: EDecodedTxStatus.Pending,
-      networkId,
-      accountId,
-      extraInfo: null,
-    });
   }
 
   @backgroundMethod()
@@ -196,10 +57,13 @@ class ServiceSend extends ServiceBase {
     }
 
     if (unsignedTx.swapInfo) {
-      decodedTx.swapProvider =
+      decodedTx.toAddressLabel =
         unsignedTx.swapInfo.swapBuildResData?.result?.info?.providerName;
     }
 
+    if (unsignedTx.stakingInfo) {
+      decodedTx.toAddressLabel = unsignedTx.stakingInfo.protocol;
+    }
     return decodedTx;
   }
 
@@ -237,14 +101,15 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
-    const { networkId, signedTx, accountAddress } = params;
-    const client = await this.getClient();
+    const { networkId, signedTx, accountAddress, signature } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { result: string };
     }>('/wallet/v1/account/send-transaction', {
       networkId,
       accountAddress,
       tx: signedTx.rawTx,
+      signature,
     });
 
     return resp.data.data.result;
@@ -290,6 +155,7 @@ class ServiceSend extends ServiceBase {
     console.log('signTx@serviceSend.signTransaction', tx);
 
     tx.swapInfo = unsignedTx.swapInfo;
+    tx.stakingInfo = unsignedTx.stakingInfo;
     return tx;
   }
 
@@ -312,33 +178,25 @@ class ServiceSend extends ServiceBase {
       signOnly, // external account should send tx here
     });
 
+    const devSetting =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
     // skip external account send, as rawTx is empty
     if (
+      !devSetting?.settings?.alwaysSignOnlySendTx &&
       !signOnly &&
       !accountUtils.isExternalAccount({
         accountId,
       })
     ) {
-      const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
-      let txid: string | undefined;
-      if (vaultSettings.sendTransactionBySelf) {
-        const vault = await vaultFactory.getVault({
-          networkId,
-          accountId,
-        });
-        ({ txid } = await vault.broadcastTransaction({
-          networkId,
-          accountAddress,
-          signedTx,
-        }));
-      } else {
-        txid = await this.broadcastTransaction({
-          networkId,
-          signedTx,
-          accountAddress,
-        });
-      }
+      const vault = await vaultFactory.getVault({
+        networkId,
+        accountId,
+      });
+      const { txid } = await vault.broadcastTransaction({
+        networkId,
+        accountAddress,
+        signedTx,
+      });
       if (!txid) {
         throw new Error('Broadcast transaction failed.');
       }
@@ -378,7 +236,6 @@ class ServiceSend extends ServiceBase {
     }
 
     const result: ISendTxOnSuccessData[] = [];
-
     for (let i = 0, len = newUnsignedTxs.length; i < len; i += 1) {
       const unsignedTx = newUnsignedTxs[i];
       const signedTx = signOnly
@@ -394,7 +251,6 @@ class ServiceSend extends ServiceBase {
             accountId,
             signOnly: false,
           });
-
       const decodedTx = await this.buildDecodedTx({
         networkId,
         accountId,
@@ -491,6 +347,7 @@ class ServiceSend extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async prepareSendConfirmUnsignedTx(
     params: ISendTxBaseParams & IBuildUnsignedTxParams,
   ) {
@@ -503,6 +360,7 @@ class ServiceSend extends ServiceBase {
       transfersInfo,
       wrappedInfo,
       swapInfo,
+      stakingInfo,
       specifiedFeeRate,
     } = params;
 
@@ -524,9 +382,11 @@ class ServiceSend extends ServiceBase {
         specifiedFeeRate,
       });
     }
-
     if (swapInfo) {
       newUnsignedTx.swapInfo = swapInfo;
+    }
+    if (stakingInfo) {
+      newUnsignedTx.stakingInfo = stakingInfo;
     }
 
     const isNonceRequired = (
@@ -535,7 +395,7 @@ class ServiceSend extends ServiceBase {
       })
     ).nonceRequired;
 
-    if (isNonceRequired && isNil(newUnsignedTx.nonce)) {
+    if (isNonceRequired && new BigNumber(newUnsignedTx.nonce ?? 0).isZero()) {
       const nonce = await this.backgroundApi.serviceSend.getNextNonce({
         accountId,
         networkId,
@@ -549,7 +409,6 @@ class ServiceSend extends ServiceBase {
         nonceInfo: { nonce },
       });
     }
-
     return newUnsignedTx;
   }
 
@@ -608,7 +467,7 @@ class ServiceSend extends ServiceBase {
     networkId: string;
     txids: string[];
   }) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: { transactionMap: Record<string, { rawTx: string }> };
     }>('/wallet/v1/network/raw-transaction/list', {

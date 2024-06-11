@@ -1,12 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { splitSignature } from '@ethersproject/bytes';
-import { keccak256 } from '@ethersproject/keccak256';
-import { serialize } from '@ethersproject/transactions';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { TypedDataUtils } from 'eth-sig-util';
 import { omit } from 'lodash';
 
+import { buildSignedTxFromSignatureEvm } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { UnsignedTransaction } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -14,6 +12,7 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
+  IUnsignedMessage,
   IUnsignedMessageEth,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
@@ -122,18 +121,10 @@ async function hardwareEvmSignTransaction({
     }),
   );
 
-  const { v, r, s } = result;
-  /**
-   * sdk legacy return {v,r,s}; eip1559 return {recoveryParam,r,s}
-   * splitSignature auto convert v to recoveryParam
-   */
-  const signature = splitSignature({
-    v: Number(v),
-    r,
-    s,
+  const { rawTx, txid } = buildSignedTxFromSignatureEvm({
+    tx,
+    signature: result,
   });
-  const rawTx = serialize(tx, signature);
-  const txid = keccak256(rawTx);
   return { txid, rawTx, encodedTx };
 }
 
@@ -158,10 +149,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { messages, deviceParams } = params;
     checkIsDefined(deviceParams);
     return Promise.all(
-      messages.map(async (message) =>
+      messages.map(async (message: IUnsignedMessage) =>
         this.handleSignMessage({
           message: message as IUnsignedMessageEth,
-          deviceParams: deviceParams as IDeviceSharedCallParams,
+          deviceParams,
         }),
       ),
     );
@@ -169,9 +160,12 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async handleSignMessage(params: {
     message: IUnsignedMessageEth;
-    deviceParams: IDeviceSharedCallParams;
+    deviceParams: IDeviceSharedCallParams | undefined;
   }): Promise<string> {
     const { message, deviceParams } = params;
+    if (!deviceParams) {
+      throw new Error('deviceParams is undefined');
+    }
     const { dbDevice, deviceCommonParams } = deviceParams;
     const { connectId, deviceId } = dbDevice;
 

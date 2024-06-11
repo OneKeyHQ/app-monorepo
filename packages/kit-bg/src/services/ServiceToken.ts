@@ -1,8 +1,16 @@
+import { isNil } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EthereumMatic,
+  SepoliaMatic,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { getMergedTokenData } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
@@ -13,6 +21,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { vaultFactory } from '../vaults/factory';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -37,6 +46,15 @@ class ServiceToken extends ServiceBase {
     params: IFetchAccountTokensParams & { mergeTokens?: boolean },
   ): Promise<IFetchAccountTokensResp> {
     const { mergeTokens, flag, ...rest } = params;
+    const { networkId, contractList = [] } = rest;
+    if (
+      [getNetworkIdsMap().eth, getNetworkIdsMap().sepolia].includes(networkId)
+    ) {
+      // Add native/matic token address to the contract list, due to the fact that lack of native/matic staking entry page
+      const maticAddress =
+        networkId === getNetworkIdsMap().eth ? EthereumMatic : SepoliaMatic;
+      rest.contractList = ['', maticAddress, ...contractList];
+    }
     const vault = await vaultFactory.getChainOnlyVault({
       networkId: rest.networkId,
     });
@@ -44,7 +62,7 @@ class ServiceToken extends ServiceBase {
       rest.accountAddress,
     );
     rest.accountAddress = normalizedAddress;
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
     this._fetchAccountTokensController = controller;
     const resp = await client.post<{ data: IFetchAccountTokensResp }>(
@@ -72,7 +90,7 @@ class ServiceToken extends ServiceBase {
 
   @backgroundMethod()
   public async fetchTokensDetails(params: IFetchTokenDetailParams) {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const resp = await client.post<{
       data: ({
         info: IToken;
@@ -97,14 +115,39 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getNativeTokenAddress({ networkId }: { networkId: string }) {
+    const vaultSettings = await getVaultSettings({ networkId });
+    let tokenAddress = vaultSettings.networkInfo[networkId]?.nativeTokenAddress;
+    if (typeof tokenAddress === 'string') {
+      return tokenAddress;
+    }
+    tokenAddress = vaultSettings.networkInfo.default.nativeTokenAddress;
+    if (typeof tokenAddress === 'string') {
+      return tokenAddress;
+    }
+    return '';
+  }
+
+  @backgroundMethod()
   public async getNativeToken({
     networkId,
     accountAddress,
+    tokenIdOnNetwork,
   }: {
     networkId: string;
     accountAddress?: string;
+    tokenIdOnNetwork?: string;
   }) {
-    return this.getToken({ networkId, tokenIdOnNetwork: '', accountAddress });
+    let tokenAddress = tokenIdOnNetwork;
+    if (isNil(tokenAddress)) {
+      tokenAddress = await this.getNativeTokenAddress({ networkId });
+    }
+
+    return this.getToken({
+      networkId,
+      tokenIdOnNetwork: tokenAddress ?? '',
+      accountAddress,
+    });
   }
 
   @backgroundMethod()

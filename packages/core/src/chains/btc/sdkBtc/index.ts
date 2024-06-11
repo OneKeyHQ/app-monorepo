@@ -9,35 +9,40 @@ import {
 import { toXOnly } from 'bitcoinjs-lib/src/psbt/bip371';
 import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
-
-import {
-  CKDPub,
-  IBip32ExtendedKey,
-  ecc,
-  generateRootFingerprint,
-  secp256k1,
-} from '../../../secret';
+import { isNil, omit } from 'lodash';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import {
+import type {
   IAddressValidation,
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
+
+import {
+  CKDPub,
+  ecc,
+  generateRootFingerprint,
+  secp256k1,
+} from '../../../secret';
+import { EAddressEncodings } from '../../../types';
+
+import { getBtcForkNetwork } from './networks';
+
+import type { IBip32ExtendedKey } from '../../../secret';
+import type {
+  ICoreApiSignAccount,
+  ICurveName,
+  ITxInputToSign,
+} from '../../../types';
+import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Payment, Psbt, networks } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
 import type { ECPairAPI } from 'ecpair/src/ecpair';
-import { isNil, omit } from 'lodash';
-import {
-  EAddressEncodings,
-  ICurveName,
-  type ICoreApiSignAccount,
-  type ITxInputToSign,
-} from '../../../types';
-import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
-import { getBtcForkNetwork } from './networks';
 
 export * from './networks';
 
@@ -80,7 +85,11 @@ function tapTweakHash(pubKey: Buffer, h: Buffer | undefined): Buffer {
 export function tweakSigner(
   privKey: Buffer,
   publicKey: Buffer,
-  opts: { tweakHash?: Buffer; network?: IBtcForkNetwork } = {},
+  opts: {
+    tweakHash?: Buffer;
+    network?: IBtcForkNetwork;
+    needTweak: boolean;
+  } = { needTweak: true },
 ): IBtcForkSigner {
   // new Uint8Array(privKey.buffer) return 8192 length on NODE.js 20
   let privateKey: Uint8Array | null = new Uint8Array(privKey);
@@ -103,9 +112,12 @@ export function tweakSigner(
     throw new Error('Invalid tweaked private key!');
   }
 
-  return getBitcoinECPair().fromPrivateKey(Buffer.from(tweakedPrivateKey), {
-    network: opts.network,
-  });
+  return getBitcoinECPair().fromPrivateKey(
+    Buffer.from(opts.needTweak ? tweakedPrivateKey : privateKey),
+    {
+      network: opts.network,
+    },
+  );
 }
 
 const TX_OP_RETURN_SIZE_LIMIT = 80;
@@ -114,6 +126,9 @@ export const loadOPReturn = (
   opReturn: string,
   opReturnSizeLimit: number = TX_OP_RETURN_SIZE_LIMIT,
 ) => {
+  if (opReturn.length > opReturnSizeLimit) {
+    throw new Error('OP_RETURN data is too large.');
+  }
   const buffer = Buffer.from(opReturn);
   return buffer.slice(0, opReturnSizeLimit);
 };
@@ -121,47 +136,72 @@ export const loadOPReturn = (
 export const isTaprootPath = (pathPrefix: string) =>
   pathPrefix.startsWith(`m/86'/`);
 
+export function scriptPkToAddress(
+  scriptPk: string | Buffer,
+  psbtNetwork: networks.Network,
+) {
+  initBitcoinEcc();
+  try {
+    // 0/0
+    const address = BitcoinJsAddress.fromOutputScript(
+      typeof scriptPk === 'string' ? Buffer.from(scriptPk, 'hex') : scriptPk,
+      psbtNetwork,
+    );
+    return address;
+  } catch (e) {
+    return '';
+  }
+}
+
 export function getInputsToSignFromPsbt({
   psbt,
   psbtNetwork,
   account,
+  isBtcWalletProvider,
 }: {
   account: ICoreApiSignAccount;
   psbt: Psbt;
   psbtNetwork: networks.Network;
+  isBtcWalletProvider: ISignPsbtParams['options']['isBtcWalletProvider'];
 }) {
   const inputsToSign: ITxInputToSign[] = [];
   psbt.data.inputs.forEach((v, index) => {
     let script: any = null;
+    let value = 0;
     if (v.witnessUtxo) {
       script = v.witnessUtxo.script;
+      value = v.witnessUtxo.value;
     } else if (v.nonWitnessUtxo) {
       const tx = Transaction.fromBuffer(v.nonWitnessUtxo);
       const output = tx.outs[psbt.txInputs[index].index];
       script = output.script;
+      value = output.value;
     }
     const isSigned = v.finalScriptSig || v.finalScriptWitness;
 
     if (script && !isSigned) {
-      const address = BitcoinJsAddress.fromOutputScript(script, psbtNetwork);
+      const address = scriptPkToAddress(script, psbtNetwork);
+      // 0/0
       if (account.address === address) {
-        const pubKeyStr = account.pubKey as string;
-        if (!pubKeyStr) {
-          throw new Error('pubKey is empty');
-        }
         inputsToSign.push({
           index,
-          publicKey: pubKeyStr,
+          publicKey: checkIsDefined(account.pub),
           address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
-        if (
-          // TODO use addressEncoding
-          (account.template as string)?.startsWith(`m/86'/`) &&
-          !v.tapInternalKey
-        ) {
-          v.tapInternalKey = toXOnly(Buffer.from(pubKeyStr, 'hex'));
+        if (account.template?.startsWith(`m/86'/`) && !v.tapInternalKey) {
+          v.tapInternalKey = toXOnly(
+            Buffer.from(checkIsDefined(account.pub), 'hex'),
+          );
         }
+      } else if (isBtcWalletProvider) {
+        // handle babylon
+        inputsToSign.push({
+          index,
+          publicKey: checkIsDefined(account.pub),
+          address: account.address,
+          sighashTypes: v.sighashType ? [v.sighashType] : undefined,
+        });
       }
     }
   });
@@ -232,6 +272,7 @@ export function validateBtcAddress({
       encoding = EAddressEncodings.P2SH_P2WPKH;
     }
   } catch (e) {
+    errorUtils.autoPrintErrorIgnore(e);
     try {
       const decoded = BitcoinJsAddress.fromBech32(address);
       if (
@@ -254,7 +295,7 @@ export function validateBtcAddress({
         encoding = EAddressEncodings.P2TR;
       }
     } catch (_) {
-      // ignore error
+      errorUtils.autoPrintErrorIgnore(_);
     }
   }
 
@@ -446,89 +487,6 @@ export function buildBtcXpubSegwit({
   return xpubSegwit;
 }
 
-export function getAddressFromXpub({
-  curve,
-  network,
-  xpub,
-  relativePaths,
-  addressEncoding,
-  encodeAddress,
-}: {
-  curve: ICurveName;
-  network: IBtcForkNetwork;
-  xpub: string;
-  relativePaths: Array<string>;
-  addressEncoding?: EAddressEncodings;
-  encodeAddress: (address: string) => string;
-}): Promise<{
-  addresses: Record<string, string>;
-  xpubSegwit: string;
-}> {
-  // Only used to generate addresses locally.
-  const decodedXpub = bs58check.decode(xpub);
-
-  let encoding = addressEncoding;
-  if (!encoding) {
-    const { supportEncodings } = getBtcXpubSupportedAddressEncodings({
-      network,
-      xpub,
-    });
-    if (supportEncodings.length > 1) {
-      throw new Error(
-        'getAddressFromXpub ERROR: supportEncodings length > 1, you should specify addressEncoding by params',
-      );
-    }
-    encoding = supportEncodings[0];
-  }
-
-  let xpubSegwit = buildBtcXpubSegwit({
-    xpub,
-    addressEncoding: encoding,
-  });
-
-  const ret: Record<string, string> = {};
-
-  const startExtendedKey: IBip32ExtendedKey = {
-    chainCode: bufferUtils.toBuffer(decodedXpub.slice(13, 45)),
-    key: bufferUtils.toBuffer(decodedXpub.slice(45, 78)),
-  };
-
-  const cache = new Map();
-  // const leaf = null;
-  for (const path of relativePaths) {
-    let extendedKey = startExtendedKey;
-    let relPath = '';
-
-    const parts = path.split('/');
-    for (const part of parts) {
-      relPath += relPath === '' ? part : `/${part}`;
-      if (cache.has(relPath)) {
-        extendedKey = cache.get(relPath);
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-
-      const index = part.endsWith("'")
-        ? parseInt(part.slice(0, -1)) + 2 ** 31
-        : parseInt(part);
-      extendedKey = CKDPub(curve, extendedKey, index);
-      cache.set(relPath, extendedKey);
-    }
-
-    // const pubkey = taproot && inscribe ? fixedPublickey : extendedKey.key;
-    let { address } = pubkeyToPayment({
-      network,
-      pubkey: extendedKey.key,
-      encoding,
-    });
-    if (typeof address === 'string' && address.length > 0) {
-      address = encodeAddress(address);
-      ret[path] = address;
-    }
-  }
-  return Promise.resolve({ addresses: ret, xpubSegwit });
-}
-
 export function pubkeyToPayment({
   pubkey,
   encoding,
@@ -571,4 +529,115 @@ export function pubkeyToPayment({
   }
 
   return payment;
+}
+
+export type IGetAddressFromXpubParams = {
+  curve: ICurveName;
+  network: IBtcForkNetwork;
+  xpub: string;
+  relativePaths: Array<string>;
+  addressEncoding?: EAddressEncodings;
+  encodeAddress: (address: string) => string;
+};
+export type IGetAddressFromXpubResult = {
+  addresses: Record<string, string>;
+  publicKeys: Record<string, string>;
+  xpubSegwit: string;
+};
+export function getAddressFromXpub({
+  curve,
+  network,
+  xpub,
+  relativePaths,
+  addressEncoding,
+  encodeAddress,
+}: IGetAddressFromXpubParams): Promise<IGetAddressFromXpubResult> {
+  // Only used to generate addresses locally.
+  const decodedXpub = bs58check.decode(xpub);
+  const decodedXpubHex = bufferUtils.bytesToHex(decodedXpub);
+
+  let encoding = addressEncoding;
+  if (!encoding) {
+    const { supportEncodings } = getBtcXpubSupportedAddressEncodings({
+      network,
+      xpub,
+    });
+    if (supportEncodings.length > 1) {
+      throw new Error(
+        'getAddressFromXpub ERROR: supportEncodings length > 1, you should specify addressEncoding by params',
+      );
+    }
+    encoding = supportEncodings[0];
+  }
+
+  const xpubSegwit = buildBtcXpubSegwit({
+    xpub,
+    addressEncoding: encoding,
+  });
+
+  const ret: Record<string, string> = {};
+  const publicKeys: Record<string, string> = {};
+
+  const startExtendedKey: IBip32ExtendedKey = {
+    chainCode: bufferUtils.toBuffer(decodedXpub.slice(13, 45)),
+    key: bufferUtils.toBuffer(decodedXpub.slice(45, 78)),
+  };
+
+  const cache = new Map();
+  // const leaf = null;
+  for (const path of relativePaths) {
+    let extendedKey = startExtendedKey;
+    let relPath = '';
+
+    const parts = path.split('/');
+    for (const part of parts) {
+      relPath += relPath === '' ? part : `/${part}`;
+      if (cache.has(relPath)) {
+        extendedKey = cache.get(relPath);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
+      const index = part.endsWith("'")
+        ? parseInt(part.slice(0, -1)) + 2 ** 31
+        : parseInt(part);
+      extendedKey = CKDPub(curve, extendedKey, index);
+      cache.set(relPath, extendedKey);
+    }
+
+    // const pubkey = taproot && inscribe ? fixedPublickey : extendedKey.key;
+    let { address } = pubkeyToPayment({
+      network,
+      pubkey: extendedKey.key,
+      encoding,
+    });
+    if (typeof address === 'string' && address.length > 0) {
+      address = encodeAddress(address);
+      ret[path] = address;
+      publicKeys[path] = bufferUtils.bytesToHex(extendedKey.key);
+    }
+  }
+  return Promise.resolve({ addresses: ret, publicKeys, xpubSegwit });
+}
+
+/*
+ const { getHDPath, getScriptType } = await CoreSDKLoader();
+ const addressN = getHDPath(fullPath);
+ const sdkScriptType = getScriptType(addressN);
+*/
+export function convertBtcScriptTypeForHardware(sdkScriptType: string) {
+  const map: Record<string, number> = {
+    SPENDADDRESS: 0,
+    SPENDMULTISIG: 1,
+    EXTERNAL: 2,
+    SPENDWITNESS: 3,
+    SPENDP2SHWITNESS: 4,
+    SPENDTAPROOT: 5,
+  };
+  const val = map[sdkScriptType];
+
+  if (isNil(val)) {
+    throw new Error(`${sdkScriptType} not found in map`);
+  }
+  return val;
 }

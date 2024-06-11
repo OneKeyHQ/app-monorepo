@@ -1,8 +1,4 @@
-import {
-  getConfig as getSDKConfig,
-  initializeConfig,
-  predefined,
-} from '@ckb-lumos/config-manager';
+import { initializeConfig, predefined } from '@ckb-lumos/config-manager';
 
 import type { Config } from '@ckb-lumos/config-manager';
 
@@ -42,16 +38,4 @@ export function initCustomConfig(chainId: string) {
     };
   }
   initializeConfig(config);
-}
-
-export function getConfig(chainId: string) {
-  const config = getSDKConfig();
-  if (chainId === 'mainnet' && config.PREFIX === 'ckb') {
-    return config;
-  }
-  if (chainId === 'testnet' && config.PREFIX === 'ckt') {
-    return config;
-  }
-
-  throw new Error('Invalid chainId');
 }

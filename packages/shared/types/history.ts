@@ -1,6 +1,7 @@
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAccountNFT } from './nft';
+import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
 import type { IDecodedTx, IReplacedTxType } from './tx';
 
@@ -97,11 +98,12 @@ export type IAccountHistoryTx = {
   replacedType?: IReplacedTxType; // cancel speedUp
 
   decodedTx: IDecodedTx;
+  stakingInfo?: IStakingInfo;
 };
 
 export type IHistoryListSectionGroup = {
   title?: string;
-  titleKey?: ILocaleIds;
+  titleKey?: ETranslations;
   data: IAccountHistoryTx[];
 };
 
@@ -131,6 +133,12 @@ export type IFetchHistoryTxDetailsParams = {
   networkId: string;
   txid: string;
   accountAddress: string;
+};
+
+export type IFetchTxDetailsParams = {
+  networkId: string;
+  txid: string;
+  accountId: string;
 };
 
 export type IFetchHistoryTxDetailsResp = {

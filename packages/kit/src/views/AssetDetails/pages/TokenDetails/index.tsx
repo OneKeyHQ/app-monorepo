@@ -1,13 +1,12 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { StyleSheet } from 'react-native';
 
+import type { IActionListSection } from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
   Divider,
-  Icon,
   NumberSizeableText,
   Page,
   Skeleton,
@@ -18,13 +17,15 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
+import { StakingApr } from '@onekeyhq/kit/src/views/Staking/components/StakingApr';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EModalReceiveRoutes,
@@ -34,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
+import { buildExplorerAddressUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 import ActionBuy from './ActionBuy';
@@ -69,60 +71,62 @@ export function TokenDetails() {
   const [isBlocked, setIsBlocked] = useState(!!tokenIsBlocked);
   const [initialized, setInitialized] = useState(false);
 
-  const { result: [tokenHistory, tokenDetails, account] = [], isLoading } =
-    usePromiseResult(
-      async () => {
-        const a = await backgroundApiProxy.serviceAccount.getAccount({
+  const {
+    result: [tokenHistory, tokenDetails, account, network] = [],
+    isLoading,
+  } = usePromiseResult(
+    async () => {
+      const a = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const b = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
           accountId,
           networkId,
         });
-        const accountAddress =
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            accountId,
-            networkId,
-          });
 
-        if (!a) return;
-        const [xpub, vaultSettings] = await Promise.all([
-          backgroundApiProxy.serviceAccount.getAccountXpub({
-            accountId,
-            networkId,
-          }),
-          backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          }),
-        ]);
-        const [history, details] = await Promise.all([
-          backgroundApiProxy.serviceHistory.fetchAccountHistory({
-            accountId: a.id,
-            accountAddress,
-            xpub,
-            networkId,
-            tokenIdOnNetwork: tokenInfo.address,
-            onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
-          }),
-          backgroundApiProxy.serviceToken.fetchTokensDetails({
-            networkId,
-            xpub,
-            accountAddress,
-            contractList: [tokenInfo.address],
-          }),
-        ]);
+      if (!a) return;
+      const [xpub, vaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId,
+        }),
+      ]);
+      const [history, details] = await Promise.all([
+        backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId: a.id,
+          accountAddress,
+          xpub,
+          networkId,
+          tokenIdOnNetwork: tokenInfo.address,
+          onChainHistoryDisabled: vaultSettings.onChainHistoryDisabled,
+        }),
+        backgroundApiProxy.serviceToken.fetchTokensDetails({
+          networkId,
+          xpub,
+          accountAddress,
+          contractList: [tokenInfo.address],
+        }),
+      ]);
 
-        setInitialized(true);
+      setInitialized(true);
 
-        return [history, details[0], a];
-      },
-      [accountId, networkId, tokenInfo.address],
-      {
-        watchLoading: true,
-      },
-    );
+      return [history, details[0], a, b];
+    },
+    [accountId, networkId, tokenInfo.address],
+    {
+      watchLoading: true,
+    },
+  );
 
   const handleOnSwap = useCallback(async () => {
-    const network = await backgroundApiProxy.serviceNetwork.getNetworkSafe({
-      networkId,
-    });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
@@ -141,6 +145,7 @@ export function TokenDetails() {
     });
   }, [
     navigation,
+    network?.logoURI,
     networkId,
     tokenInfo.address,
     tokenInfo.decimals,
@@ -201,39 +206,57 @@ export function TokenDetails() {
     }
   }, [isBlocked, networkId, tokenInfo.address]);
 
-  const headerRight = useCallback(
-    () => (
+  const headerRight = useCallback(() => {
+    const sections: IActionListSection[] = [
+      {
+        items: [
+          {
+            label: isBlocked ? 'Unhide' : 'Hide',
+            icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
+            onPress: handleToggleBlockedToken,
+          },
+        ],
+      },
+    ];
+
+    if (tokenInfo.address !== '') {
+      sections.unshift({
+        items: [
+          {
+            label: 'Copy Token Contract',
+            icon: 'Copy1Outline',
+            onPress: () => copyText(tokenInfo.address),
+          },
+        ],
+      });
+
+      const tokenDetailsUrl = buildExplorerAddressUrl({
+        network,
+        address: tokenInfo.address,
+      });
+
+      if (tokenDetailsUrl !== '') {
+        sections[0].items.push({
+          label: 'View in explorer',
+          icon: 'ShareOutline',
+          onPress: () => openUrl(tokenDetailsUrl),
+        });
+      }
+    }
+    return (
       <ActionList
         title="Actions"
         renderTrigger={<HeaderIconButton icon="DotHorOutline" />}
-        sections={[
-          {
-            items: [
-              {
-                label: 'Copy Token Contract',
-                icon: 'Copy1Outline',
-                onPress: () => copyText(tokenInfo.address),
-              },
-              {
-                label: 'View on Etherscan',
-                icon: 'ShareOutline',
-              },
-            ],
-          },
-          {
-            items: [
-              {
-                label: isBlocked ? 'Unhide' : 'Hide',
-                icon: isBlocked ? 'EyeOutline' : 'EyeOffOutline',
-                onPress: handleToggleBlockedToken,
-              },
-            ],
-          },
-        ]}
+        sections={sections}
       />
-    ),
-    [copyText, handleToggleBlockedToken, isBlocked, tokenInfo.address],
-  );
+    );
+  }, [
+    copyText,
+    handleToggleBlockedToken,
+    isBlocked,
+    network,
+    tokenInfo.address,
+  ]);
 
   // const renderTokenAddress = useCallback(() => {
   //   if (!tokenInfo.address) return null;
@@ -351,7 +374,7 @@ export function TokenDetails() {
                       }
                       size="xl"
                     />
-                    <Stack ml="$3">
+                    <Stack ml="$3" flex={1}>
                       {isLoading ? (
                         <YStack>
                           <Stack py="$1.5">
@@ -367,6 +390,7 @@ export function TokenDetails() {
                             size="$heading3xl"
                             formatter="balance"
                             formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+                            numberOfLines={1}
                           >
                             {tokenDetails?.balanceParsed ?? '0'}
                           </NumberSizeableText>
@@ -386,47 +410,33 @@ export function TokenDetails() {
                   </XStack>
                   {/* Actions */}
                   <RawActions>
+                    <ReviewControl>
+                      <ActionBuy
+                        networkId={networkId}
+                        accountId={accountId}
+                        tokenAddress={tokenInfo.address}
+                      />
+                    </ReviewControl>
+
+                    <RawActions.Swap onPress={handleOnSwap} />
+
                     <RawActions.Send onPress={handleSendPress} />
                     <RawActions.Receive onPress={handleReceivePress} />
-                    <RawActions.Swap onPress={handleOnSwap} />
-                    <ActionBuy
-                      networkId={networkId}
-                      accountId={accountId}
-                      tokenAddress={tokenInfo.address}
-                    />
-                    <ActionSell
-                      networkId={networkId}
-                      accountId={accountId}
-                      tokenAddress={tokenInfo.address}
-                    />
+                    <ReviewControl>
+                      <ActionSell
+                        networkId={networkId}
+                        accountId={accountId}
+                        tokenAddress={tokenInfo.address}
+                      />
+                    </ReviewControl>
                   </RawActions>
                 </Stack>
 
-                {/* Banner – if this token can be staked */}
-                <ListItem
-                  drillIn
-                  onPress={() => console.log('clicked')}
-                  py="$3"
-                  px="$5"
-                  mx="$0"
-                  bg="$bgSuccessSubdued"
-                  borderTopWidth={StyleSheet.hairlineWidth}
-                  borderColor="$borderSubdued"
-                  borderRadius="$0"
-                >
-                  <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
-                    <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
-                  </Stack>
-                  <ListItem.Text
-                    flex={1}
-                    primary="Stake and Earn"
-                    secondary="Up to 3.77% in Annual Rewards"
-                    secondaryTextProps={{
-                      size: '$bodyMdMedium',
-                      color: '$textSuccess',
-                    }}
-                  />
-                </ListItem>
+                <StakingApr
+                  networkId={networkId}
+                  accountId={accountId}
+                  tokenAddress={tokenInfo.address}
+                />
 
                 {/* History */}
                 <Divider />

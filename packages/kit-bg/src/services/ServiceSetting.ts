@@ -1,4 +1,5 @@
-import { isFunction } from 'lodash';
+import { flatten, groupBy, isFunction } from 'lodash';
+import semver from 'semver';
 
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
@@ -7,6 +8,11 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  IMPL_BTC,
+  IMPL_EVM,
+  IMPL_LTC,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { LOCALES } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -14,7 +20,8 @@ import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { EOnekeyDomain } from '@onekeyhq/shared/types';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 
 import {
@@ -91,14 +98,6 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async setHardwareConnectSrc(value: EOnekeyDomain) {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      hardwareConnectSrc: value,
-    }));
-  }
-
-  @backgroundMethod()
   public async refreshLastActivity() {
     await settingsLastActivityAtom.set((prev) => ({
       ...prev,
@@ -108,7 +107,7 @@ class ServiceSetting extends ServiceBase {
 
   _getCurrencyList = memoizee(
     async () => {
-      const client = await this.getClient();
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
       const res = await client.get<{ data: ICurrencyItem[] }>(
         '/utility/v1/currency/exchange-rates',
       );
@@ -154,6 +153,10 @@ class ServiceSetting extends ServiceBase {
       // clear connect sites
       await this.backgroundApi.simpleDb.dappConnection.clearRawData();
     }
+    if (values.signatureRecord) {
+      // clear signature record
+      await this.backgroundApi.serviceSignature.deleteAllSignatureRecords();
+    }
   }
 
   @backgroundMethod()
@@ -163,38 +166,70 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async getAccountDerivationConfig() {
-    const networks = await this.backgroundApi.serviceNetwork.getAllNetworks();
-    const networkIds = networks.networks.map((n) => n.id);
-    const btc = networks.networks.find((n) => n.id === getNetworkIdsMap().btc);
-    const eth = networks.networks.find((n) => n.id === getNetworkIdsMap().eth);
-    const ltc = networks.networks.find((n) => n.id === getNetworkIdsMap().ltc);
-    const tbtc = networks.networks.find(
+    const { serviceNetwork } = this.backgroundApi;
+    const allNetworks =
+      await this.backgroundApi.serviceNetwork.getAllNetworks();
+    let { networks } = allNetworks;
+    const mainNetworks = networks.filter((o) => !o.isTestnet);
+
+    const networkGroup = groupBy(mainNetworks, (item) => item.impl);
+    networks = flatten(Object.values(networkGroup).map((o) => o[0]));
+
+    const networksVaultSettings = await Promise.all(
+      networks.map((o) => serviceNetwork.getVaultSettings({ networkId: o.id })),
+    );
+
+    if (networksVaultSettings.length !== networks.length) {
+      throw new Error('failed to get account derivation config');
+    }
+
+    networks = networks.filter((o, i) => {
+      const vaultSettings = networksVaultSettings[i];
+      return Object.values(vaultSettings.accountDeriveInfo).length > 1;
+    });
+
+    const toppedImpl = [IMPL_BTC, IMPL_EVM, IMPL_LTC].reduce(
+      (result, o, index) => {
+        result[o] = index;
+        return result;
+      },
+      {} as Record<string, number>,
+    );
+
+    const topped: IServerNetwork[] = [];
+    const bottomed: IServerNetwork[] = [];
+
+    for (let i = 0; i < networks.length; i += 1) {
+      const network = networks[i];
+      if (toppedImpl[network.impl] !== undefined) {
+        topped.push(network);
+      } else {
+        bottomed.push(network);
+      }
+    }
+
+    topped.sort((a, b) => toppedImpl[a.impl] ?? 0 - toppedImpl[b.impl] ?? 0);
+
+    networks = [...topped, ...bottomed];
+    const networkIds = networks.map((n) => n.id);
+
+    const config: IAccountDerivationConfigItem[] = networks.map(
+      (network, i) => ({
+        num: i,
+        title: network.impl === IMPL_EVM ? 'EVM' : network.name,
+        icon: network?.logoURI,
+        networkIds,
+        defaultNetworkId: network.id,
+      }),
+    );
+
+    // const config: IAccountDerivationConfigItem[] = [];
+
+    const tbtc = allNetworks.networks.find(
       (n) => n.id === getNetworkIdsMap().tbtc,
     );
-    const config: IAccountDerivationConfigItem[] = [
-      {
-        num: 0,
-        title: 'Bitcoin',
-        icon: btc?.logoURI,
-        networkIds,
-        defaultNetworkId: getNetworkIdsMap().btc,
-      },
-      {
-        num: 1,
-        title: 'EVM',
-        icon: eth?.logoURI,
-        networkIds,
-        defaultNetworkId: getNetworkIdsMap().eth,
-      },
-      {
-        num: 2,
-        title: 'Litecoin',
-        icon: ltc?.logoURI,
-        networkIds,
-        defaultNetworkId: getNetworkIdsMap().ltc,
-      },
-    ];
-    if (platformEnv.isDev) {
+
+    if (platformEnv.isDev && tbtc) {
       config.push({
         num: 10000,
         title: 'Test Bitcoin',
@@ -228,6 +263,38 @@ class ServiceSetting extends ServiceBase {
     const confirmedRiskTokens =
       await this.backgroundApi.simpleDb.riskyTokens.getConfirmedRiskTokens();
     return confirmedRiskTokens.includes(tokenId);
+  }
+
+  @backgroundMethod()
+  public async fetchReviewControl() {
+    const { reviewControl } = await settingsPersistAtom.get();
+    const isReviewControlEnv = platformEnv.isAppleStoreEnv || platformEnv.isMas;
+    if (!reviewControl && isReviewControlEnv) {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const key = platformEnv.isAppleStoreEnv
+        ? 'Intelligent_Diligent_Resourceful_Capable'
+        : 'Mindful_Driven_Responsible_Curious';
+      const response = await client.get<{
+        data: { value: string; key: string }[];
+      }>('/utility/v1/setting', {
+        params: {
+          key,
+        },
+      });
+      const data = response.data.data;
+      if (data.length !== 1 && data[0].key !== key) {
+        return;
+      }
+      const reviewControlValue = data[0].value;
+      if (reviewControlValue && platformEnv.version) {
+        if (semver.lte(platformEnv.version, reviewControlValue)) {
+          await settingsPersistAtom.set((prev) => ({
+            ...prev,
+            reviewControl: true,
+          }));
+        }
+      }
+    }
   }
 }
 

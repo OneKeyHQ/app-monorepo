@@ -13,8 +13,9 @@ import type { KeyringBase } from '../../base/KeyringBase';
 export default class Vault extends VaultBtc {
   override coreApi = coreChainApi.neurai.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,

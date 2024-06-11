@@ -1,9 +1,12 @@
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
+
 import coreTestsUtils from '../../../@tests/coreTestsUtils';
 import coreTestsFixtures from '../../../@tests/fixtures/coreTestsFixtures';
 import { EAddressEncodings } from '../../types';
 
 import CoreChainHd from './CoreChainHd';
-import { IEncodedTxBtc } from './types';
+
+import type { IEncodedTxBtc } from './types';
 
 const {
   hdCredential,
@@ -65,7 +68,6 @@ const {
             },
           ],
         } as IEncodedTxBtc,
-        // opReturn
       },
       btcExtraInfo: {
         pathToAddresses: {
@@ -151,6 +153,6 @@ describe('BTC Core tests', () => {
   it.skip('signMessage', async () => {
     // const coreApi = new CoreChainHd();
     // coreApi.signMessage
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   });
 });

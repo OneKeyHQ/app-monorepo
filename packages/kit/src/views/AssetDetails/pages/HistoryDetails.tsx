@@ -18,11 +18,12 @@ import {
   Spinner,
   Stack,
   XStack,
+  YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { ILocaleIds } from '@onekeyhq/shared/src/locale';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import {
@@ -47,7 +48,7 @@ import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
 
 function getTxStatusTextProps(status: EDecodedTxStatus): {
-  key: ILocaleIds;
+  key: ETranslations;
   color: ColorValue;
 } {
   if (status === EDecodedTxStatus.Pending) {
@@ -84,11 +85,13 @@ export function InfoItem({
   compact = false,
   showCopy = false,
   showOpenWithUrl = undefined,
+  disabledCopy = false,
   ...rest
 }: {
   label: string;
   renderContent: ReactNode;
   compact?: boolean;
+  disabledCopy?: boolean;
   showCopy?: boolean;
   showOpenWithUrl?: string;
 } & IStackProps) {
@@ -108,12 +111,20 @@ export function InfoItem({
     >
       <SizableText size="$bodyMdMedium">{label}</SizableText>
       {typeof renderContent === 'string' ? (
-        <Stack
-          alignItems="flex-start"
+        <YStack
           gap="$1.5"
-          onPress={() => copyText(renderContent)}
+          onPress={() => {
+            if (!disabledCopy) {
+              copyText(renderContent);
+            }
+          }}
         >
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText
+            size="$bodyMd"
+            color="$textSubdued"
+            flex={1}
+            numberOfLines={999}
+          >
             {renderContent}
           </SizableText>
           <XStack space="$2">
@@ -132,7 +143,7 @@ export function InfoItem({
               />
             ) : null}
           </XStack>
-        </Stack>
+        </YStack>
       ) : (
         renderContent
       )}
@@ -418,7 +429,7 @@ function HistoryDetails() {
       from: txDetails?.from,
       to: txDetails?.to,
     };
-  }, [historyTx, txDetails, vaultSettings?.isUtxo]);
+  }, [accountAddress, historyTx, txDetails, vaultSettings?.isUtxo]);
 
   const txInfo = getHistoryTxDetailInfo({
     txDetails,

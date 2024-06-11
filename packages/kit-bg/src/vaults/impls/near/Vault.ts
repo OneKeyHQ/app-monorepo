@@ -80,8 +80,9 @@ import type {
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.near.hd;
 
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -446,12 +447,6 @@ export default class Vault extends VaultBase {
 
     unsignedTx.encodedTx = encodedTxNew;
     return unsignedTx;
-  }
-
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

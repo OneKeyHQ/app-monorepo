@@ -2,6 +2,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import bs58 from 'bs58';
+import { isArray } from 'lodash';
 import isString from 'lodash/isString';
 
 import {
@@ -130,8 +131,24 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: { message: string[] },
   ) {
-    // TODO: need request queue
-    throw new Error('Method not implemented.');
+    const { message: txsToBeSigned } = params;
+
+    if (
+      !isArray(txsToBeSigned) ||
+      txsToBeSigned.length === 0 ||
+      !txsToBeSigned.every(isString)
+    ) {
+      throw web3Errors.rpc.invalidInput();
+    }
+
+    console.log('solana signAllTransactions', request, params);
+
+    const ret: string[] = [];
+    for (const tx of txsToBeSigned) {
+      const signedTx = await this.signTransaction(request, { message: tx });
+      ret.push(signedTx);
+    }
+    return ret;
   }
 
   @providerApiMethod()
@@ -204,7 +221,6 @@ class ProviderApiSolana extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: { onlyIfTrusted: boolean },
   ) {
-    debugger;
     const { onlyIfTrusted = false } = params || {};
 
     let publicKey = (await this._getConnectedAccountsPublicKey(request))[0];

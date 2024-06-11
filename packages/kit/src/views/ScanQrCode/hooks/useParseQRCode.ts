@@ -5,16 +5,16 @@ import { useIntl } from 'react-intl';
 import { Dialog, rootNavigationRef, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type {
   IAnimationValue,
   IBaseValue,
   IChainValue,
+  IMarketDetailValue,
   IQRCodeHandlerParse,
   IUrlAccountValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
@@ -23,14 +23,12 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
+import { marketNavigation } from '../../Market/marketUtils';
 
 const useParseQRCode = () => {
   const navigation = useAppNavigation();
   const clipboard = useClipboard();
   const intl = useIntl();
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num: 0 });
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
     async (value, options) => {
       const result = await backgroundApiProxy.serviceScanQRCode.parse(
@@ -56,12 +54,23 @@ const useParseQRCode = () => {
           });
           break;
         }
-
+        case EQRCodeHandlerType.MARKET_DETAIL:
+          {
+            const marketDetailData = result.data as IMarketDetailValue;
+            void marketNavigation.pushDetailPageFromDeeplink(navigation, {
+              coinGeckoId: marketDetailData.coinGeckoId,
+            });
+          }
+          break;
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:
         case EQRCodeHandlerType.SOLANA:
           {
-            if (!account) {
+            const accountId = options?.accountId;
+            if (!accountId) {
+              console.error(
+                'missing the accountId in the useParseQRCode.start',
+              );
               break;
             }
             const chainValue = result.data as IChainValue;
@@ -73,7 +82,8 @@ const useParseQRCode = () => {
               screen: EAssetSelectorRoutes.TokenSelector,
               params: {
                 networkId: network.id,
-                accountId: account.id,
+                accountId,
+
                 networkName: network.name,
                 // tokens,
                 onSelect: async (token) => {
@@ -81,7 +91,7 @@ const useParseQRCode = () => {
                   navigation.pushModal(EModalRoutes.SendModal, {
                     screen: EModalSendRoutes.SendDataInput,
                     params: {
-                      accountId: account.id,
+                      accountId,
                       networkId: network.id,
                       isNFT: false,
                       token,
@@ -101,9 +111,18 @@ const useParseQRCode = () => {
           }
           break;
         default: {
+          let content = value;
+          if (result.type === EQRCodeHandlerType.ANIMATION_CODE) {
+            const animationValue = result.data as IAnimationValue;
+            const animationFullData = animationValue.fullData;
+            if (!animationFullData) {
+              break;
+            }
+            content = animationFullData;
+          }
           Dialog.confirm({
             title: intl.formatMessage({ id: 'content__info' }),
-            description: value,
+            description: content,
             onConfirmText: intl.formatMessage({
               id: 'action__copy',
             }),
@@ -112,14 +131,14 @@ const useParseQRCode = () => {
             },
             onConfirm: ({ preventClose }) => {
               preventClose();
-              clipboard?.copyText(value);
+              clipboard?.copyText(content);
             },
           });
         }
       }
       return result;
     },
-    [navigation, clipboard, intl, account],
+    [navigation, clipboard, intl],
   );
   return useMemo(() => ({ parse }), [parse]);
 };

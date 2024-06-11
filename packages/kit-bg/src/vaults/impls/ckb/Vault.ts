@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { BI } from '@ckb-lumos/bi';
-import { CellCollector } from '@ckb-lumos/ckb-indexer';
+import { CellCollector, TerminableCellAdapter } from '@ckb-lumos/ckb-indexer';
 import { common, secp256k1Blake160 } from '@ckb-lumos/common-scripts';
 import {
   TransactionSkeleton,
@@ -9,10 +9,16 @@ import {
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
+import {
+  getConfig,
+  scriptToAddress,
+} from '@onekeyhq/core/src/chains/ckb/sdkCkb';
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
-import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   MinimumTransferAmountError,
+  NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -27,12 +33,10 @@ import type {
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
 import {
-  EDecodedTxActionType,
   EDecodedTxDirection,
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxAction,
-  IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -43,12 +47,13 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import ClientCkb from './sdkCkb/ClientCkb';
-import { isValidateAddress, scriptToAddress } from './utils/address';
+import { isValidateAddress } from './utils/address';
 import { decodeBalanceWithCell, decodeNaiveBalance } from './utils/balance';
-import { getConfig } from './utils/config';
 import { convertTokenHistoryUtxos } from './utils/history';
 import {
   DEFAULT_MIN_INPUT_CAPACITY,
+  convertTxSkeletonToTransaction,
+  convertTxToTxSkeleton,
   getTransactionSizeByTxSkeleton,
 } from './utils/transaction';
 import { transfer as xUDTTransafer } from './utils/xudt';
@@ -56,7 +61,6 @@ import { transfer as xUDTTransafer } from './utils/xudt';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -66,19 +70,16 @@ import type {
   ITransferInfo,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
-  IVaultSettings,
 } from '../../types';
 import type { Cell } from '@ckb-lumos/base';
-import type {
-  CKBIndexerQueryOptions,
-  TerminableCellFetcher,
-} from '@ckb-lumos/ckb-indexer/src/type';
+import type { CKBIndexerQueryOptions } from '@ckb-lumos/ckb-indexer/src/type';
 import type { Config } from '@ckb-lumos/config-manager';
 import type { TransactionSkeletonType } from '@ckb-lumos/helpers';
 
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -96,6 +97,21 @@ export default class Vault extends VaultBase {
         networkId: this.networkId,
       }),
     {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+    },
+  );
+
+  getIndexer = memoizee(
+    async () => {
+      const client = await this.getClient();
+      const indexer = new TerminableCellAdapter({
+        getCells: client.getCells.bind(client),
+      });
+      return indexer;
+    },
+    {
+      promise: true,
+      max: 1,
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
     },
   );
@@ -157,6 +173,7 @@ export default class Vault extends VaultBase {
     }
 
     const client = await this.getClient();
+    const indexer = await this.getIndexer();
     const accountAddress = await this.getAccountAddress();
     const network = await this.getNetwork();
     const { median } = await client.getFeeRateStatistics();
@@ -166,9 +183,7 @@ export default class Vault extends VaultBase {
         collector: (query) => {
           const queries = { type: 'empty', data: '0x', ...query };
           const cellCollector = new CellCollector(
-            {
-              getCells: client.getCells.bind(client),
-            } as TerminableCellFetcher,
+            indexer,
             queries as CKBIndexerQueryOptions,
           );
 
@@ -240,10 +255,8 @@ export default class Vault extends VaultBase {
       ) {
         const miniAmount = new BigNumber(
           minimalCellCapacityCompatible(lastOutput).toString(),
-        )
-          .shiftedBy(network.decimals)
-          .toFixed();
-        throw new Error(
+        ).toFixed();
+        throw new OneKeyError(
           `The balance after the transaction must not be less than ${miniAmount}`,
         );
       }
@@ -293,7 +306,15 @@ export default class Vault extends VaultBase {
       );
     }
 
-    return txSkeleton;
+    const tx = convertTxSkeletonToTransaction(txSkeleton);
+
+    return {
+      tx,
+      feeInfo: {
+        limit,
+        price: '1',
+      },
+    };
   }
 
   override async buildDecodedTx(
@@ -302,8 +323,14 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxCkb;
 
-    const inputs = encodedTx.get('inputs').toArray();
-    const outputs = encodedTx.get('outputs').toArray();
+    const client = await this.getClient();
+    const txs = await convertTxToTxSkeleton({
+      client,
+      transaction: encodedTx.tx,
+    });
+
+    const inputs = txs.get('inputs').toArray();
+    const outputs = txs.get('outputs').toArray();
 
     const config = await this._getCurrentConfig();
     const network = await this.getNetwork();
@@ -366,7 +393,7 @@ export default class Vault extends VaultBase {
     let existsToken = false;
     for (const tokenAddress of tokens) {
       const tokenActions = await this._decodeTokenActions({
-        txSkeleton: encodedTx,
+        txSkeleton: txs,
         config,
         tokenAddress,
       });
@@ -559,19 +586,47 @@ export default class Vault extends VaultBase {
   }
 
   async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxCkb) {
-    return { encodedTx };
+    const client = await this.getClient();
+    const txs = await convertTxToTxSkeleton({
+      client,
+      transaction: encodedTx.tx,
+    });
+
+    // check fee is too high
+    const allInputAmount = txs
+      .get('inputs')
+      .toArray()
+      .reduce(
+        (acc, cur) => acc.plus(new BigNumber(cur.cellOutput.capacity, 16)),
+        new BigNumber(0),
+      );
+    const allOutputAmount = txs
+      .get('outputs')
+      .toArray()
+      .reduce(
+        (acc, cur) => acc.plus(new BigNumber(cur.cellOutput.capacity, 16)),
+        new BigNumber(0),
+      );
+
+    if (
+      allInputAmount
+        .minus(allOutputAmount)
+        .isGreaterThan(new BigNumber(1.5 * 100000000))
+    ) {
+      console.log('Fee is too high, transaction: ', txs);
+
+      throw new OneKeyInternalError('Fee is too high');
+    }
+
+    return {
+      encodedTx,
+    };
   }
 
   override updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
     return Promise.resolve(params.unsignedTx);
-  }
-
-  override broadcastTransaction(
-    params: IBroadcastTransactionParams,
-  ): Promise<ISignedTxPro> {
-    throw new Error('Method not implemented.');
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {

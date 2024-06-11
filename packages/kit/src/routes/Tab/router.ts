@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -14,6 +15,7 @@ import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 
 import { discoveryRouters } from './Discovery/router';
+import { marketRouters } from './Marktet/router';
 import { meRouters } from './Me/router';
 import { multiTabBrowserRouters } from './MultiTabBrowser/router';
 import { swapRouters } from './Swap/router';
@@ -29,7 +31,7 @@ const getDiscoverRouterConfig = (params?: IGetTabRouterParams) => {
     exact: true,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CompassCircleSolid' : 'CompassCircleOutline',
-    translationId: 'title__explore',
+    translationId: ETranslations.global_browser,
     freezeOnBlur: Boolean(params?.freezeOnBlur),
     children: discoveryRouters,
     tabBarStyle: platformEnv.isDesktop
@@ -66,17 +68,27 @@ export const getTabRouter = (params?: IGetTabRouterParams) => {
       name: ETabRoutes.Home,
       tabBarIcon: (focused?: boolean) =>
         focused ? 'WalletSolid' : 'WalletOutline',
-      translationId: 'wallet__wallet',
+      translationId: ETranslations.global_wallet,
       freezeOnBlur: Boolean(params?.freezeOnBlur),
       rewrite: '/',
       exact: true,
       children: homeRouters,
     },
     {
+      name: ETabRoutes.Market,
+      tabBarIcon: (focused?: boolean) =>
+        focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
+      translationId: ETranslations.global_market,
+      freezeOnBlur: Boolean(params?.freezeOnBlur),
+      rewrite: '/market',
+      exact: true,
+      children: marketRouters,
+    },
+    {
       name: ETabRoutes.Swap,
       tabBarIcon: (focused?: boolean) =>
         focused ? 'SwitchHorSolid' : 'SwitchHorOutline',
-      translationId: 'title__swap',
+      translationId: ETranslations.global_swap,
       freezeOnBlur: Boolean(params?.freezeOnBlur),
       rewrite: '/swap',
       exact: true,
@@ -90,7 +102,7 @@ export const getTabRouter = (params?: IGetTabRouterParams) => {
           exact: true,
           tabBarIcon: (focused?: boolean) =>
             focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
-          translationId: 'action__more',
+          translationId: ETranslations.global_more,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
           children: meRouters,
         }
@@ -100,7 +112,7 @@ export const getTabRouter = (params?: IGetTabRouterParams) => {
           name: ETabRoutes.Developer,
           tabBarIcon: (focused?: boolean) =>
             focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
-          translationId: 'form__dev_mode',
+          translationId: ETranslations.global_dev_mode,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
           rewrite: '/dev',
           exact: true,

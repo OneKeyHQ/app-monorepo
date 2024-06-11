@@ -1,12 +1,16 @@
+import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { useClipboard } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { openUrl } from '@onekeyhq/kit/src/utils/openUrl';
 import { useSupportNetworkId } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalFiatCryptoRoutes,
   EModalRoutes,
@@ -32,41 +36,69 @@ export function WalletActionMore() {
       params: { networkId: network?.id ?? '', accountId: account?.id ?? '' },
     });
   }, [navigation, network, account]);
+  const show = useReviewControl();
 
-  return (
-    <RawActions.More
-      sections={[
+  const sections: ComponentProps<typeof RawActions.More>['sections'] = [
+    {
+      items: [
         {
-          items: [
-            {
-              label: intl.formatMessage({ id: 'action__sell_crypto' }),
-              icon: 'MinusLargeOutline',
-              disabled: !isSupported,
-              onPress: sellCrypto,
-            },
-          ],
+          label: intl.formatMessage({
+            id: ETranslations.global_view_in_blockchain_explorer,
+          }),
+          icon: 'GlobusOutline',
+          onPress: () =>
+            openUrl(
+              buildExplorerAddressUrl({
+                network,
+                address: account?.address,
+              }),
+            ),
         },
         {
-          items: [
-            {
-              label: intl.formatMessage({ id: 'action__view_in_explorer' }),
-              icon: 'GlobusOutline',
-              onPress: () =>
-                openUrl(
-                  buildExplorerAddressUrl({
-                    network,
-                    address: account?.address,
-                  }),
-                ),
-            },
-            {
-              label: intl.formatMessage({ id: 'action__copy_address' }),
-              icon: 'Copy1Outline',
-              onPress: () => copyText(account?.address || ''),
-            },
-          ],
+          label: intl.formatMessage({ id: ETranslations.global_copy_address }),
+          icon: 'Copy1Outline',
+          onPress: () => copyText(account?.address || ''),
         },
-      ]}
-    />
-  );
+      ],
+    },
+  ];
+
+  if (show) {
+    sections.unshift({
+      items: [
+        {
+          label: intl.formatMessage({ id: ETranslations.global_sell }),
+          icon: 'MinusLargeOutline',
+          disabled: !isSupported,
+          onPress: sellCrypto,
+        },
+      ],
+    });
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    sections.unshift({
+      items: [
+        {
+          label: 'Export Private Key',
+          icon: 'MinusLargeOutline',
+          onPress: () => {
+            void (async () => {
+              const r =
+                await backgroundApiProxy.serviceAccount.exportAccountSecretKeys(
+                  {
+                    accountId: account?.id || '',
+                    networkId: network?.id || '',
+                  },
+                );
+
+              console.log(r);
+            })();
+          },
+        },
+      ],
+    });
+  }
+
+  return <RawActions.More sections={sections} />;
 }

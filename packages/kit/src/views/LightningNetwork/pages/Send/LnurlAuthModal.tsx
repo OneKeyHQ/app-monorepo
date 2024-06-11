@@ -9,6 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type {
   EModalSendRoutes,
@@ -57,9 +58,9 @@ function LnurlAuthModal() {
   const [isLoading, setIsLoading] = useState(false);
 
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
@@ -199,44 +200,46 @@ function LnurlAuthModal() {
   );
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title={textMap?.title ?? ''}
-          subtitle={textMap?.allowText ?? ''}
-          origin={origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          {isSendFlow ? (
-            <DAppAccountListStandAloneItemForHomeScene />
-          ) : (
-            <DAppAccountListStandAloneItem readonly />
-          )}
-          {renderRequestPermissions()}
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          continueOperate={continueOperate}
-          setContinueOperate={(checked) => {
-            setContinueOperate(!!checked);
-          }}
-          onConfirm={onConfirm}
-          onCancel={() => {
-            if (!isSendFlow) {
-              dappApprove.reject();
-            }
-          }}
-          confirmButtonProps={{
-            loading: isLoading,
-            disabled: !canContinueOperate,
-          }}
-          showContinueOperateCheckbox={riskLevel !== 'security'}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title={textMap?.title ?? ''}
+            subtitle={textMap?.allowText ?? ''}
+            origin={origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            {isSendFlow ? (
+              <DAppAccountListStandAloneItemForHomeScene />
+            ) : (
+              <DAppAccountListStandAloneItem readonly />
+            )}
+            {renderRequestPermissions()}
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            continueOperate={continueOperate}
+            setContinueOperate={(checked) => {
+              setContinueOperate(!!checked);
+            }}
+            onConfirm={onConfirm}
+            onCancel={() => {
+              if (!isSendFlow) {
+                dappApprove.reject();
+              }
+            }}
+            confirmButtonProps={{
+              loading: isLoading,
+              disabled: !continueOperate,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
+          />
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

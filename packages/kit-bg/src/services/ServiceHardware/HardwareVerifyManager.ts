@@ -12,6 +12,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
 import { settingsPersistAtom } from '../../states/jotai/atoms';
@@ -117,7 +118,13 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
           skipDeviceCancel: true, // firmwareAuthenticate close dialog before api call
           connectId,
         });
-        const client = await this.serviceHardware.getClient();
+        appEventBus.emit(
+          EAppEventBusNames.HardwareVerifyAfterDeviceConfirm,
+          undefined,
+        );
+        const client = await this.serviceHardware.getClient(
+          EServiceEndpointEnum.Wallet,
+        );
         const shouldUseProxy =
           platformEnv.isDev && process.env.ONEKEY_PROXY && platformEnv.isWeb;
         const payload = {

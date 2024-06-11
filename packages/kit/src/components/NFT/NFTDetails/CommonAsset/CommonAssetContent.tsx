@@ -1,5 +1,7 @@
+/* eslint-disable camelcase */
 import { useMemo } from 'react';
 
+import { isNil, isObject } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -9,13 +11,16 @@ import {
   Heading,
   SizableText,
   Stack,
-  Toast,
   XStack,
+  useClipboard,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  ETraitsDisplayType,
+  type IAccountNFT,
+} from '@onekeyhq/shared/types/nft';
 
 type IProps = {
   networkId: string;
@@ -26,13 +31,9 @@ function CommonAssetContent(props: IProps) {
   const intl = useIntl();
   const { networkId, nft } = props;
   const { attributes } = nft.metadata ?? {};
-  const { serviceNetwork } = backgroundApiProxy;
+  const { copyText } = useClipboard();
 
-  const res = usePromiseResult(
-    () => serviceNetwork.getNetwork({ networkId }),
-    [networkId, serviceNetwork],
-  );
-  const network = res.result;
+  const { network } = useAccountData({ networkId });
 
   const details: {
     label: string;
@@ -40,36 +41,37 @@ function CommonAssetContent(props: IProps) {
     onPress?: () => void;
     iconAfter?: IKeyOfIcons;
   }[] = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({ id: 'content__collection' }),
-        value: nft.collectionName,
-      },
-      {
-        label: intl.formatMessage({ id: 'network__network' }),
-        value: network?.name ?? '',
-      },
-      {
-        label: 'Token ID',
-        value: nft.itemId,
-      },
-      {
-        label: intl.formatMessage({ id: 'content__nft_standard' }),
-        value: nft.collectionType,
-      },
-      {
-        label: intl.formatMessage({
-          id: 'transaction__contract_address',
-        }),
-        value: accountUtils.shortenAddress({ address: nft.collectionAddress }),
-        onPress: () =>
-          Toast.success({
-            title: intl.formatMessage({ id: 'msg__copied' }),
+    () =>
+      [
+        {
+          label: intl.formatMessage({ id: 'content__collection' }),
+          value: nft.collectionName,
+        },
+        {
+          label: intl.formatMessage({ id: 'network__network' }),
+          value: network?.name ?? '',
+        },
+        {
+          label: 'Token ID',
+          value: nft.itemId,
+        },
+        {
+          label: intl.formatMessage({ id: 'content__nft_standard' }),
+          value: nft.collectionType,
+        },
+        {
+          label: intl.formatMessage({
+            id: 'transaction__contract_address',
           }),
-        iconAfter: 'Copy1Outline',
-      },
-    ],
+          value: accountUtils.shortenAddress({
+            address: nft.collectionAddress,
+          }),
+          onPress: () => copyText(nft.collectionAddress),
+          iconAfter: 'Copy1Outline' as IKeyOfIcons,
+        },
+      ].filter((item) => !isNil(item.value)),
     [
+      copyText,
       intl,
       network?.name,
       nft.collectionAddress,
@@ -93,7 +95,14 @@ function CommonAssetContent(props: IProps) {
             <DescriptionList.Item.Key size="$bodyMd" color="$textSubdued">
               {label}
             </DescriptionList.Item.Key>
-            <DescriptionList.Item.Value onPress={onPress} iconAfter={iconAfter}>
+            <DescriptionList.Item.Value
+              maxWidth="70%"
+              onPress={onPress}
+              iconAfter={iconAfter}
+              textProps={{
+                numberOfLines: 999,
+              }}
+            >
               {value}
             </DescriptionList.Item.Value>
           </DescriptionList.Item>
@@ -105,22 +114,28 @@ function CommonAssetContent(props: IProps) {
         <Heading size="$headingSm">Attributes</Heading>
         {attributes?.length ? (
           <XStack m="$-1" pt="$2.5" flexWrap="wrap">
-            {attributes?.map(({ traitType, value }) => (
-              <Stack
-                key={traitType}
-                py="$2"
-                px="$3.5"
-                m="$1"
-                bg="$bgStrong"
-                borderRadius="$2"
-                borderCurve="continuous"
-              >
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {traitType}
-                </SizableText>
-                <SizableText size="$bodyMdMedium">{value}</SizableText>
-              </Stack>
-            ))}
+            {attributes?.map(({ traitType, value, displayType }) =>
+              isObject(value) ? null : (
+                <Stack
+                  key={traitType}
+                  py="$2"
+                  px="$3.5"
+                  m="$1"
+                  bg="$bgStrong"
+                  borderRadius="$2"
+                  borderCurve="continuous"
+                >
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {traitType}
+                  </SizableText>
+                  <SizableText size="$bodyMdMedium">
+                    {displayType === ETraitsDisplayType.Date
+                      ? formatDate(new Date(value), {})
+                      : value}
+                  </SizableText>
+                </Stack>
+              ),
+            )}
           </XStack>
         ) : (
           <SizableText size="$bodyMd" mt="$2" color="$textSubdued">

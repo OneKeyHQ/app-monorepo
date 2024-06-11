@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/core/src/chains/nexa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -83,6 +84,44 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
+  override async batchGetAddresses(params: IPrepareHardwareAccountsParams) {
+    const { indexes } = params;
+
+    const addresses = await this.baseGetDeviceAccountAddresses({
+      params,
+      usedIndexes: indexes,
+      sdkGetAddressFn: async ({
+        connectId,
+        deviceId,
+        pathPrefix,
+        showOnOnekeyFn,
+      }) => {
+        const chainId = await this.getNetworkChainId();
+
+        const paths = indexes.map((index) => `${pathPrefix}/${index}'/0/0`);
+        const bundle = paths.map((path, index) => ({
+          path,
+          showOnOneKey: showOnOnekeyFn(index),
+          prefix: getNexaPrefix(chainId),
+          scheme: SIGN_TYPE,
+        }));
+
+        const sdk = await this.getHardwareSDKInstance();
+
+        const response = await sdk.nexaGetAddress(connectId, deviceId, {
+          ...params.deviceParams.deviceCommonParams,
+          bundle,
+        });
+        return response;
+      },
+    });
+
+    return addresses.map((item) => ({
+      path: item.path ?? '',
+      address: item.address ?? '',
+    }));
+  }
+
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
@@ -109,7 +148,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     if (response.success) {
       const nexaSignatures = response.payload;
-      const publicKey = Buffer.from(dbAccount.address, 'hex');
+      const publicKey = Buffer.from(checkIsDefined(dbAccount.pub), 'hex');
       const defaultSignature = Buffer.from(nexaSignatures[0].signature, 'hex');
       const inputSigs: INexaInputSignature[] = inputSignatures.map(
         (inputSig) => ({
@@ -134,6 +173,6 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 }

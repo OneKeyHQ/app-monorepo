@@ -138,7 +138,7 @@ function TxActionCommonFee({
   return (
     <Stack flexGrow={1} flexBasis={0}>
       <SizableText size="$bodyMd" color="$textSubdued">
-        Gas Fee
+        Network Fee
       </SizableText>
       <XStack alignItems="center" space="$1">
         <NumberSizeableText
@@ -177,6 +177,7 @@ function TxActionCommonListView(
     pending,
     tableLayout,
     showIcon,
+    hideFeeInfo,
     ...rest
   } = props;
 
@@ -246,7 +247,7 @@ function TxActionCommonListView(
             changeDescription
           )}
         </Stack>
-        {tableLayout ? (
+        {tableLayout && !hideFeeInfo ? (
           <TxActionCommonFee
             fee={fee}
             feeFiatValue={feeFiatValue}
@@ -277,13 +278,15 @@ function TxActionCommonDetailView(props: ITxActionCommonDetailViewProps) {
       <Container.Item
         title={overview.title}
         content={
-          <XStack alignItems="center" space="$1">
+          <XStack alignItems="center" space="$1" flex={1}>
             <Token
               size="md"
               isNFT={overview.avatar?.isNFT}
               tokenImageUri={overview.avatar?.src}
             />
-            <SizableText size="$headingLg">{overview.content}</SizableText>
+            <SizableText size="$headingLg" flex={1} numberOfLines={2}>
+              {overview.content}
+            </SizableText>
           </XStack>
         }
       />

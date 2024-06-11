@@ -20,6 +20,7 @@ import {
   InvoiceAlreadyPaid,
   InvoiceExpiredError,
   NoRouteFoundError,
+  NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -35,6 +36,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IFetchAccountHistoryParams } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import type {
@@ -75,8 +77,9 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -90,7 +93,9 @@ export default class Vault extends VaultBase {
   private getClientCache = memoizee(
     async () => {
       const network = await this.getNetwork();
-      const _client = await this.backgroundApi.serviceLightning.getClient();
+      const _client = await this.backgroundApi.serviceLightning.getClient(
+        EServiceEndpointEnum.Lightning,
+      );
       return new ClientLightning(
         this.backgroundApi,
         _client,
@@ -207,6 +212,7 @@ export default class Vault extends VaultBase {
         trailingLength: 33,
       });
     }
+    const amount = new BigNumber(encodedTx.amount).toFixed();
     const decodedTx: IDecodedTx = {
       txid: '',
       owner: account.name,
@@ -226,11 +232,13 @@ export default class Vault extends VaultBase {
                 tokenIdOnNetwork: '',
                 name: nativeToken.name,
                 icon: nativeToken.logoURI ?? '',
-                amount: new BigNumber(encodedTx.amount).toFixed(),
+                amount,
                 symbol: network.symbol,
               },
             ],
             receives: [],
+            nativeAmount: amount,
+            nativeAmountValue: amount,
           },
         },
       ],
@@ -272,10 +280,9 @@ export default class Vault extends VaultBase {
   ): Promise<ISignedTxPro> {
     const { signedTx, networkId, accountAddress } = params;
     try {
-      console.log('broadcastTransaction START:', {
-        rawTx: signedTx.rawTx,
-      });
-      await this.backgroundApi.serviceSend.broadcastTransaction({
+      const client = await this.getClient();
+      await client.broadcastTransaction({
+        accountId: this.accountId,
         networkId,
         accountAddress,
         signedTx,
@@ -401,29 +408,29 @@ export default class Vault extends VaultBase {
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<IGeneralInputValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async validateAmountInputShown({

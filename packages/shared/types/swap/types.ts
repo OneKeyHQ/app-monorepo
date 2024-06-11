@@ -52,15 +52,18 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   logoURI?: string;
   explorers?: INetworkExplorerConfig[];
 }
-export interface ISwapToken {
+
+export interface ISwapTokenBase {
   networkId: string;
   contractAddress: string;
-  isNative: boolean | undefined;
+  isNative?: boolean;
   symbol: string;
   decimals: number;
   name?: string;
   logoURI?: string;
+}
 
+export interface ISwapToken extends ISwapTokenBase {
   balanceParsed?: string;
   price?: string;
   fiatValue?: string;
@@ -69,6 +72,7 @@ export interface ISwapToken {
   networkLogoURI?: string;
 
   riskLevel?: ETokenRiskLevel;
+  reservationValue?: string;
 }
 
 export interface ISwapTokenCatch {
@@ -100,6 +104,7 @@ export enum ESwapApproveTransactionStatus {
   PENDING = 'pending',
   SUCCESS = 'success',
   CANCEL = 'cancel',
+  DISCARD = 'discard',
   FAILED = 'failed',
 }
 export interface ISwapApproveTransaction {
@@ -117,6 +122,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   userAddress?: string;
   receivingAddress?: string;
   slippagePercentage?: number;
+  autoSlippage?: boolean;
   blockNumber?: number;
 }
 interface ISocketAsset {
@@ -154,6 +160,7 @@ export interface IQuoteRoutePath {
 }
 export interface IFetchQuoteResult {
   info: IFetchQuoteInfo;
+  errorMessage?: string;
   toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
   fee?: IFetchQuoteFee;
   instantRate?: string;
@@ -167,6 +174,10 @@ export interface IFetchQuoteResult {
   unSupportReceiveAddressDifferent?: boolean;
   routesData?: IQuoteRoutePath[];
   quoteExtraData?: IQuoteExtraData;
+  autoSuggestedSlippage?: number;
+  unSupportSlippage?: boolean;
+  fromTokenInfo: ISwapTokenBase;
+  toTokenInfo: ISwapTokenBase;
 }
 
 export interface IAllowanceResult {
@@ -242,9 +253,22 @@ export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
 }
 
+export interface IThorSwapCallData {
+  hasStreamingSwap?: boolean;
+  depositWithExpiry: string;
+  vault: string;
+  asset: string;
+  amount: string;
+  memo: string;
+  memoStreamingSwap: string;
+  expiration: string;
+  fromAsset: string;
+  amountIn: string;
+}
 export interface IFetchBuildTxResponse {
   result: IFetchBuildTxResult;
   tx?: ITransaction;
+  thorSwapCallData?: IThorSwapCallData;
   swftOrder?: IFetchBuildTxOrderResponse;
   ctx?: any;
   socketBridgeScanUrl?: string;
@@ -268,7 +292,7 @@ export interface IEVMTransaction {
   data: string;
 }
 
-export type ITransaction = IEVMTransaction;
+export type ITransaction = IEVMTransaction | string;
 
 export interface IFetchBuildTxOrderResponse {
   platformAddr: string;
@@ -289,6 +313,7 @@ export enum ESwapTxHistoryStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
   PENDING = 'pending',
+  DISCARD = 'discard',
 }
 
 export interface IFetchSwapTxHistoryStatusResponse {

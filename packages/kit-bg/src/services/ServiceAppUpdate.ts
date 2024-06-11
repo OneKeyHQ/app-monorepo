@@ -10,6 +10,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
@@ -23,11 +24,13 @@ class ServiceAppUpdate extends ServiceBase {
     super({ backgroundApi });
   }
 
+  private updateAt = 0;
+
   cachedUpdateInfo: IResponseAppUpdateInfo | undefined;
 
   @backgroundMethod()
   async fetchConfig() {
-    const client = await this.getClient();
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       code: number;
       data: IResponseAppUpdateInfo;
@@ -36,14 +39,21 @@ class ServiceAppUpdate extends ServiceBase {
     });
     const { code, data } = response.data;
     if (code === 0) {
+      this.updateAt = Date.now();
       this.cachedUpdateInfo = data;
     }
     return this.cachedUpdateInfo;
   }
 
   @backgroundMethod()
-  async getAppLatestInfo({ cached = true }: { cached?: boolean } = {}) {
-    if (cached && this.cachedUpdateInfo) {
+  async getAppLatestInfo() {
+    if (
+      Date.now() - this.updateAt <
+        timerUtils.getTimeDurationMs({
+          hour: 1,
+        }) &&
+      this.cachedUpdateInfo
+    ) {
       void this.fetchConfig();
       return this.cachedUpdateInfo;
     }
@@ -142,8 +152,8 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchChangeLog(version: string) {
-    const response = await this.getAppLatestInfo({ cached: true });
+  public async fetchChangeLog() {
+    const response = await this.getAppLatestInfo();
     return response?.changeLog;
   }
 

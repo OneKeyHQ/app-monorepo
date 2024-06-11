@@ -1,7 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Button, Divider, Empty, ListView, Page } from '@onekeyhq/components';
-import type { IConnectionStorageType } from '@onekeyhq/shared/types/dappConnection';
+import type {
+  IConnectionItemWithStorageType,
+  IConnectionStorageType,
+} from '@onekeyhq/shared/types/dappConnection';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -23,6 +26,9 @@ function ConnectionListEmpty() {
 
 function ConnectionList() {
   const { serviceDApp } = backgroundApiProxy;
+  const [data, setData] = useState<IConnectionItemWithStorageType[]>([]);
+  const [page, setPage] = useState(0);
+  const pageSize = 6;
   const { result, run } = usePromiseResult(
     async () => serviceDApp.getAllConnectedList(),
     [serviceDApp],
@@ -30,6 +36,26 @@ function ConnectionList() {
       checkIsFocused: false,
     },
   );
+
+  useEffect(() => {
+    setData(() => {
+      const startIndex = page * pageSize;
+      const endIndex = startIndex + pageSize;
+      return (result ?? []).slice(0, endIndex);
+    });
+  }, [result, page]);
+
+  const loadMoreItems = useCallback(async () => {
+    const nextPage = page + 1;
+    const startIndex = nextPage * pageSize;
+    const endIndex = startIndex + pageSize;
+    const moreItems = (result ?? []).slice(startIndex, endIndex);
+
+    if (moreItems.length > 0) {
+      setData((currentData) => [...currentData, ...moreItems]);
+      setPage(nextPage);
+    }
+  }, [result, page]);
 
   const handleDAppDisconnect = useCallback(
     async (origin: string, storageType: IConnectionStorageType) => {
@@ -73,7 +99,7 @@ function ConnectionList() {
           }}
           estimatedItemSize={48}
           scrollEnabled
-          data={result}
+          data={data}
           ListEmptyComponent={ConnectionListEmpty}
           keyExtractor={(item) => item.origin}
           renderItem={({ item }) => (
@@ -98,6 +124,10 @@ function ConnectionList() {
             />
           )}
           ItemSeparatorComponent={ItemSeparatorComponent}
+          onEndReached={() => {
+            void loadMoreItems();
+          }}
+          onEndReachedThreshold={1}
         />
       </Page.Body>
     </Page>

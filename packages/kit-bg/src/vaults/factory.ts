@@ -8,12 +8,15 @@ import {
 import {
   IMPL_ADA,
   IMPL_ALGO,
+  IMPL_APTOS,
   IMPL_BCH,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_CKB,
   IMPL_COSMOS,
+  IMPL_DNX,
   IMPL_DOGE,
+  IMPL_DOT,
   IMPL_EVM,
   IMPL_FIL,
   IMPL_KASPA,
@@ -25,6 +28,7 @@ import {
   IMPL_NEXA,
   IMPL_NOSTR,
   IMPL_SOL,
+  IMPL_SUI,
   IMPL_TBTC,
   IMPL_TRON,
   IMPL_XRP,
@@ -47,6 +51,9 @@ export async function createKeyringInstance(vault: VaultBase) {
 
   if (walletId.startsWith('hd-')) {
     keyring = new keyringMap.hd(vault);
+  }
+  if (walletId.startsWith('qr-')) {
+    keyring = new keyringMap.qr(vault);
   }
   if (walletId.startsWith('hw-')) {
     keyring = new keyringMap.hw(vault);
@@ -107,8 +114,12 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_NOSTR]: () => import('./impls/nostr/Vault') as any,
     [IMPL_ADA]: () => import('./impls/ada/Vault') as any,
     [IMPL_XRP]: () => import('./impls/xrp/Vault') as any,
+    [IMPL_DOT]: () => import('./impls/dot/Vault') as any,
     [IMPL_NEXA]: () => import('./impls/nexa/Vault') as any,
+    [IMPL_SUI]: () => import('./impls/sui/Vault') as any,
     [IMPL_KASPA]: () => import('./impls/kaspa/Vault') as any,
+    [IMPL_APTOS]: () => import('./impls/aptos/Vault') as any,
+    [IMPL_DNX]: () => import('./impls/dnx/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

@@ -6,7 +6,7 @@ import type { IQRCodeHandler, IUrlValue } from '../type';
 
 // onekey://search/list?q=onekey
 // onekey-wallet://search/list?q=onekey
-export const deeplink: IQRCodeHandler<IUrlValue> = async (value, options) => {
+const deeplink: IQRCodeHandler<IUrlValue> = async (value, options) => {
   const urlValue = options?.urlResult;
   if (urlValue) {
     if (
@@ -22,3 +22,5 @@ export const deeplink: IQRCodeHandler<IUrlValue> = async (value, options) => {
   }
   return null;
 };
+
+export default deeplink;

@@ -24,6 +24,8 @@ import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePrevious } from '../../../hooks/usePrevious';
 
+import { FirmwareVersionProgressBar } from './FirmwareVersionProgressBar';
+
 type IProgressType =
   | EFirmwareUpdateTipMessages
   | 'checking'
@@ -43,14 +45,16 @@ const defaultDesc = () => `Checking device`;
 const checkingMaxProgress = 10;
 
 export function FirmwareUpdateProgressBarView({
-  stepText,
+  totalStep,
+  currentStep,
   title,
   fromVersion: versionFrom,
   toVersion: versionTo,
   progress,
   desc,
 }: {
-  stepText: string | undefined;
+  totalStep: number | undefined;
+  currentStep: number | undefined;
   title: string;
   fromVersion: string | undefined;
   toVersion: string | undefined;
@@ -58,24 +62,28 @@ export function FirmwareUpdateProgressBarView({
   desc: string;
 }) {
   const phaseStepView = useMemo(() => {
-    if (!stepText) {
+    if (!totalStep || !currentStep) {
       return <Skeleton width={120} height={16} />;
+    }
+    if (totalStep <= 1) {
+      return null;
     }
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
-        {stepText}
+        {`Step ${currentStep}/${totalStep}`}
       </SizableText>
     );
-  }, [stepText]);
+  }, [currentStep, totalStep]);
 
   const versionView = useMemo(() => {
     if (!versionTo) {
       return <Skeleton width={80} height={16} />;
     }
     return (
-      <SizableText>
-        {versionFrom ? `${versionFrom} - ` : ''} {versionTo}
-      </SizableText>
+      <FirmwareVersionProgressBar
+        fromVersion={versionFrom}
+        toVersion={versionTo}
+      />
     );
   }, [versionFrom, versionTo]);
 
@@ -87,7 +95,7 @@ export function FirmwareUpdateProgressBarView({
       </SizableText>
       {versionView}
       <Stack mt="$12" mb="$3">
-        <Progress value={progress} />
+        <Progress size="medium" value={progress} />
       </Stack>
       <SizableText size="$bodyLg" color="$textSubdued">
         {desc}
@@ -124,6 +132,22 @@ export function FirmwareUpdateProgressBar({
     }
   }, [stepInfo.payload, stepInfo?.step]);
 
+  const { totalStep, currentStep } = useMemo(() => {
+    if (stepInfo?.step === EFirmwareUpdateSteps.installing) {
+      const installingTarget = stepInfo?.payload?.installingTarget;
+      if (installingTarget) {
+        return {
+          totalStep: installingTarget.totalPhase.length,
+          currentStep:
+            installingTarget.totalPhase.findIndex(
+              (item) => item === installingTarget.currentPhase,
+            ) + 1,
+        };
+      }
+    }
+    return { totalPhase: null, currentPhase: null };
+  }, [stepInfo.payload, stepInfo?.step]);
+
   const firmwareVersionInfo = useMemo(() => {
     if (stepInfo?.step === EFirmwareUpdateSteps.installing) {
       return {
@@ -155,21 +179,6 @@ export function FirmwareUpdateProgressBar({
   firmwareProgressRef.current = firmwareProgress;
 
   const installProgressList = useRef<string[]>([]);
-
-  const phaseStepText = useMemo(() => {
-    // TODO use <Skeleton width={250} height={24} />
-    // let phaseStepText = 'Step */*';
-    let text = '';
-    if (stepInfo?.step === EFirmwareUpdateSteps.installing) {
-      if (stepInfo?.payload?.installingTarget) {
-        const { totalPhase, currentPhase } = stepInfo.payload.installingTarget;
-        text = `Step ${
-          totalPhase.findIndex((item) => item === currentPhase) + 1
-        }/${totalPhase.length}`;
-      }
-    }
-    return text;
-  }, [stepInfo]);
 
   const titleText = useMemo(() => {
     let text = 'Preparing...';
@@ -448,7 +457,8 @@ export function FirmwareUpdateProgressBar({
   return (
     <Stack>
       <FirmwareUpdateProgressBarView
-        stepText={phaseStepText}
+        totalStep={totalStep}
+        currentStep={currentStep}
         title={titleText}
         progress={progress}
         desc={desc}

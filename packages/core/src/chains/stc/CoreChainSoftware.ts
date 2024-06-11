@@ -25,6 +25,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '../../types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'ed25519';
 
@@ -51,11 +52,11 @@ const buildUnsignedRawTx = (
   unsignedTx: IUnsignedTxPro,
   chainId: string,
 ): [StarcoinTypes.RawUserTransaction, Uint8Array] => {
-  const fromAddr = unsignedTx?.inputs?.[0].address;
+  const fromAddr = unsignedTx?.transfersInfo?.[0]?.from || '';
   const { scriptFn, data } = unsignedTx.payload || {};
 
-  const gasLimit = unsignedTx.feeLimit;
-  const gasPrice = unsignedTx.feePricePerUnit;
+  const gasLimit = unsignedTx.feeInfo?.gas?.gasLimit;
+  const gasPrice = unsignedTx.feeInfo?.gas?.gasPrice;
   const { nonce } = unsignedTx;
   const { expirationTime } = unsignedTx.payload || {};
 
@@ -79,8 +80,8 @@ const buildUnsignedRawTx = (
   const rawTxn = utils.tx.generateRawUserTransaction(
     fromAddr,
     txPayload,
-    gasLimit.toNumber(),
-    gasPrice.toNumber(),
+    Number(gasLimit),
+    Number(gasPrice),
     nonce,
     expirationTime,
     Number(chainId),
@@ -130,7 +131,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     return this.baseGetPrivateKeys({
       payload,
       curve,
@@ -140,7 +141,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const {
       unsignedTx,
       networkInfo: { chainId },
@@ -167,13 +168,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(): Promise<string> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const { privateKeyRaw } = query;
     const privateKey = bufferUtils.toBuffer(privateKeyRaw);
     const pub = this.baseGetCurve(curve).publicFromPrivate(privateKey);
@@ -186,7 +187,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressFromPublic(
     query: ICoreApiGetAddressQueryPublicKey,
   ): Promise<ICoreApiGetAddressItem> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     const { publicKey } = query;
     const address = await pubkeyToAddress(publicKey);
     return Promise.resolve({
@@ -198,7 +199,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    // throw new Error('Method not implemented.');
+    // throw new NotImplemented();;
     return this.baseGetAddressesFromHd(query, {
       curve,
     });

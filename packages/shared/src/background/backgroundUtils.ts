@@ -35,6 +35,7 @@ import {
 } from '../engine/engineConsts';
 import { NotAutoPrintError } from '../errors';
 // import debugLogger from '../logger/debugLogger';
+import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 
 import type { OneKeyError } from '../errors';
@@ -111,7 +112,8 @@ export function warningIfNotRunInBackground({
       throw new NotAutoPrintError();
     } catch (error) {
       const err = error as Error;
-      err.$$autoPrintErrorIgnore = true;
+      errorUtils.autoPrintErrorIgnore(err);
+
       if (
         err.stack &&
         !err.stack.includes('backgroundApiInit') &&
@@ -302,8 +304,8 @@ export const scopeNetworks: Record<
   'nostr': [IMPL_NOSTR],
   '$hardware_sdk': undefined,
   '$private': undefined,
+  '$privateExternalAccount': [IMPL_BTC, IMPL_TBTC],
   '$walletConnect': undefined,
-  '$privateExternalAccount': undefined,
 };
 
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [

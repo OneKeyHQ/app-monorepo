@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -16,18 +17,17 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import {
   EAssetSelectorRoutes,
-  EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionMore } from './WalletActionMore';
+import { WalletActionReceive } from './WalletActionReceive';
 
 function WalletActionSend() {
   const navigation =
@@ -109,40 +109,6 @@ function WalletActionSend() {
   );
 }
 
-function WalletActionReceive() {
-  const {
-    activeAccount: { account, network, wallet, deriveInfo, deriveType },
-  } = useActiveAccount({ num: 0 });
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
-
-  const handleOnReceive = useCallback(() => {
-    if (!account || !network || !wallet || !deriveInfo) return;
-    if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
-      navigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.CreateInvoice,
-        params: {
-          networkId: network.id,
-          accountId: account.id,
-        },
-      });
-      return;
-    }
-    navigation.pushModal(EModalRoutes.ReceiveModal, {
-      screen: EModalReceiveRoutes.ReceiveToken,
-      params: {
-        networkId: network.id,
-        accountId: account.id,
-        walletId: wallet.id,
-        deriveInfo,
-        deriveType,
-      },
-    });
-  }, [account, deriveInfo, deriveType, navigation, network, wallet]);
-
-  return <RawActions.Receive onPress={handleOnReceive} />;
-}
-
 function WalletActionSwap({ networkId }: { networkId?: string }) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -157,18 +123,23 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
 
 function WalletActions() {
   const {
-    activeAccount: { network, account },
+    activeAccount: { network, account, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
 
   return (
     <RawActions>
-      <WalletActionBuy
-        networkId={network?.id ?? ''}
-        accountId={account?.id ?? ''}
-      />
+      <ReviewControl>
+        <WalletActionBuy networkId={network?.id} accountId={account?.id} />
+      </ReviewControl>
       <WalletActionSwap networkId={network?.id} />
       <WalletActionSend />
-      <WalletActionReceive />
+      <WalletActionReceive
+        accountId={account?.id}
+        networkId={network?.id}
+        walletId={wallet?.id}
+        deriveInfo={deriveInfo}
+        deriveType={deriveType}
+      />
       <WalletActionMore />
     </RawActions>
   );

@@ -1,6 +1,13 @@
 import { useCallback } from 'react';
 
-import { Divider, Page, Stack, Switch, YStack } from '@onekeyhq/components';
+import {
+  Divider,
+  Page,
+  SizableText,
+  Stack,
+  Switch,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
@@ -19,10 +26,7 @@ const EnableSystemIdleTimeItem = () => {
   return (
     <YStack>
       <Divider mx="$5" />
-      <ListItem
-        title="System Idle Lock"
-        subtitle="Include system idle time for locking."
-      >
+      <ListItem title="System Idle Lock">
         <Switch
           disabled={!supportSystemIdle}
           value={supportSystemIdle ? enableSystemIdleLock : false}
@@ -33,6 +37,12 @@ const EnableSystemIdleTimeItem = () => {
           }}
         />
       </ListItem>
+      <Stack px="$5">
+        <SizableText size="$bodySm" color="$textSubdued">
+          When enabled, starts timing when there is no user activity, even if
+          the app is in the foreground.
+        </SizableText>
+      </Stack>
     </YStack>
   );
 };

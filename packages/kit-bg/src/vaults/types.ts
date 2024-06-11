@@ -2,6 +2,7 @@ import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
 import type {
   EAddressEncodings,
   ICoreApiGetAddressItem,
+  ICoreApiPrivateKeysMap,
   ICoreImportedCredentialEncryptHex,
   ICurveName,
   IEncodedTx,
@@ -10,6 +11,7 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
+import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type {
@@ -24,6 +26,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
+import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -44,6 +47,7 @@ import type { MessageDescriptor } from 'react-intl';
 
 export enum EVaultKeyringTypes {
   hd = 'hd',
+  qr = 'qr',
   hardware = 'hardware',
   imported = 'imported',
   watching = 'watching',
@@ -102,6 +106,7 @@ export type IAccountDeriveTypes =
 export type IVaultSettingsNetworkInfo = {
   addressPrefix: string;
   curve: ICurveName;
+  nativeTokenAddress?: string;
 };
 export type IVaultSettings = {
   impl: string;
@@ -136,7 +141,6 @@ export type IVaultSettings = {
   validationRequired?: boolean;
   hideAmountInputOnFirstEntry?: boolean;
   allowZeroFee?: boolean;
-  sendTransactionBySelf?: boolean;
 
   onChainHistoryDisabled?: boolean;
 
@@ -145,6 +149,8 @@ export type IVaultSettings = {
   withPaymentId?: boolean;
 
   enabledOnClassicOnly?: boolean;
+
+  hideFeeInfoInHistoryList?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -163,9 +169,7 @@ export type IGetPrivateKeysParams = {
   password: string;
   relPaths?: string[] | undefined;
 };
-export type IGetPrivateKeysResult = {
-  [path: string]: Buffer;
-};
+export type IGetPrivateKeysResult = ICoreApiPrivateKeysMap;
 export type IPrepareExternalAccountsParams = {
   name: string;
   networks?: string[];
@@ -197,9 +201,13 @@ export type IPrepareHdAccountsParamsBase = {
   names?: Array<string>; // custom names
   deriveInfo: IAccountDeriveInfo;
   skipCheckAccountExist?: boolean; // BTC required
+  isVerifyAddressAction?: boolean;
 };
 export type IPrepareHdAccountsParams = IPrepareHdAccountsParamsBase & {
   password: string;
+};
+export type IPrepareQrAccountsParams = IPrepareHdAccountsParamsBase & {
+  // isVerifyAddress?: boolean;
 };
 export type IPrepareHdAccountsOptions = {
   checkIsAccountUsed?: (query: {
@@ -219,6 +227,7 @@ export type IPrepareAccountsParams =
   | IPrepareImportedAccountsParams
   | IPrepareHdAccountsParams
   | IPrepareHardwareAccountsParams
+  | IPrepareQrAccountsParams
   | IPrepareExternalAccountsParams;
 
 // PrepareAccountByAddressIndex
@@ -227,6 +236,21 @@ export type IPrepareAccountByAddressIndexParams = {
   template: string;
   accountIndex: number;
   addressIndex: number;
+};
+
+export type IExportAccountSecretKeysParams = {
+  password: string;
+  publicKey?: boolean;
+  privateKey?: boolean;
+  xpub?: boolean;
+  xprvt?: boolean;
+};
+
+export type IExportAccountSecretKeysResult = {
+  publicKey?: string;
+  privateKey?: string;
+  xpub?: string;
+  xprvt?: string;
 };
 
 // GetAddress ----------------------------------------------
@@ -268,6 +292,7 @@ export type ITransferInfo = {
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
   destinationTag?: string; // Ripple chain destination tag, Cosmos chain memo
+  keepAlive?: boolean; // Polkadot chain keep alive
 
   // Lightning network
   lnurlPaymentInfo?: ILNURLPaymentInfo;
@@ -338,6 +363,7 @@ export interface IBuildUnsignedTxParams {
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   swapInfo?: ISwapTxInfo;
+  stakingInfo?: IStakingInfo;
   specifiedFeeRate?: string;
 }
 export interface IUpdateUnsignedTxParams {
@@ -351,6 +377,7 @@ export interface IBroadcastTransactionParams {
   networkId: string;
   accountAddress: string;
   signedTx: ISignedTxPro;
+  signature?: string;
 }
 
 export interface ISignTransactionParamsBase {
@@ -401,4 +428,22 @@ export type IValidateGeneralInputParams = {
   validateXpub?: boolean;
   validateXprvt?: boolean;
   validatePrivateKey?: boolean;
+};
+
+export type IGetChildPathTemplatesParams = {
+  airGapAccount: IAirGapAccount;
+  index: number;
+};
+
+export type IGetChildPathTemplatesResult = {
+  childPathTemplates: string[];
+};
+
+export type IQrWalletGetVerifyAddressChainParamsQuery = {
+  fullPath: string;
+};
+
+export type IQrWalletGetVerifyAddressChainParamsResult = {
+  scriptType?: string; // BTC only
+  chainId?: string; // EVM only
 };

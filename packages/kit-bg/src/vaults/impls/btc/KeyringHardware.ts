@@ -7,16 +7,20 @@ import {
   checkBtcAddressIsUsed,
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import type {
+  IBtcInput,
+  IBtcOutput,
+  IEncodedTxBtc,
+} from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedTxPro,
-  ITxInput,
-  ITxOutput,
-  ITxUTXO,
 } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -36,12 +40,13 @@ export class KeyringHardware extends KeyringHardwareBase {
 
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
-    const { inputs = [], outputs = [] } = unsignedTx;
+    const { inputs, outputs } = unsignedTx.encodedTx as IEncodedTxBtc;
     const { dbDevice, deviceCommonParams } = checkIsDefined(
       params.deviceParams,
     );
+    const network = await this.getNetwork();
     const vault = this.vault as VaultBtc;
-    const coinName = await this.coreApi.getCoinName();
+    const coinName = await this.coreApi.getCoinName({ network });
     const addresses = inputs.map((input) => input.address);
     const utxosInfo = await vault._collectUTXOsInfoByApi();
 
@@ -49,13 +54,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     for (const utxo of utxosInfo) {
       const { address, path } = utxo;
       if (addresses.includes(address)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         signers[address] = path;
       }
     }
 
-    const prevTxids = Array.from(
-      new Set(inputs.map((i) => i.utxo?.txid)),
-    ).filter(Boolean);
+    const prevTxids = Array.from(new Set(inputs.map((i) => i.txid))).filter(
+      Boolean,
+    );
     const prevTxs = await vault.collectTxs(prevTxids);
     const sdk = await this.getHardwareSDKInstance();
 
@@ -88,26 +94,25 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   private buildHardwareInput = async (
-    input: ITxInput,
+    input: IBtcInput,
     path: string,
   ): Promise<Messages.TxInputType> => {
     const { getHDPath, getScriptType } = await CoreSDKLoader();
     const addressN = getHDPath(path);
     const scriptType = getScriptType(addressN);
-    const utxo = input.utxo as ITxUTXO;
 
     // @ts-expect-error
     return {
-      prev_index: utxo.vout,
-      prev_hash: utxo.txid,
-      amount: new BigNumber(utxo.value).toFixed(),
+      prev_index: input.vout,
+      prev_hash: input.txid,
+      amount: new BigNumber(input.value).toFixed(),
       address_n: addressN,
       script_type: scriptType,
     };
   };
 
   private buildHardwareOutput = async (
-    output: ITxOutput,
+    output: IBtcOutput,
   ): Promise<Messages.TxOutputType> => {
     const { isCharge, bip44Path, opReturn } = output.payload || {};
 
@@ -157,7 +162,7 @@ export class KeyringHardware extends KeyringHardwareBase {
   };
 
   async signMessage(): Promise<string[]> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
   }
 
   override async prepareAccounts(
@@ -170,9 +175,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     return this.basePrepareHdUtxoAccounts(params, {
       checkIsAccountUsed: checkBtcAddressIsUsed,
       buildAddressesInfo: async ({ usedIndexes }) => {
-        const isChange = false;
-        const addressIndex = 0;
-
         const publicKeys = await this.baseGetDeviceAccountPublicKeys({
           params,
           usedIndexes,
@@ -200,18 +202,20 @@ export class KeyringHardware extends KeyringHardwareBase {
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
           const { path, xpub, xpubSegwit } = item;
-          const addressRelPath = `${isChange ? '1' : '0'}/${addressIndex}`;
-          const { addresses: addressFromXpub } =
+          const addressRelPath = accountUtils.buildUtxoAddressRelPath();
+          const { addresses: addressFromXpub, publicKeys: publicKeysMap } =
             await this.coreApi.getAddressFromXpub({
               network,
               xpub,
               relativePaths: [addressRelPath],
               addressEncoding,
             });
+          const { [addressRelPath]: publicKey } = publicKeysMap;
           const { [addressRelPath]: address } = addressFromXpub;
+
           const addressInfo: ICoreApiGetAddressItem = {
             address,
-            publicKey: '', // TODO return pub from getAddressFromXpub
+            publicKey,
             path,
             relPath: addressRelPath,
             xpub,
@@ -225,5 +229,38 @@ export class KeyringHardware extends KeyringHardwareBase {
         return ret;
       },
     });
+  }
+
+  override async batchGetAddresses(params: IPrepareHardwareAccountsParams) {
+    const { indexes } = params;
+    const addresses = await this.baseGetDeviceAccountAddresses({
+      params,
+      usedIndexes: indexes,
+      sdkGetAddressFn: async ({
+        connectId,
+        deviceId,
+        pathPrefix,
+        pathSuffix,
+        coinName,
+        showOnOnekeyFn,
+      }) => {
+        const sdk = await this.getHardwareSDKInstance();
+
+        const response = await sdk.btcGetAddress(connectId, deviceId, {
+          ...params.deviceParams.deviceCommonParams,
+          bundle: indexes.map((index, arrIndex) => ({
+            path: `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+            coin: coinName?.toLowerCase(),
+            showOnOneKey: showOnOnekeyFn(arrIndex),
+          })),
+        });
+        return response;
+      },
+    });
+
+    return addresses.map((item) => ({
+      path: item.path ?? '',
+      address: item.address ?? '',
+    }));
   }
 }

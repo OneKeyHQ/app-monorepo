@@ -3,9 +3,10 @@ import { memo, useCallback, useEffect } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, XStack, YStack, usePageUnMounted } from '@onekeyhq/components';
+import { Page, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Container } from '@onekeyhq/kit/src/components/Container';
+import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSendConfirmActions,
@@ -41,8 +42,12 @@ function SendConfirmContainer() {
     onCancel,
     sourceInfo,
     signOnly,
+    useFeeInTx,
   } = route.params;
-  usePageUnMounted(onCancel);
+  const dappApprove = useDappApproveAction({
+    id: sourceInfo?.id ?? '',
+    closeWindowAfterResolved: true,
+  });
   usePromiseResult(async () => {
     updateUnsignedTxs(unsignedTxs);
     updateNativeTokenInfo({
@@ -50,19 +55,21 @@ function SendConfirmContainer() {
       balance: '0',
       logoURI: '',
     });
-    const accountAddress =
-      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+    const [accountAddress, xpub, nativeTokenAddress] = await Promise.all([
+      backgroundApiProxy.serviceAccount.getAccountAddressForApi({
         networkId,
         accountId,
-      });
-    const xpub = await backgroundApiProxy.serviceAccount.getAccountXpub({
-      accountId,
-      networkId,
-    });
+      }),
+      backgroundApiProxy.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
+    ]);
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
       accountAddress,
-      contractList: [''],
+      contractList: [nativeTokenAddress],
       xpub,
     });
 
@@ -111,6 +118,7 @@ function SendConfirmContainer() {
                   accountId={accountId}
                   networkId={networkId}
                   tableLayout={tableLayout}
+                  useFeeInTx={useFeeInTx}
                 />
                 <SendConfirmActionsContainer
                   sourceInfo={sourceInfo}
@@ -134,7 +142,11 @@ function SendConfirmContainer() {
         <Page.Body px="$5" space="$4">
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
           <TxActionsContainer accountId={accountId} networkId={networkId} />
-          <TxFeeContainer accountId={accountId} networkId={networkId} />
+          <TxFeeContainer
+            accountId={accountId}
+            networkId={networkId}
+            useFeeInTx={useFeeInTx}
+          />
           <TxSimulationContainer />
         </Page.Body>
         <SendConfirmActionsContainer
@@ -149,18 +161,26 @@ function SendConfirmContainer() {
       </>
     );
   }, [
+    tableLayout,
+    sourceInfo,
     accountId,
     networkId,
-    onFail,
-    onSuccess,
-    onCancel,
+    useFeeInTx,
     signOnly,
-    sourceInfo,
-    tableLayout,
+    onSuccess,
+    onFail,
+    onCancel,
   ]);
 
   return (
-    <Page scrollEnabled={!tableLayout}>
+    <Page
+      scrollEnabled={!tableLayout}
+      onClose={(confirmed) => {
+        if (!confirmed) {
+          dappApprove.reject();
+        }
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({ id: 'transaction__transaction_confirm' })}
       />

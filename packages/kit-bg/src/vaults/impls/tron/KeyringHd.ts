@@ -1,10 +1,14 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { decrypt, ed25519 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  IExportAccountSecretKeysParams,
+  IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
@@ -33,6 +37,24 @@ export class KeyringHd extends KeyringHdBase {
   }
 
   override async signMessage(): Promise<string[]> {
-    throw new Error('Method not implemented.');
+    throw new NotImplemented();
+  }
+
+  override async exportAccountSecretKeys(
+    params: IExportAccountSecretKeysParams,
+  ): Promise<IExportAccountSecretKeysResult> {
+    const { password } = params;
+    const result: IExportAccountSecretKeysResult = {};
+    if (params.privateKey) {
+      const privateKeysMap = await this.getPrivateKeys({
+        password,
+      });
+      const [encryptedPrivateKey] = Object.values(privateKeysMap);
+      result.privateKey = decrypt(password, encryptedPrivateKey).toString(
+        'hex',
+      );
+    }
+
+    return result;
   }
 }

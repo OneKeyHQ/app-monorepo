@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { Page, Toast } from '@onekeyhq/components';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IConnectionAccountInfo } from '@onekeyhq/shared/types/dappConnection';
-import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -18,6 +17,8 @@ import {
   DAppRequestLayout,
 } from '../components/DAppRequestLayout';
 import { useRiskDetection } from '../hooks/useRiskDetection';
+
+import DappOpenModalPage from './DappOpenModalPage';
 
 import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
 import type { IConnectedAccountInfoChangedParams } from '../components/DAppAccountList';
@@ -32,9 +33,9 @@ function ConnectionModal() {
     closeWindowAfterResolved: true,
   });
   const {
+    showContinueOperate,
     continueOperate,
     setContinueOperate,
-    canContinueOperate,
     riskLevel,
     urlSecurityInfo,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '' });
@@ -68,7 +69,7 @@ function ConnectionModal() {
   }, [selectedAccount?.network?.name]);
 
   const confirmDisabled = useMemo(() => {
-    if (!canContinueOperate) {
+    if (!continueOperate) {
       return true;
     }
     if (!selectedAccount?.account?.address) {
@@ -78,7 +79,7 @@ function ConnectionModal() {
       return true;
     }
     return false;
-  }, [selectedAccount, canContinueOperate]);
+  }, [selectedAccount, continueOperate]);
 
   const onApproval = useCallback(
     async (close: () => void) => {
@@ -148,48 +149,40 @@ function ConnectionModal() {
       connectedAccountInfo,
     ],
   );
-  const showContinueOperateCheckbox = useMemo(
-    () =>
-      !(
-        riskLevel === EHostSecurityLevel.Security ||
-        riskLevel === EHostSecurityLevel.Unknown
-      ),
-    [riskLevel],
-  );
 
   return (
-    <Page scrollEnabled>
-      <Page.Header headerShown={false} />
-      <Page.Body>
-        <DAppRequestLayout
-          title="Connection Request"
-          subtitle={subtitle}
-          origin={$sourceInfo?.origin ?? ''}
-          urlSecurityInfo={urlSecurityInfo}
-        >
-          <DAppAccountListStandAloneItem
-            handleAccountChanged={handleAccountChanged}
-            onConnectedAccountInfoChanged={setConnectedAccountInfo}
+    <DappOpenModalPage dappApprove={dappApprove}>
+      <>
+        <Page.Header headerShown={false} />
+        <Page.Body>
+          <DAppRequestLayout
+            title="Connection Request"
+            subtitle={subtitle}
+            origin={$sourceInfo?.origin ?? ''}
+            urlSecurityInfo={urlSecurityInfo}
+          >
+            <DAppAccountListStandAloneItem
+              handleAccountChanged={handleAccountChanged}
+              onConnectedAccountInfoChanged={setConnectedAccountInfo}
+            />
+            <DAppRequestedPermissionContent />
+          </DAppRequestLayout>
+        </Page.Body>
+        <Page.Footer>
+          <DAppRequestFooter
+            continueOperate={continueOperate}
+            setContinueOperate={(value) => setContinueOperate(!!value)}
+            onConfirm={onApproval}
+            onCancel={() => dappApprove.reject()}
+            confirmButtonProps={{
+              disabled: confirmDisabled,
+            }}
+            showContinueOperateCheckbox={showContinueOperate}
+            riskLevel={riskLevel}
           />
-          <DAppRequestedPermissionContent />
-        </DAppRequestLayout>
-      </Page.Body>
-      <Page.Footer>
-        <DAppRequestFooter
-          continueOperate={continueOperate}
-          setContinueOperate={(value) => setContinueOperate(!!value)}
-          onConfirm={onApproval}
-          onCancel={() => {
-            dappApprove.reject();
-          }}
-          confirmButtonProps={{
-            disabled: confirmDisabled,
-          }}
-          showContinueOperateCheckbox={showContinueOperateCheckbox}
-          riskLevel={riskLevel}
-        />
-      </Page.Footer>
-    </Page>
+        </Page.Footer>
+      </>
+    </DappOpenModalPage>
   );
 }
 

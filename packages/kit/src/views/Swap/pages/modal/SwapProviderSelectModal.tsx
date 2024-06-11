@@ -69,8 +69,12 @@ const SwapProviderSelectModal = () => {
     [],
   );
   const sectionData = useMemo(() => {
-    const availableList = swapSortedList.filter((item) => item.toAmount);
-    const unavailableList = swapSortedList.filter((item) => !item.toAmount);
+    const availableList = swapSortedList.filter(
+      (item) => item.toAmount && !item.limit?.min && !item.limit?.max,
+    );
+    const unavailableList = swapSortedList.filter(
+      (item) => !item.toAmount || item.limit?.min || item.limit?.max,
+    );
     return [
       ...(availableList?.length > 0
         ? [
