@@ -169,9 +169,9 @@ function LnurlPayRequestModal() {
       } catch (e: any) {
         console.log('lnurl withdraw error: ', e);
         dappApprove.reject();
+        const message = (e as Error)?.message ?? e;
         throw new OneKeyError({
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          info: e.message ?? e,
+          message,
           autoToast: true,
         });
       } finally {

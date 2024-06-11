@@ -47,6 +47,7 @@ const settings: IVaultSettings = {
       nativeTokenAddress: SUI_TYPE_ARG,
     },
   },
+  signOnlyFullTxRequired: true,
 };
 
 export default Object.freeze(settings);

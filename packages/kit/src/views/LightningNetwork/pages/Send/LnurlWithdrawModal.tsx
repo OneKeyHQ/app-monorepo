@@ -122,7 +122,7 @@ function LnurlWithdrawModal() {
           }, 1500);
         }
         throw new OneKeyError({
-          info: message,
+          message,
           autoToast: true,
         });
       } finally {

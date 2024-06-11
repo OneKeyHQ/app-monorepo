@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { Semaphore } from 'async-mutex';
 
 import { EAdaNetworkId } from '@onekeyhq/core/src/chains/ada/types';
 import type IAdaVault from '@onekeyhq/kit-bg/src/vaults/impls/ada/Vault';
@@ -23,6 +24,8 @@ import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-ty
 @backgroundClass()
 class ProviderApiCardano extends ProviderApiBase {
   public providerName = IInjectedProviderNames.cardano;
+
+  private semaphore = new Semaphore(1);
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
@@ -84,12 +87,14 @@ class ProviderApiCardano extends ProviderApiBase {
   // Provider API
   @providerApiMethod()
   async connect(request: IJsBridgeMessagePayload) {
-    const connectedAddress = await this.cardano_accounts(request);
-    if (connectedAddress) {
-      return connectedAddress;
-    }
-    await this.backgroundApi.serviceDApp.openConnectionModal(request);
-    return this.cardano_accounts(request);
+    return this.semaphore.runExclusive(async () => {
+      const connectedAddress = await this.cardano_accounts(request);
+      if (connectedAddress) {
+        return connectedAddress;
+      }
+      await this.backgroundApi.serviceDApp.openConnectionModal(request);
+      return this.cardano_accounts(request);
+    });
   }
 
   @providerApiMethod()
