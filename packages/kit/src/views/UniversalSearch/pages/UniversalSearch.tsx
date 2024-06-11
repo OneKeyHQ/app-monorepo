@@ -307,7 +307,9 @@ export function UniversalSearch({
 
   return (
     <Page>
-      <Page.Header title="Search" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_search })}
+      />
       <Page.Body>
         <View p="$5" pt={0}>
           <SearchBar
