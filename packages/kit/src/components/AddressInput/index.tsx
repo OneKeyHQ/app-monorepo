@@ -23,6 +23,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
@@ -36,7 +37,6 @@ import { BaseInput } from '../BaseInput';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IResolvedAddressProps = {
   value: string;

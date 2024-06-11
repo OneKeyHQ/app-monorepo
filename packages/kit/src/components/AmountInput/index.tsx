@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Icon,
   Image,
@@ -18,9 +20,8 @@ import type {
 } from '@onekeyhq/components';
 import { getSharedInputStyles } from '@onekeyhq/components/src/forms/Input/sharedStyles';
 import type { IFormFieldProps } from '@onekeyhq/components/src/forms/types';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IAmountInputFormItemProps = IFormFieldProps<
   string,

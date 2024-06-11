@@ -35,6 +35,7 @@ import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -51,7 +52,6 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function SendDataInputContainer() {
   const intl = useIntl();

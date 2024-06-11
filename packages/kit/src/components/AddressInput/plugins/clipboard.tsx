@@ -1,10 +1,11 @@
 import { type FC, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { IconButton, useClipboard } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAddressPluginProps } from '../types';
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export const ClipboardPlugin: FC<IAddressPluginProps> = ({
   onChange,
