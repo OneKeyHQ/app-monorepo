@@ -61,6 +61,7 @@ function ChangeLogSection({
         <IconButton
           icon={collapse ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'}
           variant="tertiary"
+          onPress={onDropDownPressed}
         />
       </XStack>
       {collapse ? null : (
