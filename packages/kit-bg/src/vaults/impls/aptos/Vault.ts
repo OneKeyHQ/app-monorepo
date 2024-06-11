@@ -45,7 +45,9 @@ import {
   APTOS_NATIVE_COIN,
   APTOS_NATIVE_TRANSFER_FUNC,
   APTOS_TRANSFER_FUNC,
+  buildSignedTx,
   generateTransferCoin,
+  generateUnsignedTransaction,
   getTransactionTypeByPayload,
 } from './utils';
 
@@ -427,5 +429,36 @@ export default class VaultAptos extends VaultBase {
 
   async getTransactionByHash(txId: string) {
     return this.client.getTransactionByHash(txId);
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTx | undefined;
+  }): Promise<IEncodedTx | undefined> {
+    let rawTx: TxnBuilderTypes.RawTransaction;
+    const unSignedEncodedTx = encodedTx as IEncodedTxAptos;
+    if (unSignedEncodedTx.bscTxn && unSignedEncodedTx.bscTxn?.length > 0) {
+      const deserializer = new BCS.Deserializer(
+        bufferUtils.hexToBytes(unSignedEncodedTx.bscTxn),
+      );
+      rawTx = TxnBuilderTypes.RawTransaction.deserialize(deserializer);
+    } else {
+      rawTx = await generateUnsignedTransaction(this.client, {
+        encodedTx,
+      });
+    }
+
+    const account = await this.getAccount();
+    const invalidSigBytes = new Uint8Array(64);
+    const { rawTx: rawSignTx } = await buildSignedTx(
+      rawTx,
+      account.pub ?? '',
+      bufferUtils.bytesToHex(invalidSigBytes),
+    );
+    return {
+      ...(encodedTx as object),
+      rawSignTx,
+    } as unknown as IEncodedTx;
   }
 }

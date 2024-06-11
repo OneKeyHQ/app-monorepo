@@ -39,7 +39,8 @@ const SwapProviderInfoItem = ({
     return !rateBN.isZero();
   }, [rate]);
   const rateContent = useMemo(() => {
-    if (!rateIsExit || !fromToken || !toToken) return 'Insufficient liquidity';
+    if (!rateIsExit || !fromToken || !toToken)
+      return <SizableText>Insufficient liquidity</SizableText>;
     const rateBN = new BigNumber(rate ?? 0);
     return (
       <SizableText size="$bodyMdMedium" pl="$1" maxWidth={177}>

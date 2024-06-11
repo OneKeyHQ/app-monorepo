@@ -1,43 +1,49 @@
+import { useIntl } from 'react-intl';
+
 import { IconButton } from '@onekeyhq/components';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { showWalletRemoveDialog } from './WalletRemoveDialog';
 
-function getTitleAndDescription({ wallet }: { wallet?: IDBWallet }) {
-  if (wallet?.type === 'hw') {
-    if (
-      accountUtils.isHwHiddenWallet({
-        wallet,
-      })
-    ) {
+export function WalletRemoveButton({ wallet }: { wallet?: IDBWallet }) {
+  const { config } = useAccountSelectorContextData();
+  const intl = useIntl();
+
+  function getTitleAndDescription() {
+    if (wallet?.type === 'hw') {
+      if (
+        accountUtils.isHwHiddenWallet({
+          wallet,
+        })
+      ) {
+        return {
+          title: intl.formatMessage({ id: ETranslations.remove_device }),
+          description: intl.formatMessage({
+            id: ETranslations.remove_hidden_wallet_desc,
+          }),
+        };
+      }
       return {
-        title: 'Remove Device',
-        description:
-          'This will permanently delete your data. Ensure you have saved the passphrase of this hidden wallet',
+        title: intl.formatMessage({ id: ETranslations.remove_device }),
+        description: intl.formatMessage({
+          id: ETranslations.remove_device_desc,
+        }),
       };
     }
+
     return {
-      title: 'Remove Device',
-      description:
-        'This will permanently delete your data. But you still can restore it from the hardware wallet which is loaded the recovery phrase of this wallet.',
+      title: intl.formatMessage({ id: ETranslations.remove_wallet }),
+      description: intl.formatMessage({ id: ETranslations.remove_wallet_desc }),
     };
   }
+  const { title, description } = getTitleAndDescription();
 
-  return {
-    title: 'Remove Wallet',
-    description:
-      'Make sure you’ve written down the recovery phrase before removing the wallet. Otherwise, you won’t be able to recover the wallet.',
-  };
-}
-
-export function WalletRemoveButton({ wallet }: { wallet?: IDBWallet }) {
-  const { title, description } = getTitleAndDescription({ wallet });
-  const { config } = useAccountSelectorContextData();
   return (
     <IconButton
-      title="Remove"
+      title={intl.formatMessage({ id: ETranslations.global_remove })}
       icon="DeleteOutline"
       variant="tertiary"
       onPress={() => {

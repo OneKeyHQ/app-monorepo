@@ -13,6 +13,7 @@ import {
   useTokenListAtom,
   withTokenListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
   IAssetSelectorParamList,
@@ -113,7 +114,9 @@ function TokenSelector() {
     () =>
       tokensLength > 10
         ? {
-            placeholder: 'Search symbol or contract address',
+            placeholder: intl.formatMessage({
+              id: ETranslations.send_token_selector_search_placeholder,
+            }),
             onChangeText: ({
               nativeEvent,
             }: {
@@ -123,13 +126,15 @@ function TokenSelector() {
             },
           }
         : undefined,
-    [debounceUpdateSearchKey, tokensLength],
+    [debounceUpdateSearchKey, intl, tokensLength],
   );
 
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: 'action__select_token' })}
+        title={intl.formatMessage({
+          id: ETranslations.send_token_selector_select_token,
+        })}
         headerSearchBarOptions={headerSearchBarOptions}
       />
       <Page.Body>

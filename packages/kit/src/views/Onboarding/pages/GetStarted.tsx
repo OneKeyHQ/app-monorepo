@@ -2,13 +2,18 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
+import type {
+  IKeyOfIcons,
+  IPageScreenProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import {
   Anchor,
   Divider,
   Group,
   Heading,
   Icon,
+  IconButton,
   Image,
   LinearGradient,
   Page,
@@ -22,6 +27,7 @@ import {
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -100,9 +106,12 @@ function ActionsGroup({ items }: IActionsProp) {
   );
 }
 
-export function GetStarted() {
+export function GetStarted({
+  route,
+}: IPageScreenProps<IOnboardingParamList, EOnboardingPages.GetStarted>) {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const { showCloseButton } = route.params;
 
   const handleCreateWalletPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
@@ -176,6 +185,18 @@ export function GetStarted() {
     <Page>
       <Page.Header headerShown={false} />
       <Page.Body>
+        {showCloseButton ? (
+          <Page.Close>
+            <IconButton
+              icon="CrossedLargeOutline"
+              position="absolute"
+              variant="tertiary"
+              left="$5"
+              top="$5"
+              zIndex={1}
+            />
+          </Page.Close>
+        ) : null}
         <Stack flex={1}>
           <ThemeableStack
             fullscreen
@@ -244,7 +265,7 @@ export function GetStarted() {
               },
             ]}
           />
-          {!isDappMode || platformEnv.isDev ? (
+          {!isDappMode ? (
             <ActionsGroup
               items={[
                 {

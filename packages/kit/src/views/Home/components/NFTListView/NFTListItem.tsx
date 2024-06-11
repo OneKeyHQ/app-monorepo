@@ -61,20 +61,20 @@ function NFTListItem(props: IProps) {
           </Image>
           {nft.collectionType === ENFTType.ERC1155 &&
           new BigNumber(nft.amount ?? 1).gt(1) ? (
-            <SizableText
+            <Stack
+              borderRadius="$2.5"
               position="absolute"
               right="$0"
               bottom="$0"
-              size="$bodyMdMedium"
               px="$2"
               bg="$bgInverse"
-              color="$textInverse"
-              borderRadius="$2.5"
               borderWidth={2}
               borderColor="$bgApp"
             >
-              x{nft.amount}
-            </SizableText>
+              <SizableText size="$bodyMdMedium" color="$textInverse">
+                x{nft.amount}
+              </SizableText>
+            </Stack>
           ) : null}
         </Stack>
       </Stack>

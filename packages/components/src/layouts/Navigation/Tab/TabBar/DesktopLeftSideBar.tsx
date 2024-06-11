@@ -210,16 +210,10 @@ export function DesktopLeftSideBar({
         <DesktopDragZoneAbsoluteBar
           position="relative"
           testID="Desktop-AppSideBar-DragZone"
+          h="$10"
         />
       ) : null}
-      <YStack
-        flex={1}
-        testID="Desktop-AppSideBar-Content-Container"
-        // Need to replaced by HeaderHeightContext
-        $platform-web={{
-          h: platformEnv.isDesktopMac ? 'calc(100vh - 64px)' : '100vh',
-        }}
-      >
+      <YStack flex={1} testID="Desktop-AppSideBar-Content-Container">
         <OneKeyLogo />
         <YStack flex={1} p="$3">
           {tabs}

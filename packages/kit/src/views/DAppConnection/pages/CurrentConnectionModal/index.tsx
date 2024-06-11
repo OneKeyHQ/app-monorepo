@@ -7,6 +7,7 @@ import {
   Divider,
   Icon,
   Image,
+  ListView,
   Page,
   SizableText,
   Skeleton,
@@ -134,25 +135,29 @@ function CurrentConnectionModal() {
               return acc;
             }, {} as Record<number, { networkIds: string[] }>)}
           >
-            <YStack space="$2" px="$5">
-              {accountsInfo.map((account) => (
-                <DAppAccountListItem
-                  key={account.num}
-                  num={account.num}
-                  compressionUiMode
-                  handleAccountChanged={async (accountChangedParams) => {
-                    await handleAccountInfoChanged({
-                      origin,
-                      accountSelectorNum: account.num,
-                      prevAccountInfo: account,
-                      accountChangedParams,
-                      storageType: account.storageType,
-                      afterUpdate: fetchAccountsInfo,
-                    });
-                  }}
-                />
-              ))}
-            </YStack>
+            <ListView
+              data={accountsInfo}
+              renderItem={({ item: account }) => (
+                <YStack px="$5" pb="$2">
+                  <DAppAccountListItem
+                    key={account.num}
+                    num={account.num}
+                    compressionUiMode
+                    handleAccountChanged={async (accountChangedParams) => {
+                      await handleAccountInfoChanged({
+                        origin,
+                        accountSelectorNum: account.num,
+                        prevAccountInfo: account,
+                        accountChangedParams,
+                        storageType: account.storageType,
+                        afterUpdate: fetchAccountsInfo,
+                      });
+                    }}
+                  />
+                </YStack>
+              )}
+              estimatedItemSize="$10"
+            />
           </AccountSelectorProviderMirror>
         )}
       </Page.Body>
