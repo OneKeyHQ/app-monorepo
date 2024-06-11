@@ -257,29 +257,45 @@ export function EnterPhase({
     confirmPassphrase: string;
   }>();
   const media = useMedia();
+  const intl = useIntl();
+
   return (
     <Stack>
       <Stack pb="$5">
         <Alert
-          title="Protect Your Passphrase: Irrecoverable if Lost."
+          title={intl.formatMessage({
+            id: ETranslations.global_enter_passphrase_alert,
+          })}
           type="warning"
         />
       </Stack>
       <Form form={form}>
-        <Form.Field name="passphrase" label="Passphrase">
+        <Form.Field
+          name="passphrase"
+          label={intl.formatMessage({ id: ETranslations.global_passphrase })}
+        >
           <Input
             secureTextEntry
-            placeholder="Enter passphrase"
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_enter_passphrase,
+            })}
             {...(media.md && {
               size: 'large',
             })}
           />
         </Form.Field>
         {!isSingleInput ? (
-          <Form.Field name="confirmPassphrase" label="Confirm Passphrase">
+          <Form.Field
+            name="confirmPassphrase"
+            label={intl.formatMessage({
+              id: ETranslations.form_confirm_passphrase,
+            })}
+          >
             <Input
               secureTextEntry
-              placeholder="Re-enter your passphrase"
+              placeholder={intl.formatMessage({
+                id: ETranslations.form_confirm_passphrase_placeholder,
+              })}
               {...(media.md && {
                 size: 'large',
               })}
@@ -303,7 +319,9 @@ export function EnterPhase({
             values.passphrase !== values.confirmPassphrase
           ) {
             Toast.error({
-              title: 'passphrase not matched',
+              title: intl.formatMessage({
+                id: ETranslations.feedback_passphrase_not_matched,
+              }),
             });
             return;
           }
@@ -330,7 +348,7 @@ export function EnterPhase({
           // });
         }}
       >
-        Confirm
+        {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
       <Button
         m="$0"
@@ -343,7 +361,7 @@ export function EnterPhase({
         variant="tertiary"
         onPress={switchOnDevice}
       >
-        Enter on Device
+        {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
       </Button>
     </Stack>
   );
@@ -368,10 +386,19 @@ export function ConfirmPassphrase({
   onConfirm: () => void;
   switchOnDevice: () => void;
 }) {
+  const intl = useIntl();
+
   return (
     <Stack>
-      {/* TODO: switch size to large when media.md */}
-      <Input placeholder="Enter your passphrase" />
+      <Input
+        size="large"
+        $gtMd={{
+          size: 'medium',
+        }}
+        placeholder={intl.formatMessage({
+          id: ETranslations.global_enter_passphrase,
+        })}
+      />
       {/* TODO: add loading state while waiting for result */}
       <Button
         mt="$5"
@@ -383,7 +410,7 @@ export function ConfirmPassphrase({
         variant="primary"
         onPress={onConfirm}
       >
-        Confirm
+        {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
       <Button
         m="$0"
@@ -396,7 +423,7 @@ export function ConfirmPassphrase({
         variant="tertiary"
         onPress={switchOnDevice}
       >
-        Enter on Device
+        {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
       </Button>
     </Stack>
   );
