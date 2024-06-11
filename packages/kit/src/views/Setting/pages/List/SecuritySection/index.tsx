@@ -16,6 +16,7 @@ import {
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
@@ -48,7 +49,7 @@ const AppAutoLockItem = () => {
     <ListItem
       onPress={onPress}
       icon="ClockTimeHistoryOutline"
-      title={intl.formatMessage({ id: 'form__app_lock' })}
+      title={intl.formatMessage({ id: ETranslations.settings_auto_lock })}
       drillIn
     >
       <ListItem.Text primary={text} align="right" />
@@ -64,7 +65,7 @@ const SetPasswordItem = () => {
         void backgroundApiProxy.servicePassword.promptPasswordVerify();
       }}
       icon="KeyOutline"
-      title={intl.formatMessage({ id: 'title__set_password' })}
+      title={intl.formatMessage({ id: ETranslations.global_set_password })}
       drillIn
     />
   );
@@ -78,7 +79,7 @@ const ChangePasswordItem = () => {
         reason: EReasonForNeedPassword.Security,
       });
     const dialog = Dialog.show({
-      title: intl.formatMessage({ id: 'form__change_password' }),
+      title: intl.formatMessage({ id: ETranslations.global_change_password }),
       renderContent: (
         <PasswordUpdateContainer
           oldEncodedPassword={oldEncodedPassword.password}
@@ -96,7 +97,7 @@ const ChangePasswordItem = () => {
     <ListItem
       onPress={onPress}
       icon="KeyOutline"
-      title={intl.formatMessage({ id: 'form__change_password' })}
+      title={intl.formatMessage({ id: ETranslations.global_change_password })}
       drillIn
     />
   );
@@ -114,7 +115,7 @@ const FaceIdItem = () => {
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
 
-  let title = intl.formatMessage({ id: 'form__touch_id' });
+  let title = intl.formatMessage({ id: ETranslations.global_touch_id });
   let icon: ComponentProps<typeof ListItem>['icon'] = 'TouchIdSolid';
 
   if (biologyAuthIsSupport) {
@@ -122,7 +123,7 @@ const FaceIdItem = () => {
       authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
       authType.includes(AuthenticationType.IRIS)
     ) {
-      title = intl.formatMessage({ id: 'content__face_id' });
+      title = intl.formatMessage({ id: ETranslations.global_face_id });
       icon = 'FaceIdSolid';
     }
   }
@@ -147,13 +148,14 @@ const ProtectionItem = () => {
     <ListItem
       onPress={onPress}
       icon="ShieldCheckDoneOutline"
-      title={intl.formatMessage({ id: 'action__protection' })}
+      title={intl.formatMessage({ id: ETranslations.settings_protection })}
       drillIn
     />
   ) : null;
 };
 
 const ConnectedSitesItem = () => {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
@@ -163,7 +165,7 @@ const ConnectedSitesItem = () => {
   }, [navigation]);
   return (
     <ListItem
-      title="Connected Sites"
+      title={intl.formatMessage({ id: ETranslations.settings_connected_sites })}
       icon="LinkOutline"
       drillIn
       onPress={onPress}
@@ -172,6 +174,7 @@ const ConnectedSitesItem = () => {
 };
 
 const SignatureRecordItem = () => {
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
@@ -181,7 +184,9 @@ const SignatureRecordItem = () => {
     <ListItem
       onPress={onPress}
       icon="NoteOutline"
-      title="Signature Record"
+      title={intl.formatMessage({
+        id: ETranslations.settings_signature_record,
+      })}
       drillIn
     />
   );
@@ -190,7 +195,7 @@ const SignatureRecordItem = () => {
 export const SecuritySection = () => {
   const intl = useIntl();
   return (
-    <Section title={intl.formatMessage({ id: 'form__security_uppercase' })}>
+    <Section title={intl.formatMessage({ id: ETranslations.global_security })}>
       <Suspense fallback={null}>
         <FaceIdItem />
       </Suspense>

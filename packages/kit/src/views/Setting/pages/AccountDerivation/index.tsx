@@ -1,11 +1,14 @@
 import { type FC } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { DeriveTypeSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 type IAccountDerivationListItemProps = {
@@ -46,13 +49,19 @@ const AccountDerivation = () => {
       watchLoading: true,
     },
   );
+  const intl = useIntl();
   return (
     <Page scrollEnabled>
-      <Page.Header title="Derivation Path" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.settings_account_derivation_path,
+        })}
+      />
       <Stack px="$5" py="$3">
         <SizableText size="$bodyLg">
-          If you don't see the accounts you expect, try switching the derivation
-          path.
+          {intl.formatMessage({
+            id: ETranslations.settings_account_derivation_path_desc,
+          })}
         </SizableText>
       </Stack>
       {!isLoading ? (
