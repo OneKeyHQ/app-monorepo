@@ -1,45 +1,70 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+import { decrypt } from '../../secret';
+import {
+  ECoreApiExportedSecretKeyType,
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressQueryPublicKey,
+  type ICoreApiGetAddressesQueryHd,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiNetworkInfo,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignMsgPayload,
+  type ICoreApiSignTxPayload,
+  type ICoreCredentialsInfo,
+  type ICurveName,
+  type ISignedTxPro,
+} from '../../types';
 
 import {
-  decrypt,
-  encrypt,
+  decrypt as decryptNostr,
+  encrypt as encryptNostr,
   getNip19EncodedPubkey,
+  getPrivateEncodedByNip19,
   signEvent,
   signSchnorr,
 } from './sdkNostr';
 
 import type { IEncodedTxNostr } from './types';
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesResult,
-  ICoreApiGetExportedSecretKey,
-  ICoreApiNetworkInfo,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignBasePayload,
-  ICoreApiSignMsgPayload,
-  ICoreApiSignTxPayload,
-  ICoreCredentialsInfo,
-  ICurveName,
-  ISignedTxPro,
-} from '../../types';
 
 const curve: ICurveName = 'secp256k1';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
-  override getExportedSecretKey(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override async getExportedSecretKey(
     query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
-    throw new NotImplemented('Method not implemented.');
+    const {
+      // networkInfo,
+      // privateKeySource,
+      password,
+      keyType,
+      credentials,
+      // xpub,
+      // addressEncoding,
+    } = query;
+    console.log(
+      'ExportSecretKeys >>>> nostr',
+      this.baseGetCredentialsType({ credentials }),
+    );
+
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
+
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
+      const privateKey = decrypt(password, privateKeyRaw);
+      const nostrPrivateKey = getPrivateEncodedByNip19(privateKey);
+      return nostrPrivateKey;
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -131,7 +156,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
     const prvKey = (await signer.getPrvkey()).toString('hex');
-    return encrypt(prvKey, params.data.pubkey, params.data.plaintext);
+    return encryptNostr(prvKey, params.data.pubkey, params.data.plaintext);
   }
 
   async decrypt(params: {
@@ -149,6 +174,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
     const prvKey = (await signer.getPrvkey()).toString('hex');
-    return decrypt(prvKey, params.data.pubkey, params.data.ciphertext);
+    return decryptNostr(prvKey, params.data.pubkey, params.data.ciphertext);
   }
 }

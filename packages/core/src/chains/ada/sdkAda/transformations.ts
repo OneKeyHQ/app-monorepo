@@ -1,6 +1,8 @@
+import { CardanoAddressType as ECardanoAddressType } from '@onekeyfe/hd-transport';
+
 import type { IAdaUTXO } from '../types';
 
-export { CardanoAddressType as ECardanoAddressType } from '@onekeyfe/hd-transport';
+export { ECardanoAddressType };
 
 /*
 declare enum CardanoAddressType {
