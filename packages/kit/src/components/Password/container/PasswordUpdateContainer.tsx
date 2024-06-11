@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import PasswordSetup from '../components/PasswordSetup';
 
@@ -24,7 +25,11 @@ const PasswordUpdateContainer = ({
       setLoading(true);
       try {
         if (data.confirmPassword !== data.password) {
-          Toast.error({ title: 'password not match' });
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.auth_error_password_not_match,
+            }),
+          });
           return;
         }
         const encodeNewPassword =
@@ -37,20 +42,26 @@ const PasswordUpdateContainer = ({
             encodeNewPassword,
           );
         onUpdateRes(updatedPassword);
-        Toast.success({ title: 'password update success' });
+        Toast.success({
+          title: intl.formatMessage({ id: ETranslations.auth_password_set }),
+        });
       } catch (e) {
         console.error(e);
-        Toast.error({ title: 'password set failed' });
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.auth_new_password_same_as_old,
+          }),
+        });
       }
       setLoading(false);
     },
-    [onUpdateRes, oldEncodedPassword],
+    [oldEncodedPassword, onUpdateRes, intl],
   );
   return (
     <PasswordSetup
       loading={loading}
       onSetupPassword={onUpdatePassword}
-      confirmBtnText={intl.formatMessage({ id: 'form__change_password' })}
+      confirmBtnText={intl.formatMessage({ id: ETranslations.global_confirm })}
     />
   );
 };

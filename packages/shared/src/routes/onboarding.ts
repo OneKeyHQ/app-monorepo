@@ -30,7 +30,9 @@ export enum EOnboardingPages {
 }
 
 export type IOnboardingParamList = {
-  [EOnboardingPages.GetStarted]: undefined;
+  [EOnboardingPages.GetStarted]: {
+    showCloseButton?: boolean;
+  };
   // connect hardware wallet
   [EOnboardingPages.ConnectYourDevice]: undefined;
   [EOnboardingPages.OneKeyHardwareWallet]: undefined;

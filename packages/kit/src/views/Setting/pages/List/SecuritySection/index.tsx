@@ -16,6 +16,7 @@ import {
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
@@ -78,7 +79,7 @@ const ChangePasswordItem = () => {
         reason: EReasonForNeedPassword.Security,
       });
     const dialog = Dialog.show({
-      title: intl.formatMessage({ id: 'form__change_password' }),
+      title: intl.formatMessage({ id: ETranslations.global_change_password }),
       renderContent: (
         <PasswordUpdateContainer
           oldEncodedPassword={oldEncodedPassword.password}
@@ -96,7 +97,7 @@ const ChangePasswordItem = () => {
     <ListItem
       onPress={onPress}
       icon="KeyOutline"
-      title={intl.formatMessage({ id: 'form__change_password' })}
+      title={intl.formatMessage({ id: ETranslations.global_change_password })}
       drillIn
     />
   );

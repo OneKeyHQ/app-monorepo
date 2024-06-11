@@ -31,6 +31,9 @@ export function AccountSelectorCreateWalletButton() {
       onPress={() => {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.GetStarted,
+          params: {
+            showCloseButton: true,
+          },
         });
       }}
       icon="PlusSmallOutline"

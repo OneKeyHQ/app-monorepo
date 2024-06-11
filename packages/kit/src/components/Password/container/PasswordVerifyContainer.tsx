@@ -113,11 +113,13 @@ const PasswordVerifyContainer = ({
       } catch (e) {
         setStatues({
           value: EPasswordVerifyStatus.ERROR,
-          message: 'password verify error',
+          message: intl.formatMessage({
+            id: ETranslations.auth_error_password_incorrect,
+          }),
         });
       }
     },
-    [onVerifyRes],
+    [intl, onVerifyRes],
   );
 
   return (
