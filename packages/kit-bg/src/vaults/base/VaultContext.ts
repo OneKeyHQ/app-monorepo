@@ -79,7 +79,7 @@ export class VaultContext {
     // check presetNetworks.extensions.providerOptions
     const { addressPrefix, curve } = networkInfo;
     const networkImpl = await this.getNetworkImpl();
-    const chainId = await this.getNetworkChainId();
+    const chainId = await this.getNetworkChainId({ hex: false });
     const { isTestnet } = network;
     const { networkId } = this;
     return {

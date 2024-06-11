@@ -6,7 +6,7 @@ import { Semaphore } from 'async-mutex';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
-import type { StdSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
+import type { ICosmosStdSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import {
   TransactionWrapper,
   deserializeTx,
@@ -202,7 +202,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params: {
       signer: string;
-      signDoc: StdSignDoc;
+      signDoc: ICosmosStdSignDoc;
       signOptions?: any;
     },
   ): Promise<any> {
