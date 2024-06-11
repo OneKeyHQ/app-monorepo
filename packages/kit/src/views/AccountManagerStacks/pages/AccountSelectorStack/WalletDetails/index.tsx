@@ -332,6 +332,9 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
               onPress: () => {
                 navigation.pushModal(EModalRoutes.OnboardingModal, {
                   screen: EOnboardingPages.GetStarted,
+                  params: {
+                    showCloseButton: true,
+                  },
                 });
               },
             }}
