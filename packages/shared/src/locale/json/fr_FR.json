@@ -638,6 +638,7 @@
   "scan.select_a_photo": "Sélectionnez une photo",
   "scan.show_qr_code_steps": "Pour afficher votre code QR, allez à Connect App Wallet > QR Code > OneKey Wallet sur votre appareil",
   "select_recovery_phrase_length": "Sélectionnez une longueur",
+  "send.tag_placeholder": "Nécessaire pour l'envoi vers des bourses centralisées",
   "settings.account_derivation_path": "Chemin de dérivation du compte",
   "settings.account_derivation_path_desc": "Si vous ne voyez pas les comptes attendus, essayez de changer le chemin de dérivation.",
   "settings.address_book": "Carnet d'adresses",

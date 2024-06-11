@@ -638,6 +638,7 @@
   "scan.select_a_photo": "Wählen Sie ein Foto aus",
   "scan.show_qr_code_steps": "Um Ihren QR-Code anzuzeigen, gehen Sie zu Connect App Wallet > QR Code > OneKey Wallet auf Ihrem Gerät",
   "select_recovery_phrase_length": "Wählen Sie eine Länge",
+  "send.tag_placeholder": "Erforderlich für den Versand an zentralisierte Börsen",
   "settings.account_derivation_path": "Kontoableitungspfad",
   "settings.account_derivation_path_desc": "Wenn die erwarteten Konten nicht angezeigt werden, versuchen Sie, den Ableitungspfad zu ändern.",
   "settings.address_book": "Adressbuch",

@@ -638,6 +638,7 @@
   "scan.select_a_photo": "एक फ़ोटो चुनें",
   "scan.show_qr_code_steps": "अपना QR कोड दिखाने के लिए, अपने उपकरण पर Connect App Wallet > QR Code > OneKey Wallet पर जाएं",
   "select_recovery_phrase_length": "एक लंबाई चुनें",
+  "send.tag_placeholder": "केंद्रीय एक्सचेंजों को भेजने के लिए आवश्यक",
   "settings.account_derivation_path": "खाता व्युत्पत्ति पथ",
   "settings.account_derivation_path_desc": "यदि आप अपने अपेक्षित खाते नहीं देखते हैं, तो व्युत्पत्ति पथ को बदलने का प्रयास करें।",
   "settings.address_book": "पता पुस्तिका",

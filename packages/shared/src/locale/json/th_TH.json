@@ -638,6 +638,7 @@
   "scan.select_a_photo": "เลือกรูปภาพ",
   "scan.show_qr_code_steps": "หากต้องการแสดง QR Code ของคุณ ให้ไปที่ Connect App Wallet > QR Code > OneKey Wallet บนอุปกรณ์ของคุณ",
   "select_recovery_phrase_length": "เลือกความยาว",
+  "send.tag_placeholder": "จำเป็นสำหรับการส่งไปยังแลกเปลี่ยนที่กลาง",
   "settings.account_derivation_path": "เส้นทางการได้มาของบัญชี",
   "settings.account_derivation_path_desc": "หากคุณไม่เห็นบัญชีที่ต้องการ ให้ลองเปลี่ยนเส้นทางที่มา",
   "settings.address_book": "สมุดที่อยู่",

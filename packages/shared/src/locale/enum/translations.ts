@@ -638,6 +638,7 @@ export enum ETranslations {
   scan_select_a_photo = 'scan.select_a_photo',
   scan_show_qr_code_steps = 'scan.show_qr_code_steps',
   select_recovery_phrase_length = 'select_recovery_phrase_length',
+  send_tag_placeholder = 'send.tag_placeholder',
   settings_account_derivation_path = 'settings.account_derivation_path',
   settings_account_derivation_path_desc = 'settings.account_derivation_path_desc',
   settings_address_book = 'settings.address_book',

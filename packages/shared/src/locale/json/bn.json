@@ -638,6 +638,7 @@
   "scan.select_a_photo": "একটি ছবি নির্বাচন করুন",
   "scan.show_qr_code_steps": "আপনার QR কোড দেখানোর জন্য, আপনার ডিভাইসে Connect App Wallet > QR Code > OneKey Wallet এ যান",
   "select_recovery_phrase_length": "একটি দৈর্ঘ্য নির্বাচন করুন",
+  "send.tag_placeholder": "কেন্দ্রীভূত এক্সচেঞ্জে প্রেরণের জন্য প্রয়োজন",
   "settings.account_derivation_path": "অ্যাকাউন্ট ডেরিভেশন পাথ",
   "settings.account_derivation_path_desc": "আপনি যদি আপনার প্রত্যাশিত অ্যাকাউন্টগুলি দেখতে না পান, তাহলে ডেরিভেশন পাথ পরিবর্তন করার চেষ্টা করুন।",
   "settings.address_book": "ঠিকানা বই",

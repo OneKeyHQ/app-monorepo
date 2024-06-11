@@ -638,6 +638,7 @@
   "scan.select_a_photo": "Виберіть фото",
   "scan.show_qr_code_steps": "Щоб показати свій QR-код, перейдіть до Connect App Wallet > QR Code > OneKey Wallet на своєму пристрої",
   "select_recovery_phrase_length": "Виберіть довжину",
+  "send.tag_placeholder": "Необхідно для відправлення на централізовані біржі",
   "settings.account_derivation_path": "Шлях деривації облікового запису",
   "settings.account_derivation_path_desc": "Якщо ви не бачите очікуваних облікових записів, спробуйте змінити шлях виведення.",
   "settings.address_book": "Адресна книга",

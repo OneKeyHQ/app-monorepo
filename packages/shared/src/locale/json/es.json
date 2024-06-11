@@ -638,6 +638,7 @@
   "scan.select_a_photo": "Seleccione una foto",
   "scan.show_qr_code_steps": "Para mostrar tu código QR, ve a Connect App Wallet > Código QR > OneKey Wallet en tu dispositivo",
   "select_recovery_phrase_length": "Seleccione una longitud",
+  "send.tag_placeholder": "Requerido para enviar a intercambios centralizados",
   "settings.account_derivation_path": "Ruta de derivación de cuenta",
   "settings.account_derivation_path_desc": "Si no ve las cuentas que espera, intenta cambiar la ruta de derivación.",
   "settings.address_book": "Agenda de direcciones",

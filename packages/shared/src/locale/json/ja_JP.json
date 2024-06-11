@@ -638,6 +638,7 @@
   "scan.select_a_photo": "写真を選択",
   "scan.show_qr_code_steps": "QRコードを表示するには、デバイスでConnect App Wallet > QR Code > OneKey Walletに移動してください",
   "select_recovery_phrase_length": "長さを選択",
+  "send.tag_placeholder": "集中取引所への送信に必要",
   "settings.account_derivation_path": "アカウント導出パス",
   "settings.account_derivation_path_desc": "お使いたいアカウントが表示されない場合には、派生パスを切り替えてみてください。",
   "settings.address_book": "住所録",

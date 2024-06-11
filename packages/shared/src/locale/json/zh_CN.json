@@ -638,6 +638,7 @@
   "scan.select_a_photo": "选择一张图片",
   "scan.show_qr_code_steps": "要显示您的二维码，请在您的设备上前往「连接 App 钱包」>「 二维码」>「OneKey Wallet」",
   "select_recovery_phrase_length": "助记词数量",
+  "send.tag_placeholder": "用于发送到集中交易所所需",
   "settings.account_derivation_path": "账户派生路径",
   "settings.account_derivation_path_desc": "如果您找不到所需的账户，可以尝试切换派生路径",
   "settings.address_book": "地址簿",

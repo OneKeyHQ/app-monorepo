@@ -638,6 +638,7 @@
   "scan.select_a_photo": "사진을 선택하세요",
   "scan.show_qr_code_steps": "QR 코드를 표시하려면 장치에서 Connect App Wallet > QR Code > OneKey Wallet로 이동하세요",
   "select_recovery_phrase_length": "길이를 선택하세요",
+  "send.tag_placeholder": "중앙 집중식 거래소로 보내는 데 필요합니다",
   "settings.account_derivation_path": "계정 파생 경로",
   "settings.account_derivation_path_desc": "원하는 계정이 표시되지 않으면 파생 경로를 전환해 보세요.",
   "settings.address_book": "주소록",

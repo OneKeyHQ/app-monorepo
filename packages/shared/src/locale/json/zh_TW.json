@@ -638,6 +638,7 @@
   "scan.select_a_photo": "選擇一張照片",
   "scan.show_qr_code_steps": "要顯示您的二維碼，請在您的設備上前往「連接 App 錢包」>「 二維碼」>「OneKey Wallet」",
   "select_recovery_phrase_length": "選擇一個長度",
+  "send.tag_placeholder": "需要用於發送至集中交易所",
   "settings.account_derivation_path": "賬戶派生路徑",
   "settings.account_derivation_path_desc": "如果您找不到所需的賬戶，可以嘗試切換派生路徑",
   "settings.address_book": "地址簿",

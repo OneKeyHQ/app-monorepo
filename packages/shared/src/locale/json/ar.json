@@ -638,6 +638,7 @@
   "scan.select_a_photo": "اختر صورة",
   "scan.show_qr_code_steps": "لإظهار الرمز الشريطي الخاص بك، اذهب إلى Connect App Wallet > QR Code > OneKey Wallet على جهازك",
   "select_recovery_phrase_length": "اختر الطول",
+  "send.tag_placeholder": "مطلوب للإرسال إلى البورصات المركزية",
   "settings.account_derivation_path": "مسار اشتقاق الحساب",
   "settings.account_derivation_path_desc": "إذا كنت لا ترى الحسابات التي تتوقعها ، فحاول تبديل مسار الاشتقاق.",
   "settings.address_book": "دفتر العناوين",
