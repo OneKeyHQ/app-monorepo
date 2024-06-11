@@ -177,7 +177,6 @@ class ProviderApiPrivate extends ProviderApiBase {
       const securityInfo =
         await this.backgroundApi.serviceDiscovery.checkUrlSecurity(
           request.origin,
-          true,
         );
       return {
         securityInfo,
