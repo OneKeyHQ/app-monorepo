@@ -46,6 +46,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       name,
       deriveInfo,
       isUrlAccount,
+      addresses,
     } = params;
     if (!address && !xpub) {
       throw new Error(
@@ -95,7 +96,7 @@ export abstract class KeyringWatchingBase extends KeyringBase {
       xpub: xpub || '',
       xpubSegwit,
       path: '',
-      addresses: {},
+      addresses: addresses || {},
     };
     return [account];
   }
