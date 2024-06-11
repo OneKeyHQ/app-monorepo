@@ -1,5 +1,7 @@
 import { isString } from 'lodash';
 
+import { IMPL_CKB } from '@onekeyhq/shared/src/engine/engineConsts';
+
 import { CoreChainApiHub } from '../base/CoreChainApiHub';
 import { CoreChainScopeBase } from '../base/CoreChainScopeBase';
 
@@ -18,6 +20,11 @@ Object.keys(coreChainApi).forEach((key) => {
     scope.scopeName = key;
     if (!scope.impl) {
       throw new Error(`CoreChainScope must have impl: ${key}`);
+    }
+    if (scope.impl !== key && scope.impl !== IMPL_CKB) {
+      throw new Error(
+        `CoreChainApiHub key must be the same as impl: ${scope.impl}, ${key}`,
+      );
     }
     implToScopeMap[scope.impl] = scope;
   }
