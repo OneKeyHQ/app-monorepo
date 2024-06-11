@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import * as ExpoSharing from 'expo-sharing';
+import { useIntl } from 'react-intl';
 import { BackHandler } from 'react-native';
 
 import {
@@ -22,6 +23,7 @@ import {
 import type { IPageScreenProps } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabMarketParamList } from '@onekeyhq/shared/src/routes';
@@ -49,6 +51,7 @@ function TokenDetailHeader({
   coinGeckoId: string;
   token: IMarketTokenDetail;
 }) {
+  const intl = useIntl();
   const {
     name,
     stats: {
@@ -85,11 +88,22 @@ function TokenDetailHeader({
         <MarketDetailOverview token={token} onContentSizeChange={() => {}} />
       ) : (
         <XStack pt="$6" flex={1} ai="center" jc="center" space="$2">
-          <TextCell title="24H VOL(USD)">{volume24h}</TextCell>
-          <TextCell title="Market Cap" rank={marketCapRank}>
+          <TextCell
+            title={intl.formatMessage({ id: ETranslations.market_24h_vol_usd })}
+          >
+            {volume24h}
+          </TextCell>
+          <TextCell
+            title={intl.formatMessage({ id: ETranslations.global_market_cap })}
+            rank={marketCapRank}
+          >
             {marketCap}
           </TextCell>
-          <TextCell title="FDV">{fdv}</TextCell>
+          <TextCell
+            title={intl.formatMessage({ id: ETranslations.global_fdv })}
+          >
+            {fdv}
+          </TextCell>
         </XStack>
       )}
     </YStack>

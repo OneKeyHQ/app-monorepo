@@ -769,14 +769,18 @@ function BasicMarketHomeList({
                     {
                       destructive: true,
                       icon: 'DeleteOutline',
-                      label: 'Remove from Favorites',
+                      label: intl.formatMessage({
+                        id: ETranslations.market_remove_from_watchlist,
+                      }),
                       onPress: () => {
                         actions.removeFormWatchList(coingeckoId);
                       },
                     },
                     showMoreAction && {
                       icon: 'ArrowTopOutline',
-                      label: 'Move to Top',
+                      label: intl.formatMessage({
+                        id: ETranslations.market_move_to_top,
+                      }),
                       onPress: () => {
                         actions.MoveToTop(coingeckoId);
                       },
@@ -792,7 +796,10 @@ function BasicMarketHomeList({
                   items: [
                     {
                       icon: 'StarOutline',
-                      label: 'Add to Favorites',
+
+                      label: intl.formatMessage({
+                        id: ETranslations.market_add_to_watchlist,
+                      }),
                       onPress: () => {
                         actions.addIntoWatchList(coingeckoId);
                       },

@@ -7,6 +7,10 @@ import {
   useState,
 } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { Button, XStack } from '../../primitives';
 
 import { DialogContext } from './context';
@@ -150,12 +154,13 @@ function BasicFooterAction({
   showConfirmButton = true,
   cancelButtonProps,
   onConfirm,
-  onConfirmText = 'Confirm',
+  onConfirmText,
   onCancel,
-  onCancelText = 'Cancel',
+  onCancelText,
   confirmButtonProps = {},
   tone,
 }: IDialogFooterProps) {
+  const intl = useIntl();
   const { footerRef } = useContext(DialogContext);
   // assign props before component mounted
   useMemo(() => {
@@ -184,9 +189,12 @@ function BasicFooterAction({
       cancelButtonProps,
       onConfirm,
       onCancel,
-      onConfirmText,
+      onConfirmText:
+        onConfirmText ||
+        intl.formatMessage({ id: ETranslations.global_confirm }),
       confirmButtonProps,
-      onCancelText,
+      onCancelText:
+        onCancelText || intl.formatMessage({ id: ETranslations.global_cancel }),
       tone,
     };
     footerRef.notifyUpdate?.();
@@ -203,6 +211,7 @@ function BasicFooterAction({
     onCancelText,
     tone,
     footerRef,
+    intl,
   ]);
   return null;
 }
