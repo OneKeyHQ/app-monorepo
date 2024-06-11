@@ -117,14 +117,14 @@ export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
 
 export enum EQRCodeHandlerNames {
-  bitcoin,
-  ethereum,
-  solana,
-  walletconnect,
-  migrate,
-  animation,
-  urlAccount,
-  marketDetail,
+  bitcoin = 'bitcoin',
+  ethereum = 'ethereum',
+  solana = 'solana',
+  walletconnect = 'walletconnect',
+  migrate = 'migrate',
+  animation = 'animation',
+  urlAccount = 'urlAccount',
+  marketDetail = 'marketDetail',
 }
 
 export type IQRCodeHandlerParseOutsideOptions = {

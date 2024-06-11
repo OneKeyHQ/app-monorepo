@@ -550,7 +550,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (platformEnv.isDesktop) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else if (shouldPopNavigation) {
-        navigation.pop();
+        navigation.switchTab(ETabRoutes.Discovery);
       }
     },
   );

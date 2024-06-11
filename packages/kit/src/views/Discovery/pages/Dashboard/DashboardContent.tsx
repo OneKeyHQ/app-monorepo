@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 
 import { ScrollView, Stack } from '@onekeyhq/components';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -124,22 +125,24 @@ function DashboardContent({
             })
           }
         />
-        <SuggestedAndExploreSection
-          key="SuggestedAndExploreSection"
-          suggestedData={
-            Array.isArray(homePageData?.categories)
-              ? homePageData.categories
-              : []
-          }
-          handleOpenWebSite={({ webSite }) =>
-            handleOpenWebSite({
-              webSite,
-              navigation,
-              shouldPopNavigation: false,
-            })
-          }
-          isLoading={isLoading}
-        />
+        <ReviewControl>
+          <SuggestedAndExploreSection
+            key="SuggestedAndExploreSection"
+            suggestedData={
+              Array.isArray(homePageData?.categories)
+                ? homePageData.categories
+                : []
+            }
+            handleOpenWebSite={({ webSite }) =>
+              handleOpenWebSite({
+                webSite,
+                navigation,
+                shouldPopNavigation: false,
+              })
+            }
+            isLoading={isLoading}
+          />
+        </ReviewControl>
       </>
     ),
     [

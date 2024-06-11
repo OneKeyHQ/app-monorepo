@@ -329,7 +329,7 @@ function FirmwareUpdateGalleryStaticUI() {
           title="Updating firmware..."
           progress={20}
           desc="Downloading..."
-          fromVersion="1.0.0"
+          fromVersion={undefined}
           toVersion="1.0.1"
         />
 

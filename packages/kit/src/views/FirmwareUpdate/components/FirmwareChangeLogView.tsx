@@ -66,7 +66,7 @@ function ChangeLogSection({
       {collapse ? null : (
         <Stack bg="$bgStrong" p="$5" borderRadius="$3">
           <FirmwareVersionProgressBar
-            fromVersion={updateInfo?.fromVersion || '?.?.?'}
+            fromVersion={updateInfo?.fromVersion}
             toVersion={updateInfo?.toVersion}
           />
           <Markdown>
