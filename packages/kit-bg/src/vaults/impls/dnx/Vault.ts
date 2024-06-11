@@ -6,6 +6,7 @@ import type {
   IEncodedTxDnx,
   IUnspentOutput,
 } from '@onekeyhq/core/src/chains/dnx/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { coinSelect } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import {
@@ -54,6 +55,8 @@ import type {
 const DEFAULT_TX_FEE = 1000000;
 
 export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.dnx.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: undefined,
