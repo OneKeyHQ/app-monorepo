@@ -97,13 +97,13 @@ export function UniversalSearch({
       });
     if (result?.[EUniversalSearchType.MarketToken]?.items) {
       searchResultSections.push({
-        title: 'Trending',
+        title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: result?.[EUniversalSearchType.MarketToken]
           ?.items as IUniversalSearchResultItem[],
       });
     }
     setRecommendSections(searchResultSections);
-  }, [searchType]);
+  }, [intl, searchType]);
 
   useEffect(() => {
     void fetchRecommendList();
@@ -255,7 +255,7 @@ export function UniversalSearch({
               ListEmptyComponent={
                 <YStack px="$5">
                   <SizableText numberOfLines={1} size="$headingSm">
-                    Trending
+                    {intl.formatMessage({ id: ETranslations.market_trending })}
                   </SizableText>
                   <SkeletonItem />
                   <SkeletonItem />

@@ -11,6 +11,7 @@ export enum ETranslations {
   auth_error_password_too_short = 'auth.error_password_too_short',
   auth_new_password_form_label = 'auth.new_password_form_label',
   auth_new_password_form_placeholder = 'auth.new_password_form_placeholder',
+  auth_new_password_same_as_old = 'auth.new_password_same_as_old',
   auth_password_set = 'auth.password_set',
   auth_set_password = 'auth.set_password',
   auth_with_biometric = 'auth.with_biometric',
