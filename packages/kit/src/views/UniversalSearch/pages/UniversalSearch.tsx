@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -18,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
@@ -71,6 +73,7 @@ export function UniversalSearch({
 }: {
   searchType?: EUniversalSearchType;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -308,7 +311,9 @@ export function UniversalSearch({
         <View p="$5" pt={0}>
           <SearchBar
             autoFocus
-            placeholder="Search"
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search,
+            })}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />

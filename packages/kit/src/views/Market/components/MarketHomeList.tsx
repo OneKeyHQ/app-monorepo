@@ -1022,7 +1022,7 @@ function BasicMarketHomeList({
               <Icon name="FilterSortOutline" color="$iconSubdued" size="$5" />
               <Select
                 items={selectOptions}
-                title="Sort by"
+                title={intl.formatMessage({ id: ETranslations.market_sort_by })}
                 value={mdSortByType}
                 onChange={handleMdSortByTypeChange}
                 renderTrigger={renderSelectTrigger}

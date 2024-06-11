@@ -520,6 +520,7 @@ export enum ETranslations {
   market_price_change_up = 'market.price_change_up',
   market_remove_from_watchlist = 'market.remove_from_watchlist',
   market_seven_day_percentage = 'market.seven_day_percentage',
+  market_sort_by = 'market.sort_by',
   market_trending = 'market.trending',
   market_twenty_four_hour_percentage = 'market.twenty_four_hour_percentage',
   market_twenty_four_hour_volume = 'market.twenty_four_hour_volume',
