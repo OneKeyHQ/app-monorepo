@@ -19,24 +19,24 @@ const SwapSlippageTriggerContainer = ({
   onPress,
 }: ISwapSlippageTriggerContainerProps) => {
   const intl = useIntl();
-  const [swapSlippage] = useSwapSlippagePercentageAtom();
+  const [{ slippageItem }] = useSwapSlippagePercentageAtom();
   const slippageDisplayValue = useMemo(() => {
     const preText = intl.formatMessage({
       id:
-        swapSlippage.key === ESwapSlippageSegmentKey.AUTO
+        slippageItem.key === ESwapSlippageSegmentKey.AUTO
           ? 'form__auto'
           : 'content__custom',
     });
 
-    return `${preText} (${swapSlippage.value}%)`;
-  }, [intl, swapSlippage.key, swapSlippage.value]);
+    return `${preText} (${slippageItem.value}%)`;
+  }, [intl, slippageItem.key, slippageItem.value]);
 
   const valueComponent = useMemo(
     () => (
       <SizableText
         size="$bodyMdMedium"
         color={
-          swapSlippage.value > swapSlippageWillAheadMinValue
+          slippageItem.value > swapSlippageWillAheadMinValue
             ? '$textCritical'
             : '$bodyMdMedium'
         }
@@ -44,7 +44,7 @@ const SwapSlippageTriggerContainer = ({
         {slippageDisplayValue}
       </SizableText>
     ),
-    [slippageDisplayValue, swapSlippage.value],
+    [slippageDisplayValue, slippageItem.value],
   );
   return (
     <SwapCommonInfoItem

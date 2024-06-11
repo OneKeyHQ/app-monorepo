@@ -258,24 +258,28 @@ export const {
 export const {
   atom: swapSlippagePercentageAtom,
   use: useSwapSlippagePercentageAtom,
-} = contextAtomComputed<ISwapSlippageSegmentItem>((get) => {
+} = contextAtomComputed<{
+  slippageItem: ISwapSlippageSegmentItem;
+  autoValue: number;
+}>((get) => {
   const mode = get(swapSlippagePercentageModeAtom());
   const quoteResult = get(swapQuoteCurrentSelectAtom());
+  let autoValue = swapSlippageAutoValue;
+  let value = swapSlippageAutoValue;
   if (mode === ESwapSlippageSegmentKey.AUTO) {
-    if (isNil(quoteResult?.autoSuggestedSlippage)) {
-      return {
-        key: mode,
-        value: swapSlippageAutoValue,
-      };
+    if (!isNil(quoteResult?.autoSuggestedSlippage)) {
+      value = quoteResult.autoSuggestedSlippage;
+      autoValue = quoteResult.autoSuggestedSlippage;
     }
-    return {
-      key: mode,
-      value: quoteResult.autoSuggestedSlippage,
-    };
+  } else {
+    value = get(swapSlippagePercentageCustomValueAtom());
   }
   return {
-    key: mode,
-    value: get(swapSlippagePercentageCustomValueAtom()),
+    slippageItem: {
+      key: mode,
+      value,
+    },
+    autoValue,
   };
 });
 
