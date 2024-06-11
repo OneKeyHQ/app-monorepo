@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Empty } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function EmptySearch() {
   const intl = useIntl();
@@ -8,7 +9,9 @@ function EmptySearch() {
     <Empty
       testID="Wallet-No-Search-Empty"
       icon="SearchOutline"
-      title={intl.formatMessage({ id: 'content__no_results' })}
+      title={intl.formatMessage({
+        id: ETranslations.global_search_no_results_title,
+      })}
     />
   );
 }
