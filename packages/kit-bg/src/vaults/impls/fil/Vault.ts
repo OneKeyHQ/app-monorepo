@@ -12,6 +12,7 @@ import { ethers } from 'ethers';
 import { isEmpty, isNil, isObject } from 'lodash';
 
 import type { IEncodedTxFil } from '@onekeyhq/core/src/chains/fil/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -40,11 +41,11 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { EProtocolIndicator, ETransferMethod } from './types';
 
 import type {
+  IDBAccount,
   IDBVariantAccount,
   IDBWalletType,
 } from '../../../dbs/local/types';
@@ -63,9 +64,11 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override coreApi = coreChainApi.fil.hd;
+
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -365,6 +368,14 @@ export default class Vault extends VaultBase {
       normalizedAddress: '',
       displayAddress: '',
     };
+  }
+
+  override async addressFromBase(account: IDBAccount): Promise<string> {
+    const { isTestnet } = await this.getNetwork();
+    return encode(
+      isTestnet ? CoinType.TEST : CoinType.MAIN,
+      decode(account.address),
+    );
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {

@@ -4,11 +4,14 @@ import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
 import type { IEncodedTxCfx } from '@onekeyhq/core/src/chains/cfx/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
-import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import numberUtils, {
+  toBigIntHex,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { mergeAssetTransferActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
@@ -38,13 +41,13 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
-import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { conflux as sdkCfx } from './sdkCfx';
 import ClientCfx from './sdkCfx/ClientCfx';
 
 import type { ISdkCfxContract } from './types';
 import type {
+  IDBAccount,
   IDBVariantAccount,
   IDBWalletType,
 } from '../../../dbs/local/types';
@@ -68,9 +71,11 @@ const { Conflux, address: confluxAddress } = sdkCfx;
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
 export default class Vault extends VaultBase {
-  override keyringMap: Record<IDBWalletType, typeof KeyringBase> = {
+  override coreApi = coreChainApi.cfx.hd;
+
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: KeyringQr,
+    qr: undefined,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -541,10 +546,12 @@ export default class Vault extends VaultBase {
     let newValue = encodedTx.value;
 
     if (!isNil(nativeAmountInfo.maxSendAmount)) {
-      newValue = chainValueUtils.convertAmountToChainValue({
-        value: nativeAmountInfo.maxSendAmount,
-        network,
-      });
+      newValue = numberUtils.numberToHex(
+        chainValueUtils.convertAmountToChainValue({
+          value: nativeAmountInfo.maxSendAmount,
+          network,
+        }),
+      );
     }
 
     const tx = {
@@ -556,7 +563,6 @@ export default class Vault extends VaultBase {
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
     const isValid = confluxAddress.isValidCfxAddress(address);
-    const chainId = await this.getNetworkChainId();
     if (isValid) {
       return Promise.resolve({
         normalizedAddress: address.toLowerCase(),
@@ -565,24 +571,24 @@ export default class Vault extends VaultBase {
       });
     }
 
-    const isValidHexAddress = confluxAddress.isValidHexAddress(address);
-    if (isValidHexAddress) {
-      const displayAddress = confluxAddress.encodeCfxAddress(
-        address,
-        parseInt(chainId),
-      );
-      return Promise.resolve({
-        normalizedAddress: address.toLowerCase(),
-        displayAddress,
-        isValid: true,
-      });
-    }
-
     return Promise.resolve({
       normalizedAddress: '',
       displayAddress: '',
       isValid,
     });
+  }
+
+  override async addressFromBase(account: IDBAccount) {
+    const chainId = await this.getNetworkChainId();
+    return confluxAddress.encodeCfxAddress(account.address, parseInt(chainId));
+  }
+
+  override async addressToBase(address: string) {
+    return Promise.resolve(
+      `0x${confluxAddress
+        .decodeCfxAddress(address)
+        .hexAddress.toString('hex')}`,
+    );
   }
 
   override validateXpub(xpub: string): Promise<IXpubValidation> {
@@ -614,5 +620,25 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async buildEstimateFeeParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxCfx | undefined;
+  }) {
+    if (!encodedTx) return;
+    const { chainId, nonce, from, to, data, value, epochHeight, storageLimit } =
+      encodedTx;
+    return Promise.resolve({
+      chainId,
+      nonce,
+      from,
+      to,
+      data,
+      value,
+      epochHeight,
+      storageLimit,
+    });
   }
 }

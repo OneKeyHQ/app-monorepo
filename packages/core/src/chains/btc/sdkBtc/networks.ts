@@ -176,7 +176,8 @@ const neurai: IBtcForkNetwork = {
 const extendedNetworks: Record<string, IBtcForkNetwork> = {
   btc,
   tbtc,
-  rbtc,
+  rbtc, // regtest
+  // sbtc, // signet
   ltc,
   bch,
   doge,
@@ -191,6 +192,7 @@ const extendedNetworks: Record<string, IBtcForkNetwork> = {
 export type IBtcForkExtendedNetworks = keyof typeof extendedNetworks;
 
 export function getBtcForkNetwork(
+  // presetNetworks.code
   chainCode: string | undefined, // btc, tbtc, bch, doge, btg, dgb, nmc, vtc, dash
 ): IBtcForkNetwork {
   if (!chainCode) {

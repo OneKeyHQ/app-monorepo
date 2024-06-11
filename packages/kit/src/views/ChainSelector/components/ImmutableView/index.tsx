@@ -1,9 +1,13 @@
 import { type FC, useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { SearchBar, Stack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { BaseListView, filterNetwork } from '../BaseView';
+import { networkFuseSearch } from '../../utils';
+import { BaseListView } from '../BaseView';
 
 type IImmutableViewProps = {
   networks: IServerNetwork[];
@@ -17,31 +21,31 @@ export const ImmutableView: FC<IImmutableViewProps> = ({
   onPressItem,
 }) => {
   const [text, setText] = useState('');
+  const intl = useIntl();
   const onChangeText = useCallback((value: string) => {
     setText(value.trim());
   }, []);
 
-  const data = useMemo(
-    () => networks.filter(filterNetwork(text.toLowerCase())),
-    [networks, text],
-  );
+  const data = useMemo(() => {
+    if (!text) {
+      return networks;
+    }
+    return networkFuseSearch(networks, text);
+  }, [networks, text]);
   return (
     <Stack flex={1}>
-      <Stack px="$4">
+      <Stack px="$5" pb="$4">
         <SearchBar
-          w="100%"
-          placeholder="Search"
+          placeholder={intl.formatMessage({ id: ETranslations.global_search })}
           value={text}
           onChangeText={onChangeText}
         />
       </Stack>
-      <Stack flex={1}>
-        <BaseListView
-          networkId={networkId}
-          networks={data}
-          onPressItem={onPressItem}
-        />
-      </Stack>
+      <BaseListView
+        networkId={networkId}
+        networks={data}
+        onPressItem={onPressItem}
+      />
     </Stack>
   );
 };

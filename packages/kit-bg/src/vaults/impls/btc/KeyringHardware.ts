@@ -16,9 +16,6 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedTxPro,
-  ITxInput,
-  ITxOutput,
-  ITxUTXO,
 } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -206,17 +203,19 @@ export class KeyringHardware extends KeyringHardwareBase {
           const item = publicKeys[i];
           const { path, xpub, xpubSegwit } = item;
           const addressRelPath = accountUtils.buildUtxoAddressRelPath();
-          const { addresses: addressFromXpub } =
+          const { addresses: addressFromXpub, publicKeys: publicKeysMap } =
             await this.coreApi.getAddressFromXpub({
               network,
               xpub,
               relativePaths: [addressRelPath],
               addressEncoding,
             });
+          const { [addressRelPath]: publicKey } = publicKeysMap;
           const { [addressRelPath]: address } = addressFromXpub;
+
           const addressInfo: ICoreApiGetAddressItem = {
             address,
-            publicKey: '', // TODO return pub from getAddressFromXpub
+            publicKey,
             path,
             relPath: addressRelPath,
             xpub,

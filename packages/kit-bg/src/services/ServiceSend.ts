@@ -178,8 +178,11 @@ class ServiceSend extends ServiceBase {
       signOnly, // external account should send tx here
     });
 
+    const devSetting =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
     // skip external account send, as rawTx is empty
     if (
+      !devSetting?.settings?.alwaysSignOnlySendTx &&
       !signOnly &&
       !accountUtils.isExternalAccount({
         accountId,

@@ -10,6 +10,7 @@ import {
 import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
 import { DAppRiskyAlert } from './DAppRiskyAlert';
+import { DAppSignMessageAlert } from './DAppSignMessagAlert';
 import { DAppSiteMark } from './DAppSiteMark';
 
 function DAppRequestLayout({
@@ -20,6 +21,7 @@ function DAppRequestLayout({
   urlSecurityInfo,
   favicon,
   children,
+  isRiskSignMethod,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
@@ -27,6 +29,7 @@ function DAppRequestLayout({
   origin: string;
   urlSecurityInfo?: IHostSecurity;
   favicon?: string; // for WalletConnect
+  isRiskSignMethod?: boolean;
 }>) {
   const { top } = useSafeAreaInsets();
 
@@ -60,6 +63,7 @@ function DAppRequestLayout({
       }}
     >
       <DAppRiskyAlert origin={origin} urlSecurityInfo={urlSecurityInfo} />
+      {isRiskSignMethod ? <DAppSignMessageAlert /> : null}
       <Stack p="$5" space="$8">
         <Stack space="$2.5">
           <DAppSiteMark

@@ -1,11 +1,14 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import type { IActionListItemProps } from '@onekeyhq/components';
+import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
 import { ActionList, IconButton } from '@onekeyhq/components';
 
 import { useWatchListAction } from './wachListHooks';
 
-function BasicMarketMore({ coingeckoId }: { coingeckoId: string }) {
+function BasicMarketMore({
+  coingeckoId,
+  ...props
+}: { coingeckoId: string } & IStackProps) {
   const actions = useWatchListAction();
   const handleRemove = useCallback(() => {
     actions.removeFormWatchList(coingeckoId);
@@ -40,8 +43,8 @@ function BasicMarketMore({ coingeckoId }: { coingeckoId: string }) {
         <IconButton
           icon="DotVerSolid"
           variant="tertiary"
-          mx="$3"
           iconSize="$5"
+          {...props}
         />
       }
       sections={sections}

@@ -5,12 +5,6 @@ import {
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
 
-// https://swap.onekeytest.com
-// https://wallet.onekeytest.com
-// https://utility.onekeytest.com
-// https://lightning.onekeytest.com
-// https://earn.onekeytest.com
-
 // Only OneKey endpoints are allowed here.
 const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
   test: {

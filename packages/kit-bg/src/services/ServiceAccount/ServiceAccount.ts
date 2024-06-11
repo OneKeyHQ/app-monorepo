@@ -73,6 +73,7 @@ import type {
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
   IDBSetWalletNameAndAvatarParams,
+  IDBVariantAccount,
   IDBWallet,
   IDBWalletId,
   IDBWalletIdSingleton,
@@ -340,6 +341,7 @@ class ServiceAccount extends ServiceBase {
     const { isHardware, password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
+        reason: EReasonForNeedPassword.Default,
       });
 
     // canAutoCreateNextAccount
@@ -1311,12 +1313,18 @@ class ServiceAccount extends ServiceBase {
     if (account) {
       const accountId = account.id;
       await localDb.removeAccount({ accountId, walletId });
+      await this.backgroundApi.serviceDApp.removeDappConnectionAfterAccountRemove(
+        { accountId },
+      );
     }
     if (indexedAccount) {
       await localDb.removeIndexedAccount({
         indexedAccountId: indexedAccount.id,
         walletId,
       });
+      await this.backgroundApi.serviceDApp.removeDappConnectionAfterAccountRemove(
+        { indexedAccountId: indexedAccount.id },
+      );
     }
 
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
@@ -1348,6 +1356,9 @@ class ServiceAccount extends ServiceBase {
       walletId,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
+      walletId,
+    });
     return result;
   }
 
@@ -1404,7 +1415,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHWAccountAddresses(params: {
+  async verifyHWAccountAddresses(params: {
     walletId: string;
     networkId: string;
     indexes?: Array<number>;
@@ -1415,10 +1426,15 @@ class ServiceAccount extends ServiceBase {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
 
+    prepareParams.isVerifyAddressAction = true;
+
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
       walletId,
     });
+
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     // getHWAccountAddresses
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
@@ -1426,57 +1442,32 @@ class ServiceAccount extends ServiceBase {
         if (!isEmpty(addresses)) {
           return addresses.map((address) => address.address);
         }
+
         const accounts = await vault.keyring.prepareAccounts(prepareParams);
-        return accounts.map((account) => account.address);
+        const results: string[] = [];
+        for (let i = 0; i < accounts.length; i += 1) {
+          const account = accounts[i];
+          if (vaultSettings.accountType === EDBAccountType.VARIANT) {
+            const address = (account as IDBVariantAccount).addresses[networkId];
+            if (address) {
+              results.push(address);
+            } else {
+              const addressInfo = await vault.buildAccountAddressDetail({
+                networkId,
+                account,
+                networkInfo: await vault.getNetworkInfo(),
+              });
+              results.push(addressInfo.displayAddress);
+            }
+          } else {
+            results.push(account.address);
+          }
+        }
       },
       {
         deviceParams,
       },
     );
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async buildAirGapMultiAccounts({
-    scanResult,
-  }: {
-    scanResult: IQRCodeHandlerParseResult<IBaseValue>;
-  }) {
-    const urScanResult =
-      scanResult as IQRCodeHandlerParseResult<IAnimationValue>;
-    const qrcode = urScanResult.data.fullData || urScanResult.raw || '';
-    const ur = await airGapUrUtils.qrcodeToUr(qrcode);
-    const sdk = getAirGapSdk();
-    let airGapMultiAccounts: IAirGapMultiAccounts | undefined;
-    if (ur.type === EAirGapURType.CryptoMultiAccounts) {
-      airGapMultiAccounts = sdk.parseMultiAccounts(ur);
-    } else if (ur.type === EAirGapURType.CryptoHDKey) {
-      const key = sdk.parseHDKey(ur);
-      const name = key.name || 'name';
-      const chain = key.chain || 'chain';
-      const note = key.note || 'note';
-      const xfpOrUUID = key.xfp || generateUUID();
-      const generatedDeviceId = `SingleChainAirGapDevice@${name}-${chain}-${note}-${xfpOrUUID}`;
-      airGapMultiAccounts = {
-        device: key.name,
-        deviceId: generatedDeviceId,
-        deviceVersion: '0.0.1',
-        masterFingerprint: key.xfp || '',
-        keys: [key],
-      };
-    } else {
-      throw new Error(`Invalid UR type: ${ur.type}`);
-    }
-    const qrDevice: IQrWalletDevice = {
-      name: airGapMultiAccounts.device || 'QR Wallet',
-      deviceId: airGapMultiAccounts.deviceId || '',
-      version: airGapMultiAccounts.deviceVersion || '',
-      xfp: airGapMultiAccounts.masterFingerprint || '',
-    };
-    return {
-      qrDevice,
-      airGapAccounts: airGapMultiAccounts.keys,
-    };
   }
 }
 
