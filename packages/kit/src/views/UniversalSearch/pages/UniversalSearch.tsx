@@ -296,6 +296,7 @@ export function UniversalSearch({
         break;
     }
   }, [
+    intl,
     recommendSections,
     renderItem,
     renderSectionHeader,
