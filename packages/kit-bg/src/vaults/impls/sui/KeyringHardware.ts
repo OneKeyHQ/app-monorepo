@@ -158,7 +158,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       const serializeSignature = toSerializedSignature({
         signatureScheme: 'ED25519',
         signature: bufferUtils.hexToBytes(signature),
-        pubKey: new Ed25519PublicKey(senderPublicKey),
+        pubKey: new Ed25519PublicKey(bufferUtils.hexToBytes(senderPublicKey)),
       });
 
       return {
