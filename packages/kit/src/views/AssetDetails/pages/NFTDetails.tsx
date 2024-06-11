@@ -110,7 +110,7 @@ export function NFTDetails() {
       });
     } catch (e) {
       Toast.error({
-        title: intl.formatMessage({ id: 'msg__image_download_failed' }),
+        title: intl.formatMessage({ id: ETranslations.update_download_failed }),
       });
       setIsCollecting(false);
       return;
@@ -122,7 +122,9 @@ export function NFTDetails() {
           uploadResParams,
         );
         Toast.success({
-          title: intl.formatMessage({ id: 'msg__change_saved' }),
+          title: intl.formatMessage({
+            id: ETranslations.feedback_change_saved,
+          }),
         });
       } catch (e) {
         Toast.error({ title: (e as Error).message });
