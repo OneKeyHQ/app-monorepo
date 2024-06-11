@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { ISectionListRef } from '@onekeyhq/components';
 import {
   ActionList,
+  Empty,
   Icon,
   IconButton,
   SectionList,
@@ -317,9 +318,27 @@ export function WalletDetails({ num }: IWalletDetailsProps) {
         ref={listRef}
         onLayout={onLayout}
         ListEmptyComponent={
-          <Stack p="$3">
-            <SizableText>No Wallets</SizableText>
-          </Stack>
+          <Empty
+            mt="$24"
+            icon="WalletOutline"
+            title={intl.formatMessage({ id: ETranslations.global_no_wallet })}
+            description={intl.formatMessage({
+              id: ETranslations.global_no_wallet_desc,
+            })}
+            buttonProps={{
+              children: intl.formatMessage({
+                id: ETranslations.global_create_wallet,
+              }),
+              onPress: () => {
+                navigation.pushModal(EModalRoutes.OnboardingModal, {
+                  screen: EOnboardingPages.GetStarted,
+                  params: {
+                    showCloseButton: true,
+                  },
+                });
+              },
+            }}
+          />
         }
         contentContainerStyle={{ pb: '$3' }}
         estimatedItemSize="$14"
