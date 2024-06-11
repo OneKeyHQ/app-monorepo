@@ -93,7 +93,8 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
       return (
         <>
           <Verification device={device} />
-          <HomeScreen />
+          {/* Homescreen unsupprted yet */}
+          {/* <HomeScreen /> */}
           <Advance wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
         </>

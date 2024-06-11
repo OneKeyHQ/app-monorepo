@@ -38,7 +38,7 @@ export function WalletDetailsHeader({
     : false;
   return (
     <ListItem
-      id="account-selector-header"
+      testID="account-selector-header"
       mt="$1.5"
       justifyContent="flex-end"
       {...rest}

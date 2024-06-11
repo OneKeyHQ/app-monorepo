@@ -679,7 +679,7 @@ export class UnknownHardwareError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: message || 'Unknown Hardware Error',
-        defaultKey: 'msg__hardware_default_error',
+        defaultKey: ETranslations.feedback_request_failed,
         alwaysAppendDefaultMessage: true,
         // defaultAutoToast: true,
       }),
