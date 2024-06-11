@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalAssetDetailRoutes,
@@ -220,8 +221,13 @@ export function NFTDetails() {
                 <ImageContent nft={nft} />
               </Stack>
             </Stack>
-            <Button icon="ArrowTopOutline" mt="$5" onPress={handleSendPress}>
-              {intl.formatMessage({ id: 'action__send' })}
+            <Button
+              icon="ArrowTopOutline"
+              mt="$5"
+              variant="primary"
+              onPress={handleSendPress}
+            >
+              {intl.formatMessage({ id: ETranslations.global_send })}
             </Button>
           </Stack>
           <DetailContent networkId={networkId} nft={nft} />
