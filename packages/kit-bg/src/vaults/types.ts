@@ -193,6 +193,7 @@ export type IPrepareWatchingAccountsParams = {
   template?: string; // TODO use deriveInfo, for BTC taproot address importing
   deriveInfo?: IAccountDeriveInfo;
   isUrlAccount?: boolean;
+  addresses?: Record<string, string>;
 };
 export type IPrepareImportedAccountsParams = {
   password: string;

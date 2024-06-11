@@ -180,7 +180,7 @@ const extendedNetworks: Record<string, IBtcForkNetwork> = {
   btc,
   tbtc,
   rbtc, // regtest
-  // sbtc, // signet
+  sbtc: tbtc, // signet
   ltc,
   bch,
   doge,

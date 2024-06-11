@@ -180,13 +180,13 @@ export type IAdaAccount = {
 //   'redeemer_count': number;
 //   'valid_contract': boolean;
 // };
-// export type IAdaAddress = {
-//   'address': string;
-//   'amount': IAdaAmount[];
-//   'stake_address': string;
-//   'type': 'shelley';
-//   'script': false;
-// };
+export type IAdaAddressInfo = {
+  'address': string;
+  'amount': IAdaAmount[];
+  'stake_address': string;
+  'type': 'shelley';
+  'script': false;
+};
 
 // export type IAdaAddressDetail = {
 //   address: string;

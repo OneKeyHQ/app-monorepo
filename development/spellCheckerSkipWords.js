@@ -349,6 +349,7 @@ module.exports = [
   'priv',
   'Str',
   'tbtc',
+  'sbtc',
   'testnet',
   'rbtc',
   'regtest',
