@@ -202,13 +202,10 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
 
 function BasicUpdateReminder() {
   const appUpdateInfo = useAppUpdateInfo(true);
-  if (!appUpdateInfo.isNeedUpdate) {
-    return null;
-  }
   const { data, onUpdateAction } = appUpdateInfo;
   const style = UPDATE_REMINDER_BAR_STYLE[data.status];
 
-  if (!style) {
+  if (!appUpdateInfo.isNeedUpdate || !style) {
     return null;
   }
   return (
