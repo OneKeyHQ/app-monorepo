@@ -7,8 +7,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { IMPL_ALGO } from '@onekeyhq/shared/src/engine/engineConsts';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  IConnectionAccountInfo,
   IConnectionAccountInfoWithNum,
   IConnectionItemWithStorageType,
   IConnectionStorageType,
@@ -35,6 +37,13 @@ function ConnectionListItem({
     prevAccountInfo: IConnectionAccountInfoWithNum;
   }) => void;
 }) {
+  // Switching accounts in Algo is not supported because no dApps listen for the walletconnect updateSession event
+  const getReadonly = (connectionInfo: IConnectionAccountInfo) => {
+    // if (item.storageType !== 'walletConnect') return false;
+    // return connectionInfo.networkImpl === IMPL_ALGO;
+    console.log(1);
+    return false;
+  };
   return (
     <YStack space="$5" p="$5">
       <XStack alignItems="center" justifyContent="space-between" space="$3">
@@ -107,6 +116,7 @@ function ConnectionListItem({
                   },
                 });
               }}
+              readonly={getReadonly(item.connectionMap[Number(num)])}
             />
           ))}
         </YStack>
