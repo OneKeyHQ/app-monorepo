@@ -1,6 +1,6 @@
 import { styled, withStaticProperties } from 'tamagui';
 
-import { Icon, SizableText, Stack, XStack } from '../../primitives';
+import { Icon, Image, SizableText, Stack, XStack } from '../../primitives';
 
 import type {
   IImageProps,
@@ -72,6 +72,7 @@ const DescriptionListItemValue = ({
     })}
     {...rest}
   >
+    {source ? <Image width="$5" height="$5" source={source} /> : null}
     {icon ? <Icon mr="$1" color="$iconSubdued" name={icon} size="$4" /> : null}
     <SizableText size="$bodyMdMedium" textAlign="right" {...textProps}>
       {children}

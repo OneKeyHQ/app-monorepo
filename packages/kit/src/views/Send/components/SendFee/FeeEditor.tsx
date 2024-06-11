@@ -77,6 +77,9 @@ const getPresetIndex = (
   const feeSelectorItem = feeSelectorItems[sendSelectedFee.presetIndex];
 
   if (feeSelectorItem) {
+    if (feeSelectorItem.type === EFeeType.Custom) {
+      return feeSelectorItems.length - 1;
+    }
     return sendSelectedFee.presetIndex;
   }
 

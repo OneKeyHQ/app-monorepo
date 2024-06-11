@@ -6,6 +6,7 @@ import type {
   IEncodedTxAlgo,
   IEncodedTxGroupAlgo,
 } from '@onekeyhq/core/src/chains/algo/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
@@ -47,7 +48,6 @@ import type { ISdkAlgoEncodedTransaction } from './sdkAlgo';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -61,6 +61,8 @@ import type {
 } from '../../types';
 
 export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.algo.hd;
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: undefined,

@@ -103,7 +103,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
 
     const result = await convertDeviceResponse(async () =>
-      sdk.nearSignTransaction(connectId, deviceId, {
+      sdk.algoSignTransaction(connectId, deviceId, {
         path,
         rawTx: transaction.bytesToSign().toString('hex'),
         ...deviceCommonParams,

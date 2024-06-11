@@ -414,7 +414,7 @@ function TxFeeContainer(props: IProps) {
   ]);
 
   const renderFeeEditor = useCallback(() => {
-    if (!txFeeInit.current) {
+    if (!txFeeInit.current || !feeSelectorItems.length) {
       return <Skeleton height="$5" width="$12" />;
     }
 

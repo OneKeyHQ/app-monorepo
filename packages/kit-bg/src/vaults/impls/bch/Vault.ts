@@ -1,4 +1,7 @@
-import { decodeAddress } from '@onekeyhq/core/src/chains/bch/sdkBch';
+import {
+  decodeAddress,
+  encodeAddress,
+} from '@onekeyhq/core/src/chains/bch/sdkBch';
 import { validateBtcAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 
 import VaultBtc from '../btc/Vault';
@@ -23,9 +26,25 @@ export default class Vault extends VaultBtc {
   };
 
   override async validateAddress(address: string) {
-    return validateBtcAddress({
+    const network = await this.getBtcForkNetwork();
+    const addressValidationResult = validateBtcAddress({
       address: decodeAddress(address),
-      network: await this.getBtcForkNetwork(),
+      network,
     });
+
+    const bchAddress = encodeAddress(
+      addressValidationResult.normalizedAddress ??
+        addressValidationResult.displayAddress,
+    );
+
+    if (!bchAddress) {
+      throw new Error('Invalid BCH address');
+    }
+
+    return {
+      ...addressValidationResult,
+      normalizedAddress: bchAddress,
+      displayAddress: bchAddress,
+    };
   }
 }
