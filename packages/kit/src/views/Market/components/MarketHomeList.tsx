@@ -26,7 +26,6 @@ import {
   Image,
   ListView,
   NumberSizeableText,
-  Popover,
   Select,
   SizableText,
   Skeleton,
@@ -147,7 +146,7 @@ type ITableColumnConfig = Record<
 >;
 
 const useBuildTableRowConfig = (showMoreAction = false) => {
-  const navigation = useAppNavigation();
+  // const navigation = useAppNavigation();
   const colors = useThemeValue(
     ['textSuccess', 'textCritical'],
     undefined,
@@ -507,77 +506,77 @@ function TableRow({
   );
 }
 
-function PopoverSettingsContent({
-  dataDisplay: defaultDataDisplay,
-  priceChange: defaultPriceChange,
-  onConfirm,
-}: {
-  dataDisplay: IKeyOfMarketToken;
-  priceChange: IKeyOfMarketToken;
-  onConfirm: (value: {
-    dataDisplay: IKeyOfMarketToken;
-    priceChange: IKeyOfMarketToken;
-  }) => void;
-}) {
-  const { closePopover } = usePopoverContext();
-  const [dataDisplay, setDataDisplay] = useState(defaultDataDisplay);
-  const [priceChange, setPriceChange] = useState(defaultPriceChange);
-  return (
-    <YStack px="$5" space="$5">
-      <ToggleButton
-        title="Data Display"
-        value={dataDisplay}
-        onChange={setDataDisplay as (v: string) => void}
-        options={[
-          {
-            label: 'Price',
-            value: 'price',
-          },
-          {
-            label: '24h volume',
-            value: 'totalVolume',
-          },
-          {
-            label: 'Market Cap',
-            value: 'marketCap',
-          },
-        ]}
-      />
-      <ToggleButton
-        title="Price Change"
-        value={priceChange}
-        onChange={setPriceChange as (v: string) => void}
-        options={[
-          {
-            label: '1 hour',
-            value: 'priceChangePercentage1H',
-          },
-          {
-            label: '24 hour',
-            value: 'priceChangePercentage24H',
-          },
-          {
-            label: '7 days',
-            value: 'priceChangePercentage7D',
-          },
-        ]}
-      />
-      <Button
-        my="$5"
-        variant="primary"
-        onPress={async () => {
-          await closePopover?.();
-          onConfirm({
-            dataDisplay,
-            priceChange,
-          });
-        }}
-      >
-        Confirm
-      </Button>
-    </YStack>
-  );
-}
+// function PopoverSettingsContent({
+//   dataDisplay: defaultDataDisplay,
+//   priceChange: defaultPriceChange,
+//   onConfirm,
+// }: {
+//   dataDisplay: IKeyOfMarketToken;
+//   priceChange: IKeyOfMarketToken;
+//   onConfirm: (value: {
+//     dataDisplay: IKeyOfMarketToken;
+//     priceChange: IKeyOfMarketToken;
+//   }) => void;
+// }) {
+//   const { closePopover } = usePopoverContext();
+//   const [dataDisplay, setDataDisplay] = useState(defaultDataDisplay);
+//   const [priceChange, setPriceChange] = useState(defaultPriceChange);
+//   return (
+//     <YStack px="$5" space="$5">
+//       <ToggleButton
+//         title="Data Display"
+//         value={dataDisplay}
+//         onChange={setDataDisplay as (v: string) => void}
+//         options={[
+//           {
+//             label: 'Price',
+//             value: 'price',
+//           },
+//           {
+//             label: '24h volume',
+//             value: 'totalVolume',
+//           },
+//           {
+//             label: 'Market Cap',
+//             value: 'marketCap',
+//           },
+//         ]}
+//       />
+//       <ToggleButton
+//         title="Price Change"
+//         value={priceChange}
+//         onChange={setPriceChange as (v: string) => void}
+//         options={[
+//           {
+//             label: '1 hour',
+//             value: 'priceChangePercentage1H',
+//           },
+//           {
+//             label: '24 hour',
+//             value: 'priceChangePercentage24H',
+//           },
+//           {
+//             label: '7 days',
+//             value: 'priceChangePercentage7D',
+//           },
+//         ]}
+//       />
+//       <Button
+//         my="$5"
+//         variant="primary"
+//         onPress={async () => {
+//           await closePopover?.();
+//           onConfirm({
+//             dataDisplay,
+//             priceChange,
+//           });
+//         }}
+//       >
+//         Confirm
+//       </Button>
+//     </YStack>
+//   );
+// }
 
 function TableMdSkeletonRow() {
   return (
@@ -598,7 +597,7 @@ function TableMdSkeletonRow() {
 }
 
 function ListEmptyComponent() {
-  const { gtMd, md } = useMedia();
+  const { gtMd } = useMedia();
   if (platformEnv.isNativeAndroid) {
     return null;
   }
@@ -908,18 +907,18 @@ function BasicMarketHomeList({
     [],
   );
 
-  const handleSettingsContentChange = useCallback(
-    ({
-      dataDisplay,
-      priceChange,
-    }: {
-      dataDisplay: IKeyOfMarketToken;
-      priceChange: IKeyOfMarketToken;
-    }) => {
-      setMdColumnKeys([dataDisplay, priceChange]);
-    },
-    [],
-  );
+  // const handleSettingsContentChange = useCallback(
+  //   ({
+  //     dataDisplay,
+  //     priceChange,
+  //   }: {
+  //     dataDisplay: IKeyOfMarketToken;
+  //     priceChange: IKeyOfMarketToken;
+  //   }) => {
+  //     setMdColumnKeys([dataDisplay, priceChange]);
+  //   },
+  //   [],
+  // );
 
   const [mdSortByType, setMdSortByType] = useState<string | undefined>(
     'Default',
