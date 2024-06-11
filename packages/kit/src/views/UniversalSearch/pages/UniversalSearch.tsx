@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -18,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EUniversalSearchPages,
@@ -71,6 +73,7 @@ export function UniversalSearch({
 }: {
   searchType?: EUniversalSearchType;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
@@ -94,13 +97,13 @@ export function UniversalSearch({
       });
     if (result?.[EUniversalSearchType.MarketToken]?.items) {
       searchResultSections.push({
-        title: 'Trending',
+        title: intl.formatMessage({ id: ETranslations.market_trending }),
         data: result?.[EUniversalSearchType.MarketToken]
           ?.items as IUniversalSearchResultItem[],
       });
     }
     setRecommendSections(searchResultSections);
-  }, [searchType]);
+  }, [intl, searchType]);
 
   useEffect(() => {
     void fetchRecommendList();
@@ -252,7 +255,7 @@ export function UniversalSearch({
               ListEmptyComponent={
                 <YStack px="$5">
                   <SizableText numberOfLines={1} size="$headingSm">
-                    Trending
+                    {intl.formatMessage({ id: ETranslations.market_trending })}
                   </SizableText>
                   <SkeletonItem />
                   <SkeletonItem />
@@ -293,6 +296,7 @@ export function UniversalSearch({
         break;
     }
   }, [
+    intl,
     recommendSections,
     renderItem,
     renderSectionHeader,
@@ -303,12 +307,16 @@ export function UniversalSearch({
 
   return (
     <Page>
-      <Page.Header title="Search" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_search })}
+      />
       <Page.Body>
         <View p="$5" pt={0}>
           <SearchBar
             autoFocus
-            placeholder="Search"
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search,
+            })}
             onSearchTextChange={handleTextChange}
             onChangeText={handleChangeText}
           />
