@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Alert,
@@ -16,6 +17,7 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { LIDO_LOGO_URI } from '../../utils/const';
 
@@ -42,6 +44,7 @@ export const LidoStake = ({
   stTokenSymbol,
   onConfirm,
 }: PropsWithChildren<ILidoStakeProps>) => {
+  const intl = useIntl();
   const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState('');
   const [
@@ -157,14 +160,19 @@ export const LidoStake = ({
             <Alert
               icon="InfoCircleOutline"
               type="critical"
-              title={`The minimum amount for this staking is ${minAmount} ${tokenSymbol}.`}
+              title={intl.formatMessage(
+                { id: ETranslations.earn_minimum_amount },
+                { number: `${minAmount} ${tokenSymbol}` },
+              )}
             />
           ) : null}
           {isInsufficientBalance ? (
             <Alert
               icon="InfoCircleOutline"
               type="critical"
-              title="Insufficient balance."
+              title={intl.formatMessage({
+                id: ETranslations.earn_insufficient_balance,
+              })}
             />
           ) : null}
         </YStack>
@@ -172,12 +180,20 @@ export const LidoStake = ({
       <Stack>
         <YStack>
           {estAnnualRewards ? (
-            <ListItem title="Est. annual rewards" titleProps={fieldTitleProps}>
+            <ListItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_est_annual_rewards,
+              })}
+              titleProps={fieldTitleProps}
+            >
               {estAnnualRewards}
             </ListItem>
           ) : null}
           {amountValue ? (
-            <ListItem title="Est. receive" titleProps={fieldTitleProps}>
+            <ListItem
+              title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
+              titleProps={fieldTitleProps}
+            >
               <NumberSizeableText
                 formatter="balance"
                 size="$bodyLgMedium"
@@ -187,25 +203,41 @@ export const LidoStake = ({
               </NumberSizeableText>
             </ListItem>
           ) : null}
-          <ListItem title="APR" titleProps={fieldTitleProps}>
+          <ListItem
+            title={intl.formatMessage({ id: ETranslations.global_apr })}
+            titleProps={fieldTitleProps}
+          >
             <ListItem.Text
               primary={`${apr}%`}
               primaryTextProps={{ color: '$textSuccess' }}
             />
           </ListItem>
-          <ListItem title="Protocol" titleProps={fieldTitleProps}>
+          <ListItem
+            title={intl.formatMessage({ id: ETranslations.global_protocol })}
+            titleProps={fieldTitleProps}
+          >
             <XStack space="$2" alignItems="center">
               <Token size="xs" tokenImageUri={LIDO_LOGO_URI} />
               <SizableText size="$bodyLgMedium">Lido</SizableText>
             </XStack>
           </ListItem>
-          <ListItem title="Stake Release Period" titleProps={fieldTitleProps}>
-            <ListItem.Text primary="< 4 Days" />
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.earn_stake_release_period,
+            })}
+            titleProps={fieldTitleProps}
+          >
+            <ListItem.Text
+              primary={intl.formatMessage(
+                { id: ETranslations.earn_less_than_number_days },
+                { number: 4 },
+              )}
+            />
           </ListItem>
         </YStack>
       </Stack>
       <Page.Footer
-        onConfirmText="Stake"
+        onConfirmText={intl.formatMessage({ id: ETranslations.earn_stake })}
         confirmButtonProps={{
           onPress,
           loading,

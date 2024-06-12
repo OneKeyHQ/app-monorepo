@@ -1,6 +1,9 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type ILidoFAQProps = {
   question: string;
@@ -31,46 +34,80 @@ const LidoFAQ = ({ question, answer }: ILidoFAQProps) => {
   );
 };
 
-export const EthLidoFAQs = () => (
-  <YStack mt="$12">
-    <XStack mb="$5">
-      <SizableText size="$headingLg">FAQs</SizableText>
-    </XStack>
-    <YStack space="$5">
-      <LidoFAQ
-        question="How does the Lido protocol work?"
-        answer="Lido provides an innovative solution to the hurdles presented by traditional PoS staking by effectively lowering barriers to entry and the costs associated with locking up one's assets in a single protocol. When a user deposits their assets to Lido, the tokens are staked on the Lido blockchain via the protocol."
-      />
-      <LidoFAQ
-        question="Why do you receive stETH?"
-        answer="When you deposit ETH into Lido, you receive Lido's liquid staking token, stETH, which represents your proportional claim to ETH in Lido. As validators operating on Lido receive rewards, you are eligible to receive rewards proportional to your stake, which is typically expected to occur daily."
-      />
-      <LidoFAQ
-        question="What is the possible risk of Lido ?"
-        answer="There is a certain risk in using Lido for staking, such as network or validator failures that may result in the loss of staked assets (penalties), or Lido smart contract vulnerabilities or errors. Although the code has been open-sourced, audited and widely covered, any cryptocurrency investment carries risks and needs to be evaluated independently."
-      />
+export const EthLidoFAQs = () => {
+  const intl = useIntl();
+  return (
+    <YStack mt="$12">
+      <XStack mb="$5">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.global_faqs })}
+        </SizableText>
+      </XStack>
+      <YStack space="$5">
+        <LidoFAQ
+          question={intl.formatMessage({
+            id: ETranslations.earn_how_does_the_lido_protocol_work,
+          })}
+          answer={intl.formatMessage({
+            id: ETranslations.earn_how_does_the_lido_protocol_work_desc,
+          })}
+        />
+        <LidoFAQ
+          question={intl.formatMessage({
+            id: ETranslations.earn_why_do_you_receive_steth,
+          })}
+          answer={intl.formatMessage({
+            id: ETranslations.earn_why_do_you_receive_steth_desc,
+          })}
+        />
+        <LidoFAQ
+          question={intl.formatMessage({
+            id: ETranslations.earn_what_is_the_possible_risk_of_lido,
+          })}
+          answer={intl.formatMessage({
+            id: ETranslations.earn_what_is_the_possible_risk_of_lido_desc,
+          })}
+        />
+      </YStack>
     </YStack>
-  </YStack>
-);
+  );
+};
 
-export const MaticLidoFAQs = () => (
-  <YStack mt="$12">
-    <XStack mb="$5">
-      <SizableText size="$headingLg">FAQs</SizableText>
-    </XStack>
-    <YStack space="$5">
-      <LidoFAQ
-        question="How does the Lido protocol work?"
-        answer="Lido provides an innovative solution to the hurdles presented by traditional PoS staking by effectively lowering barriers to entry and the costs associated with locking up one's assets in a single protocol. When a user deposits their assets to Lido, the tokens are staked on the Lido blockchain via the protocol."
-      />
-      <LidoFAQ
-        question="Why do you receive stMATIC?"
-        answer="When you deposit MATIC into Lido, you receive Lido's liquid staking token, stMATIC, which represents your proportional claim to MATIC in Lido. As validators operating on Lido receive rewards, you are eligible to receive rewards proportional to your stake, which is typically expected to occur dazily."
-      />
-      <LidoFAQ
-        question="What is the possible risk of Lido ?"
-        answer="There is a certain risk in using Lido for staking, such as network or validator failures that may result in the loss of staked assets (penalties), or Lido smart contract vulnerabilities or errors. Although the code has been open-sourced, audited and widely covered, any cryptocurrency investment carries risks and needs to be evaluated independently."
-      />
+export const MaticLidoFAQs = () => {
+  const intl = useIntl();
+  return (
+    <YStack mt="$12">
+      <XStack mb="$5">
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.global_faqs })}
+        </SizableText>
+      </XStack>
+      <YStack space="$5">
+        <LidoFAQ
+          question={intl.formatMessage({
+            id: ETranslations.earn_how_does_the_lido_protocol_work,
+          })}
+          answer={intl.formatMessage({
+            id: ETranslations.earn_how_does_the_lido_protocol_work_desc,
+          })}
+        />
+        <LidoFAQ
+          question={intl.formatMessage({
+            id: ETranslations.earn_why_do_you_receive_stmatic,
+          })}
+          answer={intl.formatMessage({
+            id: ETranslations.earn_why_do_you_receive_stmatic_desc,
+          })}
+        />
+        <LidoFAQ
+          question={intl.formatMessage({
+            id: ETranslations.earn_what_is_the_possible_risk_of_lido,
+          })}
+          answer={intl.formatMessage({
+            id: ETranslations.earn_what_is_the_possible_risk_of_lido_desc,
+          })}
+        />
+      </YStack>
     </YStack>
-  </YStack>
-);
+  );
+};

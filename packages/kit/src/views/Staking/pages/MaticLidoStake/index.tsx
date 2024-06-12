@@ -1,10 +1,12 @@
 import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
@@ -50,9 +52,15 @@ const MaticLidoStake = () => {
     },
     [lidoStake, token, appNavigation, rate, stToken],
   );
+  const intl = useIntl();
   return (
     <Page>
-      <Page.Header title="Stake Matic" />
+      <Page.Header
+        title={intl.formatMessage(
+          { id: ETranslations.earn_stake_token },
+          { 'token': 'MATIC' },
+        )}
+      />
       <Page.Body>
         <LidoApproveBaseStake
           price={price}

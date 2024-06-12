@@ -39,25 +39,6 @@ const getDiscoverRouterConfig = (params?: IGetTabRouterParams) => {
           marginTop: getTokenValue('$4', 'size'),
         }
       : undefined,
-    actionList: platformEnv.isDesktop
-      ? [
-          {
-            items: [
-              {
-                icon: 'CrossedLargeOutline',
-                label: 'Close All Tabs',
-                testID: 'tab-list-modal-close-all',
-                onPress: () => {
-                  appEventBus.emit(
-                    EAppEventBusNames.CloseAllBrowserTab,
-                    undefined,
-                  );
-                },
-              },
-            ],
-          },
-        ]
-      : undefined,
   };
   return discoverRouterConfig;
 };

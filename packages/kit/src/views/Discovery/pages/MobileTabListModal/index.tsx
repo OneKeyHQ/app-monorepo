@@ -21,6 +21,7 @@ import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -71,7 +72,7 @@ function TabToolBar({
           disabled={closeAllDisabled}
           testID="tab-list-modal-close-all"
         >
-          {intl.formatMessage({ id: 'action__close_all_tabs' })}
+          {intl.formatMessage({ id: ETranslations.explore_close_all })}
         </Button>
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
@@ -90,7 +91,7 @@ function TabToolBar({
           onPress={onDone}
           testID="tab-list-modal-done"
         >
-          {intl.formatMessage({ id: 'action__done' })}
+          {intl.formatMessage({ id: ETranslations.global_done })}
         </Button>
       </Stack>
     </Stack>
@@ -182,8 +183,12 @@ function MobileTabListModal() {
       }
       Toast.success({
         title: bookmark
-          ? intl.formatMessage({ id: 'msg__bookmark_added' })
-          : intl.formatMessage({ id: 'msg__bookmark_removed' }),
+          ? intl.formatMessage({
+              id: ETranslations.explore_toast_bookmark_added,
+            })
+          : intl.formatMessage({
+              id: ETranslations.explore_toast_bookmark_removed,
+            }),
       });
     },
     [addBrowserBookmark, removeBrowserBookmark, intl],
@@ -199,8 +204,8 @@ function MobileTabListModal() {
       void setPinnedTab({ id, pinned });
       Toast.success({
         title: pinned
-          ? intl.formatMessage({ id: 'msg__pinned' })
-          : intl.formatMessage({ id: 'msg__unpinned' }),
+          ? intl.formatMessage({ id: ETranslations.explore_toast_pinned })
+          : intl.formatMessage({ id: ETranslations.explore_toast_unpinned }),
       });
     },
     [setPinnedTab, intl],
@@ -235,15 +240,15 @@ function MobileTabListModal() {
   const showTabOptions = useCallback(
     (tab: IWebTab, id: string) => {
       ActionList.show({
-        title: 'Options',
+        title: intl.formatMessage({ id: ETranslations.explore_options }),
         sections: [
           {
             items: [
               {
                 label: intl.formatMessage({
                   id: tab.isBookmark
-                    ? 'actionn__remove_bookmark'
-                    : 'actionn__bookmark',
+                    ? ETranslations.explore_remove_bookmark
+                    : ETranslations.explore_add_bookmark,
                 }),
                 icon: tab.isBookmark ? 'StarSolid' : 'StarOutline',
                 onPress: () =>
@@ -258,14 +263,16 @@ function MobileTabListModal() {
               },
               {
                 label: intl.formatMessage({
-                  id: tab.isPinned ? 'action__unpin' : 'action__pin',
+                  id: tab.isPinned
+                    ? ETranslations.explore_unpin
+                    : ETranslations.explore_pin,
                 }),
                 icon: tab.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
                 onPress: () => handlePinnedPress(id, !tab.isPinned),
                 testID: `action-list-item-${!tab.isPinned ? 'pin' : 'un-pin'}`,
               },
               {
-                label: intl.formatMessage({ id: 'action__share' }),
+                label: intl.formatMessage({ id: ETranslations.explore_share }),
                 icon: 'ShareOutline',
                 onPress: () => handleShare(tab.url),
                 testID: 'action-list-item-share',
@@ -277,8 +284,8 @@ function MobileTabListModal() {
               {
                 label: intl.formatMessage({
                   id: tab.isPinned
-                    ? 'action__close_pin_tab'
-                    : 'form__close_tab',
+                    ? ETranslations.explore_close_pin_tab
+                    : ETranslations.explore_close_tab,
                 }),
                 icon: 'CrossedLargeOutline',
                 onPress: () => handleCloseTab(id),
@@ -366,8 +373,8 @@ function MobileTabListModal() {
     <Page>
       <Page.Header
         title={intl.formatMessage(
-          { id: 'title__str_tabs' },
-          { 0: `${tabs.length ?? 0}` },
+          { id: ETranslations.explore_tabs_count },
+          { number: `${tabs.length ?? 0}` },
         )}
       />
       <Page.Body>
