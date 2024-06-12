@@ -81,7 +81,7 @@ export function FirmwareUpdateProgressBarView({
         )}
       </SizableText>
     );
-  }, [currentStep, totalStep]);
+  }, [intl, currentStep, totalStep]);
 
   const versionView = useMemo(() => {
     if (!versionTo) {

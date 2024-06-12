@@ -189,13 +189,13 @@ export function useFirmwareUpdateErrors({
 }) {
   console.error('useFirmwareUpdateErrors', error);
   const defaultRetryText = 'Retry';
+  const intl = useIntl();
   return useMemo<{
     content: React.ReactNode;
     detail?: React.ReactNode;
     onRetryHandler?: () => void;
     retryText: string;
   }>(() => {
-    const intl = useIntl();
     if (
       isHardwareErrorByCode({
         error,
