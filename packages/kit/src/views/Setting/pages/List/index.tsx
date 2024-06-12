@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   IconButton,
   Page,
-  ScrollView,
   SizableText,
   Stack,
   Tooltip,
@@ -97,8 +96,16 @@ const SocialButtonGroup = () => {
           onPress={handleOpenDevMode}
           testID="setting-version"
         >
-          Version: {platformEnv.version ?? 'Unknown'} -{' '}
-          {platformEnv.buildNumber}
+          {intl.formatMessage(
+            {
+              id: ETranslations.settings_version_versionnum,
+            },
+            {
+              'versionNum': `${platformEnv.version ?? ''} ${
+                platformEnv.buildNumber ?? ''
+              }`,
+            },
+          )}
         </SizableText>
       </XStack>
     </YStack>

@@ -254,7 +254,7 @@
   "earn.request_withdrawal": "Yêu cầu Rút tiền",
   "earn.request_withdrawal_steth_desc": "Khóa stETH/wstETH của bạn bằng cách yêu cầu rút tiền. Sau 1-5 ngày, stETH đã khóa sẽ bị hủy và ETH của bạn sẽ có thể rút được.",
   "earn.request_withdrawal_stmatic_desc": "1-5 ngày sau khi yêu cầu rút tiền, stMATIC bị khóa sẽ bị hủy và MATIC của bạn sẽ trở nên có thể rút được.",
-  "earn.rewards_updated_daily": "Phần thưởng được cập nhật {hàng ngày}",
+  "earn.rewards_updated_daily": "Phần thưởng được cập nhật {daily}",
   "earn.rewards_updated_daily_steth_desc": "Sẽ có cập nhật hàng ngày về số dư stETH của bạn, bao gồm cả phần thưởng từ việc staking.",
   "earn.rewards_updated_daily_stmatic_desc": "Trong thời gian đặt cược, giá trị của stMATIC thay đổi để phản ánh lợi nhuận.",
   "earn.stake": "Đặt cọc",

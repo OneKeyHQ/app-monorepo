@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Alert,
@@ -18,6 +19,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
@@ -55,6 +57,7 @@ export const LidoApproveBaseStake = ({
   onConfirm,
   approveTarget,
 }: PropsWithChildren<ILidoApproveBaseStakeProps>) => {
+  const intl = useIntl();
   const { navigationToSendConfirm } = useSendConfirm({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
@@ -128,10 +131,13 @@ export const LidoApproveBaseStake = ({
 
   const onConfirmText = useMemo(() => {
     if (isApprove) {
-      return `Approve ${amountValue} ${token.symbol.toUpperCase()}`;
+      return intl.formatMessage(
+        { id: ETranslations.form__approve_str },
+        { amount: amountValue, symbol: token.symbol.toUpperCase() },
+      );
     }
-    return 'Stake';
-  }, [isApprove, token, amountValue]);
+    return intl.formatMessage({ id: ETranslations.earn_stake });
+  }, [isApprove, token, amountValue, intl]);
 
   const onApprove = useCallback(async () => {
     setApproving(true);
@@ -236,14 +242,19 @@ export const LidoApproveBaseStake = ({
             <Alert
               icon="InfoCircleOutline"
               type="critical"
-              title={`The minimum amount for this staking is ${minAmount} ${token.symbol}.`}
+              title={intl.formatMessage(
+                { id: ETranslations.earn_minimum_amount },
+                { number: `${minAmount} ${token.symbol}` },
+              )}
             />
           ) : null}
           {isInsufficientBalance ? (
             <Alert
               icon="InfoCircleOutline"
               type="critical"
-              title="Insufficient balance."
+              title={intl.formatMessage({
+                id: ETranslations.earn_insufficient_balance,
+              })}
             />
           ) : null}
         </YStack>
@@ -251,12 +262,20 @@ export const LidoApproveBaseStake = ({
       <Stack>
         <YStack>
           {estAnnualRewards ? (
-            <ListItem title="Est. annual rewards" titleProps={fieldTitleProps}>
+            <ListItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_est_annual_rewards,
+              })}
+              titleProps={fieldTitleProps}
+            >
               {estAnnualRewards}
             </ListItem>
           ) : null}
           {receivingTokenAmount ? (
-            <ListItem title="Est. receive" titleProps={fieldTitleProps}>
+            <ListItem
+              title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
+              titleProps={fieldTitleProps}
+            >
               <SizableText>
                 <NumberSizeableText
                   formatter="balance"
@@ -268,20 +287,36 @@ export const LidoApproveBaseStake = ({
               </SizableText>
             </ListItem>
           ) : null}
-          <ListItem title="APR" titleProps={fieldTitleProps}>
+          <ListItem
+            title={intl.formatMessage({ id: ETranslations.global_apr })}
+            titleProps={fieldTitleProps}
+          >
             <ListItem.Text
               primary={`${apr}%`}
               primaryTextProps={{ color: '$textSuccess' }}
             />
           </ListItem>
-          <ListItem title="Protocol" titleProps={fieldTitleProps}>
+          <ListItem
+            title={intl.formatMessage({ id: ETranslations.global_protocol })}
+            titleProps={fieldTitleProps}
+          >
             <XStack space="$2" alignItems="center">
               <Token size="xs" tokenImageUri={LIDO_LOGO_URI} />
               <SizableText size="$bodyLgMedium">Lido</SizableText>
             </XStack>
           </ListItem>
-          <ListItem title="Stake Release Period" titleProps={fieldTitleProps}>
-            <ListItem.Text primary="< 4 Days" />
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.earn_stake_release_period,
+            })}
+            titleProps={fieldTitleProps}
+          >
+            <ListItem.Text
+              primary={intl.formatMessage(
+                { id: ETranslations.earn_less_than_number_days },
+                { number: 4 },
+              )}
+            />
           </ListItem>
         </YStack>
       </Stack>

@@ -254,7 +254,7 @@
   "earn.request_withdrawal": "Solicitar Retiro",
   "earn.request_withdrawal_steth_desc": "Bloquee su stETH/wstETH emitiendo una solicitud de retiro. Después de 1-5 días, el stETH bloqueado será destruido y su ETH estará disponible para retiro.",
   "earn.request_withdrawal_stmatic_desc": "1-5 días después de emitir una solicitud de retiro, el stMATIC bloqueado será destruido y tu MATIC estará disponible para retirar.",
-  "earn.rewards_updated_daily": "Recompensas actualizadas {diariamente}",
+  "earn.rewards_updated_daily": "Recompensas actualizadas {daily}",
   "earn.rewards_updated_daily_steth_desc": "Habrá una actualización diaria de tus saldos de stETH, que incluye las recompensas por staking.",
   "earn.rewards_updated_daily_stmatic_desc": "Durante el período de staking, el valor de stMATIC cambia para reflejar las ganancias.",
   "earn.stake": "Participación",
