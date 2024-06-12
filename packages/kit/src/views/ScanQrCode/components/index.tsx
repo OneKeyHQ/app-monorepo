@@ -12,6 +12,7 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -78,16 +79,18 @@ export function ScanQrCode({
         Dialog.show({
           tone: 'warning',
           icon: 'ErrorOutline',
-          title: intl.formatMessage({ id: 'modal__camera_access_not_granted' }),
+          title: intl.formatMessage({
+            id: ETranslations.scan_camera_access_denied,
+          }),
           description: intl.formatMessage({
             id: isExtensionUiPopup
-              ? 'msg__approving_camera_permission_needs_to_be_turned_on_in_expand_view'
-              : 'modal__camera_access_not_granted_desc',
+              ? ETranslations.scan_grant_camera_access_in_expand_view
+              : ETranslations.scan_enable_camera_permissions,
           }),
           onConfirmText: intl.formatMessage({
             id: isExtensionUiPopup
-              ? 'form__expand_view'
-              : 'action__go_to_settings',
+              ? ETranslations.global_expand_view
+              : ETranslations.global_go_to_settings,
           }),
           showCancelButton: true,
           showConfirmButton: true,

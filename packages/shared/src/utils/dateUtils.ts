@@ -8,11 +8,11 @@ import {
   parseISO,
 } from 'date-fns';
 
+import { ETranslations, type ILocaleSymbol } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { DateLocaleMap } from '../locale/dateLocaleMap';
 import { getDefaultLocale } from '../locale/getDefaultLocale';
 
-import type { ILocaleSymbol } from '../locale';
 import type { Duration } from 'date-fns';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
