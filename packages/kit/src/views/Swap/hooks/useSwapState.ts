@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   ISwapCheckWarningDef,
@@ -86,6 +88,7 @@ export function useSwapQuoteLoading() {
 }
 
 export function useSwapActionState() {
+  const intl = useIntl();
   const quoteLoading = useSwapQuoteLoading();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [buildTxFetching] = useSwapBuildTxFetchingAtom();
@@ -105,23 +108,33 @@ export function useSwapActionState() {
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
-      label: 'Swap',
+      label: intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
     };
     if (quoteLoading) {
-      infoRes.label = 'Fetching quotes';
+      infoRes.label = intl.formatMessage({
+        id: ETranslations.swap_page_button_fetching_quotes,
+      });
     } else {
       if (isCrossChain && fromToken && toToken) {
-        infoRes.label = 'Cross-Chain Swap';
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_cross_chain,
+        });
       }
       if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
-        infoRes.label = 'Wrapped';
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_wrap,
+        });
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = swapQuoteApproveAllowanceUnLimit
-          ? `Approve Unlimited ${fromToken?.symbol ?? ''} to ${
+          ? `${intl.formatMessage({
+              id: ETranslations.swap_page_button_approve_unlimited,
+            })} ${fromToken?.symbol ?? ''} to ${
               quoteCurrentSelect?.info.providerName ?? ''
             }`
-          : `Approve  ${
+          : `${intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve,
+            })}  ${
               numberFormat(fromTokenAmount, {
                 formatter: 'balance',
               }) as string
@@ -134,14 +147,22 @@ export function useSwapActionState() {
         !quoteCurrentSelect.toAmount &&
         !quoteCurrentSelect.limit
       ) {
-        infoRes.label = 'No liquidity for this trade';
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_alert_no_provider_supports_trade,
+        });
         infoRes.disable = true;
       }
       const fromTokenAmountBN = new BigNumber(fromTokenAmount);
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
       const reserveBN = new BigNumber(fromToken?.reservationValue ?? 0);
-      if (!reserveBN.isZero() && fromTokenAmountBN.lte(reserveBN)) {
-        infoRes.label = 'Not enough to cover network fee';
+      const afterReserveBalance = balanceBN.minus(reserveBN);
+      if (
+        afterReserveBalance.lt(0) ||
+        fromTokenAmountBN.gt(afterReserveBalance)
+      ) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_no_enough_fee,
+        });
         infoRes.disable = true;
       }
       if (
@@ -149,7 +170,9 @@ export function useSwapActionState() {
         swapFromAddressInfo.address &&
         balanceBN.lt(fromTokenAmountBN)
       ) {
-        infoRes.label = 'Insufficient balance';
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_insufficient_balance,
+        });
         infoRes.disable = true;
       }
     }
@@ -158,6 +181,7 @@ export function useSwapActionState() {
     fromToken,
     fromTokenAmount,
     hasError,
+    intl,
     isCrossChain,
     quoteCurrentSelect,
     quoteLoading,

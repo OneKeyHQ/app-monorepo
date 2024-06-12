@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { WalletConnectAccountTriggerList } from '../../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../../components/DAppRequestContent';
@@ -100,9 +101,7 @@ function SessionProposalModal() {
         result: { accountsInfo, supportedNamespaces },
       });
       Toast.success({
-        title: intl.formatMessage({
-          id: 'content__connected',
-        }),
+        title: intl.formatMessage({ id: ETranslations.global_connected }),
       });
     },
     [
@@ -146,7 +145,9 @@ function SessionProposalModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
-            title="Connection Request"
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_connection_request,
+            })}
             subtitleShown={false}
             origin={origin}
             urlSecurityInfo={urlSecurityInfo}
