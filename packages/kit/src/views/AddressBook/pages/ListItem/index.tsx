@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { IconButton, Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 
 import { AddressBookListContent } from '../../components/AddressBookListContent';
@@ -39,10 +40,10 @@ function ListPage() {
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: 'title__address_book' })}
+        title={intl.formatMessage({ id: ETranslations.address_book_title })}
         headerRight={HeaderRightComponent}
         headerSearchBarOptions={{
-          placeholder: intl.formatMessage({ id: 'form__search' }),
+          placeholder: intl.formatMessage({ id: ETranslations.global_search }),
           onChangeText: (e) => setSearchText(e.nativeEvent.text),
         }}
       />

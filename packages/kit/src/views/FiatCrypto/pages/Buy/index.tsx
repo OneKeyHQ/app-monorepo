@@ -1,5 +1,7 @@
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList,
@@ -15,9 +17,10 @@ const BuyPage = () => {
       RouteProp<IModalFiatCryptoParamList, EModalFiatCryptoRoutes.BuyModal>
     >();
   const { networkId, accountId } = route.params;
+  const intl = useIntl();
   return (
     <SellOrBuy
-      title="Buy"
+      title={intl.formatMessage({ id: ETranslations.global_buy })}
       type="buy"
       networkId={networkId}
       accountId={accountId}
