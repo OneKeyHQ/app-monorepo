@@ -12,12 +12,14 @@ interface ISectionFieldItem extends PropsWithChildren {
   name?: IDevSettingsKeys;
   title: IListItemProps['title'];
   titleProps?: IListItemProps['titleProps'];
+  subtitle?: IListItemProps['subtitle'];
   onValueChange?: (v: any) => void;
 }
 
 export function SectionFieldItem({
   name,
   title,
+  subtitle,
   children,
   onValueChange,
   titleProps = { color: '$textCritical' },
@@ -43,7 +45,12 @@ export function SectionFieldItem({
       })
     : null;
   return (
-    <ListItem title={title} titleProps={titleProps} testID={testID}>
+    <ListItem
+      title={title}
+      subtitle={subtitle}
+      titleProps={titleProps}
+      testID={testID}
+    >
       {field}
     </ListItem>
   );

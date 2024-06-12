@@ -4,8 +4,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 let clickCount = 0;
 let startTime: Date | undefined;
 
-export const handleOpenDevMode = () => {
+export const handleOpenDevMode = (callback: () => void) => {
   const nowTime = new Date();
+  if (clickCount === 0) {
+    callback();
+  }
   if (
     startTime === undefined ||
     Math.round(nowTime.getTime() - startTime.getTime()) > 5000
