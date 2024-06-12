@@ -85,16 +85,6 @@ export function useSwapBuildTx() {
     [setSwapApprovingTransaction],
   );
 
-  const handleWrappedTxSuccess = useCallback(
-    async (data: ISendTxOnSuccessData[]) => {
-      if (data?.[0]) {
-        setSwapFromTokenAmount('');
-      }
-      setSwapBuildTxFetching(false);
-    },
-    [setSwapBuildTxFetching, setSwapFromTokenAmount],
-  );
-
   const handleTxFail = useCallback(() => {
     setSwapBuildTxFetching(false);
   }, [setSwapBuildTxFetching]);
@@ -146,7 +136,7 @@ export function useSwapBuildTx() {
       await navigationToSendConfirm({
         wrappedInfo,
         swapInfo,
-        onSuccess: handleWrappedTxSuccess,
+        onSuccess: handleBuildTxSuccess,
         onFail: handleTxFail,
         onCancel: handleTxFail,
       });
@@ -161,7 +151,7 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     setSwapBuildTxFetching,
     navigationToSendConfirm,
-    handleWrappedTxSuccess,
+    handleBuildTxSuccess,
     handleTxFail,
   ]);
 
