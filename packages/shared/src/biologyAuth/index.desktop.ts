@@ -40,8 +40,7 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
 
     try {
       const result = await window?.desktopApi?.promptTouchID(
-        'Unlock',
-        // appLocale.intl.formatMessage({ id: ETranslations.unlock }),
+        appLocale.intl.formatMessage({ id: ETranslations.global_unlock }),
       );
       return result.success
         ? { success: true }
