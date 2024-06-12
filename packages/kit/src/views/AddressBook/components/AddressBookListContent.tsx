@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
@@ -98,10 +99,12 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
     >
       {showActions ? (
         <ActionList
-          title={intl.formatMessage({ id: 'title__menu' })}
+          title={intl.formatMessage({
+            id: ETranslations.address_book_menu_title,
+          })}
           items={[
             {
-              label: intl.formatMessage({ id: 'action__copy' }),
+              label: intl.formatMessage({ id: ETranslations.global_copy }),
               icon: 'Copy1Outline',
               onPress: async () => {
                 copyText(item.address);
@@ -109,7 +112,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
               testID: `address-menu-copy-${item.address ?? ''}`,
             },
             {
-              label: intl.formatMessage({ id: 'action__edit' }),
+              label: intl.formatMessage({ id: ETranslations.global_edit }),
               icon: 'PencilOutline',
               onPress: () => {
                 if (item.id) {
@@ -148,13 +151,19 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
   return (
     <Empty
       icon="SearchOutline"
-      title={intl.formatMessage({ id: 'content__no_results' })}
-      description="You haven't added any address yet"
+      title={intl.formatMessage({
+        id: ETranslations.address_book_no_results_title,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.address_book_empty_description,
+      })}
       buttonProps={
         hideAddItemButton
           ? undefined
           : {
-              children: intl.formatMessage({ id: 'action__add' }),
+              children: intl.formatMessage({
+                id: ETranslations.address_book_add_address_title,
+              }),
               onPress: () => {
                 navigation.push(EModalAddressBookRoutes.AddItemModal);
               },
@@ -170,8 +179,12 @@ const RenderNoSearchResult = () => {
   return (
     <Empty
       icon="SearchOutline"
-      title={intl.formatMessage({ id: 'content__no_results' })}
-      description="No match found for your search. Try to add this contact."
+      title={intl.formatMessage({
+        id: ETranslations.address_book_no_results_title,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.address_book_no_results_description,
+      })}
       testID="address-book-search-empty"
     />
   );

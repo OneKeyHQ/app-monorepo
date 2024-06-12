@@ -3,6 +3,8 @@ import { useCallback, useLayoutEffect, useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { useThemeValue } from '../../hooks';
 
 import type {
@@ -32,7 +34,9 @@ const usePageHeaderReloadOptions = () => {
           headerSearchBarOptions: {
             hideNavigationBar: false,
             hideWhenScrolling: false,
-            cancelButtonText: intl.formatMessage({ id: 'action__cancel' }),
+            cancelButtonText: intl.formatMessage({
+              id: ETranslations.global_cancel,
+            }),
             textColor: searchTextColor,
             tintColor: searchTextColor,
             ...headerSearchBarOptions,

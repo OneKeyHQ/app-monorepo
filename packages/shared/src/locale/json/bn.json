@@ -995,7 +995,7 @@
   "swap_page.alert.network_fee_deducted": "পরবর্তী পদক্ষেপে স্বয়ংক্রিয়ভাবে ETH এ নেটওয়ার্ক ফি কাটা হবে।",
   "swap_page.alert.no_provider_supports_trade": "কোন প্রদানকারী এই বাণিজ্যটি সমর্থন করে না।",
   "swap_page.alert.not_best_rate": "বর্তমান প্রদানকারী এই বিনিময়ের জন্য সেরা হার প্রদান করে না।",
-  "swap_page.alert.value_drop": "{number%} মূল্য ড্রপ! উচ্চ মূল্য প্রভাব আপনার সম্পত্তির ক্ষতি হতে পারে।",
+  "swap_page.alert.value_drop": "{number} মান ড্রপ! উচ্চ মূল্য প্রভাব আপনার সম্পত্তির ক্ষতি ঘটাতে পারে।",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "ব্যালেন্স: {number}",
   "swap_page.button_approve_amount": "{number} অনুমোদন করুন",

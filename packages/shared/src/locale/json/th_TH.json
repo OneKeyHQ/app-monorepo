@@ -995,7 +995,7 @@
   "swap_page.alert.network_fee_deducted": "ค่าธรรมเนียมเครือข่ายใน ETH จะถูกหักอัตโนมัติในขั้นตอนถัดไป",
   "swap_page.alert.no_provider_supports_trade": "ไม่มีผู้ให้บริการที่สนับสนุนการซื้อขายนี้",
   "swap_page.alert.not_best_rate": "ผู้ให้บริการปัจจุบันไม่ได้เสนออัตราที่ดีที่สุดสำหรับการซื้อขายนี้",
-  "swap_page.alert.value_drop": "ค่าลดลง {number%}! ผลกระทบจากราคาสูงอาจทำให้สินทรัพย์ของคุณเสียหาย",
+  "swap_page.alert.value_drop": "ค่าลดลง {number}! ผลกระทบจากราคาสูงอาจทำให้สินทรัพย์ของคุณเสียหาย",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "ยอดเงินคงเหลือ: {number}",
   "swap_page.button_approve_amount": "อนุมัติ {number}",

@@ -995,7 +995,7 @@
   "swap_page.alert.network_fee_deducted": "Мережева комісія в ETH автоматично віднімається на наступному кроці.",
   "swap_page.alert.no_provider_supports_trade": "Жоден провайдер не підтримує цю угоду.",
   "swap_page.alert.not_best_rate": "Поточний постачальник не пропонує найкращий курс для цієї угоди.",
-  "swap_page.alert.value_drop": "{number%} впадіння вартості! Висока вартість може призвести до втрати вашого активу.",
+  "swap_page.alert.value_drop": "{number} впадіння вартості! Високий вплив ціни може спричинити втрату вашого активу.",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "Баланс: {number}",
   "swap_page.button_approve_amount": "Підтвердити {number}",

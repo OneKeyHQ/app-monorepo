@@ -146,6 +146,11 @@ class ServiceAppUpdate extends ServiceBase {
       errorText = ETranslations.update_network_instability_check_connection;
     } else if (errorText.includes('Installation package name mismatch')) {
       errorText = ETranslations.update_package_name_mismatch;
+    } else if (
+      errorText.includes('Installation package possibly compromised')
+    ) {
+      errorText =
+        ETranslations.update_installation_package_possibly_compromised;
     } else if (errorText.includes('Insufficient disk space')) {
       errorText = ETranslations.earn_insufficient_staked_balance;
     }

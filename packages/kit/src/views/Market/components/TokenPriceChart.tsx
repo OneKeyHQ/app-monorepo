@@ -6,7 +6,6 @@ import { SegmentControl, Stack, YStack, useMedia } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -24,27 +23,22 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
   const options = useMemo(
     () => [
       {
-        id: 'content__past_24_hours',
         label: intl.formatMessage({ id: ETranslations.market_1d }),
         value: '1',
       },
       {
-        id: 'content__past_7_days',
         label: intl.formatMessage({ id: ETranslations.market_1w }),
         value: '7',
       },
       {
-        id: 'content__past_month',
         label: intl.formatMessage({ id: ETranslations.market_1m }),
         value: '30',
       },
       {
-        id: 'content__past_year',
         label: intl.formatMessage({ id: ETranslations.market_1y }),
         value: '365',
       },
       {
-        id: 'content__since_str',
         label: intl.formatMessage({ id: ETranslations.global_all }),
         value: 'max',
       },
@@ -52,7 +46,6 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
     [intl],
   );
   const [days, setDays] = useState<string>(options[0].value);
-  const intlId = options.find((v) => v.value === days)?.id as ETranslations;
 
   useEffect(() => {
     const key = [coinGeckoId, days, 100].join('-');
@@ -83,24 +76,7 @@ function BasicTokenPriceChart({ coinGeckoId }: { coinGeckoId: string }) {
   return (
     <YStack px="$5">
       <YStack h={platformEnv.isNative ? 240 : 326} $gtMd={{ h: 298 }}>
-        <PriceChart
-          isFetching={isLoading}
-          data={points}
-          timeDefaultLabel={
-            intlId
-              ? intl.formatMessage(
-                  {
-                    id: intlId,
-                  },
-                  {
-                    0: points?.[0]?.[0]
-                      ? formatDate(new Date(points[0][0])).split(',')?.[0]
-                      : '',
-                  },
-                )
-              : ''
-          }
-        >
+        <PriceChart isFetching={isLoading} data={points}>
           {gtMd ? (
             <SegmentControl
               value={days}

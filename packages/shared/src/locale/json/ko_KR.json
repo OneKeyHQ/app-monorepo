@@ -995,7 +995,7 @@
   "swap_page.alert.network_fee_deducted": "다음 단계에서 자동으로 차감되는 ETH 네트워크 수수료.",
   "swap_page.alert.no_provider_supports_trade": "이 거래를 지원하는 제공자가 없습니다.",
   "swap_page.alert.not_best_rate": "현재 공급자는 이 거래에 대해 최고의 요금을 제공하지 않습니다.",
-  "swap_page.alert.value_drop": "{number%} 가치 하락! 높은 가격 충격으로 인해 자산 손실이 발생할 수 있습니다.",
+  "swap_page.alert.value_drop": "{number} 값이 떨어졌습니다! 높은 가격 충격으로 인해 자산 손실이 발생할 수 있습니다.",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "잔액: {number}",
   "swap_page.button_approve_amount": "{number} 승인",

@@ -995,7 +995,7 @@
   "swap_page.alert.network_fee_deducted": "La tarifa de red en ETH se deduce automáticamente en el siguiente paso.",
   "swap_page.alert.no_provider_supports_trade": "Ningún proveedor admite este comercio.",
   "swap_page.alert.not_best_rate": "El proveedor actual no ofrece la mejor tarifa para esta operación.",
-  "swap_page.alert.value_drop": "{number%} ¡caída del valor! Un alto impacto en el precio puede causar la pérdida de tu activo.",
+  "swap_page.alert.value_drop": "¡Caída del valor de {number}! Un alto impacto en el precio puede causar la pérdida de tu activo.",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "Saldo: {number}",
   "swap_page.button_approve_amount": "Aprobar {number}",

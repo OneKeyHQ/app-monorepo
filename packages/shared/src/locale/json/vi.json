@@ -995,7 +995,7 @@
   "swap_page.alert.network_fee_deducted": "Phí mạng lưới trong ETH sẽ được tự động trừ trong bước tiếp theo.",
   "swap_page.alert.no_provider_supports_trade": "Không có nhà cung cấp nào hỗ trợ giao dịch này.",
   "swap_page.alert.not_best_rate": "Nhà cung cấp hiện tại không cung cấp mức giá tốt nhất cho giao dịch này.",
-  "swap_page.alert.value_drop": "Giá trị giảm {number%}! Tác động lớn về giá có thể gây thất thoát tài sản của bạn.",
+  "swap_page.alert.value_drop": "Giá trị {number} giảm! Ảnh hưởng lớn về giá có thể gây thất thoát tài sản của bạn.",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "Số dư: {number}",
   "swap_page.button_approve_amount": "Chấp nhận {number}",

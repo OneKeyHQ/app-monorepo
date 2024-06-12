@@ -995,7 +995,7 @@
   "swap_page.alert.network_fee_deducted": "Commissione di rete in ETH detratta automaticamente nel prossimo passaggio.",
   "swap_page.alert.no_provider_supports_trade": "Nessun fornitore supporta questo commercio.",
   "swap_page.alert.not_best_rate": "Il fornitore attuale non offre il miglior tasso per questo scambio.",
-  "swap_page.alert.value_drop": "Diminuzione del valore del {number%}! Un forte impatto sul prezzo può causare la perdita del tuo asset.",
+  "swap_page.alert.value_drop": "Diminuzione del valore di {number}! Un forte impatto sul prezzo può causare la perdita del tuo patrimonio.",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "Saldo: {number}",
   "swap_page.button_approve_amount": "Approva {number}",

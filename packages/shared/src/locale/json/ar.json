@@ -995,7 +995,7 @@
   "swap_page.alert.network_fee_deducted": "سيتم خصم رسوم الشبكة بالإيثريوم تلقائيًا في الخطوة التالية.",
   "swap_page.alert.no_provider_supports_trade": "لا يدعم أي مزود هذه التجارة.",
   "swap_page.alert.not_best_rate": "المزود الحالي لا يقدم أفضل سعر لهذه الصفقة.",
-  "swap_page.alert.value_drop": "انخفاض القيمة بنسبة {number%}! قد يتسبب تأثير السعر العالي في خسارة أصولك.",
+  "swap_page.alert.value_drop": "انخفاض قيمة {number}! قد يتسبب تأثير السعر العالي في خسارة أصولك.",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "الرصيد: {number}",
   "swap_page.button_approve_amount": "وافق {number}",

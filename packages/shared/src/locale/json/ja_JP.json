@@ -995,7 +995,7 @@
   "swap_page.alert.network_fee_deducted": "次のステップで自動的に差し引かれるETHのネットワーク手数料。",
   "swap_page.alert.no_provider_supports_trade": "この取引をサポートするプロバイダーはいません。",
   "swap_page.alert.not_best_rate": "現在のプロバイダーは、この取引に対して最良のレートを提供していません。",
-  "swap_page.alert.value_drop": "{number%} の価値が下がりました！高い価格影響はあなたの資産の損失を引き起こす可能性があります。",
+  "swap_page.alert.value_drop": "{number} の価値が下がりました！高い価格変動はあなたの資産を損なう可能性があります。",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "残高: {number}",
   "swap_page.button_approve_amount": "{number}を承認する",
