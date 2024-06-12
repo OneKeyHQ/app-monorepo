@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -50,11 +51,11 @@ const TabMe = () => {
             Onboarding
           </Button>
           <Button onPress={onPress} testID="me-settings">
-            {intl.formatMessage({ id: 'title__settings' })}
+            {intl.formatMessage({ id: ETranslations.global_go_settings })}
           </Button>
           {platformEnv.isExtensionUiPopup ? (
             <Button onPress={onExpand}>
-              {intl.formatMessage({ id: 'action__expand' })}
+              {intl.formatMessage({ id: ETranslations.global_expand_view })}
             </Button>
           ) : null}
           <Button

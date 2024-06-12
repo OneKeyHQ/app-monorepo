@@ -2,6 +2,7 @@
 
 import type { ITabNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import { TabStackNavigator } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   EDemoDeveloperTabRoutes,
@@ -23,14 +24,13 @@ const config: ITabNavigatorConfig<EDemoTabRoutes>[] = [
     name: EDemoTabRoutes.Home,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CreditCardSolid' : 'CreditCardOutline',
-    translationId: 'wallet__wallet',
+    translationId: ETranslations.global_wallet,
     freezeOnBlur: true,
     children: [
       {
         name: EDemoHomeTabRoutes.DemoRootHome,
         component: DemoRootHome,
-        // @ts-expect-error
-        translationId: 'Home',
+        translationId: ETranslations.global_homescreen,
       },
       {
         name: EDemoHomeTabRoutes.DemoRootHomeSearch,
@@ -50,12 +50,14 @@ const config: ITabNavigatorConfig<EDemoTabRoutes>[] = [
     name: EDemoTabRoutes.Me,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'EmailSolid' : 'EmailOutline',
+    // @ts-expect-error
     translationId: 'msg__mine',
     freezeOnBlur: true,
     children: [
       {
         name: EDemoMeTabRoutes.DemoRootMe,
         component: DemoRootMe,
+        // @ts-expect-error
         translationId: 'msg__mine',
       },
     ],
@@ -64,12 +66,14 @@ const config: ITabNavigatorConfig<EDemoTabRoutes>[] = [
     name: EDemoTabRoutes.Tabs,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'ChatGptSolid' : 'ChatGptOutline',
+    // @ts-expect-error
     translationId: 'title__str_tabs',
     freezeOnBlur: true,
     children: [
       {
         name: EDemoTabsTabRoutes.DemoRootTabs,
         component: DemoRootTabs,
+        // @ts-expect-error
         translationId: 'title__str_tabs',
       },
     ],
@@ -78,6 +82,7 @@ const config: ITabNavigatorConfig<EDemoTabRoutes>[] = [
     name: EDemoTabRoutes.Developer,
     tabBarIcon: (focused?: boolean) =>
       focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
+    // @ts-expect-error
     translationId: 'form__dev_mode',
     freezeOnBlur: true,
     children: [

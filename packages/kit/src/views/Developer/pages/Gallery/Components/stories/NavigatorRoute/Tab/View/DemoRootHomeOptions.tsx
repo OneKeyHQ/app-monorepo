@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Stack, YStack } from '@onekeyhq/components';
 import HeaderButtonGroup from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderButtonGroup';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from '../../../utils/Layout';
@@ -34,7 +35,7 @@ const DemoRootHomeOptions = () => {
         hideNavigationBar: true,
         hideWhenScrolling: true,
         placeholder: intl.formatMessage({
-          id: 'content__search_dapps_or_type_url',
+          id: ETranslations.explore_search_dapps,
         }),
         inputType: 'text',
         onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
