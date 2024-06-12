@@ -1,5 +1,6 @@
 {
   "account_model.watched": "شاهد",
+  "action_save": "حفظ",
   "address_book.button_close": "إغلاق",
   "address_book.button_copy": "نسخ",
   "address_book.button_next": "التالي",
@@ -11,8 +12,10 @@
   "address_book.data_anomaly_why_reset": "لماذا أحتاج إلى إعادة تعيين دفتر عناويني؟",
   "address_book.data_anomaly_why_reset_description": "إعادة تعيين البيانات ستؤدي إلى فقدان معلومات الاتصال الحالية الخاصة بك. ولكن، سيضمن ذلك بالكامل أمان أصولك.",
   "address_book.data_anomaly_why_risk": "لماذا بياناتي في خطر؟",
-  "address_book.data_anomaly_why_risk_description": "بياناتك مختلفة عن الحفظ الأخير للتأكيد. Onekey لا يحفظ بياناتك، ولكنه يضمن أمانها باستخدام خوارزميات التجزئة الرياضية.",
-  "address_book.encrypted_storage_description": "OneKey يحمي أمن معلوماتك. سيتم تشفير جميع بيانات الاتصال الخاصة بك والتحقق منها بواسطة الهاش مع كل استخدام لمنع التلاعب. اعرف المزيد.",
+  "address_book.data_anomaly_why_risk_description": "بياناتك مختلفة عن آخر حفظ تأكيد. OneKey لا يحفظ بياناتك، ولكنه يضمن أن البيانات لن تتعرض للتزوير.",
+  "address_book.empty_add_button": "أضف",
+  "address_book.empty_description": "لم تقم بإضافة أي عنوان بعد.",
+  "address_book.encrypted_storage_description": "OneKey يحمي أمن معلوماتك. سيتم تشفير جميع بيانات الاتصال الخاصة بك والتحقق منها بالتجزئة مع كل استخدام لمنع التلاعب.",
   "address_book.encrypted_storage_title": "تخزين مشفر",
   "address_book.menu_copy": "نسخ",
   "address_book.menu_edit": "تعديل",
@@ -23,10 +26,16 @@
   "address_book.title": "دفتر العناوين",
   "address_book_add_address.add_to_evm_chains": "أضف أيضًا إلى سلاسل EVM المتوافقة الإضافية",
   "address_book_add_address.address": "العنوان",
+  "address_book_add_address.address_exists": "العنوان موجود بالفعل.",
+  "address_book_add_address.address_invalid_error": "عنوان غير صالح. يرجى التحقق وإعادة الإدخال.",
   "address_book_add_address.address_placeholder": "العنوان أو النطاق",
   "address_book_add_address.button_save": "حفظ",
   "address_book_add_address.chain": "سلسلة",
   "address_book_add_address.name": "الاسم",
+  "address_book_add_address.name_empty_error": "لا يمكن أن يكون الاسم فارغًا.",
+  "address_book_add_address.name_exists": "الاسم موجود بالفعل.",
+  "address_book_add_address.name_length_erro": "الحد الأقصى للطول هو {num} حرفًا.",
+  "address_book_add_address.name_required": "مطلوب",
   "address_book_add_address.title": "أضف العنوان",
   "address_book_add_address.toast_add_success": "تمت الإضافة بنجاح",
   "address_book_add_address.toast_copy_success": "نسخ ناجح",
@@ -37,6 +46,8 @@
   "address_book_edit_address.button_confirm": "تأكيد",
   "address_book_edit_address.delete_contact_message": "يرجى التأكيد على ما إذا كنت ترغب في حذف هذا الجهة من دفتر العناوين. اكتب \"تأكيد\" للحذف.",
   "address_book_edit_address.delete_contact_title": "حذف الاتصال",
+  "address_book_edit_address.title": "Edit Address",
+  "address_book_select.title": "اختر الاتصال",
   "address_type": "نوع العنوان",
   "auth.confirm_password_form_label": "تأكيد كلمة المرور",
   "auth.confirm_password_form_placeholder": "أعد إدخال كلمة المرور الخاصة بك",
@@ -91,9 +102,41 @@
   "backup.verify_app_password_to_import_data": "تحقق من كلمة مرور التطبيق في وقت النسخ الاحتياطي لاستيراد البيانات.",
   "backup.verify_apple_account_and_icloud_drive_enabled": "يرجى التحقق من تسجيل الدخول إلى حساب Apple الخاص بك والتأكد من تمكين iCloud Drive وتفويضه لـ OneKey.",
   "backup.verify_google_account_and_google_drive_enabled": "يرجى التحقق من تسجيل الدخول إلى حساب Google الخاص بك والتأكد من تمكين Google Drive وتفويضه لـ OneKey.",
+  "balance_detail.button_acknowledge": "اعترف",
+  "balance_detail.button_balance": "تفاصيل الرصيد",
+  "balance_detail.button_cancel": "إلغاء",
+  "balance_detail.button_confirm": "تأكيد",
+  "balance_detail.button_done": "تم",
+  "balance_detail.disable_protection_warning_description": "قد يؤدي تعطيل حماية التسجيل إلى نقل عرضي لرموز التسجيل أو الرموز غير القابلة للتبديل. لنقل أصول التسجيل الخاصة بك بأمان، يرجى استخدام محفظة متوافقة مع التسجيل مثل Unisat أو OKX.",
+  "balance_detail.disable_protection_warning_title": "قد يؤدي تعطيل حماية النقش إلى فقدان أصول النقش",
+  "balance_detail.enable_protection_title": "تمكين حماية التسجيل",
+  "balance_detail.enable_protection_warning": "أصول التسجيل (NFT ورموز BRC-20) غير مدعومة حاليا. لعرض تفاصيل الحماية، تحقق من \"تفاصيل الرصيد\". لنقل أصول التسجيل الخاصة بك بأمان، يرجى استخدام محفظة متوافقة مع التسجيل مثل Unisat أو OKX.",
+  "balance_detail.frozen": "مجمد",
+  "balance_detail.frozen_by_inscription": "مجمد بواسطة حماية النقش",
+  "balance_detail.how_to_migrate": "كيفية ترحيل الرموز المميزة NFT / BRC-20؟",
+  "balance_detail.spendable": "قابل للإنفاق",
+  "balance_detail.total": "المجموع",
+  "balance_detail.what_is_frozen_balance": "ما هو الرصيد المجمد؟",
+  "bandwidth_energy.bandwidth": "عرض النطاق",
+  "bandwidth_energy.description": "يمكنك الحصول على موارد مجانية لتغطية رسوم المعاملات عن طريق تعيين TRX على الشبكة. ستتعافى الموارد المستخدمة ديناميكيًا إلى كميتها الأصلية بعد فترة معينة.",
+  "bandwidth_energy.energy": "الطاقة",
+  "bandwidth_energy.get_resources": "احصل على الموارد",
+  "bandwidth_energy.rent_energy": "استئجار الطاقة",
+  "bandwidth_energy.title": "عرض النطاق والطاقة",
+  "bandwidth_energy.what_is_bandwidth_energy": "ما هو العرض النطاقي والطاقة على ترون؟",
+  "bip44__standard": "معيار BIP44",
   "browser.bookmark": "إشارة مرجعية",
   "browser.import": "استيراد",
   "coming_soon": "قريبا",
+  "content__amount": "المبلغ",
+  "content__custom": "مخصص",
+  "content__fast": "سريع",
+  "content__from": "من",
+  "content__gas_limit": "حد الغاز",
+  "content__gas_price": "سعر الغاز ({network})",
+  "content__normal": "عادي",
+  "content__slow": "بطيء",
+  "content__to": "إلى",
   "copy_anyway": "انسخ على أي حال",
   "copy_recovery_phrases_warning_desc": "يمكن أن يعرض الوصول إلى الحافظة عبارة الاستعادة الخاصة بك للتطبيقات غير المصرح بها.",
   "copy_recovery_phrases_warning_title": "هل تريد نسخ عبارة الاستعادة؟",
@@ -168,6 +211,8 @@
   "dapp_connect.view_your_balance_and_activity": "عرض رصيدك ونشاطك",
   "dapp_connect.watch_your_account_balance_and_activity": "راقب رصيد حسابك ونشاطه",
   "dapp_connect.withdraw_request_sent": "تم إرسال طلب السحب",
+  "date.today": "اليوم",
+  "date.yesterday": "أمس",
   "derivation_path": "مسار الاشتقاق",
   "device_auth.continue_anyway_warning_message": "نحن حاليًا غير قادرين على التحقق من جهازك. الاستمرار قد يشكل مخاطر أمنية.",
   "device_auth.request_desc": "قم بالتأكيد على جهازك للتحقق من صحته وتأمين اتصالك.",
@@ -181,10 +226,9 @@
   "device_auth.verifying_desc": "يرجى الانتظار...",
   "device_auth.verifying_title": "جاري التحقق من الجهاز",
   "earn.annually": "سنويا",
-  "earn.available_to_stake": "متاح للرهان",
   "earn.claim": "مطالبة",
-  "earn.claim_eth_desc": "اطلب ETH الخاص بك بعد أن يتم معالجة طلب السحب.",
   "earn.claim_limitations": "نظرًا للقيود المفروضة على Lido، يجب عليك المطالبة بكل من مكافآتك بشكل منفصل.",
+  "earn.claim_token_desc": "اطلب {token} الخاص بك بعد معالجة طلب السحب.",
   "earn.daily": "يوميا",
   "earn.earn_up_to_number_per_year": "اكسب حتى {number} في السنة",
   "earn.earn_up_to_number_per_year_desc": "يتم تحديث النسبة المئوية السنوية بشكل ساعي وتعديلها وفقًا للتغييرات في القيمة الإجمالية المقفلة.",
@@ -192,27 +236,25 @@
   "earn.est_receive": "تقدير الاستلام",
   "earn.how_does_the_lido_protocol_work": "كيف يعمل بروتوكول ليدو؟",
   "earn.how_does_the_lido_protocol_work_desc": "تقدم Lido حلاً مبتكرًا للعقبات التي تقدمها الرهان التقليدي PoS من خلال خفض الحواجز أمام الدخول والتكاليف المرتبطة بقفل الأصول الخاصة بالمرء في بروتوكول واحد. عندما يودع المستخدم أصوله في Lido، يتم رهن الرموز على سلسلة الكتل Lido عبر البروتوكول.",
+  "earn.insufficient_balance": "رصيد غير كاف.",
   "earn.insufficient_staked_balance": "رصيد الرهن غير كاف.",
-  "earn.is_claimable": "قابل للمطالبة",
-  "earn.is_pending": "قيد الانتظار",
-  "earn.is_staked": "تم الرهن",
   "earn.less_than_number_days": "< {number} أيام",
   "earn.lido_token_redemption": "استرداد ليدو {token}",
   "earn.lido_token_staking": "التحصيص في Lido {token}",
+  "earn.minimum_amount": "الحد الأدنى هو {number}.",
   "earn.monthly": "شهريا",
   "earn.pay_with": "ادفع بواسطة",
   "earn.receive": "تلقي",
   "earn.receive_lido_nft": "تلقي NFT ليدو",
   "earn.receive_lido_nft_desc": "كل طلب سحب يولد NFT ليدو، وتتغير مظهره عندما يصبح ETH الخاص بك متاحًا للسحب.",
-  "earn.receive_steth": "تلقي stETH",
   "earn.receive_steth_desc": "عندما تقوم برهنة ETH، تحصل على 1:1 stETH. يمكنك إلغاء الرهن وتداول هذا الأصل السائل في أي وقت.",
-  "earn.receive_stmatic": "تلقي stMATIC",
   "earn.receive_stmatic_desc": "عندما تقوم برهنة MATIC، تحصل على stMATIC. يمكنك إلغاء الرهن وتداول هذا الأصل السائل في أي وقت.",
+  "earn.receive_token": "استلم {token}",
   "earn.redeem": "استرداد",
   "earn.request_withdrawal": "طلب السحب",
   "earn.request_withdrawal_steth_desc": "قم بقفل stETH / wstETH الخاص بك عن طريق تقديم طلب سحب. بعد 1-5 أيام، سيتم تدمير stETH المقفل وسيصبح ETH الخاص بك متاحًا للسحب.",
   "earn.request_withdrawal_stmatic_desc": "بعد 1-5 أيام من تقديم طلب السحب، سيتم تدمير stMATIC المقفل وسيصبح MATIC الخاص بك متاحًا للسحب.",
-  "earn.rewards_updated_daily": "تتم تحديث المكافآت يوميا",
+  "earn.rewards_updated_daily": "تم تحديث الجوائز {daily}",
   "earn.rewards_updated_daily_steth_desc": "سيكون هناك تحديث يومي على رصيدك من stETH، والذي يتضمن مكافآت الإستيكينج.",
   "earn.rewards_updated_daily_stmatic_desc": "خلال فترة الرهن، يتغير قيمة stMATIC لتعكس الأرباح.",
   "earn.stake": "رهان",
@@ -220,6 +262,10 @@
   "earn.stake_release_period": "فترة إصدار الحصة",
   "earn.stake_token": "رهان {token}",
   "earn.staked_value": "قيمة الرهان",
+  "earn.token_available_to_stake": "{token} متاح للرهن",
+  "earn.token_is_claimable": "{token} قابل للمطالبة",
+  "earn.token_is_pending": "{token} قيد الانتظار",
+  "earn.token_is_staked": "{token} تم رهنه",
   "earn.up_to_number_in_annual_rewards": "حتى {number} في المكافآت السنوية",
   "earn.updated_daily": "يتم التحديث يوميا",
   "earn.wallet_not_support_stake": "المحفظة المتصلة لا تدعم الرهان. حاول التبديل إلى واحدة أخرى.",
@@ -244,6 +290,8 @@
   "explore.badge_airdrop": "إسقاط جوي",
   "explore.badge_hot": "حار",
   "explore.badge_new": "جديد",
+  "explore.bookmark_at_least": "يجب أن يكون العلامة المرجعية مكونة من حرف واحد على الأقل",
+  "explore.bookmark_exceed": "لا يمكن أن يتجاوز الإشارة المرجعية 24 حرفًا",
   "explore.bookmark_renamed": "تمت إعادة تسمية الإشارة المرجعية",
   "explore.bookmarks": "الإشارات المرجعية",
   "explore.camera_permission": "الكاميرا: لالتقاط الصور أو إجراء مكالمات فيديو.",
@@ -268,6 +316,7 @@
   "explore.default_wallet_settings": "إعدادات المحفظة الافتراضية",
   "explore.disconnect": "قطع الاتصال",
   "explore.dismiss": "رفض",
+  "explore.enter_bookmark_name": "الرجاء إدخال اسم الإشارة المرجعية",
   "explore.excluded_dapps": "التطبيقات اللامركزية المستبعدة",
   "explore.excluded_dapps_description": "انقر بزر الماوس الأيمن على المساحة الفارغة، حدد الخيار أدناه للإستثناء.",
   "explore.explore": "استكشف",
@@ -279,8 +328,11 @@
   "explore.manage_dapp_connections": "إدارة اتصالات dApp",
   "explore.microphone_permission": "الميكروفون: لإدخال الصوت أو المكالمات.",
   "explore.network_issue_detected": "تم اكتشاف مشكلة في الشبكة. يرجى التحقق من اتصالك وتحديث الصفحة.",
+  "explore.new_tab": "تبويب جديد",
+  "explore.no_boomark": "لا توجد إشارات مرجعية بعد",
   "explore.no_dapps_connected": "لا توجد تطبيقات متصلة",
   "explore.no_dapps_connected_message": "لم تقم بالاتصال بأي تطبيقات dApps بعد.",
+  "explore.no_history": "لا توجد تاريخ حتى الآن",
   "explore.open_in_browser": "افتح في المتصفح",
   "explore.options": "خيارات",
   "explore.permission_restriction_alert": "تنبيه بشأن تقييد الإذن",
@@ -339,8 +391,12 @@
   "form.enter_private_key_placeholder": "أدخل مفتاحك الخاص",
   "form.keep_hidden_wallet_label": "حافظ على الوصول",
   "form.keep_hidden_wallet_label_desc": "المحافظ المخفية تُمحى عند إغلاق التطبيق. قم بالتبديل للحفاظ عليها.",
+  "form.optional_indicator": "اختياري",
   "form.private_key_error_invalid": "مفتاح خاص غير صالح",
   "form.rename_error_empty": "الاسم مطلوب",
+  "form__approve_str": "وافق على {amount} {symbol}",
+  "form__priority_fee": "رسوم الأولوية",
+  "form__sats__units": "sats",
   "global.about": "حول",
   "global.account_name": "اسم الحساب",
   "global.accounts": "الحسابات",
@@ -404,6 +460,8 @@
   "global.crypto": "العملات المشفرة",
   "global.current": "الحالي",
   "global.dark": "داكن",
+  "global.date_today": "اليوم",
+  "global.date_yesterday": "أمس",
   "global.default": "الافتراضي",
   "global.delete": "يمسح",
   "global.deny": "ينكر",
@@ -535,6 +593,7 @@
   "global.start_connection": "بدء الاتصال",
   "global.step_str": "الخطوة {step}",
   "global.swap": "تبديل",
+  "global.switch_address": "تغيير العنوان",
   "global.sync_error": "خطأ في المزامنة",
   "global.synced": "متزامن",
   "global.syncing": "جاري المزامنة...",
@@ -639,6 +698,9 @@
   "market.trending": "المُتداول",
   "market.twenty_four_hour_percentage": "٢٤ ساعة %",
   "market.twenty_four_hour_volume": "حجم 24 ساعة",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} مطلوب لرسوم الشبكة.\nيكلف {0} كرسوم شبكة في {1}. قم بتعبئة {0} في حسابك لإجراء المعاملات.",
+  "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "المعاملات التي تحمل نفس الرقم الفريد موجودة بالفعل، يرجى دفع رسوم شبكة أعلى، وإلا قد تفشل المعاملة.",
+  "network__network": "الشبكة",
   "nft.already_collected": "تم جمع هذا الـ NFT بالفعل.",
   "nft.attributes": "السمات",
   "nft.collect_failed ": "فشل جمع NFT، يرجى المحاولة مرة أخرى.",
@@ -721,12 +783,19 @@
   "provider.fee": "$0.16 ",
   "provider.label_fastest": "الأسرع",
   "provider.label_max_received": "تلقى ماكس",
+  "provider.label_min_fee": "الحد الأدنى لرسوم الغاز",
   "provider.label_overall_best": "الأفضل على الإطلاق",
+  "provider.max_amount_required": "الحد الأقصى يتطلب {amount} {token}",
   "provider.min_amount_required": "الحد الأدنى المطلوب {amount} {token}",
   "provider.recommend": "أوصي",
   "provider.route": "الطريق",
   "provider.route_no_information": "المزود ليس لديه حاليًا معلومات عن الطريق. أموالك في أمان.",
   "provider.route_swft": "يرجى العلم أن هذه العملية تستخدم جسر SWFT_BRIDGE للسلسلة المتقاطعة الخاص بجهة ثالثة، والذي ينطوي على تنفيذ مركزي ويحمل المخاطر المرتبطة به.",
+  "provider.route_unable_fetch_price": "غير قادر على جلب السعر",
+  "provider.sort_item_gas": "رسوم الغاز",
+  "provider.sort_item_received": "تم الاستلام",
+  "provider.sort_item_swap_duration": "مدة الاستبدال",
+  "provider.sort_title": "فرز",
   "provider.time": "< 1 دقيقة",
   "provider.title": "اختر المزود",
   "provider.token_not_supported": "الرمز غير مدعوم",
@@ -760,6 +829,7 @@
   "send.check_request_error": "خطأ في طلب الفحص، يرجى التحديث مرة أخرى",
   "send.description_balance_info": "الرصيد لا يتضمن UTXOs المغلقة أو الصغيرة",
   "send.description_frozen_funds_info": "الرصيد لا يتضمن الأموال المجمدة",
+  "send.ens_choose_address_title": "اختر عنوان",
   "send.error_insufficient_balance": "رصيد {token} غير كاف",
   "send.error_minimum_amount": "الحد الأدنى {amount} {token}",
   "send.error_recipient_requires_activation": "المستلم يحتاج إلى {amount} {token} للتفعيل",
@@ -881,11 +951,15 @@
   "slippage_tolerance.description": "الانزلاق التلقائي يحسن الانزلاق بناءً على سيولة البول وحجم التداول، مما يقلل من فشل المعاملات ومخاطر هجمات MEV.",
   "slippage_tolerance.error_message": "يجب أن تكون نسبة التسرب بين 0 إلى 50٪.",
   "slippage_tolerance.input_placeholder": "0.005",
+  "slippage_tolerance.popover": "تسامح الانزلاق هو إعداد لمقدار الانزلاق السعري الذي أنت مستعد لقبوله للتجارة.",
   "slippage_tolerance.switch_auto": "أوتو",
   "slippage_tolerance.switch_custom": "مخصص",
   "slippage_tolerance.title": "تسامح الانزلاق",
   "slippage_tolerance.warning_message_1": "قد يتسبب تسامح الانزلاق العالي في خسارة أصولك.",
-  "slippage_tolerance.warning_message_2": "قد يتسبب تسامح الانزلاق العالي في خسارة أصولك.",
+  "slippage_tolerance.warning_message_2": "قد يؤدي الانزلاق أقل من {number}% إلى فشل التجارة.",
+  "swap_account.from_address": "{addrss}",
+  "swap_account.to_address": "{addrss}",
+  "swap_account.to_address_edit": "{addrss} (تم التعديل)",
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
@@ -894,6 +968,8 @@
   "swap_history.title": "التاريخ",
   "swap_history.transaction_format": "{token_from} → {token_to}",
   "swap_history_detail.date": "التاريخ",
+  "swap_history_detail.delete_confirm": "يمسح",
+  "swap_history_detail.delete_title": "هل أنت متأكد من حذف كل السجلات؟",
   "swap_history_detail.from": "من",
   "swap_history_detail.network_fee": "رسوم الشبكة",
   "swap_history_detail.order_status": "حالة الطلب",
@@ -907,46 +983,67 @@
   "swap_history_detail.swap_duration": "مدة الاستبدال",
   "swap_history_detail.title": "المعاملة",
   "swap_history_detail.to": "إلى",
+  "swap_history_detail.toast_copy": "تم النسخ",
   "swap_history_detail.transaction_hash": "تجزئة المعاملة",
   "swap_history_detail.transaction_price": "سعر المعاملة",
   "swap_history_detail.view_in_browser": "عرض في المتصفح",
   "swap_page.account": "الحساب {number}",
-  "swap_page.alert.account_does_not_support_swap": "الحساب المتصل لا يدعم الاستبدال. حاول مع آخر.",
+  "swap_page.alert.account_does_not_support_swap": "الحساب المتصل لا يدعم {network} الاستبدال. حاول مرة أخرى.",
   "swap_page.alert.fee_exceeds_amount": "رسوم شبكة Est تتجاوز مبلغ الصرف، توخى الحذر عند المتابعة.",
-  "swap_page.alert.minimum_amount": "الحد الأدنى للمبلغ {number} USDT.",
+  "swap_page.alert.maximum_amount": "الحد الأقصى {number} {symbol}.",
+  "swap_page.alert.minimum_amount": "الحد الأدنى للمبلغ {number} {symbol}.",
   "swap_page.alert.network_fee_deducted": "سيتم خصم رسوم الشبكة بالإيثريوم تلقائيًا في الخطوة التالية.",
   "swap_page.alert.no_provider_supports_trade": "لا يدعم أي مزود هذه التجارة.",
   "swap_page.alert.not_best_rate": "المزود الحالي لا يقدم أفضل سعر لهذه الصفقة.",
-  "swap_page.alert.value_drop": "انخفاض القيمة بنسبة {number}%! قد يتسبب تأثير السعر العالي في خسارة أصولك.",
+  "swap_page.alert.value_drop": "انخفاض قيمة {number}! قد يتسبب تأثير السعر العالي في خسارة أصولك.",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "الرصيد: {number}",
+  "swap_page.button_approve_amount": "وافق {number}",
+  "swap_page.button_approve_unlimited": "وافق بلا حدود",
+  "swap_page.button_cross_chain": "جسر",
+  "swap_page.button_fetching_quotes": "جاري جلب الاقتباسات",
+  "swap_page.button_insufficient_balance": "رصيد غير كاف",
+  "swap_page.button_no_enough_fee": "لا يكفي لتغطية رسوم الشبكة",
+  "swap_page.button_no_liquidity": "لا يوجد سيولة لهذه الصفقة",
+  "swap_page.button_wrap": "مغلف",
   "swap_page.from": "من",
   "swap_page.limit": "حد",
   "swap_page.max": "ماكس",
   "swap_page.percentage_change": "(+{number}٪)",
   "swap_page.provider.approve": "موافق",
   "swap_page.provider.approve_amount": "الموافقة على المبلغ",
+  "swap_page.provider.approve_amount_limit": "{value} {token}",
+  "swap_page.provider.approve_amount_un_limit": "غير محدود",
+  "swap_page.provider.custom": "مخصص ({number}%)",
   "swap_page.provider.est_network_fee": "رسوم شبكة Est",
   "swap_page.provider.exchange_rate ": "1 إيث = {number} يو إس دي سي",
   "swap_page.provider.fee_amount": "${number}",
   "swap_page.provider.provider": "مقدم الخدمة",
+  "swap_page.provider.provider_insufficient_liquidity": "سيولة غير كافية",
   "swap_page.provider.slippage_auto": "تلقائي ({number}%)",
   "swap_page.provider.slippage_tolerance": "تسامح الانزلاق",
   "swap_page.swap": "تبديل",
   "swap_page.swap_button": "تبديل",
-  "swap_page.swap_steps": "1. الموافقة → 2. الاستبدال",
+  "swap_page.swap_steps": "1. الموافقة على {tokenSymbol} → 2. التبديل",
   "swap_page.to": "إلى",
   "swap_page.toast.address_generated": "تم إنشاء العنوان",
+  "swap_page.toast.address_generated_fail": "فشل في إنشاء العنوان",
+  "swap_page.toast.approve_canceled": "وافق على الإلغاء",
+  "swap_page.toast.approve_canceled_detail": "{token}",
+  "swap_page.toast.approve_discarded": "تم رفض الموافقة",
+  "swap_page.toast.approve_discarded_detail": "{token}",
   "swap_page.toast.approve_failed": "فشلت الموافقة",
   "swap_page.toast.approve_failed_detail": "{token}",
   "swap_page.toast.approve_successful": "تمت الموافقة بنجاح",
   "swap_page.toast.approve_successful_detail": "{token}",
   "swap_page.toast.swap_failed": "فشل الاستبدال",
-  "swap_page.toast.swap_failed_detail": "{number} إيث → {number} يو إس دي تي",
+  "swap_page.toast.swap_failed_detail": "{number} {tokenSymbol} → {number} {tokenSymbol}",
   "swap_page.toast.swap_successful": "تم التبديل بنجاح",
-  "swap_page.toast.swap_successful_detail": "{number} إيث → {number} يو إس دي تي",
+  "swap_page.toast.swap_successful_detail": "{number} {symbol} → {number} {symbol}",
   "swap_page.usd_value": "${number}",
   "terms_privacy": "الاستخدام يعني الموافقة على <termsTag>الشروط</termsTag> و <privacyTag>الخصوصية</privacyTag> الخاصة بنا",
+  "title__invoice_description": "Invoice description",
+  "title__lnurl_pay": "LNURL Pay",
   "token_selector.empty_content": "الرمز المحدد لا يدعم العبور بين السلاسل إلى هذه الشبكة.",
   "token_selector.empty_title": "غير مدعوم",
   "token_selector.network": "الشبكة",
@@ -961,6 +1058,8 @@
   "token_selector.search_placeholder": "ابحث عن الرمز أو عنوان العقد",
   "token_selector.title": "حدد الرمز",
   "token_selector.unverified_token_warning": "الرمز غير المتحقق أدناه. تقدم بحذر.",
+  "transaction__contract_interaction": "تفاعل العقد",
+  "transaction__transaction_confirm": "تأكيد المعاملة",
   "update.all_other_apps_closed": "تم إغلاق جميع التطبيقات الأخرى من OneKey وأدوات الترقية عبر الويب.",
   "update.all_other_apps_closed_emoji": "تم إغلاق جميع التطبيقات الأخرى من OneKey وأدوات الترقية على الويب. 🆗",
   "update.all_updates_complete": "تم الانتهاء من جميع التحديثات 👏🏻",

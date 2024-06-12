@@ -199,7 +199,8 @@ export function AmountInput({
           </Stack>
         </Stack>
         <SizableText size="$headingXl" pl="$2" numberOfLines={1}>
-          {tokenSelectorTriggerProps?.selectedTokenSymbol || 'Select Token'}
+          {tokenSelectorTriggerProps?.selectedTokenSymbol ||
+            intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>
         {tokenSelectorTriggerProps?.onPress ? (
           <Icon
@@ -213,6 +214,7 @@ export function AmountInput({
       </XStack>
     );
   }, [
+    intl,
     tokenSelectorTriggerProps?.loading,
     tokenSelectorTriggerProps?.onPress,
     tokenSelectorTriggerProps?.selectedNetworkImageUri,

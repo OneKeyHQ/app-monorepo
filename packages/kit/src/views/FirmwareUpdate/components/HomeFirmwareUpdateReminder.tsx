@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useFirmwareUpdatesDetectStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -21,6 +24,7 @@ export function FirmwareUpdateReminderAlert({
   message: string;
   onPress?: () => any;
 }) {
+  const intl = useIntl();
   return (
     <XStack
       px="$5"
@@ -43,13 +47,14 @@ export function FirmwareUpdateReminderAlert({
         {message}
       </SizableText>
       <Button size="small" onPress={onPress}>
-        View
+        {intl.formatMessage({ id: ETranslations.global_view })}
       </Button>
     </XStack>
   );
 }
 
 function HomeFirmwareUpdateReminderCmp() {
+  const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const connectId = activeAccount.device?.connectId;
   const actions = useFirmwareUpdateActions();
@@ -80,9 +85,19 @@ function HomeFirmwareUpdateReminderCmp() {
     if (result?.shouldUpdate) {
       let message = 'New firmware is available';
       if (result?.detectResult?.toVersion) {
-        message = `Firmware ${result?.detectResult?.toVersion} is available`;
+        message = intl.formatMessage(
+          { id: ETranslations.update_firmware_version_available },
+          {
+            version: result?.detectResult?.toVersion,
+          },
+        );
       } else if (result?.detectResult?.toVersionBle) {
-        message = `BLE Firmware ${result?.detectResult?.toVersionBle} is available`;
+        message = intl.formatMessage(
+          { id: ETranslations.update_bluetooth_version_available },
+          {
+            version: result?.detectResult?.toVersionBle,
+          },
+        );
       }
       return (
         <FirmwareUpdateReminderAlert
@@ -94,7 +109,7 @@ function HomeFirmwareUpdateReminderCmp() {
       );
     }
     return null;
-  }, [actions, connectId, result]);
+  }, [intl, actions, connectId, result]);
 
   return (
     <XStack>

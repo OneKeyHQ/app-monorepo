@@ -71,7 +71,7 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
           const { getValues } = getForm() || {};
           if (getValues) {
             const { text } = getValues() as { text: string };
-            return text.trim().toUpperCase() !== 'RESET';
+            return text.trim() !== 'RESET';
           }
           return true;
         },

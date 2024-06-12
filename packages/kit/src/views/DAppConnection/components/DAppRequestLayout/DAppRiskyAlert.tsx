@@ -1,5 +1,9 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Alert, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import type { IAlertType } from '@onekeyhq/components/src/actions/Alert';
@@ -15,6 +19,7 @@ function DAppRiskyAlert({
   origin: string;
   urlSecurityInfo?: IHostSecurity;
 }) {
+  const intl = useIntl();
   const riskStyle = useMemo(() => {
     const defaultStyle = {
       type: 'default',
@@ -85,7 +90,7 @@ function DAppRiskyAlert({
       title={urlSecurityInfo?.alert ?? ''}
       icon={riskStyle.alertIcon as IKeyOfIcons}
       action={{
-        primary: 'Details',
+        primary: intl.formatMessage({ id: ETranslations.global_details }),
         onPrimaryPress: () => {
           Dialog.show({
             title: origin,

@@ -20,6 +20,7 @@ import {
   useBrowserAction,
   useBrowserBookmarkAction,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
@@ -51,7 +52,9 @@ function BookmarkListModal() {
   const onRename = useCallback(
     (item: IBrowserBookmark) => {
       Dialog.confirm({
-        title: 'Rename',
+        title: intl.formatMessage({
+          id: ETranslations.explore_rename,
+        }),
         renderContent: (
           <Dialog.Form
             formProps={{
@@ -63,15 +66,21 @@ function BookmarkListModal() {
               rules={{
                 required: {
                   value: true,
-                  message: 'Please enter the bookmark name',
+                  message: intl.formatMessage({
+                    id: ETranslations.explore_enter_bookmark_name,
+                  }),
                 },
                 minLength: {
                   value: 1,
-                  message: 'Bookmark must be at least 1 characters',
+                  message: intl.formatMessage({
+                    id: ETranslations.explore_bookmark_at_least,
+                  }),
                 },
                 maxLength: {
                   value: 24,
-                  message: 'Bookmark cannot exceed 24 characters',
+                  message: intl.formatMessage({
+                    id: ETranslations.explore_bookmark_exceed,
+                  }),
                 },
               }}
             >
@@ -85,7 +94,9 @@ function BookmarkListModal() {
             void modifyBrowserBookmark({ ...item, title: form.name });
           }
           Toast.success({
-            title: 'Bookmark Renamed',
+            title: intl.formatMessage({
+              id: ETranslations.explore_removed_success,
+            }),
           });
           setTimeout(() => {
             void run();
@@ -93,7 +104,7 @@ function BookmarkListModal() {
         },
       });
     },
-    [modifyBrowserBookmark, run],
+    [modifyBrowserBookmark, run, intl],
   );
 
   const removeBookmarkFlagRef = useRef(false);
@@ -138,15 +149,26 @@ function BookmarkListModal() {
           setIsEditing((prev) => !prev);
         }}
       >
-        {isEditing ? 'Done' : 'Edit'}
+        {isEditing
+          ? intl.formatMessage({
+              id: ETranslations.global_done,
+            })
+          : intl.formatMessage({
+              id: ETranslations.global_edit,
+            })}
       </Button>
     ),
-    [isEditing],
+    [isEditing, intl],
   );
 
   return (
     <Page>
-      <Page.Header title="Bookmarks" headerRight={headerRight} />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.explore_bookmarks,
+        })}
+        headerRight={headerRight}
+      />
       <Page.Body>
         <SortableListView
           data={dataSource}
@@ -175,7 +197,9 @@ function BookmarkListModal() {
             >
               {isEditing ? (
                 <ListItem.IconButton
-                  title="Remove"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_remove,
+                  })}
                   key="remove"
                   animation="quick"
                   enterStyle={{
@@ -191,7 +215,7 @@ function BookmarkListModal() {
                     void removeBrowserBookmark(item.url);
                     Toast.success({
                       title: intl.formatMessage({
-                        id: 'msg__bookmark_removed',
+                        id: ETranslations.explore_removed_success,
                       }),
                     });
                     void run();
@@ -219,7 +243,9 @@ function BookmarkListModal() {
               {isEditing ? (
                 <XStack space="$6">
                   <ListItem.IconButton
-                    title="Rename"
+                    title={intl.formatMessage({
+                      id: ETranslations.explore_rename,
+                    })}
                     key="rename"
                     animation="quick"
                     enterStyle={{
