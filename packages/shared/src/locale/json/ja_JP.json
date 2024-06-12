@@ -191,7 +191,7 @@
   "explore.connected_accounts": "連携済みアカウント",
   "explore.dapp_connections": "dApp接続",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "今日",
+  "explore.date_today": "今日",
   "explore.date_yesterday": "昨日",
   "explore.default_wallet_canceled": "OneKeyデフォルトキャンセル",
   "explore.default_wallet_set": "OneKeyは現在、あなたのデフォルトのウォレットです。",

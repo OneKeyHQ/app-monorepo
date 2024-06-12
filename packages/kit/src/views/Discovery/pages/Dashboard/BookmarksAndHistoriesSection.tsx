@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
@@ -12,6 +13,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 
@@ -135,6 +137,7 @@ export function BookmarksAndHistoriesSection({
   onPressMore: (isHistoriesView: boolean) => void;
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
+  const intl = useIntl();
   const [isHistoriesView, setIsHistoriesView] = useState(false);
 
   const dataSource = useMemo<IBrowserBookmark[] | IBrowserHistory[]>(
@@ -153,13 +156,13 @@ export function BookmarksAndHistoriesSection({
           selected={!isHistoriesView}
           onPress={() => setIsHistoriesView(false)}
         >
-          Bookmarks
+          {intl.formatMessage({ id: ETranslations.explore_bookmarks })}
         </DashboardSectionHeader.Heading>
         <DashboardSectionHeader.Heading
           selected={isHistoriesView}
           onPress={() => setIsHistoriesView(true)}
         >
-          History
+          {intl.formatMessage({ id: ETranslations.explore_history })}
         </DashboardSectionHeader.Heading>
         {dataSource.length > 0 ? (
           <DashboardSectionHeader.Button
@@ -167,7 +170,7 @@ export function BookmarksAndHistoriesSection({
               onPressMore(isHistoriesView);
             }}
           >
-            See All
+            {intl.formatMessage({ id: ETranslations.explore_see_all })}
           </DashboardSectionHeader.Button>
         ) : null}
       </DashboardSectionHeader>

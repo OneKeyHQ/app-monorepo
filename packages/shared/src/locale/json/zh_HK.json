@@ -191,7 +191,7 @@
   "explore.connected_accounts": "Connected Accounts",
   "explore.dapp_connections": "dApp Connections",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "Today",
+  "explore.date_today": "Today",
   "explore.date_yesterday": "Yesterday",
   "explore.default_wallet_canceled": "OneKey Default Canceled",
   "explore.default_wallet_set": "OneKey is your default wallet now.",

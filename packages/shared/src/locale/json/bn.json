@@ -191,7 +191,7 @@
   "explore.connected_accounts": "সংযুক্ত অ্যাকাউন্টসমূহ",
   "explore.dapp_connections": "dApp সংযোগ",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "আজ",
+  "explore.date_today": "আজ",
   "explore.date_yesterday": "গতকাল",
   "explore.default_wallet_canceled": "OneKey ডিফল্ট বাতিল করা হয়েছে",
   "explore.default_wallet_set": "OneKey এখন আপনার ডিফল্ট ওয়ালেট।",

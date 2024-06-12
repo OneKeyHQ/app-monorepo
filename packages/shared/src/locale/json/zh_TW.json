@@ -191,7 +191,7 @@
   "explore.connected_accounts": "已連接的帳戶",
   "explore.dapp_connections": "dApp 連接",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "今天",
+  "explore.date_today": "今天",
   "explore.date_yesterday": "昨天",
   "explore.default_wallet_canceled": "已取消 OneKey 作為默認錢包",
   "explore.default_wallet_set": "OneKey 現在是您的預設錢包。",

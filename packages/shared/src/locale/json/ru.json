@@ -191,7 +191,7 @@
   "explore.connected_accounts": "Подключенные аккаунты",
   "explore.dapp_connections": "Подключения dApp",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "Сегодня",
+  "explore.date_today": "Сегодня",
   "explore.date_yesterday": "Вчера",
   "explore.default_wallet_canceled": "Отмена по умолчанию OneKey",
   "explore.default_wallet_set": "OneKey теперь ваш кошелек по умолчанию.",

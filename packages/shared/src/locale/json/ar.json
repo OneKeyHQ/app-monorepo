@@ -191,7 +191,7 @@
   "explore.connected_accounts": "الحسابات المتصلة",
   "explore.dapp_connections": "اتصالات الـdApp",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "اليوم",
+  "explore.date_today": "اليوم",
   "explore.date_yesterday": "أمس",
   "explore.default_wallet_canceled": "تم إلغاء الافتراضي OneKey",
   "explore.default_wallet_set": "OneKey هو محفظتك الافتراضية الآن.",

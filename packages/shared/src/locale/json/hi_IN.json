@@ -191,7 +191,7 @@
   "explore.connected_accounts": "जुड़े खाते",
   "explore.dapp_connections": "dApp संपर्क",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "आज",
+  "explore.date_today": "आज",
   "explore.date_yesterday": "कल",
   "explore.default_wallet_canceled": "OneKey डिफ़ॉल्ट रद्द कर दिया गया",
   "explore.default_wallet_set": "OneKey अब आपका डिफ़ॉल्ट वॉलेट है।",

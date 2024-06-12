@@ -191,7 +191,7 @@
   "explore.connected_accounts": "연결된 계정",
   "explore.dapp_connections": "dApp 연결",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "오늘",
+  "explore.date_today": "오늘",
   "explore.date_yesterday": "어제",
   "explore.default_wallet_canceled": "OneKey 기본 취소",
   "explore.default_wallet_set": "OneKey이(가) 이제 기본 지갑입니다.",

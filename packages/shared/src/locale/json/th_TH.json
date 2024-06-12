@@ -191,7 +191,7 @@
   "explore.connected_accounts": "บัญชีที่เชื่อมต่อ",
   "explore.dapp_connections": "การเชื่อมต่อ dApp",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "วันนี้",
+  "explore.date_today": "วันนี้",
   "explore.date_yesterday": "เมื่อวาน",
   "explore.default_wallet_canceled": "ยกเลิก OneKey ค่าเริ่มต้นแล้ว",
   "explore.default_wallet_set": "OneKey เป็นกระเป๋าเงินเริ่มต้นของคุณตอนนี้",

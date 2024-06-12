@@ -1,6 +1,8 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Empty,
   Icon,
@@ -12,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import { ImageSource } from '@onekeyhq/components/src/primitives/Image/ImageSource';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
@@ -50,6 +53,7 @@ export function ExploreView({
   networkList: string[];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
+  const intl = useIntl();
   const media = useMedia();
   const chunkSize = useMemo(() => {
     if (!media.gtMd) {
@@ -93,7 +97,12 @@ export function ExploreView({
   );
   const Content = useMemo(() => {
     if (isEmpty) {
-      return <Empty icon="SearchOutline" title="No Results" />;
+      return (
+        <Empty
+          icon="SearchOutline"
+          title={intl.formatMessage({ id: ETranslations.global_no_results })}
+        />
+      );
     }
     if (isLoading) {
       return renderSkeletonView(
@@ -114,6 +123,7 @@ export function ExploreView({
       selectedCategory,
     );
   }, [
+    intl,
     isEmpty,
     isLoading,
     dAppList?.data,

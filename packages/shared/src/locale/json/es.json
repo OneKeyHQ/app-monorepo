@@ -191,7 +191,7 @@
   "explore.connected_accounts": "Cuentas Conectadas",
   "explore.dapp_connections": "Conexiones dApp",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "Hoy",
+  "explore.date_today": "Hoy",
   "explore.date_yesterday": "Ayer",
   "explore.default_wallet_canceled": "OneKey Predeterminado Cancelado",
   "explore.default_wallet_set": "OneKey es ahora tu billetera predeterminada.",

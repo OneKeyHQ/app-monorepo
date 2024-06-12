@@ -191,7 +191,7 @@
   "explore.connected_accounts": "Підключені акаунти",
   "explore.dapp_connections": "З'єднання dApp",
   "explore.date_format_short": "{month_abbr} {day} {year}",
-  "explore.date_today ": "Сьогодні",
+  "explore.date_today": "Сьогодні",
   "explore.date_yesterday": "Вчора",
   "explore.default_wallet_canceled": "Скасування за замовчуванням OneKey",
   "explore.default_wallet_set": "OneKey тепер є вашим гаманцем за замовчуванням.",

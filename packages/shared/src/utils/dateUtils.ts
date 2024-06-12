@@ -15,6 +15,8 @@ import { getDefaultLocale } from '../locale/getDefaultLocale';
 import type { ILocaleSymbol } from '../locale';
 import type { Duration } from 'date-fns';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 const parseLocal = (localeSymbol: ILocaleSymbol) => {
   let locale = localeSymbol;
   if (localeSymbol === 'system') {
@@ -144,9 +146,11 @@ export function formatDuration(duration: Duration) {
 export function formatRelativeDate(date: Date) {
   const formatRelativeLocale: Record<string, string> = {
     yesterday: `${appLocale.intl.formatMessage({
-      id: 'content__yesterday',
+      id: ETranslations.explore_date_yesterday,
     })}`,
-    today: `${appLocale.intl.formatMessage({ id: 'content__today' })}`,
+    today: `${appLocale.intl.formatMessage({
+      id: ETranslations.explore_date_today,
+    })}`,
     other: 'LLL dd yyyy',
   };
 

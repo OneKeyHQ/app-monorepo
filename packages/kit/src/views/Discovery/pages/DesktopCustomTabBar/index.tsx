@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Divider,
@@ -30,6 +32,8 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
 import { useDesktopNewWindow } from '../../hooks/useDesktopNewWindow';
 import { useShortcuts } from '../../hooks/useShortcuts';
@@ -43,6 +47,7 @@ import type {
 
 const ITEM_HEIGHT = 32;
 function DesktopCustomTabBar() {
+  const intl = useIntl();
   // register desktop shortcuts for browser tab
   useShortcuts();
   // register desktop new window event
@@ -236,7 +241,7 @@ function DesktopCustomTabBar() {
       <XStack ai="center" my="$1">
         <Divider m="$1.5" testID="pin-tab-divider" />
         <Button size="small" onPress={closeAllWebTabs}>
-          Clear
+          {intl.formatMessage({ id: ETranslations.global_clear })}
         </Button>
       </XStack>
       {/* New Tab */}

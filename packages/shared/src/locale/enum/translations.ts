@@ -191,7 +191,7 @@ export enum ETranslations {
   explore_connected_accounts = 'explore.connected_accounts',
   explore_dapp_connections = 'explore.dapp_connections',
   explore_date_format_short = 'explore.date_format_short',
-  explore_date_today = 'explore.date_today ',
+  explore_date_today = 'explore.date_today',
   explore_date_yesterday = 'explore.date_yesterday',
   explore_default_wallet_canceled = 'explore.default_wallet_canceled',
   explore_default_wallet_set = 'explore.default_wallet_set',
