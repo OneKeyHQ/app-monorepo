@@ -56,6 +56,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   PERMISSIONS,
   RESULTS,
+  check,
   openSettings,
   request,
   requestMultiple,
@@ -441,8 +442,12 @@ function ConnectByUSBOrBLE({
 
   const checkBLEPermission = useCallback(async () => {
     if (platformEnv.isNativeIOS) {
-      const status = await request(PERMISSIONS.IOS.BLUETOOTH);
-      return status === RESULTS.GRANTED;
+      const permissionStatus = await check(PERMISSIONS.IOS.BLUETOOTH);
+      if (permissionStatus !== RESULTS.GRANTED) {
+        const status = await request(PERMISSIONS.IOS.BLUETOOTH);
+        return status === RESULTS.GRANTED;
+      }
+      return true;
     }
 
     if (platformEnv.isNativeAndroid) {
