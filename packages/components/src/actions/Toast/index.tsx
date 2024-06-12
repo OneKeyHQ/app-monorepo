@@ -59,20 +59,25 @@ const RenderLines = ({
     <YStack>
       {lines.map((v, index) =>
         index === 0 ? (
-          <XStack alignItems="center" key={index} space="$1.5">
+          <XStack
+            $platform-native={{
+              justifyContent: 'center',
+            }}
+            alignItems="center"
+            key={index}
+            space="$1.5"
+          >
             {icon}
-            <SizableText
-              selectable={false}
-              size={size}
-              wordWrap="break-word"
-              width="100%"
-            >
+            <SizableText selectable={false} size={size} wordWrap="break-word">
               {v}
             </SizableText>
           </XStack>
         ) : (
           <SizableText
             selectable={false}
+            $platform-native={{
+              textAlign: 'center',
+            }}
             size={size}
             wordWrap="break-word"
             width="100%"
