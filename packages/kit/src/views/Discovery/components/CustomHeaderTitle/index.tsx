@@ -12,6 +12,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 interface ICustomHeaderTitleProps {
   handleSearchBarPress: (url: string) => void;
 }
@@ -67,7 +69,11 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
         numberOfLines={1}
         testID="explore-index-search"
       >
-        {displayUrl ? tab?.url : intl.formatMessage({ id: 'form__search' })}
+        {displayUrl
+          ? tab?.url
+          : intl.formatMessage({
+              id: ETranslations.explore_search_placeholder,
+            })}
       </SizableText>
       {media.gtMd ? (
         <Shortcut>

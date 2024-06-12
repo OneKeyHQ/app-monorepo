@@ -37,6 +37,8 @@ import {
 import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
 import type WebView from 'react-native-webview';
@@ -160,8 +162,12 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
       }
       Toast.success({
         title: isBookmark
-          ? intl.formatMessage({ id: 'msg__bookmark_added' })
-          : intl.formatMessage({ id: 'msg__bookmark_removed' }),
+          ? intl.formatMessage({
+              id: ETranslations.explore_toast_bookmark_added,
+            })
+          : intl.formatMessage({
+              id: ETranslations.explore_toast_bookmark_removed,
+            }),
       });
     },
     [intl, addBrowserBookmark, removeBrowserBookmark, tab?.url, tab?.title],
@@ -172,8 +178,8 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
       setPinnedTab({ id, pinned });
       Toast.success({
         title: pinned
-          ? intl.formatMessage({ id: 'msg__pinned' })
-          : intl.formatMessage({ id: 'msg__unpinned' }),
+          ? intl.formatMessage({ id: ETranslations.explore_toast_pinned })
+          : intl.formatMessage({ id: ETranslations.explore_toast_unpinned }),
       });
     },
     [setPinnedTab, id, intl],
