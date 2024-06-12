@@ -33,7 +33,7 @@ export const DevSettingsSection = () => {
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
-      title: 'Disable the dev mode',
+      title: '关闭开发者模式',
       onConfirm: () => {
         void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
       },
