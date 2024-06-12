@@ -13,9 +13,9 @@ import { DEFAULT_SEQNUMBER } from './constant';
 import { UnspentOutput } from './types';
 
 import type {
-  SubmitTransactionRequest,
-  TransactionInput,
-  TransactionOutput,
+  IKaspaSubmitTransactionRequest,
+  IKaspaTransactionInput,
+  IKaspaTransactionOutput,
 } from './types';
 import type { IEncodedTxKaspa, IKaspaSigner } from '../types';
 import type { Script } from '@kaspa/core-lib';
@@ -272,11 +272,11 @@ export function transactionFromString(hex: string): Transaction {
 
 export function submitTransactionFromString(
   hex: string,
-): SubmitTransactionRequest {
+): IKaspaSubmitTransactionRequest {
   const tx = new Transaction(hex);
 
   const { nLockTime: lockTime, version } = tx;
-  const inputs: TransactionInput[] = tx.inputs.map(
+  const inputs: IKaspaTransactionInput[] = tx.inputs.map(
     (input: Transaction.Input) => ({
       previousOutpoint: {
         transactionId: input.prevTxId.toString('hex'),
@@ -288,7 +288,7 @@ export function submitTransactionFromString(
     }),
   );
 
-  const outputs: TransactionOutput[] = tx.outputs.map(
+  const outputs: IKaspaTransactionOutput[] = tx.outputs.map(
     (output: Transaction.Output) => ({
       amount: output.satoshis,
       scriptPublicKey: {

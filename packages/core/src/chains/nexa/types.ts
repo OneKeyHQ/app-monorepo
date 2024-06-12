@@ -14,7 +14,7 @@ export type IEncodedTxNexa = {
   allUtxos?: Array<INexaUTXO>;
 };
 
-export enum NexaSignature {
+export enum ENexaSignature {
   SIGHASH_NEXA_ALL = 0x00,
   SIGHASH_ALL = 0x01,
   SIGHASH_NONE = 0x02,
@@ -29,7 +29,7 @@ export interface INexaInputSignature {
   outputIndex: number;
   inputIndex: number;
   signature: Buffer;
-  sigtype: NexaSignature;
+  sigtype: ENexaSignature;
   sequenceNumber: number;
   scriptBuffer: Buffer;
   amount: BN;
@@ -49,4 +49,3 @@ export type INexaUTXO = {
   address: string;
   sequenceNumber?: number;
 };
-

@@ -240,8 +240,8 @@ export class KeyringHd extends KeyringHdBase {
             ...account,
             address: accountAddress,
             path: btcPath,
-            relPaths: ['0/0'],
           },
+          relPaths: ['0/0'],
           password,
           credentials,
           btcExtraInfo: {

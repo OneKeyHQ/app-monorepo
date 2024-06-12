@@ -1,6 +1,7 @@
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -100,11 +101,13 @@ class ServiceV4Migration extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async checkShouldMigrateV4() {
     return true;
   }
 
   @backgroundMethod()
+  @toastIfError()
   async prepareMigration(): Promise<IV4MigrationPayload> {
     this.migrationPayload = undefined;
     let migratePasswordOk = false;
@@ -140,16 +143,28 @@ class ServiceV4Migration extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async revealV4HdMnemonic({ hdWalletId }: { hdWalletId: string }) {
     return this.migrationAccount.revealV4HdMnemonic({ hdWalletId });
   }
 
   @backgroundMethod()
-  async revealV4ImportedPrivateKey({ accountId }: { accountId: string }) {
-    return this.migrationAccount.revealV4ImportedPrivateKey({ accountId });
+  @toastIfError()
+  async revealV4ImportedPrivateKey({
+    accountId,
+    password,
+  }: {
+    accountId: string;
+    password?: string;
+  }) {
+    return this.migrationAccount.revealV4ImportedPrivateKey({
+      accountId,
+      password,
+    });
   }
 
   @backgroundMethod()
+  @toastIfError()
   async startV4MigrationFlow() {
     const wallets = this.migrationPayload?.wallets || [];
     // **** migrate accounts

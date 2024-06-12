@@ -1,47 +1,47 @@
-export interface RelayerPaths {
+export interface ICosmosRelayerPaths {
   chain_id: string;
-  paths: Path[];
+  paths: ICosmosPath[];
 }
 
-export interface Path {
+export interface ICosmosPath {
   channel_id: string;
-  port_id: PortID;
-  channel_state: ChannelState;
+  port_id: ECosmosPortID;
+  channel_state: ECosmosChannelState;
   counter_party: {
     channel_id: string;
     port_id: string;
-    channel_state: ChannelState;
+    channel_state: ECosmosChannelState;
   };
   auth: boolean;
   stats: {
-    current: Current;
-    past: Current;
+    current: ICosmosCurrent;
+    past: ICosmosCurrent;
   };
   created_at: Date | null;
 }
 
-export enum ChannelState {
+export enum ECosmosChannelState {
   StateClosed = 'STATE_CLOSED',
   StateOpen = 'STATE_OPEN',
   StateTryopen = 'STATE_TRYOPEN',
 }
 
-export enum PortID {
+export enum ECosmosPortID {
   Icahost = 'icahost',
   Transfer = 'transfer',
 }
 
-export interface Current {
-  tx_num: TxNum;
-  vol: TxNum;
+export interface ICosmosCurrent {
+  tx_num: ICosmosTxNum;
+  vol: ICosmosTxNum;
 }
 
-export interface TxNum {
+export interface ICosmosTxNum {
   transfer: number | null;
   receive: number | null;
 }
 
-export interface Cw20AssetInfo {
+export interface ICosmosCw20AssetInfo {
   id: number;
   chain: string;
   contract_address: string;
@@ -53,7 +53,7 @@ export interface Cw20AssetInfo {
   coingecko_id: string;
 }
 
-export interface ContractsInfo {
+export interface ICosmosContractsInfo {
   tx_hash: string;
   code_id: number;
   creator: string;
@@ -87,12 +87,12 @@ export interface ContractsInfo {
   last_executed_at: Date;
 }
 
-export interface AssetInfo {
+export interface ICosmosAssetInfo {
   chain: string;
   denom: string;
-  type: Type;
+  type: ECosmosType;
   base_denom: string;
-  base_type: Type;
+  base_type: ECosmosType;
   dp_denom: string;
   origin_chain: string;
   decimal: number;
@@ -110,7 +110,7 @@ export interface AssetInfo {
   contract?: string;
 }
 
-export enum Type {
+export enum ECosmosType {
   // eslint-disable-next-line spellcheck/spell-checker
   Erc20 = 'erc20',
   Native = 'native',
@@ -119,12 +119,12 @@ export enum Type {
   Bridge = 'bridge',
 }
 
-export interface Transaction {
-  header: Header;
-  data: Data;
+export interface ICosmosTransaction {
+  header: ICosmosHeader;
+  data: ICosmosData;
 }
 
-export interface Data {
+export interface ICosmosData {
   height: string;
   txhash: string;
   codespace: string;
@@ -133,66 +133,66 @@ export interface Data {
   info: string;
   gas_wanted: string;
   gas_used: string;
-  tx: Tx;
+  tx: ICosmosTx;
   timestamp: string;
 }
 
-export interface Tx {
+export interface ICosmosTx {
   '@type': string;
-  body: Body;
-  auth_info: AuthInfo;
+  body: ICosmosBody;
+  auth_info: ICosmosAuthInfo;
   signatures: string[];
 }
 
-export interface AuthInfo {
-  signer_infos: SignerInfo[];
-  fee: Fee;
+export interface ICosmosAuthInfo {
+  signer_infos: ICosmosSignerInfo[];
+  fee: ICosmosFee;
 }
 
-export interface Fee {
-  amount: Amount[];
+export interface ICosmosFee {
+  amount: ICosmosAmount[];
   gas_limit: string;
   payer: string;
   granter: string;
 }
 
-export interface Amount {
+export interface ICosmosAmount {
   denom: string;
   amount: string;
 }
 
-export interface SignerInfo {
-  public_key: PublicKey;
-  mode_info: ModeInfo;
+export interface ICosmosSignerInfo {
+  public_key: ICosmosPublicKey;
+  mode_info: ICosmosModeInfo;
   sequence: string;
 }
 
-export interface ModeInfo {
-  single: Single;
+export interface ICosmosModeInfo {
+  single: ICosmosSingle;
 }
 
-export interface Single {
+export interface ICosmosSingle {
   mode: string;
 }
 
-export interface PublicKey {
+export interface ICosmosPublicKey {
   '@type': string;
   key: string;
 }
 
-export interface Body {
-  messages: Message[];
+export interface ICosmosBody {
+  messages: ICosmosMessage[];
   memo: string;
   timeout_height: string;
   extension_options: any[];
   non_critical_extension_options: any[];
 }
 
-export interface Message {
+export interface ICosmosMessage {
   '@type': string;
 }
 
-export interface Header {
+export interface ICosmosHeader {
   id: number;
   chain_id: string;
   block_id: number;

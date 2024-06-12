@@ -27,13 +27,7 @@ export class KeyringImported extends KeyringImportedBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const result = await this.baseExportAccountSecretKeys(params);
-    if (result.privateKey) {
-      result.privateKey = `${hexUtils
-        .stripHexPrefix(result.privateKey)
-        .toUpperCase()}`;
-    }
-    return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(

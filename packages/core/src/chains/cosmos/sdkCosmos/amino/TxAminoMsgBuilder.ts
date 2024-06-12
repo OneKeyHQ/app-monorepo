@@ -2,11 +2,11 @@ import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
 import { SignDoc, TxBody, TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { MsgExecuteContract } from 'cosmjs-types/cosmwasm/wasm/v1/tx';
 
-import { MessageType } from '../message';
+import { ECosmosMessageType } from '../message';
 
 import { defaultAminoMsgOpts } from './types';
 
-import type { StdMsg } from './types';
+import type { ICosmosStdMsg } from './types';
 import type { ITxMsgBuilder } from '../ITxMsgBuilder';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 import type { Any } from 'cosmjs-types/google/protobuf/any';
@@ -37,7 +37,7 @@ export function makeMsgSend(
   denom: string,
 ): Any {
   return {
-    typeUrl: MessageType.SEND,
+    typeUrl: ECosmosMessageType.SEND,
     value: MsgSend.encode(
       MsgSend.fromPartial({
         fromAddress,
@@ -76,7 +76,7 @@ export function makeMsgExecuteContract(
   funds?: Array<Coin>,
 ): Any {
   return {
-    typeUrl: MessageType.EXECUTE_CONTRACT,
+    typeUrl: ECosmosMessageType.EXECUTE_CONTRACT,
     value: MsgExecuteContract.encode(
       MsgExecuteContract.fromPartial({
         sender,
@@ -95,7 +95,7 @@ export function makeTerraMsgExecuteContract(
   funds?: Array<Coin>,
 ): Any {
   return {
-    typeUrl: MessageType.TERRA_EXECUTE_CONTRACT,
+    typeUrl: ECosmosMessageType.TERRA_EXECUTE_CONTRACT,
     value: MsgExecuteContract.encode(
       MsgExecuteContract.fromPartial({
         sender,
@@ -144,7 +144,7 @@ export class TxAminoMsgBuilder implements ITxMsgBuilder {
     toAddress: string,
     value: string,
     denom: string,
-  ): StdMsg {
+  ): ICosmosStdMsg {
     return {
       type: defaultAminoMsgOpts.send.native.type,
       value: {

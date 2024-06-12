@@ -1,7 +1,7 @@
 /* eslint-disable no-bitwise */
 import { soliditySha3 } from 'web3-utils';
 
-import { MoneroNetTypeEnum } from '../moneroUtil/moneroUtilTypes';
+import { EMoneroNetTypeEnum } from '../moneroUtil/moneroUtilTypes';
 
 const fromHexString = (hexString: string) =>
   new Uint8Array(
@@ -62,19 +62,19 @@ export const cnFastHash = (data: Uint8Array) => {
 };
 
 export const pubKeysToAddress = (
-  net: MoneroNetTypeEnum,
+  net: EMoneroNetTypeEnum,
   isSubaddress: boolean,
   publicSpendKey: Uint8Array,
   publicViewKey: Uint8Array,
 ) => {
   let prefix = '';
-  if (net === MoneroNetTypeEnum.MainNet) {
+  if (net === EMoneroNetTypeEnum.MainNet) {
     prefix = '12';
     if (isSubaddress) prefix = '2A';
-  } else if (net === MoneroNetTypeEnum.TestNet) {
+  } else if (net === EMoneroNetTypeEnum.TestNet) {
     prefix = '35';
     if (isSubaddress) prefix = '3F';
-  } else if (net === MoneroNetTypeEnum.StageNet) {
+  } else if (net === EMoneroNetTypeEnum.StageNet) {
     prefix = '18';
     if (isSubaddress) prefix = '24';
   }

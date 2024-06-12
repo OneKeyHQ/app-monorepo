@@ -828,6 +828,7 @@ export default class VaultBtc extends VaultBase {
   }): Promise<{
     account: ICoreApiSignAccount;
     btcExtraInfo: ICoreApiSignBtcExtraInfo;
+    relPaths?: string[]; // used for get privateKey of other utxo address
   }> {
     const account = await this.getAccount();
 
@@ -867,12 +868,9 @@ export default class VaultBtc extends VaultBase {
       btcExtraInfo.nonWitnessPrevTxs = nonWitnessPrevTxs;
     }
 
-    const signerAccount: ICoreApiSignAccount = {
-      ...account,
-      relPaths,
-    };
+    const signerAccount: ICoreApiSignAccount = account;
 
-    return { btcExtraInfo, account: signerAccount };
+    return { btcExtraInfo, account: signerAccount, relPaths };
   }
 
   override getPrivateKeyFromImported(params: {

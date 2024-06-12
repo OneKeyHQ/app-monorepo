@@ -11,6 +11,7 @@ import {
   revealableSeedFromMnemonic,
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
+import type { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import type { IAirGapMultiAccounts } from '@onekeyhq/qr-wallet-sdk';
 import {
   EAirGapURType,
@@ -544,9 +545,11 @@ class ServiceAccount extends ServiceBase {
   async exportAccountSecretKeys({
     accountId,
     networkId,
+    keyType,
   }: {
     accountId: string;
     networkId: string;
+    keyType: ECoreApiExportedSecretKeyType;
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const { password } =
@@ -556,10 +559,7 @@ class ServiceAccount extends ServiceBase {
       });
     return vault.keyring.exportAccountSecretKeys({
       password,
-      publicKey: true,
-      privateKey: true,
-      xprvt: true,
-      xpub: true,
+      keyType,
     });
   }
 
@@ -595,11 +595,13 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     name,
+    skipAddIfNotEqualToAddress,
   }: {
     name?: string;
     credential: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
+    skipAddIfNotEqualToAddress?: string;
   }) {
     const walletId = WALLET_TYPE_IMPORTED;
     const vault = await vaultFactory.getWalletOnlyVault({
@@ -638,6 +640,20 @@ class ServiceAccount extends ServiceBase {
 
     // addImportedAccount
     const accounts = await vault.keyring.prepareAccounts(params);
+
+    if (
+      skipAddIfNotEqualToAddress &&
+      accounts.length === 1 &&
+      accounts?.[0]?.address &&
+      accounts?.[0]?.address !== skipAddIfNotEqualToAddress
+    ) {
+      return {
+        networkId,
+        walletId,
+        accounts: [],
+      };
+    }
+
     await localDb.addAccountsToWallet({
       walletId,
       accounts,

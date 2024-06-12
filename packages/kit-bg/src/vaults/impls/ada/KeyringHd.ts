@@ -1,7 +1,5 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { decrypt } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -28,20 +26,7 @@ export class KeyringHd extends KeyringHdBase {
   override async exportAccountSecretKeys(
     params: IExportAccountSecretKeysParams,
   ): Promise<IExportAccountSecretKeysResult> {
-    const { password } = params;
-    const result: IExportAccountSecretKeysResult = {};
-    const account = await this.vault.getAccount();
-    const credentials = await this.baseGetCredentialsInfo({ password });
-
-    if (params.xprvt) {
-      const xprv = await this.coreApi.getExportedCredentialHd({
-        password,
-        account,
-        hdCredential: checkIsDefined(credentials.hd),
-      });
-      result.xprvt = xprv;
-    }
-    return result;
+    return this.baseExportAccountSecretKeys(params);
   }
 
   override async prepareAccounts(
