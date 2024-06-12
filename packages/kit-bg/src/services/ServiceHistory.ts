@@ -283,6 +283,11 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async clearLocalHistory() {
+    return this.backgroundApi.simpleDb.localHistory.clearLocalHistory();
+  }
+
+  @backgroundMethod()
   public async getAccountLocalHistoryConfirmedTxs(params: {
     networkId: string;
     accountId: string;

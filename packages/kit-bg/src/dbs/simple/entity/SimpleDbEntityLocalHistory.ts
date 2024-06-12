@@ -184,6 +184,14 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     return null;
   }
 
+  @backgroundMethod()
+  async clearLocalHistory() {
+    return this.setRawData({
+      pendingTxs: [],
+      confirmedTxs: [],
+    });
+  }
+
   _getAccountLocalHistoryTxs(params: {
     accountId: string;
     networkId: string;
