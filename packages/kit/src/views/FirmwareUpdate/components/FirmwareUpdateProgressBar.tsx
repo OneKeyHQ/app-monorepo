@@ -258,12 +258,16 @@ export function FirmwareUpdateProgressBar({
         {
           type: [EFirmwareUpdateTipMessages.AutoRebootToBootloader],
           progress: () => 10,
-          desc: () => `Reboot to bootloader mode`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_reboot_to_bootloader_mode,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.GoToBootloaderSuccess],
           progress: () => 12,
-          desc: () => `Reboot success, downloading`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_reboot_success }),
         },
         {
           type: [
@@ -271,7 +275,8 @@ export function FirmwareUpdateProgressBar({
             EFirmwareUpdateTipMessages.DownloadLatestBootloaderResource,
           ],
           progress: () => 14,
-          desc: () => `Downloading`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_downloading }),
         },
         {
           type: [
@@ -279,12 +284,14 @@ export function FirmwareUpdateProgressBar({
             EFirmwareUpdateTipMessages.DownloadLatestBootloaderResourceSuccess,
           ],
           progress: () => 20,
-          desc: () => `Download success`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_download_success }),
         },
         {
           type: [EFirmwareUpdateTipMessages.FirmwareEraseSuccess],
           progress: () => 25,
-          desc: () => `Transferring data`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_transferring_data }),
         },
         {
           type: [
@@ -304,9 +311,13 @@ export function FirmwareUpdateProgressBar({
           },
           desc: () => {
             if (firmwareProgressRef.current === 100) {
-              return `Data transferred, installing...`;
+              return intl.formatMessage({
+                id: ETranslations.update_installing,
+              });
             }
-            return `Transferring data`;
+            return intl.formatMessage({
+              id: ETranslations.update_transferring_data,
+            });
           },
         },
         {
@@ -344,6 +355,7 @@ export function FirmwareUpdateProgressBar({
       }
     },
     [
+      intl,
       // do not add any deps here, use ref instead
     ],
   );
