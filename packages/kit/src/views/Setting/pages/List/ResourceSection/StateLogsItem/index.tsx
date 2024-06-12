@@ -19,12 +19,15 @@ export const StateLogsItem = () => {
   const { copyText } = useClipboard();
   const onPress = useCallback(() => {
     Dialog.show({
-      title: 'Export State Logs',
+      title: intl.formatMessage({
+        id: ETranslations.settings_export_state_logs,
+      }),
       renderContent: (
         <SizableText>
           <SizableText size="$bodyLg">
-            This will help OneKey support debug any issue you might encounter.
-            Please send to OneKey support or
+            {intl.formatMessage({
+              id: ETranslations.settings_export_state_logs_desc,
+            })}
           </SizableText>
           <TouchableWithoutFeedback
             onPress={() => {
@@ -40,13 +43,13 @@ export const StateLogsItem = () => {
       confirmButtonProps: {
         variant: 'primary',
       },
-      onConfirmText: 'Export',
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_export }),
       onConfirm: () => {
         const str = new Date().toISOString().replace(/[-:.]/g, '');
         void exportLogs(`OneKeyLogs-${str}`);
       },
     });
-  }, [copyText]);
+  }, [copyText, intl]);
   return (
     <ListItem
       icon="FileDownloadOutline"

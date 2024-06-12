@@ -2,6 +2,7 @@ import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { MotiView } from 'moti';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -13,6 +14,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IFetchQuoteResult,
@@ -44,6 +46,7 @@ const SwapProviderListItem = ({
   disabled,
   ...rest
 }: ISwapProviderListItemProps) => {
+  const intl = useIntl();
   const networkFeeComponent = useMemo(() => {
     if (providerResult.fee?.estimatedFeeFiatValue) {
       return (
@@ -113,18 +116,27 @@ const SwapProviderListItem = ({
 
   const leftMainLabel = useMemo(() => {
     if (disabled) {
-      return providerResult?.errorMessage || 'Unable to fetch the price';
+      return (
+        providerResult?.errorMessage ||
+        intl.formatMessage({
+          id: ETranslations.provider_route_unable_fetch_price,
+        })
+      );
     }
     if (providerResult.limit) {
       const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
       if (providerResult.limit.min) {
         const minBN = new BigNumber(providerResult.limit.min);
         if (fromTokenAmountBN.lt(minBN)) {
-          return `Min swap amount requires ${
-            numberFormat(providerResult.limit.min, {
-              formatter: 'balance',
-            }) as string
-          } ${fromToken?.symbol ?? 'unknown'}`;
+          return intl.formatMessage(
+            { id: ETranslations.provider_min_amount_required },
+            {
+              amount: numberFormat(providerResult.limit.min, {
+                formatter: 'balance',
+              }) as string,
+              token: fromToken?.symbol ?? 'unknown',
+            },
+          );
         }
       }
       if (providerResult.limit.max) {
@@ -150,6 +162,7 @@ const SwapProviderListItem = ({
     disabled,
     fromToken?.symbol,
     fromTokenAmount,
+    intl,
     providerResult?.errorMessage,
     providerResult.limit,
     providerResult.toAmount,
@@ -195,22 +208,26 @@ const SwapProviderListItem = ({
     if (providerResult.info.provider === 'swap_swft') {
       return (
         <SizableText size="$bodySm" color="$textSubdued">
-          Please be aware that this transaction is utilizing a third-party
-          SWFT_BRIDGE cross-chain bridge, which involves centralized execution
-          and carries associated risks.
+          {intl.formatMessage({ id: ETranslations.provider_route_swft })}
         </SizableText>
       );
     }
     if (!routesData?.[0]?.subRoutes?.[0]?.length) {
       return (
         <SizableText size="$bodySm" color="$textSubdued">
-          The provider does not currently have route information. Your funds are
-          safe.
+          {intl.formatMessage({
+            id: ETranslations.provider_route_no_information,
+          })}
         </SizableText>
       );
     }
     return <SwapRoutePaths routeContent={routeContent} />;
-  }, [providerResult.info.provider, providerResult.routesData, routeContent]);
+  }, [
+    intl,
+    providerResult.info.provider,
+    providerResult.routesData,
+    routeContent,
+  ]);
 
   return (
     <Stack
@@ -262,17 +279,29 @@ const SwapProviderListItem = ({
           <XStack flexWrap="wrap" justifyContent="flex-end" m={-3} flex={1}>
             {providerResult.isBest ? (
               <Stack p={3}>
-                <Badge badgeType="success">Best</Badge>
+                <Badge badgeType="success">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_label_overall_best,
+                  })}
+                </Badge>
               </Stack>
             ) : null}
             {providerResult.receivedBest ? (
               <Stack p={3}>
-                <Badge badgeType="info">Max received</Badge>
+                <Badge badgeType="info">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_label_max_received,
+                  })}
+                </Badge>
               </Stack>
             ) : null}
             {providerResult.minGasCost ? (
               <Stack p={3}>
-                <Badge badgeType="info">Minimum gas fee</Badge>
+                <Badge badgeType="info">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_label_min_fee,
+                  })}
+                </Badge>
               </Stack>
             ) : null}
           </XStack>
@@ -313,7 +342,7 @@ const SwapProviderListItem = ({
               }}
             >
               <SizableText pl="$2" size="$bodySmMedium" color="$textSubdued">
-                Route
+                {intl.formatMessage({ id: ETranslations.provider_route })}
               </SizableText>
               <MotiView
                 {...(routeOpen

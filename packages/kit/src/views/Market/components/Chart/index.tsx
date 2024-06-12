@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -23,7 +24,6 @@ import type { BusinessDay, UTCTimestamp } from 'lightweight-charts';
 
 type IPriceChartProps = {
   data?: IMarketTokenChart;
-  timeDefaultLabel: string;
   children: ReactNode;
   isFetching: boolean;
 };
@@ -36,12 +36,7 @@ type IOnHoverFunction = ({
   price?: number | string;
 }) => void;
 
-export function PriceChart({
-  data,
-  isFetching,
-  timeDefaultLabel,
-  children,
-}: IPriceChartProps) {
+export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
   const { formatDate } = useFormatDate();
   const intl = useIntl();
 
@@ -89,7 +84,7 @@ export function PriceChart({
     <PriceLabel
       opacity={time ? 1 : 0}
       price={currentPrice}
-      time={time || timeDefaultLabel}
+      time={time || ''}
       basePrice={basePrice}
     />
   );
@@ -101,7 +96,7 @@ export function PriceChart({
     return (
       <Empty
         title={intl.formatMessage({
-          id: 'empty__no_data',
+          id: ETranslations.global_no_data,
         })}
       />
     );

@@ -260,22 +260,22 @@ export function MarketDetailOverview({
         <OverviewPriceChange
           title={intl.formatMessage({ id: ETranslations.market_1d })}
         >
-          {performance.priceChangePercentage1h}
+          {performance.priceChangePercentage24h}
         </OverviewPriceChange>
         <OverviewPriceChange
           title={intl.formatMessage({ id: ETranslations.market_1w })}
         >
-          {performance.priceChangePercentage24h}
+          {performance.priceChangePercentage7d}
         </OverviewPriceChange>
         <OverviewPriceChange
           title={intl.formatMessage({ id: ETranslations.market_1m })}
         >
-          {performance.priceChangePercentage7d}
+          {performance.priceChangePercentage30d}
         </OverviewPriceChange>
         <OverviewPriceChange
           title={intl.formatMessage({ id: ETranslations.market_1y })}
         >
-          {performance.priceChangePercentage30d}
+          {performance.priceChangePercentage1y}
         </OverviewPriceChange>
       </XStack>
       <Overview24PriceChange low={low24h} high={high24h} />

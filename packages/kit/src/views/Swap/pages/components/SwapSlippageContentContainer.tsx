@@ -102,7 +102,9 @@ const SwapsSlippageContentContainer = ({
       ) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.ERROR,
-          message: 'Slippage Tolerance must be between 0 to 50%.',
+          message: intl.formatMessage({
+            id: ETranslations.slippage_tolerance_error_message,
+          }),
         });
         return;
       }
@@ -113,14 +115,18 @@ const SwapsSlippageContentContainer = ({
       if (valueBN.lte(swapSlippageWillFailMinValue)) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
-          message: 'Your trade may fail due to small slippage.',
+          message: intl.formatMessage({
+            id: ETranslations.slippage_tolerance_warning_message_2,
+          }),
         });
         return;
       }
       if (valueBN.gte(swapSlippageWillAheadMinValue)) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
-          message: 'High slippage tolerance may cause your asset loss.',
+          message: intl.formatMessage({
+            id: ETranslations.slippage_tolerance_warning_message_1,
+          }),
         });
         return;
       }
@@ -143,8 +149,8 @@ const SwapsSlippageContentContainer = ({
             label: intl.formatMessage({
               id:
                 item.key === ESwapSlippageSegmentKey.AUTO
-                  ? 'form__auto'
-                  : 'content__custom',
+                  ? ETranslations.slippage_tolerance_switch_auto
+                  : ETranslations.slippage_tolerance_switch_custom,
             }),
             value: item.key,
           }))}
@@ -207,8 +213,9 @@ const SwapsSlippageContentContainer = ({
         ) : null}
         {swapSlippageStatus.key === ESwapSlippageSegmentKey.AUTO ? (
           <SizableText size="$bodyMd" color="$textSubdued">
-            Auto slippage optimizes slippage based on pool liquidity and trading
-            volume, reducing transaction failures and MEV attack risks.
+            {intl.formatMessage({
+              id: ETranslations.slippage_tolerance_description,
+            })}
           </SizableText>
         ) : null}
         {swapSlippageStatus.key !== ESwapSlippageSegmentKey.AUTO &&
@@ -226,7 +233,9 @@ const SwapsSlippageContentContainer = ({
         ) : null}
         <Dialog.Footer
           showCancelButton={false}
-          onConfirmText="Save"
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.slippage_tolerance_button_save,
+          })}
           confirmButtonProps={{
             variant: 'primary',
             disabled:
