@@ -14,8 +14,9 @@ export const LOCALES = _LOCALES as unknown as Record<
 
 const defaultLanguage: Record<string, string> = {
   'zh-CN': '简体中文',
-  'zh-HK': '繁體中文',
-  'fil': 'Filipino',
+  'zh-HK': '繁體中文（香港）',
+  'zh-TW': '繁體中文（臺灣）',
+  'pt-BR': 'Português(Brasil)',
 };
 
 const getLanguage = (symbol: string): string => {
@@ -23,7 +24,6 @@ const getLanguage = (symbol: string): string => {
     defaultLanguage[symbol] ||
     ISO6391.getNativeName(symbol) ||
     ISO6391.getName(symbol);
-
   if (!languageName && symbol.indexOf('-') !== -1) {
     const [symbolShort] = symbol.split('-');
     languageName =
