@@ -1,10 +1,27 @@
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+import { decrypt } from '../../secret';
+import {
+  ECoreApiExportedSecretKeyType,
+  type ICoreApiGetAddressItem,
+  type ICoreApiGetAddressQueryImported,
+  type ICoreApiGetAddressQueryPublicKey,
+  type ICoreApiGetAddressesQueryHd,
+  type ICoreApiGetAddressesResult,
+  type ICoreApiGetExportedSecretKey,
+  type ICoreApiPrivateKeysMap,
+  type ICoreApiSignBasePayload,
+  type ICoreApiSignTxPayload,
+  type ICurveName,
+  type ISignedTxPro,
+} from '../../types';
 
 import {
   addressFromPublicKey,
+  privateKeyFromBuffer,
   privateKeyFromOriginPrivateKey,
   publicKeyFromOriginPubkey,
   signTransaction,
@@ -12,24 +29,42 @@ import {
 } from './sdkKaspa';
 
 import type { IEncodedTxKaspa } from './types';
-import type {
-  ICoreApiGetAddressItem,
-  ICoreApiGetAddressQueryImported,
-  ICoreApiGetAddressQueryPublicKey,
-  ICoreApiGetAddressesQueryHd,
-  ICoreApiGetAddressesResult,
-  ICoreApiPrivateKeysMap,
-  ICoreApiSignBasePayload,
-  ICoreApiSignTxPayload,
-  ICurveName,
-  ISignedTxPro,
-} from '../../types';
 import type { PrivateKey } from '@kaspa/core-lib';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 const curve: ICurveName = 'secp256k1';
 
 export default class CoreChainSoftware extends CoreChainApiBase {
+  override async getExportedSecretKey(
+    query: ICoreApiGetExportedSecretKey,
+  ): Promise<string> {
+    const {
+      networkInfo,
+      // privateKeySource,
+      password,
+      keyType,
+      credentials,
+      // xpub,
+      // addressEncoding,
+    } = query;
+    console.log(
+      'ExportSecretKeys >>>> kaspa',
+      this.baseGetCredentialsType({ credentials }),
+    );
+
+    const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
+    if (!privateKeyRaw) {
+      throw new Error('privateKeyRaw is required');
+    }
+    if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
+      const chainId = networkInfo.chainId;
+      return privateKeyFromBuffer(
+        decrypt(password, privateKeyRaw),
+        chainId,
+      ).toWIF();
+    }
+    throw new Error(`SecretKey type not support: ${keyType}`);
+  }
+
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
@@ -80,7 +115,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   override async signMessage(): Promise<string> {
-    throw new NotImplemented();;
+    throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(

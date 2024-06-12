@@ -1,6 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Divider, ScrollView, Stack } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  ScrollView,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -227,9 +233,12 @@ function DesktopCustomTabBar() {
           ))}
         </ScrollView>
       </Stack>
-      {pinnedData.length > 0 ? (
+      <XStack ai="center" my="$1">
         <Divider m="$1.5" testID="pin-tab-divider" />
-      ) : null}
+        <Button size="small" onPress={closeAllWebTabs}>
+          Clear
+        </Button>
+      </XStack>
       {/* New Tab */}
       <DesktopTabItem
         key="AddTabButton"

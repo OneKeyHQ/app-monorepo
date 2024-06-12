@@ -94,7 +94,7 @@ const {
 });
 
 // yarn jest packages/core/src/chains/btc/CoreChainSoftware.tbtc.test.ts
-describe('BTC Core tests', () => {
+describe('TBTC Core tests', () => {
   it('mnemonic verify', () => {
     coreTestsUtils.expectMnemonicValid({
       hdCredential,

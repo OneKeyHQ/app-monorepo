@@ -7,34 +7,34 @@ import { SecretwasmQuery } from './SecretwasmQuery';
 import type { AxiosInstance } from 'axios';
 import type BigNumber from 'bignumber.js';
 
-export interface Cw20AssetInfo {
+export interface ICosmosCw20AssetInfo {
   contractAddress: string;
   name: string;
   decimals: number;
   symbol: string;
 }
 
-export interface Cw20TokenBalance {
+export interface ICosmosCw20TokenBalance {
   address: string;
   balance: BigNumber;
 }
 
-export interface QueryChainInfo {
+export interface ICosmosQueryChainInfo {
   networkId: string;
   axios?: AxiosInstance;
 }
 
 export interface IQuery {
   queryCw20TokenInfo: (
-    chainInfo: QueryChainInfo,
+    chainInfo: ICosmosQueryChainInfo,
     contractAddressArray: string[],
-  ) => Promise<Cw20AssetInfo[]>;
+  ) => Promise<ICosmosCw20AssetInfo[]>;
 
   queryCw20TokenBalance: (
-    chainInfo: QueryChainInfo,
+    chainInfo: ICosmosQueryChainInfo,
     contractAddress: string,
     address: string[],
-  ) => Promise<Cw20TokenBalance[]>;
+  ) => Promise<ICosmosCw20TokenBalance[]>;
 }
 
 class QueryRegistry {

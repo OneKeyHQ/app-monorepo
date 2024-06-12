@@ -2,6 +2,8 @@ import { Psbt as PsbtBtcFork } from 'bitcoinforkjs';
 
 import CoreChainSoftwareBtc from '../btc/CoreChainSoftware';
 
+import * as sdkBch from './sdkBch';
+
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImportedBtc,
@@ -16,7 +18,6 @@ import type {
 } from '../../types';
 import type { IBtcForkNetwork } from '../btc/types';
 import type { Psbt } from 'bitcoinjs-lib';
-import * as sdkBch from './sdkBch';
 
 export default class CoreChainSoftware extends CoreChainSoftwareBtc {
   override async getCoinName() {

@@ -112,19 +112,21 @@ function DashboardContent({
           }}
           isLoading={isLoading}
         />
-        <BookmarksAndHistoriesSection
-          key="BookmarksAndHistoriesSection"
-          bookmarksData={bookmarksData}
-          historiesData={historiesData}
-          onPressMore={onPressMore}
-          handleOpenWebSite={({ webSite }) =>
-            handleOpenWebSite({
-              webSite,
-              navigation,
-              shouldPopNavigation: false,
-            })
-          }
-        />
+        {!platformEnv.isExtension ? (
+          <BookmarksAndHistoriesSection
+            key="BookmarksAndHistoriesSection"
+            bookmarksData={bookmarksData}
+            historiesData={historiesData}
+            onPressMore={onPressMore}
+            handleOpenWebSite={({ webSite }) =>
+              handleOpenWebSite({
+                webSite,
+                navigation,
+                shouldPopNavigation: false,
+              })
+            }
+          />
+        ) : null}
         <ReviewControl>
           <SuggestedAndExploreSection
             key="SuggestedAndExploreSection"

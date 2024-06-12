@@ -1,5 +1,6 @@
-import { IFeeInfoUnit } from "@onekeyhq/shared/types/fee";
-import { UnsignedTransaction } from "@substrate/txwrapper-polkadot";
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+
+import type { UnsignedTransaction } from '@substrate/txwrapper-polkadot';
 
 export const DOT_TYPE_PREFIX = {
   ecdsa: new Uint8Array([2]),

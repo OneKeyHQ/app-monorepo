@@ -1,8 +1,10 @@
 import type { IAdaAmount } from '@onekeyhq/core/src/chains/ada/types';
 import type {
   EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
   ICoreApiGetAddressItem,
   ICoreApiPrivateKeysMap,
+  ICoreApiSignBasePayload,
   ICoreImportedCredentialEncryptHex,
   ICurveName,
   IEncodedTx,
@@ -165,6 +167,10 @@ export type IVaultOptions = IVaultFactoryOptions & {
 };
 
 // PrepareAccounts ----------------------------------------------
+export type IGetDefaultPrivateKeyParams = ICoreApiSignBasePayload;
+export type IGetDefaultPrivateKeyResult = {
+  privateKeyRaw: string; // encrypted privateKey hex of default full path
+};
 export type IGetPrivateKeysParams = {
   password: string;
   relPaths?: string[] | undefined;
@@ -187,6 +193,7 @@ export type IPrepareWatchingAccountsParams = {
   template?: string; // TODO use deriveInfo, for BTC taproot address importing
   deriveInfo?: IAccountDeriveInfo;
   isUrlAccount?: boolean;
+  addresses?: Record<string, string>;
 };
 export type IPrepareImportedAccountsParams = {
   password: string;
@@ -240,19 +247,11 @@ export type IPrepareAccountByAddressIndexParams = {
 
 export type IExportAccountSecretKeysParams = {
   password: string;
-  publicKey?: boolean;
-  privateKey?: boolean;
-  xpub?: boolean;
-  xprvt?: boolean;
+  keyType: ECoreApiExportedSecretKeyType;
+  relPaths?: string[]; // used for get privateKey of other utxo address
 };
 
-export type IExportAccountSecretKeysResult = {
-  publicKey?: string;
-  privateKey?: string;
-  xpub?: string;
-  xprvt?: string;
-};
-
+export type IExportAccountSecretKeysResult = string;
 // GetAddress ----------------------------------------------
 export type IHardwareGetAddressParams = {
   path: string;

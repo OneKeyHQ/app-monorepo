@@ -28,7 +28,6 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IDBExternalAccount } from '../dbs/local/types';
-import type { KeyringSoftwareBase } from '../vaults/base/KeyringSoftwareBase';
 import type { ITransferInfo } from '../vaults/types';
 
 @backgroundClass()
@@ -162,83 +161,6 @@ class ServiceDemo extends ServiceBase {
   @toastIfError()
   async demoError3() {
     throw new Error('hello world: error toast');
-  }
-
-  @backgroundMethod()
-  async demoGetPrivateKey({
-    networkId,
-    accountId,
-  }: {
-    networkId: string;
-    accountId: string;
-  }) {
-    const vault = await vaultFactory.getVault({
-      networkId,
-      accountId,
-    });
-
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
-        accountId,
-      });
-    return vault.keyring.exportAccountSecretKeys({
-      password,
-      xprvt: true,
-      privateKey: true,
-    });
-    // const privateKeysMap = await keyring.getPrivateKeys({
-    //   password,
-    //   // relPaths: ['0/0'],
-    // });
-    // const account = await this.backgroundApi.serviceAccount.getAccount({
-    //   accountId,
-    //   networkId,
-    // });
-    // const networkInfo = await keyring.getCoreApiNetworkInfo();
-    // const network = getBtcForkNetwork(networkInfo.networkChainCode);
-
-    // const { deriveInfo } =
-    //   await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
-    //     networkId,
-    //     template: account.template,
-    //   });
-
-    // const xprvts = await Promise.all(
-    //   Object.values(privateKeysMap).map(async (privateKey) => {
-    //     const addressEncoding =
-    //       deriveInfo?.addressEncoding || ('' as EAddressEncodings);
-    //     const { private: xprvVersionBytes } =
-    //       (network.segwitVersionBytes || {})[addressEncoding] || network.bip32;
-
-    //     return [
-    //       bs58check.encode(decrypt(password, privateKey)),
-    //       bs58check.encode(
-    //         Buffer.from(bs58check.decode((account as IDBUtxoAccount).xpub))
-    //           .fill(
-    //             Buffer.from(
-    //               xprvVersionBytes.toString(16).padStart(8, '0'),
-    //               'hex',
-    //             ),
-    //             0,
-    //             4,
-    //           )
-    //           .fill(
-    //             Buffer.concat([
-    //               Buffer.from([0]),
-    //               decrypt(password, privateKey),
-    //             ]),
-    //             45,
-    //             78,
-    //           ),
-    //       ),
-    //     ];
-    //   }),
-    // );
-
-    // return {
-    //   privateKeysMap,
-    //   xprvts,
-    // };
   }
 
   @backgroundMethod()

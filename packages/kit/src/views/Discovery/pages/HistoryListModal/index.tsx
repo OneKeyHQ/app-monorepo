@@ -100,9 +100,6 @@ function HistoryListModal() {
                   description:
                     'Are you sure you want to delete all your browsing history? This action cannot be undone.',
                   onConfirm: () => handleDeleteAll(),
-                  confirmButtonProps: {
-                    variant: 'secondary',
-                  },
                   onConfirmText: 'Clear All',
                 });
               }}
