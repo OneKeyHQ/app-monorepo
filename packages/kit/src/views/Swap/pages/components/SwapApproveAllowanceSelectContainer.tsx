@@ -1,9 +1,12 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   useSwapApproveAllowanceSelectOpenAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IAllowanceResult } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
@@ -21,6 +24,7 @@ const SwapApproveAllowanceSelectContainer = ({
   fromTokenSymbol,
   isLoading,
 }: ISwapApproveAllowanceSelectProps) => {
+  const intl = useIntl();
   const [
     swapQuoteApproveAllowanceUnLimit,
     setSwapQuoteApproveAllowanceUnLimit,
@@ -38,11 +42,13 @@ const SwapApproveAllowanceSelectContainer = ({
         value: ESwapApproveAllowanceType.PRECISION,
       },
       {
-        label: 'Unlimited',
+        label: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_amount_un_limit,
+        }),
         value: ESwapApproveAllowanceType.UN_LIMIT,
       },
     ],
-    [fromTokenSymbol, allowanceResult],
+    [allowanceResult.amount, fromTokenSymbol, intl],
   );
 
   const onSelectAllowanceValue = useCallback(

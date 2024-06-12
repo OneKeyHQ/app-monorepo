@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -58,7 +59,7 @@ const SwapHistoryDetailModal = () => {
   const { copyText } = useClipboard();
   const onCopy = useCallback(
     async (text: string) => {
-      copyText(text, 'msg__success');
+      copyText(text, ETranslations.global_copied);
     },
     [copyText],
   );
@@ -104,7 +105,9 @@ const SwapHistoryDetailModal = () => {
           asset={toAsset}
           amount={txHistory.baseInfo.toAmount}
           networkIcon={txHistory.baseInfo.toNetwork?.logoURI ?? ''}
-          currencySymbol={settingsPersistAtom.currencyInfo.symbol}
+          currencySymbol={
+            txHistory.currency ?? settingsPersistAtom.currencyInfo.symbol
+          }
         />
         <AssetItem
           index={1}
@@ -112,7 +115,9 @@ const SwapHistoryDetailModal = () => {
           asset={fromAsset}
           amount={txHistory.baseInfo.fromAmount}
           networkIcon={txHistory.baseInfo.fromNetwork?.logoURI ?? ''}
-          currencySymbol={settingsPersistAtom.currencyInfo.symbol}
+          currencySymbol={
+            txHistory.currency ?? settingsPersistAtom.currencyInfo.symbol
+          }
         />
       </>
     );
@@ -176,7 +181,8 @@ const SwapHistoryDetailModal = () => {
           color="$textSubdued"
           formatter="value"
           formatterOptions={{
-            currency: settingsPersistAtom.currencyInfo.symbol,
+            currency:
+              txHistory.currency ?? settingsPersistAtom.currencyInfo.symbol,
           }}
         >
           {gasFeeFiatValue ?? 0}
@@ -187,6 +193,7 @@ const SwapHistoryDetailModal = () => {
   }, [
     settingsPersistAtom.currencyInfo.symbol,
     txHistory.baseInfo.fromNetwork?.symbol,
+    txHistory.currency,
     txHistory.txInfo,
   ]);
 
@@ -217,27 +224,46 @@ const SwapHistoryDetailModal = () => {
         <Stack>
           <InfoItemGroup>
             <InfoItem
-              label="Order status"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_order_status,
+              })}
               renderContent={renderSwapOrderStatus()}
               compact
             />
-            <InfoItem label="Date" renderContent={renderSwapDate()} compact />
+            <InfoItem
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_date,
+              })}
+              renderContent={renderSwapDate()}
+              compact
+            />
           </InfoItemGroup>
           <Divider mx="$5" />
           <InfoItemGroup>
             <InfoItem
-              label="From"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_from,
+              })}
               renderContent={renderCanCopyText(txHistory.txInfo.sender)}
             />
             <InfoItem
-              label="To"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_to,
+              })}
               renderContent={renderCanCopyText(txHistory.txInfo.receiver)}
             />
             <InfoItem
-              label="Transaction hash"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_transaction_hash,
+              })}
               renderContent={renderCanCopyText(txHistory.txInfo.txId)}
             />
-            <InfoItem label="Network Fee" renderContent={renderNetworkFee()} />
+            <InfoItem
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_network_fee,
+              })}
+              renderContent={renderNetworkFee()}
+            />
           </InfoItemGroup>
           <Divider mx="$5" />
           <InfoItemGroup>
@@ -248,28 +274,42 @@ const SwapHistoryDetailModal = () => {
                 renderContent={renderCanCopyText(txHistory.txInfo.orderId)}
               />
             ) : null}
-            <InfoItem disabledCopy label="Rate" renderContent={renderRate()} />
             <InfoItem
               disabledCopy
-              label="Swap duration"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_rate,
+              })}
+              renderContent={renderRate()}
+            />
+            <InfoItem
+              disabledCopy
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_swap_duration,
+              })}
               renderContent={durationTime}
             />
             {!isNil(txHistory.swapInfo.oneKeyFee) ? (
               <InfoItem
                 disabledCopy
-                label="Service Fee"
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_service_fee,
+                })}
                 renderContent={`${txHistory.swapInfo.oneKeyFee} %`}
               />
             ) : null}
             {!isNil(txHistory.swapInfo.protocolFee) ? (
               <InfoItem
                 disabledCopy
-                label="Protocol Fee"
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_protocol_fee,
+                })}
                 renderContent={`${
                   numberFormat(txHistory.swapInfo.protocolFee.toString(), {
                     formatter: 'value',
                     formatterOptions: {
-                      currency: settingsPersistAtom.currencyInfo.symbol,
+                      currency:
+                        txHistory.currency ??
+                        settingsPersistAtom.currencyInfo.symbol,
                     },
                   }) as string
                 }`}
@@ -293,6 +333,7 @@ const SwapHistoryDetailModal = () => {
     );
   }, [
     durationTime,
+    intl,
     onViewInBrowser,
     renderCanCopyText,
     renderNetworkFee,
@@ -306,7 +347,11 @@ const SwapHistoryDetailModal = () => {
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle="Transaction" />
+      <Page.Header
+        headerTitle={intl.formatMessage({
+          id: ETranslations.swap_history_detail_title,
+        })}
+      />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
     </Page>
   );

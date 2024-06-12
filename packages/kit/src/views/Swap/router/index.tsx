@@ -1,4 +1,5 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
@@ -17,27 +18,27 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapTokenSelect,
     component: SwapTokenSelectModal,
-    translationId: 'title__select_a_token',
+    translationId: ETranslations.token_selector_title,
   },
   {
     name: EModalSwapRoutes.SwapMainLand,
     component: SwapMainLandModal,
-    translationId: 'title__swap',
+    translationId: ETranslations.swap_page_swap,
   },
   {
     name: EModalSwapRoutes.SwapProviderSelect,
     component: SwapProviderSelectModal,
-    translationId: 'title__select_route',
+    translationId: ETranslations.provider_title,
   },
   {
     name: EModalSwapRoutes.SwapHistoryList,
     component: SwapHistoryListModal,
-    translationId: 'transaction__history',
+    translationId: ETranslations.swap_history_title,
   },
   {
     name: EModalSwapRoutes.SwapHistoryDetail,
     component: SwapHistoryDetailModal,
-    translationId: 'content__details',
+    translationId: ETranslations.swap_history_detail_title,
   },
   {
     name: EModalSwapRoutes.SwapToAnotherAddress,
@@ -47,5 +48,6 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.TokenRiskReminder,
     component: TokenRiskReminderModal,
+    translationId: ETranslations.token_selector_risk_reminder_title,
   },
 ];

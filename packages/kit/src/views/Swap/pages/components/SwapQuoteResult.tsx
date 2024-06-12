@@ -1,5 +1,7 @@
 import { memo, useCallback, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Dialog, NumberSizeableText, YStack } from '@onekeyhq/components';
 import {
   useSwapSelectFromTokenAtom,
@@ -10,6 +12,7 @@ import {
   useSwapSlippagePercentageModeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ESwapSlippageSegmentKey,
   type IFetchQuoteResult,
@@ -38,7 +41,7 @@ const SwapQuoteResult = ({
   const [toToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
-
+  const intl = useIntl();
   const [, setSwapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
   const [{ slippageItem, autoValue }] = useSwapSlippagePercentageAtom();
   const [, setSwapSlippageCustomValue] =
@@ -108,7 +111,9 @@ const SwapQuoteResult = ({
       ) : null}
       {quoteResult.fee?.estimatedFeeFiatValue ? (
         <SwapCommonInfoItem
-          title="Est network fee"
+          title={intl.formatMessage({
+            id: ETranslations.swap_page_provider_est_network_fee,
+          })}
           isLoading={swapQuoteLoading}
           valueComponent={
             <NumberSizeableText

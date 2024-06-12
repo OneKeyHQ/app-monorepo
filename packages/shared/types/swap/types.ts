@@ -328,6 +328,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   ctx?: any;
+  currency?: string;
   baseInfo: {
     fromToken: ISwapToken;
     toToken: ISwapToken;

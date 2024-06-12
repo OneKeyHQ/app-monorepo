@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Badge,
@@ -12,6 +13,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapProviderInfoItemProps {
@@ -34,6 +36,7 @@ const SwapProviderInfoItem = ({
   onPress,
   isLoading,
 }: ISwapProviderInfoItemProps) => {
+  const intl = useIntl();
   const rateIsExit = useMemo(() => {
     const rateBN = new BigNumber(rate ?? 0);
     return !rateBN.isZero();
@@ -55,7 +58,7 @@ const SwapProviderInfoItem = ({
   return (
     <XStack justifyContent="space-between" alignItems="center">
       <SizableText size="$bodyMd" color="$textSubdued">
-        Provider
+        {intl.formatMessage({ id: ETranslations.swap_page_provider_provider })}
       </SizableText>
 
       {isLoading ? (

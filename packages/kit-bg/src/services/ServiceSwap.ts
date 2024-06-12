@@ -5,6 +5,8 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { swapHistoryStateFetchInterval } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -413,11 +415,13 @@ export default class ServiceSwap extends ServiceBase {
       void this.backgroundApi.serviceApp.showToast({
         method:
           item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
-        title:
-          item.status === ESwapTxHistoryStatus.SUCCESS
-            ? 'Swap successful'
-            : 'Swap failed',
-        message: `${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toToken.symbol}`,
+        title: appLocale.intl.formatMessage({
+          id:
+            item.status === ESwapTxHistoryStatus.SUCCESS
+              ? ETranslations.swap_page_toast_swap_successful
+              : ETranslations.swap_page_toast_swap_failed,
+        }),
+        message: `${item.baseInfo.fromAmount} ${item.baseInfo.fromToken.symbol} → ${item.baseInfo.toAmount} ${item.baseInfo.toToken.symbol}`,
       });
     }
   }

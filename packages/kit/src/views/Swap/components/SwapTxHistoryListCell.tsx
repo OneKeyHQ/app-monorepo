@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
@@ -53,7 +54,9 @@ const SwapTxHistoryListCell = ({
         </SizableText>
         {item.status === ESwapTxHistoryStatus.FAILED ? (
           <Badge badgeType="critical" badgeSize="lg">
-            {intl.formatMessage({ id: 'transaction__failed' })}
+            {intl.formatMessage({
+              id: ETranslations.swap_history_status_failed,
+            })}
           </Badge>
         ) : null}
       </XStack>

@@ -8,6 +8,8 @@ import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useS
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { inAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -320,6 +322,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           });
           set(swapBuildTxFetchingAtom(), false);
         }
+      } catch (e) {
+        console.error(e);
       } finally {
         if (enableInterval) {
           void this.approvingStateAction.call(set);
@@ -457,10 +461,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         alertsRes = [
           ...alertsRes,
           {
-            message: `The connected wallet do not support ${
-              networks.find((net) => net.networkId === fromToken?.networkId)
-                ?.name ?? 'unknown'
-            }. Try switch to another one.`,
+            message: appLocale.intl.formatMessage(
+              {
+                id: ETranslations.swap_page_alert_account_does_not_support_swap,
+              },
+              {
+                network:
+                  networks.find((net) => net.networkId === fromToken?.networkId)
+                    ?.name ?? 'unknown',
+              },
+            ),
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];
@@ -480,10 +490,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         alertsRes = [
           ...alertsRes,
           {
-            message: `The connected wallet do not support ${
-              networks.find((net) => net.networkId === toToken?.networkId)
-                ?.name ?? 'unknown'
-            }. Try switch to another one.`,
+            message: appLocale.intl.formatMessage(
+              {
+                id: ETranslations.swap_page_alert_account_does_not_support_swap,
+              },
+              {
+                network:
+                  networks.find((net) => net.networkId === toToken?.networkId)
+                    ?.name ?? 'unknown',
+              },
+            ),
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];
@@ -498,7 +514,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         alertsRes = [
           ...alertsRes,
           {
-            message: `The connected wallet do not support swap. Try switch to another one.`,
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_alert_account_does_not_support_swap,
+            }),
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];
@@ -509,8 +527,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         alertsRes = [
           ...alertsRes,
           {
-            message:
-              'The current provider does not offer the best rate for this trade.',
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_alert_not_best_rate,
+            }),
             alertLevel: ESwapAlertLevel.WARNING,
           },
         ];
@@ -549,7 +568,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             alertsRes = [
               ...alertsRes,
               {
-                message: `100% value drop! High price impact may cause your asset loss.`,
+                message: appLocale.intl.formatMessage(
+                  { id: ETranslations.swap_page_alert_value_drop },
+                  { number: '100%' },
+                ),
                 alertLevel: ESwapAlertLevel.WARNING,
               },
             ];
@@ -557,11 +579,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             alertsRes = [
               ...alertsRes,
               {
-                message: `${
-                  numberFormat(difference.absoluteValue().toFixed(), {
-                    formatter: 'priceChange',
-                  }) as string
-                } value drop! High price impact may cause your asset loss.`,
+                message: appLocale.intl.formatMessage(
+                  {
+                    id: ETranslations.swap_page_alert_value_drop,
+                  },
+                  {
+                    number: numberFormat(difference.absoluteValue().toFixed(), {
+                      formatter: 'priceChange',
+                    }) as string,
+                  },
+                ),
                 alertLevel: ESwapAlertLevel.WARNING,
               },
             ];
@@ -577,9 +604,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           alertsRes = [
             ...alertsRes,
             {
-              message: `The minimum amount for this swap is ${minAmountBN.toFixed()} ${
-                fromToken?.symbol ?? 'unknown'
-              }`,
+              message: appLocale.intl.formatMessage(
+                {
+                  id: ETranslations.swap_page_alert_minimum_amount,
+                },
+                {
+                  number: minAmountBN.toFixed(),
+                  symbol: fromToken?.symbol ?? 'unknown',
+                },
+              ),
+
               alertLevel: ESwapAlertLevel.ERROR,
               inputShowError: true,
             },
@@ -592,9 +626,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           alertsRes = [
             ...alertsRes,
             {
-              message: `The maximum amount for this swap is ${maxAmountBN.toFixed()} ${
-                fromToken?.symbol ?? 'unknown'
-              }`,
+              message: appLocale.intl.formatMessage(
+                {
+                  id: ETranslations.swap_page_alert_maximum_amount,
+                },
+                {
+                  number: maxAmountBN.toFixed(),
+                  symbol: fromToken?.symbol ?? 'unknown',
+                },
+              ),
               alertLevel: ESwapAlertLevel.ERROR,
               inputShowError: true,
             },
@@ -615,8 +655,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         alertsRes = [
           ...alertsRes,
           {
-            message:
-              'Est Network fee exceeds swap amount, proceed with caution.',
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_alert_fee_exceeds_amount,
+            }),
             alertLevel: ESwapAlertLevel.WARNING,
           },
         ];
