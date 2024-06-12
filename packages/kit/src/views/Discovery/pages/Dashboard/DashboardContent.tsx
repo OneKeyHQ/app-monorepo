@@ -3,8 +3,8 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 import { useIsFocused } from '@react-navigation/core';
 
 import { ScrollView, Stack } from '@onekeyhq/components';
-import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
