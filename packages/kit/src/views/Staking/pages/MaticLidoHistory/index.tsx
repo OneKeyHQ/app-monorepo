@@ -1,7 +1,10 @@
+import { useIntl } from 'react-intl';
+
 import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalStakingRoutes,
   IModalStakingParamList,
@@ -26,9 +29,12 @@ const LidoMaticHistory = () => {
     [networkId, accountId],
     { watchLoading: true },
   );
+  const intl = useIntl();
   return (
     <Page>
-      <Page.Header title="History" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_history })}
+      />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={HistorySkeleton}

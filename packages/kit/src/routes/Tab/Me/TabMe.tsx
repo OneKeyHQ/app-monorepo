@@ -1,11 +1,8 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -20,7 +17,6 @@ import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 const TabMe = () => {
-  const intl = useIntl();
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
@@ -51,12 +47,10 @@ const TabMe = () => {
             Onboarding
           </Button>
           <Button onPress={onPress} testID="me-settings">
-            {intl.formatMessage({ id: ETranslations.global_go_settings })}
+            设置
           </Button>
           {platformEnv.isExtensionUiPopup ? (
-            <Button onPress={onExpand}>
-              {intl.formatMessage({ id: ETranslations.global_expand_view })}
-            </Button>
+            <Button onPress={onExpand}>全屏</Button>
           ) : null}
           <Button
             onPress={() => {

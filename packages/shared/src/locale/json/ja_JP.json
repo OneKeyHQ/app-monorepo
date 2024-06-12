@@ -254,7 +254,7 @@
   "earn.request_withdrawal": "引き出しをリクエストする",
   "earn.request_withdrawal_steth_desc": "引き出しリクエストを発行して、stETH/wstETHをロックします。1〜5日後、ロックされたstETHは破壊され、ETHが引き出し可能になります。",
   "earn.request_withdrawal_stmatic_desc": "引き出しリクエストを発行してから1〜5日後、ロックされたstMATICは破壊され、あなたのMATICは引き出し可能になります。",
-  "earn.rewards_updated_daily": "報酬は{毎日}更新されます",
+  "earn.rewards_updated_daily": "報酬は{daily}更新されます",
   "earn.rewards_updated_daily_steth_desc": "あなたのstETH残高には、ステーキング報酬を含む毎日の更新があります。",
   "earn.rewards_updated_daily_stmatic_desc": "ステーキング期間中、stMATICの価値は収益を反映して変化します。",
   "earn.stake": "ステーク",

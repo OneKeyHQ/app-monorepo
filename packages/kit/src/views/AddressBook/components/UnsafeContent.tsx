@@ -11,16 +11,16 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export const UnsafeContent = () => {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const onConfirm = useCallback(() => {
     Dialog.show({
-      title: 'Confirm',
+      title: intl.formatMessage({ id: ETranslations.global_confirm }),
       icon: 'PlaceholderOutline',
-      description:
-        'Confirming this operation will reset your address book data. To avoid losing your data entirely, you can copy the data to the clipboard and save it.',
+      description: ETranslations.address_book_confirm_message,
       tone: 'destructive',
       showConfirmButton: true,
       showCancelButton: true,
@@ -28,11 +28,18 @@ export const UnsafeContent = () => {
         const text =
           await backgroundApiProxy.serviceAddressBook.stringifyItems();
         await backgroundApiProxy.serviceAddressBook.resetItems();
-        copyText(text, 'msg__success');
+        copyText(
+          text,
+          ETranslations.address_book_add_address_toast_reset_success,
+        );
         await inst.close();
       },
-      onConfirmText: 'Reset',
-      onCancelText: 'Copy',
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.address_book_button_reset,
+      }),
+      onCancelText: intl.formatMessage({
+        id: ETranslations.address_book_button_copy,
+      }),
       cancelButtonProps: {
         icon: 'Copy2Outline',
       },
@@ -43,41 +50,59 @@ export const UnsafeContent = () => {
         await close();
       },
     });
-  }, [copyText]);
+  }, [copyText, intl]);
   return (
     <Page>
-      <Page.Header title={intl.formatMessage({ id: 'title__address_book' })} />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.address_book_title })}
+      />
       <Page.Body>
         <Stack p="$4">
-          <Alert type="critical" title="Data anomaly" icon="ErrorOutline" />
+          <Alert
+            type="critical"
+            title={intl.formatMessage({
+              id: ETranslations.address_book_data_anomaly,
+            })}
+            icon="ErrorOutline"
+          />
           <SizableText size="$headingMd" py="$5">
-            Your contact data may have undergone abnormal changes. To ensure the
-            security of your assets, we strongly recommend resetting your
-            address book.
+            {intl.formatMessage({
+              id: ETranslations.address_book_data_anomaly_description,
+            })}
           </SizableText>
           <Stack mt="$5">
-            <SizableText size="$headingSm">Why is my data at risk?</SizableText>
+            <SizableText size="$headingSm">
+              {intl.formatMessage({
+                id: ETranslations.address_book_data_anomaly_why_risk,
+              })}
+            </SizableText>
             <SizableText size="$bodyMd">
-              Your data is different from the last confirmation save. Onekey
-              ensures the security of your data through cryptographic hashing
-              algorithms.
+              {intl.formatMessage({
+                id: ETranslations.address_book_data_anomaly_why_risk_description,
+              })}
             </SizableText>
           </Stack>
           <Stack mt="$5">
             <SizableText size="$headingSm">
-              Why do I need to reset my address book?
+              {intl.formatMessage({
+                id: ETranslations.address_book_data_anomaly_why_reset,
+              })}
             </SizableText>
             <SizableText size="$bodyMd">
-              Resetting the data will result in the loss of your current contact
-              information. However, it will fully ensure the security of your
-              assets.
+              {intl.formatMessage({
+                id: ETranslations.address_book_data_anomaly_why_reset_description,
+              })}
             </SizableText>
           </Stack>
         </Stack>
       </Page.Body>
       <Page.Footer
-        onConfirmText="Reset"
-        onCancelText="Close"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.address_book_button_reset,
+        })}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.address_book_button_close,
+        })}
         onConfirm={onConfirm}
         onCancel={(close) => close()}
       />

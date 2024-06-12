@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { groupBy } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Empty,
@@ -9,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { ILidoHistoryItem } from '@onekeyhq/shared/types/staking';
 
@@ -77,6 +79,8 @@ export const LidoHistory = ({ items }: ILidoHistoryProps) => {
     [],
   );
 
+  const intl = useIntl();
+
   return (
     <SectionList
       estimatedItemSize="$14"
@@ -86,8 +90,12 @@ export const LidoHistory = ({ items }: ILidoHistoryProps) => {
       ListEmptyComponent={
         <Empty
           icon="ClockTimeHistoryOutline"
-          title="No Transactions Yet"
-          description="Your transaction will appear here"
+          title={intl.formatMessage({
+            id: ETranslations.global_no_transactions_yet,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.global_no_transactions_yet_desc,
+          })}
         />
       }
     />

@@ -254,7 +254,7 @@
   "earn.request_withdrawal": "Запрос на вывод средств",
   "earn.request_withdrawal_steth_desc": "Заблокируйте свои stETH/wstETH, отправив запрос на вывод. Через 1-5 дней заблокированные stETH будут уничтожены, и ваши ETH станут доступны для вывода.",
   "earn.request_withdrawal_stmatic_desc": "Через 1-5 дней после подачи заявки на вывод, заблокированный stMATIC будет уничтожен, и ваши MATIC станут доступны для вывода.",
-  "earn.rewards_updated_daily": "Награды обновляются {ежедневно}",
+  "earn.rewards_updated_daily": "Награды обновляются {daily}",
   "earn.rewards_updated_daily_steth_desc": "Ежедневно будет обновляться информация о вашем балансе stETH, включая вознаграждения за стейкинг.",
   "earn.rewards_updated_daily_stmatic_desc": "Во время периода стейкинга, значение stMATIC меняется, отражая прибыль.",
   "earn.stake": "Ставка",

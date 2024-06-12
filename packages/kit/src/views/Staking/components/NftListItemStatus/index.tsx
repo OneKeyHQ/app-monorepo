@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   NumberSizeableText,
@@ -7,6 +9,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type INftStatus = 'pending' | 'claimable' | 'staked';
 
@@ -26,13 +29,14 @@ export const NftListItemStatus = ({
   onClaim,
   status,
 }: INftListItemStatusProps) => {
-  const statusText = useMemo(() => {
-    const statuses: Record<INftStatus, string> = {
-      'claimable': 'claimable',
-      'pending': 'pending',
-      'staked': 'staked',
+  const intl = useIntl();
+  const translationKey = useMemo(() => {
+    const messages: Record<INftStatus, ETranslations> = {
+      'claimable': ETranslations.earn_token_is_claimable,
+      'pending': ETranslations.earn_token_is_pending,
+      'staked': ETranslations.earn_token_is_staked,
     };
-    return statuses[status];
+    return messages[status];
   }, [status]);
   const [loading, setLoading] = useState(false);
   const onPress = useCallback(async () => {
@@ -48,11 +52,24 @@ export const NftListItemStatus = ({
       <XStack alignItems="center">
         <Token size="xs" tokenImageUri={tokenImageUri} />
         <XStack ml="$2" space="$1" alignItems="center">
-          <NumberSizeableText size="$bodyLgMedium" formatter="balance">
-            {amount}
-          </NumberSizeableText>
-          <SizableText size="$bodyLgMedium">{symbol}</SizableText>
-          <SizableText size="$bodyLg">is {statusText}</SizableText>
+          <SizableText size="$bodyLg">
+            {intl.formatMessage(
+              { id: translationKey },
+              {
+                token: (
+                  <SizableText>
+                    <NumberSizeableText
+                      size="$bodyLgMedium"
+                      formatter="balance"
+                    >
+                      {amount}
+                    </NumberSizeableText>
+                    <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+                  </SizableText>
+                ),
+              },
+            )}
+          </SizableText>
         </XStack>
       </XStack>
       {onClaim ? (
@@ -62,7 +79,7 @@ export const NftListItemStatus = ({
           loading={loading}
           onPress={onPress}
         >
-          Claim
+          {intl.formatMessage({ id: ETranslations.earn_claim })}
         </Button>
       ) : null}
     </XStack>

@@ -38,10 +38,13 @@ const AddressBookItem = () => {
   const onPress = useCallback(async () => {
     if (!hideDialogInfo) {
       Dialog.show({
-        title: 'Encrypted storage',
+        title: intl.formatMessage({
+          id: ETranslations.address_book_encrypted_storage_title,
+        }),
         icon: 'PlaceholderOutline',
-        description:
-          'All your address book data is encrypted with your login password. ',
+        description: intl.formatMessage({
+          id: ETranslations.address_book_encrypted_storage_description,
+        }),
         tone: 'default',
         showConfirmButton: true,
         showCancelButton: true,
@@ -57,7 +60,7 @@ const AddressBookItem = () => {
     } else {
       await showAddressBook();
     }
-  }, [showAddressBook, hideDialogInfo]);
+  }, [showAddressBook, hideDialogInfo, intl]);
   return (
     <ListItem
       icon="BookOpenOutline"

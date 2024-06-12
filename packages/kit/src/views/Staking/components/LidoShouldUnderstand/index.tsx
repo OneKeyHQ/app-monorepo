@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Image,
   ScrollView,
@@ -8,6 +10,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { LIDO_LOGO_URI } from '../../utils/const';
 
@@ -77,124 +80,220 @@ const ShouldUnderstand = ({
   </YStack>
 );
 
-export const EthStakeShouldUnderstand = ({ apr }: { apr: number }) => (
-  <ShouldUnderstand
-    title="Lido ETH Staking"
-    items={[
-      {
-        title: (
-          <SizableText>
-            Earn up to{' '}
-            <SizableText color="$textInteractive">{apr}%</SizableText> per year
-          </SizableText>
-        ),
-        description:
-          'The APR is updated hourly and adjusted according to changes in TVL',
-      },
-      {
-        title: (
-          <SizableText>
-            Receive <SizableText color="$textInteractive">stETH</SizableText>{' '}
-          </SizableText>
-        ),
-        description:
-          'When you stake ETH you receive 1:1 stETH. You can unstake and trade this liquid asset at any time',
-      },
-      {
-        title: (
-          <SizableText>
-            Rewards updated{' '}
-            <SizableText color="$textInteractive">daily</SizableText>{' '}
-          </SizableText>
-        ),
-        description:
-          "There'll be a daily update on your stETH balances, which includes the staking rewards.",
-      },
-    ]}
-  />
-);
+export const EthStakeShouldUnderstand = ({ apr }: { apr: number }) => {
+  const intl = useIntl();
+  return (
+    <ShouldUnderstand
+      title={intl.formatMessage(
+        { id: ETranslations.earn_lido_token_staking },
+        { 'token': 'ETH' },
+      )}
+      items={[
+        {
+          title: (
+            <SizableText>
+              {intl.formatMessage(
+                { id: ETranslations.earn_earn_up_to_number_per_year },
+                {
+                  'number': (
+                    <SizableText color="$textInteractive">{apr}%</SizableText>
+                  ),
+                },
+              )}
+            </SizableText>
+          ),
+          description: intl.formatMessage({
+            id: ETranslations.earn_earn_up_to_number_per_year_desc,
+          }),
+        },
+        {
+          title: (
+            <SizableText>
+              {intl.formatMessage(
+                { id: ETranslations.earn_receive_token },
+                {
+                  'token': (
+                    <SizableText color="$textInteractive">stETH</SizableText>
+                  ),
+                },
+              )}
+            </SizableText>
+          ),
+          description: intl.formatMessage({
+            id: ETranslations.earn_receive_steth_desc,
+          }),
+        },
+        {
+          title: (
+            <SizableText>
+              {intl.formatMessage(
+                { id: ETranslations.earn_rewards_updated_daily },
+                {
+                  'daily': (
+                    <SizableText color="$textInteractive">
+                      {intl.formatMessage({ id: ETranslations.earn_daily })}
+                    </SizableText>
+                  ),
+                },
+              )}
+            </SizableText>
+          ),
+          description: intl.formatMessage({
+            id: ETranslations.earn_rewards_updated_daily_steth_desc,
+          }),
+        },
+      ]}
+    />
+  );
+};
 
-export const EthWithdrawShouldUnderstand = () => (
-  <ShouldUnderstand
-    title="Lido ETH redemption"
-    subtitle="The withdrawal process is simple and will be divided into the following steps:"
-    items={[
-      {
-        title: 'Request Withdrawal',
-        description:
-          'Lock your stETH/wstETH by issuing a withdrawal request. After 1-5 days, the locked stETH will be destroyed and your ETH will become available for withdrawal.',
-      },
-      {
-        title: 'Receive Lido NFT',
-        description:
-          'Each withdrawal request generates a Lido NFT, and its appearance changes when your ETH becomes available for withdrawal.',
-      },
-      {
-        title: 'Claim',
-        description:
-          'Claim your ETH after the withdrawal request has been processed.',
-      },
-    ]}
-  />
-);
+export const EthWithdrawShouldUnderstand = () => {
+  const intl = useIntl();
+  return (
+    <ShouldUnderstand
+      title={intl.formatMessage(
+        { id: ETranslations.earn_lido_token_redemption },
+        { 'token': 'ETH' },
+      )}
+      subtitle={intl.formatMessage({
+        id: ETranslations.earn_withdrawal_process_desc,
+      })}
+      items={[
+        {
+          title: intl.formatMessage({
+            id: ETranslations.earn_request_withdrawal,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.earn_request_withdrawal_steth_desc,
+          }),
+        },
+        {
+          title: intl.formatMessage({
+            id: ETranslations.earn_receive_lido_nft,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.earn_receive_lido_nft_desc,
+          }),
+        },
+        {
+          title: intl.formatMessage({ id: ETranslations.earn_claim }),
+          description: intl.formatMessage(
+            {
+              id: ETranslations.earn_claim_token_desc,
+            },
+            { 'token': 'ETH' },
+          ),
+        },
+      ]}
+    />
+  );
+};
 
-export const MaticStakeShouldUnderstand = ({ apr }: { apr: number }) => (
-  <ShouldUnderstand
-    title="Lido MATIC Staking"
-    items={[
-      {
-        title: (
-          <SizableText>
-            Earn up to{' '}
-            <SizableText color="$textInteractive">{apr}%</SizableText> per year
-          </SizableText>
-        ),
-        description:
-          'The APR is updated hourly and adjusted according to changes in TVL',
-      },
-      {
-        title: (
-          <SizableText>
-            Receive <SizableText color="$textInteractive">stMatic</SizableText>{' '}
-          </SizableText>
-        ),
-        description:
-          'When you stake MATIC you receive stMATIC. You can unstake and trade this liquid asset at any time.',
-      },
-      {
-        title: (
-          <SizableText>
-            Rewards updated{' '}
-            <SizableText color="$textInteractive">daily</SizableText>{' '}
-          </SizableText>
-        ),
-        description:
-          'During the staking period, the value of stMATIC changes to reflect earnings',
-      },
-    ]}
-  />
-);
+export const MaticStakeShouldUnderstand = ({ apr }: { apr: number }) => {
+  const intl = useIntl();
+  return (
+    <ShouldUnderstand
+      title={intl.formatMessage(
+        { id: ETranslations.earn_lido_token_staking },
+        { 'token': 'MATIC' },
+      )}
+      items={[
+        {
+          title: (
+            <SizableText>
+              <SizableText>
+                {intl.formatMessage(
+                  { id: ETranslations.earn_earn_up_to_number_per_year },
+                  {
+                    'number': (
+                      <SizableText color="$textInteractive">{apr}%</SizableText>
+                    ),
+                  },
+                )}
+              </SizableText>
+            </SizableText>
+          ),
+          description: intl.formatMessage({
+            id: ETranslations.earn_earn_up_to_number_per_year_desc,
+          }),
+        },
+        {
+          title: (
+            <SizableText>
+              {intl.formatMessage(
+                { id: ETranslations.earn_receive_token },
+                {
+                  'token': (
+                    <SizableText color="$textInteractive">stMatic</SizableText>
+                  ),
+                },
+              )}
+            </SizableText>
+          ),
+          description: intl.formatMessage({
+            id: ETranslations.earn_receive_stmatic_desc,
+          }),
+        },
+        {
+          title: (
+            <SizableText>
+              {intl.formatMessage(
+                { id: ETranslations.earn_rewards_updated_daily },
+                {
+                  'daily': (
+                    <SizableText color="$textInteractive">daily</SizableText>
+                  ),
+                },
+              )}
+            </SizableText>
+          ),
+          description: intl.formatMessage({
+            id: ETranslations.earn_rewards_updated_daily_stmatic_desc,
+          }),
+        },
+      ]}
+    />
+  );
+};
 
-export const MaticWithdrawShouldUnderstand = () => (
-  <ShouldUnderstand
-    title="Lido MATIC redemption"
-    subtitle="The withdrawal process is simple and will be divided into the following steps:"
-    items={[
-      {
-        title: 'Request Withdrawal',
-        description:
-          '1-5 days after issuing a withdrawal request, the locked stMATIC will be destroyed and your MATIC will become available for withdrawal.',
-      },
-      {
-        title: 'Receive Lido NFT',
-        description:
-          'Each withdrawal request generates a Lido NFT, and its appearance changes when your MATIC becomes available for withdrawal.',
-      },
-      {
-        title: 'Claim',
-        description:
-          'Claim your MATIC after the withdrawal request has been processed.',
-      },
-    ]}
-  />
-);
+export const MaticWithdrawShouldUnderstand = () => {
+  const intl = useIntl();
+  return (
+    <ShouldUnderstand
+      title={intl.formatMessage(
+        { id: ETranslations.earn_lido_token_redemption },
+        { 'token': 'MATIC' },
+      )}
+      subtitle={intl.formatMessage({
+        id: ETranslations.earn_withdrawal_process_desc,
+      })}
+      items={[
+        {
+          title: intl.formatMessage({
+            id: ETranslations.earn_request_withdrawal,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.earn_request_withdrawal_stmatic_desc,
+          }),
+        },
+        {
+          title: intl.formatMessage({
+            id: ETranslations.earn_receive_lido_nft,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.earn_receive_lido_nft_desc,
+          }),
+        },
+        {
+          title: intl.formatMessage({ id: ETranslations.earn_claim }),
+          description: intl.formatMessage(
+            {
+              id: ETranslations.earn_claim_token_desc,
+            },
+            { 'token': 'MATIC' },
+          ),
+        },
+      ]}
+    />
+  );
+};

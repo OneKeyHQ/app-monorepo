@@ -136,9 +136,12 @@ export const CleanDataItem = () => {
                     (platformEnv.isWeb || platformEnv.isExtension)
                   ) {
                     Dialog.show({
-                      title: 'Clear Browser Cache',
-                      description: `Open this link in the browser to continue clearing.
-                    chrome://settings/clearBrowserData`,
+                      title: intl.formatMessage({
+                        id: ETranslations.settings_clear_browser_cache,
+                      }),
+                      description: intl.formatMessage({
+                        id: ETranslations.settings_clear_browser_cache_desc,
+                      }),
                       onConfirm: () => {
                         copyText('chrome://settings/clearBrowserData');
                       },

@@ -254,7 +254,7 @@
   "earn.request_withdrawal": "Auszahlung beantragen",
   "earn.request_withdrawal_steth_desc": "Schließen Sie Ihre stETH/wstETH durch eine Auszahlungsanforderung ab. Nach 1-5 Tagen wird das gesperrte stETH zerstört und Ihr ETH steht zur Auszahlung bereit.",
   "earn.request_withdrawal_stmatic_desc": "1-5 Tage nach der Ausstellung einer Auszahlungsanforderung wird das gesperrte stMATIC zerstört und Ihr MATIC wird zur Auszahlung verfügbar.",
-  "earn.rewards_updated_daily": "Belohnungen täglich {täglich} aktualisiert",
+  "earn.rewards_updated_daily": "Belohnungen täglich {daily} aktualisiert",
   "earn.rewards_updated_daily_steth_desc": "Es wird täglich ein Update zu Ihren stETH-Salden geben, das auch die Staking-Belohnungen enthält.",
   "earn.rewards_updated_daily_stmatic_desc": "Während der Staking-Periode ändert sich der Wert von stMATIC, um Gewinne widerzuspiegeln.",
   "earn.stake": "Einsatz",

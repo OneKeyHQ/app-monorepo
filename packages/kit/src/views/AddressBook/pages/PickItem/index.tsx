@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
@@ -49,9 +50,13 @@ const PickItemPage = () => {
   return (
     <Page>
       <Page.Header
-        title="Select Address"
+        title={intl.formatMessage({
+          id: ETranslations.address_book_select_title,
+        })}
         headerSearchBarOptions={{
-          placeholder: intl.formatMessage({ id: 'form__search' }),
+          placeholder: intl.formatMessage({
+            id: ETranslations.address_book_search_placeholder,
+          }),
           onChangeText(e) {
             setSearchKey(e.nativeEvent.text);
           },

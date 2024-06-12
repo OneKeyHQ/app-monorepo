@@ -62,6 +62,16 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
       onPress={disabled ? undefined : onPress}
       flexDirection="row"
       alignItems="center"
+      borderRadius="$3"
+      borderWidth={1}
+      borderCurve="continuous"
+      borderColor="$borderStrong"
+      px="$3"
+      py="$2.5"
+      $gtMd={{
+        borderRadius: '$2',
+        py: '$2',
+      }}
       testID="network-selector-input"
       {...(!disabled && {
         hoverStyle: {
