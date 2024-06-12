@@ -1148,7 +1148,7 @@
   "update.update_required_desc": "您的硬體錢包版本已過時，必須更新才能繼續使用。",
   "update.update_resource_failed": "更新資源失敗",
   "update.update_ui_resources_success": "更新 UI 資源成功",
-  "update.updated_to_latest_version": "已更新至最新版本 {}",
+  "update.updated_to_latest_version": "已更新至最新版本 {version}",
   "update.updating_bootloader": "更新開機加載程序",
   "update.updating_ui_resources": "更新用戶介面資源...",
   "update.verify_status_and_continue": "驗證狀態並繼續",

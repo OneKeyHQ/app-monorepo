@@ -1148,7 +1148,7 @@
   "update.update_required_desc": "เวอร์ชันของกระเป๋าเงินฮาร์ดแวร์ของคุณล้าสมัยแล้ว คุณต้องอัปเดตเพื่อที่จะสามารถดำเนินการต่อไป",
   "update.update_resource_failed": "การอัปเดตทรัพยากรล้มเหลว",
   "update.update_ui_resources_success": "อัปเดตทรัพยากร UI สำเร็จ",
-  "update.updated_to_latest_version": "อัปเดตเป็นเวอร์ชันล่าสุด {}",
+  "update.updated_to_latest_version": "อัปเดตเป็นเวอร์ชันล่าสุด {version}",
   "update.updating_bootloader": "การอัปเดตบูตโหลดเดอร์",
   "update.updating_ui_resources": "กำลังอัปเดตทรัพยากร UI...",
   "update.verify_status_and_continue": "ตรวจสอบสถานะและดำเนินการต่อ",

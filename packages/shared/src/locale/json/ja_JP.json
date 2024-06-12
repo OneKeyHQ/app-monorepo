@@ -1148,7 +1148,7 @@
   "update.update_required_desc": "あなたのハードウェアウォレットのバージョンは古く、続けるためには更新が必要です。",
   "update.update_resource_failed": "リソースの更新に失敗しました",
   "update.update_ui_resources_success": "UIリソースの更新に成功",
-  "update.updated_to_latest_version": "最新バージョン{}に更新しました",
+  "update.updated_to_latest_version": "最新バージョン{version}に更新しました",
   "update.updating_bootloader": "ブートローダーを更新中",
   "update.updating_ui_resources": "UIリソースを更新中...",
   "update.verify_status_and_continue": "ステータスを確認し、続行する",

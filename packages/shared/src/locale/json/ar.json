@@ -1148,7 +1148,7 @@
   "update.update_required_desc": "إصدار محفظتك الأجهزة قديم ويجب تحديثه للمتابعة.",
   "update.update_resource_failed": "فشل تحديث المورد",
   "update.update_ui_resources_success": "تم تحديث موارد واجهة المستخدم بنجاح",
-  "update.updated_to_latest_version": "تم التحديث إلى الإصدار الأحدث {}",
+  "update.updated_to_latest_version": "تم التحديث إلى الإصدار الأحدث {version}",
   "update.updating_bootloader": "تحديث البوتلودر",
   "update.updating_ui_resources": "جاري تحديث موارد واجهة المستخدم...",
   "update.verify_status_and_continue": "تحقق من الحالة واستمر",
