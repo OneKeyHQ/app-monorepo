@@ -1,10 +1,13 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageFooterProps } from '@onekeyhq/components';
 import { Page, Toast, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   downloadPackage,
   installPackage,
@@ -20,6 +23,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 }: {
   autoClose: boolean;
 }) => {
+  const intl = useIntl();
   const appUpdateInfo = useAppUpdateInfo();
   const downloadSuccess = useCallback(() => {}, []);
   const downloadFailed = useCallback(() => {}, []);
@@ -70,14 +74,27 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 
   const renderButtonText = useCallback(() => {
     if (isDownloading) {
-      return `${progress}% Downloading...`;
+      return intl.formatMessage(
+        {
+          id: ETranslations.update_progress_downloading,
+        },
+        {
+          progress,
+        },
+      );
     }
 
     if (isReadyToInstall) {
-      return platformEnv.isNativeAndroid ? 'Install Now' : 'Restart to Update';
+      return intl.formatMessage({
+        id: platformEnv.isNativeAndroid
+          ? ETranslations.update_install_now
+          : ETranslations.update_restart_to_update,
+      });
     }
-    return 'Update Now';
-  }, [isDownloading, isReadyToInstall, progress]);
+    return intl.formatMessage({
+      id: ETranslations.update_update_now,
+    });
+  }, [intl, isDownloading, isReadyToInstall, progress]);
   return (
     <Page.Footer>
       <YStack>

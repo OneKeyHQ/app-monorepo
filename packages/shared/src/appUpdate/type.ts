@@ -1,3 +1,5 @@
+import type { ETranslations } from '../locale';
+
 export interface IBasicAppUpdateInfo {
   // app store url
   storeUrl?: string;
@@ -26,7 +28,7 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   //  1. notify -> downloading -> ready -> done
   //  2. notify -> failed
   status: EAppUpdateStatus;
-  errorText?: string;
+  errorText?: ETranslations;
 }
 
 export enum EAppUpdateStatus {

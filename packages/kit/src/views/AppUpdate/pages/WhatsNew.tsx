@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import {
   Heading,
   Markdown,
@@ -6,12 +8,14 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
 function WhatsNew() {
+  const intl = useIntl();
   const { version = '' } = platformEnv;
   const { gtMd } = useMedia();
   const changeLog = useAppChangeLog(version);
@@ -41,7 +45,7 @@ function WhatsNew() {
         ) : null}
       </Page.Body>
       <Page.Footer
-        onCancelText="I Got It"
+        onCancelText={intl.formatMessage({ id: ETranslations.global_got_it })}
         onCancel={(close) => {
           close();
         }}

@@ -1,4 +1,5 @@
 import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -12,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAppUpdateRoutes,
@@ -32,6 +34,7 @@ const ExtPluginText = platformEnv.isExtension ? (
 function UpdatePreview({
   route,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
+  const intl = useIntl();
   const {
     latestVersion,
     isForceUpdate,
@@ -44,7 +47,9 @@ function UpdatePreview({
       <Page.Header title="App Update" />
       <Page.Body m="$5">
         <YStack space="$3">
-          <Heading size="$heading2xl">New App Version 🎉</Heading>
+          <Heading size="$heading2xl">
+            {intl.formatMessage({ id: ETranslations.update_new_app_version })}
+          </Heading>
           {ExtPluginText}
           <XStack space="$2.5" alignItems="center">
             <Badge badgeType="default" badgeSize="lg">

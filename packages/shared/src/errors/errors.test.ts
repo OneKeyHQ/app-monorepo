@@ -41,7 +41,7 @@ describe('OneKey Error tests', () => {
 
     e = new InvalidAccount({
       message: 'hello',
-      key: 'Handling_Fee' as any, 
+      key: 'Handling_Fee' as any,
     });
     expect(e.message).toBe('hello');
     expect(e.key).toBe('Handling_Fee');
