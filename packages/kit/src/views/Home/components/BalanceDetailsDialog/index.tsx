@@ -56,12 +56,12 @@ function BalanceDetailsContent({
             networkId,
           }),
           withNonce: false,
-          withCheckInscription: true,
+          withCheckInscription: settings.inscriptionProtection,
           withFrozenBalance: true,
         });
       return { overview: r, network: n };
     },
-    [accountId, networkId],
+    [accountId, networkId, settings.inscriptionProtection],
     {
       watchLoading: true,
     },
@@ -103,7 +103,7 @@ function BalanceDetailsContent({
             })}
           </SizableText>
           {isLoading ? (
-            <Skeleton w="$40" h={20} />
+            <Skeleton w="$40" h="$5" />
           ) : (
             <NumberSizeableText
               size="$bodyLgMedium"
@@ -117,15 +117,13 @@ function BalanceDetailsContent({
           )}
         </XStack>
         <XStack py="$2" justifyContent="space-between" alignItems="center">
-          <XStack flex={1}>
-            <SizableText size="$bodyLgMedium">
-              {appLocale.intl.formatMessage({
-                id: ETranslations.balance_detail_frozen_by_inscription,
-              })}
-            </SizableText>
-          </XStack>
+          <SizableText size="$bodyLgMedium">
+            {appLocale.intl.formatMessage({
+              id: ETranslations.balance_detail_frozen,
+            })}
+          </SizableText>
           {isLoading ? (
-            <Skeleton w="$46" h="$5" />
+            <Skeleton w="$40" h="$5" />
           ) : (
             <NumberSizeableText
               size="$bodyLgMedium"
@@ -150,6 +148,7 @@ function BalanceDetailsContent({
                 inscriptionProtection: value,
               }));
             }}
+            disabled={isLoading}
           />
         </XStack>
         <XStack py="$2" justifyContent="flex-start">
