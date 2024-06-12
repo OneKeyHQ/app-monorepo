@@ -239,15 +239,6 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
 
   // ----------------------------------------------
 
-  async getV4AccountsOfWallet({ v4wallet }: { v4wallet: IV4DBWallet }) {
-    const r = await v4dbHubs.v4localDb.getAllRecords({
-      name: EV4LocalDBStoreNames.Account,
-      ids: v4wallet.accounts,
-    });
-    const v4accounts: IV4DBAccount[] = r?.records || [];
-    return v4accounts.filter(Boolean);
-  }
-
   async revealV4HdMnemonic({ hdWalletId }: { hdWalletId: string }) {
     const v4dbCredential: IV4DBCredentialBase =
       await v4dbHubs.v4localDb.getRecordById({

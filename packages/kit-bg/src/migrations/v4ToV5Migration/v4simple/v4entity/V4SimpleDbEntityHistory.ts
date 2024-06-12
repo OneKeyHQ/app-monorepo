@@ -29,10 +29,9 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
     accountId: string;
     networkId: string;
   }): Promise<number[]> {
-    const { accountId, networkId } = props;
+    const { accountId } = props;
     const { items: pendingTx } = await this.getAccountHistory({
       accountId,
-      networkId,
       isPending: true,
     });
     const nonceList = pendingTx.map((item) => item.decodedTx.nonce);
@@ -72,17 +71,14 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
   _getAccountHistoryInList({
     allData,
     accountId,
-    networkId,
   }: {
     allData: IV4HistoryTx[];
     accountId: string;
-    networkId: string;
   }) {
     return allData.filter(
       (item) =>
         item.decodedTx.status !== EV4DecodedTxStatus.Removed &&
-        item.decodedTx.accountId === accountId &&
-        item.decodedTx.networkId === networkId,
+        item.decodedTx.accountId === accountId,
     );
   }
 
@@ -132,7 +128,6 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
       list = (
         await this.getAccountHistory({
           accountId,
-          networkId,
         })
       ).items;
     } else {
@@ -143,14 +138,12 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
 
   async getAccountHistory(props: {
     accountId: string;
-    networkId: string;
     tokenIdOnNetwork?: string;
     limit?: number;
     isPending?: boolean;
   }): Promise<{ items: IV4HistoryTx[] }> {
     const {
       accountId,
-      networkId,
       tokenIdOnNetwork,
       isPending,
       limit = HISTORY_CONSTS.GET_LOCAL_LIMIT,
@@ -159,7 +152,6 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
 
     if (
       this.accountHistoryCache.accountId === accountId &&
-      this.accountHistoryCache.networkId === networkId &&
       this.accountHistoryCache.items &&
       this.accountHistoryCache.items.length
     ) {
@@ -169,11 +161,9 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
       items = this._getAccountHistoryInList({
         allData,
         accountId,
-        networkId,
       });
       this.accountHistoryCache = {
         accountId,
-        networkId,
         items,
       };
     }
@@ -239,7 +229,6 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
       const items0 = this._getAccountHistoryInList({
         allData,
         accountId,
-        networkId,
       });
       this.accountHistoryCache = {
         accountId,
