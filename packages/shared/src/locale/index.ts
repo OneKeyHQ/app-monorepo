@@ -24,6 +24,7 @@ const getLanguage = (symbol: string): string => {
     defaultLanguage[symbol] ||
     ISO6391.getNativeName(symbol) ||
     ISO6391.getName(symbol);
+
   if (!languageName && symbol.indexOf('-') !== -1) {
     const [symbolShort] = symbol.split('-');
     languageName =
