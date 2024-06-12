@@ -290,7 +290,7 @@ export function useFirmwareUpdateErrors({
       content: null,
       retryText: defaultRetryText,
     };
-  }, [error, lastFirmwareTipMessage, onRetry, result]);
+  }, [intl, error, lastFirmwareTipMessage, onRetry, result]);
 }
 
 function WorkflowErrors({
