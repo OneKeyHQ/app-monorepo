@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useIntl } from 'react-intl';
 
 import {
   Image,
@@ -24,6 +25,7 @@ import {
   type IOneKeyError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
@@ -43,9 +45,13 @@ function CommonError({
   message?: string | undefined;
   title?: string | undefined;
 }) {
+  const intl = useIntl();
   return (
     <FirmwareUpdateBaseMessageView
-      title={title || 'Error Occurred'}
+      title={
+        title ||
+        intl.formatMessage({ id: ETranslations.global_an_error_occurred })
+      }
       message={message}
     />
   );
@@ -57,58 +63,79 @@ function ShouldUpdateBridge({
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
+  const intl = useIntl();
   // HARDWARE_BRIDGE_DOWNLOAD_URL
   return (
     <Stack>
       <FirmwareUpdateBaseMessageView
         icon="InfoCircleOutline"
-        title="New Bridge Version Available for Update"
-        message="Hardware update requires the latest bridge software. Please visit our online tutorial <a>[Solution for failed firmware upgrade on Touch]</a> for detailed installation instructions."
+        title={intl.formatMessage({
+          id: ETranslations.update_outdated_version_detected,
+        })}
+        message={intl.formatMessage({
+          id: ETranslations.update_hardware_update_requires_bridge,
+        })}
         linkList={[{ url: FIRMWARE_UPDATE_BRIDGE_GUIDE }]}
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
           openUrlExternal(FIRMWARE_UPDATE_BRIDGE_GUIDE);
         }}
-        onConfirmText="Visit website"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_view_tutorial,
+        })}
       />
     </Stack>
   );
 }
 
 function ShouldUpdateByWeb() {
+  const intl = useIntl();
   return (
     <Stack>
       <FirmwareUpdateBaseMessageView
         icon="InfoCircleOutline"
-        title="Update in official web tool"
-        message="Your hardware wallet firmware requires an update. Please visit <a>firmware.onekey.so</a> on your computer to proceed with the upgrade."
+        title={intl.formatMessage({
+          id: ETranslations.update_update_in_official_web_tool,
+        })}
+        message={intl.formatMessage({
+          id: ETranslations.update_update_in_official_web_tool_desc,
+        })}
         linkList={[{ url: FIRMWARE_UPDATE_WEB_TOOLS_URL }]}
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
           openUrlExternal(FIRMWARE_UPDATE_WEB_TOOLS_URL);
         }}
-        onConfirmText="Visit website"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_visit_website,
+        })}
       />
     </Stack>
   );
 }
 
 function HowToUpdateFullResource() {
+  const intl = useIntl();
   return (
     <Stack>
       <FirmwareUpdateBaseMessageView
         icon="InfoCircleOutline"
-        title="Outdated Version Detected"
-        message="Your current firmware version is too low. Please visit our online tutorial <a>[Solution for failed firmware upgrade on Touch]</a> and follow the step-by-step instructions to complete the update."
+        title={intl.formatMessage({
+          id: ETranslations.update_outdated_version_detected,
+        })}
+        message={intl.formatMessage({
+          id: ETranslations.update_outdated_version_detected_desc,
+        })}
         linkList={[{ url: FIRMWARE_UPDATE_FULL_RES_GUIDE }]}
       />
       <FirmwareUpdatePageFooter
         onConfirm={() => {
           openUrlExternal(FIRMWARE_UPDATE_FULL_RES_GUIDE);
         }}
-        onConfirmText="View tutorial"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_view_tutorial,
+        })}
       />
     </Stack>
   );
@@ -119,17 +146,20 @@ export function EnterBootModeGuide({
 }: {
   deviceType: IDeviceType | undefined;
 }) {
+  const intl = useIntl();
   if (deviceType === 'mini') {
     return (
       <Stack mb="$6">
         <Image w={353} h={224} source={ImgEnterBootGuideMini} />
         <SizableText size="$headingMd">
-          Manually Entering BootLoader Mode
+          {intl.formatMessage({
+            id: ETranslations.update_manually_entering_bootloader_mode_desc,
+          })}
         </SizableText>
         <SizableText mt="$2" color="$textSubdued">
-          To enter BootLoader mode on your OneKey Mini, press and hold the lock
-          screen button while inserting the data cable into the computer, then
-          click 'Verify Status and Continue'.
+          {intl.formatMessage({
+            id: ETranslations.update_manually_entering_bootloader_mode_desc,
+          })}
         </SizableText>
       </Stack>
     );
@@ -165,6 +195,7 @@ export function useFirmwareUpdateErrors({
     onRetryHandler?: () => void;
     retryText: string;
   }>(() => {
+    const intl = useIntl();
     if (
       isHardwareErrorByCode({
         error,
@@ -184,7 +215,9 @@ export function useFirmwareUpdateErrors({
         onRetryHandler: onRetry,
         retryText:
           result?.deviceType === 'mini'
-            ? 'Verify Status and Continue'
+            ? intl.formatMessage({
+                id: ETranslations.update_verify_status_and_continue,
+              })
             : defaultRetryText,
         // retryText: 'Continue',
       };
