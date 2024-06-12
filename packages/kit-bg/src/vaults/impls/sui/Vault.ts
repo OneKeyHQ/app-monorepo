@@ -260,8 +260,6 @@ export default class Vault extends VaultBase {
         }
       }
     } catch (e) {
-      console.log('buildDecodedTx ERROR:', e);
-
       // ignore parse error
     }
 

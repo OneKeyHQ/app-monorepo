@@ -4,7 +4,6 @@ import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { decodeAddress, encodeAddress } from '@polkadot/util-crypto/address';
 
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   permissionRequired,
@@ -212,13 +211,13 @@ class ProviderApiPolkadot extends ProviderApiBase {
     };
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: encodeTx,
         signOnly: true,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
-      })) as ISignedTxPro;
+      });
 
     return Promise.resolve({
       id: request.id ?? 0,

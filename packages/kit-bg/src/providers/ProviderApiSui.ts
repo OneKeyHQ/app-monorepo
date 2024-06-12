@@ -3,7 +3,6 @@ import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
-import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import type IVaultSui from '@onekeyhq/kit-bg/src/vaults/impls/sui/Vault';
 import {
   backgroundClass,
@@ -25,7 +24,6 @@ import ProviderApiBase from './ProviderApiBase';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type {
   SignedMessage,
-  SignedPersonalMessage,
   SuiTransactionBlockResponse,
 } from '@mysten/sui.js';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
@@ -152,18 +150,19 @@ class ProviderApiSui extends ProviderApiBase {
       sender: address ?? '',
     };
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
-      })) as string;
+      });
 
     const vault = (await vaultFactory.getVault({
       accountId: accountId ?? '',
       networkId: networkId ?? '',
     })) as IVaultSui;
-    const tx = await vault.waitPendingTransaction(result, params.options);
+
+    const tx = await vault.waitPendingTransaction(result.txid, params.options);
 
     if (!tx) throw new Error('Transaction not found');
 
@@ -184,13 +183,13 @@ class ProviderApiSui extends ProviderApiBase {
     };
 
     const result =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx,
         accountId: accountId ?? '',
         networkId: networkId ?? '',
         signOnly: true,
-      })) as ISignedTxPro;
+      });
 
     if (!result.signature) throw web3Errors.provider.unauthorized();
 
@@ -204,7 +203,7 @@ class ProviderApiSui extends ProviderApiBase {
   public async signMessage(
     request: IJsBridgeMessagePayload,
     params: ISignMessageInput,
-  ): Promise<SignedPersonalMessage> {
+  ): Promise<SignedMessage> {
     const { accountInfo: { accountId, networkId, address } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -221,7 +220,7 @@ class ProviderApiSui extends ProviderApiBase {
     })) as string;
 
     return {
-      bytes: bufferUtils.hexToText(params.messageSerialize, 'base64'),
+      messageBytes: bufferUtils.hexToText(params.messageSerialize, 'base64'),
       signature: result,
     };
   }
@@ -230,8 +229,15 @@ class ProviderApiSui extends ProviderApiBase {
   public async signPersonalMessage(
     request: IJsBridgeMessagePayload,
     params: ISignMessageInput,
-  ): Promise<SignedPersonalMessage> {
-    return this.signMessage(request, params);
+  ): Promise<{
+    bytes: string;
+    signature: string;
+  }> {
+    const result = await this.signMessage(request, params);
+    return {
+      bytes: result.messageBytes,
+      signature: result.signature,
+    };
   }
 }
 
