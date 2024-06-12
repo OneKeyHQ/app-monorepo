@@ -18,9 +18,16 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IAddressItem } from '../type';
+
+const excludedNetworkIds = [
+  getNetworkIdsMap().nostr,
+  getNetworkIdsMap().lightning,
+  getNetworkIdsMap().tlightning,
+];
 
 type ICreateOrEditContentProps = {
   title?: string;
@@ -91,7 +98,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             name="networkId"
             rules={{ required: true }}
           >
-            <ChainSelectorInput />
+            <ChainSelectorInput excludedNetworkIds={excludedNetworkIds} />
           </Form.Field>
           <Form.Field
             label={intl.formatMessage({
