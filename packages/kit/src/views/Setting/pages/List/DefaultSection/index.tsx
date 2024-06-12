@@ -41,7 +41,7 @@ const AddressBookItem = () => {
         title: intl.formatMessage({
           id: ETranslations.address_book_encrypted_storage_title,
         }),
-        icon: 'PlaceholderOutline',
+        icon: 'ShieldKeyholeOutline',
         description: intl.formatMessage({
           id: ETranslations.address_book_encrypted_storage_description,
         }),
