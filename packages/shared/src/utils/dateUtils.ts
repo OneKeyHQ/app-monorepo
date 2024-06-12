@@ -15,8 +15,6 @@ import { getDefaultLocale } from '../locale/getDefaultLocale';
 
 import type { Duration } from 'date-fns';
 
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-
 const parseLocal = (localeSymbol: ILocaleSymbol) => {
   let locale = localeSymbol;
   if (localeSymbol === 'system') {
