@@ -2,6 +2,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { decodeAddress, encodeAddress } from '@polkadot/util-crypto/address';
+import { Semaphore } from 'async-mutex';
 
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
@@ -57,6 +58,8 @@ export interface ISignerResult {
 class ProviderApiPolkadot extends ProviderApiBase {
   public providerName = IInjectedProviderNames.polkadot;
 
+  private _queue = new Semaphore(1);
+
   public notifyDappAccountsChanged(info: IProviderBaseBackgroundNotifyInfo) {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const data = async ({ origin }: { origin: string }) => {
@@ -88,8 +91,7 @@ class ProviderApiPolkadot extends ProviderApiBase {
     throw web3Errors.rpc.methodNotSupported();
   }
 
-  @providerApiMethod()
-  public async web3Enable(request: IJsBridgeMessagePayload): Promise<boolean> {
+  private async _enable(request: IJsBridgeMessagePayload) {
     if (await this.account(request)) {
       return true;
     }
@@ -99,6 +101,11 @@ class ProviderApiPolkadot extends ProviderApiBase {
     );
 
     return !!res;
+  }
+
+  @providerApiMethod()
+  public web3Enable(request: IJsBridgeMessagePayload): Promise<boolean> {
+    return this._queue.runExclusive(() => this._enable(request));
   }
 
   @permissionRequired()
