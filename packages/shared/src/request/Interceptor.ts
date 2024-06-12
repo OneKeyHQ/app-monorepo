@@ -36,8 +36,7 @@ export async function checkRequestIsOneKeyDomain({
 
   if (!isOneKeyDomain) {
     if (platformEnv.isDev && process.env.ONEKEY_PROXY) {
-      const proxyUrl =
-        config?.headers?.['X-Proxy'] || config?.headers?.['x-proxy'];
+      const proxyUrl = config?.headers?.['X-OneKey-Dev-Proxy'];
       await check(proxyUrl);
     }
   }

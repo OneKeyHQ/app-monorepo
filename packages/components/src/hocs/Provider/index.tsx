@@ -10,7 +10,6 @@ import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import config from '../../../tamagui.config';
-import Toaster from '../../actions/Toast/Toaster';
 
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
@@ -62,7 +61,6 @@ export function ConfigProvider({ children, theme, locale }: IUIProviderProps) {
             <SafeAreaProvider>
               <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
                 {children}
-                <Toaster />
               </MemoizedTamaguiProvider>
             </SafeAreaProvider>
           </SidebarStateProvider>

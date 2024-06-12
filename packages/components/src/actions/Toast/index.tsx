@@ -46,10 +46,12 @@ const RenderLines = ({
   icon,
   size,
   children: text,
+  hasMessage = false,
 }: {
   children?: string;
   size: ISizableTextProps['size'];
   icon?: JSX.Element;
+  hasMessage?: boolean;
 }) => {
   if (!text) {
     return null;
@@ -59,20 +61,25 @@ const RenderLines = ({
     <YStack>
       {lines.map((v, index) =>
         index === 0 ? (
-          <XStack alignItems="center" key={index} space="$1.5">
+          <XStack
+            $platform-native={{
+              justifyContent: hasMessage ? 'flex-start' : 'center',
+            }}
+            alignItems="center"
+            key={index}
+            space="$1.5"
+          >
             {icon}
-            <SizableText
-              selectable={false}
-              size={size}
-              wordWrap="break-word"
-              width="100%"
-            >
+            <SizableText selectable={false} size={size} wordWrap="break-word">
               {v}
             </SizableText>
           </XStack>
         ) : (
           <SizableText
             selectable={false}
+            $platform-native={{
+              textAlign: 'center',
+            }}
             size={size}
             wordWrap="break-word"
             width="100%"
@@ -110,7 +117,7 @@ function Title({
       overflow="hidden"
     >
       <YStack>
-        <RenderLines size="$headingSm" icon={icon}>
+        <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>
           {title}
         </RenderLines>
         <RenderLines size="$bodySm">{message}</RenderLines>

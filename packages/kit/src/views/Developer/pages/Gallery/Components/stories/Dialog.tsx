@@ -95,6 +95,10 @@ const DialogNavigatorDemo = () => {
       <Button
         mt="$4"
         onPress={() => {
+          Toast.error({
+            title: 'Toaster is always on top 1',
+            duration: 3000,
+          });
           Dialog.show({
             title: 'Confirm whether the Dialog is always on top.',
             renderContent: <Input />,
@@ -102,8 +106,8 @@ const DialogNavigatorDemo = () => {
           });
           setTimeout(() => {
             Toast.error({
-              title: 'Toaster is always on top',
-              duration: 3,
+              title: 'Toaster is always on top 2',
+              duration: 3000,
             });
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             navigation.push(EGalleryRoutes.Components);
@@ -115,6 +119,10 @@ const DialogNavigatorDemo = () => {
       <Button
         mt="$4"
         onPress={() => {
+          Toast.error({
+            title: 'Toaster is always on top 1',
+            duration: 3000,
+          });
           Dialog.show({
             title: 'Confirm whether the Dialog is always on top.',
             renderContent: <Input />,
@@ -122,8 +130,8 @@ const DialogNavigatorDemo = () => {
           });
           setTimeout(() => {
             Toast.error({
-              title: 'Toaster is always on top',
-              duration: 3,
+              title: 'Toaster is always on top 2',
+              duration: 3000,
             });
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
             navigation.pushModal(EModalRoutes.TestModal, {

@@ -15,7 +15,6 @@ export function showMessage({ title, duration }: IToastMessageOptions) {
           px="$4"
           py="$3"
           borderRadius="$2"
-          width="60%"
           shadowColor="#181821"
           shadowOffset={{
             width: 0,

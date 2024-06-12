@@ -154,7 +154,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
             {
               headers: shouldUseProxy
                 ? {
-                    // 'X-Proxy': CERTIFICATE_URL_LOCAL_DEV_PROXY,
+                    // 'X-OneKey-Dev-Proxy': CERTIFICATE_URL_LOCAL_DEV_PROXY,
                   }
                 : {},
             },

@@ -1,7 +1,9 @@
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { EPageType, Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
@@ -14,13 +16,16 @@ import SwapMainLandWithPageType from '../components/SwapMainLand';
 import type { RouteProp } from '@react-navigation/core';
 
 const SwapMainLandModalPage = () => {
+  const intl = useIntl();
   const route =
     useRoute<RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapMainLand>>();
   const { importFromToken, importNetworkId, importToToken } =
     route.params ?? {};
   return (
     <Page skipLoading={platformEnv.isNativeIOS} scrollEnabled>
-      <Page.Header title="Swap" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_swap })}
+      />
       <SwapMainLandWithPageType
         pageType={EPageType.modal}
         swapInitParams={{ importFromToken, importNetworkId, importToToken }}
