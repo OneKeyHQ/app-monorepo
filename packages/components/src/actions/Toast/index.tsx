@@ -46,10 +46,12 @@ const RenderLines = ({
   icon,
   size,
   children: text,
+  hasMessage = false,
 }: {
   children?: string;
   size: ISizableTextProps['size'];
   icon?: JSX.Element;
+  hasMessage?: boolean;
 }) => {
   if (!text) {
     return null;
@@ -61,7 +63,7 @@ const RenderLines = ({
         index === 0 ? (
           <XStack
             $platform-native={{
-              justifyContent: 'center',
+              justifyContent: hasMessage ? 'flex-start' : 'center',
             }}
             alignItems="center"
             key={index}
@@ -115,7 +117,7 @@ function Title({
       overflow="hidden"
     >
       <YStack>
-        <RenderLines size="$headingSm" icon={icon}>
+        <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>
           {title}
         </RenderLines>
         <RenderLines size="$bodySm">{message}</RenderLines>
