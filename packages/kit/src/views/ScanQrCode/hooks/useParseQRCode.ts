@@ -15,6 +15,7 @@ import type {
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
@@ -121,10 +122,10 @@ const useParseQRCode = () => {
             content = animationFullData;
           }
           Dialog.confirm({
-            title: intl.formatMessage({ id: 'content__info' }),
+            title: intl.formatMessage({ id: ETranslations.global_info }),
             description: content,
             onConfirmText: intl.formatMessage({
-              id: 'action__copy',
+              id: ETranslations.global_copy,
             }),
             confirmButtonProps: {
               icon: 'Copy3Outline',

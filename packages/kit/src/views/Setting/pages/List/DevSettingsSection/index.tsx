@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -41,7 +42,7 @@ export const DevSettingsSection = () => {
 
   return (
     <Section
-      title={intl.formatMessage({ id: 'form__dev_mode' })}
+      title={intl.formatMessage({ id: ETranslations.global_dev_mode })}
       titleProps={{ color: '$textCritical' }}
     >
       <SectionPressItem
@@ -56,7 +57,7 @@ export const DevSettingsSection = () => {
       ) : null}
       <SectionFieldItem
         name="enableTestEndpoint"
-        title={intl.formatMessage({ id: 'action__test_onekey_service' })}
+        title="OneKey test service"
         onValueChange={
           platformEnv.isDesktop
             ? (enabled: boolean) => {

@@ -3,6 +3,8 @@ import { forwardRef } from 'react';
 
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useSelectionColor } from '../../hooks';
 import { getSharedInputStyles } from '../Input/sharedStyles';
 
@@ -15,8 +17,16 @@ export type ITextAreaProps = Pick<
 > &
   Omit<TextAreaProps, 'size'>;
 
+const defaultTextAlignVertical = platformEnv.isNative ? 'top' : undefined;
 function BaseTextArea(
-  { disabled, editable, error, size, ...props }: ITextAreaProps,
+  {
+    disabled,
+    editable,
+    error,
+    size,
+    textAlignVertical,
+    ...props
+  }: ITextAreaProps,
   ref: Ref<any>,
 ) {
   const sharedStyles = getSharedInputStyles({
@@ -48,6 +58,7 @@ function BaseTextArea(
       cursor={sharedStyles.cursor}
       borderCurve="continuous"
       editable={editable}
+      textAlignVertical={textAlignVertical || defaultTextAlignVertical}
       {...props}
     />
   );

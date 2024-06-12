@@ -1,6 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
 import { RefreshControl, useWindowDimensions } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -99,7 +98,6 @@ const ListRoute = ({
 function HomePage() {
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = getTokens().size.sideBarWidth.val;
-  const intl = useIntl();
   const actions = useAccountSelectorActions();
 
   const onRefresh = useCallback(() => {
@@ -113,9 +111,7 @@ function HomePage() {
         page: memo(FirstRoute, () => true),
       },
       {
-        title: intl.formatMessage({
-          id: 'action__default_chain',
-        }),
+        title: 'chain',
         page: memo(SecondRoute, () => true),
       },
       {
@@ -127,7 +123,7 @@ function HomePage() {
         page: memo(OtherRoute, () => true),
       },
     ],
-    [intl],
+    [],
   );
 
   const renderHeaderView = useCallback(() => <HeaderView />, []);
