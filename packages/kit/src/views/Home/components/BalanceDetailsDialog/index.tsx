@@ -4,6 +4,8 @@ import {
   ESwitchSize,
   NumberSizeableText,
   SizableText,
+  Skeleton,
+  Stack,
   Switch,
   Toast,
   XStack,
@@ -23,15 +25,11 @@ import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
 function BalanceDetailsContent({
   accountId,
   networkId,
-  isProtectionInscription,
-  onToggleProtectionInscription,
 }: {
   accountId: string;
   networkId: string;
-  isProtectionInscription?: boolean;
-  onToggleProtectionInscription?: (value: boolean) => void;
 }) {
-  const [settings] = useSettingsPersistAtom();
+  const [settings, setSettings] = useSettingsPersistAtom();
   const {
     result: {
       overview = {} as IFetchAccountDetailsResp,
@@ -80,17 +78,23 @@ function BalanceDetailsContent({
           id: ETranslations.balance_detail_spendable,
         })}
       </SizableText>
-      <NumberSizeableText
-        pt="$2"
-        pb="$4"
-        size="$heading3xl"
-        formatter="balance"
-        formatterOptions={{
-          tokenSymbol: network.symbol,
-        }}
-      >
-        {overview?.availableBalanceParsed ?? '-'}
-      </NumberSizeableText>
+      {isLoading ? (
+        <Stack pt="$2" pb="$3">
+          <Skeleton w="$40" h="$9" />
+        </Stack>
+      ) : (
+        <NumberSizeableText
+          pt="$2"
+          pb="$4"
+          size="$heading3xl"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: network.symbol,
+          }}
+        >
+          {overview?.availableBalanceParsed ?? '-'}
+        </NumberSizeableText>
+      )}
       <YStack>
         <XStack py="$2" justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyLgMedium">
@@ -98,38 +102,54 @@ function BalanceDetailsContent({
               id: ETranslations.balance_detail_total,
             })}
           </SizableText>
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            formatter="balance"
-            formatterOptions={{
-              tokenSymbol: network.symbol,
-            }}
-          >
-            {overview?.balanceParsed ?? '-'}
-          </NumberSizeableText>
+          {isLoading ? (
+            <Skeleton w="$40" h={20} />
+          ) : (
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: network.symbol,
+              }}
+            >
+              {overview?.balanceParsed ?? '-'}
+            </NumberSizeableText>
+          )}
         </XStack>
         <XStack py="$2" justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyLgMedium">
-            {appLocale.intl.formatMessage({
-              id: ETranslations.balance_detail_frozen_by_inscription,
-            })}
-          </SizableText>
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            formatter="balance"
-            formatterOptions={{
-              tokenSymbol: network.symbol,
-            }}
-          >
-            {overview?.frozenBalanceParsed ?? '-'}
-          </NumberSizeableText>
+          <XStack flex={1}>
+            <SizableText size="$bodyLgMedium">
+              {appLocale.intl.formatMessage({
+                id: ETranslations.balance_detail_frozen_by_inscription,
+              })}
+            </SizableText>
+          </XStack>
+          {isLoading ? (
+            <Skeleton w="$46" h="$5" />
+          ) : (
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="balance"
+              formatterOptions={{
+                tokenSymbol: network.symbol,
+              }}
+              minWidth={125}
+            >
+              {overview?.frozenBalanceParsed ?? '-'}
+            </NumberSizeableText>
+          )}
         </XStack>
         <XStack py="$2" justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyLgMedium">Inscription Protection</SizableText>
           <Switch
             size={ESwitchSize.large}
-            value={isProtectionInscription}
-            onChange={onToggleProtectionInscription}
+            value={settings.inscriptionProtection}
+            onChange={(value) => {
+              setSettings((v) => ({
+                ...v,
+                inscriptionProtection: value,
+              }));
+            }}
           />
         </XStack>
         <XStack py="$2" justifyContent="flex-start">
@@ -154,14 +174,10 @@ function BalanceDetailsContent({
 export const showBalanceDetailsDialog = ({
   accountId,
   networkId,
-  isProtectionInscription,
-  onToggleProtectionInscription,
   ...dialogProps
 }: IDialogShowProps & {
   accountId: string;
   networkId: string;
-  isProtectionInscription?: boolean;
-  onToggleProtectionInscription?: (value: boolean) => void;
 }) =>
   Dialog.show({
     icon: 'CoinOutline',
