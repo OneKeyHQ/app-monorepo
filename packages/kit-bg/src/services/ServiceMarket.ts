@@ -29,7 +29,6 @@ class ServiceMarket extends ServiceBase {
       data: IMarketCategory[];
     }>('/utility/v1/market/category/list');
     const { data } = response.data;
-    data[0].name = 'Watchlist';
     return filters.length
       ? data
           .filter((i) => !filters.includes(i.categoryId))

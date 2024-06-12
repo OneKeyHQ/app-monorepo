@@ -98,6 +98,76 @@
   "copy_recovery_phrases_warning_desc": "يمكن أن يعرض الوصول إلى الحافظة عبارة الاستعادة الخاصة بك للتطبيقات غير المصرح بها.",
   "copy_recovery_phrases_warning_title": "هل تريد نسخ عبارة الاستعادة؟",
   "count_words": "{length} كلمات",
+  "dapp_connect.allow_this_site_to_access": "السماح لهذا الموقع بالوصول إلى عنوان {chain} الخاص بك.",
+  "dapp_connect.allow_to_access_your_chain_auth": "السماح لهذا الموقع بالوصول إلى مصادقة {chain} الخاصة بك.",
+  "dapp_connect.allow_to_access_your_chain_decrypted_message": "السماح بالوصول إلى رسالتك المشفرة {chain}",
+  "dapp_connect.allow_to_access_your_chain_encrypted_message": "السماح بالوصول إلى رسالتك المشفرة {chain}",
+  "dapp_connect.allow_to_access_your_chain_link": "السماح لهذا الموقع بالوصول إلى رابط {chain} الخاص بك.",
+  "dapp_connect.allow_to_access_your_chain_login": "اسمح لهذا الموقع بالوصول إلى تسجيل الدخول {chain} الخاص بك.",
+  "dapp_connect.allow_to_access_your_chain_message_signature": "السماح بالوصول إلى توقيع رسالتك في {chain}.",
+  "dapp_connect.allow_to_access_your_chain_public_key": "السماح بالوصول إلى مفتاح {chain} العام الخاص بك.",
+  "dapp_connect.allow_to_access_your_chain_register": "السماح لهذا الموقع بالوصول إلى سجل {chain} الخاص بك.",
+  "dapp_connect.amount": "المبلغ",
+  "dapp_connect.amount_should_be_at_least": "يجب أن تكون القيمة على الأقل {0}.",
+  "dapp_connect.amount_should_not_exceed": "المبلغ يجب ألا يتجاوز {0}.",
+  "dapp_connect.attackers_disguise_sites_warning": "قد يتنكر المهاجمون كمواقع ويب3 معروفة عن طريق استبدالها بأحرف غير عادية. تحقق مرة أخرى من الرابط قبل الموافقة على أي طلبات.",
+  "dapp_connect.authorization_successful": "تمت المصادقة بنجاح",
+  "dapp_connect.connection_request": "طلب الاتصال",
+  "dapp_connect.create": "أنشئ",
+  "dapp_connect.create_invoice_request": "إنشاء طلب فاتورة",
+  "dapp_connect.decrypted_request": "طلب مشفر",
+  "dapp_connect.description_optional": "الوصف (اختياري)",
+  "dapp_connect.detected_malicious_behavior_warning": "تم اكتشاف سلوك ضار على هذا الموقع من قبل مصادر موثوقة متعددة، يوصى بشدة برفض أي طلب من هذا الموقع.",
+  "dapp_connect.encrypted_request": "طلب مشفر",
+  "dapp_connect.enter_amount": "أدخل المبلغ",
+  "dapp_connect.export": "تصدير",
+  "dapp_connect.export_public_key": "تصدير المفتاح العام",
+  "dapp_connect.hardware_wallets_do_not_support_solana_message_signing": "المحافظ الصلبة لا تدعم توقيع رسائل Solana.",
+  "dapp_connect.hide_full_message": "أخف الرسالة الكاملة",
+  "dapp_connect.http_connection_not_secure": "الاتصال بـ HTTP غير آمن.",
+  "dapp_connect.initiate_message_signature_request": "بدء طلب توقيع الرسالة",
+  "dapp_connect.invoice_created": "تم إنشاء الفاتورة.",
+  "dapp_connect.invoice_description": "وصف الفاتورة",
+  "dapp_connect.invoice_payment_request": "طلب دفع الفاتورة",
+  "dapp_connect.link_successful": "الرابط ناجح",
+  "dapp_connect.lnurl_approve_request": "موافقة طلب LNURL",
+  "dapp_connect.lnurl_connect_request": "طلب الاتصال LNURL",
+  "dapp_connect.lnurl_login_request": "طلب تسجيل الدخول LNURL",
+  "dapp_connect.lnurl_pay_request": "طلب الدفع LNURL",
+  "dapp_connect.lnurl_register_request": "طلب تسجيل LNURL",
+  "dapp_connect.lnurl_withdraw_request": "طلب سحب LNURL",
+  "dapp_connect.login_successful": "تم تسجيل الدخول بنجاح",
+  "dapp_connect.malicious_site_detected": "تم اكتشاف موقع ضار!",
+  "dapp_connect.malicious_site_warning": "موقع ضار.",
+  "dapp_connect.message": "رسالة",
+  "dapp_connect.message_to_the_payer": "رسالة إلى الدافع",
+  "dapp_connect.pay_to_node": "الدفع إلى Lightning Node",
+  "dapp_connect.proceed_at_my_own_risk": "المضي قدما على مسؤوليتي الخاصة",
+  "dapp_connect.registration_successful": "تم التسجيل بنجاح",
+  "dapp_connect.request_for_lnurl_linking_key": "طلب لربط LNURL بمفتاح الربط",
+  "dapp_connect.request_invoices_and_lightning_information": "طلب الفواتير ومعلومات البرق",
+  "dapp_connect.requested_permissions": "الأذونات المطلوبة",
+  "dapp_connect.retrieve_your_encryption_public_key": "استرجع مفتاح التشفير العام الخاص بك",
+  "dapp_connect.risk_sign": "يمكن أحيانًا استخدام هذا النوع من طلبات التوقيع لأغراض ضارة. قم بالتوقيع فقط إذا كنت تثق تمامًا في الموقع الإلكتروني.",
+  "dapp_connect.sats_between": "بين {number} و {number} سات",
+  "dapp_connect.send_approval_requests": "إرسال طلبات الموافقة",
+  "dapp_connect.signature_request": "طلب التوقيع",
+  "dapp_connect.site_not_using_private_connection_warning": "الموقع لا يستخدم اتصالًا خاصًا، قد يتمكن المهاجمون من عرض وتغيير المعلومات التي ترسل وتتلقى عبر هذا الموقع.",
+  "dapp_connect.site_suspected_of_malicious_behavior_warning": "يشتبه في أن هذا الموقع يتصرف بطريقة ضارة، وقد يشكل الاستمرار في الموافقة على الطلبات مخاطر أمنية.",
+  "dapp_connect.suspected_malicious_behavior": "سلوك مشتبه به كخبيث.",
+  "dapp_connect.suspected_malicious_behavior_on_this_site": "يشتبه في وجود سلوك ضار على هذا الموقع.",
+  "dapp_connect.the_sites_connection_is_not_secure": "اتصال الموقع غير آمن.",
+  "dapp_connect.url_contains_unusual_characters": "تحتوي الرابط على أحرف غير عادية، يشتبه في أنها موقع ضار.",
+  "dapp_connect.url_contains_unusual_characters_warning": "تحتوي الرابط على أحرف غير عادية.",
+  "dapp_connect.verified_site": "موقع موثق.",
+  "dapp_connect.verified_site_warning": "موقع موثوق.",
+  "dapp_connect.verified_web3_site_warning": "موقع ويب3 موثق من قبل مصادر موثوقة متعددة، يمكن استخدامه بثقة.",
+  "dapp_connect.view_decrypted_message": "عرض الرسالة المشفرة",
+  "dapp_connect.view_encrypted_message": "عرض الرسالة المشفرة",
+  "dapp_connect.view_full_message": "عرض الرسالة بالكامل",
+  "dapp_connect.view_your_balance_and_activity": "عرض رصيدك ونشاطك",
+  "dapp_connect.watch_your_account_balance_and_activity": "راقب رصيد حسابك ونشاطه",
+  "dapp_connect.withdraw_request_sent": "تم إرسال طلب السحب",
   "derivation_path": "مسار الاشتقاق",
   "device_auth.continue_anyway_warning_message": "نحن حاليًا غير قادرين على التحقق من جهازك. الاستمرار قد يشكل مخاطر أمنية.",
   "device_auth.request_desc": "قم بالتأكيد على جهازك للتحقق من صحته وتأمين اتصالك.",
@@ -116,7 +186,7 @@
   "earn.claim_eth_desc": "اطلب ETH الخاص بك بعد أن يتم معالجة طلب السحب.",
   "earn.claim_limitations": "نظرًا للقيود المفروضة على Lido، يجب عليك المطالبة بكل من مكافآتك بشكل منفصل.",
   "earn.daily": "يوميا",
-  "earn.earn_up_to_number_per_year": "اكسب حتى <highLight>{number}</highLight> في السنة",
+  "earn.earn_up_to_number_per_year": "اكسب حتى {number} في السنة",
   "earn.earn_up_to_number_per_year_desc": "يتم تحديث النسبة المئوية السنوية بشكل ساعي وتعديلها وفقًا للتغييرات في القيمة الإجمالية المقفلة.",
   "earn.est_annual_rewards": "المكافآت السنوية المقدرة",
   "earn.est_receive": "تقدير الاستلام",
@@ -134,15 +204,15 @@
   "earn.receive": "تلقي",
   "earn.receive_lido_nft": "تلقي NFT ليدو",
   "earn.receive_lido_nft_desc": "كل طلب سحب يولد NFT ليدو، وتتغير مظهره عندما يصبح ETH الخاص بك متاحًا للسحب.",
-  "earn.receive_steth": "تلقي <highLight>stETH</highLight>",
+  "earn.receive_steth": "تلقي stETH",
   "earn.receive_steth_desc": "عندما تقوم برهنة ETH، تحصل على 1:1 stETH. يمكنك إلغاء الرهن وتداول هذا الأصل السائل في أي وقت.",
-  "earn.receive_stmatic": "تلقي<highLight>stMATIC</highLight>",
+  "earn.receive_stmatic": "تلقي stMATIC",
   "earn.receive_stmatic_desc": "عندما تقوم برهنة MATIC، تحصل على stMATIC. يمكنك إلغاء الرهن وتداول هذا الأصل السائل في أي وقت.",
   "earn.redeem": "استرداد",
   "earn.request_withdrawal": "طلب السحب",
   "earn.request_withdrawal_steth_desc": "قم بقفل stETH / wstETH الخاص بك عن طريق تقديم طلب سحب. بعد 1-5 أيام، سيتم تدمير stETH المقفل وسيصبح ETH الخاص بك متاحًا للسحب.",
   "earn.request_withdrawal_stmatic_desc": "بعد 1-5 أيام من تقديم طلب السحب، سيتم تدمير stMATIC المقفل وسيصبح MATIC الخاص بك متاحًا للسحب.",
-  "earn.rewards_updated_daily": "تم تحديث الجوائز <highLight>يوميا</highLight>",
+  "earn.rewards_updated_daily": "تتم تحديث المكافآت يوميا",
   "earn.rewards_updated_daily_steth_desc": "سيكون هناك تحديث يومي على رصيدك من stETH، والذي يتضمن مكافآت الإستيكينج.",
   "earn.rewards_updated_daily_stmatic_desc": "خلال فترة الرهن، يتغير قيمة stMATIC لتعكس الأرباح.",
   "earn.stake": "رهان",
@@ -273,6 +343,7 @@
   "form.rename_error_empty": "الاسم مطلوب",
   "global.about": "حول",
   "global.account_name": "اسم الحساب",
+  "global.accounts": "الحسابات",
   "global.acknowledged": "تم التأكيد",
   "global.add_account": "أضف حساب",
   "global.add_hidden_wallet": "أضف محفظة مخفية",
@@ -336,6 +407,7 @@
   "global.default": "الافتراضي",
   "global.delete": "يمسح",
   "global.deny": "ينكر",
+  "global.details": "التفاصيل",
   "global.dev_mode": "وضع التطوير",
   "global.dex": "DEX",
   "global.discord": "Discord",
@@ -442,6 +514,7 @@
   "global.rename": "إعادة تسمية",
   "global.reset": "إعادة ضبط",
   "global.retry": "أعد المحاولة",
+  "global.sats": "الاختبارات",
   "global.saved_the_phrases": "لقد حفظت العبارات",
   "global.scan_to_connect": "مسح للاتصال",
   "global.search": "بحث",
@@ -491,6 +564,7 @@
   "global.watchlist": "قائمة المراقبة",
   "global.website": "موقع الكتروني",
   "global.white_paper": "ورقة بيضاء",
+  "global.withdraw": "سحب",
   "global.x": "X",
   "hardware.backup_completed": "اكتمل النسخ الاحتياطي!",
   "hardware.confirm_onekey_lite_pin": "تأكيد رقم OneKey Lite السري",
@@ -919,7 +993,7 @@
   "update.download_timed_out_check_connection": "تعذر التنزيل بسبب انقطاع الاتصال بالإنترنت، يرجى التحقق من اتصالك بالإنترنت.",
   "update.downloading": "جاري التحميل...",
   "update.downloading_latest_ui_resources": "جاري تحميل أحدث موارد واجهة المستخدم...",
-  "update.downloading_package": "جاري تحميل الحزمة... {progress}",
+  "update.downloading_package": "جاري تحميل الحزمة... {progress}%",
   "update.ensure_one_usb_device_connected": "يرجى التأكد من توصيل جهاز USB واحد فقط للمتابعة مع الترقية. إذا كانت هناك أجهزة متعددة متصلة، قم بفصل الأخرى وحاول مرة أخرى.",
   "update.failed_to_enter_bootloader_mode": "فشل في الدخول إلى وضع البوتلودر",
   "update.firmware_version_available": "البرنامج الثابت {version} متاح الآن",
@@ -934,6 +1008,7 @@
   "update.init_iframe_load_fail": "فشل تحميل الإطار الفرعي",
   "update.install_now": "قم بالتثبيت الآن",
   "update.installation_failed": "فشل التثبيت",
+  "update.installation_package_possibly_compromised": "ربما تم التلاعب بحزمة التثبيت",
   "update.installing": "جار التثبيت...",
   "update.insufficient_battery_power": "طاقة البطارية غير كافية",
   "update.insufficient_battery_power_desc": "الجهاز المتصل لا يملك طاقة بطارية كافية ولا يمكنه المتابعة مع الترقية. يرجى شحن الجهاز قبل المحاولة مرة أخرى.",
@@ -956,7 +1031,7 @@
   "update.outdated_version_detected": "تم اكتشاف نسخة قديمة",
   "update.outdated_version_detected_desc": "إن إصدار البرنامج الثابت الحالي منخفض جدا. يرجى زيارة الدرس التعليمي عبر الإنترنت لدينا <url>[الحل لفشل ترقية البرنامج الثابت على Touch]</url> واتباع التعليمات الخطوة بخطوة لإكمال التحديث.",
   "update.package_name_mismatch": "اسم حزمة التثبيت غير متطابق",
-  "update.progress_downloading": "{progress} جاري التحميل...",
+  "update.progress_downloading": "{progress}% جاري التحميل...",
   "update.ready_to_upgrade_checklist": "هل أنت مستعد للترقية؟ دعنا نتأكد أنك مستعد تمامًا 📝",
   "update.reboot_success": "نجاح إعادة التشغيل",
   "update.reboot_to_bootloader_mode": "أعد التشغيل إلى وضع المحمل الأساسي",
