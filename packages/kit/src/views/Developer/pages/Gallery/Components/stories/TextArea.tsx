@@ -1,4 +1,5 @@
 import { Stack, TextArea } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Layout } from './utils/Layout';
 
@@ -21,7 +22,7 @@ const TextAreaGallery = () => (
               numberOfLines={14}
               editable={false}
               disabled
-              minHeight="$20"
+              minHeight={platformEnv.isNativeIOS ? '$20' : undefined}
             />
             <TextArea error />
           </Stack>
