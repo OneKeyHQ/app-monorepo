@@ -1,5 +1,7 @@
 import { Children } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type {
   IActionListProps,
   IButtonProps,
@@ -16,6 +18,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IActionItemsProps = {
   icon?: IKeyOfIcons;
@@ -61,11 +64,25 @@ function ActionItem({
 }
 
 function ActionBuy(props: IActionItemsProps) {
-  return <ActionItem label="Buy" icon="PlusLargeOutline" {...props} />;
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_buy })}
+      icon="PlusLargeOutline"
+      {...props}
+    />
+  );
 }
 
 function ActionSell(props: IActionItemsProps) {
-  return <ActionItem label="Sell" icon="MinusLargeOutline" {...props} />;
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_sell })}
+      icon="MinusLargeOutline"
+      {...props}
+    />
+  );
 }
 
 function ActionSend(props: IActionItemsProps) {

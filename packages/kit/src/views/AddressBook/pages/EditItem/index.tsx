@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
@@ -31,22 +32,29 @@ const EditItemPage = () => {
     async (item: IAddressItem) => {
       try {
         await backgroundApiProxy.serviceAddressBook.updateItem(item);
-        Toast.success({ title: 'Save Successful' });
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.address_book_add_address_toast_save_success,
+          }),
+        });
         navigation.pop();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
       }
     },
-    [navigation],
+    [navigation, intl],
   );
 
   const onRemove = useCallback(
     async (item: IAddressItem) => {
       Dialog.show({
-        title: 'Delete Contact',
+        title: intl.formatMessage({
+          id: ETranslations.address_book_edit_address_delete_contact_title,
+        }),
         icon: 'DeleteOutline',
-        description:
-          'Please confirm whether to delete this contact from the address book. Type "Confirm" to delete.',
+        description: intl.formatMessage({
+          id: ETranslations.address_book_edit_address_delete_contact_message,
+        }),
         tone: 'destructive',
         showConfirmButton: true,
         showCancelButton: true,
@@ -54,7 +62,11 @@ const EditItemPage = () => {
           if (item.id) {
             try {
               await backgroundApiProxy.serviceAddressBook.removeItem(item.id);
-              Toast.success({ title: 'Delete Successful' });
+              Toast.success({
+                title: intl.formatMessage({
+                  id: ETranslations.address_book_add_address_toast_delete_success,
+                }),
+              });
               navigation.pop();
             } catch (e) {
               Toast.error({ title: (e as Error).message });
@@ -69,12 +81,14 @@ const EditItemPage = () => {
         },
       });
     },
-    [navigation],
+    [navigation, intl],
   );
 
   return (
     <CreateOrEditContent
-      title={intl.formatMessage({ id: 'title__edit_address' })}
+      title={intl.formatMessage({
+        id: ETranslations.address_book_edit_address_title,
+      })}
       item={route.params}
       onSubmit={onSubmit}
       onRemove={onRemove}

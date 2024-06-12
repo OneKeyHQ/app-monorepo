@@ -254,7 +254,7 @@
   "earn.request_withdrawal": "Запит на виведення коштів",
   "earn.request_withdrawal_steth_desc": "Заблокуйте свої stETH/wstETH, висунувши запит на виведення. Після 1-5 днів заблоковані stETH будуть знищені, а ваш ETH стане доступним для виведення.",
   "earn.request_withdrawal_stmatic_desc": "1-5 днів після подання запиту на виведення коштів, заблокований stMATIC буде знищений, а ваш MATIC стане доступним для виведення.",
-  "earn.rewards_updated_daily": "Нагороди оновлюються {щоденно}",
+  "earn.rewards_updated_daily": "Нагороди оновлюються {daily}",
   "earn.rewards_updated_daily_steth_desc": "Щодня буде оновлюватися інформація про ваші баланси stETH, яка включає винагороди за стейкінг.",
   "earn.rewards_updated_daily_stmatic_desc": "Під час періоду стейкінгу, вартість stMATIC змінюється, відображаючи прибуток.",
   "earn.stake": "Ставка",
