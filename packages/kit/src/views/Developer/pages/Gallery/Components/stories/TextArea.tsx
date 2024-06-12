@@ -14,8 +14,15 @@ const TextAreaGallery = () => (
           <Stack space="$4">
             <TextArea placeholder="Placeholder" />
             <TextArea value="Read Only" editable={false} />
-            <TextArea value="Disabled" editable={false} />
-            <TextArea value="Disabled" numberOfLines={14} />
+            <TextArea value="Disabled" disabled />
+            <TextArea
+              multiline
+              value="text"
+              numberOfLines={14}
+              editable={false}
+              disabled
+              minHeight="$20"
+            />
             <TextArea error />
           </Stack>
         ),
