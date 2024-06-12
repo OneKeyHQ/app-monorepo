@@ -2,6 +2,8 @@ import { AuthenticationType } from 'expo-local-authentication';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ETranslations } from '../locale';
+import { appLocale } from '../locale/appLocale';
 import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
@@ -37,7 +39,10 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
     }
 
     try {
-      const result = await window?.desktopApi?.promptTouchID('action__unlock');
+      const result = await window?.desktopApi?.promptTouchID(
+        'Unlock',
+        // appLocale.intl.formatMessage({ id: ETranslations.unlock }),
+      );
       return result.success
         ? { success: true }
         : {
