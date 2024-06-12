@@ -1,6 +1,8 @@
+import { useState } from 'react';
+
 import BigNumber from 'bignumber.js';
 
-import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
@@ -10,6 +12,7 @@ type IProps = {
 
 function NFTListItem(props: IProps) {
   const { nft, onPress } = props;
+  const [isVideo, setIsVideo] = useState<boolean>(true);
 
   return (
     <Stack
@@ -50,7 +53,18 @@ function NFTListItem(props: IProps) {
       >
         <Stack position="absolute" left={0} top={0} right={0} bottom={0}>
           <Image w="100%" h="100%" borderRadius="$2.5">
-            <Image.Source src={nft.metadata?.image} />
+            {isVideo ? (
+              <Video
+                source={{ uri: nft.metadata?.image }}
+                onError={() => setIsVideo(false)}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                }}
+              />
+            ) : (
+              <Image.Source src={nft.metadata?.image} />
+            )}
             <Image.Fallback
               bg="$bgStrong"
               justifyContent="center"
