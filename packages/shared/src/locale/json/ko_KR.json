@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "가져올 수 있는 Google Drive 백업이 없습니다.",
   "backup.no_available_icloud_backups_to_import": "가져올 수 있는 iCloud 백업이 없습니다.",
   "backup.no_data": "데이터 없음",
-  "backup.number_wallets_number_accounts": "{number} 개의 지갑 · {number} 개의 계정",
+  "backup.number_wallets_number_accounts": "{number0} 개의 지갑 · {number1} 개의 계정",
   "backup.off_device": "기기 외부( {number} )",
   "backup.on_device": "기기 내",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey는 하드웨어 지갑을 백업하지 않으므로, 복구 구문을 기록하고 안전하게 보관하십시오.",

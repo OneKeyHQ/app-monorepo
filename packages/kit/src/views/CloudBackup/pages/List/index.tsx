@@ -40,8 +40,8 @@ export default function List() {
       detail: intl.formatMessage(
         { id: ETranslations.backup_number_wallets_number_accounts },
         {
-          number: item.walletCount,
-          number: item.accountCount,
+          number0: item.walletCount,
+          number1: item.accountCount,
         },
       ),
     }));

@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "ليس لديك نسخ احتياطية متاحة من Google Drive للقيام بالاستيراد.",
   "backup.no_available_icloud_backups_to_import": "ليس لديك نسخ احتياطية متاحة من iCloud للاستيراد.",
   "backup.no_data": "لا يوجد بيانات",
-  "backup.number_wallets_number_accounts": "{number} محافظ · {number} حسابات",
+  "backup.number_wallets_number_accounts": "{number0} محافظ · {number1} حسابات",
   "backup.off_device": "خارج الجهاز ( {number} )",
   "backup.on_device": "على الجهاز",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey لا يقوم بنسخ احتياطي لمحافظ الأجهزة، يرجى تسجيل وحماية عبارة الاستعادة الخاصة بك.",

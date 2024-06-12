@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "インポートする利用可能なGoogle Driveバックアップがありません。",
   "backup.no_available_icloud_backups_to_import": "インポートする利用可能なiCloudバックアップがありません。",
   "backup.no_data": "データなし",
-  "backup.number_wallets_number_accounts": "{number} のウォレット · {number} のアカウント",
+  "backup.number_wallets_number_accounts": "{number0} のウォレット · {number1} のアカウント",
   "backup.off_device": "デバイス外（ {number} ）",
   "backup.on_device": "デバイス上で",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKeyはハードウェアウォレットのバックアップを行いませんので、リカバリーフレーズを記録し、安全に保管してください。",

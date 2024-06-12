@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "У вас немає доступних резервних копій Google Drive для імпорту.",
   "backup.no_available_icloud_backups_to_import": "У вас немає доступних резервних копій iCloud для імпорту.",
   "backup.no_data": "Немає даних",
-  "backup.number_wallets_number_accounts": "{number} Гаманців · {number} Рахунків",
+  "backup.number_wallets_number_accounts": "{number0} Гаманців · {number1} Рахунків",
   "backup.off_device": "Поза пристроєм ( {number} )",
   "backup.on_device": "На пристрої",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey не робить резервні копії апаратних гаманців, будь ласка, записуйте та зберігайте вашу фразу відновлення.",

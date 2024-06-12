@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "Anda tidak memiliki cadangan Google Drive yang tersedia untuk diimpor.",
   "backup.no_available_icloud_backups_to_import": "Anda tidak memiliki cadangan iCloud yang tersedia untuk diimpor.",
   "backup.no_data": "Tidak Ada Data",
-  "backup.number_wallets_number_accounts": "{number} Dompet · {number} Akun",
+  "backup.number_wallets_number_accounts": "{number0} Dompet · {number1} Akun",
   "backup.off_device": "Di luar perangkat ( {number} )",
   "backup.on_device": "Di perangkat",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey tidak mencadangkan dompet perangkat keras, harap catat dan amankan frasa pemulihan Anda.",

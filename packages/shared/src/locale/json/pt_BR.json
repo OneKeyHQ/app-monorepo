@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "Você não tem backups disponíveis no Google Drive para importar.",
   "backup.no_available_icloud_backups_to_import": "Você não tem backups disponíveis no iCloud para importar.",
   "backup.no_data": "Sem Dados",
-  "backup.number_wallets_number_accounts": "{number} Carteiras · {number} Contas",
+  "backup.number_wallets_number_accounts": "{number0} Carteiras · {number1} Contas",
   "backup.off_device": "Fora do dispositivo ( {number} )",
   "backup.on_device": "No dispositivo",
   "backup.onekey_doesnt_back_up_hardware_wallets": "O OneKey não faz backup de carteiras de hardware, por favor, registre e proteja sua frase de recuperação.",

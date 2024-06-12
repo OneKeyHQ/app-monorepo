@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "আপনার কাছে ইমপোর্ট করার জন্য কোনো উপলব্ধ Google Drive ব্যাকআপ নেই।",
   "backup.no_available_icloud_backups_to_import": "আপনার কাছে ইম্পোর্ট করার জন্য কোন আইক্লাউড ব্যাকআপ নেই।",
   "backup.no_data": "কোন তথ্য নেই",
-  "backup.number_wallets_number_accounts": "{number} ওয়ালেট · {number} অ্যাকাউন্ট",
+  "backup.number_wallets_number_accounts": "{number0} ওয়ালেট · {number1} অ্যাকাউন্ট",
   "backup.off_device": "অফ-ডিভাইস ( {number} )",
   "backup.on_device": "ডিভাইসের উপর",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey হার্ডওয়্যার ওয়ালেট ব্যাকআপ করে না, দয়া করে আপনার পুনরুদ্ধার বাক্যাংশটি রেকর্ড করুন এবং নিরাপদে রাখুন।",

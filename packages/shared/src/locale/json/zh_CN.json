@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "暂无可供导入的 Google Drive 备份",
   "backup.no_available_icloud_backups_to_import": "您没有可供导入的 iCloud 备份",
   "backup.no_data": "无数据",
-  "backup.number_wallets_number_accounts": "{number} 个钱包 · {number} 个账户",
+  "backup.number_wallets_number_accounts": "{number0} 个钱包 · {number1} 个账户",
   "backup.off_device": "不在设备上({number})",
   "backup.on_device": "在设备上",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey不会备份硬件钱包，请记录并保管好您的助记词。",

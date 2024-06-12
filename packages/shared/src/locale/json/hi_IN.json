@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "आपके पास आयात करने के लिए कोई उपलब्ध Google Drive बैकअप नहीं हैं।",
   "backup.no_available_icloud_backups_to_import": "आपके पास आयात करने के लिए कोई उपलब्ध iCloud बैकअप नहीं हैं।",
   "backup.no_data": "कोई डेटा नहीं",
-  "backup.number_wallets_number_accounts": "{number} वॉलेट · {number} खाते",
+  "backup.number_wallets_number_accounts": "{number0} वॉलेट · {number1} खाते",
   "backup.off_device": "ऑफ-डिवाइस ( {number} )",
   "backup.on_device": "डिवाइस पर",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey हार्डवेयर वॉलेट्स का बैकअप नहीं लेता, कृपया अपने रिकवरी फ़्रेज़ को रिकॉर्ड करें और सुरक्षित रखें।",

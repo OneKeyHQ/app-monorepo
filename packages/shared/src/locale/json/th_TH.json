@@ -87,7 +87,7 @@
   "backup.no_available_google_drive_backups_to_import": "คุณไม่มีการสำรองข้อมูล Google Drive ที่สามารถนำเข้าได้",
   "backup.no_available_icloud_backups_to_import": "คุณไม่มีการสำรองข้อมูล iCloud ที่สามารถนำเข้าได้",
   "backup.no_data": "ไม่มีข้อมูล",
-  "backup.number_wallets_number_accounts": "{number} กระเป๋า · {number} บัญชี",
+  "backup.number_wallets_number_accounts": "{number0} กระเป๋า · {number1} บัญชี",
   "backup.off_device": "นอกอุปกรณ์ ( {number} )",
   "backup.on_device": "บนอุปกรณ์",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey ไม่สำรองกระเป๋าสตางค์ฮาร์ดแวร์ กรุณาบันทึกและรักษาวลีการกู้คืนของคุณ",
