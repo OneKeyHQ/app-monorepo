@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IXStackProps } from '@onekeyhq/components';
 import { Icon, SizableText, Toast, XStack } from '@onekeyhq/components';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -10,6 +12,7 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
@@ -95,6 +98,7 @@ const SwapAccountAddressContainer = ({
   type,
   onToAnotherAddressModal,
 }: ISwapAccountAddressContainerProps) => {
+  const intl = useIntl();
   const swapAddressInfo = useSwapAddressInfo(type);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -119,11 +123,19 @@ const SwapAccountAddressContainer = ({
         account,
         selectAfterCreate: false,
       });
-      Toast.success({ title: 'Address generated' });
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_address_generated,
+        }),
+      });
     } catch (e) {
-      Toast.error({ title: 'Address generated failed' });
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_address_generated_fail,
+        }),
+      });
     }
-  }, [createAddress, swapAddressInfo.accountInfo, type]);
+  }, [createAddress, intl, swapAddressInfo.accountInfo, type]);
 
   const addressComponent = useMemo(() => {
     if (!fromToken && type === ESwapDirectionType.FROM) {
@@ -186,9 +198,20 @@ const SwapAccountAddressContainer = ({
     return (
       <AddressButton
         onPress={onToAnotherAddressModal}
-        address={`${accountUtils.shortenAddress({
-          address: swapAddressInfo.address ?? '',
-        })} ${swapToAnotherAccountSwitchOn ? '(Edited)' : ''}`}
+        address={
+          swapToAnotherAccountSwitchOn
+            ? intl.formatMessage(
+                { id: ETranslations.swap_account_to_address_edit },
+                {
+                  address: accountUtils.shortenAddress({
+                    address: swapAddressInfo.address ?? '',
+                  }),
+                },
+              )
+            : accountUtils.shortenAddress({
+                address: swapAddressInfo.address ?? '',
+              })
+        }
       />
     );
   }, [
@@ -202,13 +225,19 @@ const SwapAccountAddressContainer = ({
     quoteResult,
     onToAnotherAddressModal,
     swapToAnotherAccountSwitchOn,
+    intl,
     handleOnCreateAddress,
   ]);
 
   return (
     <XStack pb="$1.5">
       <SizableText size="$bodyMdMedium" mr="$2">
-        {type === ESwapDirectionType.FROM ? 'From' : 'To'}
+        {intl.formatMessage({
+          id:
+            type === ESwapDirectionType.FROM
+              ? ETranslations.swap_page_from
+              : ETranslations.swap_page_to,
+        })}
       </SizableText>
       {addressComponent}
     </XStack>

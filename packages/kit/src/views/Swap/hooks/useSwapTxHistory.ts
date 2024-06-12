@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import type {
   ISwapTxHistory,
@@ -19,6 +20,7 @@ export function useSwapTxHistoryActions() {
   const [, setFromToken] = useSwapSelectFromTokenAtom();
   const [, setToken] = useSwapSelectToTokenAtom();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [settingsAtom] = useSettingsPersistAtom();
   const generateSwapHistoryItem = useCallback(
     async ({
       txId,
@@ -34,6 +36,7 @@ export function useSwapTxHistoryActions() {
       if (swapTxInfo) {
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
+          currency: settingsAtom.currencyInfo.symbol,
           baseInfo: {
             toAmount: swapTxInfo.receiver.amount,
             fromAmount: swapTxInfo.sender.amount,
@@ -75,7 +78,7 @@ export function useSwapTxHistoryActions() {
         );
       }
     },
-    [swapNetworks],
+    [settingsAtom.currencyInfo.symbol, swapNetworks],
   );
 
   const swapAgainUseHistoryItem = useCallback(
