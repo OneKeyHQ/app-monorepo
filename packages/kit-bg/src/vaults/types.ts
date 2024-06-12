@@ -153,6 +153,8 @@ export type IVaultSettings = {
   enabledOnClassicOnly?: boolean;
 
   hideFeeInfoInHistoryList?: boolean;
+
+  hasFrozenBalance?: boolean;
 };
 
 export type IVaultFactoryOptions = {

@@ -67,6 +67,14 @@ function HomeOverviewContainer() {
     },
   );
 
+  const { result: vaultSettings } = usePromiseResult(async () => {
+    if (!network) return;
+    const s = backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId: network.id,
+    });
+    return s;
+  }, [network]);
+
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
       setOverviewState({
@@ -92,20 +100,22 @@ function HomeOverviewContainer() {
       >
         {overview?.netWorth ?? 0}
       </NumberSizeableText>
-      <Button
-        size="small"
-        variant="tertiary"
-        onPress={() =>
-          showBalanceDetailsDialog({
-            accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
-          })
-        }
-      >
-        {intl.formatMessage({
-          id: ETranslations.balance_detail_button_balance,
-        })}
-      </Button>
+      {vaultSettings?.hasFrozenBalance ? (
+        <Button
+          size="small"
+          variant="tertiary"
+          onPress={() =>
+            showBalanceDetailsDialog({
+              accountId: account?.id ?? '',
+              networkId: network?.id ?? '',
+            })
+          }
+        >
+          {intl.formatMessage({
+            id: ETranslations.balance_detail_button_balance,
+          })}
+        </Button>
+      ) : null}
     </YStack>
   );
 }

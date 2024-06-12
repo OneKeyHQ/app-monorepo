@@ -46,6 +46,7 @@ const settings: IVaultSettings = {
   },
 
   cannotSendToSelf: true,
+  hasFrozenBalance: true,
 };
 
 export default Object.freeze(settings);

@@ -18,6 +18,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
@@ -106,6 +107,7 @@ function BalanceDetailsContent({
             <Skeleton w="$40" h="$5" />
           ) : (
             <NumberSizeableText
+              textAlign="right"
               size="$bodyLgMedium"
               formatter="balance"
               formatterOptions={{
@@ -126,6 +128,7 @@ function BalanceDetailsContent({
             <Skeleton w="$40" h="$5" />
           ) : (
             <NumberSizeableText
+              textAlign="right"
               size="$bodyLgMedium"
               formatter="balance"
               formatterOptions={{
@@ -137,20 +140,24 @@ function BalanceDetailsContent({
             </NumberSizeableText>
           )}
         </XStack>
-        <XStack py="$2" justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyLgMedium">Inscription Protection</SizableText>
-          <Switch
-            size={ESwitchSize.large}
-            value={settings.inscriptionProtection}
-            onChange={(value) => {
-              setSettings((v) => ({
-                ...v,
-                inscriptionProtection: value,
-              }));
-            }}
-            disabled={isLoading}
-          />
-        </XStack>
+        {networkUtils.isBTCNetwork(networkId) ? (
+          <XStack py="$2" justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyLgMedium">
+              Inscription Protection
+            </SizableText>
+            <Switch
+              size={ESwitchSize.large}
+              value={settings.inscriptionProtection}
+              onChange={(value) => {
+                setSettings((v) => ({
+                  ...v,
+                  inscriptionProtection: value,
+                }));
+              }}
+              disabled={isLoading}
+            />
+          </XStack>
+        ) : null}
         <XStack py="$2" justifyContent="flex-start">
           <Button
             icon="QuestionmarkOutline"
