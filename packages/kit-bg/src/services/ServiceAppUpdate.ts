@@ -137,7 +137,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async notifyFailed(e?: { message: string }) {
     clearTimeout(downloadTimeoutId);
-    // TODO： need replace by error code.
+    // TODO: need replace by error code.
     let errorText: ETranslations | string =
       e?.message || ETranslations.update_network_exception_check_connection;
     if (errorText.includes('Server not responding')) {
