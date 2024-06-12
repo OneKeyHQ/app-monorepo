@@ -137,7 +137,7 @@ export function ExploreView({
     <>
       <XStack py="$2">
         <Select
-          title="Categories"
+          title={intl.formatMessage({ id: ETranslations.explore_categories })}
           items={selectOptions}
           value={selectedCategory}
           onChange={setSelectedCategory}

@@ -66,15 +66,21 @@ function BookmarkListModal() {
               rules={{
                 required: {
                   value: true,
-                  message: 'Please enter the bookmark name',
+                  message: intl.formatMessage({
+                    id: ETranslations.explore_enter_bookmark_name,
+                  }),
                 },
                 minLength: {
                   value: 1,
-                  message: 'Bookmark must be at least 1 characters',
+                  message: intl.formatMessage({
+                    id: ETranslations.explore_bookmark_at_least,
+                  }),
                 },
                 maxLength: {
                   value: 24,
-                  message: 'Bookmark cannot exceed 24 characters',
+                  message: intl.formatMessage({
+                    id: ETranslations.explore_bookmark_exceed,
+                  }),
                 },
               }}
             >

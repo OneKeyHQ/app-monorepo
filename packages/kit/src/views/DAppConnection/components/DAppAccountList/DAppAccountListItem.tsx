@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { isNumber } from 'lodash';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -22,6 +23,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -139,6 +141,7 @@ function DAppAccountListStandAloneItem({
     params: IConnectedAccountInfoChangedParams,
   ) => void;
 }) {
+  const intl = useIntl();
   const { serviceDApp, serviceNetwork } = backgroundApiProxy;
   const { $sourceInfo } = useDappQuery();
 
@@ -206,7 +209,7 @@ function DAppAccountListStandAloneItem({
   return (
     <YStack space="$2" testID="DAppAccountListStandAloneItem">
       <SizableText size="$headingMd" color="$text">
-        Accounts
+        {intl.formatMessage({ id: ETranslations.global_accounts })}
       </SizableText>
       {typeof result?.accountSelectorNum === 'number' &&
       Array.isArray(result?.networkIds) ? (

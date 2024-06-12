@@ -193,7 +193,11 @@ export function BookmarksAndHistoriesSection({
               color="$textDisabled"
               textAlign="center"
             >
-              {isHistoriesView ? 'No History Yet' : 'No Bookmarks Yet'}
+              {intl.formatMessage({
+                id: isHistoriesView
+                  ? ETranslations.explore_no_history
+                  : ETranslations.explore_no_boomark,
+              })}
             </SizableText>
           )}
         </Stack>
