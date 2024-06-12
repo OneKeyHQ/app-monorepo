@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { Skeleton, Stack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
 
@@ -27,6 +29,7 @@ export function SuggestedAndExploreSection({
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
   isLoading: boolean | undefined;
 }) {
+  const intl = useIntl();
   const [isExploreView, setIsExploreView] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedNetwork, setSelectedNetwork] = useState<IServerNetwork>();
@@ -152,14 +155,14 @@ export function SuggestedAndExploreSection({
           selected={!isExploreView}
           onPress={() => setIsExploreView(false)}
         >
-          Suggested
+          {intl.formatMessage({ id: ETranslations.explore_suggested })}
         </DashboardSectionHeader.Heading>
         <DashboardSectionHeader.Heading
           key="explore"
           selected={isExploreView}
           onPress={() => setIsExploreView(true)}
         >
-          Explore
+          {intl.formatMessage({ id: ETranslations.explore_explore })}
         </DashboardSectionHeader.Heading>
       </DashboardSectionHeader>
       {renderContent()}

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Divider, Empty, ListView, Page } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IConnectionItemWithStorageType,
   IConnectionStorageType,
@@ -14,17 +17,23 @@ import ConnectionListItem from '../components/ConnectionList/ConnectionListItem'
 const ItemSeparatorComponent = () => <Divider />;
 
 function ConnectionListEmpty() {
+  const intl = useIntl();
   return (
     <Empty
       flex={1}
       icon="LinkSolid"
-      title="No dApps Connected"
-      description="You haven't connected to any dApps yet. "
+      title={intl.formatMessage({
+        id: ETranslations.explore_no_dapps_connected,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.explore_no_dapps_connected_message,
+      })}
     />
   );
 }
 
 function ConnectionList() {
+  const intl = useIntl();
   const { serviceDApp } = backgroundApiProxy;
   const [data, setData] = useState<IConnectionItemWithStorageType[]>([]);
   const [page, setPage] = useState(0);
@@ -78,10 +87,10 @@ function ConnectionList() {
           void run();
         }}
       >
-        Remove All
+        {intl.formatMessage({ id: ETranslations.explore_remove_all })}
       </Button>
     ),
-    [run, serviceDApp],
+    [run, serviceDApp, intl],
   );
 
   const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
@@ -89,7 +98,9 @@ function ConnectionList() {
   return (
     <Page>
       <Page.Header
-        title="dApp connections"
+        title={intl.formatMessage({
+          id: ETranslations.explore_dapp_connections,
+        })}
         headerRight={() => renderHeaderRight()}
       />
       <Page.Body>

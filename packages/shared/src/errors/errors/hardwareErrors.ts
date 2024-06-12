@@ -170,7 +170,7 @@ export class FirmwareUpdateBatteryTooLow extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Insufficient Battery Power',
+        defaultKey: ETranslations.update_insufficient_battery_power,
       }),
     );
   }
@@ -183,7 +183,7 @@ export class BridgeNetworkError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BridgeNetworkError',
-        defaultKey: 'msg__hardware_bridge_network_error',
+        defaultKey: ETranslations.update_bridge_network_error,
       }),
     );
   }
@@ -196,7 +196,7 @@ export class BridgeTimeoutError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BridgeTimeoutError',
-        defaultKey: 'msg__hardware_bridge_timeout',
+        defaultKey: ETranslations.update_bridge_timeout_error,
       }),
     );
   }

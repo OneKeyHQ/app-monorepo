@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Divider,
@@ -23,6 +25,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -43,6 +46,7 @@ import type {
 
 const ITEM_HEIGHT = 32;
 function DesktopCustomTabBar() {
+  const intl = useIntl();
   // register desktop shortcuts for browser tab
   useShortcuts();
   // register desktop new window event
@@ -233,16 +237,23 @@ function DesktopCustomTabBar() {
           ))}
         </ScrollView>
       </Stack>
-      <XStack ai="center" my="$1">
-        <Divider m="$1.5" testID="pin-tab-divider" />
-        <Button size="small" onPress={closeAllWebTabs}>
-          Clear
+      <XStack ai="center" my="$2">
+        <Divider testID="pin-tab-divider" />
+        <Button
+          ml="$1"
+          mr="$.5"
+          variant="tertiary"
+          size="small"
+          color="$textDisabled"
+          onPress={closeAllWebTabs}
+        >
+          {intl.formatMessage({ id: ETranslations.global_clear })}
         </Button>
       </XStack>
       {/* New Tab */}
       <DesktopTabItem
         key="AddTabButton"
-        label="New Tab"
+        label={intl.formatMessage({ id: ETranslations.explore_new_tab })}
         icon="PlusSmallOutline"
         testID="browser-bar-add"
         onPress={(e) => {

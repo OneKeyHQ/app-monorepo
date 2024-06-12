@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import {
   Icon,
@@ -14,6 +16,7 @@ import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IBleFirmwareUpdateInfo,
   IBootloaderUpdateInfo,
@@ -39,6 +42,7 @@ function ChangeLogSection({
     | IBootloaderUpdateInfo
     | undefined;
 }) {
+  const intl = useIntl();
   const [collapse, setCollapse] = useState(isDone);
   const onDropDownPressed = useCallback(() => {
     setCollapse(!collapse);
@@ -54,8 +58,18 @@ function ChangeLogSection({
             color={isDone ? '$textSubdued' : '$textInfo'}
           >
             {isDone
-              ? `Updated to the latest version ${updateInfo?.toVersion || ''}`
-              : `${updateInfo?.toVersion || ''} is available`}
+              ? intl.formatMessage(
+                  { id: ETranslations.update_updated_to_latest_version },
+                  {
+                    0: updateInfo?.toVersion || '',
+                  },
+                )
+              : intl.formatMessage(
+                  { id: ETranslations.global_version_is_available },
+                  {
+                    0: updateInfo?.toVersion || '',
+                  },
+                )}
           </SizableText>
         </Stack>
         <IconButton
@@ -89,11 +103,12 @@ export function FirmwareChangeLogContentView({
   result: ICheckAllFirmwareReleaseResult | undefined;
   isDone?: boolean;
 }) {
+  const intl = useIntl();
   return (
     <Stack mt="$8">
       {result?.updateInfos?.bootloader?.hasUpgrade ? (
         <ChangeLogSection
-          title="Bootloader"
+          title={intl.formatMessage({ id: ETranslations.global_bootloader })}
           icon="StorageOutline"
           updateInfo={result?.updateInfos?.bootloader}
           isDone={isDone}
@@ -101,7 +116,7 @@ export function FirmwareChangeLogContentView({
       ) : null}
       {result?.updateInfos?.ble?.hasUpgrade ? (
         <ChangeLogSection
-          title="BlueTooth"
+          title={intl.formatMessage({ id: ETranslations.global_bluetooth })}
           icon="BluetoothOutline"
           updateInfo={result?.updateInfos?.ble}
           isDone={isDone}
@@ -109,7 +124,7 @@ export function FirmwareChangeLogContentView({
       ) : null}
       {result?.updateInfos?.firmware?.hasUpgrade ? (
         <ChangeLogSection
-          title="Firmware"
+          title={intl.formatMessage({ id: ETranslations.global_firmware })}
           icon="LaunchOutline"
           updateInfo={result?.updateInfos?.firmware}
           isDone={isDone}
@@ -124,12 +139,15 @@ export function FirmwareChangeLogView({
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
+  const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
   return (
     <>
       <FirmwareUpdatePageFooter
-        onConfirmText="Update Now"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.update_update_now,
+        })}
         onConfirm={() =>
           setStepInfo({
             step: EFirmwareUpdateSteps.showCheckList,
