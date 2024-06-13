@@ -45,14 +45,14 @@ const ScanQRCodeGallery = () => {
         const result = await scanQrCode.start({
           handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
           ...values,
-          accountId: account?.id,
+          account,
         });
         console.log(result);
       } catch (e) {
         console.log('用户取消扫描');
       }
     },
-    [scanQrCode, account?.id],
+    [scanQrCode, account],
   );
   return (
     <Layout

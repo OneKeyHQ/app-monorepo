@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Page, Toast } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
@@ -46,8 +47,13 @@ function SignMessageModal() {
     if (!currentNetwork?.name) {
       return '';
     }
-    return `Allow this site to request your ${currentNetwork.name} message signature.`;
-  }, [currentNetwork]);
+    return intl.formatMessage(
+      {
+        id: ETranslations.dapp_connect_allow_to_access_your_chain_message_signature,
+      },
+      { chain: currentNetwork.name },
+    );
+  }, [intl, currentNetwork]);
 
   const {
     showContinueOperate,
@@ -75,7 +81,7 @@ function SignMessageModal() {
       });
       Toast.success({
         title: intl.formatMessage({
-          id: 'msg__success',
+          id: ETranslations.dapp_connect_authorization_successful,
         }),
       });
       close?.();
@@ -89,7 +95,9 @@ function SignMessageModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
-            title="Message Signature Request"
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_initiate_message_signature_request,
+            })}
             subtitle={subtitle}
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
