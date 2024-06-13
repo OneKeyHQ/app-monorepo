@@ -118,14 +118,18 @@ export function WalletOptions({ wallet, device }: IWalletOptionsProps) {
             ...(platformEnv.isNative
               ? [
                   {
-                    label: 'OneKey Lite',
+                    label: intl.formatMessage({
+                      id: ETranslations.global_onekey_lite,
+                    }),
                     icon: 'OnekeyLiteOutline' as IKeyOfIcons,
                     onPress: handleBackupLiteCard,
                   },
                 ]
               : []),
             {
-              label: 'OneKey KeyTag',
+              label: intl.formatMessage({
+                id: ETranslations.global_onekey_keytag,
+              }),
               icon: 'OnekeyKeytagOutline',
               onPress: () => void handleBackupKeyTag(),
             },

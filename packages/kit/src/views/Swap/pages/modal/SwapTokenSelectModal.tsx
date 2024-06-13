@@ -32,6 +32,7 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
@@ -273,7 +274,9 @@ const SwapTokenSelectPage = () => {
             <Alert
               fullBleed
               type="default"
-              title="Unverified Token below. Proceed with caution."
+              title={intl.formatMessage({
+                id: ETranslations.token_selector_unverified_token_warning,
+              })}
               icon="InfoCircleOutline"
             />
           ) : null}
@@ -283,6 +286,7 @@ const SwapTokenSelectPage = () => {
     },
     [
       alertIndex,
+      intl,
       md,
       onSelectToken,
       sameTokenDisabled,
@@ -326,9 +330,11 @@ const SwapTokenSelectPage = () => {
   return (
     <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header
-        title="Select Token"
+        title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         headerSearchBarOptions={{
-          placeholder: 'Search symbol or contract address',
+          placeholder: intl.formatMessage({
+            id: ETranslations.token_selector_search_placeholder,
+          }),
           onChangeText: ({ nativeEvent }) => {
             const afterTrim = nativeEvent.text.trim();
             setSearchKeyword(afterTrim);
@@ -358,7 +364,9 @@ const SwapTokenSelectPage = () => {
         />
         <XStack px="$5" py="$2">
           <SizableText size="$headingSm" pr="$2">
-            {`${intl.formatMessage({ id: 'network__network' })}:`}
+            {`${intl.formatMessage({
+              id: ETranslations.token_selector_network,
+            })}:`}
           </SizableText>
           <XStack>
             <Image height="$5" width="$5" borderRadius="$full" mr="$2">
@@ -400,7 +408,9 @@ const SwapTokenSelectPage = () => {
               ListEmptyComponent={
                 <Empty
                   icon="SearchOutline"
-                  title="No Results"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_results,
+                  })}
                   description="The token you searched for was not found"
                 />
               }

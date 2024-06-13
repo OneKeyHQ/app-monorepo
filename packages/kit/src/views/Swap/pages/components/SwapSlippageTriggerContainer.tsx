@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { SizableText } from '@onekeyhq/components';
 import { useSwapSlippagePercentageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { swapSlippageWillAheadMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
@@ -20,16 +21,19 @@ const SwapSlippageTriggerContainer = ({
 }: ISwapSlippageTriggerContainerProps) => {
   const intl = useIntl();
   const [{ slippageItem }] = useSwapSlippagePercentageAtom();
-  const slippageDisplayValue = useMemo(() => {
-    const preText = intl.formatMessage({
-      id:
-        slippageItem.key === ESwapSlippageSegmentKey.AUTO
-          ? 'form__auto'
-          : 'content__custom',
-    });
-
-    return `${preText} (${slippageItem.value}%)`;
-  }, [intl, slippageItem.key, slippageItem.value]);
+  const slippageDisplayValue = useMemo(
+    () =>
+      intl.formatMessage(
+        {
+          id:
+            slippageItem.key === ESwapSlippageSegmentKey.AUTO
+              ? ETranslations.swap_page_provider_slippage_auto
+              : ETranslations.swap_page_provider_custom,
+        },
+        { number: slippageItem.value },
+      ),
+    [intl, slippageItem.key, slippageItem.value],
+  );
 
   const valueComponent = useMemo(
     () => (
@@ -48,10 +52,14 @@ const SwapSlippageTriggerContainer = ({
   );
   return (
     <SwapCommonInfoItem
-      title="Slippage tolerance"
+      title={intl.formatMessage({
+        id: ETranslations.swap_page_provider_slippage_tolerance,
+      })}
       isLoading={isLoading}
       onPress={onPress}
-      questionMarkContent="Slippage tolerance is a setting for the amount of price slippage you are willing to accept for a trade."
+      questionMarkContent={intl.formatMessage({
+        id: ETranslations.slippage_tolerance_popover,
+      })}
       valueComponent={valueComponent}
     />
   );

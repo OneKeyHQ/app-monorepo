@@ -66,7 +66,6 @@ export const FIX_SHEET_PROPS: IStackProps = {
 function DialogFrame({
   open,
   onClose,
-  title,
   modal,
   renderContent,
   showFooter = true,

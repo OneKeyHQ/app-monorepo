@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import {
@@ -15,6 +16,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -55,6 +57,7 @@ const SwapRiskReminderModal = ({
   token: ISwapToken;
   onConfirm: () => void;
 }) => {
+  const intl = useIntl();
   const [checkValue, setCheckValue] = useState(false);
   const [, setSettings] = useSettingsPersistAtom();
   const onHandleConfirm = useCallback(() => {
@@ -81,7 +84,11 @@ const SwapRiskReminderModal = ({
 
   return (
     <Page>
-      <Page.Header headerTitle="Risk reminder" />
+      <Page.Header
+        headerTitle={intl.formatMessage({
+          id: ETranslations.token_selector_risk_reminder_title,
+        })}
+      />
       <Page.Body px="$5" space="$4">
         {token.riskLevel === ETokenRiskLevel.SPAM ||
         token.riskLevel === ETokenRiskLevel.MALICIOUS ? (
@@ -97,18 +104,20 @@ const SwapRiskReminderModal = ({
                 ? 'MessageExclamationOutline'
                 : 'ErrorOutline'
             }
-            title={`${
-              token.riskLevel === ETokenRiskLevel.SPAM
-                ? 'Suspected spam'
-                : 'Caution! Malicious'
-            } token.`}
-            // action={{ primary: 'View', onPrimaryPress: () => {} }}
+            title={intl.formatMessage({
+              id:
+                token.riskLevel === ETokenRiskLevel.SPAM
+                  ? ETranslations.token_selector_risk_reminder_spam_token_alert
+                  : ETranslations.token_selector_risk_reminder_malicious_token_alert,
+            })}
           />
         ) : null}
         <TokenInfoCard token={token} />
         <Alert
           type="default"
-          description="Anyone can issue tokens, including counterfeit tokens under valid projects. User who bought counterfeit tokens might not be able to sell them, resulting in asset loss. If you proceed to trade this custom token, you’ll be liable to all potential risk and responsibilities."
+          description={intl.formatMessage({
+            id: ETranslations.token_selector_risk_reminder_message,
+          })}
         />
       </Page.Body>
       <Page.Footer>
@@ -116,11 +125,17 @@ const SwapRiskReminderModal = ({
           ml="$5"
           onChange={onCheckboxChange}
           value={checkValue}
-          label="Don't show this alert for all non-verified tokens"
+          label={intl.formatMessage({
+            id: ETranslations.token_selector_risk_reminder_checkbox,
+          })}
         />
         <Page.FooterActions
-          onConfirmText="OK"
-          onCancelText="Cancel"
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.token_selector_risk_reminder_button_ok,
+          })}
+          onCancelText={intl.formatMessage({
+            id: ETranslations.token_selector_risk_reminder_button_cancel,
+          })}
           onConfirm={onHandleConfirm}
           onCancel={(close) => close()}
         />

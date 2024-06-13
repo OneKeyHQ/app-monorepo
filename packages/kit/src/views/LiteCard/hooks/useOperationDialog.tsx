@@ -1,18 +1,27 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Checkbox, Dialog, Input } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export default function useOperationDialog() {
+  const intl = useIntl();
   const showBackupOverwrittenDialog = useCallback(
     () =>
       new Promise<void>((resolve) => {
         Dialog.show({
           icon: 'ErrorOutline',
           tone: 'destructive',
-          title: 'This Device Contains Backup',
-          description:
-            'If you continue, your previous backup will be fully overwritten and will be lost forever.',
-          onConfirmText: 'Overwritten',
+          title: intl.formatMessage({
+            id: ETranslations.hardware_device_contains_backup,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.hardware_device_contains_backup_desc,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_overwritten,
+          }),
           renderContent: (
             <Dialog.Form
               formProps={{
@@ -20,7 +29,11 @@ export default function useOperationDialog() {
               }}
             >
               <Dialog.FormField name="agree">
-                <Checkbox label="I understand" />
+                <Checkbox
+                  label={intl.formatMessage({
+                    id: ETranslations.global_i_understand,
+                  })}
+                />
               </Dialog.FormField>
             </Dialog.Form>
           ),
@@ -33,16 +46,19 @@ export default function useOperationDialog() {
           onConfirm: () => resolve(),
         });
       }),
-    [],
+    [intl],
   );
   const showResetWarningDialog = useCallback(
     () =>
       new Promise<void>((resolve) => {
         Dialog.show({
           icon: 'GiroCardOutline',
-          title: 'Reset OneKey Lite',
-          description:
-            'Please ensure that you have backed up the recovery phrase before entering "RESET" to confirm, as it will be erased from this OneKey Lite device.',
+          title: intl.formatMessage({
+            id: ETranslations.hardware_reset_onekey_lite,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.hardware_reset_onekey_lite_desc,
+          }),
           renderContent: (
             <Dialog.Form
               formProps={{
@@ -54,7 +70,7 @@ export default function useOperationDialog() {
               </Dialog.FormField>
             </Dialog.Form>
           ),
-          onConfirmText: 'Reset',
+          onConfirmText: intl.formatMessage({ id: ETranslations.global_reset }),
           confirmButtonProps: {
             variant: 'destructive',
             disabledOn: (params) => {
@@ -65,48 +81,68 @@ export default function useOperationDialog() {
           onConfirm: () => resolve(),
         });
       }),
-    [],
+    [intl],
   );
   const showBackupSuccessDialog = useCallback(() => {
     Dialog.confirm({
       icon: 'CheckRadioOutline',
       tone: 'success',
-      title: 'Backup Completed!',
-      description:
-        'You can recover your wallet using this card and PIN at all times. Remember this PIN as it cannot be recovered if lost, as we do not store any user information.',
-      onConfirmText: 'I Got It',
+      title: intl.formatMessage({
+        id: ETranslations.hardware_backup_completed,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.hardware_recover_wallet_with_card_and_pin,
+      }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_i_got_it,
+      }),
     });
-  }, []);
+  }, [intl]);
   const showChangePINOnNewCardDialog = useCallback(() => {
     Dialog.show({
       icon: 'ErrorOutline',
       tone: 'destructive',
-      title: 'PIN Change Failed',
-      description:
-        'No need to change the PIN code on this new OneKey Lite card.',
-      onConfirmText: 'I Got it',
+      title: intl.formatMessage({
+        id: ETranslations.hardware_pin_change_failed,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.hardware_no_pin_change_needed,
+      }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_i_got_it,
+      }),
     });
-  }, []);
+  }, [intl]);
   const showChangePINSuccessDialog = useCallback(() => {
     Dialog.confirm({
       icon: 'CheckRadioOutline',
       tone: 'success',
-      title: 'OneKey Lite PIN Changed!',
-      description:
-        "This OneKey Lite's PIN has been changed. Remember this PIN as it cannot be recovered if lost, as we do not store any user information.",
-      onConfirmText: 'I Got it',
+      title: intl.formatMessage({
+        id: ETranslations.hardware_onekey_lite_pin_changed,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.hardware_onekey_lite_pin_changed_desc,
+      }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_i_got_it,
+      }),
     });
-  }, []);
+  }, [intl]);
   const showResetSuccessDialog = useCallback(() => {
     Dialog.confirm({
       icon: 'CheckRadioOutline',
       tone: 'success',
-      title: 'OneKey Lite has been Reset!',
-      description:
-        'The data on this OneKey Lite has been completely erased, and you can use it as a new OneKey Lite.',
-      onConfirmText: 'I Got it',
+      title: intl.formatMessage({
+        id: ETranslations.hardware_onekey_lite_reset,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.hardware_data_erased_use_as_new,
+      }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_i_got_it,
+      }),
     });
-  }, []);
+  }, [intl]);
   return useMemo(
     () => ({
       showBackupOverwrittenDialog,

@@ -20,12 +20,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
+import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
-import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { useV4MigrationActions } from '../../hooks/useV4MigrationActions';
 
 type IOptionItem = IPropsWithTestId<{
   title?: string;
@@ -70,31 +72,9 @@ export function ImportWalletOptions() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
-  const [migrateLoading, setMigrateLoading] = useState(false);
-  const { serviceV4Migration } = backgroundApiProxy;
+  const backupEntryStatus = useBackupEntryStatus();
 
-  const handleMigrateFromV4 = useCallback(async () => {
-    try {
-      setMigrateLoading(true);
-
-      const shouldMigrate = await serviceV4Migration.checkShouldMigrateV4();
-      if (shouldMigrate) {
-        const { shouldBackup } = await serviceV4Migration.prepareMigration();
-        if (shouldBackup) {
-          Toast.message({ title: 'Show backup Modal......' });
-        }
-        await serviceV4Migration.startV4MigrationFlow();
-        Dialog.show({
-          showCancelButton: false,
-          onConfirmText: 'OK',
-          title: 'Migration Complete',
-          description: 'Your V4 data have been migrated successfully.',
-        });
-      }
-    } finally {
-      setMigrateLoading(false);
-    }
-  }, [serviceV4Migration]);
+  const v4MigrationActions = useV4MigrationActions();
 
   const handleConnectHardwareWalletPress = async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
@@ -122,7 +102,7 @@ export function ImportWalletOptions() {
   };
 
   const handleImportFromCloud = async () => {
-    await checkBackupEntryStatus();
+    await backupEntryStatus.check();
     navigation.push(EOnboardingPages.ImportCloudBackup);
   };
 
@@ -182,7 +162,9 @@ export function ImportWalletOptions() {
         ...(platformEnv.isNative
           ? [
               {
-                title: 'OneKey Lite',
+                title: intl.formatMessage({
+                  id: ETranslations.global_onekey_lite,
+                }),
                 icon: 'OnekeyLiteOutline',
                 onPress: liteCard.importWallet,
               } as IOptionItem,
@@ -217,7 +199,11 @@ export function ImportWalletOptions() {
           ? [
               {
                 icon: 'CloudOutline',
-                title: backupPlatform().cloudName,
+                title: intl.formatMessage({
+                  id: platformEnv.isNativeAndroid
+                    ? ETranslations.settings_google_drive_backup
+                    : ETranslations.settings_icloud_backup,
+                }),
                 onPress: handleImportFromCloud,
               } as IOptionItem,
             ]
@@ -227,9 +213,13 @@ export function ImportWalletOptions() {
             id: ETranslations.onboarding_migrate_from_v4,
           }),
           icon: 'StorageOutline',
-          onPress: handleMigrateFromV4,
+          // onPress: handleMigrateFromV4,
+          onPress: async () => {
+            navigation.popStack();
+            await timerUtils.wait(100);
+            v4MigrationActions.navigateToV4MigrationPage();
+          },
           testID: 'connect-hardware-wallet',
-          isLoading: migrateLoading,
         },
       ],
     },
