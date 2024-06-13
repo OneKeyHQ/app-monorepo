@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { SecureQRToast } from '../../../components/SecureQRToast';
 import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
 
 export function QrcodeDialogContainer() {
@@ -23,12 +24,13 @@ export function QrcodeDialogContainer() {
   useEffect(() => {
     const fn = (event: IAppEventBusPayload[EAppEventBusNames.ShowQrcode]) => {
       const { drawType, valueUr, title } = event;
-      const dialog = Dialog.show({
-        title: title || 'Scan QR Code',
-        showConfirmButton: Boolean(event.promiseId),
+      const toast = SecureQRToast.show({
+        title,
+        valueUr,
+        drawType,
         onConfirmText: 'Next',
         onConfirm: async () => {
-          await dialog.close({ flag: 'skipReject' });
+          await toast.close({ flag: 'skipReject' });
 
           try {
             const result = await startScan({
@@ -62,11 +64,6 @@ export function QrcodeDialogContainer() {
             });
           }
         },
-        renderContent: (
-          <Stack alignItems="center" justifyContent="center">
-            <QRCode size={300} valueUr={valueUr} drawType={drawType} />
-          </Stack>
-        ),
       });
     };
 
