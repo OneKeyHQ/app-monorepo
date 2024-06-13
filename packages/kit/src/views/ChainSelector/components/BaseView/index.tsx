@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import { Empty, ListView, Stack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
@@ -5,12 +7,21 @@ import {
   NetworkAvatar,
 } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IServerNetworkMatch } from '../../types';
 
-const ListEmptyComponent = () => (
-  <Empty icon="SearchOutline" title="No Results" />
-);
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      icon="SearchOutline"
+      title={intl.formatMessage({
+        id: ETranslations.global_no_results,
+      })}
+    />
+  );
+};
 
 export type IBaseListViewProps = {
   networks: IServerNetworkMatch[];
