@@ -116,7 +116,9 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
 
   return (
     <ActionList
-      title="Select"
+      title={intl.formatMessage({
+        id: ETranslations.send_to_contacts_selecor_account_title,
+      })}
       items={[
         {
           icon: 'WalletCryptoOutline' as const,
