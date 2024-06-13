@@ -292,7 +292,7 @@ export function useFirmwareUpdateErrors({
       content: null,
       retryText: defaultRetryText,
     };
-  }, [intl, error, lastFirmwareTipMessage, onRetry, result]);
+  }, [intl, error, lastFirmwareTipMessage, defaultRetryText, onRetry, result]);
 }
 
 function WorkflowErrors({
