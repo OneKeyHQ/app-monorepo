@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CommonActions } from '@react-navigation/native';
 import * as ExpoSharing from 'expo-sharing';
 import { useIntl } from 'react-intl';
-import { BackHandler } from 'react-native';
 
 import {
   HeaderIconButton,

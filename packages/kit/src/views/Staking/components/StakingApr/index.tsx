@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Icon, Stack } from '@onekeyhq/components';
@@ -12,6 +13,7 @@ import {
   EthereumMatic,
   SepoliaMatic,
 } from '@onekeyhq/shared/src/consts/addresses';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
 type IStakingListItemProps = {
@@ -26,32 +28,38 @@ const StakingAprAd = ({
 }: {
   aprValue: string | number;
   onPress: () => void;
-}) => (
-  <ListItem
-    drillIn
-    onPress={onPress}
-    py="$3"
-    px="$5"
-    mx="$0"
-    bg="$bgSuccessSubdued"
-    borderTopWidth={StyleSheet.hairlineWidth}
-    borderColor="$borderSubdued"
-    borderRadius="$0"
-  >
-    <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
-      <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
-    </Stack>
-    <ListItem.Text
-      flex={1}
-      primary="Stake and Earn"
-      secondary={`Up to ${aprValue}% in Annual Rewards`}
-      secondaryTextProps={{
-        size: '$bodyMdMedium',
-        color: '$textSuccess',
-      }}
-    />
-  </ListItem>
-);
+}) => {
+  const intl = useIntl();
+  return (
+    <ListItem
+      drillIn
+      onPress={onPress}
+      py="$3"
+      px="$5"
+      mx="$0"
+      bg="$bgSuccessSubdued"
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      borderRadius="$0"
+    >
+      <Stack p="$3" borderRadius="$full" bg="$bgSuccess">
+        <Icon name="ChartColumnar3Outline" color="$iconSuccess" />
+      </Stack>
+      <ListItem.Text
+        flex={1}
+        primary={intl.formatMessage({ id: ETranslations.earn_stake_and_earn })}
+        secondary={intl.formatMessage(
+          { id: ETranslations.earn_up_to_number_in_annual_rewards },
+          { number: `${aprValue}%` },
+        )}
+        secondaryTextProps={{
+          size: '$bodyMdMedium',
+          color: '$textSuccess',
+        }}
+      />
+    </ListItem>
+  );
+};
 
 const MaticStakingAprAd = ({ networkId, accountId }: IStakingListItemProps) => {
   const navigation = useAppNavigation();
