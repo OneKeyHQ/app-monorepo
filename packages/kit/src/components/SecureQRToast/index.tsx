@@ -1,26 +1,47 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import type { IShowToasterProps } from '@onekeyhq/components';
 import {
-  Dialog,
+  Button,
+  HeightTransition,
   IconButton,
   QRCode,
   SizableText,
   Stack,
   Toast,
   XStack,
+  YStack,
+  useToaster,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const SecureQRToastBase = ({
   value,
   showQRCode,
+  onConfirm,
+  onCancel,
 }: {
   value: string;
   showQRCode: boolean;
+  onConfirm?: () => void;
+  onCancel?: () => void;
 }) => {
+  const intl = useIntl();
+  const { close } = useToaster();
   const [show, setShow] = useState(showQRCode);
+  const handleCancel = useCallback(async () => {
+    await close();
+    onCancel?.();
+  }, [close, onCancel]);
+  const handleConfirm = useCallback(async () => {
+    await close();
+    onConfirm?.();
+  }, [close, onConfirm]);
   return (
-    <Stack mt="$5">
-      <XStack ai="center">
+    <YStack p="$5" tabIndex={-1}>
+      <XStack ai="center" pb="$5">
         <SizableText size="$headingLg" flex={1}>
           Confirm on device
         </SizableText>
@@ -29,26 +50,42 @@ const SecureQRToastBase = ({
             variant="tertiary"
             size="small"
             onPress={() => {
-              Toast.show({
-                children: (
-                  <SecureQRToastBase value={value} showQRCode={showQRCode} />
-                ),
-              });
+              setShow(!show);
             }}
             icon={show ? 'MinimizeOutline' : 'ExpandOutline'}
             color="$iconSubdued"
           />
         </Stack>
       </XStack>
-      {show ? (
-        <Stack ai="center" mt="$5">
-          <QRCode drawType="line" value={value} size={240} />
-        </Stack>
-      ) : null}
-      <SizableText size="$bodyLg" mt="$5">
+      <HeightTransition>
+        {show ? (
+          <Stack
+            ai="center"
+            animation="slow"
+            exitStyle={{
+              opacity: 0,
+            }}
+            enterStyle={{
+              opacity: 0,
+            }}
+            pb="$5"
+          >
+            <QRCode drawType="line" value={value} size={240} />
+          </Stack>
+        ) : null}
+      </HeightTransition>
+      <SizableText size="$bodyLg" pb="$5">
         Scan the QR code with your device to verify the details.
       </SizableText>
-    </Stack>
+      <XStack space="$2.5">
+        <Button variant="secondary" onPress={handleCancel} flex={1}>
+          {intl.formatMessage({ id: ETranslations.global_cancel })}
+        </Button>
+        <Button variant="primary" onPress={handleConfirm} flex={1}>
+          Next
+        </Button>
+      </XStack>
+    </YStack>
   );
 };
 
@@ -56,23 +93,26 @@ export const SecureQRToast = {
   show: ({
     value,
     showQRCode = true,
+    onConfirm,
+    onCancel,
+    onClose,
   }: {
     value: string;
     showQRCode?: boolean;
-  }) =>
-    new Promise((resolve, reject) => {
-      Dialog.show({
-        renderContent: (
-          <SecureQRToastBase value={value} showQRCode={showQRCode} />
-        ),
-        showExitButton: false,
-        onConfirmText: 'Next',
-        onConfirm: (dialog) => {
-          resolve(dialog);
-        },
-        onCancel: () => {
-          reject();
-        },
-      });
-    }),
+    onConfirm?: () => void;
+    onCancel?: () => void;
+    onClose?: IShowToasterProps['onClose'];
+  }) => {
+    Toast.show({
+      children: (
+        <SecureQRToastBase
+          value={value}
+          showQRCode={showQRCode}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
+      ),
+      onClose,
+    });
+  },
 };

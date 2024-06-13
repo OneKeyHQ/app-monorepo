@@ -16,8 +16,13 @@ const SecureQRToastGallery = () => {
           title: 'SecureQRToast',
           element: (
             <Button
-              onPress={async () => {
-                await SecureQRToast.show({ value: 'https://onekey.so' });
+              onPress={() => {
+                SecureQRToast.show({
+                  value: 'https://onekey.so',
+                  onClose: () => {
+                    console.log('onClose');
+                  },
+                });
               }}
             >
               点击单独显示
@@ -28,10 +33,13 @@ const SecureQRToastGallery = () => {
           title: 'SecureQRToast',
           element: (
             <Button
-              onPress={async () => {
-                await SecureQRToast.show({
+              onPress={() => {
+                SecureQRToast.show({
                   value: 'https://onekey.so',
                   showQRCode: false,
+                  onClose: () => {
+                    console.log('onClose');
+                  },
                 });
               }}
             >
@@ -43,11 +51,18 @@ const SecureQRToastGallery = () => {
           title: 'SecureQRToast + useScanQrCode',
           element: (
             <Button
-              onPress={async () => {
-                await SecureQRToast.show({ value: 'https://onekey.so' });
-                await scanQrCode.start({
-                  autoHandleResult: true,
-                  handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+              onPress={() => {
+                SecureQRToast.show({
+                  value: 'https://onekey.so',
+                  onConfirm: async () => {
+                    await scanQrCode.start({
+                      autoHandleResult: true,
+                      handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
+                    });
+                  },
+                  onClose: () => {
+                    console.log('onClose');
+                  },
                 });
               }}
             >
