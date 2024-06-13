@@ -408,6 +408,8 @@ export interface ISignMessageParams {
 export interface IBuildHistoryTxParams {
   accountId: string;
   networkId: string;
+  accountAddress: string;
+  xpub?: string;
   onChainHistoryTx: IOnChainHistoryTx;
   tokens: Record<string, IOnChainHistoryTxToken>;
   nfts: Record<string, IOnChainHistoryTxNFT>;

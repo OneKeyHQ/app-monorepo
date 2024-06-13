@@ -279,6 +279,13 @@ class V4SimpleDbEntityHistory extends V4SimpleDbEntityBase<IV4SimpleDbEntityHist
       lastCleanTime: Date.now(),
     });
   }
+
+  async getAllPendingTxs() {
+    const allData = (await this.getRawData())?.items || [];
+    return allData.filter(
+      (item) => item.decodedTx.status === EV4DecodedTxStatus.Pending,
+    );
+  }
 }
 
 export { V4SimpleDbEntityHistory };

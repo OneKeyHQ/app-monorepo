@@ -194,13 +194,7 @@ class ServiceV4Migration extends ServiceBase {
     // TODO
 
     // **** migrate history
-    for (const wallet of wallets) {
-      if (wallet.isHD || wallet.isHw || wallet.isImported) {
-        await this.migrationHistory.migrateLocalPendingTxs({
-          v4wallet: wallet.wallet,
-        });
-      }
-    }
+    await this.migrationHistory.migrateLocalPendingTxs();
 
     // ----------------------------------------------
     this.migrationPayload = undefined;
