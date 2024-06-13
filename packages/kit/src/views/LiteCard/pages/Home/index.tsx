@@ -1,8 +1,11 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Icon, Page, SectionList, Stack } from '@onekeyhq/components';
 import type { IIconProps } from '@onekeyhq/components/src/primitives';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import useLiteCard from '../../hooks/useLiteCard';
 
@@ -10,35 +13,40 @@ import { Header } from './Header';
 
 const CREATE_LITE_CARD_SECTION_LIST = (
   liteCard: ReturnType<typeof useLiteCard>,
+  intl: ReturnType<typeof useIntl>,
 ) => [
   {
-    title: 'General',
+    title: intl.formatMessage({ id: ETranslations.global_general }),
     data: [
       {
         icon: 'FolderUploadOutline',
-        title: 'Back up',
-        detail: 'Backup your recovery phrase to OneKey Lite',
+        title: intl.formatMessage({ id: ETranslations.global_backup }),
+        detail: intl.formatMessage({
+          id: ETranslations.settings_backup_recovery_phrase_to_onekey_lite,
+        }),
         onPress: liteCard.backupWallet,
       },
       {
         icon: 'FolderDownloadOutline',
-        title: 'Import',
-        detail: 'Import recovery phrase from your OneKey Lite',
+        title: intl.formatMessage({ id: ETranslations.global_import }),
+        detail: intl.formatMessage({
+          id: ETranslations.settings_import_recovery_phrase_from_onekey_lite,
+        }),
         onPress: liteCard.importWallet,
       },
     ],
   },
   {
-    title: 'Advanced',
+    title: intl.formatMessage({ id: ETranslations.global_advanced }),
     data: [
       {
         icon: 'PasswordOutline',
-        title: 'Change PIN',
+        title: intl.formatMessage({ id: ETranslations.settings_change_pin }),
         onPress: liteCard.changePIN,
       },
       {
         icon: 'RenewOutline',
-        title: 'Reset',
+        title: intl.formatMessage({ id: ETranslations.global_reset }),
         isCritical: true,
         onPress: liteCard.reset,
       },
@@ -47,10 +55,11 @@ const CREATE_LITE_CARD_SECTION_LIST = (
 ];
 
 export default function Home() {
+  const intl = useIntl();
   const liteCard = useLiteCard();
   const sections = useMemo(
-    () => CREATE_LITE_CARD_SECTION_LIST(liteCard),
-    [liteCard],
+    () => CREATE_LITE_CARD_SECTION_LIST(liteCard, intl),
+    [liteCard, intl],
   );
 
   const renderSectionHeader = useCallback(

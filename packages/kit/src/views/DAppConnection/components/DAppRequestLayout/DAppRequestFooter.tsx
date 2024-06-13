@@ -1,6 +1,9 @@
+import { useIntl } from 'react-intl';
+
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Page, useMedia } from '@onekeyhq/components';
 import type { IFooterActionsProps } from '@onekeyhq/components/src/layouts/Page/PageFooterActions';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 function DAppRequestFooter({
@@ -22,6 +25,7 @@ function DAppRequestFooter({
   riskLevel: EHostSecurityLevel;
   confirmText?: string;
 }) {
+  const intl = useIntl();
   const media = useMedia();
   return (
     <Page.FooterActions
@@ -33,7 +37,9 @@ function DAppRequestFooter({
       space="$2.5"
       onConfirm={onConfirm}
       onCancel={onCancel}
-      onConfirmText={confirmText ?? 'Approve'}
+      onConfirmText={
+        confirmText ?? intl.formatMessage({ id: ETranslations.global_approve })
+      }
       confirmButtonProps={{
         variant:
           riskLevel === EHostSecurityLevel.High ? 'destructive' : 'primary',

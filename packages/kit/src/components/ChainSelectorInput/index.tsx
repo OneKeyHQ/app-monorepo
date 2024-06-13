@@ -14,7 +14,7 @@ type IChainSelectorInputProps = Pick<
   ComponentProps<typeof Input>,
   'value' | 'disabled' | 'error' | 'editable' | 'size'
 > & {
-  networkIds?: string[];
+  excludedNetworkIds?: string[];
   testID?: string;
   onChange?: (value: string) => void;
   title?: string;
@@ -28,16 +28,24 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   size,
   onChange,
   title,
+  excludedNetworkIds,
   ...rest
 }) => {
   const { result } = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getAllNetworks(),
-    [],
-    { initResult: { networks: [] } },
+    async () => {
+      const { networks } =
+        await backgroundApiProxy.serviceNetwork.getAllNetworks();
+      if (excludedNetworkIds && excludedNetworkIds.length > 0) {
+        return networks.filter((o) => !excludedNetworkIds.includes(o.id));
+      }
+      return networks;
+    },
+    [excludedNetworkIds],
+    { initResult: [] },
   );
   const current = useMemo(() => {
-    const item = result.networks.find((o) => o.id === value);
-    return item || result.networks[0];
+    const item = result.find((o) => o.id === value);
+    return item || result[0];
   }, [result, value]);
 
   const sharedStyles = getSharedInputStyles({
@@ -52,16 +60,27 @@ export const ChainSelectorInput: FC<IChainSelectorInputProps> = ({
   const onPress = useCallback(() => {
     openChainSelector({
       title,
+      networkIds: result.map((o) => o.id),
       defaultNetworkId: current.id,
       onSelect: (network) => onChange?.(network.id),
     });
-  }, [openChainSelector, current, onChange, title]);
+  }, [openChainSelector, current, onChange, title, result]);
   return (
     <Stack
       userSelect="none"
       onPress={disabled ? undefined : onPress}
       flexDirection="row"
       alignItems="center"
+      borderRadius="$3"
+      borderWidth={1}
+      borderCurve="continuous"
+      borderColor="$borderStrong"
+      px="$3"
+      py="$2.5"
+      $gtMd={{
+        borderRadius: '$2',
+        py: '$2',
+      }}
       testID="network-selector-input"
       {...(!disabled && {
         hoverStyle: {

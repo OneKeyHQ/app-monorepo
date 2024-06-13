@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Dialog,
@@ -16,6 +17,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
   type IModalStakingParamList,
@@ -129,6 +131,7 @@ const EthLidoOverviewContent = ({
 }: IEthLidoOverviewContentProps) => {
   const { eth, stETH, requests } = overview;
   const appNavigation = useAppNavigation();
+  const intl = useIntl();
 
   const onStake = useCallback(async () => {
     Dialog.show({
@@ -144,15 +147,15 @@ const EthLidoOverviewContent = ({
           apr,
         });
       },
-      onConfirmText: 'Got it!',
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
       showCancelButton: false,
     });
-  }, [appNavigation, accountId, networkId, eth, apr, stETH]);
+  }, [appNavigation, accountId, networkId, eth, apr, stETH, intl]);
   const onWithdraw = useCallback(async () => {
     Dialog.show({
       renderContent: <EthWithdrawShouldUnderstand />,
       showCancelButton: false,
-      onConfirmText: 'Got it!',
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
       onConfirm: () => {
         appNavigation.push(EModalStakingRoutes.EthLidoWithdraw, {
           accountId,
@@ -164,7 +167,7 @@ const EthLidoOverviewContent = ({
         });
       },
     });
-  }, [accountId, networkId, appNavigation, stETH, eth]);
+  }, [accountId, networkId, appNavigation, stETH, eth, intl]);
 
   const showRedeemButton = useMemo(
     () => new BigNumber(stETH.balanceParsed).gt(0),
@@ -191,7 +194,9 @@ const EthLidoOverviewContent = ({
   return (
     <Stack px="$5" pt="$5">
       <YStack>
-        <SizableText size="$headingLg">Staked Value</SizableText>
+        <SizableText size="$headingLg">
+          {intl.formatMessage({ id: ETranslations.earn_staked_value })}
+        </SizableText>
         <NumberSizeableText
           size="$heading3xl"
           formatter="value"
@@ -199,12 +204,24 @@ const EthLidoOverviewContent = ({
         >
           {totalFiatValue}
         </NumberSizeableText>
-        <XStack mt="$2" space="$1">
-          <NumberSizeableText size="$bodyMd" formatter="value">
-            {eth.balanceParsed}
-          </NumberSizeableText>
+        <XStack mt="$2" space="$1" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {eth.info.symbol} available to stake
+            {intl.formatMessage(
+              { id: ETranslations.earn_token_available_to_stake },
+              {
+                'token': (
+                  <SizableText>
+                    <NumberSizeableText size="$bodyMd" formatter="balance">
+                      {eth.balanceParsed}
+                    </NumberSizeableText>
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {' '}
+                      {eth.info.symbol}
+                    </SizableText>
+                  </SizableText>
+                ),
+              },
+            )}
           </SizableText>
         </XStack>
         <YStack space="$2" mt="$5">
@@ -230,12 +247,12 @@ const EthLidoOverviewContent = ({
         <EthLidoFAQs />
       </YStack>
       <Page.Footer
-        onConfirmText="Stake"
+        onConfirmText={intl.formatMessage({ id: ETranslations.earn_stake })}
         confirmButtonProps={{
           variant: 'primary',
           onPress: onStake,
         }}
-        onCancelText="Redeem"
+        onCancelText={intl.formatMessage({ id: ETranslations.earn_redeem })}
         cancelButtonProps={
           showRedeemButton
             ? {
@@ -280,9 +297,15 @@ const EthLidoOverview = () => {
     [accountId, networkId],
     { watchLoading: true },
   );
+  const intl = useIntl();
   return (
     <Page scrollEnabled>
-      <Page.Header title="Stake ETH" />
+      <Page.Header
+        title={intl.formatMessage(
+          { id: ETranslations.earn_stake_token },
+          { 'token': 'ETH' },
+        )}
+      />
       <Page.Body>
         <PageFrame
           LoadingSkeleton={OverviewSkeleton}

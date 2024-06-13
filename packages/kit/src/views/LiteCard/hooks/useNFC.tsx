@@ -2,10 +2,17 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import LiteCard from '@onekeyfe/react-native-lite-card';
 import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
+import { useIntl } from 'react-intl';
 import { Alert } from 'react-native';
 
-import { Dialog, LottieView, SizableText } from '@onekeyhq/components';
+import {
+  Dialog,
+  LottieView,
+  RichSizeableText,
+  SizableText,
+} from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type {
@@ -20,30 +27,37 @@ enum ENFCEventCode {
 }
 
 export default function useNFC() {
+  const intl = useIntl();
   const willCloseDialogInstance = useRef<IDialogInstance>();
-  const handlerNFCConnectStatus = useCallback(({ code }: { code: number }) => {
-    if (code !== ENFCEventCode.TRANSFERRING_DATA) {
-      if (code === ENFCEventCode.FINISHED) {
-        setTimeout(() => {
-          void willCloseDialogInstance.current?.close();
-        });
+  const handlerNFCConnectStatus = useCallback(
+    ({ code }: { code: number }) => {
+      if (code !== ENFCEventCode.TRANSFERRING_DATA) {
+        if (code === ENFCEventCode.FINISHED) {
+          setTimeout(() => {
+            void willCloseDialogInstance.current?.close();
+          });
+        }
+        return;
       }
-      return;
-    }
-    void willCloseDialogInstance.current?.close?.();
-    willCloseDialogInstance.current = Dialog.show({
-      title: 'Transferring Data...',
-      description:
-        'The device is connected, please keep the card in place and do not move it.',
-      showFooter: false,
-      renderContent: (
-        <LottieView
-          source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_connecting.json')}
-          height={225}
-        />
-      ),
-    });
-  }, []);
+      void willCloseDialogInstance.current?.close?.();
+      willCloseDialogInstance.current = Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.hardware_transferring_data,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.hardware_device_connected_keep_card_in_place,
+        }),
+        showFooter: false,
+        renderContent: (
+          <LottieView
+            source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_connecting.json')}
+            height={225}
+          />
+        ),
+      });
+    },
+    [intl],
+  );
   useEffect(() => {
     if (!platformEnv.isNativeAndroid) {
       return;
@@ -64,24 +78,35 @@ export default function useNFC() {
               Dialog.confirm({
                 icon: 'ErrorOutline',
                 tone: 'destructive',
-                title: 'Unable to Connect',
-                description:
-                  'Your current device does not support NFC, replace it with an NFC-enabled device and try again',
-                onConfirmText: 'I Got It',
+                title: intl.formatMessage({
+                  id: ETranslations.settings_unable_to_connect,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.settings_nfc_not_supported,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_i_got_it,
+                }),
               });
               break;
             case CardErrors.NotEnableNFC:
             case CardErrors.NotNFCPermission:
               Alert.alert(
-                'Turn on NFC and Let "OneKey" Connect Your Hardware Devices',
-                'Go to the Settings Page Now?',
+                intl.formatMessage({ id: ETranslations.settings_turn_on_nfc }),
+                intl.formatMessage({
+                  id: ETranslations.settings_go_to_settings_page_now,
+                }),
                 [
                   {
-                    text: 'Cancel',
+                    text: intl.formatMessage({
+                      id: ETranslations.global_cancel,
+                    }),
                     style: 'cancel',
                   },
                   {
-                    text: 'OK',
+                    text: intl.formatMessage({
+                      id: ETranslations.global_confirm,
+                    }),
                     onPress: () => {
                       LiteCard.intoSetting();
                     },
@@ -95,7 +120,7 @@ export default function useNFC() {
           reject();
         });
       }),
-    [],
+    [intl],
   );
   const hideNFCConnectDialog = useCallback(async () => {
     await willCloseDialogInstance?.current?.close?.();
@@ -125,10 +150,15 @@ export default function useNFC() {
             Dialog.confirm({
               icon: 'ErrorOutline',
               tone: 'destructive',
-              title: 'Connect Failed',
-              description:
-                'The two OneKey Lite used for connection are not the same.',
-              onConfirmText: 'I Got it',
+              title: intl.formatMessage({
+                id: ETranslations.hardware_connect_failed,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.hardware_two_onekey_lite_not_same,
+              }),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_i_got_it,
+              }),
             });
             return;
           }
@@ -137,9 +167,15 @@ export default function useNFC() {
               Dialog.show({
                 icon: 'ErrorOutline',
                 tone: 'destructive',
-                title: 'Recovery Interrupted',
-                description: `Make sure the device is close to the phone's NFC module, then try again.`,
-                onConfirmText: 'Retry',
+                title: intl.formatMessage({
+                  id: ETranslations.hardware_recovery_interrupted,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.hardware_ensure_device_close_to_nfc,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_retry,
+                }),
                 onConfirm: retryNFCAction,
               });
               break;
@@ -147,10 +183,15 @@ export default function useNFC() {
               Dialog.show({
                 icon: 'ErrorOutline',
                 tone: 'warning',
-                title: 'No Backup Inside',
-                description:
-                  'No backup in this OneKey Lite. Replace with another OneKey Lite and retry.',
-                onConfirmText: 'Retry',
+                title: intl.formatMessage({
+                  id: ETranslations.hardware_no_backup_inside,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.hardware_no_backup_inside_desc,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_retry,
+                }),
                 onConfirm: retryNFCAction,
               });
               break;
@@ -158,18 +199,24 @@ export default function useNFC() {
               Dialog.show({
                 icon: 'ErrorOutline',
                 tone: 'destructive',
-                title: 'OneKey Lite PIN Error',
+                title: intl.formatMessage({
+                  id: ETranslations.hardware_onekey_lite_pin_error,
+                }),
                 renderContent: (
-                  <SizableText size="$bodyLg" color="$text">
-                    After{' '}
-                    <SizableText color="$textCritical">
-                      {cardInfo?.pinRetryCount ?? 10}
-                    </SizableText>{' '}
-                    more wrong tries, the data on this OneKey Lite will be
-                    erased.
-                  </SizableText>
+                  <RichSizeableText
+                    i18NValues={{
+                      red: (text) => (
+                        <SizableText color="$textCritical">{text}</SizableText>
+                      ),
+                      number: `${cardInfo?.pinRetryCount ?? 10}`,
+                    }}
+                  >
+                    {ETranslations.hardware_onekey_lite_pin_error_desc}
+                  </RichSizeableText>
                 ),
-                onConfirmText: 'Retry',
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_retry,
+                }),
                 onConfirm: async (dialogInstance) => {
                   void dialogInstance.close();
                   await retryPINAction?.();
@@ -181,19 +228,30 @@ export default function useNFC() {
               Dialog.confirm({
                 icon: 'ErrorOutline',
                 tone: 'destructive',
-                title: 'OneKey Lite has been Reset',
-                description:
-                  'The PIN code has been entered incorrectly over 10 times. To prevent unauthorized access to the backup data, the data on this device has been erased.',
-                onConfirmText: 'I Got it',
+                title: intl.formatMessage({
+                  id: ETranslations.hardware_onekey_lite_reset,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.hardware_pin_incorrect_data_erased,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_i_got_it,
+                }),
               });
               break;
             default:
               Dialog.show({
                 icon: 'ErrorOutline',
                 tone: 'destructive',
-                title: 'Connect Failed',
-                description: `Make sure the device is close to the phone's NFC module, then try again.`,
-                onConfirmText: 'Retry',
+                title: intl.formatMessage({
+                  id: ETranslations.hardware_connect_failed,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.hardware_ensure_device_close_to_nfc,
+                }),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.global_retry,
+                }),
                 onConfirm: retryNFCAction,
               });
               break;
@@ -203,15 +261,18 @@ export default function useNFC() {
           resolve();
         }
       }),
-    [hideNFCConnectDialog],
+    [intl, hideNFCConnectDialog],
   );
   const createNFCConnection = useCallback(
     (callback: () => void) => async () => {
       if (platformEnv.isNativeAndroid) {
         willCloseDialogInstance.current = Dialog.show({
-          title: 'Searching for device...',
-          description:
-            'Please keep Lite placed with the phone until the device is found.',
+          title: intl.formatMessage({
+            id: ETranslations.hardware_searching_for_device,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.hardware_keep_lite_placed_until_found,
+          }),
           showFooter: false,
           renderContent: (
             <LottieView
@@ -224,23 +285,26 @@ export default function useNFC() {
         return;
       }
       willCloseDialogInstance.current = Dialog.confirm({
-        title: 'Place OneKey Lite Close to the Phone',
-        description:
-          'Place the Lite and phone as shown in the figure below, then click "connect.”',
+        title: intl.formatMessage({
+          id: ETranslations.hardware_place_onekey_lite_close_to_phone,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.hardware_place_onekey_lite_close_to_phone_desc,
+        }),
         renderContent: (
           <LottieView
             source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
             height={205}
           />
         ),
-        onConfirmText: 'Connect',
+        onConfirmText: intl.formatMessage({ id: ETranslations.global_connect }),
         onConfirm: ({ preventClose }) => {
           preventClose();
           callback();
         },
       });
     },
-    [],
+    [intl],
   );
   return useMemo(
     () => ({

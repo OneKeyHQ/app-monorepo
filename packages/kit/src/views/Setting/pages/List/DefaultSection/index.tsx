@@ -38,10 +38,13 @@ const AddressBookItem = () => {
   const onPress = useCallback(async () => {
     if (!hideDialogInfo) {
       Dialog.show({
-        title: 'Encrypted storage',
-        icon: 'PlaceholderOutline',
-        description:
-          'All your address book data is encrypted with your login password. ',
+        title: intl.formatMessage({
+          id: ETranslations.address_book_encrypted_storage_title,
+        }),
+        icon: 'ShieldKeyholeOutline',
+        description: intl.formatMessage({
+          id: ETranslations.address_book_encrypted_storage_description,
+        }),
         tone: 'default',
         showConfirmButton: true,
         showCancelButton: true,
@@ -57,7 +60,7 @@ const AddressBookItem = () => {
     } else {
       await showAddressBook();
     }
-  }, [showAddressBook, hideDialogInfo]);
+  }, [showAddressBook, hideDialogInfo, intl]);
   return (
     <ListItem
       icon="BookOpenOutline"
@@ -148,7 +151,11 @@ export const DefaultSection = () => {
       {platformEnv.isNative ? (
         <ListItem
           icon="RepeatOutline"
-          title={`${backupPlatform().cloudName} Backup`}
+          title={intl.formatMessage({
+            id: platformEnv.isNativeAndroid
+              ? ETranslations.settings_google_drive_backup
+              : ETranslations.settings_icloud_backup,
+          })}
           drillIn
           onPress={async () => {
             navigation.pushModal(EModalRoutes.CloudBackupModal, {

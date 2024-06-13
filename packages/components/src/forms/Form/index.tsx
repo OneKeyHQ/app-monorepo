@@ -8,7 +8,10 @@ import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
 import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
+import { useIntl } from 'react-intl';
 import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HeightTransition } from '../../content';
 import { Label, SizableText, View, XStack, YStack } from '../../primitives';
@@ -98,6 +101,7 @@ function Field({
   testID = '',
   labelAddon,
 }: IFieldProps) {
+  const intl = useIntl();
   const {
     control,
     formState: { errors },
@@ -126,7 +130,9 @@ function Field({
                 <Label htmlFor={name}>{label}</Label>
                 {optional ? (
                   <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
-                    (Optional)
+                    {`(${intl.formatMessage({
+                      id: ETranslations.form_optional_indicator,
+                    })})`}
                   </SizableText>
                 ) : null}
               </View>

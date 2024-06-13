@@ -11,7 +11,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { checkIsDomain } from '@onekeyhq/shared/src/utils/uriUtils';
+import { addressIsEnsFormat } from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IAddressInteractionStatus,
   IAddressValidateStatus,
@@ -192,7 +192,8 @@ class ServiceAccountProfile extends ServiceBase {
       networkId,
       address,
     });
-    const isDomain = checkIsDomain(address);
+
+    const isDomain = addressIsEnsFormat(address);
     if (isDomain && enableNameResolve) {
       await this.handleNameSolve(networkId, address, result);
     }

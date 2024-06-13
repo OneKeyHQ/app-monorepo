@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isNumber } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -17,6 +18,7 @@ import {
   useHardwareUiStateAtom,
   useHardwareUiStateCompletedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IDeviceFirmwareType } from '@onekeyhq/shared/types/device';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
@@ -61,6 +63,7 @@ export function FirmwareUpdateProgressBarView({
   progress: number | null | undefined;
   desc: string;
 }) {
+  const intl = useIntl();
   const phaseStepView = useMemo(() => {
     if (!totalStep || !currentStep) {
       return <Skeleton width={120} height={16} />;
@@ -70,10 +73,15 @@ export function FirmwareUpdateProgressBarView({
     }
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
-        {`Step ${currentStep}/${totalStep}`}
+        {intl.formatMessage(
+          { id: ETranslations.global_step_str },
+          {
+            step: `${currentStep}/${totalStep}`,
+          },
+        )}
       </SizableText>
     );
-  }, [currentStep, totalStep]);
+  }, [intl, currentStep, totalStep]);
 
   const versionView = useMemo(() => {
     if (!versionTo) {
@@ -111,6 +119,7 @@ export function FirmwareUpdateProgressBar({
   lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
   isDone?: boolean;
 }) {
+  const intl = useIntl();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
   const [state] = useHardwareUiStateAtom();
   const [stateFull] = useHardwareUiStateCompletedAtom();
@@ -181,22 +190,36 @@ export function FirmwareUpdateProgressBar({
   const installProgressList = useRef<string[]>([]);
 
   const titleText = useMemo(() => {
-    let text = 'Preparing...';
+    let text = intl.formatMessage({ id: ETranslations.global_preparing });
     if (lastFirmwareTipMessage) {
-      text = 'Updating...';
+      text = intl.formatMessage({ id: ETranslations.global_updating });
     }
     if (firmwareType) {
       // type IDeviceFirmwareType = 'firmware' | 'ble' | 'bootloader';
-      text = `Updating ${firmwareType}...`;
+      text = intl.formatMessage(
+        {
+          id: ETranslations.global_updating_type,
+        },
+        {
+          0: firmwareType,
+        },
+      );
       if (firmwareType === 'ble') {
-        text = `Updating bluetooth...`;
+        text = intl.formatMessage(
+          {
+            id: ETranslations.global_updating_type,
+          },
+          {
+            0: intl.formatMessage({ id: ETranslations.global_bluetooth }),
+          },
+        );
       }
     }
     if (isDone) {
-      text = `Done`;
+      text = intl.formatMessage({ id: ETranslations.global_done });
     }
     return text;
-  }, [firmwareType, isDone, lastFirmwareTipMessage]);
+  }, [intl, firmwareType, isDone, lastFirmwareTipMessage]);
 
   const updateProgress = useCallback(
     (type: IProgressType) => {
@@ -235,12 +258,16 @@ export function FirmwareUpdateProgressBar({
         {
           type: [EFirmwareUpdateTipMessages.AutoRebootToBootloader],
           progress: () => 10,
-          desc: () => `Reboot to bootloader mode`,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_reboot_to_bootloader_mode,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.GoToBootloaderSuccess],
           progress: () => 12,
-          desc: () => `Reboot success, downloading`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_reboot_success }),
         },
         {
           type: [
@@ -248,7 +275,8 @@ export function FirmwareUpdateProgressBar({
             EFirmwareUpdateTipMessages.DownloadLatestBootloaderResource,
           ],
           progress: () => 14,
-          desc: () => `Downloading`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_downloading }),
         },
         {
           type: [
@@ -256,12 +284,14 @@ export function FirmwareUpdateProgressBar({
             EFirmwareUpdateTipMessages.DownloadLatestBootloaderResourceSuccess,
           ],
           progress: () => 20,
-          desc: () => `Download success`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_download_success }),
         },
         {
           type: [EFirmwareUpdateTipMessages.FirmwareEraseSuccess],
           progress: () => 25,
-          desc: () => `Transferring data`,
+          desc: () =>
+            intl.formatMessage({ id: ETranslations.update_transferring_data }),
         },
         {
           type: [
@@ -281,9 +311,13 @@ export function FirmwareUpdateProgressBar({
           },
           desc: () => {
             if (firmwareProgressRef.current === 100) {
-              return `Data transferred, installing...`;
+              return intl.formatMessage({
+                id: ETranslations.update_installing,
+              });
             }
-            return `Transferring data`;
+            return intl.formatMessage({
+              id: ETranslations.update_transferring_data,
+            });
           },
         },
         {
@@ -321,6 +355,7 @@ export function FirmwareUpdateProgressBar({
       }
     },
     [
+      intl,
       // do not add any deps here, use ref instead
     ],
   );

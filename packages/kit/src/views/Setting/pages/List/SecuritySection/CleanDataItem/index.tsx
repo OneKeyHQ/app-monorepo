@@ -62,7 +62,7 @@ const ClearCacheOnAppContent = () => {
         <Dialog.FormField name="browserHistory">
           <Checkbox
             label={intl.formatMessage({
-              id: ETranslations.settings_browser_history_bookmarks_pins,
+              id: ETranslations.settings_browser_history_bookmarks_pins_risk_dapp_whitelist,
             })}
           />
         </Dialog.FormField>
@@ -136,9 +136,12 @@ export const CleanDataItem = () => {
                     (platformEnv.isWeb || platformEnv.isExtension)
                   ) {
                     Dialog.show({
-                      title: 'Clear Browser Cache',
-                      description: `Open this link in the browser to continue clearing.
-                    chrome://settings/clearBrowserData`,
+                      title: intl.formatMessage({
+                        id: ETranslations.settings_clear_browser_cache,
+                      }),
+                      description: intl.formatMessage({
+                        id: ETranslations.settings_clear_browser_cache_desc,
+                      }),
                       onConfirm: () => {
                         copyText('chrome://settings/clearBrowserData');
                       },

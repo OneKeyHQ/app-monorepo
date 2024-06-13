@@ -225,10 +225,14 @@ const TabComponent = (
       }}
       scrollEventThrottle={16}
       onScroll={(event) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        stickyConfig.data[pageManager.pageIndex].contentOffsetY = (
-          event as any
-        ).nativeEvent.contentOffset.y;
+        // This variable might be null when swiping to dismiss on iOS,
+        //  so it needs to be checked.
+        if (stickyConfig.data[pageManager.pageIndex]) {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          stickyConfig.data[pageManager.pageIndex].contentOffsetY = (
+            event as any
+          ).nativeEvent.contentOffset.y;
+        }
       }}
       stickyHeaderIndices={[1]}
       nestedScrollEnabled

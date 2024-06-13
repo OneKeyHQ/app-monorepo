@@ -141,6 +141,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.swapHistory) {
       // clear swap history
+      await this.backgroundApi.serviceSwap.cleanSwapHistoryItems();
     }
     if (values.browserCache) {
       // clear browser cache
@@ -150,6 +151,8 @@ class ServiceSetting extends ServiceBase {
       await this.backgroundApi.simpleDb.browserTabs.clearRawData();
       await this.backgroundApi.simpleDb.browserHistory.clearRawData();
       await this.backgroundApi.simpleDb.browserBookmarks.clearRawData();
+      await this.backgroundApi.simpleDb.browserRiskWhiteList.clearRawData();
+      this.backgroundApi.serviceDiscovery._isUrlExistInRiskWhiteList.clear();
     }
     if (values.connectSites) {
       // clear connect sites

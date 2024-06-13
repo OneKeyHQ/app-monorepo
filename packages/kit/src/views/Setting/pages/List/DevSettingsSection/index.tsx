@@ -7,6 +7,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  ONEKEY_API_HOST,
+  ONEKEY_TEST_API_HOST,
+} from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -28,7 +33,7 @@ export const DevSettingsSection = () => {
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
-      title: 'Disable the dev mode',
+      title: '关闭开发者模式',
       onConfirm: () => {
         void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
       },
@@ -41,11 +46,11 @@ export const DevSettingsSection = () => {
 
   return (
     <Section
-      title={intl.formatMessage({ id: 'form__dev_mode' })}
+      title={intl.formatMessage({ id: ETranslations.global_dev_mode })}
       titleProps={{ color: '$textCritical' }}
     >
       <SectionPressItem
-        title="Disable the dev mode"
+        title="关闭开发者模式"
         onPress={handleDevModeOnChange}
       />
       {platformEnv.githubSHA ? (
@@ -56,7 +61,12 @@ export const DevSettingsSection = () => {
       ) : null}
       <SectionFieldItem
         name="enableTestEndpoint"
-        title={intl.formatMessage({ id: 'action__test_onekey_service' })}
+        title="启用 OneKey 测试网络节点"
+        subtitle={
+          settings.settings?.enableTestEndpoint
+            ? ONEKEY_TEST_API_HOST
+            : ONEKEY_API_HOST
+        }
         onValueChange={
           platformEnv.isDesktop
             ? (enabled: boolean) => {
@@ -71,7 +81,8 @@ export const DevSettingsSection = () => {
       </SectionFieldItem>
       <SectionFieldItem
         name="showDevOverlayWindow"
-        title="show dev overlay window"
+        title="开发者悬浮窗"
+        subtitle="始终悬浮于全局的开发调试工具栏"
         testID="show-dev-overlay"
       >
         <Switch size={ESwitchSize.small} />
@@ -140,7 +151,7 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
-        title="Startup Time"
+        title="Startup Time(ms)"
         onPress={() => {
           Dialog.cancel({
             title: 'Startup Time(ms)',
@@ -149,13 +160,13 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
-        title="Reset App Update Status"
+        title="重置清空应用更新状态"
         onPress={() => {
           void backgroundApiProxy.serviceAppUpdate.reset();
         }}
       />
       <SectionPressItem
-        title="Reset App Update Status to Failed"
+        title="重置清空应用更新状态为失败状态"
         onPress={() => {
           void backgroundApiProxy.serviceAppUpdate.notifyFailed();
         }}

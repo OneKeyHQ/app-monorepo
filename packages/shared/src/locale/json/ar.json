@@ -1,6 +1,7 @@
 {
   "account_model.watched": "شاهد",
-  "action_save": "Save",
+  "action_save": "حفظ",
+  "address.verify_address_instruction": "تحقق على الجهاز لمنع هجمات استبدال العنوان",
   "address_book.button_close": "إغلاق",
   "address_book.button_copy": "نسخ",
   "address_book.button_next": "التالي",
@@ -12,8 +13,10 @@
   "address_book.data_anomaly_why_reset": "لماذا أحتاج إلى إعادة تعيين دفتر عناويني؟",
   "address_book.data_anomaly_why_reset_description": "إعادة تعيين البيانات ستؤدي إلى فقدان معلومات الاتصال الحالية الخاصة بك. ولكن، سيضمن ذلك بالكامل أمان أصولك.",
   "address_book.data_anomaly_why_risk": "لماذا بياناتي في خطر؟",
-  "address_book.data_anomaly_why_risk_description": "بياناتك مختلفة عن الحفظ الأخير للتأكيد. Onekey لا يحفظ بياناتك، ولكنه يضمن أمانها باستخدام خوارزميات التجزئة الرياضية.",
-  "address_book.encrypted_storage_description": "OneKey يحمي أمن معلوماتك. سيتم تشفير جميع بيانات الاتصال الخاصة بك والتحقق منها بواسطة الهاش مع كل استخدام لمنع التلاعب. اعرف المزيد.",
+  "address_book.data_anomaly_why_risk_description": "بياناتك مختلفة عن آخر حفظ تأكيد. OneKey لا يحفظ بياناتك، ولكنه يضمن أن البيانات لن تتعرض للتزوير.",
+  "address_book.empty_add_button": "أضف",
+  "address_book.empty_description": "لم تقم بإضافة أي عنوان بعد.",
+  "address_book.encrypted_storage_description": "OneKey يحمي أمن معلوماتك. سيتم تشفير جميع بيانات الاتصال الخاصة بك والتحقق منها بالتجزئة مع كل استخدام لمنع التلاعب.",
   "address_book.encrypted_storage_title": "تخزين مشفر",
   "address_book.menu_copy": "نسخ",
   "address_book.menu_edit": "تعديل",
@@ -24,10 +27,16 @@
   "address_book.title": "دفتر العناوين",
   "address_book_add_address.add_to_evm_chains": "أضف أيضًا إلى سلاسل EVM المتوافقة الإضافية",
   "address_book_add_address.address": "العنوان",
+  "address_book_add_address.address_exists": "العنوان موجود بالفعل.",
+  "address_book_add_address.address_invalid_error": "عنوان غير صالح. يرجى التحقق وإعادة الإدخال.",
   "address_book_add_address.address_placeholder": "العنوان أو النطاق",
   "address_book_add_address.button_save": "حفظ",
   "address_book_add_address.chain": "سلسلة",
   "address_book_add_address.name": "الاسم",
+  "address_book_add_address.name_empty_error": "لا يمكن أن يكون الاسم فارغًا.",
+  "address_book_add_address.name_exists": "الاسم موجود بالفعل.",
+  "address_book_add_address.name_length_erro": "الحد الأقصى للطول هو {num} حرفًا.",
+  "address_book_add_address.name_required": "مطلوب",
   "address_book_add_address.title": "أضف العنوان",
   "address_book_add_address.toast_add_success": "تمت الإضافة بنجاح",
   "address_book_add_address.toast_copy_success": "نسخ ناجح",
@@ -38,6 +47,8 @@
   "address_book_edit_address.button_confirm": "تأكيد",
   "address_book_edit_address.delete_contact_message": "يرجى التأكيد على ما إذا كنت ترغب في حذف هذا الجهة من دفتر العناوين. اكتب \"تأكيد\" للحذف.",
   "address_book_edit_address.delete_contact_title": "حذف الاتصال",
+  "address_book_edit_address.title": "Edit Address",
+  "address_book_select.title": "اختر الاتصال",
   "address_type": "نوع العنوان",
   "auth.confirm_password_form_label": "تأكيد كلمة المرور",
   "auth.confirm_password_form_placeholder": "أعد إدخال كلمة المرور الخاصة بك",
@@ -102,7 +113,7 @@
   "balance_detail.enable_protection_title": "تمكين حماية التسجيل",
   "balance_detail.enable_protection_warning": "أصول التسجيل (NFT ورموز BRC-20) غير مدعومة حاليا. لعرض تفاصيل الحماية، تحقق من \"تفاصيل الرصيد\". لنقل أصول التسجيل الخاصة بك بأمان، يرجى استخدام محفظة متوافقة مع التسجيل مثل Unisat أو OKX.",
   "balance_detail.frozen": "مجمد",
-  "balance_detail.frozen_by_inscription": "مجمد بواسطة حماية النقش",
+  "balance_detail.frozen_by_inscription": "حماية التسجيل",
   "balance_detail.how_to_migrate": "كيفية ترحيل الرموز المميزة NFT / BRC-20؟",
   "balance_detail.spendable": "قابل للإنفاق",
   "balance_detail.total": "المجموع",
@@ -114,18 +125,19 @@
   "bandwidth_energy.rent_energy": "استئجار الطاقة",
   "bandwidth_energy.title": "عرض النطاق والطاقة",
   "bandwidth_energy.what_is_bandwidth_energy": "ما هو العرض النطاقي والطاقة على ترون؟",
+  "bip44__standard": "معيار BIP44",
   "browser.bookmark": "إشارة مرجعية",
   "browser.import": "استيراد",
   "coming_soon": "قريبا",
-  "content__amount": "Amount",
-  "content__custom": "Custom",
-  "content__fast": "Fast",
-  "content__from": "From",
-  "content__gas_limit": "Gas Limit",
-  "content__gas_price": "Gas Price ({network})",
-  "content__normal": "Normal",
-  "content__slow": "Slow",
-  "content__to": "To",
+  "content__amount": "المبلغ",
+  "content__custom": "مخصص",
+  "content__fast": "سريع",
+  "content__from": "من",
+  "content__gas_limit": "حد الغاز",
+  "content__gas_price": "سعر الغاز ({network})",
+  "content__normal": "عادي",
+  "content__slow": "بطيء",
+  "content__to": "إلى",
   "copy_anyway": "انسخ على أي حال",
   "copy_recovery_phrases_warning_desc": "يمكن أن يعرض الوصول إلى الحافظة عبارة الاستعادة الخاصة بك للتطبيقات غير المصرح بها.",
   "copy_recovery_phrases_warning_title": "هل تريد نسخ عبارة الاستعادة؟",
@@ -200,6 +212,8 @@
   "dapp_connect.view_your_balance_and_activity": "عرض رصيدك ونشاطك",
   "dapp_connect.watch_your_account_balance_and_activity": "راقب رصيد حسابك ونشاطه",
   "dapp_connect.withdraw_request_sent": "تم إرسال طلب السحب",
+  "date.today": "اليوم",
+  "date.yesterday": "أمس",
   "derivation_path": "مسار الاشتقاق",
   "device_auth.continue_anyway_warning_message": "نحن حاليًا غير قادرين على التحقق من جهازك. الاستمرار قد يشكل مخاطر أمنية.",
   "device_auth.request_desc": "قم بالتأكيد على جهازك للتحقق من صحته وتأمين اتصالك.",
@@ -228,7 +242,7 @@
   "earn.less_than_number_days": "< {number} أيام",
   "earn.lido_token_redemption": "استرداد ليدو {token}",
   "earn.lido_token_staking": "التحصيص في Lido {token}",
-  "earn.minimum_staking_amount": "الحد الأدنى لهذا الرهن هو {token}.",
+  "earn.minimum_amount": "الحد الأدنى هو {number}.",
   "earn.monthly": "شهريا",
   "earn.pay_with": "ادفع بواسطة",
   "earn.receive": "تلقي",
@@ -277,8 +291,8 @@
   "explore.badge_airdrop": "إسقاط جوي",
   "explore.badge_hot": "حار",
   "explore.badge_new": "جديد",
-  "explore.bookmark_at_least": "يجب أن يكون العلامة المرجعية على الأقل 1 حرف",
-  "explore.bookmark_exceed": "لا يمكن أن يتجاوز العلامة المرجعية 24 حرفًا",
+  "explore.bookmark_at_least": "يجب أن يكون العلامة المرجعية مكونة من حرف واحد على الأقل",
+  "explore.bookmark_exceed": "لا يمكن أن يتجاوز الإشارة المرجعية 24 حرفًا",
   "explore.bookmark_renamed": "تمت إعادة تسمية الإشارة المرجعية",
   "explore.bookmarks": "الإشارات المرجعية",
   "explore.camera_permission": "الكاميرا: لالتقاط الصور أو إجراء مكالمات فيديو.",
@@ -316,7 +330,7 @@
   "explore.microphone_permission": "الميكروفون: لإدخال الصوت أو المكالمات.",
   "explore.network_issue_detected": "تم اكتشاف مشكلة في الشبكة. يرجى التحقق من اتصالك وتحديث الصفحة.",
   "explore.new_tab": "تبويب جديد",
-  "explore.no_boomark": "لا توجد إشارات مرجعية حتى الآن",
+  "explore.no_boomark": "لا توجد إشارات مرجعية بعد",
   "explore.no_dapps_connected": "لا توجد تطبيقات متصلة",
   "explore.no_dapps_connected_message": "لم تقم بالاتصال بأي تطبيقات dApps بعد.",
   "explore.no_history": "لا توجد تاريخ حتى الآن",
@@ -358,6 +372,8 @@
   "faq.recovery_phrase_safe_store_desc": "نعم، يتم تخزينه محليًا ولن يغادر جهازك إلا بإذن صريح منك.",
   "faq.watched_account": "الحساب المراقب",
   "faq.watched_account_desc": "الحساب المراقب في OneKey يتيح مراقبة عنوان معين ولكنه لا يمكن أن يرسل أو يستقبل الأموال. إنه مفيد لتتبع المعاملات أو مراقبة الأمتلاكات.",
+  "feedback.address_mismatch": "عدم تطابق العنوان",
+  "feedback.address_mismatch_desc": "العنوان لا يتطابق مع المحفظة الصلبة. توقف عن استخدام هذا العنوان فورًا واتصل بنا.",
   "feedback.bluetooth_pairing_failed": "فشل في الإقتران بالبلوتوث",
   "feedback.bluetooth_unparied": "تم فصل البلوتوث",
   "feedback.change_saved": "تم حفظ التغيير",
@@ -378,9 +394,12 @@
   "form.enter_private_key_placeholder": "أدخل مفتاحك الخاص",
   "form.keep_hidden_wallet_label": "حافظ على الوصول",
   "form.keep_hidden_wallet_label_desc": "المحافظ المخفية تُمحى عند إغلاق التطبيق. قم بالتبديل للحفاظ عليها.",
+  "form.optional_indicator": "اختياري",
   "form.private_key_error_invalid": "مفتاح خاص غير صالح",
   "form.rename_error_empty": "الاسم مطلوب",
-  "form__approve_str": "Approve {amount} {symbol}",
+  "form__approve_str": "وافق على {amount} {symbol}",
+  "form__priority_fee": "رسوم الأولوية",
+  "form__sats__units": "sats",
   "global.about": "حول",
   "global.account_name": "اسم الحساب",
   "global.accounts": "الحسابات",
@@ -577,6 +596,7 @@
   "global.start_connection": "بدء الاتصال",
   "global.step_str": "الخطوة {step}",
   "global.swap": "تبديل",
+  "global.switch_address": "تغيير العنوان",
   "global.sync_error": "خطأ في المزامنة",
   "global.synced": "متزامن",
   "global.syncing": "جاري المزامنة...",
@@ -586,6 +606,7 @@
   "global.unknown": "مجهول",
   "global.unknown_error": "خطأ غير معروف",
   "global.unknown_error_retry_message": "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
+  "global.unlock": "فتح",
   "global.update_failed": "فشل التحديث",
   "global.updating": "جاري التحديث...",
   "global.updating_type": "جاري تحديث {type}...",
@@ -593,6 +614,7 @@
   "global.url": "URL",
   "global.value": "القيمة",
   "global.verify": "تحقق",
+  "global.verify_on_device": "تحقق على الجهاز",
   "global.version_is_available": "الإصدار {version} متاح الآن",
   "global.view": "عرض",
   "global.view_in_blockchain_explorer": "عرض في مستكشف البلوكشين",
@@ -681,8 +703,9 @@
   "market.trending": "المُتداول",
   "market.twenty_four_hour_percentage": "٢٤ ساعة %",
   "market.twenty_four_hour_volume": "حجم 24 ساعة",
-  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} is required for network fees.\nIt costs {0} as network fees in {1}. Top up {0} to your account to make transactions.",
-  "network__network": "Network",
+  "msg__str_is_required_for_network_fees_top_up_str_to_make_tx": "{0} مطلوب لرسوم الشبكة.\nيكلف {0} كرسوم شبكة في {1}. قم بتعبئة {0} في حسابك لإجراء المعاملات.",
+  "msg__transaction_with_the_same_nonce_already_exist_please_pay_a_higher_network_fee_otherwise_the_transaction_may_fail": "المعاملات التي تحمل نفس الرقم الفريد موجودة بالفعل، يرجى دفع رسوم شبكة أعلى، وإلا قد تفشل المعاملة.",
+  "network__network": "الشبكة",
   "nft.already_collected": "تم جمع هذا الـ NFT بالفعل.",
   "nft.attributes": "السمات",
   "nft.collect_failed ": "فشل جمع NFT، يرجى المحاولة مرة أخرى.",
@@ -761,20 +784,35 @@
   "onboarding.verify_recovery_phrase_title": "تحقق من عبارة الاستعادة الخاصة بك",
   "onboarding.welcome_description": "إدارة العملات المشفرة بسهولة وأمان",
   "onboarding.welcome_message": "مرحبًا بك في OneKey",
+  "p2pkh_desc": "يبدأ بـ '1'",
+  "p2sh_p2wpkh_desc": "يبدأ بـ 'bc1q'",
+  "p2tr_desc": "يبدأ بـ 'bc1p'",
+  "p2wpkh_desc": "يبدأ بـ '3'",
   "provider.amount_received": "{amount} {token}",
   "provider.fee": "$0.16 ",
   "provider.label_fastest": "الأسرع",
   "provider.label_max_received": "تلقى ماكس",
+  "provider.label_min_fee": "الحد الأدنى لرسوم الغاز",
   "provider.label_overall_best": "الأفضل على الإطلاق",
+  "provider.max_amount_required": "الحد الأقصى يتطلب {amount} {token}",
   "provider.min_amount_required": "الحد الأدنى المطلوب {amount} {token}",
   "provider.recommend": "أوصي",
   "provider.route": "الطريق",
   "provider.route_no_information": "المزود ليس لديه حاليًا معلومات عن الطريق. أموالك في أمان.",
   "provider.route_swft": "يرجى العلم أن هذه العملية تستخدم جسر SWFT_BRIDGE للسلسلة المتقاطعة الخاص بجهة ثالثة، والذي ينطوي على تنفيذ مركزي ويحمل المخاطر المرتبطة به.",
+  "provider.route_unable_fetch_price": "غير قادر على جلب السعر",
+  "provider.sort_item_gas": "رسوم الغاز",
+  "provider.sort_item_received": "تم الاستلام",
+  "provider.sort_item_swap_duration": "مدة الاستبدال",
+  "provider.sort_title": "فرز",
   "provider.time": "< 1 دقيقة",
   "provider.title": "اختر المزود",
   "provider.token_not_supported": "الرمز غير مدعوم",
   "provider.unavailable": "غير متوفر",
+  "receive.address_unconfimed_alert_message": "العنوان غير مؤكد. قم بالتحقق لضمان الأمان.",
+  "receive.hide_unverified_address": "إخفاء العنوان غير المتحقق منه",
+  "receive.send_asset_warning_message": "يمكن إرسال الأصول فقط داخل نفس الشبكة",
+  "receive.show_address_any": "عرض العنوان على أي حال",
   "remove_account_desc": "سيتم إزالة هذا الحساب.",
   "remove_device": "إزالة الجهاز",
   "remove_device_desc": "سيؤدي هذا إلى حذف بياناتك بشكل دائم. ولكن لا يزال بإمكانك استعادتها من المحفظة الصلبة التي تم تحميل عبارة الاستعادة لهذه المحفظة.",
@@ -804,6 +842,7 @@
   "send.check_request_error": "خطأ في طلب الفحص، يرجى التحديث مرة أخرى",
   "send.description_balance_info": "الرصيد لا يتضمن UTXOs المغلقة أو الصغيرة",
   "send.description_frozen_funds_info": "الرصيد لا يتضمن الأموال المجمدة",
+  "send.ens_choose_address_title": "اختر عنوان",
   "send.error_insufficient_balance": "رصيد {token} غير كاف",
   "send.error_minimum_amount": "الحد الأدنى {amount} {token}",
   "send.error_recipient_requires_activation": "المستلم يحتاج إلى {amount} {token} للتفعيل",
@@ -818,6 +857,7 @@
   "send.title": "إرسال",
   "send.to": "إلى",
   "send.to_contacts_selecor_account": "حسابي",
+  "send.to_contacts_selecor_account_title": "اختر",
   "send.to_contacts_selecor_address_book": "دفتر العناوين",
   "send.to_contacts_tooltip": "جهات الاتصال",
   "send.to_ln_placeholder": "أدخل فاتورة، عنوان البرق، LNURL أو معرف العقدة",
@@ -837,7 +877,7 @@
   "settings.backup_recovery_phrase_to_onekey_lite": "احفظ عبارة الاستعادة الخاصة بك في OneKey Lite",
   "settings.backup_with_onekey_keytag": "النسخ الاحتياطي باستخدام OneKey KeyTag",
   "settings.browser_cache": "ذاكرة التخزين المؤقت للمتصفح",
-  "settings.browser_history_bookmarks_pins": "تاريخ التصفح، العلامات المرجعية، الدبابيس",
+  "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "تاريخ التصفح، العلامات المرجعية، الدبابيس، القائمة البيضاء لتطبيقات الدفع المتقدمة",
   "settings.change_pin": "تغيير PIN",
   "settings.clear_browser_cache": "مسح ذاكرة التخزين المؤقت للمتصفح",
   "settings.clear_browser_cache_desc": "افتح هذا الرابط في متصفحك لمسح الذاكرة المؤقتة:chrome://settings/clearBrowserData",
@@ -925,19 +965,28 @@
   "slippage_tolerance.description": "الانزلاق التلقائي يحسن الانزلاق بناءً على سيولة البول وحجم التداول، مما يقلل من فشل المعاملات ومخاطر هجمات MEV.",
   "slippage_tolerance.error_message": "يجب أن تكون نسبة التسرب بين 0 إلى 50٪.",
   "slippage_tolerance.input_placeholder": "0.005",
+  "slippage_tolerance.popover": "تسامح الانزلاق هو إعداد لمقدار الانزلاق السعري الذي أنت مستعد لقبوله للتجارة.",
   "slippage_tolerance.switch_auto": "أوتو",
   "slippage_tolerance.switch_custom": "مخصص",
   "slippage_tolerance.title": "تسامح الانزلاق",
   "slippage_tolerance.warning_message_1": "قد يتسبب تسامح الانزلاق العالي في خسارة أصولك.",
-  "slippage_tolerance.warning_message_2": "قد يتسبب تسامح الانزلاق العالي في خسارة أصولك.",
+  "slippage_tolerance.warning_message_2": "قد يؤدي الانزلاق أقل من {number}% إلى فشل التجارة.",
+  "swap_account.from_address": "{addrss}",
+  "swap_account.to_address": "{addrss}",
+  "swap_account.to_address_edit": "{addrss} (تم التعديل)",
+  "swap_account.to_address_edit_button": "إعادة تعيين",
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
+  "swap_history.status_discard": "إسقاط",
   "swap_history.status_failed": "فشل",
   "swap_history.status_pending": "قيد الانتظار",
+  "swap_history.status_success": "النجاح",
   "swap_history.title": "التاريخ",
   "swap_history.transaction_format": "{token_from} → {token_to}",
   "swap_history_detail.date": "التاريخ",
+  "swap_history_detail.delete_confirm": "يمسح",
+  "swap_history_detail.delete_title": "هل أنت متأكد من حذف كل السجلات؟",
   "swap_history_detail.from": "من",
   "swap_history_detail.network_fee": "رسوم الشبكة",
   "swap_history_detail.order_status": "حالة الطلب",
@@ -951,53 +1000,80 @@
   "swap_history_detail.swap_duration": "مدة الاستبدال",
   "swap_history_detail.title": "المعاملة",
   "swap_history_detail.to": "إلى",
+  "swap_history_detail.toast_copy": "تم النسخ",
   "swap_history_detail.transaction_hash": "تجزئة المعاملة",
   "swap_history_detail.transaction_price": "سعر المعاملة",
   "swap_history_detail.view_in_browser": "عرض في المتصفح",
   "swap_page.account": "الحساب {number}",
-  "swap_page.alert.account_does_not_support_swap": "الحساب المتصل لا يدعم الاستبدال. حاول مع آخر.",
+  "swap_page.alert.account_does_not_support_swap": "الحساب المتصل لا يدعم {network} الاستبدال. حاول مرة أخرى.",
   "swap_page.alert.fee_exceeds_amount": "رسوم شبكة Est تتجاوز مبلغ الصرف، توخى الحذر عند المتابعة.",
-  "swap_page.alert.minimum_amount": "الحد الأدنى للمبلغ {number} USDT.",
+  "swap_page.alert.maximum_amount": "الحد الأقصى {number} {symbol}.",
+  "swap_page.alert.minimum_amount": "الحد الأدنى للمبلغ {number} {symbol}.",
   "swap_page.alert.network_fee_deducted": "سيتم خصم رسوم الشبكة بالإيثريوم تلقائيًا في الخطوة التالية.",
   "swap_page.alert.no_provider_supports_trade": "لا يدعم أي مزود هذه التجارة.",
   "swap_page.alert.not_best_rate": "المزود الحالي لا يقدم أفضل سعر لهذه الصفقة.",
-  "swap_page.alert.value_drop": "انخفاض القيمة بنسبة {number}%! قد يتسبب تأثير السعر العالي في خسارة أصولك.",
+  "swap_page.alert.value_drop": "انخفاض قيمة {number}! قد يتسبب تأثير السعر العالي في خسارة أصولك.",
   "swap_page.amount ": "{number}",
   "swap_page.balance": "الرصيد: {number}",
+  "swap_page.button_approve_amount": "وافق {number}",
+  "swap_page.button_approve_unlimited": "وافق بلا حدود",
+  "swap_page.button_cross_chain": "جسر",
+  "swap_page.button_fetching_quotes": "جاري جلب الاقتباسات",
+  "swap_page.button_insufficient_balance": "رصيد غير كاف",
+  "swap_page.button_no_enough_fee": "لا يكفي لتغطية رسوم الشبكة",
+  "swap_page.button_no_liquidity": "لا يوجد سيولة لهذه الصفقة",
+  "swap_page.button_wrap": "مغلف",
   "swap_page.from": "من",
   "swap_page.limit": "حد",
   "swap_page.max": "ماكس",
   "swap_page.percentage_change": "(+{number}٪)",
   "swap_page.provider.approve": "موافق",
   "swap_page.provider.approve_amount": "الموافقة على المبلغ",
+  "swap_page.provider.approve_amount_limit": "{value} {token}",
+  "swap_page.provider.approve_amount_un_limit": "غير محدود",
+  "swap_page.provider.approve_usdt_dialog_content": "بعض الرموز تتطلب عدة معاملات لتعديل البدل. يجب عليك أولاً تعيين البدل إلى صفر قبل تحديد قيمة البدل الجديدة المرغوبة.",
+  "swap_page.provider.approve_usdt_dialog_title": "تحتاج إلى إرسال 2 معاملات لتغيير البدل",
+  "swap_page.provider.custom": "مخصص ({number}%)",
   "swap_page.provider.est_network_fee": "رسوم شبكة Est",
   "swap_page.provider.exchange_rate ": "1 إيث = {number} يو إس دي سي",
   "swap_page.provider.fee_amount": "${number}",
   "swap_page.provider.provider": "مقدم الخدمة",
+  "swap_page.provider.provider_insufficient_liquidity": "سيولة غير كافية",
   "swap_page.provider.slippage_auto": "تلقائي ({number}%)",
   "swap_page.provider.slippage_tolerance": "تسامح الانزلاق",
   "swap_page.swap": "تبديل",
   "swap_page.swap_button": "تبديل",
-  "swap_page.swap_steps": "1. الموافقة → 2. الاستبدال",
+  "swap_page.swap_steps_1": "1. الموافقة على {tokenSymbol}",
+  "swap_page.swap_steps_1_approve_dialog": "في المرة الأولى التي تقوم فيها بتبديل العملة أو إضافة السيولة، يجب أن توافق على الرمز المراد تبديله. هذا يمنح المزود الإذن بتبديل هذا الرمز من محفظتك.",
+  "swap_page.swap_steps_2": "2. تبديل",
   "swap_page.to": "إلى",
   "swap_page.toast.address_generated": "تم إنشاء العنوان",
+  "swap_page.toast.address_generated_fail": "فشل في إنشاء العنوان",
+  "swap_page.toast.approve_canceled": "وافق على الإلغاء",
+  "swap_page.toast.approve_canceled_detail": "{token}",
+  "swap_page.toast.approve_discarded": "تم رفض الموافقة",
+  "swap_page.toast.approve_discarded_detail": "{token}",
   "swap_page.toast.approve_failed": "فشلت الموافقة",
   "swap_page.toast.approve_failed_detail": "{token}",
   "swap_page.toast.approve_successful": "تمت الموافقة بنجاح",
   "swap_page.toast.approve_successful_detail": "{token}",
   "swap_page.toast.swap_failed": "فشل الاستبدال",
-  "swap_page.toast.swap_failed_detail": "{number} إيث → {number} يو إس دي تي",
+  "swap_page.toast.swap_failed_detail": "{number} {tokenSymbol} → {number} {tokenSymbol}",
   "swap_page.toast.swap_successful": "تم التبديل بنجاح",
-  "swap_page.toast.swap_successful_detail": "{number} إيث → {number} يو إس دي تي",
+  "swap_page.toast.swap_successful_detail": "{number} {symbol} → {number} {symbol}",
   "swap_page.usd_value": "${number}",
   "terms_privacy": "الاستخدام يعني الموافقة على <termsTag>الشروط</termsTag> و <privacyTag>الخصوصية</privacyTag> الخاصة بنا",
+  "title__invoice_description": "Invoice description",
+  "title__lnurl_pay": "LNURL Pay",
   "token_selector.empty_content": "الرمز المحدد لا يدعم العبور بين السلاسل إلى هذه الشبكة.",
   "token_selector.empty_title": "غير مدعوم",
   "token_selector.network": "الشبكة",
   "token_selector.risk_reminder.button_cancel": "إلغاء",
   "token_selector.risk_reminder.button_ok": "حسنًا",
   "token_selector.risk_reminder.checkbox": "لا تظهر هذا التنبيه لجميع الرموز غير المتحقق منها",
+  "token_selector.risk_reminder.malicious_token_alert": "تحذير! رمز ضار.",
   "token_selector.risk_reminder.message": "يمكن لأي شخص إصدار الرموز، بما في ذلك الرموز المزورة تحت مشاريع صالحة. قد لا يتمكن المستخدم الذي اشترى الرموز المزورة من بيعها، مما يؤدي إلى خسارة الأصول. إذا قررت المتابعة في تداول هذا الرمز المخصص، ستكون مسؤولاً عن جميع المخاطر والمسؤوليات المحتملة.",
+  "token_selector.risk_reminder.spam_token_alert": "رمز البريد المزعج المشتبه فيه.",
   "token_selector.risk_reminder.title": "تذكير بالمخاطر",
   "token_selector.risk_reminder.token_address": "{token_address}",
   "token_selector.risk_reminder.token_name": "{token_name}",
@@ -1005,11 +1081,12 @@
   "token_selector.search_placeholder": "ابحث عن الرمز أو عنوان العقد",
   "token_selector.title": "حدد الرمز",
   "token_selector.unverified_token_warning": "الرمز غير المتحقق أدناه. تقدم بحذر.",
-  "transaction__contract_interaction": "Contract Interaction",
-  "transaction__transaction_confirm": "Transaction Confirm",
+  "transaction__contract_interaction": "تفاعل العقد",
+  "transaction__transaction_confirm": "تأكيد المعاملة",
   "update.all_other_apps_closed": "تم إغلاق جميع التطبيقات الأخرى من OneKey وأدوات الترقية عبر الويب.",
   "update.all_other_apps_closed_emoji": "تم إغلاق جميع التطبيقات الأخرى من OneKey وأدوات الترقية على الويب. 🆗",
   "update.all_updates_complete": "تم الانتهاء من جميع التحديثات 👏🏻",
+  "update.app_update": "تحديث التطبيق",
   "update.app_version_ready_for_update": "التطبيق {version} جاهز للتحديث",
   "update.bluetooth_version_available": "البلوتوث {version} متاح",
   "update.bridge_network_error": "خطأ في شبكة الجسر",

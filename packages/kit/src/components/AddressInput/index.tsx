@@ -49,6 +49,7 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   options,
   onChange,
 }) => {
+  const intl = useIntl();
   if (options.length <= 1) {
     return (
       <Badge badgeSize="sm">
@@ -62,8 +63,12 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   }
   return (
     <Select
-      title="Choose an Address"
-      placeholder="Choose an Address"
+      title={intl.formatMessage({
+        id: ETranslations.send_ens_choose_address_title,
+      })}
+      placeholder={intl.formatMessage({
+        id: ETranslations.send_ens_choose_address_title,
+      })}
       renderTrigger={() => (
         <Badge badgeSize="sm" userSelect="none">
           <Badge.Text>
@@ -91,17 +96,18 @@ type IAddressInteractionStatusProps = {
 const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
   status,
 }) => {
+  const intl = useIntl();
   if (status === 'not-interacted') {
     return (
       <Badge badgeType="warning" badgeSize="sm">
-        First Transfer
+        {intl.formatMessage({ id: ETranslations.send_label_first_transfer })}
       </Badge>
     );
   }
   if (status === 'interacted') {
     return (
       <Badge badgeType="success" badgeSize="sm">
-        Transferred
+        {intl.formatMessage({ id: ETranslations.send_label_transferred })}
       </Badge>
     );
   }

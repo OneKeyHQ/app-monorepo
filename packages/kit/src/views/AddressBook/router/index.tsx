@@ -26,21 +26,17 @@ export const ModalAddressBookRouter: IModalFlowNavigatorConfig<
   {
     name: EModalAddressBookRoutes.ListItemModal,
     component: AddressBookListModal,
-    translationId: 'title__address_book',
   },
   {
     name: EModalAddressBookRoutes.AddItemModal,
     component: AddressBookAddItemModal,
-    translationId: 'title__address_book',
   },
   {
     name: EModalAddressBookRoutes.EditItemModal,
     component: AddressBookEditItemModal,
-    translationId: 'title__address_book',
   },
   {
     name: EModalAddressBookRoutes.PickItemModal,
     component: AddressBookPickItemModal,
-    translationId: 'title__address_book',
   },
 ];

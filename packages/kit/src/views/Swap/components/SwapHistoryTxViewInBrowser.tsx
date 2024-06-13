@@ -10,10 +10,10 @@ import {
   ListView,
   Popover,
   SizableText,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { networkTransactionExplorerReplaceStr } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTxHistoryStatus,
@@ -46,18 +46,28 @@ const ExplorersList = ({
   data: IExplorersInfo[];
   onPressItem: (item: IExplorersInfo) => void;
 }) => {
-  const parserLabel = useCallback((type: EExplorerType) => {
-    switch (type) {
-      case EExplorerType.FROM:
-        return 'From';
-      case EExplorerType.TO:
-        return 'To';
-      case EExplorerType.PROVIDER:
-        return 'Provider';
-      default:
-        return '';
-    }
-  }, []);
+  const intl = useIntl();
+  const parserLabel = useCallback(
+    (type: EExplorerType) => {
+      switch (type) {
+        case EExplorerType.FROM:
+          return intl.formatMessage({
+            id: ETranslations.swap_history_detail_from,
+          });
+        case EExplorerType.TO:
+          return intl.formatMessage({
+            id: ETranslations.swap_history_detail_to,
+          });
+        case EExplorerType.PROVIDER:
+          return intl.formatMessage({
+            id: ETranslations.swap_history_detail_provider,
+          });
+        default:
+          return '';
+      }
+    },
+    [intl],
+  );
 
   const renderItem = useCallback(
     ({ item, index }: { item: IExplorersInfo; index: number }) => (
@@ -97,14 +107,16 @@ const ExplorersList = ({
           {item.status === ESwapTxHistoryStatus.PENDING &&
           item.type === EExplorerType.TO ? (
             <Badge badgeType="info" badgeSize="lg">
-              Pending
+              {intl.formatMessage({
+                id: ETranslations.swap_history_detail_status_pending,
+              })}
             </Badge>
           ) : null}
         </XStack>
         {!(index === data.length - 1) ? <Divider /> : null}
       </YStack>
     ),
-    [data.length, onPressItem, parserLabel],
+    [data.length, intl, onPressItem, parserLabel],
   );
   return (
     <ListView
@@ -208,11 +220,6 @@ const SwapTxHistoryViewInBrowser = ({
     (t: IExplorersInfo) => {
       if (t.url) {
         onViewInBrowser(t.url);
-      } else {
-        Toast.error({
-          title: 'error',
-          message: 'no explorer',
-        });
       }
     },
     [onViewInBrowser],
@@ -237,7 +244,9 @@ const SwapTxHistoryViewInBrowser = ({
         space="$2"
       >
         <SizableText color="$textSubdued">
-          {intl.formatMessage({ id: 'action__view_in_browser' })}
+          {intl.formatMessage({
+            id: ETranslations.swap_history_detail_view_in_browser,
+          })}
         </SizableText>
         <Icon color="$iconSubdued" name="OpenOutline" size={20} />
       </XStack>
@@ -249,7 +258,9 @@ const SwapTxHistoryViewInBrowser = ({
   }
   return (
     <Popover
-      title={intl.formatMessage({ id: 'action__view_in_browser' })}
+      title={intl.formatMessage({
+        id: ETranslations.swap_history_detail_view_in_browser,
+      })}
       renderTrigger={triggerViewInBrowser}
       renderContent={
         <ExplorersList data={explorersData} onPressItem={onHandleExplorer} />

@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 
 import { EPageType, Toast, usePageType } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ISwapApproveTransaction } from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveTransactionStatus } from '@onekeyhq/shared/types/swap/types';
@@ -14,6 +16,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 
 export function useSwapApproving() {
+  const intl = useIntl();
   const { approvingStateAction, cleanApprovingInterval } =
     useSwapActions().current;
   const [swapApprovingTransactionAtom] = useSwapApprovingTransactionAtom();
@@ -37,22 +40,38 @@ export function useSwapApproving() {
       swapApprovingTransactionAtom?.status ===
       ESwapApproveTransactionStatus.FAILED
     ) {
-      Toast.error({ title: 'Failed to approve' });
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_approve_failed,
+        }),
+      });
     } else if (
       swapApprovingTransactionAtom?.status ===
       ESwapApproveTransactionStatus.CANCEL
     ) {
-      Toast.error({ title: 'Approve canceled' });
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_approve_canceled,
+        }),
+      });
     } else if (
       swapApprovingTransactionAtom?.status ===
       ESwapApproveTransactionStatus.SUCCESS
     ) {
-      Toast.success({ title: 'Approve success' });
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_approve_successful,
+        }),
+      });
     } else if (
       swapApprovingTransactionAtom?.status ===
       ESwapApproveTransactionStatus.DISCARD
     ) {
-      Toast.error({ title: 'Approve discarded' });
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_approve_discarded,
+        }),
+      });
     }
     return () => {
       cleanApprovingInterval();
@@ -60,6 +79,7 @@ export function useSwapApproving() {
   }, [
     approvingStateAction,
     cleanApprovingInterval,
+    intl,
     swapApprovingTransactionAtom?.status,
     swapApprovingTransactionAtom?.txId,
   ]);

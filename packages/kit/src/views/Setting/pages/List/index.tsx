@@ -6,12 +6,12 @@ import { useIntl } from 'react-intl';
 import {
   IconButton,
   Page,
-  ScrollView,
   SizableText,
   Stack,
   Tooltip,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import {
   DISCORD_URL,
@@ -62,6 +62,22 @@ const SocialButton: FC<ISocialButtonProps> = ({ icon, url, text }) => {
 
 const SocialButtonGroup = () => {
   const intl = useIntl();
+  const { copyText } = useClipboard();
+  const versionString = intl.formatMessage(
+    {
+      id: ETranslations.settings_version_versionnum,
+    },
+    {
+      'versionNum': `${platformEnv.version ?? ''} ${
+        platformEnv.buildNumber ?? ''
+      }`,
+    },
+  );
+  const handlePress = useCallback(() => {
+    handleOpenDevMode(() =>
+      copyText(`${versionString}-${platformEnv.githubSHA || ''}`),
+    );
+  }, [copyText, versionString]);
   return (
     <YStack>
       <XStack justifyContent="center">
@@ -94,11 +110,10 @@ const SocialButtonGroup = () => {
         <SizableText
           selectable={false}
           color="$textSubdued"
-          onPress={handleOpenDevMode}
+          onPress={handlePress}
           testID="setting-version"
         >
-          Version: {platformEnv.version ?? 'Unknown'} -{' '}
-          {platformEnv.buildNumber}
+          {versionString}
         </SizableText>
       </XStack>
     </YStack>
