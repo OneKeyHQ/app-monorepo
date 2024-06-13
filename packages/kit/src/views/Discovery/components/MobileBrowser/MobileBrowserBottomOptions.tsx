@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
-
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IMobileBottomOptionsProps } from '../../types';

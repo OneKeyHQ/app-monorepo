@@ -7,10 +7,9 @@ import type {
   IPropsWithTestId,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useWebTabDataById } from '../../hooks/useWebTabs';
-
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function DesktopCustomTabBarItem({
   id,

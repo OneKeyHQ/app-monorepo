@@ -81,10 +81,6 @@ export enum ECoreApiExportedSecretKeyType {
   xpub = 'xpub',
   xprvt = 'xprvt',
 }
-export enum ECoreApiPrivateKeySource {
-  hd = 'hd',
-  imported = 'imported',
-}
 export type ICoreApiGetExportedSecretKey = ICoreApiSignBasePayload & {
   keyType: ECoreApiExportedSecretKeyType;
   addressEncoding?: EAddressEncodings;

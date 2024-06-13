@@ -15,6 +15,7 @@ import {
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useV4MigrationActions } from '../../../views/Onboarding/hooks/useV4MigrationActions';
 
 const TabMe = () => {
   const navigation = useAppNavigation<IPageNavigationProp<ITabMeParamList>>();
@@ -26,6 +27,9 @@ const TabMe = () => {
   const onExpand = useCallback(() => {
     extUtils.openUrlInTab(EXT_HTML_FILES.uiExpandTab).catch(console.error);
   }, []);
+
+  const { navigateToV4MigrationPage } = useV4MigrationActions();
+
   return (
     <Page>
       <Page.Body>
@@ -75,6 +79,14 @@ const TabMe = () => {
             }}
           >
             DApp 连接管理
+          </Button>
+
+          <Button
+            onPress={() => {
+              navigateToV4MigrationPage();
+            }}
+          >
+            V4 迁移
           </Button>
         </YStack>
       </Page.Body>
