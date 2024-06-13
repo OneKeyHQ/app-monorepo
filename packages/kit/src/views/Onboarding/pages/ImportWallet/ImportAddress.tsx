@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { watchAccountExcludeNetworkIds } from '@onekeyhq/kit/src/components/ChainSelectorInput/excludeNetworkIds';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IValidateGeneralInputParams } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -66,6 +67,7 @@ function ImportAddress() {
         });
         navigation.popStack();
       }}
+      excludedNetworkIds={watchAccountExcludeNetworkIds}
     >
       <Tutorials
         list={[
