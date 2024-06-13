@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -12,7 +12,9 @@ import {
   TextArea,
   YStack,
   useForm,
+  useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IModalReceiveParamList,
@@ -32,6 +34,7 @@ type IFormValues = {
 
 function CreateInvoice() {
   const intl = useIntl();
+  const media = useMedia();
   const form = useForm<IFormValues>();
   const route =
     useRoute<
@@ -41,6 +44,7 @@ function CreateInvoice() {
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const { accountId, networkId } = route.params;
   const { serviceLightning } = backgroundApiProxy;
+  const [isLoading, setIsLoading] = useState(false);
 
   const { result: invoiceConfig } = usePromiseResult(
     () => serviceLightning.getInvoiceConfig({ networkId }),
@@ -49,20 +53,19 @@ function CreateInvoice() {
 
   const onSubmit = useCallback(
     async (values: IFormValues) => {
+      setIsLoading(true);
       const response = await serviceLightning.createInvoice({
         accountId,
         networkId,
         amount: values.amount,
         description: values.description,
       });
-      navigation.pushModal(EModalRoutes.ReceiveModal, {
-        screen: EModalReceiveRoutes.ReceiveInvoice,
-        params: {
-          networkId,
-          accountId,
-          paymentHash: response.payment_hash,
-          paymentRequest: response.payment_request,
-        },
+      setIsLoading(false);
+      navigation.push(EModalReceiveRoutes.ReceiveInvoice, {
+        networkId,
+        accountId,
+        paymentHash: response.payment_hash,
+        paymentRequest: response.payment_request,
       });
     },
     [accountId, networkId, serviceLightning, navigation],
@@ -70,78 +73,94 @@ function CreateInvoice() {
 
   return (
     <Page>
-      <Page.Header title="Lightning Invoice" />
-      <Page.Body>
-        <YStack p="$5">
-          <Form form={form}>
-            <Form.Field
-              label="Amount"
-              name="amount"
-              description="$0.00"
-              rules={{
-                min: {
-                  value: 0,
-                  message: intl.formatMessage(
-                    {
-                      id: 'form__field_too_small',
-                    },
-                    {
-                      0: 0,
-                    },
-                  ),
-                },
-                pattern: {
-                  value: /^[0-9]*$/,
-                  message: intl.formatMessage({
-                    id: 'form__field_only_integer',
-                  }),
-                },
-                validate: (value) => {
-                  // allow unspecified amount
-                  if (!value) return;
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.lighting_invoice })}
+      />
+      <Page.Body p="$5">
+        <Form form={form}>
+          <Form.Field
+            label={intl.formatMessage({ id: ETranslations.send_amount })}
+            name="amount"
+            description="$0.00"
+            rules={{
+              min: {
+                value: 0,
+                message: intl.formatMessage({
+                  id: ETranslations.form_lighting_invoice_error_positive_integer_only,
+                }),
+              },
+              pattern: {
+                value: /^[0-9]*$/,
+                message: intl.formatMessage({
+                  id: ETranslations.form_lighting_invoice_error_positive_integer_only,
+                }),
+              },
+              validate: (value) => {
+                // allow unspecified amount
+                if (!value) return;
 
-                  const valueBN = new BigNumber(value);
-                  if (!valueBN.isInteger()) {
-                    return intl.formatMessage({
-                      id: 'form__field_only_integer',
-                    });
-                  }
-                  if (
-                    invoiceConfig?.maxReceiveAmount &&
-                    valueBN.isGreaterThan(invoiceConfig?.maxReceiveAmount)
-                  ) {
-                    return intl.formatMessage(
-                      {
-                        id: 'msg_receipt_amount_should_be_less_than_int_sats',
-                      },
-                      {
-                        0: invoiceConfig?.maxReceiveAmount,
-                      },
-                    );
-                  }
-                },
+                const valueBN = new BigNumber(value);
+                if (!valueBN.isInteger()) {
+                  return intl.formatMessage({
+                    id: ETranslations.form_lighting_invoice_error_positive_integer_only,
+                  });
+                }
+                if (
+                  invoiceConfig?.maxReceiveAmount &&
+                  valueBN.isGreaterThan(invoiceConfig?.maxReceiveAmount)
+                ) {
+                  return intl.formatMessage(
+                    {
+                      id: ETranslations.form_lighting_invoice_amount_error_max,
+                    },
+                    {
+                      amount: invoiceConfig?.maxReceiveAmount,
+                    },
+                  );
+                }
+              },
+            }}
+          >
+            <Input
+              placeholder={intl.formatMessage({
+                id: ETranslations.form_amount_placeholder,
+              })}
+              size="large"
+              $gtMd={{
+                size: 'medium',
               }}
-            >
-              <Input
-                placeholder="Enter amount"
-                size="large"
-                keyboardType="number-pad"
-                addOns={[
-                  {
-                    label: 'sats',
-                  },
-                ]}
-              />
-            </Form.Field>
-            <Form.Field label="Description" name="description">
-              <TextArea size="large" placeholder="OneKey invoice" />
-            </Form.Field>
-          </Form>
-        </YStack>
+              keyboardType="number-pad"
+              addOns={[
+                {
+                  label: 'sats',
+                },
+              ]}
+            />
+          </Form.Field>
+          <Form.Field
+            label={intl.formatMessage({ id: ETranslations.global_description })}
+            name="description"
+          >
+            <TextArea
+              size={media.gtMd ? 'medium' : 'large'}
+              $gtMd={{
+                size: 'medium',
+              }}
+              placeholder={intl.formatMessage({
+                id: ETranslations.form_lighting_invoice_placeholder,
+              })}
+            />
+          </Form.Field>
+        </Form>
       </Page.Body>
       <Page.Footer
-        onConfirmText="Create Invoice"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_create_invoice,
+        })}
         onConfirm={() => form.handleSubmit(onSubmit)()}
+        confirmButtonProps={{
+          loading: isLoading,
+        }}
       />
     </Page>
   );

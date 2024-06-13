@@ -133,22 +133,10 @@ export function ControlledNetworkSelectorTrigger({
   const items = useNetworkSelectorItems();
   return (
     <ChainSelectorInput
-      testID="network-selector-input"
       title="Network"
       value={value}
       onChange={onChange}
       networkIds={items.map((o) => o.value)}
-      borderRadius="$3"
-      borderWidth={1}
-      borderCurve="continuous"
-      borderColor="$borderStrong"
-      userSelect="none"
-      px="$3"
-      py="$2.5"
-      $gtMd={{
-        borderRadius: '$2',
-        py: '$2',
-      }}
     />
   );
 }

@@ -45,6 +45,7 @@ function BasicBlurView(
       <NativeBlurView
         style={contentStyle ? (resolvedContentStyle as ViewStyle) : { flex: 1 }}
         tint={themeName}
+        experimentalBlurMethod="dimezisBlurView"
         {...restProps}
         ref={ref}
       />
