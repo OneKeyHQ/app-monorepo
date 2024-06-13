@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { getAddressFromAccountOrAddress } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
@@ -76,7 +77,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import { getAddressFromAccountOrAddress } from 'aptos';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.near.hd;

@@ -7,6 +7,8 @@ import { forEach } from 'lodash';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
+import platformEnv from '../platformEnv';
+
 import {
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
@@ -14,7 +16,6 @@ import {
 } from './Interceptor';
 
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
-import platformEnv from '../platformEnv';
 
 axios.interceptors.request.use(async (config) => {
   try {
