@@ -1,10 +1,13 @@
-import { LOCALES_OPTION } from '.';
+import { ETranslations, LOCALES_OPTION } from '.';
 
 import { locale as LocalizationLocale } from 'expo-localization';
+import { isFunction } from 'lodash';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import type { ILocaleSymbol } from './type';
+import { LOCALES } from './localeJsonMap';
+
+import type { ILocaleJSONSymbol, ILocaleSymbol } from './type';
 
 const getDefaultLocaleFunc = () => {
   const locales = LOCALES_OPTION.map((locale) => locale.value);
@@ -33,3 +36,11 @@ const getDefaultLocaleFunc = () => {
 };
 
 export const getDefaultLocale = memoizee(getDefaultLocaleFunc);
+
+export const getLocaleMessages = async (locale: ILocaleSymbol) => {
+  const messagesBuilder = LOCALES[locale as ILocaleJSONSymbol];
+  const messages: Record<ETranslations, string> = isFunction(messagesBuilder)
+    ? await messagesBuilder()
+    : messagesBuilder;
+  return messages;
+};

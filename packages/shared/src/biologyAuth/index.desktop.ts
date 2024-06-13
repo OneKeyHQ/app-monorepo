@@ -4,6 +4,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
+import {
+  getDefaultLocale,
+  getLocaleMessages,
+} from '../locale/getDefaultLocale';
 import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
@@ -39,8 +43,12 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
     }
 
     try {
+      // The prompt text for Electron's touch id uses the system default language,
+      //  so it needs the corresponding text in the system default language.
+      const locale = getDefaultLocale();
+      const messages = await getLocaleMessages(locale);
       const result = await window?.desktopApi?.promptTouchID(
-        appLocale.intl.formatMessage({ id: ETranslations.global_unlock }),
+        messages[ETranslations.global_unlock],
       );
       return result.success
         ? { success: true }
