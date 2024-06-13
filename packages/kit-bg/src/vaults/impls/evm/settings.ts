@@ -17,7 +17,7 @@ import type {
 
 export type IAccountDeriveInfoMapEvm = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
-  etcNative: IAccountDeriveInfo;
+  // etcNative: IAccountDeriveInfo;
   ledgerLive: IAccountDeriveInfo;
 };
 export type IAccountDeriveTypesEvm = keyof IAccountDeriveInfoMapEvm;
