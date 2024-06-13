@@ -5,7 +5,9 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Divider,
+  Icon,
   ScrollView,
+  SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -216,7 +218,7 @@ function DesktopCustomTabBar() {
   }, [pinContainerHeight, pinnedData.length]);
 
   return (
-    <Stack flex={1} onLayout={handleLayout}>
+    <Stack testID="sideabr-browser-section" flex={1} onLayout={handleLayout}>
       <HandleRebuildBrowserData />
       {/* Pin Tabs */}
       <Stack height={pinnedBarHeight}>
@@ -237,18 +239,44 @@ function DesktopCustomTabBar() {
           ))}
         </ScrollView>
       </Stack>
-      <XStack ai="center" my="$2">
+      <XStack group="sidebarBrowserDivider" alignItems="center" p="$1.5">
         <Divider testID="pin-tab-divider" />
-        <Button
-          ml="$1"
-          mr="$.5"
-          variant="tertiary"
-          size="small"
-          color="$textDisabled"
+        <XStack
+          position="absolute"
+          px="1"
+          group="sidebarClearButton"
+          alignItems="center"
+          userSelect="none"
+          right="$0"
+          top="50%"
+          bg="$bgSidebar"
+          opacity={0}
+          $group-sidebarBrowserDivider-hover={{
+            opacity: 1,
+          }}
+          style={{
+            containerType: 'normal',
+            transform: 'translateY(-50%)',
+          }}
           onPress={closeAllWebTabs}
         >
-          {intl.formatMessage({ id: ETranslations.global_clear })}
-        </Button>
+          <Icon
+            flexShrink={0}
+            color="$iconSubdued"
+            name="ArrowBottomOutline"
+            size="$3"
+          />
+          <SizableText
+            pl="$1"
+            color="$textSubdued"
+            size="$bodySmMedium"
+            $group-sidebarClearButton-hover={{
+              color: '$text',
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_clear })}
+          </SizableText>
+        </XStack>
       </XStack>
       {/* New Tab */}
       <DesktopTabItem

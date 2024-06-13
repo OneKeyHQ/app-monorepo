@@ -11,10 +11,9 @@ import {
   QRCode,
   SizableText,
   Stack,
-  XStack,
-  YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
@@ -83,59 +82,61 @@ function ReceiveInvoice() {
   const renderReceiveInvoice = useCallback(() => {
     if (!account || !network || !paymentRequest) return null;
     return (
-      <YStack px="$5" justifyContent="center" alignItems="center">
+      <>
         <Stack
-          p="$4"
-          alignItems="center"
+          borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
-          borderRadius="$6"
-          overflow="hidden"
-          borderCurve="continuous"
+          p="$4"
         >
           <QRCode
             value={paymentRequest}
             logo={{
               uri: network.logoURI,
             }}
+            logoSize={40}
             size={240}
           />
         </Stack>
-        <XStack p="$2" alignItems="center" justifyContent="center">
-          <SizableText size="$headingLg">Invoice</SizableText>
-        </XStack>
-        <Stack alignItems="center" px="$5" mb="$2">
-          <ConfirmHighlighter
-            highlight
-            my="$2.5"
-            py="$1.5"
-            px="$3"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            borderRadius="$3"
-            borderCurve="continuous"
+        <ConfirmHighlighter
+          maxWidth="$96"
+          highlight={false}
+          mt="$5"
+          px="$3"
+          borderRadius="$3"
+          borderCurve="continuous"
+        >
+          <SizableText
+            numberOfLines={3}
+            textAlign="center"
+            size="$bodyLg"
+            style={{
+              wordBreak: 'break-all',
+            }}
           >
-            <SizableText
-              textAlign="center"
-              size="$bodyLg"
-              style={{
-                wordBreak: 'break-all',
-              }}
-            >
-              {paymentRequest}
-            </SizableText>
-          </ConfirmHighlighter>
-        </Stack>
-        <Button icon="Copy1Outline" onPress={handleCopyInvoice}>
-          Copy
+            {paymentRequest}
+          </SizableText>
+        </ConfirmHighlighter>
+        <Button mt="$5" icon="Copy1Outline" onPress={handleCopyInvoice}>
+          {intl.formatMessage({ id: ETranslations.global_copy })}
         </Button>
-      </YStack>
+      </>
     );
-  }, [account, handleCopyInvoice, network, paymentRequest]);
+  }, [account, handleCopyInvoice, intl, network, paymentRequest]);
   return (
     <Page>
-      <Page.Header title="Lightning Invoice" />
-      <Page.Body>{renderReceiveInvoice()}</Page.Body>
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.lighting_invoice })}
+      />
+      <Page.Body
+        flex={1}
+        justifyContent="center"
+        alignItems="center"
+        px="$5"
+        pb="$5"
+      >
+        {renderReceiveInvoice()}
+      </Page.Body>
     </Page>
   );
 }

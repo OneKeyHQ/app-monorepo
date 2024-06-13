@@ -20,15 +20,13 @@ function HomeSelector(props: IProps) {
       space="$3"
       {...rest}
     >
-      {createAddressDisabled ? (
-        <NetworkSelectorTriggerHome num={num} />
-      ) : (
-        <>
-          <NetworkSelectorTriggerHome num={num} />
-          <AccountSelectorActiveAccountHome num={num} />
-          <DeriveTypeSelectorTrigger miniMode num={num} />
-        </>
-      )}
+      <NetworkSelectorTriggerHome num={num} />
+      {!createAddressDisabled ? (
+        <AccountSelectorActiveAccountHome num={num} />
+      ) : null}
+      {!createAddressDisabled ? (
+        <DeriveTypeSelectorTrigger miniMode num={num} />
+      ) : null}
     </XStack>
   );
 }

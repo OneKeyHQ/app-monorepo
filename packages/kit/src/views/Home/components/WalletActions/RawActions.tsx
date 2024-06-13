@@ -119,8 +119,8 @@ function ActionSwap(props: IActionItemsProps) {
 }
 
 function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
-  const media = useMedia();
   const intl = useIntl();
+  const media = useMedia();
   return (
     <ActionList
       title={intl.formatMessage({
@@ -148,9 +148,8 @@ function RawActions({ children, ...rest }: IXStackProps) {
   return (
     <XStack
       justifyContent="space-between"
-      pt="$5"
       $gtSm={{
-        justifyContent: 'unset',
+        justifyContent: 'flex-start',
         space: '$2',
       }}
       {...rest}

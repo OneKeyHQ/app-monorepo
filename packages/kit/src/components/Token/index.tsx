@@ -62,8 +62,8 @@ export function Token({
       >
         <Icon
           size={fallbackIconSize}
-          name={isNFT ? 'ImageWavesOutline' : 'CoinOutline'}
-          color="$iconDisabled"
+          name={isNFT ? 'ImageWavesOutline' : 'CryptoCoinOutline'}
+          color="$iconSubdued"
         />
       </Image.Fallback>
     </Image>

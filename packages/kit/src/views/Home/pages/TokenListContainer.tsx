@@ -199,7 +199,12 @@ function TokenListContainer({
     <>
       {showWalletActions ? (
         <Portal.Body container={Portal.Constant.WALLET_ACTIONS}>
-          <WalletActions />
+          <WalletActions
+            pt="$5"
+            $gtLg={{
+              pt: 0,
+            }}
+          />
         </Portal.Body>
       ) : null}
       <TokenListView

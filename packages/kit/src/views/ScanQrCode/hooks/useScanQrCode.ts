@@ -60,7 +60,7 @@ export default function useScanQrCode() {
                 resolve(parseValue);
                 return {};
               }
-              reject(new Error('cancel'));
+              reject();
               return {};
             },
           },

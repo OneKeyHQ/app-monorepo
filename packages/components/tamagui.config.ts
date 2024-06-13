@@ -578,7 +578,11 @@ declare module 'tamagui' {
   // override groupNames
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface TypeOverride {
-    groupNames(): 'nftItem' | 'card';
+    groupNames():
+      | 'nftItem'
+      | 'card'
+      | 'sidebarClearButton'
+      | 'sidebarBrowserDivider';
   }
 }
 

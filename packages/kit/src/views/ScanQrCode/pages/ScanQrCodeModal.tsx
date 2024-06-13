@@ -243,11 +243,11 @@ export default function ScanQrCodeModal() {
           showProTutorial={showProTutorial}
         />
       </Page.Body>
-      {/* {platformEnv.isDev ? (
+      {platformEnv.isDev ? (
         <Page.Footer>
           <DebugInput onText={callback} />
         </Page.Footer>
-      ) : null} */}
+      ) : null}
     </Page>
   );
 }

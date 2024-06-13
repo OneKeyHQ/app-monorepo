@@ -11,6 +11,7 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -35,7 +36,9 @@ type IDeriveTypeSelectorTriggerProps = IDeriveTypeSelectorTriggerPropsBase & {
 
 const renderMiniModeTrigger = () => (
   <IconButton
-    title="Switch Address"
+    title={appLocale.intl.formatMessage({
+      id: ETranslations.global_switch_address,
+    })}
     icon="RepeatOutline"
     size="small"
     variant="tertiary"

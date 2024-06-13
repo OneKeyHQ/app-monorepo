@@ -3,6 +3,7 @@ import {
   IMPL_ADA,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -12,7 +13,7 @@ const accountDeriveInfo: IAccountDeriveInfoMapBase = {
   default: {
     namePrefix: 'CARDANO',
     // FIXME: change to Shelley
-    labelKey: 'form__bip44_standard',
+    labelKey: ETranslations.bip44__standard,
     template: `m/1852'/${COINTYPE_ADA}'/${INDEX_PLACEHOLDER}'/0/0`,
     coinType: COINTYPE_ADA,
   },
