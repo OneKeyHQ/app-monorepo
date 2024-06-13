@@ -45,7 +45,10 @@ const settings: IVaultSettings = {
     },
   },
 
+  minTransferAmount: '0.001',
+
   cannotSendToSelf: true,
+  hasFrozenBalance: true,
 };
 
 export default Object.freeze(settings);

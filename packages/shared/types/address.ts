@@ -29,6 +29,9 @@ export type IFetchAccountDetailsParams = {
   withBalance?: boolean;
   withValidate?: boolean;
   withNonce?: boolean;
+  withCheckInscription?: boolean;
+  withFrozenBalance?: boolean;
+  withTronAccountResources?: boolean;
 };
 
 export type IFetchAccountDetailsResp = {
@@ -42,10 +45,15 @@ export type IFetchAccountDetailsResp = {
   isContract?: boolean;
   netWorth?: string;
   utxoList?: IUtxoInfo[];
+  frozenUtxoList?: IUtxoInfo[];
   validateInfo?: {
     isValid: boolean;
     addressType: string;
   };
+  frozenBalance?: string;
+  frozenBalanceParsed?: string;
+  availableBalance?: string;
+  availableBalanceParsed?: string;
 };
 
 export type IValidateAddressResp = {
