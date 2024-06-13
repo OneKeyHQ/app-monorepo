@@ -151,7 +151,11 @@ export const DefaultSection = () => {
       {platformEnv.isNative ? (
         <ListItem
           icon="RepeatOutline"
-          title={`${backupPlatform().cloudName} Backup`}
+          title={intl.formatMessage({
+            id: platformEnv.isNativeAndroid
+              ? ETranslations.settings_google_drive_backup
+              : ETranslations.settings_icloud_backup,
+          })}
           drillIn
           onPress={async () => {
             navigation.pushModal(EModalRoutes.CloudBackupModal, {

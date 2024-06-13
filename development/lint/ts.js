@@ -40,6 +40,7 @@ function handleProblems(result) {
         )
         .join('\n'),
     );
+    console.log(`Found ${i18nErrorCount} i18n errors`);
   }
 }
 

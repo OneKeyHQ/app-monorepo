@@ -20,9 +20,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { checkBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/CheckBackupEntryStatus';
+import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
-import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
@@ -70,6 +69,7 @@ export function ImportWalletOptions() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
+  const backupEntryStatus = useBackupEntryStatus();
   const [migrateLoading, setMigrateLoading] = useState(false);
   const { serviceV4Migration } = backgroundApiProxy;
 
@@ -122,7 +122,7 @@ export function ImportWalletOptions() {
   };
 
   const handleImportFromCloud = async () => {
-    await checkBackupEntryStatus();
+    await backupEntryStatus.check();
     navigation.push(EOnboardingPages.ImportCloudBackup);
   };
 
@@ -182,7 +182,9 @@ export function ImportWalletOptions() {
         ...(platformEnv.isNative
           ? [
               {
-                title: 'OneKey Lite',
+                title: intl.formatMessage({
+                  id: ETranslations.global_onekey_lite,
+                }),
                 icon: 'OnekeyLiteOutline',
                 onPress: liteCard.importWallet,
               } as IOptionItem,
@@ -217,7 +219,11 @@ export function ImportWalletOptions() {
           ? [
               {
                 icon: 'CloudOutline',
-                title: backupPlatform().cloudName,
+                title: intl.formatMessage({
+                  id: platformEnv.isNativeAndroid
+                    ? ETranslations.settings_google_drive_backup
+                    : ETranslations.settings_icloud_backup,
+                }),
                 onPress: handleImportFromCloud,
               } as IOptionItem,
             ]

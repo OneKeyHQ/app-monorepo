@@ -11,7 +11,7 @@ import {
   Spinner,
   Stack,
 } from '@onekeyhq/components';
-import { maybeShowBackupToggleDialog } from '@onekeyhq/kit/src/views/CloudBackup/components/BackupToggleDialog';
+import { useBackupToggleDialog } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupToggleDialog';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -119,7 +119,7 @@ function FinalizeWalletSetupPage({
       setTimeout(() => {
         navigation.navigate(ERootRoutes.Main);
         if (isFirstCreateWallet.current) {
-          // void maybeShowBackupToggleDialog(true);
+          // void useBackupToggleDialog().maybeShow(true);
         }
       }, 1000);
     }

@@ -61,13 +61,13 @@ function ChangeLogSection({
               ? intl.formatMessage(
                   { id: ETranslations.update_updated_to_latest_version },
                   {
-                    0: updateInfo?.toVersion || '',
+                    version: updateInfo?.toVersion || '',
                   },
                 )
               : intl.formatMessage(
                   { id: ETranslations.global_version_is_available },
                   {
-                    0: updateInfo?.toVersion || '',
+                    version: updateInfo?.toVersion || '',
                   },
                 )}
           </SizableText>
