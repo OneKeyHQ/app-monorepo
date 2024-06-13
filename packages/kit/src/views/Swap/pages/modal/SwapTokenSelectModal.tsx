@@ -408,7 +408,9 @@ const SwapTokenSelectPage = () => {
               ListEmptyComponent={
                 <Empty
                   icon="SearchOutline"
-                  title="No Results"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_results,
+                  })}
                   description="The token you searched for was not found"
                 />
               }

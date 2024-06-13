@@ -193,7 +193,14 @@ const SwapHistoryListModal = ({ storeName }: ISwapHistoryListModalProps) => {
             </XStack>
           )}
           estimatedItemSize="$10"
-          ListEmptyComponent={<Empty icon="InboxOutline" title="No Results" />}
+          ListEmptyComponent={
+            <Empty
+              icon="InboxOutline"
+              title={intl.formatMessage({
+                id: ETranslations.global_no_results,
+              })}
+            />
+          }
         />
       )}
     </Page>

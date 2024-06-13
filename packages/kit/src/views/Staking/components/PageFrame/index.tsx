@@ -1,15 +1,21 @@
 import type { ComponentType, PropsWithChildren } from 'react';
 
-import { Empty } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
 
-const PageErrOccurred = ({ onPress }: { onPress?: () => void }) => (
-  <Empty
-    icon="ErrorOutline"
-    title="An error occurred"
-    description="We're unable to complete your request. Please refresh the page in a few minutes."
-    buttonProps={{ onPress, children: 'Refresh' }}
-  />
-);
+import { Empty } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+const PageErrOccurred = ({ onPress }: { onPress?: () => void }) => {
+  const intl = useIntl();
+  return (
+    <Empty
+      icon="ErrorOutline"
+      title={intl.formatMessage({ id: ETranslations.global_an_error_occurred })}
+      description="We're unable to complete your request. Please refresh the page in a few minutes."
+      buttonProps={{ onPress, children: 'Refresh' }}
+    />
+  );
+};
 
 type IPageFrameProps = {
   loading?: boolean;

@@ -284,7 +284,9 @@ export function UniversalSearch({
             ListEmptyComponent={
               <Empty
                 icon="SearchOutline"
-                title="No Results"
+                title={intl.formatMessage({
+                  id: ETranslations.global_no_results,
+                })}
                 description="Try to change the search keyword"
               />
             }

@@ -1,8 +1,7 @@
 import type { RefObject } from 'react';
-import { createRef, useCallback } from 'react';
+import { createRef } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
-import { setStringAsync } from 'expo-clipboard';
 import { useWindowDimensions } from 'react-native';
 import { SizableText, YStack } from 'tamagui';
 
