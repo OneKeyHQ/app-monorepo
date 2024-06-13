@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Badge } from '@onekeyhq/components';
@@ -16,9 +18,12 @@ import { StateLogsItem } from './StateLogsItem';
 function ListVersionItem() {
   const intl = useIntl();
   const appUpdateInfo = useAppUpdateInfo();
+  const handleToUpdatePreviewPage = useCallback(() => {
+    appUpdateInfo.toUpdatePreviewPage();
+  }, [appUpdateInfo]);
   return appUpdateInfo.isNeedUpdate ? (
     <ListItem
-      onPress={appUpdateInfo.toUpdatePreviewPage}
+      onPress={handleToUpdatePreviewPage}
       icon="InfoCircleOutline"
       iconProps={{ color: '$textInfo' }}
       title={intl.formatMessage({

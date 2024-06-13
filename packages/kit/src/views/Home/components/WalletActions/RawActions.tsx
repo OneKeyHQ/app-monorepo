@@ -121,10 +121,11 @@ function ActionSwap(props: IActionItemsProps) {
 function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
   const intl = useIntl();
   const media = useMedia();
-
   return (
     <ActionList
-      title={intl.formatMessage({ id: ETranslations.global_more })}
+      title={intl.formatMessage({
+        id: ETranslations.global_more,
+      })}
       floatingPanelProps={{
         w: '$60',
       }}
@@ -132,7 +133,9 @@ function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
         <ActionItem
           icon="DotHorOutline"
           {...(media.sm && {
-            label: intl.formatMessage({ id: ETranslations.global_more }),
+            label: intl.formatMessage({
+              id: ETranslations.global_more,
+            }),
           })}
         />
       }

@@ -101,6 +101,7 @@ const settings: IVaultSettings = {
     },
   },
   signOnlyFullTxRequired: true,
+  hasFrozenBalance: true,
 };
 
 export default Object.freeze(settings);

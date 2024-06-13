@@ -5,6 +5,10 @@ import { useIntl } from 'react-intl';
 import { Dialog, rootNavigationRef, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type {
   IAnimationValue,
   IBaseValue,
@@ -30,6 +34,8 @@ const useParseQRCode = () => {
   const navigation = useAppNavigation();
   const clipboard = useClipboard();
   const intl = useIntl();
+  // const [allTokens] = useAllTokenListAtom();
+  // const [map] = useAllTokenListMapAtom();
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
     async (value, options) => {
       const result = await backgroundApiProxy.serviceScanQRCode.parse(
@@ -67,11 +73,9 @@ const useParseQRCode = () => {
         case EQRCodeHandlerType.ETHEREUM:
         case EQRCodeHandlerType.SOLANA:
           {
-            const accountId = options?.accountId;
-            if (!accountId) {
-              console.error(
-                'missing the accountId in the useParseQRCode.start',
-              );
+            const account = options?.account;
+            if (!account) {
+              console.error('missing the account in the useParseQRCode.start');
               break;
             }
             const chainValue = result.data as IChainValue;
@@ -79,20 +83,45 @@ const useParseQRCode = () => {
             if (!network) {
               break;
             }
+            const { isSingleToken } =
+              await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                networkId: network?.id ?? '',
+              });
+            if (isSingleToken) {
+              const nativeToken =
+                await backgroundApiProxy.serviceToken.getNativeToken({
+                  networkId: network.id,
+                  accountAddress: account.address,
+                });
+              navigation.pushModal(EModalRoutes.SendModal, {
+                screen: EModalSendRoutes.SendDataInput,
+                params: {
+                  accountId: account.id,
+                  networkId: network.id,
+                  isNFT: false,
+                  token: nativeToken,
+                },
+              });
+              break;
+            }
             navigation.pushModal(EModalRoutes.AssetSelectorModal, {
               screen: EAssetSelectorRoutes.TokenSelector,
               params: {
                 networkId: network.id,
-                accountId,
+                accountId: account.id,
 
                 networkName: network.name,
-                // tokens,
+                // tokens: {
+                //   data: allTokens.tokens,
+                //   keys: allTokens.keys,
+                //   map,
+                // },
                 onSelect: async (token) => {
                   await timerUtils.wait(600);
                   navigation.pushModal(EModalRoutes.SendModal, {
                     screen: EModalSendRoutes.SendDataInput,
                     params: {
-                      accountId,
+                      accountId: account.id,
                       networkId: network.id,
                       isNFT: false,
                       token,

@@ -46,6 +46,7 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+  hasFrozenBalance: true,
 };
 
 export default Object.freeze(settings);

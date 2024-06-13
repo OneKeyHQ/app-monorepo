@@ -7,13 +7,10 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   ConfirmHighlighter,
-  Heading,
   Page,
   QRCode,
   SizableText,
   Stack,
-  XStack,
-  YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

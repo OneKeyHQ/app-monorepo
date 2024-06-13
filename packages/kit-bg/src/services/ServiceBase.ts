@@ -51,7 +51,7 @@ export default class ServiceBase {
               baseURL: platformEnv.isExtension ? 'http://localhost:3180' : '/',
               timeout: 60 * 1000,
               headers: {
-                'x-proxy': endpoint,
+                'X-OneKey-Dev-Proxy': endpoint,
               },
             }
           : {

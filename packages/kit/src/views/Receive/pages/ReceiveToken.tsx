@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 
 import {
   ActionList,
-  Alert,
   Badge,
   BlurView,
   Button,
@@ -24,7 +23,6 @@ import {
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import uiDeviceUtils from '@onekeyhq/kit/src/utils/uiDeviceUtils';
-import { WALLET_TYPE_HW } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalReceiveRoutes,
@@ -232,8 +230,6 @@ function ReceiveToken() {
           highlight={addressState === EAddressState.Verifying}
           mt="$5"
           px="$3"
-          // borderWidth={StyleSheet.hairlineWidth}
-          // borderColor="$borderSubdued"
           borderRadius="$3"
           borderCurve="continuous"
         >
@@ -267,20 +263,6 @@ function ReceiveToken() {
           ) : null}
         </ConfirmHighlighter>
         {isShowAddress && addressState === EAddressState.ForceShow ? (
-          // ƒ<Alert
-          //   icon="InfoCircleOutline"
-          //   type="critical"
-          //   title={intl.formatMessage({
-          //     id: ETranslations.receive_address_unconfimed_alert_message,
-          //   })}
-          //   action={{
-          //     primary: intl.formatMessage({
-          //       id: ETranslations.global_verify,
-          //     }),
-          //     onPrimaryPress: () => handleVerifyOnDevicePress(),
-          //   }}
-          //   mb="$5"
-          // />
           <XStack mt="$1" justifyContent="center" alignItems="center">
             <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
             <SizableText size="$bodyMd" color="$textCritical" pl="$1.5">

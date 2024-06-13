@@ -10,12 +10,11 @@ import {
   Input,
   Page,
   TextArea,
-  YStack,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IModalReceiveParamList,
   IModalSendParamList,

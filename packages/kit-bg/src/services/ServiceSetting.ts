@@ -1,6 +1,7 @@
 import { flatten, groupBy, isFunction } from 'lodash';
 import semver from 'semver';
 
+import { isTaprootPath } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAccountSelectorAvailableNetworksMap } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import {
@@ -19,6 +20,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -139,6 +141,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.swapHistory) {
       // clear swap history
+      await this.backgroundApi.serviceSwap.cleanSwapHistoryItems();
     }
     if (values.browserCache) {
       // clear browser cache
@@ -148,6 +151,8 @@ class ServiceSetting extends ServiceBase {
       await this.backgroundApi.simpleDb.browserTabs.clearRawData();
       await this.backgroundApi.simpleDb.browserHistory.clearRawData();
       await this.backgroundApi.simpleDb.browserBookmarks.clearRawData();
+      await this.backgroundApi.simpleDb.browserRiskWhiteList.clearRawData();
+      this.backgroundApi.serviceDiscovery._isUrlExistInRiskWhiteList.clear();
     }
     if (values.connectSites) {
       // clear connect sites
@@ -295,6 +300,33 @@ class ServiceSetting extends ServiceBase {
         }
       }
     }
+  }
+
+  @backgroundMethod()
+  public async getInscriptionProtection() {
+    const { inscriptionProtection } = await settingsPersistAtom.get();
+    return inscriptionProtection;
+  }
+
+  @backgroundMethod()
+  public async checkInscriptionProtectionEnabled({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    if (!networkId || !accountId) {
+      return false;
+    }
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return false;
+    }
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      networkId,
+      accountId,
+    });
+    return isTaprootPath(account.path);
   }
 }
 

@@ -1,4 +1,5 @@
 import { RichSizeableText, SizableText, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Layout } from './utils/Layout';
 
@@ -91,16 +92,15 @@ const TypographyGallery = () => (
               {'Hello<a> OneKey </a>World'}
             </RichSizeableText>
             <RichSizeableText
-              linkList={[
-                { url: 'https://app.onekey.so' },
-                { url: 'https://help.onekey.so/hc/articles/8884680775951' },
-              ]}
               i18NValues={{
-                1: '首页',
-                2: '帮助',
+                // eslint-disable-next-line react/no-unstable-nested-components
+                red: (text) => (
+                  <SizableText color="$textCritical">{text}</SizableText>
+                ),
+                number: '10',
               }}
             >
-              content__default_slippage_of_str_set_for_current_token_type_mainstream_asset_pairs
+              {ETranslations.hardware_onekey_lite_pin_error_desc}
             </RichSizeableText>
           </YStack>
         ),

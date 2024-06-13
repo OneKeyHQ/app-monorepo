@@ -1,6 +1,9 @@
 import { memo, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -126,17 +129,31 @@ export const NetworkSelectorTriggerHome = memo(NetworkSelectorTriggerHomeCmp);
 export function ControlledNetworkSelectorTrigger({
   value,
   onChange,
+  excludedNetworkIds,
 }: {
   value?: string;
   onChange?: (networkId: string) => void;
+  excludedNetworkIds?: string[];
 }) {
-  const items = useNetworkSelectorItems();
+  const intl = useIntl();
   return (
     <ChainSelectorInput
-      title="Network"
+      testID="network-selector-input"
+      title={intl.formatMessage({ id: ETranslations.network__network })}
       value={value}
       onChange={onChange}
-      networkIds={items.map((o) => o.value)}
+      excludedNetworkIds={excludedNetworkIds}
+      borderRadius="$3"
+      borderWidth={1}
+      borderCurve="continuous"
+      borderColor="$borderStrong"
+      userSelect="none"
+      px="$3"
+      py="$2.5"
+      $gtMd={{
+        borderRadius: '$2',
+        py: '$2',
+      }}
     />
   );
 }

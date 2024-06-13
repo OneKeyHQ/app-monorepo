@@ -206,7 +206,7 @@ const ToastGallery = () => (
                 Toast.error({
                   duration: 1400,
                   title: 'Title',
-                  message: `Lorem ipsum dolor sit amet`,
+                  message: `Lorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit ametLorem ipsum dolor sit amet`,
                   actionsProps: {
                     children: 'Copy',
                     my: '$2',
