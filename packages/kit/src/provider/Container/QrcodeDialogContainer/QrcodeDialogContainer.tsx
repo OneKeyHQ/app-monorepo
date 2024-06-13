@@ -54,6 +54,9 @@ export function QrcodeDialogContainer() {
             }
           }
         },
+        onCancel: async () => {
+          await toast.close();
+        },
         onClose: async (params) => {
           if (event.promiseId && params?.flag !== 'skipReject') {
             await backgroundApiProxy.servicePromise.rejectCallback({
