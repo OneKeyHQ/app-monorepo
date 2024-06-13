@@ -255,9 +255,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const {
       account,
       keyType,
-      addressEncoding,
+      // addressEncoding,
 
-      networkInfo,
+      // networkInfo,
       password,
       credentials,
     } = query;
@@ -286,24 +286,5 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
 
     throw new Error(`SecretKey type not support: ${keyType}`);
-
-    // console.log('getExportedSecretKey evm');
-    // const {
-    //   // networkInfo,
-    //   privateKeyRaw,
-    //   // privateKeySource,
-    //   password,
-    //   keyType,
-    //   // xpub,
-    //   // addressEncoding,
-    // } = query;
-
-    // if (!privateKeyRaw) {
-    //   throw new Error('privateKeyRaw is required');
-    // }
-    // if (keyType === ECoreApiExportedSecretKeyType.xprvt) {
-    //   return await generateExportedCredential(password, hdCredential, path);
-    // }
-    // throw new Error(`SecretKey type not support: ${keyType}`);
   }
 }

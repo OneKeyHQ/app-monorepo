@@ -55,17 +55,26 @@ export type IAprToken = 'eth' | 'matic';
 
 export type IStakeTag = 'lido-eth' | 'lido-matic';
 
+export enum ELidoLabels {
+  Stake = 'Stake',
+  Claim = 'Claim',
+  Redeem = 'Redeem',
+}
+
 export type IStakingInfo = {
   protocol: string;
+  label: ELidoLabels;
   tags: IStakeTag[]; // used for filtering
   send?: { amount: string; token: IToken };
   receive?: { amount: string; token: IToken };
 };
 
+export type ILidoHistorySendOrReceive = { amount: string; token: IToken };
+
 export type ILidoHistoryItem = {
   label: string;
-  send?: { amount: string; token: IToken };
-  receive?: { amount: string; token: IToken };
+  send?: ILidoHistorySendOrReceive;
+  receive?: ILidoHistorySendOrReceive;
   txHash: string;
   timestamp: number;
 };

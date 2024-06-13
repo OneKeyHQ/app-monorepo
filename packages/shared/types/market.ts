@@ -55,6 +55,7 @@ export interface IMarketDetailPlatform {
   [key: string]: {
     contract_address: string;
     onekeyNetworkId?: string;
+    hideContractAddress?: boolean;
     coingeckoNetworkId?: string;
   };
 }
@@ -174,6 +175,7 @@ interface IMarketDetailPoolAttributes {
 export interface IMarketDetailPool {
   id: string;
   dexLogoUrl: string;
+  dexName: string;
   baseTokenImageUrl: string;
   onekeyNetworkId: string;
   quoteTokenImageUrl: string;

@@ -39,7 +39,7 @@ export default function BackupDeviceList<T>({
   | 'getItemType'
 > & { ListEmptyComponent?: ReactElement }) {
   const intl = useIntl();
-  const [{ isInProgress }] = useCloudBackupPersistAtom();
+  const [{ isEnabled, isInProgress }] = useCloudBackupPersistAtom();
   const navigation = useAppNavigation();
   const iconList: Record<string, string> = useMemo(
     () => ({
@@ -52,22 +52,24 @@ export default function BackupDeviceList<T>({
   const { result: data, run } = usePromiseResult(async () => {
     const backupDeviceList =
       await backgroundApiProxy.serviceCloudBackup.getBackupDeviceList();
-    return backupDeviceList.map((item) => ({
-      deviceName: item.deviceInfo.deviceName,
-      osName: item.deviceInfo.osName,
-      detail: intl.formatMessage(
-        { id: ETranslations.backup_updated_time },
-        { time: formatDate(new Date(item.backupTime)) },
-      ),
-      icon:
-        item.deviceInfo.osName in iconList
-          ? iconList[item.deviceInfo.osName]
-          : 'SuqarePlaceholderOutline',
-      isCurrentDevice:
-        item.deviceInfo.deviceName === deviceName &&
-        item.deviceInfo.osName === osName,
-    }));
-  }, [intl, iconList]);
+    return !ListEmptyComponent && !isEnabled
+      ? []
+      : backupDeviceList.map((item) => ({
+          deviceName: item.deviceInfo.deviceName,
+          osName: item.deviceInfo.osName,
+          detail: intl.formatMessage(
+            { id: ETranslations.backup_updated_time },
+            { time: formatDate(new Date(item.backupTime)) },
+          ),
+          icon:
+            item.deviceInfo.osName in iconList
+              ? iconList[item.deviceInfo.osName]
+              : 'SuqarePlaceholderOutline',
+          isCurrentDevice:
+            item.deviceInfo.deviceName === deviceName &&
+            item.deviceInfo.osName === osName,
+        }));
+  }, [intl, iconList, ListEmptyComponent, isEnabled]);
   const hasData = (data?.length ?? 0) > 0;
   const isFocused = useIsFocused();
   useEffect(() => {
@@ -77,7 +79,7 @@ export default function BackupDeviceList<T>({
     if (isFocused) {
       void run();
     }
-  }, [isInProgress, isFocused, run]);
+  }, [isInProgress, isFocused, run, isEnabled]);
   if (!data) {
     return <BackupListLoading />;
   }
@@ -92,12 +94,14 @@ export default function BackupDeviceList<T>({
             ]
           : []
       }
-      renderSectionHeader={() => (
-        <SectionList.SectionHeader
-          mt="$5"
-          title={intl.formatMessage({ id: ETranslations.backup_all_devices })}
-        />
-      )}
+      renderSectionHeader={() =>
+        !ListEmptyComponent && !isEnabled ? null : (
+          <SectionList.SectionHeader
+            mt="$5"
+            title={intl.formatMessage({ id: ETranslations.backup_all_devices })}
+          />
+        )
+      }
       renderItem={({
         item,
       }: {
