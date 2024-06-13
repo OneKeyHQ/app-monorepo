@@ -34,7 +34,24 @@ const ConnectWalletSelectNetworks = LazyLoadPage(
 const FinalizeWalletSetup = LazyLoadPage(
   () => import('../pages/FinalizeWalletSetup'),
 );
+
 const GetStarted = LazyLoadPage(() => import('../pages/GetStarted'));
+
+const V4MigrationGetStarted = LazyLoadPage(
+  () => import('../pages/V4Migration/V4MigrationGetStarted'),
+);
+
+const V4MigrationPreview = LazyLoadPage(
+  () => import('../pages/V4Migration/V4MigrationPreview'),
+);
+
+const V4MigrationProcess = LazyLoadPage(
+  () => import('../pages/V4Migration/V4MigrationProcess'),
+);
+
+const V4MigrationDone = LazyLoadPage(
+  () => import('../pages/V4Migration/V4MigrationDone'),
+);
 
 const ImportAddress = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportAddress'),
@@ -66,6 +83,24 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.GetStarted,
     component: GetStarted,
+  },
+
+  // v4 migration
+  {
+    name: EOnboardingPages.V4MigrationGetStarted,
+    component: V4MigrationGetStarted,
+  },
+  {
+    name: EOnboardingPages.V4MigrationPreview,
+    component: V4MigrationPreview,
+  },
+  {
+    name: EOnboardingPages.V4MigrationProcess,
+    component: V4MigrationProcess,
+  },
+  {
+    name: EOnboardingPages.V4MigrationDone,
+    component: V4MigrationDone,
   },
 
   // connect hardware wallet

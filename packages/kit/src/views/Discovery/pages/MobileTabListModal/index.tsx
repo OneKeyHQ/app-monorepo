@@ -351,6 +351,8 @@ function MobileTabListModal() {
         borderRadius="$5"
         bg="$bgStrong"
         testID="tab-pined-container"
+        // To improve performance on Android, turn off the blur effect.
+        experimentalBlurMethod="none"
       >
         <ListView
           contentContainerStyle={{

@@ -10,8 +10,8 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IMetaDataObject } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
-import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ECloudBackupRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { ICloudBackupParamList } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -92,10 +92,12 @@ export default function List() {
           ListEmptyComponent={
             <Empty
               icon="SearchOutline"
-              title="No Data"
-              description={`You have no ${
-                backupPlatform().cloudName
-              } backups on this device`}
+              title={intl.formatMessage({ id: ETranslations.backup_no_data })}
+              description={intl.formatMessage({
+                id: platformEnv.isNativeAndroid
+                  ? ETranslations.backup_no_available_google_drive_backups_to_import
+                  : ETranslations.backup_no_available_icloud_backups_to_import,
+              })}
             />
           }
         />

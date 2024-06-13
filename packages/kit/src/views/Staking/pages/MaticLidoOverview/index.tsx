@@ -22,10 +22,11 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import type {
-  ILidoMaticOverview,
-  ILidoMaticRequest,
-  ILidoTokenItem,
+import {
+  ELidoLabels,
+  type ILidoMaticOverview,
+  type ILidoMaticRequest,
+  type ILidoTokenItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { MaticLidoFAQs } from '../../components/LidoFAQs';
@@ -95,6 +96,7 @@ const ListItemClaim = ({
       await lidoClaim({
         tokenId: Number(requests[0].id),
         stakingInfo: {
+          label: ELidoLabels.Claim,
           protocol: 'lido',
           tags: ['lido-matic'],
           receive: { token: token.info, amount: String(amount) },

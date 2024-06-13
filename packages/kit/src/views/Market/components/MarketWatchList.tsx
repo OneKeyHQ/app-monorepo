@@ -114,7 +114,11 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
 
   const handleAddTokens = useCallback(() => {
     actions.addIntoWatchList(coingeckoIds);
-  }, [actions, coingeckoIds]);
+    // reset selections
+    setTimeout(() => {
+      setCoingeckoIds(defaultCoingeckoIds);
+    }, 50);
+  }, [actions, coingeckoIds, defaultCoingeckoIds]);
 
   const { gtMd } = useMedia();
   const confirmButton = useMemo(

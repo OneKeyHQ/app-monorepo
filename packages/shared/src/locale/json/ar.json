@@ -1,6 +1,7 @@
 {
   "account_model.watched": "شاهد",
   "action_save": "حفظ",
+  "address.verify_address_instruction": "تحقق على الجهاز لمنع هجمات استبدال العنوان",
   "address_book.button_close": "إغلاق",
   "address_book.button_copy": "نسخ",
   "address_book.button_next": "التالي",
@@ -87,7 +88,7 @@
   "backup.no_available_google_drive_backups_to_import": "ليس لديك نسخ احتياطية متاحة من Google Drive للقيام بالاستيراد.",
   "backup.no_available_icloud_backups_to_import": "ليس لديك نسخ احتياطية متاحة من iCloud للاستيراد.",
   "backup.no_data": "لا يوجد بيانات",
-  "backup.number_wallets_number_accounts": "{number0} محافظ · {number1} حسابات",
+  "backup.number_wallets_number_accounts": "{number} محافظ · {number} حسابات",
   "backup.off_device": "خارج الجهاز ( {number} )",
   "backup.on_device": "على الجهاز",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey لا يقوم بنسخ احتياطي لمحافظ الأجهزة، يرجى تسجيل وحماية عبارة الاستعادة الخاصة بك.",
@@ -112,7 +113,7 @@
   "balance_detail.enable_protection_title": "تمكين حماية التسجيل",
   "balance_detail.enable_protection_warning": "أصول التسجيل (NFT ورموز BRC-20) غير مدعومة حاليا. لعرض تفاصيل الحماية، تحقق من \"تفاصيل الرصيد\". لنقل أصول التسجيل الخاصة بك بأمان، يرجى استخدام محفظة متوافقة مع التسجيل مثل Unisat أو OKX.",
   "balance_detail.frozen": "مجمد",
-  "balance_detail.frozen_by_inscription": "مجمد بواسطة حماية النقش",
+  "balance_detail.frozen_by_inscription": "حماية التسجيل",
   "balance_detail.how_to_migrate": "كيفية ترحيل الرموز المميزة NFT / BRC-20؟",
   "balance_detail.spendable": "قابل للإنفاق",
   "balance_detail.total": "المجموع",
@@ -246,20 +247,21 @@
   "earn.pay_with": "ادفع بواسطة",
   "earn.receive": "تلقي",
   "earn.receive_lido_nft": "تلقي NFT ليدو",
-  "earn.receive_lido_nft_desc": "كل طلب سحب يولد NFT ليدو، وتتغير مظهره عندما يصبح ETH الخاص بك متاحًا للسحب.",
+  "earn.receive_lido_nft_desc": "كل طلب سحب يولد NFT ليدو، وتتغير مظهره عندما يصبح {token} الخاص بك متاحًا للسحب.",
   "earn.receive_steth_desc": "عندما تقوم برهنة ETH، تحصل على 1:1 stETH. يمكنك إلغاء الرهن وتداول هذا الأصل السائل في أي وقت.",
   "earn.receive_stmatic_desc": "عندما تقوم برهنة MATIC، تحصل على stMATIC. يمكنك إلغاء الرهن وتداول هذا الأصل السائل في أي وقت.",
   "earn.receive_token": "استلم {token}",
   "earn.redeem": "استرداد",
   "earn.request_withdrawal": "طلب السحب",
-  "earn.request_withdrawal_steth_desc": "قم بقفل stETH / wstETH الخاص بك عن طريق تقديم طلب سحب. بعد 1-5 أيام، سيتم تدمير stETH المقفل وسيصبح ETH الخاص بك متاحًا للسحب.",
-  "earn.request_withdrawal_stmatic_desc": "بعد 1-5 أيام من تقديم طلب السحب، سيتم تدمير stMATIC المقفل وسيصبح MATIC الخاص بك متاحًا للسحب.",
+  "earn.request_withdrawal_steth_desc": "قم بقفل stETH / wstETH الخاص بك عن طريق تقديم طلب سحب. بعد 1-4 أيام، سيتم تدمير stETH المقفل وسيصبح ETH الخاص بك متاحًا للسحب.",
+  "earn.request_withdrawal_stmatic_desc": "بعد 1-4 أيام من تقديم طلب السحب، سيتم تدمير stMATIC المقفل وسيصبح MATIC الخاص بك متاحًا للسحب.",
   "earn.rewards_updated_daily": "تم تحديث الجوائز {daily}",
   "earn.rewards_updated_daily_steth_desc": "سيكون هناك تحديث يومي على رصيدك من stETH، والذي يتضمن مكافآت الإستيكينج.",
   "earn.rewards_updated_daily_stmatic_desc": "خلال فترة الرهن، يتغير قيمة stMATIC لتعكس الأرباح.",
   "earn.stake": "رهان",
   "earn.stake_and_earn": "راهن واربح",
   "earn.stake_release_period": "فترة إصدار الحصة",
+  "earn.stake_release_period_desc": "بعد تقديم طلب السحب، ستحصل على شهادة NFT للمطالبة بالأموال. سيستغرق الأمر حوالي 1-4 أيام قبل أن تتمكن من المطالبة.",
   "earn.stake_token": "رهان {token}",
   "earn.staked_value": "قيمة الرهان",
   "earn.token_available_to_stake": "{token} متاح للرهن",
@@ -371,6 +373,8 @@
   "faq.recovery_phrase_safe_store_desc": "نعم، يتم تخزينه محليًا ولن يغادر جهازك إلا بإذن صريح منك.",
   "faq.watched_account": "الحساب المراقب",
   "faq.watched_account_desc": "الحساب المراقب في OneKey يتيح مراقبة عنوان معين ولكنه لا يمكن أن يرسل أو يستقبل الأموال. إنه مفيد لتتبع المعاملات أو مراقبة الأمتلاكات.",
+  "feedback.address_mismatch": "عدم تطابق العنوان",
+  "feedback.address_mismatch_desc": "العنوان لا يتطابق مع المحفظة الصلبة. توقف عن استخدام هذا العنوان فورًا واتصل بنا.",
   "feedback.bluetooth_pairing_failed": "فشل في الإقتران بالبلوتوث",
   "feedback.bluetooth_unparied": "تم فصل البلوتوث",
   "feedback.change_saved": "تم حفظ التغيير",
@@ -386,11 +390,15 @@
   "feedback.request_failed": "فشل الطلب",
   "form.address_error_invalid": "عنوان غير صالح",
   "form.address_placeholder": "العنوان أو النطاق",
+  "form.amount_placeholder": "أدخل المبلغ",
   "form.confirm_passphrase": "تأكيد العبارة السرية",
   "form.confirm_passphrase_placeholder": "أعد إدخال الـpassphrase الخاص بك",
   "form.enter_private_key_placeholder": "أدخل مفتاحك الخاص",
   "form.keep_hidden_wallet_label": "حافظ على الوصول",
   "form.keep_hidden_wallet_label_desc": "المحافظ المخفية تُمحى عند إغلاق التطبيق. قم بالتبديل للحفاظ عليها.",
+  "form.lighting_invoice_amount_error_max": "المبلغ يجب ألا يتجاوز {amount} sats.",
+  "form.lighting_invoice_error_positive_integer_only": "يُسمح فقط بالأعداد الصحيحة الموجبة",
+  "form.lighting_invoice_placeholder": "هـ.9.، شراء القهوة، فاتورة #12345",
   "form.optional_indicator": "اختياري",
   "form.private_key_error_invalid": "مفتاح خاص غير صالح",
   "form.rename_error_empty": "الاسم مطلوب",
@@ -611,7 +619,7 @@
   "global.url": "URL",
   "global.value": "القيمة",
   "global.verify": "تحقق",
-  "global.verify_on_device": "Verify on device",
+  "global.verify_on_device": "تحقق على الجهاز",
   "global.version_is_available": "الإصدار {version} متاح الآن",
   "global.view": "عرض",
   "global.view_in_blockchain_explorer": "عرض في مستكشف البلوكشين",
@@ -628,30 +636,59 @@
   "global.withdraw": "سحب",
   "global.x": "X",
   "hardware.backup_completed": "اكتمل النسخ الاحتياطي!",
+  "hardware.bluetooth_need_turned_on_error": "البلوتوث مغلق",
+  "hardware.bluetooth_not_paired_error": "البلوتوث غير مرتبط",
+  "hardware.bluetooth_pairing_failed": "فشل في الإقتران بالبلوتوث",
+  "hardware.bluetooth_requires_permission_error": "مطلوب إذن البلوتوث",
+  "hardware.bridge_network_error": "غير قادر على الاتصال بالجسر، يرجى التحقق من اتصالك بالشبكة والمحاولة مرة أخرى",
+  "hardware.bridge_timeout": "انقطع الاتصال بالجسر، يرجى التحقق من اتصالك بالشبكة والمحاولة مرة أخرى",
+  "hardware.bridge_timeout_for_desktop": "انقطع الاتصال بالجسر، يرجى التحقق من اتصالك بالشبكة والمحاولة مرة أخرى",
   "hardware.confirm_onekey_lite_pin": "تأكيد رقم OneKey Lite السري",
   "hardware.confirm_onekey_lite_pin_desc": "يرجى إعادة إدخال LIN الخاص بـ OneKey Lite الذي قمت بتعيينه للتو. ",
   "hardware.connect_failed": "فشل الاتصال",
+  "hardware.connect_timeout_error": "انقطاع الاتصال",
   "hardware.data_erased_use_as_new": "تم مسح البيانات على هذا OneKey Lite بالكامل، ويمكنك استخدامه كـ OneKey Lite جديد.",
+  "hardware.default_error": "فشل الاتصال بالأجهزة، يرجى المحاولة مرة أخرى",
+  "hardware.device_ble_already_connected": "الجهاز متصل بالفعل في مكان آخر، يرجى قطع الاتصال والمحاولة مرة أخرى",
+  "hardware.device_ble_location_disabled": "خدمات الموقع غير متوفرة، يرجى تمكينها والمحاولة مرة أخرى",
+  "hardware.device_ble_scan_error": "فشلت عملية البحث عبر البلوتوث، يرجى المحاولة مرة أخرى",
+  "hardware.device_ble_scan_throttle": "المسح الضوئي للبلوتوث متكرر جدا، يرجى المحاولة مرة أخرى لاحقا",
   "hardware.device_connected_keep_card_in_place": "الجهاز متصل ، يرجى الاحتفاظ بالبطاقة في مكانها وعدم تحريكها.",
   "hardware.device_contains_backup": "هذا الجهاز يحتوي على نسخة احتياطية",
   "hardware.device_contains_backup_desc": "إذا تابعت ، فسيتم استبدال النسخة الاحتياطية السابقة بالكامل وستفقد إلى الأبد.",
+  "hardware.device_need_restart": "فشل الاتصال بالأجهزة، يرجى إعادة تشغيل الجهاز والمحاولة مرة أخرى",
+  "hardware.device_not_find_error": "الجهاز غير موجود",
+  "hardware.device_passphrase_state_error": "Passphrase لا يتطابق مع المحفظة الحالية، يرجى المحاولة مرة أخرى",
   "hardware.ensure_device_close_to_nfc": "تأكد من أن الجهاز قريب من وحدة NFC في الهاتف، ثم حاول مرة أخرى.",
+  "hardware.enter_boot_failure": "فشل في الدخول إلى وضع التحديث",
   "hardware.enter_onekey_lite_pin": "أدخل رقم OneKey Lite السري",
   "hardware.enter_onekey_lite_pin_desc": "رقم OneKey Lite PIN هو رقم مكون من 6 أرقام ولا يمكن استرجاعه إذا نسيته، حيث أننا لا نخزن أي معلومات للمستخدم.",
+  "hardware.failed_to_search_devices": "فشل البحث",
+  "hardware.firmware_download_error": "فشل تحميل البرنامج الثابت",
+  "hardware.init_iframe_load_error": "فشل تهيئة SDK للأجهزة. يرجى التحقق من شبكتك أو تغيير البروكسي والمحاولة مرة أخرى.",
+  "hardware.invalid_pin_error": "رقم التعريف الشخصي غير صالح",
   "hardware.keep_lite_placed_until_found": "يرجى الاحتفاظ بـ Lite في مكان قريب من الهاتف حتى يتم العثور على الجهاز.",
+  "hardware.manually_enter_boot": "مطلوب إدخال التشغيل اليدوي",
   "hardware.no_backup_inside": "لا يوجد نسخة احتياطية داخل",
   "hardware.no_backup_inside_desc": "لا يوجد نسخة احتياطية في هذا OneKey Lite. استبدل بـ OneKey Lite آخر وأعد المحاولة.",
   "hardware.no_pin_change_needed": "لا حاجة لتغيير رمز PIN على هذه البطاقة OneKey Lite الجديدة.",
+  "hardware.not_opened_passphrase": "يرجى تمكين Passphrase على الجهاز لاستخدام المحفظة المخفية",
+  "hardware.not_same": "عدم التطابق، يرجى توصيل الجهاز الصحيح",
+  "hardware.not_support": "هذه الطريقة تحمل مخاطر أمنية ولا يدعمها الجهاز",
   "hardware.onekey_lite_pin_changed": "تم تغيير رقم التعريف الشخصي لـ OneKey Lite!",
   "hardware.onekey_lite_pin_changed_desc": "تم تغيير رقم التعريف الشخصي لـ OneKey Lite. \nتذكر هذا الرقم التعريفي الشخصي لأنه لا يمكن استرداده إذا فقد، حيث أننا لا نخزن أي معلومات للمستخدم.",
   "hardware.onekey_lite_pin_error": "خطأ في رمز OneKey Lite",
   "hardware.onekey_lite_pin_error_desc": "بعد <red>{number}</red> محاولات خاطئة أخرى، سيتم مسح البيانات على هذا OneKey Lite.",
   "hardware.onekey_lite_reset": "تم إعادة تعيين OneKey Lite",
+  "hardware.open_blind_sign_error": "تنسيق التوقيع غير معروف، يرجى الانتقال إلى الأمان / التوقيع العمياء لتمكين التوقيع المتقدم SOL",
+  "hardware.opened_passphrase": "يرجى تعطيل Passphrase على الجهاز لاستخدام المحفظة القياسية",
+  "hardware.params_bytes_overload": "حجم البيانات يتجاوز الحد المسموح به في الجهاز. يرجى تحديث البرنامج الثابت والمحاولة مرة أخرى أو الاتصال بدعم العملاء",
   "hardware.pin_change_failed": "فشل تغيير الرقم السري",
   "hardware.pin_incorrect_data_erased": "تم إدخال رمز PIN بشكل غير صحيح أكثر من 10 مرات. لمنع الوصول غير المصرح به إلى بيانات النسخ الاحتياطي، تم مسح البيانات الموجودة على هذا الجهاز.",
   "hardware.pins_do_not_match": "الرموز السرية المدخلة غير متطابقة. يرجى التأكيد مرة أخرى.",
   "hardware.place_onekey_lite_close_to_phone": "ضع OneKey Lite بالقرب من الهاتف",
   "hardware.place_onekey_lite_close_to_phone_desc": "ضع الـ Lite والهاتف كما هو موضح في الشكل أدناه، ثم انقر على \"اتصال\".",
+  "hardware.polling_connect_timeout_error": "انقطاع الاتصال. يرجى التحقق من حالة OneKey Bridge وإعادة تشغيل الجهاز",
   "hardware.recover_wallet_with_card_and_pin": "يمكنك استعادة محفظتك باستخدام هذه البطاقة والرقم السري في جميع الأوقات.\nتذكر هذا الرقم السري لأنه لا يمكن استعادته إذا فقد، حيث أننا لا نخزن أي معلومات للمستخدم.",
   "hardware.recovery_interrupted": "تم إيقاف الاستعادة",
   "hardware.reset_failed": "فشل الإعادة",
@@ -661,8 +698,20 @@
   "hardware.searching_for_device": "جار البحث عن الجهاز...",
   "hardware.set_onekey_lite_pin": "قم بتعيين رقم التعريف الشخصي لـ OneKey Lite",
   "hardware.set_onekey_lite_pin_desc": "قم بتعيين رقم تعريف شخصي مكون من 6 أرقام لـ OneKey Lite الخاص بك. ",
+  "hardware.software_cannot_be_upgrade": "لا يمكن للعميل تحديث الأجهزة. تحتاج إلى الذهاب إلى <url>https://firmware.onekey.so](https://firmware.onekey.so/)</url> للتحديث",
+  "hardware.status_connected": "متصل",
+  "hardware.status_update_available": "تحديث متاح",
   "hardware.transferring_data": "جاري نقل البيانات...",
   "hardware.two_onekey_lite_not_same": "الاثنين OneKey Lite المستخدمين للاتصال ليسوا متشابهين.",
+  "hardware.unknown_message_error": "البرنامج الثابت الحالي غير مدعوم، يرجى محاولة الترقية",
+  "hardware.user_cancel_error": "تم الإلغاء على الجهاز",
+  "hardware.verify_success": "البرامج الثابتة الرسمية",
+  "hardware.version_need_upgrade_error": "يرجى تحديث البرنامج الثابت إلى الإصدار {0} أو أعلى لاستخدام هذه الميزة",
+  "hardware.version_to_low_error": "نسخة البرنامج الثابت الحالية منخفضة جدا، يرجى تحديث البرنامج الثابت",
+  "hardware.wallet_connection_is_not_currently_supported_but_we_are_working_on_it_stay_tuned": "الدعم لاتصال المحفظة الصلبة غير متوفر حالياً، ولكننا نعمل على ذلك. تابعونا!",
+  "hardware.wallet_connection_is_only_available_on_the_official_app": "الاتصال بمحفظة الأجهزة متاح فقط على التطبيق الرسمي",
+  "hardware.wallet_connection_is_only_available_on_the_third_party_apps": "الاتصال بمحفظة الأجهزة متاح فقط على التطبيقات الخاصة بأطراف ثالثة",
+  "lighting_invoice": "فاتورة البرق",
   "login.forgot_password": "نسيت كلمة المرور؟",
   "login.welcome_message": "مرحبًا بك مجددًا",
   "manual_backup": "النسخ الاحتياطي اليدوي",
@@ -781,6 +830,10 @@
   "onboarding.verify_recovery_phrase_title": "تحقق من عبارة الاستعادة الخاصة بك",
   "onboarding.welcome_description": "إدارة العملات المشفرة بسهولة وأمان",
   "onboarding.welcome_message": "مرحبًا بك في OneKey",
+  "p2pkh_desc": "يبدأ بـ '1'",
+  "p2sh_p2wpkh_desc": "يبدأ بـ 'bc1q'",
+  "p2tr_desc": "يبدأ بـ 'bc1p'",
+  "p2wpkh_desc": "يبدأ بـ '3'",
   "provider.amount_received": "{amount} {token}",
   "provider.fee": "$0.16 ",
   "provider.label_fastest": "الأسرع",
@@ -802,6 +855,10 @@
   "provider.title": "اختر المزود",
   "provider.token_not_supported": "الرمز غير مدعوم",
   "provider.unavailable": "غير متوفر",
+  "receive.address_unconfimed_alert_message": "العنوان غير مؤكد",
+  "receive.hide_unverified_address": "إخفاء العنوان غير المتحقق منه",
+  "receive.send_asset_warning_message": "يمكن إرسال الأصول فقط داخل نفس الشبكة",
+  "receive.show_address_any": "عرض العنوان على أي حال",
   "remove_account_desc": "سيتم إزالة هذا الحساب.",
   "remove_device": "إزالة الجهاز",
   "remove_device_desc": "سيؤدي هذا إلى حذف بياناتك بشكل دائم. ولكن لا يزال بإمكانك استعادتها من المحفظة الصلبة التي تم تحميل عبارة الاستعادة لهذه المحفظة.",
@@ -846,6 +903,7 @@
   "send.title": "إرسال",
   "send.to": "إلى",
   "send.to_contacts_selecor_account": "حسابي",
+  "send.to_contacts_selecor_account_title": "اختر",
   "send.to_contacts_selecor_address_book": "دفتر العناوين",
   "send.to_contacts_tooltip": "جهات الاتصال",
   "send.to_ln_placeholder": "أدخل فاتورة، عنوان البرق، LNURL أو معرف العقدة",
@@ -865,7 +923,7 @@
   "settings.backup_recovery_phrase_to_onekey_lite": "احفظ عبارة الاستعادة الخاصة بك في OneKey Lite",
   "settings.backup_with_onekey_keytag": "النسخ الاحتياطي باستخدام OneKey KeyTag",
   "settings.browser_cache": "ذاكرة التخزين المؤقت للمتصفح",
-  "settings.browser_history_bookmarks_pins": "تاريخ التصفح، العلامات المرجعية، الدبابيس",
+  "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "تاريخ التصفح، العلامات المرجعية، الدبابيس، القائمة البيضاء لتطبيقات الدفع المتقدمة",
   "settings.change_pin": "تغيير PIN",
   "settings.clear_browser_cache": "مسح ذاكرة التخزين المؤقت للمتصفح",
   "settings.clear_browser_cache_desc": "افتح هذا الرابط في متصفحك لمسح الذاكرة المؤقتة:chrome://settings/clearBrowserData",
@@ -962,11 +1020,14 @@
   "swap_account.from_address": "{addrss}",
   "swap_account.to_address": "{addrss}",
   "swap_account.to_address_edit": "{addrss} (تم التعديل)",
+  "swap_account.to_address_edit_button": "إعادة تعيين",
   "swap_history.amount_received": "+{amount} {token}",
   "swap_history.amount_sent": "-{amount} {token}",
   "swap_history.date_time_format": "{date} {time}",
+  "swap_history.status_discard": "إسقاط",
   "swap_history.status_failed": "فشل",
   "swap_history.status_pending": "قيد الانتظار",
+  "swap_history.status_success": "النجاح",
   "swap_history.title": "التاريخ",
   "swap_history.transaction_format": "{token_from} → {token_to}",
   "swap_history_detail.date": "التاريخ",
@@ -1016,6 +1077,8 @@
   "swap_page.provider.approve_amount": "الموافقة على المبلغ",
   "swap_page.provider.approve_amount_limit": "{value} {token}",
   "swap_page.provider.approve_amount_un_limit": "غير محدود",
+  "swap_page.provider.approve_usdt_dialog_content": "بعض الرموز تتطلب عدة معاملات لتعديل البدل. يجب عليك أولاً تعيين البدل إلى صفر قبل تحديد قيمة البدل الجديدة المرغوبة.",
+  "swap_page.provider.approve_usdt_dialog_title": "تحتاج إلى إرسال 2 معاملات لتغيير البدل",
   "swap_page.provider.custom": "مخصص ({number}%)",
   "swap_page.provider.est_network_fee": "رسوم شبكة Est",
   "swap_page.provider.exchange_rate ": "1 إيث = {number} يو إس دي سي",
@@ -1026,7 +1089,9 @@
   "swap_page.provider.slippage_tolerance": "تسامح الانزلاق",
   "swap_page.swap": "تبديل",
   "swap_page.swap_button": "تبديل",
-  "swap_page.swap_steps": "1. الموافقة على {tokenSymbol} → 2. التبديل",
+  "swap_page.swap_steps_1": "1. الموافقة على {tokenSymbol}",
+  "swap_page.swap_steps_1_approve_dialog": "في المرة الأولى التي تقوم فيها بتبديل العملة أو إضافة السيولة، يجب أن توافق على الرمز المراد تبديله. هذا يمنح المزود الإذن بتبديل هذا الرمز من محفظتك.",
+  "swap_page.swap_steps_2": "2. تبديل",
   "swap_page.to": "إلى",
   "swap_page.toast.address_generated": "تم إنشاء العنوان",
   "swap_page.toast.address_generated_fail": "فشل في إنشاء العنوان",
@@ -1044,6 +1109,7 @@
   "swap_page.toast.swap_successful_detail": "{number} {symbol} → {number} {symbol}",
   "swap_page.usd_value": "${number}",
   "terms_privacy": "الاستخدام يعني الموافقة على <termsTag>الشروط</termsTag> و <privacyTag>الخصوصية</privacyTag> الخاصة بنا",
+  "title__edit_fee": "رسوم التعديل",
   "title__invoice_description": "Invoice description",
   "title__lnurl_pay": "LNURL Pay",
   "token_selector.empty_content": "الرمز المحدد لا يدعم العبور بين السلاسل إلى هذه الشبكة.",
@@ -1052,7 +1118,9 @@
   "token_selector.risk_reminder.button_cancel": "إلغاء",
   "token_selector.risk_reminder.button_ok": "حسنًا",
   "token_selector.risk_reminder.checkbox": "لا تظهر هذا التنبيه لجميع الرموز غير المتحقق منها",
+  "token_selector.risk_reminder.malicious_token_alert": "تحذير! رمز ضار.",
   "token_selector.risk_reminder.message": "يمكن لأي شخص إصدار الرموز، بما في ذلك الرموز المزورة تحت مشاريع صالحة. قد لا يتمكن المستخدم الذي اشترى الرموز المزورة من بيعها، مما يؤدي إلى خسارة الأصول. إذا قررت المتابعة في تداول هذا الرمز المخصص، ستكون مسؤولاً عن جميع المخاطر والمسؤوليات المحتملة.",
+  "token_selector.risk_reminder.spam_token_alert": "رمز البريد المزعج المشتبه فيه.",
   "token_selector.risk_reminder.title": "تذكير بالمخاطر",
   "token_selector.risk_reminder.token_address": "{token_address}",
   "token_selector.risk_reminder.token_name": "{token_name}",
@@ -1060,11 +1128,21 @@
   "token_selector.search_placeholder": "ابحث عن الرمز أو عنوان العقد",
   "token_selector.title": "حدد الرمز",
   "token_selector.unverified_token_warning": "الرمز غير المتحقق أدناه. تقدم بحذر.",
+  "transaction.cancel": "إلغاء",
+  "transaction.confirm": "تأكيد",
+  "transaction.current_gwei": "الحالي: {amount} Gwei",
+  "transaction.estimate_gas_limit": "تقدير حد الغاز هو {amount}، نوصي بـ {amount}",
+  "transaction.expected_fee": "الرسوم المتوقعة",
+  "transaction.fee_estimate": "تقدير الرسوم",
+  "transaction.max_base_fee": "الحد الأقصى للرسوم الأساسية",
+  "transaction.max_fee": "الحد الأقصى للرسوم",
+  "transaction.to_contract": "للعقد",
   "transaction__contract_interaction": "تفاعل العقد",
   "transaction__transaction_confirm": "تأكيد المعاملة",
   "update.all_other_apps_closed": "تم إغلاق جميع التطبيقات الأخرى من OneKey وأدوات الترقية عبر الويب.",
   "update.all_other_apps_closed_emoji": "تم إغلاق جميع التطبيقات الأخرى من OneKey وأدوات الترقية على الويب. 🆗",
   "update.all_updates_complete": "تم الانتهاء من جميع التحديثات 👏🏻",
+  "update.app_update": "تحديث التطبيق",
   "update.app_version_ready_for_update": "التطبيق {version} جاهز للتحديث",
   "update.bluetooth_version_available": "البلوتوث {version} متاح",
   "update.bridge_network_error": "خطأ في شبكة الجسر",
@@ -1150,7 +1228,7 @@
   "update.update_required_desc": "إصدار محفظتك الأجهزة قديم ويجب تحديثه للمتابعة.",
   "update.update_resource_failed": "فشل تحديث المورد",
   "update.update_ui_resources_success": "تم تحديث موارد واجهة المستخدم بنجاح",
-  "update.updated_to_latest_version": "تم التحديث إلى الإصدار الأحدث {version}",
+  "update.updated_to_latest_version": "تم التحديث إلى الإصدار الأحدث {}",
   "update.updating_bootloader": "تحديث البوتلودر",
   "update.updating_ui_resources": "جاري تحديث موارد واجهة المستخدم...",
   "update.verify_status_and_continue": "تحقق من الحالة واستمر",

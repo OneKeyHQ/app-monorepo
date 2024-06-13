@@ -13,6 +13,7 @@ import {
   Page,
   SectionList,
   SegmentControl,
+  SizableText,
   Stack,
   Toast,
   XStack,
@@ -76,6 +77,9 @@ export default function Detail() {
                 id: ETranslations.global_names_of_wallets_and_accounts,
               }),
             ],
+            footerDescription: intl.formatMessage({
+              id: ETranslations.backup_only_accounts_with_addresses_will_be_backed_up,
+            }),
           })),
         },
         Object.values(publicData.importedAccounts).length +
@@ -189,19 +193,15 @@ export default function Detail() {
     }
     ActionList.show({
       title,
-      sections: [
+      items: [
         {
-          items: [
-            {
-              label: intl.formatMessage({ id: ETranslations.global_delete }),
-              icon: 'DeleteOutline',
-              destructive: true,
-              onPress: async () => {
-                await deleteBackupDialog.show(filename);
-                navigation.pop();
-              },
-            },
-          ],
+          label: intl.formatMessage({ id: ETranslations.global_delete }),
+          icon: 'DeleteOutline',
+          destructive: true,
+          onPress: async () => {
+            await deleteBackupDialog.show(filename);
+            navigation.pop();
+          },
         },
       ],
     });
@@ -308,6 +308,7 @@ export default function Detail() {
       <Page.Body>
         <Stack m="$5">
           <SegmentControl
+            fullWidth
             value={segmentValue}
             onChange={(v) => {
               setSegmentValue(v as number);
@@ -341,6 +342,7 @@ export default function Detail() {
                 icon?: IIconProps['name'];
                 walletAvatar?: IPublicBackupData['HDWallets'][string]['avatar'];
                 infoList: string[];
+                footerDescription?: string;
               };
             }) => (
               <ListItem
@@ -365,13 +367,21 @@ export default function Detail() {
                   onPress={() => {
                     ActionList.show({
                       title: 'Encrypted Backup Contents',
-                      sections: [
-                        {
-                          items: item.infoList.map((infoString) => ({
-                            label: `  •\t${infoString}`,
-                          })),
-                        },
-                      ],
+                      items: item.infoList.map((infoString) => ({
+                        label: `  •\t${infoString}`,
+                      })),
+                      renderItems: item?.footerDescription
+                        ? () => (
+                            <SizableText
+                              mx="$3"
+                              my="$3"
+                              size="$bodyMd"
+                              color="$textSubdued"
+                            >
+                              {item?.footerDescription}
+                            </SizableText>
+                          )
+                        : undefined,
                     });
                   }}
                 >
