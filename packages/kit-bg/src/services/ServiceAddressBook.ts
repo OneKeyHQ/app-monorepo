@@ -304,6 +304,11 @@ class ServiceAddressBook extends ServiceBase {
       hideDialogInfo: true,
     }));
   }
+
+  @backgroundMethod()
+  async migrationV4Items(items: IAddressItem[], password: string) {
+    await this.setItems(items, password);
+  }
 }
 
 export default ServiceAddressBook;
