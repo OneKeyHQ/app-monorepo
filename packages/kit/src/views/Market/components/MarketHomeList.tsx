@@ -954,7 +954,7 @@ function BasicMarketHomeList({
           id: ETranslations.market_price_change_down,
         }),
         value: 'Price change down',
-        options: { columnName: mdColumnKeys[1], order: 'desc' },
+        options: { columnName: mdColumnKeys[1], order: 'asc' },
       },
     ],
     [intl, mdColumnKeys],

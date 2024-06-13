@@ -69,6 +69,7 @@ function PoolDetailsItem({
 export function PoolDetailDialog({
   item: {
     attributes,
+    dexName,
     dexLogoUrl,
     onekeyNetworkId,
     id: pairAddress,
@@ -100,7 +101,7 @@ export function PoolDetailDialog({
         >
           <XStack space="$1.5">
             <MarketPoolIcon uri={dexLogoUrl} />
-            <SizableText size="$bodyMdMedium">{id}</SizableText>
+            <SizableText size="$bodyMdMedium">{dexName}</SizableText>
           </XStack>
         </PoolDetailsItem>
       </XStack>
