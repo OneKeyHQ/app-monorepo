@@ -12,7 +12,7 @@ export function FirmwareUpdatePageHeader() {
       dismissOnOverlayPress={false}
       // disableClose
       title={intl.formatMessage({
-        id: ETranslations.update_checking_for_updates,
+        id: ETranslations.update_hardware_update,
       })}
     />
   );

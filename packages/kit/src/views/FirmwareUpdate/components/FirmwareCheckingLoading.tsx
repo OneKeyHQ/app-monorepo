@@ -10,9 +10,9 @@ export function FirmwareCheckingLoading({
 }) {
   const intl = useIntl();
   return (
-    <Stack ai="center" jc="center">
+    <Stack ai="center" jc="center" h={500}>
       <Spinner size="large" />
-      <SizableText my="$6" size="$heading2xl">
+      <SizableText my="$6" size="$headingLg">
         {intl.formatMessage({ id: ETranslations.update_checking_for_updates })}
       </SizableText>
       {process.env.NODE_ENV !== 'production' ? (
