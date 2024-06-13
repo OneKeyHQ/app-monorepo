@@ -1,11 +1,15 @@
+import { useIntl } from 'react-intl';
+
 import { Alert } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function DAppSignMessageAlert() {
+  const intl = useIntl();
   return (
     <Alert
       fullBleed
       type="critical"
-      title="此类型的签名请求有时会被用于恶意目的，仅在您完全信任该网站时才签署。"
+      title={intl.formatMessage({ id: ETranslations.dapp_connect_risk_sign })}
       icon="ErrorSolid"
       borderTopWidth={0}
     />
