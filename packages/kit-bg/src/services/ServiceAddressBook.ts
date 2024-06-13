@@ -305,9 +305,17 @@ class ServiceAddressBook extends ServiceBase {
     }));
   }
 
+  // for Migration
   @backgroundMethod()
-  async migrationV4Items(items: IAddressItem[], password: string) {
-    await this.setItems(items, password);
+  async bulkSetItemsWithUniq(items: IAddressItem[], password: string) {
+    const currentItems = await this.getItems();
+    const currentNames = new Set(currentItems.map((i) => i.name));
+    const currentAddresses = new Set(currentItems.map((i) => i.address));
+    const itemsUniq = items.filter(
+      (i) => !currentNames.has(i.name) && !currentAddresses.has(i.address),
+    );
+    const itemsToAdd = currentItems.concat(itemsUniq);
+    await this.setItems(itemsToAdd, password);
   }
 }
 

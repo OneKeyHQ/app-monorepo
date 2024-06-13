@@ -19,23 +19,23 @@ export class V4MigrationForAddressBook extends V4MigrationManagerBase {
   }
 
   async convertV4ContactsToV5(password: string) {
-    let items = await this.getV4AddressBookItems();
-    if (items.length === 0) {
+    let v4items = await this.getV4AddressBookItems();
+    if (v4items.length === 0) {
       return;
     }
-    items = items.sort((a, b) => a.createAt - b.createAt);
-    const addressItems = items.map((o) => {
+    v4items = v4items.sort((a, b) => a.createAt - b.createAt);
+    const v5items: IAddressItem[] = v4items.map((o) => {
       const item = {
         id: generateUUID(),
         address: o.address,
         name: o.name,
         networkId: o.networkId,
         createdAt: o.createAt,
-      } as IAddressItem;
+      };
       return item;
     });
-    await this.backgroundApi.serviceAddressBook.migrationV4Items(
-      addressItems,
+    await this.backgroundApi.serviceAddressBook.bulkSetItemsWithUniq(
+      v5items,
       password,
     );
   }
