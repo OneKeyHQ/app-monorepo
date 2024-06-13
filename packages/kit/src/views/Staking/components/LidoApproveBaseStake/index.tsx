@@ -24,6 +24,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { LIDO_LOGO_URI } from '../../utils/const';
+import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type ILidoApproveBaseStakeProps = {
   price: string;
@@ -185,26 +186,12 @@ export const LidoApproveBaseStake = ({
     }
     const amountBN = BigNumber(amountValue).multipliedBy(apr).dividedBy(100);
     return (
-      <XStack space="$1">
-        <SizableText>
-          <NumberSizeableText
-            formatter="value"
-            size="$bodyLgMedium"
-            formatterOptions={{ tokenSymbol: token.symbol }}
-          >
-            {amountBN.toFixed()}
-          </NumberSizeableText>
-          (
-          <NumberSizeableText
-            formatter="value"
-            size="$bodyLgMedium"
-            formatterOptions={{ currency: symbol }}
-          >
-            {amountBN.multipliedBy(price).toFixed()}
-          </NumberSizeableText>
-          )
-        </SizableText>
-      </XStack>
+      <ValuePriceListItem
+        tokenSymbol={token.symbol}
+        amount={amountBN.toFixed()}
+        fiatSymbol={symbol}
+        fiatValue={amountBN.multipliedBy(price).toFixed()}
+      />
     );
   }, [amountValue, apr, price, symbol, token.symbol]);
 

@@ -111,7 +111,7 @@ const PasswordItem = () => {
 const FaceIdItem = () => {
   const intl = useIntl();
   const [{ isPasswordSet }] = usePasswordPersistAtom();
-  const [{ isSupport: biologyAuthIsSupport, authType, isEnable }] =
+  const [{ isSupport: biologyAuthIsSupport, authType }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
 
@@ -128,8 +128,7 @@ const FaceIdItem = () => {
     }
   }
 
-  return isPasswordSet &&
-    ((biologyAuthIsSupport && isEnable) || webAuthIsSupport) ? (
+  return isPasswordSet && (biologyAuthIsSupport || webAuthIsSupport) ? (
     <ListItem icon={icon} title={title}>
       <UniversalContainerWithSuspense />
     </ListItem>
