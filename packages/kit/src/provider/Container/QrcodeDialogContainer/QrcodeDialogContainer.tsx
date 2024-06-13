@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
-import { Dialog, QRCode, Stack } from '@onekeyhq/components';
 import { EQRCodeHandlerNames } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';

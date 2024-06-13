@@ -21,7 +21,7 @@ interface ISecureQRToastBaseProps {
   message?: string;
   value?: string;
   valueUr?: IQRCodeProps['valueUr'];
-  showQRCode: boolean;
+  showQRCode?: boolean;
   drawType?: IQRCodeProps['drawType'];
   onConfirm?: () => void;
   onConfirmText?: string;
