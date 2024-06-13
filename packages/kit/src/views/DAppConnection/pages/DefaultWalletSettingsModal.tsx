@@ -14,12 +14,12 @@ import {
   Switch,
   Toast,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDefaultWalletSettingsWithLogo } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDefaultWalletSettings';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';

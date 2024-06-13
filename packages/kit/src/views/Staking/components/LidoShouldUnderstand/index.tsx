@@ -171,9 +171,12 @@ export const EthWithdrawShouldUnderstand = () => {
           title: intl.formatMessage({
             id: ETranslations.earn_receive_lido_nft,
           }),
-          description: intl.formatMessage({
-            id: ETranslations.earn_receive_lido_nft_desc,
-          }),
+          description: intl.formatMessage(
+            {
+              id: ETranslations.earn_receive_lido_nft_desc,
+            },
+            { token: 'ETH' },
+          ),
         },
         {
           title: intl.formatMessage({ id: ETranslations.earn_claim }),
@@ -241,7 +244,9 @@ export const MaticStakeShouldUnderstand = ({ apr }: { apr: number }) => {
                 { id: ETranslations.earn_rewards_updated_daily },
                 {
                   'daily': (
-                    <SizableText color="$textInteractive">daily</SizableText>
+                    <SizableText color="$textInteractive">
+                      {intl.formatMessage({ id: ETranslations.earn_daily })}
+                    </SizableText>
                   ),
                 },
               )}
@@ -280,9 +285,12 @@ export const MaticWithdrawShouldUnderstand = () => {
           title: intl.formatMessage({
             id: ETranslations.earn_receive_lido_nft,
           }),
-          description: intl.formatMessage({
-            id: ETranslations.earn_receive_lido_nft_desc,
-          }),
+          description: intl.formatMessage(
+            {
+              id: ETranslations.earn_receive_lido_nft_desc,
+            },
+            { token: 'MATIC' },
+          ),
         },
         {
           title: intl.formatMessage({ id: ETranslations.earn_claim }),

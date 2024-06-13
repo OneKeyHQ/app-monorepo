@@ -8,6 +8,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ELidoLabels } from '@onekeyhq/shared/types/staking';
 
 import { LidoWithdraw } from '../../components/LidoWithdraw';
 import { useLidoWithdraw } from '../../hooks/useLidoEthHooks';
@@ -27,6 +28,7 @@ const EthLidoWithdraw = () => {
       await lidoWithdraw({
         amount,
         stakingInfo: {
+          label: ELidoLabels.Redeem,
           protocol: 'lido',
           send: { token, amount: value },
           tags: ['lido-eth'],

@@ -20,6 +20,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { LIDO_LOGO_URI } from '../../utils/const';
+import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type ILidoStakeProps = {
   price: string;
@@ -110,26 +111,12 @@ export const LidoStake = ({
     }
     const amountBN = BigNumber(amountValue).multipliedBy(apr).dividedBy(100);
     return (
-      <XStack space="$1">
-        <SizableText>
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            formatter="balance"
-            formatterOptions={{ tokenSymbol }}
-          >
-            {amountBN.toFixed()}
-          </NumberSizeableText>
-          (
-          <NumberSizeableText
-            size="$bodyLgMedium"
-            formatter="value"
-            formatterOptions={{ currency: symbol }}
-          >
-            {amountBN.multipliedBy(price).toFixed()}
-          </NumberSizeableText>
-          )
-        </SizableText>
-      </XStack>
+      <ValuePriceListItem
+        amount={amountBN.toFixed()}
+        tokenSymbol={tokenSymbol}
+        fiatSymbol={symbol}
+        fiatValue={amountBN.multipliedBy(price).toFixed()}
+      />
     );
   }, [amountValue, apr, price, symbol, tokenSymbol]);
 

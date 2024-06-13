@@ -20,6 +20,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { LIDO_LOGO_URI } from '../../utils/const';
+import { ValuePriceListItem } from '../ValuePriceListItem';
 
 const fieldTitleProps = { color: '$textSubdued', size: '$bodyLg' } as const;
 
@@ -113,26 +114,12 @@ export const LidoWithdraw = ({
       .dividedBy(rate)
       .toFixed();
     return (
-      <XStack space="$1">
-        <SizableText>
-          <NumberSizeableText
-            formatter="balance"
-            size="$bodyLgMedium"
-            formatterOptions={{ tokenSymbol: receivingTokenSymbol }}
-          >
-            {receivingAmount}
-          </NumberSizeableText>
-          (
-          <NumberSizeableText
-            formatter="value"
-            size="$bodyLgMedium"
-            formatterOptions={{ currency: symbol }}
-          >
-            {receivingValue}
-          </NumberSizeableText>
-          )
-        </SizableText>
-      </XStack>
+      <ValuePriceListItem
+        amount={receivingAmount}
+        fiatSymbol={symbol}
+        fiatValue={receivingValue}
+        tokenSymbol={receivingTokenSymbol}
+      />
     );
   }, [amountValue, price, symbol, receivingTokenSymbol, rate]);
   const intl = useIntl();
