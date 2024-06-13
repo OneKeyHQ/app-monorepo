@@ -813,6 +813,7 @@ const icons = {
   Shield2OffOutline: () => import("./react/outline/Shield2Off"),
   ShieldCheckDoneOutline: () => import("./react/outline/ShieldCheckDone"),
   ShieldFailureOutline: () => import("./react/outline/ShieldFailure"),
+  ShieldKeyholeOutline: () => import("./react/outline/ShieldKeyhole"),
   ShiftOutline: () => import("./react/outline/Shift"),
   ShipOutline: () => import("./react/outline/Ship"),
   ShitOutline: () => import("./react/outline/Shit"),

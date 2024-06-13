@@ -211,7 +211,7 @@ const EthLidoOverviewContent = ({
               {
                 'token': (
                   <SizableText>
-                    <NumberSizeableText size="$bodyMd" formatter="value">
+                    <NumberSizeableText size="$bodyMd" formatter="balance">
                       {eth.balanceParsed}
                     </NumberSizeableText>
                     <SizableText size="$bodyMd" color="$textSubdued">

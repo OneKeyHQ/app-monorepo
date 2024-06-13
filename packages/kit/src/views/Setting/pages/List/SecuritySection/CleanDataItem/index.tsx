@@ -62,7 +62,7 @@ const ClearCacheOnAppContent = () => {
         <Dialog.FormField name="browserHistory">
           <Checkbox
             label={intl.formatMessage({
-              id: ETranslations.settings_browser_history_bookmarks_pins,
+              id: ETranslations.settings_browser_history_bookmarks_pins_risk_dapp_whitelist,
             })}
           />
         </Dialog.FormField>

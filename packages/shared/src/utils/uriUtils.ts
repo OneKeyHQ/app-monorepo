@@ -133,6 +133,12 @@ export function parseUrl(url: string): IUrlValue | null {
 
 export const checkIsDomain = (domain: string) => DOMAIN_REGEXP.test(domain);
 
+// check the ens format 元宇宙.bnb / diamondgs198.x
+export const addressIsEnsFormat = (address: string) => {
+  const parts = address.split('.');
+  return parts.length > 1 && parts.every((o) => Boolean(o) && o === o.trim());
+};
+
 export function buildExplorerAddressUrl({
   network,
   address,
