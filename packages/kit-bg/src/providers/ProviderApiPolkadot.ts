@@ -105,7 +105,15 @@ class ProviderApiPolkadot extends ProviderApiBase {
 
   @providerApiMethod()
   public web3Enable(request: IJsBridgeMessagePayload): Promise<boolean> {
-    return this._queue.runExclusive(() => this._enable(request));
+    return this._queue.runExclusive(async () => {
+      if (await this.account(request)) {
+        return true;
+      }
+      const res = await this.backgroundApi.serviceDApp.openConnectionModal(
+        request,
+      );
+      return !!res;
+    });
   }
 
   @permissionRequired()
