@@ -225,7 +225,7 @@ const TabComponent = (
       }}
       scrollEventThrottle={16}
       onScroll={(event) => {
-        // This variable might be null when swiping to dismiss on iOS, 
+        // This variable might be null when swiping to dismiss on iOS,
         //  so it needs to be checked.
         if (stickyConfig.data[pageManager.pageIndex]) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

@@ -1,5 +1,4 @@
 import { RichSizeableText, SizableText, YStack } from '@onekeyhq/components';
-
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Layout } from './utils/Layout';
