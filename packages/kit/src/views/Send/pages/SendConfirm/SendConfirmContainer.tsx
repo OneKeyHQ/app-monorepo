@@ -12,6 +12,7 @@ import {
   useSendConfirmActions,
   withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -33,6 +34,7 @@ function SendConfirmContainer() {
     useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirm>>();
   const { updateUnsignedTxs, updateNativeTokenInfo, updateSendFeeStatus } =
     useSendConfirmActions().current;
+  const [settings] = useSettingsPersistAtom();
   const {
     accountId,
     networkId,
@@ -66,16 +68,23 @@ function SendConfirmContainer() {
       }),
       backgroundApiProxy.serviceToken.getNativeTokenAddress({ networkId }),
     ]);
+    const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+      networkId,
+    });
     const r = await backgroundApiProxy.serviceToken.fetchTokensDetails({
       networkId,
       accountAddress,
       contractList: [nativeTokenAddress],
       xpub,
+      withFrozenBalance: true,
+      withCheckInscription: settings.inscriptionProtection,
     });
-
+    const balance = vs.hasFrozenBalance
+      ? r[0].availableBalanceParsed ?? '0'
+      : r[0].balanceParsed;
     updateNativeTokenInfo({
       isLoading: false,
-      balance: r[0].balanceParsed,
+      balance,
       logoURI: r[0].info.logoURI ?? '',
     });
   }, [
@@ -84,6 +93,7 @@ function SendConfirmContainer() {
     unsignedTxs,
     updateNativeTokenInfo,
     updateUnsignedTxs,
+    settings.inscriptionProtection,
   ]);
 
   useEffect(

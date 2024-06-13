@@ -14,6 +14,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
+  IFetchTokenDetailItem,
   IFetchTokenDetailParams,
   IToken,
   ITokenData,
@@ -89,13 +90,14 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchTokensDetails(params: IFetchTokenDetailParams) {
+  public async fetchTokensDetails(
+    params: IFetchTokenDetailParams,
+  ): Promise<IFetchTokenDetailItem[]> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{
-      data: ({
-        info: IToken;
-      } & ITokenFiat)[];
-    }>('/wallet/v1/account/token/search', params);
+    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
+      '/wallet/v1/account/token/search',
+      params,
+    );
 
     return resp.data.data;
   }

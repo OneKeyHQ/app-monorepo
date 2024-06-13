@@ -21,6 +21,7 @@ export type ISettingsPersistAtom = {
   protectCreateOrRemoveWallet: boolean;
   tokenRiskReminder: boolean;
   spendDustUTXO: boolean;
+  inscriptionProtection: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
   currencyInfo: {
@@ -45,6 +46,7 @@ export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
       protectCreateOrRemoveWallet: true,
       tokenRiskReminder: true,
       spendDustUTXO: false,
+      inscriptionProtection: true,
       hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
       currencyInfo: {
         id: 'usd',

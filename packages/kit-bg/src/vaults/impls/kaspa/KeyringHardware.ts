@@ -48,11 +48,14 @@ export class KeyringHardware extends KeyringHardwareBase {
             showOnOnekeyFn,
           }) => {
             const sdk = await this.getHardwareSDKInstance();
+            const chainId = await this.getNetworkChainId();
             const response = await sdk.kaspaGetAddress(connectId, deviceId, {
               ...params.deviceParams.deviceCommonParams,
               bundle: usedIndexes.map((index, arrIndex) => ({
                 path: `${pathPrefix}/${index}`,
                 showOnOneKey: showOnOnekeyFn(arrIndex),
+                prefix: chainId,
+                scheme: EKaspaSignType.Schnorr,
               })),
             });
             return response;
