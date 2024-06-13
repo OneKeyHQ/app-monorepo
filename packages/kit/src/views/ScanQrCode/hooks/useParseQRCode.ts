@@ -34,8 +34,8 @@ const useParseQRCode = () => {
   const navigation = useAppNavigation();
   const clipboard = useClipboard();
   const intl = useIntl();
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  // const [allTokens] = useAllTokenListAtom();
+  // const [map] = useAllTokenListMapAtom();
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
     async (value, options) => {
       const result = await backgroundApiProxy.serviceScanQRCode.parse(
@@ -111,11 +111,11 @@ const useParseQRCode = () => {
                 accountId: account.id,
 
                 networkName: network.name,
-                tokens: {
-                  data: allTokens.tokens,
-                  keys: allTokens.keys,
-                  map,
-                },
+                // tokens: {
+                //   data: allTokens.tokens,
+                //   keys: allTokens.keys,
+                //   map,
+                // },
                 onSelect: async (token) => {
                   await timerUtils.wait(600);
                   navigation.pushModal(EModalRoutes.SendModal, {
@@ -168,7 +168,7 @@ const useParseQRCode = () => {
       }
       return result;
     },
-    [allTokens.keys, allTokens.tokens, map, navigation, clipboard, intl],
+    [navigation, clipboard, intl],
   );
   return useMemo(() => ({ parse }), [parse]);
 };

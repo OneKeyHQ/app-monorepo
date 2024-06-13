@@ -72,9 +72,11 @@ function BaseSectionList<T>(
     renderItem,
     renderSectionHeader,
     renderSectionFooter,
+    ListHeaderComponent,
     SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
     keyExtractor,
+    initialScrollIndex,
     ...restProps
   }: ISectionListProps<T>,
   parentRef: ForwardedRef<IListViewRef<T>>,
@@ -115,16 +117,23 @@ function BaseSectionList<T>(
     return reloadSectionList;
   }, [sections]);
 
+  const reloadSectionHeaderIndex = useCallback(
+    (index: number) => (ListHeaderComponent ? index + 1 : index),
+    [ListHeaderComponent],
+  );
+
   const reloadStickyHeaderIndices = useMemo(() => {
     if (!stickySectionHeadersEnabled) {
       return undefined;
     }
     return reloadSections
       .map((item, index) =>
-        item.type === ESectionLayoutType.Header ? index : null,
+        item.type === ESectionLayoutType.Header
+          ? reloadSectionHeaderIndex(index)
+          : null,
       )
       .filter((index) => index != null) as number[];
-  }, [stickySectionHeadersEnabled, reloadSections]);
+  }, [reloadSectionHeaderIndex, stickySectionHeadersEnabled, reloadSections]);
 
   const ref = useRef<IListViewRef<T>>(null);
   useImperativeHandle(parentRef as any, () => ({
@@ -200,14 +209,26 @@ function BaseSectionList<T>(
     },
     [keyExtractor],
   );
+  const reloadInitialScrollIndex = useMemo(
+    () =>
+      reloadSections.findIndex((item, index) =>
+        item.type === ESectionLayoutType.Header &&
+        item.sectionIndex === initialScrollIndex
+          ? reloadSectionHeaderIndex(index)
+          : null,
+      ),
+    [initialScrollIndex, reloadSections, reloadSectionHeaderIndex],
+  );
   return (
     <ListView
       ref={ref}
       data={reloadSections as T[]}
       renderItem={renderSectionAndItem as ListRenderItem<T>}
+      ListHeaderComponent={ListHeaderComponent}
       stickyHeaderIndices={reloadStickyHeaderIndices}
       getItemType={getItemType}
       keyExtractor={reloadKeyExtractor}
+      initialScrollIndex={reloadInitialScrollIndex}
       {...restProps}
     />
   );

@@ -273,6 +273,8 @@ export const EditableView: FC<IEditableViewProps> = ({
         </Stack>
         <Stack flex={1}>
           <SectionList
+            initialScrollIndex={0}
+            stickySectionHeadersEnabled
             ListHeaderComponent={ListHeaderComponent}
             sections={sections}
             estimatedItemSize="$12"
