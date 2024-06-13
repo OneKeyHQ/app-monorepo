@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import semver from 'semver';
 
 import {
@@ -25,6 +26,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPublicBackupData } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ERestoreResult } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ECloudBackupRoutes,
   ICloudBackupParamList,
@@ -33,12 +35,15 @@ import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import BackupListLoading from '../../components/BackupListLoading';
-import { showDeleteBackupDialog } from '../../components/DeleteBackupDialog';
-import { showRestorePasswordVerifyDialog } from '../../components/ResotrePasswordVerify';
+import { useDeleteBackupDialog } from '../../components/useDeleteBackupDialog';
+import { useRestorePasswordVerifyDialog } from '../../components/useResotrePasswordVerify';
 
 import type { RouteProp } from '@react-navigation/core';
 
 export default function Detail() {
+  const intl = useIntl();
+  const restorePasswordVerifyDialog = useRestorePasswordVerifyDialog();
+  const deleteBackupDialog = useDeleteBackupDialog();
   const navigation = useAppNavigation();
   const route =
     useRoute<
@@ -56,65 +61,97 @@ export default function Detail() {
     (publicData: IPublicBackupData) =>
       [
         Object.values(publicData.HDWallets).length > 0 && {
-          title: 'App Wallet',
+          title: intl.formatMessage({ id: ETranslations.global_app_wallet }),
           data: Object.values(publicData.HDWallets).map((wallet) => ({
             title: wallet.name,
-            detail: `${wallet.accountUUIDs.length} Accounts`,
+            detail: intl.formatMessage(
+              { id: ETranslations.global_number_accounts },
+              { number: wallet.accountUUIDs.length },
+            ),
             walletAvatar: wallet.avatar,
             infoList: [
-              'Recovery phrase',
-              'Wallet avatar',
-              'Names of wallets and accounts',
+              intl.formatMessage({ id: ETranslations.global_recovery_phrase }),
+              intl.formatMessage({ id: ETranslations.global_wallet_avatar }),
+              intl.formatMessage({
+                id: ETranslations.global_names_of_wallets_and_accounts,
+              }),
             ],
           })),
         },
         Object.values(publicData.importedAccounts).length +
           Object.values(publicData.watchingAccounts).length >
           0 && {
-          title: 'Other Wallet',
+          title: intl.formatMessage({ id: ETranslations.global_other_wallet }),
           data: [
             Object.values(publicData.importedAccounts).length > 0 && {
-              title: 'Private Key',
-              detail: `${
-                Object.keys(publicData.importedAccounts).length
-              } Accounts`,
+              title: intl.formatMessage({
+                id: ETranslations.global_private_key,
+              }),
+              detail: intl.formatMessage(
+                { id: ETranslations.global_number_accounts },
+                { number: Object.keys(publicData.importedAccounts).length },
+              ),
               icon: 'PasswordOutline',
-              infoList: ['Private key', 'Account name'],
+              infoList: [
+                intl.formatMessage({ id: ETranslations.global_private_key }),
+                intl.formatMessage({ id: ETranslations.global_account_name }),
+              ],
             },
             Object.values(publicData.watchingAccounts).length > 0 && {
-              title: 'Watchlist',
-              detail: `${
-                Object.keys(publicData.watchingAccounts).length
-              } Accounts`,
+              title: intl.formatMessage({ id: ETranslations.global_watchlist }),
+              detail: intl.formatMessage(
+                { id: ETranslations.global_number_accounts },
+                { number: Object.keys(publicData.watchingAccounts).length },
+              ),
               icon: 'EyeOutline',
-              infoList: ['Address', 'Account name'],
+              infoList: [
+                intl.formatMessage({ id: ETranslations.global_address }),
+                intl.formatMessage({ id: ETranslations.global_account_name }),
+              ],
             },
           ].filter((item) => item),
         },
         Object.keys(publicData.contacts).length > 0 && {
-          title: 'Address Book & Labels',
+          title: intl.formatMessage({
+            id: ETranslations.backup_address_book_labels,
+          }),
           data: [
             Object.keys(publicData.contacts).length > 0 && {
-              title: 'Address Book',
-              detail: `${Object.keys(publicData.contacts).length} Items`,
+              title: intl.formatMessage({
+                id: ETranslations.settings_address_book,
+              }),
+              detail: intl.formatMessage(
+                { id: ETranslations.global_number_items },
+                { number: Object.keys(publicData.contacts).length },
+              ),
               icon: 'BookOpenOutline',
-              infoList: ['Address', 'Name', 'Network type'],
+              infoList: [
+                intl.formatMessage({ id: ETranslations.global_address }),
+                intl.formatMessage({ id: ETranslations.global_name }),
+                intl.formatMessage({ id: ETranslations.global_network_type }),
+              ],
             },
           ].filter((item) => item),
         },
         (publicData?.discoverBookmarks?.length ?? 0) > 0 && {
-          title: 'Explore',
+          title: intl.formatMessage({ id: ETranslations.global_browser }),
           data: [
             (publicData?.discoverBookmarks?.length ?? 0) > 0 && {
-              title: 'Bookmark',
-              detail: `${publicData?.discoverBookmarks?.length ?? 0} Items`,
+              title: intl.formatMessage({ id: ETranslations.browser_bookmark }),
+              detail: intl.formatMessage(
+                { id: ETranslations.global_number_items },
+                { number: publicData?.discoverBookmarks?.length ?? 0 },
+              ),
               icon: 'BookmarkOutline',
-              infoList: ['URL', 'Name'],
+              infoList: [
+                intl.formatMessage({ id: ETranslations.global_url }),
+                intl.formatMessage({ id: ETranslations.global_name }),
+              ],
             },
           ].filter((item) => item),
         },
       ].filter((item) => item) as [{ title: string; data: any[] }],
-    [],
+    [intl],
   );
 
   const diffData = usePromiseResult(async () => {
@@ -156,11 +193,11 @@ export default function Detail() {
         {
           items: [
             {
-              label: 'Delete',
+              label: intl.formatMessage({ id: ETranslations.global_delete }),
               icon: 'DeleteOutline',
               destructive: true,
               onPress: async () => {
-                await showDeleteBackupDialog(filename);
+                await deleteBackupDialog.show(filename);
                 navigation.pop();
               },
             },
@@ -168,7 +205,7 @@ export default function Detail() {
         },
       ],
     });
-  }, [title, filename, navigation, submitLoading]);
+  }, [intl, deleteBackupDialog, title, filename, navigation, submitLoading]);
 
   const renderHeaderRight = useCallback(
     () => (
@@ -203,10 +240,15 @@ export default function Detail() {
     ) {
       Dialog.show({
         icon: 'InfoCircleOutline',
-        title: 'Upgrade Required',
-        description:
-          'Please upgrade your app to import the data from a newer version',
-        onConfirmText: 'Upgrade',
+        title: intl.formatMessage({
+          id: ETranslations.backup_upgrade_required,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.backup_please_upgrade_app_to_import_data,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_upgrade,
+        }),
       });
       return;
     }
@@ -217,7 +259,7 @@ export default function Detail() {
 
       let result = await handlerImportFromPassword();
       if (result === ERestoreResult.WRONG_PASSWORD) {
-        const remotePassword = await showRestorePasswordVerifyDialog();
+        const remotePassword = await restorePasswordVerifyDialog.show();
         result = await handlerImportFromPassword(
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: remotePassword,
@@ -233,7 +275,9 @@ export default function Detail() {
         });
       } else {
         Toast.success({
-          title: 'Backup Imported',
+          title: intl.formatMessage({
+            id: ETranslations.backup_backup_imported,
+          }),
         });
         if (!isOnboardingDone) {
           navigation.navigate(ERootRoutes.Main);
@@ -250,7 +294,13 @@ export default function Detail() {
     } finally {
       setSubmitLoading(false);
     }
-  }, [diffData, navigation, handlerImportFromPassword]);
+  }, [
+    intl,
+    restorePasswordVerifyDialog,
+    diffData,
+    navigation,
+    handlerImportFromPassword,
+  ]);
 
   return (
     <Page>
@@ -263,8 +313,19 @@ export default function Detail() {
               setSegmentValue(v as number);
             }}
             options={[
-              { label: `Not here(${diffData?.diffCount ?? 0})`, value: 0 },
-              { label: 'On-device', value: 1 },
+              {
+                label: intl.formatMessage(
+                  { id: ETranslations.backup_off_device },
+                  { number: diffData?.diffCount ?? 0 },
+                ),
+                value: 0,
+              },
+              {
+                label: intl.formatMessage({
+                  id: ETranslations.backup_on_device,
+                }),
+                value: 1,
+              },
             ]}
           />
         </Stack>
@@ -328,8 +389,12 @@ export default function Detail() {
             ListEmptyComponent={
               <Empty
                 icon="SearchOutline"
-                title="No Data"
-                description="All the data in this backup is already present on the current device."
+                title={intl.formatMessage({
+                  id: ETranslations.backup_no_data,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.backup_data_already_present,
+                })}
               />
             }
             renderSectionHeader={({
@@ -351,7 +416,7 @@ export default function Detail() {
           disabled={!diffData || diffData.notOnDeviceSectionList.length <= 0}
           onPress={handlerImport}
         >
-          Import
+          {intl.formatMessage({ id: ETranslations.global_import })}
         </Button>
       </Page.Body>
     </Page>
