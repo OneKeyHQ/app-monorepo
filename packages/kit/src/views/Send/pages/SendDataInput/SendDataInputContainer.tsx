@@ -7,6 +7,7 @@ import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Form,
   Input,
   Page,
@@ -49,6 +50,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -84,7 +86,7 @@ function SendDataInputContainer() {
   const sendConfirm = useSendConfirm({ accountId, networkId });
 
   const {
-    result: [tokenDetails, nftDetails, vaultSettings] = [],
+    result: [tokenDetails, nftDetails, vaultSettings, hasFrozenBalance] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
@@ -125,6 +127,8 @@ function SendDataInputContainer() {
             networkId,
           }),
           contractList: [tokenInfo.address],
+          withFrozenBalance: true,
+          withCheckInscription: settings.inscriptionProtection,
         });
       }
 
@@ -132,7 +136,13 @@ function SendDataInputContainer() {
         networkId,
       });
 
-      return [tokenResp?.[0], nftResp?.[0], vs];
+      const frozenBalanceSettings =
+        await backgroundApiProxy.serviceSend.getFrozenBalanceSetting({
+          networkId,
+          tokenDetails: tokenResp?.[0],
+        });
+
+      return [tokenResp?.[0], nftResp?.[0], vs, frozenBalanceSettings];
     },
     [
       account,
@@ -145,6 +155,7 @@ function SendDataInputContainer() {
       serviceToken,
       token,
       tokenInfo,
+      settings.inscriptionProtection,
     ],
     { watchLoading: true, alwaysSetState: true },
   );
@@ -404,13 +415,25 @@ function SendDataInputContainer() {
     displayAmountFormItem,
   ]);
 
-  const maxAmount = useMemo(
-    () =>
-      isUseFiat
-        ? tokenDetails?.fiatValue ?? '0'
-        : tokenDetails?.balanceParsed ?? '0',
-    [isUseFiat, tokenDetails?.balanceParsed, tokenDetails?.fiatValue],
-  );
+  const maxAmount = useMemo(() => {
+    if (isUseFiat) {
+      if (hasFrozenBalance) {
+        return tokenDetails?.availableBalanceFiatValue ?? '0';
+      }
+      return tokenDetails?.fiatValue ?? '0';
+    }
+    if (hasFrozenBalance) {
+      return tokenDetails?.availableBalanceParsed ?? '0';
+    }
+    return tokenDetails?.balanceParsed ?? '0';
+  }, [
+    isUseFiat,
+    tokenDetails?.balanceParsed,
+    tokenDetails?.availableBalanceParsed,
+    tokenDetails?.fiatValue,
+    tokenDetails?.availableBalanceFiatValue,
+    hasFrozenBalance,
+  ]);
 
   const renderTokenDataInputForm = useCallback(
     () => (
@@ -530,12 +553,42 @@ function SendDataInputContainer() {
     return null;
   }, [form, intl, isLoadingAssets, nft?.collectionType, nftDetails?.amount]);
 
+  const renderFrozenBalance = useCallback(() => {
+    if (!hasFrozenBalance) {
+      return false;
+    }
+    return (
+      <XStack py="$2" flex={1}>
+        <Alert
+          flex={1}
+          icon="CoinOutline"
+          title={intl.formatMessage({
+            id: ETranslations.send_description_frozen_funds_info,
+          })}
+          action={{
+            primary: 'View',
+            onPrimaryPress: () =>
+              showBalanceDetailsDialog({
+                accountId,
+                networkId,
+              }),
+          }}
+        />
+      </XStack>
+    );
+  }, [intl, hasFrozenBalance, accountId, networkId]);
+
   const renderDataInput = useCallback(() => {
     if (isNFT) {
       return renderNFTDataInputForm();
     }
     if (displayAmountFormItem) {
-      return renderTokenDataInputForm();
+      return (
+        <>
+          {renderTokenDataInputForm()}
+          {renderFrozenBalance()}
+        </>
+      );
     }
     return null;
   }, [
@@ -543,6 +596,7 @@ function SendDataInputContainer() {
     isNFT,
     renderNFTDataInputForm,
     renderTokenDataInputForm,
+    renderFrozenBalance,
   ]);
 
   return (

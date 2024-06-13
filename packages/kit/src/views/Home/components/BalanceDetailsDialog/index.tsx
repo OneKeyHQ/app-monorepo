@@ -143,7 +143,9 @@ function BalanceDetailsContent({
         {networkUtils.isBTCNetwork(networkId) ? (
           <XStack py="$2" justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyLgMedium">
-              Inscription Protection
+              {appLocale.intl.formatMessage({
+                id: ETranslations.balance_detail_frozen_by_inscription,
+              })}
             </SizableText>
             <Switch
               size={ESwitchSize.large}

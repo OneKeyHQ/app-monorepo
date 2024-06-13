@@ -296,6 +296,12 @@ class ServiceSetting extends ServiceBase {
       }
     }
   }
+
+  @backgroundMethod()
+  public async getInscriptionProtection() {
+    const { inscriptionProtection } = await settingsPersistAtom.get();
+    return inscriptionProtection;
+  }
 }
 
 export default ServiceSetting;
