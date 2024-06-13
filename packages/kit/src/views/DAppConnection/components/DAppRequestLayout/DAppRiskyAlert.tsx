@@ -2,11 +2,10 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Alert, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import type { IAlertType } from '@onekeyhq/components/src/actions/Alert';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EHostSecurityLevel,
   type IHostSecurity,

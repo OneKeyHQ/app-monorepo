@@ -7,12 +7,11 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../../pages/Browser/WithBrowserProvider';
-
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ICustomHeaderTitleProps {
   handleSearchBarPress: (url: string) => void;

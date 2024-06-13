@@ -1,5 +1,5 @@
-import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { IWalletConnectConnectToWalletParams } from '../walletConnect/types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export enum EOnboardingPages {
   GetStarted = 'GetStarted',
