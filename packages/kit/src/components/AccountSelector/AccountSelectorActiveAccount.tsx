@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   SizableText,
@@ -8,6 +10,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -20,6 +23,7 @@ import {
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
+  const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
   const { account, wallet, network, deriveType, deriveInfo } = activeAccount;
@@ -79,7 +83,9 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   if (account?.address) {
     return (
       <Tooltip
-        renderContent="Copy Address"
+        renderContent={intl.formatMessage({
+          id: ETranslations.global_copy_address,
+        })}
         placement="top"
         renderTrigger={
           <XStack
