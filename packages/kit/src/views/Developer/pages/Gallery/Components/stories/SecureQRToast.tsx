@@ -1,4 +1,5 @@
-import { Button, SecureQRToast } from '@onekeyhq/components';
+import { Button } from '@onekeyhq/components';
+import { SecureQRToast } from '@onekeyhq/kit/src/components/SecureQRToast';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 
 import { Layout } from './utils/Layout';
