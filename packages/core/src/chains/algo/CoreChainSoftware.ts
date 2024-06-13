@@ -64,13 +64,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
     const {
-      // networkInfo,
-      // privateKeySource,
+      networkInfo,
+
       password,
       keyType,
       credentials,
-      // xpub,
-      // addressEncoding,
+      addressEncoding,
     } = query;
     console.log(
       'ExportSecretKeys >>>> algo',
