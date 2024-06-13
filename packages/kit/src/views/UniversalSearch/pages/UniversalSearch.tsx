@@ -284,8 +284,12 @@ export function UniversalSearch({
             ListEmptyComponent={
               <Empty
                 icon="SearchOutline"
-                title="No Results"
-                description="Try to change the search keyword"
+                title={intl.formatMessage({
+                  id: ETranslations.global_no_results,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.global_search_no_results_desc,
+                })}
               />
             }
             renderItem={renderItem}

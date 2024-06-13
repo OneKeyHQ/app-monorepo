@@ -34,6 +34,7 @@ import type {
   IV4MigrationHdCredential,
   IV4MigrationImportedCredential,
   IV4MigrationWallet,
+  IV4RunWalletMigrationParams,
 } from './types';
 import type {
   IV4DBAccount,
@@ -168,7 +169,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     const v4WalletsResult = await v4dbHubs.v4localDb.getAllRecords({
       name: EV4LocalDBStoreNames.Wallet,
     });
-    const v4wallets = v4WalletsResult.records;
+    const v4wallets = v4WalletsResult.records || [];
     const result: IV4MigrationWallet[] = [];
     for (const v4wallet of v4wallets) {
       v4wallet.accounts = v4wallet.accounts || [];
@@ -185,6 +186,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         isHw: accountUtils.isHwWallet({ walletId: v4wallet.id }),
         isImported: accountUtils.isImportedWallet({ walletId: v4wallet.id }),
         isWatching: accountUtils.isWatchingWallet({ walletId: v4wallet.id }),
+        isExternal: accountUtils.isExternalWallet({ walletId: v4wallet.id }),
         // accounts: v4accounts,
       });
     }
@@ -209,6 +211,12 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         }
         return a.wallet.type === WALLET_TYPE_HD ? -1 : 1;
       });
+
+    // v4walletsForBackup[0].wallet.accounts = [];
+    // v4walletsForBackup[1].wallet.accounts = [];
+    // v4walletsForBackup[2].wallet.accounts = [];
+
+    // return [];
     return v4walletsForBackup;
   }
 
@@ -272,7 +280,10 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     });
   }
 
-  async migrateWatchingAccounts({ v4wallet }: { v4wallet: IV4DBWallet }) {
+  async migrateWatchingAccounts({
+    v4wallet,
+    onAccountMigrated,
+  }: IV4RunWalletMigrationParams) {
     const { serviceAccount, servicePassword, serviceNetwork } =
       this.backgroundApi;
     const v4accounts = await this.getV4AccountsOfWallet({
@@ -298,7 +309,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
 
         for (const deriveType of deriveTypes) {
           // TODO save error log if failed
-          await serviceAccount.addWatchingAccount({
+          const result = await serviceAccount.addWatchingAccount({
             input,
             name: v4account.name,
             networkId,
@@ -306,12 +317,18 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             isUrlAccount: false,
             skipAddIfNotEqualToAddress: v4account.address,
           });
+          if (result?.accounts?.[0]) {
+            onAccountMigrated(result?.accounts?.[0]);
+          }
         }
       }
     }
   }
 
-  async migrateImportedAccounts({ v4wallet }: { v4wallet: IV4DBWallet }) {
+  async migrateImportedAccounts({
+    v4wallet,
+    onAccountMigrated,
+  }: IV4RunWalletMigrationParams) {
     const { serviceAccount, servicePassword, serviceNetwork } =
       this.backgroundApi;
     const v4ImportedAccounts = await this.getV4AccountsOfWallet({
@@ -335,7 +352,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           },
         );
         for (const deriveType of deriveTypes) {
-          await serviceAccount.addImportedAccountWithCredential({
+          const result = await serviceAccount.addImportedAccountWithCredential({
             credential: await servicePassword.encodeSensitiveText({
               text: v4privateKey,
             }),
@@ -344,12 +361,19 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             deriveType,
             skipAddIfNotEqualToAddress: v4account.address,
           });
+          if (result?.accounts?.[0]) {
+            onAccountMigrated(result?.accounts?.[0]);
+          }
         }
       }
     }
   }
 
-  async migrateHwWallet({ v4wallet }: { v4wallet: IV4DBWallet }) {
+  async migrateHwWallet({
+    v4wallet,
+    onAccountMigrated,
+    onWalletMigrated,
+  }: IV4RunWalletMigrationParams) {
     const { serviceAccount, servicePassword, serviceNetwork } =
       this.backgroundApi;
     let v4device: IV4DBDevice | undefined;
@@ -379,6 +403,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             features: v5dbDevice.featuresInfo || ({} as any),
             passphraseState: v4wallet.passphraseState,
           }));
+          onWalletMigrated(v5wallet);
         } else {
           ({ wallet: v5wallet } = await serviceAccount.createHWWalletBase({
             name: v4wallet.name,
@@ -386,6 +411,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
             device: v5dbDevice,
             isFirmwareVerified: false, // TODO v4 isFirmwareVerified
           }));
+          onWalletMigrated(v5wallet);
         }
 
         const v4accounts: IV4DBAccount[] = await this.getV4AccountsOfWallet({
@@ -438,6 +464,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 walletId: v5wallet.id,
                 accounts: [v5account],
               });
+              onAccountMigrated(v5account);
             }
           }
         }
@@ -445,7 +472,11 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     }
   }
 
-  async migrateHdWallet({ v4wallet }: { v4wallet: IV4DBWallet }) {
+  async migrateHdWallet({
+    v4wallet,
+    onAccountMigrated,
+    onWalletMigrated,
+  }: IV4RunWalletMigrationParams) {
     const { serviceAccount, servicePassword, serviceNetwork } =
       this.backgroundApi;
     const { mnemonic } = await this.revealV4HdMnemonic({
@@ -457,6 +488,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         text: mnemonic,
       }),
     });
+    onWalletMigrated(v5wallet);
     const v4accounts: IV4DBAccount[] = await this.getV4AccountsOfWallet({
       v4wallet,
     });
@@ -476,7 +508,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
       if (prepareResult) {
         const { networkId, index, deriveType } = prepareResult;
         // TODO add addressMap to DB
-        await serviceAccount.addHDOrHWAccounts({
+        const result = await serviceAccount.addHDOrHWAccounts({
           walletId: v5wallet.id,
           networkId,
           indexes: [index],
@@ -485,6 +517,9 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           skipDeviceCancel: true,
           hideCheckingDeviceLoading: true,
         });
+        if (result?.accounts?.[0]) {
+          onAccountMigrated(result?.accounts?.[0]);
+        }
       }
     }
     // TODO get deriveType and networkId by coinType

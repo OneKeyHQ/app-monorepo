@@ -84,7 +84,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   ): Promise<string> {
     const {
       // networkInfo,
-      // privateKeySource,
+
       password,
       keyType,
       credentials,

@@ -13,6 +13,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import { IToken } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
   ISendTxBaseParams,
@@ -476,6 +478,27 @@ class ServiceSend extends ServiceBase {
     });
 
     return resp.data.data.transactionMap;
+  }
+
+  @backgroundMethod()
+  async getFrozenBalanceSetting({
+    networkId,
+    tokenDetails,
+  }: {
+    networkId: string;
+    tokenDetails?: IFetchTokenDetailItem;
+  }) {
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({
+        networkId,
+      });
+    if (!vaultSettings.hasFrozenBalance) {
+      return false;
+    }
+    if (tokenDetails?.info) {
+      return tokenDetails.info.isNative;
+    }
+    return vaultSettings.hasFrozenBalance;
   }
 }
 

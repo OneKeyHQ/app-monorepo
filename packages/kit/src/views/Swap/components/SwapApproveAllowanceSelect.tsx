@@ -1,5 +1,7 @@
 import { memo, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { ISelectItem } from '@onekeyhq/components';
 import {
   Icon,
@@ -9,6 +11,7 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ISwapApproveAllowanceSelectProps {
   onSelectAllowanceValue: (value: string) => void;
@@ -24,6 +27,7 @@ const SwapApproveAllowanceSelect = ({
   onSelectOpenChange,
   isLoading,
 }: ISwapApproveAllowanceSelectProps) => {
+  const intl = useIntl();
   const renderTrigger = useCallback(() => {
     if (isLoading)
       return (
@@ -54,7 +58,9 @@ const SwapApproveAllowanceSelect = ({
   return (
     <XStack justifyContent="space-between">
       <SizableText size="$bodyMd" color="$textSubdued">
-        Authorization limit
+        {intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_amount,
+        })}
       </SizableText>
       <Select
         placement="bottom-end"
@@ -64,7 +70,9 @@ const SwapApproveAllowanceSelect = ({
           onSelectAllowanceValue(value);
         }}
         onOpenChange={onSelectOpenChange}
-        title="Authorization limit"
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_amount,
+        })}
         renderTrigger={renderTrigger}
       />
     </XStack>

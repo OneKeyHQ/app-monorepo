@@ -668,6 +668,7 @@ export { default as ShareScreen } from './ShareScreen';
 export { default as Share } from './Share';
 export { default as ShieldCheckDone } from './ShieldCheckDone';
 export { default as ShieldFailure } from './ShieldFailure';
+export { default as ShieldKeyhole } from './ShieldKeyhole';
 export { default as Shield } from './Shield';
 export { default as Shield2Check } from './Shield2Check';
 export { default as Shield2Off } from './Shield2Off';

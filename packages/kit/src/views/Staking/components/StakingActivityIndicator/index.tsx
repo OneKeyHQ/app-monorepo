@@ -1,30 +1,48 @@
 import { useCallback, useEffect } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
-import { Badge, IconButton } from '@onekeyhq/components';
+import { Badge, IconButton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeTag } from '@onekeyhq/shared/types/staking';
 
 type IStakingActivityIndicatorProps = {
-  isPending?: boolean;
+  num: number;
   onPress?: () => void;
 };
 
+const PendingIndicator = ({ num, onPress }: IStakingActivityIndicatorProps) => {
+  const intl = useIntl();
+  return (
+    <Badge badgeType="info" badgeSize="lg" onPress={onPress}>
+      <Stack borderRadius="$full" p={3} bg="$borderInfo">
+        <Stack w="$1.5" h="$1.5" borderRadius="$full" bg="$iconInfo" />
+      </Stack>
+      <Badge.Text pl="$2">
+        {num > 1
+          ? `${num} ${intl.formatMessage({
+              id: ETranslations.global_pending,
+            })} `
+          : intl.formatMessage({ id: ETranslations.global_pending })}
+      </Badge.Text>
+    </Badge>
+  );
+};
+
 const StakingActivityIndicator = ({
-  isPending,
+  num,
   onPress,
 }: IStakingActivityIndicatorProps) => {
   const appNavigation = useAppNavigation();
   const headerRight = useCallback(
     () =>
-      isPending ? (
-        <Badge badgeType="info" badgeSize="lg" onPress={onPress}>
-          Pending
-        </Badge>
+      num > 0 ? (
+        <PendingIndicator num={num} onPress={onPress} />
       ) : (
         <IconButton
           variant="tertiary"
@@ -33,13 +51,13 @@ const StakingActivityIndicator = ({
           onPress={onPress}
         />
       ),
-    [isPending, onPress],
+    [num, onPress],
   );
   useEffect(() => {
     appNavigation.setOptions({
       headerRight,
     });
-  }, [appNavigation, headerRight, isPending]);
+  }, [appNavigation, headerRight, num]);
   return null;
 };
 
@@ -56,20 +74,17 @@ export const StakingTransactionIndicator = ({
   onRefresh?: () => void;
   onPress?: () => void;
 }) => {
-  const { result: isPending, run } = usePromiseResult(
-    async () => {
-      const txs =
-        await backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
-          accountId,
-          networkId,
-          stakeTag,
-        });
-      return txs.length > 0;
-    },
+  const { result: txs, run } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceStaking.fetchLocalStakingHistory({
+        accountId,
+        networkId,
+        stakeTag,
+      }),
     [accountId, networkId, stakeTag],
-    { initResult: false },
+    { initResult: [] },
   );
-
+  const isPending = txs.length > 0;
   const prevIsPending = usePrevious(isPending);
 
   const isFocused = useIsFocused();
@@ -97,5 +112,5 @@ export const StakingTransactionIndicator = ({
     }
   }, [prevIsPending, isPending, onRefresh]);
 
-  return <StakingActivityIndicator isPending={isPending} onPress={onPress} />;
+  return <StakingActivityIndicator num={txs.length} onPress={onPress} />;
 };

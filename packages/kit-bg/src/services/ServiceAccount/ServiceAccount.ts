@@ -12,12 +12,6 @@ import {
   validateMnemonic,
 } from '@onekeyhq/core/src/secret';
 import type { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
-import type { IAirGapMultiAccounts } from '@onekeyhq/qr-wallet-sdk';
-import {
-  EAirGapURType,
-  airGapUrUtils,
-  getAirGapSdk,
-} from '@onekeyhq/qr-wallet-sdk';
 import {
   backgroundClass,
   backgroundMethod,
@@ -43,16 +37,12 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
-import type {
-  IDeviceSharedCallParams,
-  IQrWalletDevice,
-} from '@onekeyhq/shared/types/device';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 import type { IExternalConnectWalletResult } from '@onekeyhq/shared/types/externalWallet.types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -87,11 +77,6 @@ import type {
   IPrepareWatchingAccountsParams,
   IValidateGeneralInputParams,
 } from '../../vaults/types';
-import type {
-  IAnimationValue,
-  IBaseValue,
-  IQRCodeHandlerParseResult,
-} from '../ServiceScanQRCode/utils/parseQRCode/type';
 
 export type IAddHDOrHWAccountsParams = {
   walletId: string | undefined;
@@ -602,7 +587,11 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
     skipAddIfNotEqualToAddress?: string;
-  }) {
+  }): Promise<{
+    networkId: string;
+    walletId: string;
+    accounts: IDBAccount[];
+  }> {
     const walletId = WALLET_TYPE_IMPORTED;
     const vault = await vaultFactory.getWalletOnlyVault({
       networkId,
@@ -784,7 +773,11 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes | undefined;
     isUrlAccount?: boolean;
     skipAddIfNotEqualToAddress?: string;
-  }) {
+  }): Promise<{
+    networkId: string;
+    walletId: string;
+    accounts: IDBAccount[];
+  }> {
     const walletId = WALLET_TYPE_WATCHING;
 
     const network = await this.backgroundApi.serviceNetwork.getNetwork({
