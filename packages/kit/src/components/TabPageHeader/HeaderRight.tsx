@@ -98,6 +98,7 @@ export function HeaderRight({
 
     return [scanButton, settingsButton, searchInput];
   }, [
+    intl,
     media.gtMd,
     onScanButtonPressed,
     openExtensionExpandTab,
