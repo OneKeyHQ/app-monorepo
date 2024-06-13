@@ -15,7 +15,7 @@ export function Video(rawProps: IVideoProps) {
       autoPlay
       style={style as any}
       {...(props as any)}
-      src={source}
+      src={typeof source === 'string' ? source : source?.uri}
       loop={repeat}
     />
   );

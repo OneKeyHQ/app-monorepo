@@ -1,6 +1,8 @@
+import { useState } from 'react';
+
 import BigNumber from 'bignumber.js';
 
-import { Image, SizableText, Stack } from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack, Video } from '@onekeyhq/components';
 import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 type IProps = {
@@ -9,6 +11,7 @@ type IProps = {
 
 function CommonAssetImage(props: IProps) {
   const { nft } = props;
+  const [isVideo, setIsVideo] = useState<boolean>(true);
   return (
     <>
       <Image
@@ -20,7 +23,28 @@ function CommonAssetImage(props: IProps) {
         style={{
           borderRadius: 12,
         }}
-      />
+      >
+        {isVideo ? (
+          <Video
+            source={{ uri: nft.metadata?.image }}
+            controls
+            onError={() => setIsVideo(false)}
+            style={{
+              width: '100%',
+              height: '100%',
+            }}
+          />
+        ) : (
+          <Image.Source src={nft.metadata?.image} />
+        )}
+        <Image.Fallback
+          bg="$bgStrong"
+          justifyContent="center"
+          alignItems="center"
+        >
+          <Icon name="ImageSquareWavesOutline" color="$iconDisabled" />
+        </Image.Fallback>
+      </Image>
 
       {nft.collectionType === ENFTType.ERC1155 &&
       new BigNumber(nft.amount ?? 1).gt(1) ? (
