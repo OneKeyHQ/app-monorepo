@@ -18,6 +18,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -36,8 +37,6 @@ import {
 } from '../../hooks/useWebTabs';
 import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
-
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
