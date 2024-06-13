@@ -1,6 +1,7 @@
 {
   "account_model.watched": "شاهد",
   "action_save": "حفظ",
+  "address.verify_address_instruction": "تحقق على الجهاز لمنع هجمات استبدال العنوان",
   "address_book.button_close": "إغلاق",
   "address_book.button_copy": "نسخ",
   "address_book.button_next": "التالي",
@@ -87,7 +88,7 @@
   "backup.no_available_google_drive_backups_to_import": "ليس لديك نسخ احتياطية متاحة من Google Drive للقيام بالاستيراد.",
   "backup.no_available_icloud_backups_to_import": "ليس لديك نسخ احتياطية متاحة من iCloud للاستيراد.",
   "backup.no_data": "لا يوجد بيانات",
-  "backup.number_wallets_number_accounts": "{number0} محافظ · {number1} حسابات",
+  "backup.number_wallets_number_accounts": "{number} محافظ · {number} حسابات",
   "backup.off_device": "خارج الجهاز ( {number} )",
   "backup.on_device": "على الجهاز",
   "backup.onekey_doesnt_back_up_hardware_wallets": "OneKey لا يقوم بنسخ احتياطي لمحافظ الأجهزة، يرجى تسجيل وحماية عبارة الاستعادة الخاصة بك.",
@@ -112,7 +113,7 @@
   "balance_detail.enable_protection_title": "تمكين حماية التسجيل",
   "balance_detail.enable_protection_warning": "أصول التسجيل (NFT ورموز BRC-20) غير مدعومة حاليا. لعرض تفاصيل الحماية، تحقق من \"تفاصيل الرصيد\". لنقل أصول التسجيل الخاصة بك بأمان، يرجى استخدام محفظة متوافقة مع التسجيل مثل Unisat أو OKX.",
   "balance_detail.frozen": "مجمد",
-  "balance_detail.frozen_by_inscription": "مجمد بواسطة حماية النقش",
+  "balance_detail.frozen_by_inscription": "حماية التسجيل",
   "balance_detail.how_to_migrate": "كيفية ترحيل الرموز المميزة NFT / BRC-20؟",
   "balance_detail.spendable": "قابل للإنفاق",
   "balance_detail.total": "المجموع",
@@ -371,6 +372,8 @@
   "faq.recovery_phrase_safe_store_desc": "نعم، يتم تخزينه محليًا ولن يغادر جهازك إلا بإذن صريح منك.",
   "faq.watched_account": "الحساب المراقب",
   "faq.watched_account_desc": "الحساب المراقب في OneKey يتيح مراقبة عنوان معين ولكنه لا يمكن أن يرسل أو يستقبل الأموال. إنه مفيد لتتبع المعاملات أو مراقبة الأمتلاكات.",
+  "feedback.address_mismatch": "عدم تطابق العنوان",
+  "feedback.address_mismatch_desc": "العنوان لا يتطابق مع المحفظة الصلبة. توقف عن استخدام هذا العنوان فورًا واتصل بنا.",
   "feedback.bluetooth_pairing_failed": "فشل في الإقتران بالبلوتوث",
   "feedback.bluetooth_unparied": "تم فصل البلوتوث",
   "feedback.change_saved": "تم حفظ التغيير",
@@ -611,7 +614,7 @@
   "global.url": "URL",
   "global.value": "القيمة",
   "global.verify": "تحقق",
-  "global.verify_on_device": "Verify on device",
+  "global.verify_on_device": "تحقق على الجهاز",
   "global.version_is_available": "الإصدار {version} متاح الآن",
   "global.view": "عرض",
   "global.view_in_blockchain_explorer": "عرض في مستكشف البلوكشين",
@@ -781,6 +784,10 @@
   "onboarding.verify_recovery_phrase_title": "تحقق من عبارة الاستعادة الخاصة بك",
   "onboarding.welcome_description": "إدارة العملات المشفرة بسهولة وأمان",
   "onboarding.welcome_message": "مرحبًا بك في OneKey",
+  "p2pkh_desc": "يبدأ بـ '1'",
+  "p2sh_p2wpkh_desc": "يبدأ بـ 'bc1q'",
+  "p2tr_desc": "يبدأ بـ 'bc1p'",
+  "p2wpkh_desc": "يبدأ بـ '3'",
   "provider.amount_received": "{amount} {token}",
   "provider.fee": "$0.16 ",
   "provider.label_fastest": "الأسرع",
@@ -802,6 +809,10 @@
   "provider.title": "اختر المزود",
   "provider.token_not_supported": "الرمز غير مدعوم",
   "provider.unavailable": "غير متوفر",
+  "receive.address_unconfimed_alert_message": "العنوان غير مؤكد. قم بالتحقق لضمان الأمان.",
+  "receive.hide_unverified_address": "إخفاء العنوان غير المتحقق منه",
+  "receive.send_asset_warning_message": "يمكن إرسال الأصول فقط داخل نفس الشبكة",
+  "receive.show_address_any": "عرض العنوان على أي حال",
   "remove_account_desc": "سيتم إزالة هذا الحساب.",
   "remove_device": "إزالة الجهاز",
   "remove_device_desc": "سيؤدي هذا إلى حذف بياناتك بشكل دائم. ولكن لا يزال بإمكانك استعادتها من المحفظة الصلبة التي تم تحميل عبارة الاستعادة لهذه المحفظة.",
@@ -865,7 +876,7 @@
   "settings.backup_recovery_phrase_to_onekey_lite": "احفظ عبارة الاستعادة الخاصة بك في OneKey Lite",
   "settings.backup_with_onekey_keytag": "النسخ الاحتياطي باستخدام OneKey KeyTag",
   "settings.browser_cache": "ذاكرة التخزين المؤقت للمتصفح",
-  "settings.browser_history_bookmarks_pins": "تاريخ التصفح، العلامات المرجعية، الدبابيس",
+  "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "تاريخ التصفح، العلامات المرجعية، الدبابيس، القائمة البيضاء لتطبيقات الدفع المتقدمة",
   "settings.change_pin": "تغيير PIN",
   "settings.clear_browser_cache": "مسح ذاكرة التخزين المؤقت للمتصفح",
   "settings.clear_browser_cache_desc": "افتح هذا الرابط في متصفحك لمسح الذاكرة المؤقتة:chrome://settings/clearBrowserData",
@@ -1065,6 +1076,7 @@
   "update.all_other_apps_closed": "تم إغلاق جميع التطبيقات الأخرى من OneKey وأدوات الترقية عبر الويب.",
   "update.all_other_apps_closed_emoji": "تم إغلاق جميع التطبيقات الأخرى من OneKey وأدوات الترقية على الويب. 🆗",
   "update.all_updates_complete": "تم الانتهاء من جميع التحديثات 👏🏻",
+  "update.app_update": "تحديث التطبيق",
   "update.app_version_ready_for_update": "التطبيق {version} جاهز للتحديث",
   "update.bluetooth_version_available": "البلوتوث {version} متاح",
   "update.bridge_network_error": "خطأ في شبكة الجسر",
@@ -1150,7 +1162,7 @@
   "update.update_required_desc": "إصدار محفظتك الأجهزة قديم ويجب تحديثه للمتابعة.",
   "update.update_resource_failed": "فشل تحديث المورد",
   "update.update_ui_resources_success": "تم تحديث موارد واجهة المستخدم بنجاح",
-  "update.updated_to_latest_version": "تم التحديث إلى الإصدار الأحدث {version}",
+  "update.updated_to_latest_version": "تم التحديث إلى الإصدار الأحدث {}",
   "update.updating_bootloader": "تحديث البوتلودر",
   "update.updating_ui_resources": "جاري تحديث موارد واجهة المستخدم...",
   "update.verify_status_and_continue": "تحقق من الحالة واستمر",
