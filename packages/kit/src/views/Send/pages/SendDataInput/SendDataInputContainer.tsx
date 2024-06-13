@@ -119,6 +119,15 @@ function SendDataInputContainer() {
           ],
         });
       } else if (!isNFT && tokenInfo) {
+        const checkInscriptionProtectionEnabled =
+          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+            {
+              networkId,
+              accountId,
+            },
+          );
+        const withCheckInscription =
+          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
         tokenResp = await serviceToken.fetchTokensDetails({
           networkId,
           accountAddress,
@@ -128,7 +137,7 @@ function SendDataInputContainer() {
           }),
           contractList: [tokenInfo.address],
           withFrozenBalance: true,
-          withCheckInscription: settings.inscriptionProtection,
+          withCheckInscription,
         });
       }
 

@@ -18,7 +18,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
@@ -35,6 +34,7 @@ function BalanceDetailsContent({
     result: {
       overview = {} as IFetchAccountDetailsResp,
       network = {} as IServerNetwork,
+      inscriptionEnabled = false,
     } = {},
     isLoading,
   } = usePromiseResult(
@@ -48,6 +48,15 @@ function BalanceDetailsContent({
       const n = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
       });
+      const checkInscriptionProtectionEnabled =
+        await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+          {
+            networkId,
+            accountId,
+          },
+        );
+      const withCheckInscription =
+        checkInscriptionProtectionEnabled && settings.inscriptionProtection;
       const r =
         await backgroundApiProxy.serviceAccountProfile.fetchAccountDetails({
           networkId,
@@ -57,10 +66,14 @@ function BalanceDetailsContent({
             networkId,
           }),
           withNonce: false,
-          withCheckInscription: settings.inscriptionProtection,
           withFrozenBalance: true,
+          withCheckInscription,
         });
-      return { overview: r, network: n };
+      return {
+        overview: r,
+        network: n,
+        inscriptionEnabled: checkInscriptionProtectionEnabled,
+      };
     },
     [accountId, networkId, settings.inscriptionProtection],
     {
@@ -140,7 +153,7 @@ function BalanceDetailsContent({
             </NumberSizeableText>
           )}
         </XStack>
-        {networkUtils.isBTCNetwork(networkId) ? (
+        {inscriptionEnabled ? (
           <XStack py="$2" justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyLgMedium">
               {appLocale.intl.formatMessage({
