@@ -1,8 +1,15 @@
-import type { IWalletConnectConnectToWalletParams } from '../walletConnect/types';
 import type { IDeviceType } from '@onekeyfe/hd-core';
+import type { IWalletConnectConnectToWalletParams } from '../walletConnect/types';
 
 export enum EOnboardingPages {
   GetStarted = 'GetStarted',
+
+  // v4 migration
+  V4MigrationGetStarted = 'V4MigrationGetStarted',
+  V4MigrationPreview = 'V4MigrationPreview',
+  V4MigrationProcess = 'V4MigrationProcess',
+  V4MigrationDone = 'V4MigrationDone',
+
   // connect hardware wallet
   ConnectYourDevice = 'ConnectYourDevice',
   OneKeyHardwareWallet = 'OneKeyHardwareWallet',
@@ -33,6 +40,13 @@ export type IOnboardingParamList = {
   [EOnboardingPages.GetStarted]: {
     showCloseButton?: boolean;
   };
+
+  // v4 migration
+  [EOnboardingPages.V4MigrationGetStarted]: undefined;
+  [EOnboardingPages.V4MigrationPreview]: undefined;
+  [EOnboardingPages.V4MigrationProcess]: undefined;
+  [EOnboardingPages.V4MigrationDone]: undefined;
+
   // connect hardware wallet
   [EOnboardingPages.ConnectYourDevice]: undefined;
   [EOnboardingPages.OneKeyHardwareWallet]: undefined;

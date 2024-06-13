@@ -120,6 +120,13 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       showParams: true,
     },
 
+    // Developer Pages
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Developer}${ETabDeveloperRoutes.TabDeveloper}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+
     // Settings Pages
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
       {
