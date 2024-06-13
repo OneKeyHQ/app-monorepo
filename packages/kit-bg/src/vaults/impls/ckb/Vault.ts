@@ -258,8 +258,10 @@ export default class Vault extends VaultBase {
       ) {
         const miniAmount = new BigNumber(
           minimalCellCapacityCompatible(lastOutput).toString(),
-        ).toFixed();
-        throw new OneKeyError(
+        )
+          .shiftedBy(-network.decimals)
+          .toFixed();
+        throw new Error(
           `The balance after the transaction must not be less than ${miniAmount}`,
         );
       }
