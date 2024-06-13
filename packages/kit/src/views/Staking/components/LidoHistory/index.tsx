@@ -28,8 +28,16 @@ export const LidoHistory = ({ items }: ILidoHistoryProps) => {
       .sort((a, b) => b.data[0].timestamp - a.data[0].timestamp);
   }, [items]);
 
-  const renderItem = useCallback(
-    ({ item }: { item: ILidoHistoryItem }) => (
+  const renderItem = useCallback(({ item }: { item: ILidoHistoryItem }) => {
+    let primary = item.receive
+      ? { data: item.receive, symbol: '+' }
+      : undefined;
+    let secondary = item.send ? { data: item.send, symbol: '-' } : undefined;
+    if (!primary && secondary) {
+      primary = secondary;
+      secondary = undefined;
+    }
+    return (
       <ListItem
         avatarProps={{
           src: item.receive?.token.logoURI ?? item.send?.token.logoURI,
@@ -38,30 +46,35 @@ export const LidoHistory = ({ items }: ILidoHistoryProps) => {
         subtitle="Lido"
       >
         <YStack alignItems="flex-end">
-          {item.receive ? (
+          {primary ? (
             <NumberSizeableText
               size="$bodyLgMedium"
               formatter="balance"
-              formatterOptions={{ tokenSymbol: item.receive.token.symbol }}
+              formatterOptions={{
+                tokenSymbol: primary.data.token.symbol,
+                showPlusMinusSigns: true,
+              }}
             >
-              {`+${item.receive.amount}`}
+              {`${primary.symbol}${primary.data.amount}`}
             </NumberSizeableText>
           ) : null}
-          {item.send ? (
+          {secondary ? (
             <NumberSizeableText
               size="$bodyMd"
               formatter="balance"
               color="$textSubdued"
-              formatterOptions={{ tokenSymbol: item.send.token.symbol }}
+              formatterOptions={{
+                tokenSymbol: secondary.data.token.symbol,
+                showPlusMinusSigns: true,
+              }}
             >
-              {`-${item.send.amount}`}
+              {`${secondary.symbol}${secondary.data.amount}`}
             </NumberSizeableText>
           ) : null}
         </YStack>
       </ListItem>
-    ),
-    [],
-  );
+    );
+  }, []);
 
   const renderSectionHeader = useCallback(
     ({
