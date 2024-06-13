@@ -17,8 +17,14 @@ const SecureQRToastGallery = () => {
           element: (
             <Button
               onPress={() => {
-                SecureQRToast.show({
+                const toast = SecureQRToast.show({
                   value: 'https://onekey.so',
+                  onCancel: async () => {
+                    await toast.close();
+                  },
+                  onConfirm: async () => {
+                    await toast.close();
+                  },
                   onClose: () => {
                     console.log('onClose');
                   },
@@ -34,9 +40,15 @@ const SecureQRToastGallery = () => {
           element: (
             <Button
               onPress={() => {
-                SecureQRToast.show({
+                const toast = SecureQRToast.show({
                   value: 'https://onekey.so',
                   showQRCode: false,
+                  onCancel: async () => {
+                    await toast.close();
+                  },
+                  onConfirm: async () => {
+                    await toast.close();
+                  },
                   onClose: () => {
                     console.log('onClose');
                   },
@@ -48,17 +60,45 @@ const SecureQRToastGallery = () => {
           ),
         },
         {
+          title: 'SecureQRToast + showConfirmButton',
+          element: (
+            <Button
+              onPress={() => {
+                const toast = SecureQRToast.show({
+                  value: 'https://onekey.so',
+                  showConfirmButton: false,
+                  onCancel: async () => {
+                    await toast.close();
+                  },
+                  onClose: () => {
+                    console.log('onClose');
+                  },
+                });
+              }}
+            >
+              点击显示后续流程
+            </Button>
+          ),
+        },
+        {
           title: 'SecureQRToast + useScanQrCode',
           element: (
             <Button
               onPress={() => {
-                SecureQRToast.show({
+                const toast = SecureQRToast.show({
+                  title: 'AAA',
+                  message: 'BBBB',
+                  dismissOnOverlayPress: false,
                   value: 'https://onekey.so',
                   onConfirm: async () => {
+                    await toast.close();
                     await scanQrCode.start({
                       autoHandleResult: true,
                       handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
                     });
+                  },
+                  onCancel: async () => {
+                    await toast.close();
                   },
                   onClose: () => {
                     console.log('onClose');

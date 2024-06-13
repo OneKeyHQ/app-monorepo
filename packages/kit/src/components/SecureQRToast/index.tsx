@@ -18,12 +18,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const SecureQRToastBase = ({
   title,
+  message,
   value,
   valueUr,
   showQRCode,
   onConfirm,
   onConfirmText,
   onCancel,
+  showConfirmButton = true,
   drawType = 'line',
 }: {
   title?: string;
@@ -34,6 +36,7 @@ const SecureQRToastBase = ({
   onConfirm?: () => void;
   onConfirmText?: string;
   onCancel?: () => void;
+  showConfirmButton?: boolean;
 }) => {
   const intl = useIntl();
   const [show, setShow] = useState(showQRCode);
@@ -47,7 +50,7 @@ const SecureQRToastBase = ({
     onConfirm?.();
   }, [onConfirm]);
   return (
-    <YStack p="$5" tabIndex={-1}>
+    <YStack p="$5" tabIndex={-1} minWidth={353} $md={{ minWidth: 300 }}>
       <XStack ai="center" pb="$5">
         <SizableText size="$headingLg" flex={1}>
           {title || 'Confirm on device'}
@@ -85,15 +88,17 @@ const SecureQRToastBase = ({
         ) : null}
       </HeightTransition>
       <SizableText size="$bodyLg" pb="$5">
-        Scan the QR code with your device to verify the details.
+        {message || 'Scan the QR code with your device to verify the details.'}
       </SizableText>
       <XStack space="$2.5">
         <Button variant="secondary" onPress={handleCancel} flex={1}>
           {intl.formatMessage({ id: ETranslations.global_cancel })}
         </Button>
-        <Button variant="primary" onPress={handleConfirm} flex={1}>
-          {onConfirmText || 'Next'}
-        </Button>
+        {showConfirmButton ? (
+          <Button variant="primary" onPress={handleConfirm} flex={1}>
+            {onConfirmText || 'Next'}
+          </Button>
+        ) : null}
       </XStack>
     </YStack>
   );
@@ -102,16 +107,19 @@ const SecureQRToastBase = ({
 export const SecureQRToast = {
   show: ({
     title,
+    message,
     value,
     valueUr,
     showQRCode = true,
     onConfirm,
     onCancel,
-    onClose,
     drawType,
     onConfirmText,
+    showConfirmButton,
+    ...props
   }: {
     title?: string;
+    message?: string;
     valueUr?: IQRCodeProps['valueUr'];
     value?: string;
     showQRCode?: boolean;
@@ -119,12 +127,13 @@ export const SecureQRToast = {
     onConfirm?: () => void;
     onConfirmText?: string;
     onCancel?: () => void;
-    onClose?: IShowToasterProps['onClose'];
-  }) =>
+    showConfirmButton?: boolean;
+  } & IShowToasterProps) =>
     Toast.show({
       children: (
         <SecureQRToastBase
           title={title}
+          message={message}
           value={value}
           valueUr={valueUr}
           drawType={drawType}
@@ -132,8 +141,9 @@ export const SecureQRToast = {
           onConfirm={onConfirm}
           onConfirmText={onConfirmText}
           onCancel={onCancel}
+          showConfirmButton={showConfirmButton}
         />
       ),
-      onClose,
+      ...props,
     }),
 };
