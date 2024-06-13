@@ -53,7 +53,7 @@ export class InvalidPassphrase extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'InvalidPassphrase',
-        defaultKey: 'msg__hardware_device_passphrase_state_error',
+        defaultKey: ETranslations.hardware_device_passphrase_state_error,
       }),
     );
   }
@@ -66,7 +66,7 @@ export class DeviceNotOpenedPassphrase extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotOpenedPassphrase',
-        defaultKey: 'msg__hardware_not_opened_passphrase',
+        defaultKey: ETranslations.hardware_not_opened_passphrase,
         defaultAutoToast: true,
       }),
     );
@@ -80,7 +80,7 @@ export class DeviceOpenedPassphrase extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceOpenedPassphrase',
-        defaultKey: 'msg__hardware_opened_passphrase',
+        defaultKey: ETranslations.hardware_opened_passphrase,
       }),
     );
   }
@@ -107,7 +107,7 @@ export class UserCancelFromOutside extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UserCancelFromOutside',
-        defaultKey: ETranslations.global_cancel_confirm_on_device_feedback,
+        defaultKey: ETranslations.hardware_user_cancel_error,
         // defaultAutoToast: true,
       }),
     );
@@ -121,7 +121,7 @@ export class UnknownMethod extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'UnknownMethod',
-        defaultKey: 'msg__hardware_unknown_message_error',
+        defaultKey: ETranslations.hardware_unknown_message_error,
       }),
     );
   }
@@ -292,7 +292,7 @@ export class NeedBluetoothTurnedOn extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedBluetoothTurnedOn',
-        defaultKey: 'msg__hardware_bluetooth_need_turned_on_error',
+        defaultKey: ETranslations.hardware_bluetooth_need_turned_on_error,
       }),
     );
   }
@@ -306,7 +306,7 @@ export class NeedBluetoothPermissions extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedBluetoothPermissions',
-        defaultKey: 'msg__hardware_bluetooth_requires_permission_error',
+        defaultKey: ETranslations.hardware_bluetooth_requires_permission_error,
       }),
     );
   }
@@ -319,7 +319,7 @@ export class BleLocationServiceError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BleLocationServiceError',
-        defaultKey: 'msg__hardware_device_ble_location_disabled',
+        defaultKey: ETranslations.hardware_device_ble_location_disabled,
       }),
     );
   }
@@ -332,7 +332,7 @@ export class BleWriteCharacteristicError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BleWriteCharacteristicError',
-        defaultKey: 'msg__hardware_device_need_restart',
+        defaultKey: ETranslations.hardware_device_need_restart,
       }),
     );
   }
@@ -345,7 +345,7 @@ export class BleScanError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BleScanError',
-        defaultKey: 'msg__hardware_device_ble_scan_error',
+        defaultKey: ETranslations.hardware_device_ble_scan_error,
       }),
     );
   }
@@ -358,7 +358,7 @@ export class BleAlreadyConnectedError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'BleAlreadyConnectedError',
-        defaultKey: 'msg__hardware_device_ble_already_connected',
+        defaultKey: ETranslations.hardware_device_ble_already_connected,
       }),
     );
   }
@@ -371,7 +371,7 @@ export class OpenBlindSign extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OpenBlindSign',
-        defaultKey: 'msg__hardware_open_blind_sign_error',
+        defaultKey: ETranslations.hardware_open_blind_sign_error,
       }),
     );
   }
@@ -384,7 +384,7 @@ export class FirmwareVersionTooLow extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareVersionTooLow',
-        defaultKey: 'msg__hardware_version_need_upgrade_error',
+        defaultKey: ETranslations.hardware_version_need_upgrade_error,
       }),
     );
   }
@@ -431,7 +431,7 @@ export class FirmwareDownloadFailed extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareDownloadFailed',
-        defaultKey: 'msg__hardware_firmware_download_error',
+        defaultKey: ETranslations.hardware_firmware_download_error,
       }),
     );
   }
@@ -447,7 +447,7 @@ export class FirmwareUpdateManuallyEnterBoot extends OneKeyHardwareError {
       // You need to manually enter boot.
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareUpdateManuallyEnterBoot',
-        defaultKey: 'msg__hardware_manually_enter_boot',
+        defaultKey: ETranslations.hardware_manually_enter_boot,
         defaultAutoToast: true,
       }),
     );
@@ -463,7 +463,7 @@ export class FirmwareUpdateAutoEnterBootFailure extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareUpdateAutoEnterBootFailure',
-        defaultKey: 'msg__hardware_enter_boot_failure',
+        defaultKey: ETranslations.hardware_enter_boot_failure,
       }),
     );
   }
