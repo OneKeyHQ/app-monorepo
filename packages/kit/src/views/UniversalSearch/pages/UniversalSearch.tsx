@@ -287,7 +287,9 @@ export function UniversalSearch({
                 title={intl.formatMessage({
                   id: ETranslations.global_no_results,
                 })}
-                description="Try to change the search keyword"
+                description={intl.formatMessage({
+                  id: ETranslations.global_search_no_results_desc,
+                })}
               />
             }
             renderItem={renderItem}

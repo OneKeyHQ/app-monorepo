@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 
-import { Dialog, QRCode, Stack } from '@onekeyhq/components';
 import { EQRCodeHandlerNames } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -12,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { SecureQRToast } from '../../../components/SecureQRToast';
 import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
 
 export function QrcodeDialogContainer() {
@@ -23,12 +23,14 @@ export function QrcodeDialogContainer() {
   useEffect(() => {
     const fn = (event: IAppEventBusPayload[EAppEventBusNames.ShowQrcode]) => {
       const { drawType, valueUr, title } = event;
-      const dialog = Dialog.show({
-        title: title || 'Scan QR Code',
-        showConfirmButton: Boolean(event.promiseId),
+      const toast = SecureQRToast.show({
+        title,
+        valueUr,
+        drawType,
         onConfirmText: 'Next',
+        showConfirmButton: Boolean(event.promiseId),
         onConfirm: async () => {
-          await dialog.close({ flag: 'skipReject' });
+          await toast.close({ flag: 'skipReject' });
 
           try {
             const result = await startScan({
@@ -52,6 +54,9 @@ export function QrcodeDialogContainer() {
             }
           }
         },
+        onCancel: async () => {
+          await toast.close();
+        },
         onClose: async (params) => {
           if (event.promiseId && params?.flag !== 'skipReject') {
             await backgroundApiProxy.servicePromise.rejectCallback({
@@ -62,11 +67,6 @@ export function QrcodeDialogContainer() {
             });
           }
         },
-        renderContent: (
-          <Stack alignItems="center" justifyContent="center">
-            <QRCode size={300} valueUr={valueUr} drawType={drawType} />
-          </Stack>
-        ),
       });
     };
 
