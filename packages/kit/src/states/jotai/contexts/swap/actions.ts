@@ -320,7 +320,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               status: ESwapApproveTransactionStatus.CANCEL,
             };
           });
-          set(swapBuildTxFetchingAtom(), false);
+          // set(swapBuildTxFetchingAtom(), false);
         }
       } catch (e) {
         console.error(e);
