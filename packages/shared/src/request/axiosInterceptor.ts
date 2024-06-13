@@ -7,9 +7,14 @@ import { forEach } from 'lodash';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
-import { checkRequestIsOneKeyDomain, getRequestHeaders } from './Interceptor';
+import {
+  checkRequestIsOneKeyDomain,
+  getRequestHeaders,
+  normalizeHeaderKey,
+} from './Interceptor';
 
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import platformEnv from '../platformEnv';
 
 axios.interceptors.request.use(async (config) => {
   try {
@@ -40,6 +45,11 @@ axios.interceptors.response.use(async (response) => {
   const data = response.data as IOneKeyAPIBaseResponse;
 
   if (data.code !== 0) {
+    if (platformEnv.isDev) {
+      const requestIdKey = normalizeHeaderKey('X-Onekey-Request-ID');
+      console.error(requestIdKey, config.headers[requestIdKey]);
+    }
+
     throw new OneKeyServerApiError({
       autoToast: true,
       message: data.message,
