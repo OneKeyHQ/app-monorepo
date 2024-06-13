@@ -76,7 +76,7 @@ export function FirmwareUpdateProgressBarView({
         {intl.formatMessage(
           { id: ETranslations.global_step_str },
           {
-            0: `${currentStep}/${totalStep}`,
+            step: `${currentStep}/${totalStep}`,
           },
         )}
       </SizableText>

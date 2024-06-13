@@ -1,37 +1,41 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Divider, Page, Stack, Switch } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import BackupDeviceList from '../../components/BackupDeviceList';
-import { maybeShowBackupToggleDialog } from '../../components/BackupToggleDialog';
+import { useBackupToggleDialog } from '../../components/useBackupToggleDialog';
 
 export default function Home() {
+  const intl = useIntl();
+  const backupToggleDialog = useBackupToggleDialog();
   const [{ isEnabled, isInProgress }] = useCloudBackupPersistAtom();
   const [submitError, setSubmitError] = useState('');
 
   const navigation = useAppNavigation();
 
   const backupNowOnPress = useCallback(async () => {
-    await maybeShowBackupToggleDialog(true);
+    await backupToggleDialog.maybeShow(true);
     setSubmitError('');
     try {
       await backgroundApiProxy.serviceCloudBackup.backupNow();
     } catch (e) {
       setSubmitError('Sync failed, please retry.');
     }
-  }, []);
+  }, [backupToggleDialog]);
 
   const renderBackupStatus = useCallback(() => {
     if (isInProgress) {
       return (
         <Button disabled bg="transparent" p="0" loading>
-          Syncing...
+          {intl.formatMessage({ id: ETranslations.global_syncing })}
         </Button>
       );
     }
@@ -44,7 +48,7 @@ export default function Home() {
           icon="XCircleSolid"
           iconColor="$iconCritical"
         >
-          Sync error
+          {intl.formatMessage({ id: ETranslations.global_sync_error })}
         </Button>
       );
     }
@@ -56,22 +60,31 @@ export default function Home() {
         icon="CheckRadioSolid"
         iconColor="$iconSuccess"
       >
-        Synced
+        {intl.formatMessage({ id: ETranslations.global_synced })}
       </Button>
     );
-  }, [isInProgress, submitError]);
+  }, [intl, isInProgress, submitError]);
 
   return (
     <Page>
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_backup })}
+      />
       <Page.Body>
         <BackupDeviceList
           ListHeaderComponent={
             <>
-              <ListItem title={`Enable ${backupPlatform().cloudName} backup`}>
+              <ListItem
+                title={intl.formatMessage({
+                  id: platformEnv.isNativeAndroid
+                    ? ETranslations.backup_backup_to_google_drive
+                    : ETranslations.backup_backup_to_icloud,
+                })}
+              >
                 <Stack
                   pointerEvents="box-only"
                   onPress={async () => {
-                    await maybeShowBackupToggleDialog(!isEnabled);
+                    await backupToggleDialog.maybeShow(!isEnabled);
                     if (!isEnabled) {
                       await backupNowOnPress();
                     } else if (platformEnv.isNativeAndroid) {
@@ -85,7 +98,11 @@ export default function Home() {
               {isEnabled ? (
                 <ListItem
                   pt="$3"
-                  title={`${backupPlatform().cloudName} Status`}
+                  title={intl.formatMessage({
+                    id: platformEnv.isNativeAndroid
+                      ? ETranslations.backup_google_drive_status
+                      : ETranslations.backup_icloud_status,
+                  })}
                 >
                   {renderBackupStatus()}
                 </ListItem>
@@ -102,7 +119,7 @@ export default function Home() {
             disabled={isInProgress}
             onPress={backupNowOnPress}
           >
-            Backup Now
+            {intl.formatMessage({ id: ETranslations.backup_backup_now })}
           </Button>
         </Stack>
       </Page.Body>

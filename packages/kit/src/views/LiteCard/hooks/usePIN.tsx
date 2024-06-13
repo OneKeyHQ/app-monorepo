@@ -1,6 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Dialog, SizableText } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PasswordKeyboard } from '../components/PasswordKeyboard';
 
@@ -11,6 +14,7 @@ function PasswordKeyboardDescription({
   description?: string;
   shouldConfirmPassword?: string;
 }) {
+  const intl = useIntl();
   const [password, setPassword] = useState('');
   const showError =
     shouldConfirmPassword &&
@@ -24,7 +28,7 @@ function PasswordKeyboardDescription({
     >
       <SizableText size="$bodyLg" color={showError ? '$textCritical' : '$text'}>
         {showError
-          ? 'The entered PINs do not match. Please reconfirm.'
+          ? intl.formatMessage({ id: ETranslations.hardware_pins_do_not_match })
           : description}
       </SizableText>
       <Dialog.FormField name="password">
@@ -40,20 +44,31 @@ function PasswordKeyboardDescription({
 }
 
 export default function usePIN() {
+  const intl = useIntl();
   const showPINFormDialog = useCallback(
     (isSetNewPassword?: boolean, shouldConfirmPassword?: string) => {
       const config = {
-        title: 'Enter OneKey Lite PIN',
-        description:
-          'OneKey Lite PIN is a 6-digit number and cannot be retrieved if forgotten, as we do not store any user information.',
+        title: intl.formatMessage({
+          id: ETranslations.hardware_enter_onekey_lite_pin,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.hardware_enter_onekey_lite_pin_desc,
+        }),
       };
       if (isSetNewPassword) {
-        config.title = 'Set OneKey Lite PIN';
-        config.description = 'Set a 6-digit PIN for your OneKey Lite. ';
+        config.title = intl.formatMessage({
+          id: ETranslations.hardware_set_onekey_lite_pin,
+        });
+        config.description = intl.formatMessage({
+          id: ETranslations.hardware_set_onekey_lite_pin_desc,
+        });
         if (shouldConfirmPassword) {
-          config.title = 'Confirm OneKey Lite PIN';
-          config.description =
-            'Please re-enter the OneKey Lite LIN you just set. ';
+          config.title = intl.formatMessage({
+            id: ETranslations.hardware_confirm_onekey_lite_pin,
+          });
+          config.description = intl.formatMessage({
+            id: ETranslations.hardware_confirm_onekey_lite_pin_desc,
+          });
         }
       }
       return new Promise<string>((resolve) => {
@@ -84,7 +99,7 @@ export default function usePIN() {
         });
       });
     },
-    [],
+    [intl],
   );
   return useMemo(() => ({ showPINFormDialog }), [showPINFormDialog]);
 }

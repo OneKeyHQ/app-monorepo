@@ -1,5 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components/src/layouts/Navigation/Navigator';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ELiteCardRoutes } from '@onekeyhq/shared/src/routes';
 import type { ILiteCardParamList } from '@onekeyhq/shared/src/routes';
 
@@ -18,11 +19,11 @@ export const LiteCardPages: IModalFlowNavigatorConfig<
   {
     name: ELiteCardRoutes.LiteCardHome,
     component: LiteCardHome,
-    translationId: 'app__hardware_name_onekey_lite',
+    translationId: ETranslations.global_onekey_lite,
   },
   {
     name: ELiteCardRoutes.LiteCardSelectWallet,
     component: LiteCardSelectWallet,
-    translationId: 'title_select_wallet',
+    translationId: ETranslations.settings_select_wallet,
   },
 ];

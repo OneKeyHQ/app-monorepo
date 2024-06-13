@@ -1,11 +1,15 @@
 import { useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { backupPlatform } from '@onekeyhq/shared/src/cloudfs';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export function CloudBackupContainer() {
+  const intl = useIntl();
   useEffect(() => {
     void backgroundApiProxy.serviceCloudBackup
       .checkCloudBackupStatus()
@@ -15,16 +19,22 @@ export function CloudBackupContainer() {
         }
         Dialog.show({
           icon: 'InfoCircleOutline',
-          title: `${backupPlatform().cloudName} Auto-backup Paused`,
-          description: `Please verify your ${
-            backupPlatform().cloudName
-          } account login and ensure ${
-            backupPlatform().cloudName
-          } is enabled and authorized for OneKey.`,
-          onConfirmText: 'Go Settings',
-          onCancelText: 'Close',
+          title: intl.formatMessage({
+            id: platformEnv.isNativeAndroid
+              ? ETranslations.backup_google_drive_auto_backup_paused
+              : ETranslations.backup_icloud_auto_backup_paused,
+          }),
+          description: intl.formatMessage({
+            id: platformEnv.isNativeAndroid
+              ? ETranslations.backup_verify_google_account_and_google_drive_enabled
+              : ETranslations.backup_verify_apple_account_and_icloud_drive_enabled,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_go_settings,
+          }),
+          onCancelText: intl.formatMessage({ id: ETranslations.global_close }),
           onConfirm: () => openSettings('default'),
         });
       });
-  }, []);
+  }, [intl]);
 }
