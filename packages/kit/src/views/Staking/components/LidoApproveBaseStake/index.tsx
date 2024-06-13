@@ -159,6 +159,9 @@ export const LidoApproveBaseStake = ({
       onFail() {
         setApproving(false);
       },
+      onCancel() {
+        setApproving(false);
+      },
     });
   }, [amountValue, approveTarget, navigationToSendConfirm, trackAllowance]);
 

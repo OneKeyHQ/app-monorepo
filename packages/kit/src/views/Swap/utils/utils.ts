@@ -1,4 +1,4 @@
-import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
@@ -44,27 +44,27 @@ export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
 } {
   if (status === ESwapTxHistoryStatus.PENDING) {
     return {
-      key: 'transaction__pending',
+      key: ETranslations.swap_history_status_pending,
       color: '$textCaution',
     };
   }
 
   if (status === ESwapTxHistoryStatus.SUCCESS) {
     return {
-      key: 'transaction__success',
+      key: ETranslations.swap_history_status_success,
       color: '$textSuccess',
     };
   }
 
   if (status === ESwapTxHistoryStatus.DISCARD) {
     return {
-      key: 'action__discard',
+      key: ETranslations.swap_history_status_discard,
       color: '$textCritical',
     };
   }
 
   return {
-    key: 'transaction__failed',
+    key: ETranslations.swap_history_status_failed,
     color: '$textCritical',
   };
 }
