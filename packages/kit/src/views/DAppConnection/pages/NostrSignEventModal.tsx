@@ -16,6 +16,7 @@ import {
   i18nSupportEventKinds,
 } from '@onekeyhq/core/src/chains/nostr/types';
 import type { INostrEvent } from '@onekeyhq/core/src/chains/nostr/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useDappApproveAction from '../../../hooks/useDappApproveAction';
@@ -220,7 +221,13 @@ function NostrSignEventModal() {
           variant="secondary"
           onPress={() => setDisplayDetails(!displayDetails)}
         >
-          {displayDetails ? '隐藏完整消息' : '查看完整消息'}
+          {displayDetails
+            ? intl.formatMessage({
+                id: ETranslations.dapp_connect_hide_full_message,
+              })
+            : intl.formatMessage({
+                id: ETranslations.dapp_connect_view_full_message,
+              })}
         </Button>
         {displayDetails ? (
           <TextArea my="$2" disabled editable={false} numberOfLines={14}>
@@ -229,7 +236,7 @@ function NostrSignEventModal() {
         ) : null}
       </>
     );
-  }, [event, displayDetails]);
+  }, [intl, event, displayDetails]);
 
   const [savedPlaintext, setSavedPlaintext] = useState<string | null>(null);
   const isDMEvent = useMemo(
@@ -274,7 +281,9 @@ function NostrSignEventModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
-            title="Message Signature Request"
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_initiate_message_signature_request,
+            })}
             subtitle={subtitle}
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}

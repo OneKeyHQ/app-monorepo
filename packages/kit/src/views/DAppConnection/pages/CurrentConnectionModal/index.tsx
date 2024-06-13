@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useRoute } from '@react-navigation/core';
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Divider,
@@ -18,6 +19,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDAppConnectionModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDAppConnectionModal,
@@ -32,6 +34,7 @@ import { DAppAccountListItem } from '../../components/DAppAccountList';
 import type { RouteProp } from '@react-navigation/core';
 
 function CurrentConnectionModal() {
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
     useRoute<
@@ -98,7 +101,9 @@ function CurrentConnectionModal() {
 
   return (
     <Page>
-      <Page.Header title="Connect" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.global_connect })}
+      />
       <Page.Body>
         <XStack p="$5" space="$3">
           <Image size="$10" borderRadius="$2">
@@ -115,7 +120,7 @@ function CurrentConnectionModal() {
               {new URL(origin).hostname}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSuccess">
-              Connected
+              {intl.formatMessage({ id: ETranslations.global_connected })}
             </SizableText>
           </YStack>
         </XStack>
@@ -165,17 +170,27 @@ function CurrentConnectionModal() {
         <Divider />
         <YStack bg="$bgSubdued" py="$3" space="$2">
           <ListItem key="manage-connection" onPress={onPressManageConnection}>
-            <SizableText size="$bodyMd">Manage dApp Connections</SizableText>
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.explore_manage_dapp_connections,
+              })}
+            </SizableText>
           </ListItem>
           <ListItem
             key="default-wallet-settings"
             onPress={onPressDefaultWalletSettings}
           >
-            <SizableText size="$bodyMd">Default Wallet Settings</SizableText>
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.explore_default_wallet_settings,
+              })}
+            </SizableText>
           </ListItem>
           <Divider mx="$5" />
           <ListItem key="disconnection" onPress={onDisconnect}>
-            <SizableText size="$bodyMd">Disconnect</SizableText>
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({ id: ETranslations.explore_disconnect })}
+            </SizableText>
           </ListItem>
         </YStack>
       </Page.Footer>

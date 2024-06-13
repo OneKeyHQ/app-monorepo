@@ -45,6 +45,7 @@ class ServiceApp extends ServiceBase {
   async resetApp() {
     await localDb.reset();
     await appStorage.clear();
+    await this.backgroundApi.serviceDiscovery.clearDiscoveryPageData();
     this.restartApp();
   }
 

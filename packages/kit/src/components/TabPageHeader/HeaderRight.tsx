@@ -41,9 +41,9 @@ export function HeaderRight({
       scanQrCode.start({
         handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
         autoHandleResult: true,
-        accountId: account?.id,
+        account,
       }),
-    [scanQrCode, account?.id],
+    [scanQrCode, account],
   );
 
   const openExtensionExpandTab = useCallback(async () => {

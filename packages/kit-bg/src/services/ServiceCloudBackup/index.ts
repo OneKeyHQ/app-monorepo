@@ -687,23 +687,31 @@ class ServiceCloudBackup extends ServiceBase {
 
   private getDataFromCloud = memoizee(
     async (filename: string) => {
-      if (
-        filename === CLOUD_METADATA_FILE_NAME &&
-        this.metaDataCache.length > 0
-      ) {
-        return this.metaDataCache;
-      }
       try {
-        return await CloudFs.downloadFromCloud(
+        const content = await CloudFs.downloadFromCloud(
           platformEnv.isNativeIOS ? filename : this.getBackupPath(filename),
         );
+        if (
+          filename === CLOUD_METADATA_FILE_NAME &&
+          (content?.length ?? 0) <= 0 &&
+          this.metaDataCache.length > 0
+        ) {
+          return this.metaDataCache;
+        }
+        return content;
       } catch (e) {
+        if (
+          filename === CLOUD_METADATA_FILE_NAME &&
+          this.metaDataCache.length > 0
+        ) {
+          return this.metaDataCache;
+        }
         return '[]';
       }
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 30 }),
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
       max: 50,
     },
   );
