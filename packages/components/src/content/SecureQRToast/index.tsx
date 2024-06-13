@@ -6,6 +6,7 @@ import {
   QRCode,
   SizableText,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 
@@ -27,7 +28,13 @@ const SecureQRToastBase = ({
           <IconButton
             variant="tertiary"
             size="small"
-            onPress={() => setShow(!show)}
+            onPress={() => {
+              Toast.show({
+                children: (
+                  <SecureQRToastBase value={value} showQRCode={showQRCode} />
+                ),
+              });
+            }}
             icon={show ? 'MinimizeOutline' : 'ExpandOutline'}
             color="$iconSubdued"
           />
