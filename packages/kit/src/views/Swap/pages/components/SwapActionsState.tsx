@@ -1,5 +1,7 @@
 import { memo, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
@@ -18,6 +20,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useSwapActionState } from '../../hooks/useSwapState';
 
@@ -36,6 +39,7 @@ const SwapActionsState = ({
   onApprove,
   onWrapped,
 }: ISwapActionsStateProps) => {
+  const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const { cleanQuoteInterval } = useSwapActions().current;
@@ -49,9 +53,12 @@ const SwapActionsState = ({
           onApprove(fromAmount, swapActionState.approveUnLimit, true);
         },
         showCancelButton: true,
-        title: 'Need to Send 2 Transactions to Change Allowance',
-        description:
-          'Some tokens require multiple transactions to modify the allowance. You must first set the allowance to zero before establishing the new desired allowance value.',
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
+        }),
         icon: 'TxStatusWarningCircleIllus',
       });
     } else {
@@ -59,6 +66,7 @@ const SwapActionsState = ({
     }
   }, [
     fromAmount,
+    intl,
     onApprove,
     swapActionState.approveUnLimit,
     swapActionState.shoutResetApprove,
@@ -102,9 +110,9 @@ const SwapActionsState = ({
                 }}
                 p="$5"
               >
-                The first time you swap or add liquidity, you have to approve
-                the token to be swapped. This gives the Provider permission to
-                swap that token from your wallet.
+                {intl.formatMessage({
+                  id: ETranslations.swap_page_swap_steps_1_approve_dialog,
+                })}
               </SizableText>
             }
             renderTrigger={
@@ -114,9 +122,12 @@ const SwapActionsState = ({
                   opacity: 0.5,
                 }}
               >
-                <SizableText size="$bodyMdMedium" pr="$1">{`Step 1: Approve ${
-                  fromToken?.symbol ?? ''
-                }`}</SizableText>
+                <SizableText size="$bodyMdMedium" pr="$1">
+                  {intl.formatMessage(
+                    { id: ETranslations.swap_page_swap_steps_1 },
+                    { tokenSymbol: fromToken?.symbol ?? '' },
+                  )}
+                </SizableText>
                 <Icon
                   size="$5"
                   color="$iconSubdued"
@@ -127,7 +138,9 @@ const SwapActionsState = ({
           />
           <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
           <SizableText size="$bodyMd" color="$textSubdued">
-            Step 2: Swap
+            {intl.formatMessage({
+              id: ETranslations.swap_page_swap_steps_2,
+            })}
           </SizableText>
         </XStack>
       ) : null}

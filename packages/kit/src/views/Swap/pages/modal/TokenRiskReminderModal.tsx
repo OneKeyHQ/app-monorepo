@@ -104,12 +104,12 @@ const SwapRiskReminderModal = ({
                 ? 'MessageExclamationOutline'
                 : 'ErrorOutline'
             }
-            title={`${
-              token.riskLevel === ETokenRiskLevel.SPAM
-                ? 'Suspected spam'
-                : 'Caution! Malicious'
-            } token.`}
-            // action={{ primary: 'View', onPrimaryPress: () => {} }}
+            title={intl.formatMessage({
+              id:
+                token.riskLevel === ETokenRiskLevel.SPAM
+                  ? ETranslations.token_selector_risk_reminder_spam_token_alert
+                  : ETranslations.token_selector_risk_reminder_malicious_token_alert,
+            })}
           />
         ) : null}
         <TokenInfoCard token={token} />

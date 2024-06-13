@@ -727,4 +727,5 @@ module.exports = [
   'whitepaper',
   'sepolia',
   'watchlist',
+  'usdt',
 ];
