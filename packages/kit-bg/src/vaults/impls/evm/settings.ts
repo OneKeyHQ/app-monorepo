@@ -17,7 +17,7 @@ import type {
 
 export type IAccountDeriveInfoMapEvm = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
-  etcNative: IAccountDeriveInfo;
+  // etcNative: IAccountDeriveInfo;
   ledgerLive: IAccountDeriveInfo;
 };
 export type IAccountDeriveTypesEvm = keyof IAccountDeriveInfoMapEvm;
@@ -32,20 +32,20 @@ const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
     desc: 'OneKey, MetaMask, Trezor, imToken, m/44’/60’/0’/0/*',
   },
   // TODO
-  etcNative: {
-    // category: `44'/${COINTYPE_ETH}'`,
-    namePrefix: 'ETC-Native',
-    labelKey: 'form__bip44_standard_cointype_61',
-    template: `m/44'/${COINTYPE_ETC}'/0'/0/${INDEX_PLACEHOLDER}`,
-    coinType: COINTYPE_ETC,
-    desc: 'm’/44’/61’/0’/*',
-    // ETC only, hide in other EVM chains
-    enableConditions: [
-      {
-        networkId: [NETWORK_ID_ETC], // ETC
-      },
-    ],
-  },
+  // etcNative: {
+  //   // category: `44'/${COINTYPE_ETH}'`,
+  //   namePrefix: 'ETC-Native',
+  //   labelKey: 'form__bip44_standard_cointype_61',
+  //   template: `m/44'/${COINTYPE_ETC}'/0'/0/${INDEX_PLACEHOLDER}`,
+  //   coinType: COINTYPE_ETC,
+  //   desc: 'm’/44’/61’/0’/*',
+  //   // ETC only, hide in other EVM chains
+  //   enableConditions: [
+  //     {
+  //       networkId: [NETWORK_ID_ETC], // ETC
+  //     },
+  //   ],
+  // },
   ledgerLive: {
     // category: `44'/${COINTYPE_ETH}'`,
     namePrefix: 'Ledger Live',
