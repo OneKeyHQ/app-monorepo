@@ -16,6 +16,19 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+interface ISecureQRToastBaseProps {
+  title?: string;
+  message?: string;
+  value?: string;
+  valueUr?: IQRCodeProps['valueUr'];
+  showQRCode: boolean;
+  drawType?: IQRCodeProps['drawType'];
+  onConfirm?: () => void;
+  onConfirmText?: string;
+  onCancel?: () => void;
+  showConfirmButton?: boolean;
+}
+
 const SecureQRToastBase = ({
   title,
   message,
@@ -27,17 +40,7 @@ const SecureQRToastBase = ({
   onCancel,
   showConfirmButton = true,
   drawType = 'line',
-}: {
-  title?: string;
-  value?: string;
-  valueUr?: IQRCodeProps['valueUr'];
-  showQRCode: boolean;
-  drawType?: IQRCodeProps['drawType'];
-  onConfirm?: () => void;
-  onConfirmText?: string;
-  onCancel?: () => void;
-  showConfirmButton?: boolean;
-}) => {
+}: ISecureQRToastBaseProps) => {
   const intl = useIntl();
   const [show, setShow] = useState(showQRCode);
   const toggleShowState = useCallback(() => {
@@ -117,18 +120,7 @@ export const SecureQRToast = {
     onConfirmText,
     showConfirmButton,
     ...props
-  }: {
-    title?: string;
-    message?: string;
-    valueUr?: IQRCodeProps['valueUr'];
-    value?: string;
-    showQRCode?: boolean;
-    drawType?: IQRCodeProps['drawType'];
-    onConfirm?: () => void;
-    onConfirmText?: string;
-    onCancel?: () => void;
-    showConfirmButton?: boolean;
-  } & IShowToasterProps) =>
+  }: ISecureQRToastBaseProps & IShowToasterProps) =>
     Toast.show({
       children: (
         <SecureQRToastBase
