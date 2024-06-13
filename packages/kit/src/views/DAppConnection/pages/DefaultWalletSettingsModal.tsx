@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import {
   Divider,
@@ -13,6 +14,7 @@ import {
   Switch,
   Toast,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDefaultWalletSettingsWithLogo } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityDefaultWalletSettings';
 import {
   EAppEventBusNames,
@@ -43,6 +45,7 @@ function EmptyGuide() {
 }
 
 function DefaultWalletSettingsModal() {
+  const intl = useIntl();
   const { result, run } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceContextMenu.getDefaultWalletSettingsWithIcon(),
@@ -111,25 +114,41 @@ function DefaultWalletSettingsModal() {
     await setIsDefaultWallet(isDefaultWallet);
     Toast.success({
       title: isDefaultWallet
-        ? 'Default Changed to OneKey'
-        : 'OneKey Default Canceled',
+        ? intl.formatMessage({
+            id: ETranslations.explore_default_wallet_set,
+          })
+        : intl.formatMessage({
+            id: ETranslations.explore_default_wallet_canceled,
+          }),
       message: isDefaultWallet
-        ? 'OneKey is now your default wallet for this dApp.'
+        ? intl.formatMessage({
+            id: ETranslations.explore_set_default_wallet_description,
+          })
         : 'Refresh the page to retry with a different wallet.',
     });
     await refreshContextMenu();
     setTimeout(() => {
       void run();
     }, 200);
-  }, [refreshContextMenu, result?.isDefaultWallet, run, setIsDefaultWallet]);
+  }, [
+    intl,
+    refreshContextMenu,
+    result?.isDefaultWallet,
+    run,
+    setIsDefaultWallet,
+  ]);
 
   const removeExcludedDApp = useCallback(
     async (origin: string) => {
       await backgroundApiProxy.serviceContextMenu.removeExcludedDApp(origin);
       if (result?.isDefaultWallet) {
         Toast.success({
-          title: 'Default Changed to OneKey',
-          message: 'OneKey is now your default wallet for this dApp.',
+          title: intl.formatMessage({
+            id: ETranslations.explore_default_wallet_set,
+          }),
+          message: intl.formatMessage({
+            id: ETranslations.explore_set_default_wallet_description,
+          }),
         });
       }
       await refreshContextMenu(origin);
@@ -196,11 +215,17 @@ function DefaultWalletSettingsModal() {
 
   return (
     <Page>
-      <Page.Header title="Default Wallet Settings" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.settings_default_wallet_settings,
+        })}
+      />
       <Page.Body>
         <ListItem
-          title="Set OneKey as default wallet"
-          subtitle="Use OneKey as the default wallet to connect to dApps."
+          title={intl.formatMessage({ id: ETranslations.explore_set_default })}
+          subtitle={intl.formatMessage({
+            id: ETranslations.explore_set_default_wallet_description,
+          })}
         >
           <Switch
             size={ESwitchSize.small}
@@ -212,8 +237,12 @@ function DefaultWalletSettingsModal() {
           <>
             <Divider my="$2.5" />
             <ListItem
-              title="Excluded dApps"
-              subtitle="Right-click blank space, select the option below to exclude."
+              title={intl.formatMessage({
+                id: ETranslations.explore_excluded_dapps,
+              })}
+              subtitle={intl.formatMessage({
+                id: ETranslations.explore_excluded_dapps_description,
+              })}
             />
             {renderList()}
           </>
