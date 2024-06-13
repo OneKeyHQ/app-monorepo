@@ -236,7 +236,7 @@ function NostrSignEventModal() {
         ) : null}
       </>
     );
-  }, [event, displayDetails]);
+  }, [intl, event, displayDetails]);
 
   const [savedPlaintext, setSavedPlaintext] = useState<string | null>(null);
   const isDMEvent = useMemo(

@@ -154,7 +154,7 @@ function DefaultWalletSettingsModal() {
       await refreshContextMenu(origin);
       void run();
     },
-    [run, result?.isDefaultWallet, refreshContextMenu],
+    [intl, run, result?.isDefaultWallet, refreshContextMenu],
   );
 
   const displayExcludedList = useMemo(() => {
