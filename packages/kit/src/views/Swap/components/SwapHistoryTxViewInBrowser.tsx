@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   Divider,
   Icon,
   Image,
@@ -235,21 +236,21 @@ const SwapTxHistoryViewInBrowser = ({
 
   const triggerViewInBrowser = useMemo(
     () => (
-      <XStack
+      <Button
         onPress={() => {
           if (isSingleChainSwap) {
             onHandleExplorer(fromTxExplorer);
           }
         }}
-        space="$2"
+        size="small"
+        variant="secondary"
+        iconAfter="OpenOutline"
+        iconColor="$iconSubdued"
       >
-        <SizableText color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.swap_history_detail_view_in_browser,
-          })}
-        </SizableText>
-        <Icon color="$iconSubdued" name="OpenOutline" size={20} />
-      </XStack>
+        {intl.formatMessage({
+          id: ETranslations.swap_history_detail_view_in_browser,
+        })}
+      </Button>
     ),
     [fromTxExplorer, intl, isSingleChainSwap, onHandleExplorer],
   );
