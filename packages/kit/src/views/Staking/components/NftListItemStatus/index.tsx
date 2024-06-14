@@ -4,8 +4,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  IconButton,
   NumberSizeableText,
   SizableText,
+  Tooltip,
   XStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -64,12 +66,27 @@ export const NftListItemStatus = ({
                     >
                       {amount}
                     </NumberSizeableText>
-                    <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+                    <SizableText size="$bodyLgMedium"> {symbol}</SizableText>
                   </SizableText>
                 ),
               },
             )}
           </SizableText>
+          {status === 'pending' ? (
+            <Tooltip
+              renderTrigger={
+                <IconButton
+                  variant="tertiary"
+                  size="small"
+                  icon="InfoCircleOutline"
+                />
+              }
+              renderContent={intl.formatMessage({
+                id: ETranslations.earn_stake_release_period_desc,
+              })}
+              placement="top"
+            />
+          ) : null}
         </XStack>
       </XStack>
       {onClaim ? (

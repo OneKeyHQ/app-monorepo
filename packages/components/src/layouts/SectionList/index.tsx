@@ -76,7 +76,6 @@ function BaseSectionList<T>(
     SectionSeparatorComponent = <Stack h="$5" />,
     stickySectionHeadersEnabled = false,
     keyExtractor,
-    initialScrollIndex,
     ...restProps
   }: ISectionListProps<T>,
   parentRef: ForwardedRef<IListViewRef<T>>,
@@ -209,16 +208,6 @@ function BaseSectionList<T>(
     },
     [keyExtractor],
   );
-  const reloadInitialScrollIndex = useMemo(
-    () =>
-      reloadSections.findIndex((item, index) =>
-        item.type === ESectionLayoutType.Header &&
-        item.sectionIndex === initialScrollIndex
-          ? reloadSectionHeaderIndex(index)
-          : null,
-      ),
-    [initialScrollIndex, reloadSections, reloadSectionHeaderIndex],
-  );
   return (
     <ListView
       ref={ref}
@@ -228,7 +217,6 @@ function BaseSectionList<T>(
       stickyHeaderIndices={reloadStickyHeaderIndices}
       getItemType={getItemType}
       keyExtractor={reloadKeyExtractor}
-      initialScrollIndex={reloadInitialScrollIndex}
       {...restProps}
     />
   );

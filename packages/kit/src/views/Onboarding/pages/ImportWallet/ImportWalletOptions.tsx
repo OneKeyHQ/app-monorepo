@@ -1,5 +1,3 @@
-import { useCallback, useState } from 'react';
-
 import { useIntl } from 'react-intl';
 import { InteractionManager, Keyboard } from 'react-native';
 
@@ -14,7 +12,6 @@ import {
   SectionList,
   SizableText,
   Stack,
-  Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';

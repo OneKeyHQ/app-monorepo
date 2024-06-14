@@ -291,10 +291,22 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     stakeTag: IStakeTag;
   }) {
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      }),
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      }),
+    ]);
+
     const pendingTxs =
       await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs({
         networkId,
-        accountId,
+        accountAddress,
+        xpub,
       });
     const stakingTxs = pendingTxs.filter(
       (o) => o.stakingInfo && o.stakingInfo.tags.includes(stakeTag),

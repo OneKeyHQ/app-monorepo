@@ -273,7 +273,7 @@ class ProviderApiBtc extends ProviderApiBase {
         networkId: networkId ?? '',
         transfersInfo,
       });
-    return result;
+    return result.txid;
   }
 
   @providerApiMethod()
@@ -471,7 +471,7 @@ class ProviderApiBtc extends ProviderApiBase {
     });
 
     const resp =
-      (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         accountId,
         networkId,
@@ -493,8 +493,14 @@ class ProviderApiBtc extends ProviderApiBase {
           disabledCoinSelect: true,
         },
         signOnly: true,
-      })) as { psbtHex: string };
+      });
 
+    if (!resp.psbtHex) {
+      throw web3Errors.provider.custom({
+        code: 4001,
+        message: 'Failed to sign psbt',
+      });
+    }
     const respPsbt = Psbt.fromHex(resp.psbtHex, { network: psbtNetwork });
 
     if (options && options.autoFinalized === false) {

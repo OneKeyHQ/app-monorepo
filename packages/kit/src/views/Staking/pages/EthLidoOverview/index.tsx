@@ -22,10 +22,11 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import type {
-  ILidoEthOverview,
-  ILidoEthRequest,
-  ILidoTokenItem,
+import {
+  ELidoLabels,
+  type ILidoEthOverview,
+  type ILidoEthRequest,
+  type ILidoTokenItem,
 } from '@onekeyhq/shared/types/staking';
 
 import { EthLidoFAQs } from '../../components/LidoFAQs';
@@ -94,6 +95,7 @@ const ListItemClaim = ({
     await lidoClaim({
       requestIds,
       stakingInfo: {
+        label: ELidoLabels.Claim,
         protocol: 'lido',
         tags: ['lido-eth'],
         receive: { token: token.info, amount: String(amount) },
@@ -211,7 +213,7 @@ const EthLidoOverviewContent = ({
               {
                 'token': (
                   <SizableText>
-                    <NumberSizeableText size="$bodyMd" formatter="balance">
+                    <NumberSizeableText size="$bodyMd" formatter="value">
                       {eth.balanceParsed}
                     </NumberSizeableText>
                     <SizableText size="$bodyMd" color="$textSubdued">

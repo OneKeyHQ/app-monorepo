@@ -121,10 +121,7 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
                   return;
                 }
                 if (!value.resolved) {
-                  return (
-                    value.validateError?.message ??
-                    intl.formatMessage({ id: 'form__address_invalid' })
-                  );
+                  return value.validateError?.message ?? 'Incorrect address.';
                 }
                 return undefined;
               },

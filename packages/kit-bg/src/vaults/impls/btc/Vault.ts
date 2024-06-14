@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { cloneDeep, isEmpty, isNil, uniq } from 'lodash';
 
 import {
   convertBtcXprvtToHex,
@@ -194,6 +194,7 @@ export default class VaultBtc extends VaultBase {
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
+      xpub: (account as IDBUtxoAccount).xpub,
       extraInfo: null,
       payload: {
         type: EOnChainHistoryTxType.Send,
@@ -721,12 +722,25 @@ export default class VaultBtc extends VaultBase {
   _collectUTXOsInfoByApi = memoizee(
     async () => {
       try {
+        const inscriptionProtection =
+          await this.backgroundApi.serviceSetting.getInscriptionProtection();
+        const checkInscriptionProtectionEnabled =
+          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+            {
+              networkId: this.networkId,
+              accountId: this.accountId,
+            },
+          );
+        const withCheckInscription =
+          checkInscriptionProtectionEnabled && inscriptionProtection;
         const { utxoList } =
           await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
             networkId: this.networkId,
             accountAddress: await this.getAccountAddress(),
             xpub: await this.getAccountXpub(),
             withUTXOList: true,
+            withFrozenBalance: true,
+            withCheckInscription,
           });
         if (!utxoList) {
           throw new OneKeyInternalError('Failed to get UTXO list.');
@@ -756,6 +770,15 @@ export default class VaultBtc extends VaultBase {
       [fullPath: string]: {
         address: string;
         relPath: string;
+        fullPath: string;
+      };
+    } = {};
+
+    const addressToPath: {
+      [address: string]: {
+        address: string;
+        relPath: string;
+        fullPath: string;
       };
     } = {};
 
@@ -767,6 +790,7 @@ export default class VaultBtc extends VaultBase {
         pathToAddresses[fullPath] = {
           address,
           relPath,
+          fullPath,
         };
       }
     }
@@ -778,17 +802,21 @@ export default class VaultBtc extends VaultBase {
       pathToAddresses[firstFullPath] = {
         address: account.address,
         relPath: firstRelPath,
+        fullPath: firstFullPath,
       };
     }
 
-    // TODO uniq
-    const relPaths: string[] = Object.values(pathToAddresses).map(
-      (item) => item.relPath,
-    );
+    const relPaths: string[] = [];
+
+    Object.values(pathToAddresses).forEach((item) => {
+      relPaths.push(item.relPath);
+      addressToPath[item.address] = cloneDeep(item);
+    });
 
     return {
-      relPaths,
+      relPaths: uniq(relPaths),
       pathToAddresses,
+      addressToPath,
     };
   }
 
@@ -852,6 +880,7 @@ export default class VaultBtc extends VaultBase {
       // required for multiple address signing
       relPaths,
       pathToAddresses,
+      addressToPath,
     } = await this._getRelPathsToAddressByApi({
       addresses,
       account,
@@ -859,6 +888,7 @@ export default class VaultBtc extends VaultBase {
 
     const btcExtraInfo: ICoreApiSignBtcExtraInfo = {
       pathToAddresses,
+      addressToPath,
     };
 
     if (unsignedTx) {

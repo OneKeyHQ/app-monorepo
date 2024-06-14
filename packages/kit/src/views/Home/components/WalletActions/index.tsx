@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { IPageNavigationProp, IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -121,13 +121,13 @@ function WalletActionSwap({ networkId }: { networkId?: string }) {
   return <RawActions.Swap onPress={handleOnSwap} />;
 }
 
-function WalletActions() {
+function WalletActions({ ...rest }: IXStackProps) {
   const {
     activeAccount: { network, account, wallet, deriveInfo, deriveType },
   } = useActiveAccount({ num: 0 });
 
   return (
-    <RawActions>
+    <RawActions {...rest}>
       <ReviewControl>
         <WalletActionBuy networkId={network?.id} accountId={account?.id} />
       </ReviewControl>

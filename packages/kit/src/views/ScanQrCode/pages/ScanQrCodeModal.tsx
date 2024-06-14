@@ -15,7 +15,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { NavCloseButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -37,19 +36,38 @@ function DebugInput({ onText }: { onText: (text: string) => void }) {
   const navigation = useAppNavigation();
   global.$$scanNavigation = navigation;
   const [inputText, setInputText] = useState<string>('');
+  const [visible, setVisible] = useState(false);
+
+  if (process.env.NODE_ENV === 'production') {
+    return null;
+  }
+  if (visible) {
+    return (
+      <XStack>
+        <Stack flex={1}>
+          <TextArea
+            value={inputText}
+            onChangeText={setInputText}
+            flex={1}
+            placeholder="demo qrcode scan text"
+          />
+        </Stack>
+        <Button onPress={() => onText(inputText)} size="small">
+          Confirm
+        </Button>
+        <Button onPress={() => navigation.popStack()} size="small">
+          Close
+        </Button>
+      </XStack>
+    );
+  }
   return (
-    <XStack p="$4">
-      <Stack flex={1}>
-        <TextArea
-          value={inputText}
-          onChangeText={setInputText}
-          flex={1}
-          placeholder="demo qrcode scan text"
-        />
-      </Stack>
-      <Button onPress={() => onText(inputText)}>Test</Button>
-      <Button onPress={() => navigation.popStack()}>Close</Button>
-    </XStack>
+    <XStack
+      onPress={() => setVisible(true)}
+      w="$8"
+      h="$8"
+      backgroundColor="transparent"
+    />
   );
 }
 
@@ -243,11 +261,11 @@ export default function ScanQrCodeModal() {
           showProTutorial={showProTutorial}
         />
       </Page.Body>
-      {/* {platformEnv.isDev ? (
+      {platformEnv.isDev ? (
         <Page.Footer>
           <DebugInput onText={callback} />
         </Page.Footer>
-      ) : null} */}
+      ) : null}
     </Page>
   );
 }

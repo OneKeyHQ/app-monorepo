@@ -234,10 +234,7 @@ export function MarketDetailPools({
   const listData = useMemo(() => pools[index], [index, pools]);
   const formatListData = listData.data.map((i) => ({
     ...i,
-    dexDataName: i.relationships.dex.data.id
-      .split('_')
-      .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
-      .join(' '),
+    dexDataName: i.dexName,
     price: Number(i.attributes.baseTokenPriceUsd),
     txTotal: Number(
       i.attributes.transactions.h24.buys + i.attributes.transactions.h24.sells,

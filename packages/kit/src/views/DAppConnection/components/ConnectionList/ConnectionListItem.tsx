@@ -39,10 +39,8 @@ function ConnectionListItem({
 }) {
   // Switching accounts in Algo is not supported because no dApps listen for the walletconnect updateSession event
   const getReadonly = (connectionInfo: IConnectionAccountInfo) => {
-    // if (item.storageType !== 'walletConnect') return false;
-    // return connectionInfo.networkImpl === IMPL_ALGO;
-    console.log(1);
-    return false;
+    if (item.storageType !== 'walletConnect') return false;
+    return connectionInfo.networkImpl === IMPL_ALGO;
   };
   return (
     <YStack space="$5" p="$5">

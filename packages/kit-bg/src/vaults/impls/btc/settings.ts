@@ -5,6 +5,8 @@ import {
   IMPL_BTC,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -30,7 +32,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
     coinType: COINTYPE_BTC,
     coinName: COINNAME_BTC,
     addressEncoding: EAddressEncodings.P2SH_P2WPKH,
-    desc: "P2WPKH (m/49'/0'/0'), Starts with '3'",
+    desc: `P2WPKH (m/49'/0'/0'), ${appLocale.intl.formatMessage({
+      id: ETranslations.p2wpkh_desc,
+    })}`,
   },
   BIP86: {
     namePrefix: 'BTC Taproot',
@@ -39,7 +43,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
     coinType: COINTYPE_BTC,
     coinName: COINNAME_BTC,
     addressEncoding: EAddressEncodings.P2TR,
-    desc: "P2TR (m/86'/0'/0'), Starts with 'bc1p’",
+    desc: `P2TR (m/86'/0'/0'), ${appLocale.intl.formatMessage({
+      id: ETranslations.p2tr_desc,
+    })}`,
   },
   BIP84: {
     namePrefix: 'BTC Native SegWit',
@@ -48,7 +54,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
     coinType: COINTYPE_BTC,
     coinName: COINNAME_BTC,
     addressEncoding: EAddressEncodings.P2WPKH,
-    desc: "P2SH-P2WPKH (m/84'/0'/0'), Starts with 'bc1q'",
+    desc: `P2SH-P2WPKH (m/84'/0'/0'), ${appLocale.intl.formatMessage({
+      id: ETranslations.p2sh_p2wpkh_desc,
+    })}`,
   },
   BIP44: {
     namePrefix: 'BTC Legacy',
@@ -57,7 +65,9 @@ const accountDeriveInfo: IAccountDeriveInfoMapBtc = {
     coinType: COINTYPE_BTC,
     coinName: COINNAME_BTC,
     addressEncoding: EAddressEncodings.P2PKH,
-    desc: "P2PKH (m/44'/0'/0'), Starts with '1'",
+    desc: `P2PKH (m/44'/0'/0'), ${appLocale.intl.formatMessage({
+      id: ETranslations.p2pkh_desc,
+    })}`,
     // notRecommended: true,
   },
 };
@@ -90,7 +100,7 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
-  signOnlyFullTxRequired: true,
+  hasFrozenBalance: true,
 };
 
 export default Object.freeze(settings);
