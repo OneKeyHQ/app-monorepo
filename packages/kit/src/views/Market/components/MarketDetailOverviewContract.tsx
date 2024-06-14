@@ -35,19 +35,21 @@ export function MarketDetailOverviewContract({
       <SizableText color="$textSubdued" size="$bodySm">
         {intl.formatMessage({ id: ETranslations.global_contract })}
       </SizableText>
-      {showKeys.map((tokenName) => {
-        const platform = detailPlatforms[tokenName];
-        return (
-          <MarketTokenAddress
-            key={tokenName}
-            tokenNameSize="$bodyMd"
-            tokenNameColor="$textSubdued"
-            addressSize="$bodyMdMedium"
-            networkId={platform.onekeyNetworkId}
-            address={platform.contract_address}
-          />
-        );
-      })}
+      {showKeys
+        .filter((tokenName) => !detailPlatforms[tokenName].hideContractAddress)
+        .map((tokenName) => {
+          const platform = detailPlatforms[tokenName];
+          return (
+            <MarketTokenAddress
+              key={tokenName}
+              tokenNameSize="$bodyMd"
+              tokenNameColor="$textSubdued"
+              addressSize="$bodyMdMedium"
+              networkId={platform.onekeyNetworkId}
+              address={platform.contract_address}
+            />
+          );
+        })}
       {isShowAllInDefault ? null : (
         <Button
           size="medium"
