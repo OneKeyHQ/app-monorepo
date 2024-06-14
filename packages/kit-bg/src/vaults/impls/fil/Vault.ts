@@ -4,6 +4,7 @@ import {
   decode,
   delegatedFromEthAddress,
   encode,
+  newSecp256k1Address,
   validateAddressString,
 } from '@glif/filecoin-address';
 import { Message } from '@glif/filecoin-message';
@@ -16,9 +17,11 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveText,
   encodeSensitiveText,
+  uncompressPublicKey,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
   IAddressValidation,
@@ -79,10 +82,20 @@ export default class Vault extends VaultBase {
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
     const { networkId } = params;
-
     const account = params.account as IDBVariantAccount;
+    const networkInfo = await this.getNetworkInfo();
+    const network = await this.getNetwork();
 
-    const address = account.addresses[networkId];
+    let address = account.addresses[networkId];
+
+    if (account.pub) {
+      const pubUncompressed = uncompressPublicKey(
+        networkInfo.curve,
+        bufferUtils.toBuffer(account.pub),
+      );
+      const coinType = network.isTestnet ? CoinType.TEST : CoinType.MAIN;
+      address = newSecp256k1Address(pubUncompressed, coinType).toString();
+    }
 
     const { normalizedAddress, displayAddress, isValid } =
       await this.validateAddress(address);
