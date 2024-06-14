@@ -1,11 +1,15 @@
 import { memo, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { SizableText } from '@onekeyhq/components';
 import { useSwapSlippagePercentageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { swapSlippageWillAheadMinValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  swapSlippageDecimal,
+  swapSlippageWillAheadMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
@@ -21,6 +25,13 @@ const SwapSlippageTriggerContainer = ({
 }: ISwapSlippageTriggerContainerProps) => {
   const intl = useIntl();
   const [{ slippageItem }] = useSwapSlippagePercentageAtom();
+  const displaySlippage = useMemo(
+    () =>
+      new BigNumber(slippageItem.value)
+        .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
+        .toFixed(),
+    [slippageItem.value],
+  );
   const slippageDisplayValue = useMemo(
     () =>
       intl.formatMessage(
@@ -30,9 +41,9 @@ const SwapSlippageTriggerContainer = ({
               ? ETranslations.swap_page_provider_slippage_auto
               : ETranslations.swap_page_provider_custom,
         },
-        { number: slippageItem.value },
+        { number: displaySlippage },
       ),
-    [intl, slippageItem.key, slippageItem.value],
+    [displaySlippage, intl, slippageItem.key],
   );
 
   const valueComponent = useMemo(
@@ -42,7 +53,7 @@ const SwapSlippageTriggerContainer = ({
         color={
           slippageItem.value > swapSlippageWillAheadMinValue
             ? '$textCritical'
-            : '$bodyMdMedium'
+            : '$text'
         }
       >
         {slippageDisplayValue}

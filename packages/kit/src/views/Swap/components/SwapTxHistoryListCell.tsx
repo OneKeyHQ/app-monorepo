@@ -46,16 +46,19 @@ const SwapTxHistoryListCell = ({
       hideYear: true,
       onlyTime: item.status !== ESwapTxHistoryStatus.PENDING,
     });
-
     return (
       <XStack space="$2">
         <SizableText size="$bodyMd" color="$textSubdued">
           {dateStr}
         </SizableText>
-        {item.status === ESwapTxHistoryStatus.FAILED ? (
+        {item.status === ESwapTxHistoryStatus.FAILED ||
+        item.status === ESwapTxHistoryStatus.DISCARD ? (
           <Badge badgeType="critical" badgeSize="lg">
             {intl.formatMessage({
-              id: ETranslations.swap_history_status_failed,
+              id:
+                item.status === ESwapTxHistoryStatus.DISCARD
+                  ? ETranslations.swap_history_status_discard
+                  : ETranslations.swap_history_status_failed,
             })}
           </Badge>
         ) : null}

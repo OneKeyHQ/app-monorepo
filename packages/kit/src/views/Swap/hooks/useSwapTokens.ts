@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isNil } from 'lodash';
 
 import { Toast } from '@onekeyhq/components';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -126,10 +125,7 @@ export function useSwapInit(params?: ISwapInitParams) {
             await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
               networkId: accountNetwork.networkId,
               accountAddress: swapAddressInfoRef.current?.address,
-              xpub: (
-                swapAddressInfoRef.current?.accountInfo
-                  ?.account as IDBUtxoAccount
-              )?.xpub,
+              accountId: swapAddressInfoRef.current?.accountInfo?.account?.id,
               contractAddress: `${
                 !isNil(accountNetwork.defaultSelectToken?.from)
                   ? accountNetwork.defaultSelectToken?.from
@@ -255,9 +251,9 @@ export function useSwapTokenList(
         selectTokenModalType === ESwapDirectionType.FROM
           ? swapAddressInfo?.networkId
           : undefined,
-      accountXpub:
+      accountId:
         selectTokenModalType === ESwapDirectionType.FROM
-          ? (swapAddressInfo?.accountInfo?.account as IDBUtxoAccount)?.xpub
+          ? swapAddressInfo?.accountInfo?.account?.id
           : undefined,
     }),
     [

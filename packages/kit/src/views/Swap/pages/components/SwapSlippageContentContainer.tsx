@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -20,6 +20,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   swapSlippageCustomDefaultList,
+  swapSlippageDecimal,
   swapSlippageItems,
   swapSlippageMaxValue,
   swapSlippageWillAheadMinValue,
@@ -45,7 +46,7 @@ const BaseSlippageInput = ({
   const [inputValue, setInputValue] = useState('');
   const handleTextChange = useCallback(
     (text: string) => {
-      if (validateAmountInput(text, 2)) {
+      if (validateAmountInput(text, swapSlippageDecimal)) {
         setInputValue(text);
         onChangeText(text);
       }
@@ -53,9 +54,17 @@ const BaseSlippageInput = ({
     [onChangeText],
   );
 
+  const displaySlippage = useMemo(
+    () =>
+      new BigNumber(swapSlippage.value)
+        .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
+        .toFixed(),
+    [swapSlippage.value],
+  );
+
   useEffect(() => {
-    setInputValue(swapSlippage.value.toString());
-  }, [swapSlippage.key, swapSlippage.value]);
+    setInputValue(displaySlippage);
+  }, [displaySlippage]);
 
   return (
     <Input
@@ -66,7 +75,7 @@ const BaseSlippageInput = ({
       addOns={[{ label: '%' }]}
       textAlign="left"
       disabled={swapSlippage.key === ESwapSlippageSegmentKey.AUTO}
-      placeholder={swapSlippage.value.toString()}
+      placeholder={displaySlippage}
       onChangeText={handleTextChange}
       {...props}
     />
@@ -115,18 +124,24 @@ const SwapsSlippageContentContainer = ({
       if (valueBN.lte(swapSlippageWillFailMinValue)) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
-          message: intl.formatMessage({
-            id: ETranslations.slippage_tolerance_warning_message_2,
-          }),
+          message: intl.formatMessage(
+            {
+              id: ETranslations.slippage_tolerance_warning_message_2,
+            },
+            { number: swapSlippageWillFailMinValue },
+          ),
         });
         return;
       }
       if (valueBN.gte(swapSlippageWillAheadMinValue)) {
         setCustomValueState({
           status: ESwapSlippageCustomStatus.WRONG,
-          message: intl.formatMessage({
-            id: ETranslations.slippage_tolerance_warning_message_1,
-          }),
+          message: intl.formatMessage(
+            {
+              id: ETranslations.slippage_tolerance_warning_message_1,
+            },
+            { number: swapSlippageWillAheadMinValue },
+          ),
         });
         return;
       }

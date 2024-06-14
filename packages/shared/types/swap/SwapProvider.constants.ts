@@ -24,6 +24,8 @@ export const swapSlippageWillAheadMinValue = 10;
 
 export const swapSlippage = 50;
 
+export const swapSlippageDecimal = 2;
+
 export const networkTransactionExplorerReplaceStr = '{transaction}';
 
 export const swapTokenCatchMapMaxCount = 30;
