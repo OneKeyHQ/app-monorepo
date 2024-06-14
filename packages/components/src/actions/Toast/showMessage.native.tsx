@@ -5,41 +5,37 @@ import { View, XStack } from '../../primitives';
 
 import type { IToastMessageOptions } from './type';
 
-const GAP = 88;
+const GAP = 68;
 export function showMessage({ title, duration }: IToastMessageOptions) {
+  const windowWidth = Dimensions.get('window').width;
   toast('', {
+    width: windowWidth - GAP * 2,
     duration,
     disableShadow: true,
-    customToast: ({ width }) => {
-      const windowWidth = Dimensions.get('window').width;
-      console.log(width);
-      console.log('windowWidth', windowWidth);
-      return (
-        <XStack
-          alignItems="center"
-          justifyContent="center"
-          alignSelf="center"
-          width={(width || windowWidth) - GAP * 2}
-          left={GAP}
+    customToast: ({ width }) => (
+      <XStack
+        alignItems="center"
+        justifyContent="center"
+        alignSelf="center"
+        width={width}
+      >
+        <View
+          bg="$bgApp"
+          px="$4"
+          py="$3"
+          borderRadius="$2"
+          shadowColor="#181821"
+          shadowOffset={{
+            width: 0,
+            height: 3,
+          }}
+          shadowOpacity={0.15}
+          shadowRadius={4.65}
+          elevationAndroid={7}
         >
-          <View
-            bg="$bgApp"
-            px="$4"
-            py="$3"
-            borderRadius="$2"
-            shadowColor="#181821"
-            shadowOffset={{
-              width: 0,
-              height: 3,
-            }}
-            shadowOpacity={0.15}
-            shadowRadius={4.65}
-            elevationAndroid={7}
-          >
-            {title}
-          </View>
-        </XStack>
-      );
-    },
+          {title}
+        </View>
+      </XStack>
+    ),
   });
 }
