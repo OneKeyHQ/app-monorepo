@@ -18,7 +18,11 @@ export function MarketDetailOverviewContract({
   const intl = useIntl();
   const keys = useMemo(
     () =>
-      detailPlatforms ? Object.keys(detailPlatforms).filter((i) => !!i) : [],
+      detailPlatforms
+        ? Object.keys(detailPlatforms).filter(
+            (key) => !!key && !detailPlatforms[key].hideContractAddress,
+          )
+        : [],
     [detailPlatforms],
   );
   const isShowAllInDefault = keys.length <= MAX_SHOW_NUMBER;
