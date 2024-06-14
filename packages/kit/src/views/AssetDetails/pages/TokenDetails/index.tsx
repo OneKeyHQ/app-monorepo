@@ -390,7 +390,7 @@ export function TokenDetails() {
                             size="$heading3xl"
                             formatter="balance"
                             formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
-                            numberOfLines={1}
+                            numberOfLines={999}
                           >
                             {tokenDetails?.balanceParsed ?? '0'}
                           </NumberSizeableText>
