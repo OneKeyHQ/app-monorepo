@@ -210,11 +210,6 @@ export const showBalanceDetailsDialog = ({
       id: ETranslations.balance_detail_button_done,
     }),
     onConfirm: async ({ close }) => {
-      Toast.success({
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.feedback_change_saved,
-        }),
-      });
       await close();
     },
     ...dialogProps,

@@ -3,6 +3,7 @@ import { type PropsWithChildren, useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Empty, Spinner, Stack, Toast } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -79,7 +80,7 @@ function LNHardwareWalletAuth({
         title="Authorize Access"
         description="Connecting your hardware wallet to access the Lightning account"
         buttonProps={{
-          children: intl.formatMessage({ id: 'action__connect' }),
+          children: intl.formatMessage({ id: ETranslations.global_connect }),
           onPress: () => {
             void refreshToken();
           },
