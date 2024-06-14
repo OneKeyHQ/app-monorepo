@@ -309,6 +309,10 @@ export type IApproveInfo = {
   tokenInfo?: IToken;
 };
 
+export type ITransferPayload = {
+  amountToSend: string;
+};
+
 export enum EWrappedType {
   DEPOSIT = 'deposit',
   WITHDRAW = 'withdraw',

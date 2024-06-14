@@ -45,6 +45,7 @@ function SendConfirmContainer() {
     sourceInfo,
     signOnly,
     useFeeInTx,
+    transferPayload,
   } = route.params;
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -122,6 +123,7 @@ function SendConfirmContainer() {
                 accountId={accountId}
                 networkId={networkId}
                 tableLayout={tableLayout}
+                transferPayload={transferPayload}
               />
               <YStack>
                 <TxFeeContainer
@@ -151,7 +153,11 @@ function SendConfirmContainer() {
       <>
         <Page.Body px="$5" space="$4">
           <TxSourceInfoContainer sourceInfo={sourceInfo} />
-          <TxActionsContainer accountId={accountId} networkId={networkId} />
+          <TxActionsContainer
+            accountId={accountId}
+            networkId={networkId}
+            transferPayload={transferPayload}
+          />
           <TxFeeContainer
             accountId={accountId}
             networkId={networkId}
@@ -180,6 +186,7 @@ function SendConfirmContainer() {
     onSuccess,
     onFail,
     onCancel,
+    transferPayload,
   ]);
 
   return (
