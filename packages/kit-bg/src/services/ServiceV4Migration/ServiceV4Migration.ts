@@ -321,6 +321,11 @@ class ServiceV4Migration extends ServiceBase {
     }));
 
     // **** migrate address book
+    const v5password = this.migrationPayload?.password;
+    if (v5password) {
+      await this.migrationAddressBook.convertV4ContactsToV5(v5password);
+    }
+
     // TODO
 
     // **** migrate history
