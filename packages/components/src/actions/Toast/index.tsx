@@ -113,7 +113,9 @@ function Title({
       $platform-native={{
         maxHeight: height - 200,
       }}
-      overflow="hidden"
+      $platform-web={{
+        overflow: 'hidden',
+      }}
     >
       <YStack>
         <RenderLines size="$headingSm" icon={icon} hasMessage={!!message}>

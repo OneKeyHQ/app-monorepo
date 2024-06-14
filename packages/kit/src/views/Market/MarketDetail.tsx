@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CommonActions } from '@react-navigation/native';
 import * as ExpoSharing from 'expo-sharing';
 import { useIntl } from 'react-intl';
+import { Share } from 'react-native';
 
 import {
   HeaderIconButton,
@@ -193,12 +194,20 @@ function MarketDetail({
           icon="ShareOutline"
           onPress={async () => {
             const url = buildMarketFullUrl({ coinGeckoId });
-            if (await ExpoSharing.isAvailableAsync()) {
-              // https://docs.expo.dev/versions/latest/sdk/sharing/
-              await ExpoSharing.shareAsync(url);
-            } else {
-              copyText(url);
+            if (platformEnv.isNativeIOS) {
+              if (await ExpoSharing.isAvailableAsync()) {
+                // https://docs.expo.dev/versions/latest/sdk/sharing/
+                await ExpoSharing.shareAsync(url);
+                return;
+              }
             }
+            if (platformEnv.isNativeAndroid) {
+              await Share.share({
+                message: url,
+              });
+              return;
+            }
+            copyText(url);
           }}
         />
         {gtMd ? <MarketHomeHeaderSearchBar /> : null}
