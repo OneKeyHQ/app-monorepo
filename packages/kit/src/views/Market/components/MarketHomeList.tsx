@@ -885,6 +885,7 @@ function BasicMarketHomeList({
                     size="$bodyMdMedium"
                     color="white"
                     formatter="priceChange"
+                    formatterOptions={{ showPlusMinusSigns: true }}
                   >
                     {item[mdColumnKeys[1]] as string}
                   </NumberSizeableText>
