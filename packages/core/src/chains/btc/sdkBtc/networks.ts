@@ -178,7 +178,7 @@ const neurai: IBtcForkNetwork = {
 
 const extendedNetworks: Record<string, IBtcForkNetwork> = {
   btc,
-  tbtc,
+  tbtc, // testnet
   rbtc, // regtest
   sbtc: tbtc, // signet
   ltc,

@@ -75,8 +75,10 @@ const {
             address:
               'tb1pzutpcaymsyxtmz325ucsjed4evp9mea05tsf32wnkx46vsjrqtrq4d3dmr',
             relPath: '0/0',
+            fullPath: "m/86'/1'/0'/0/0",
           },
         },
+        addressToPath: {},
         inputAddressesEncodings: [EAddressEncodings.P2TR],
         nonWitnessPrevTxs: {},
       },

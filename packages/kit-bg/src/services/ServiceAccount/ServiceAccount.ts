@@ -1431,7 +1431,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
-  }) {
+  }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
 
@@ -1472,6 +1472,8 @@ class ServiceAccount extends ServiceBase {
             results.push(account.address);
           }
         }
+
+        return results;
       },
       {
         deviceParams,

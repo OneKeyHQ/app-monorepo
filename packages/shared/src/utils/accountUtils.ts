@@ -28,6 +28,7 @@ import {
 import { CoreSDKLoader } from '../hardware/instance';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
 import type { IOneKeyDeviceFeatures } from '../../types/device';
@@ -611,6 +612,10 @@ function formatUtxoPath(path: string): string {
   return newPath;
 }
 
+function buildDeviceDbId() {
+  return generateUUID();
+}
+
 async function buildDeviceName({
   device,
   features,
@@ -687,6 +692,7 @@ export default {
   buildLnToBtcPath,
   buildLightningAccountId,
   buildDeviceName,
+  buildDeviceDbId,
   getWalletConnectMergedNetwork,
   formatUtxoPath,
   buildPathFromTemplate,

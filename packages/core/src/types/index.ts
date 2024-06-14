@@ -120,6 +120,14 @@ export type ICoreApiSignBtcExtraInfo = {
     [fullPath: string]: {
       address: string;
       relPath: string;
+      fullPath: string;
+    };
+  };
+  addressToPath: {
+    [address: string]: {
+      address: string;
+      relPath: string;
+      fullPath: string;
     };
   };
 };

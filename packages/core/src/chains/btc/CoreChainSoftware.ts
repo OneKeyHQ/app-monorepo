@@ -332,9 +332,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       network,
       unsignedTx,
       btcExtraInfo,
-      getPubKey: ({ address }) => {
+      buildInputMixinInfo: async ({ address }) => {
         const signer = this.pickSigner(signers, address);
-        return signer.getPubkey(true);
+        return Promise.resolve({ pubkey: await signer.getPubkey(true) });
       },
     });
 
@@ -816,10 +816,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
     });
 
+    if (process.env.NODE_ENV !== 'production') {
+      const buildPsbtHex = psbt.toHex();
+      console.log('BTC buildPsbtHex:', buildPsbtHex);
+    }
+
     // eslint-disable-next-line no-plusplus
     for (let i = 0; i < encodedTx.inputs.length; ++i) {
       const { address } = encodedTx.inputs[i];
       const signer = this.pickSigner(signers, address);
+      // internal build tx all inputs belong to self account, so we can just first input address
       const psbtInput = psbt.data.inputs[0];
       const bitcoinSigner = await this.getBitcoinSignerPro({
         signer,
@@ -829,16 +835,32 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       await psbt.signInputAsync(i, bitcoinSigner);
     }
 
-    psbt.validateSignaturesOfAllInputs(validator);
-    psbt.finalizeAllInputs();
-
-    const tx = psbt.extractTransaction();
+    const { txid, rawTx } = await this.extractPsbtToSignedTx({ psbt });
     return {
       encodedTx: unsignedTx.encodedTx,
-      txid: tx.getId(),
-      rawTx: tx.toHex(),
+      txid,
+      rawTx,
       psbtHex: undefined,
     };
+  }
+
+  async extractPsbtToSignedTx({ psbt }: { psbt: Psbt }) {
+    psbt.validateSignaturesOfAllInputs(validator);
+
+    let tx;
+    try {
+      tx = psbt.finalizeAllInputs().extractTransaction();
+    } catch (error) {
+      console.error('extractPsbtToSignedTx ERROR: ', error);
+      // tx = psbt.extractTransaction();
+      throw error;
+    }
+
+    const result = {
+      txid: tx.getId(),
+      rawTx: tx.toHex(),
+    };
+    return Promise.resolve(result);
   }
 
   pickSigner(

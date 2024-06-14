@@ -10,10 +10,7 @@ import type {
   IAirGapSignature,
 } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyRequestDeviceQR } from '@onekeyhq/qr-wallet-sdk/src/OneKeyRequestDeviceQR';
-import {
-  NotImplemented,
-  OneKeyErrorAirGapInvalidQrCode,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -28,7 +25,7 @@ import { EVaultKeyringTypes } from '../types';
 
 import { KeyringBase } from './KeyringBase';
 
-import type { IDBWallet } from '../../dbs/local/types';
+import type { IDBAccount, IDBWallet } from '../../dbs/local/types';
 import type {
   IPrepareQrAccountsParams,
   IGetChildPathTemplatesParams as IQrWalletGetChildPathTemplatesParams,
@@ -41,16 +38,6 @@ import type {
 
 export abstract class KeyringQrBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.qr;
-
-  async generateSignRequest(
-    params: IAirGapGenerateSignRequestParams,
-  ): Promise<AirGapUR> {
-    throw new NotImplemented();
-  }
-
-  async parseSignature(ur: AirGapUR): Promise<IAirGapSignature> {
-    throw new NotImplemented();
-  }
 
   getChildPathTemplates(
     params: IQrWalletGetChildPathTemplatesParams,
@@ -76,7 +63,8 @@ export abstract class KeyringQrBase extends KeyringBase {
         xfp: string;
       }) => Promise<AirGapUR>;
       signedResultBuilder: (params: {
-        signature: IAirGapSignature;
+        // signature: IAirGapSignature;
+        signatureUr: AirGapUR | undefined;
       }) => Promise<T>;
     },
   ): Promise<T> {
@@ -113,26 +101,29 @@ export abstract class KeyringQrBase extends KeyringBase {
         requestUr: signRequestUr,
       });
 
-    let sig: IAirGapSignature | undefined;
-    try {
-      sig = await this.parseSignature(checkIsDefined(signatureUr));
-    } catch (error) {
-      console.error(error);
-      throw new OneKeyErrorAirGapInvalidQrCode();
-    }
+    const signedTx = await options.signedResultBuilder({ signatureUr });
+    return signedTx;
 
-    if (sig.requestId !== requestId) {
-      console.error(new Error('Signature requestId not match'));
-      throw new OneKeyErrorAirGapInvalidQrCode();
-    }
-
-    // TODO do not check origin, device give origin is not reliable
-    // if (sig.origin !== device.name) {
-    //   console.error(new Error('Signature origin not match'));
+    // let sig: IAirGapSignature | undefined;
+    // try {
+    //   sig = await this.parseSignature(checkIsDefined(signatureUr));
+    // } catch (error) {
+    //   console.error(error);
     //   throw new OneKeyErrorAirGapInvalidQrCode();
     // }
 
-    return options.signedResultBuilder({ signature: sig });
+    // if (sig.requestId !== requestId) {
+    //   console.error(new Error('Signature requestId not match'));
+    //   throw new OneKeyErrorAirGapInvalidQrCode();
+    // }
+
+    // // TODO do not check origin, device give origin is not reliable
+    // // if (sig.origin !== device.name) {
+    // //   console.error(new Error('Signature origin not match'));
+    // //   throw new OneKeyErrorAirGapInvalidQrCode();
+    // // }
+
+    // return options.signedResultBuilder({ signature: sig });
   }
 
   async findAirGapAccountByPath({
@@ -181,7 +172,7 @@ export abstract class KeyringQrBase extends KeyringBase {
     return { airGapAccount, fullPath, childPathTemplate };
   }
 
-  async findQrWalletAirGapAccount(
+  async findAirGapAccountInPrepareAccounts(
     params: IPrepareQrAccountsParams,
     {
       index,
@@ -202,6 +193,25 @@ export abstract class KeyringQrBase extends KeyringBase {
     return this.findAirGapAccountByPath({
       wallet,
       index,
+      path: fullPath,
+    });
+  }
+
+  async findAirGapAccountByDbAccount({
+    wallet,
+    dbAccount,
+  }: {
+    wallet: IDBWallet;
+    dbAccount: IDBAccount;
+  }) {
+    const { pathIndex, template } = dbAccount;
+    const fullPath = accountUtils.buildPathFromTemplate({
+      template: checkIsDefined(template),
+      index: checkIsDefined(pathIndex),
+    });
+    return this.findAirGapAccountByPath({
+      wallet,
+      index: checkIsDefined(pathIndex),
       path: fullPath,
     });
   }

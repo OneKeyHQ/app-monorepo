@@ -142,6 +142,7 @@ export function scriptPkToAddress(
 ) {
   initBitcoinEcc();
   try {
+    // 0/0
     const address = BitcoinJsAddress.fromOutputScript(
       typeof scriptPk === 'string' ? Buffer.from(scriptPk, 'hex') : scriptPk,
       psbtNetwork,
@@ -188,7 +189,9 @@ export function getInputsToSignFromPsbt({
           address,
           sighashTypes: v.sighashType ? [v.sighashType] : undefined,
         });
+        // P2TR taproot
         if (account.template?.startsWith(`m/86'/`) && !v.tapInternalKey) {
+          // slice pub length from 33 to 32
           v.tapInternalKey = toXOnly(
             Buffer.from(checkIsDefined(account.pub), 'hex'),
           );
@@ -491,7 +494,7 @@ export function pubkeyToPayment({
   encoding,
   network,
 }: {
-  pubkey: Buffer;
+  pubkey: Buffer | undefined;
   encoding: EAddressEncodings;
   network: IBtcForkNetwork;
 }): Payment {
@@ -518,7 +521,9 @@ export function pubkeyToPayment({
       break;
     case EAddressEncodings.P2TR:
       payment = payments.p2tr({
-        internalPubkey: pubkey.slice(1, 33),
+        // this input may not belongs to self, can not get pubkey
+        internalPubkey: pubkey ? toXOnly(pubkey) : undefined,
+        //    internalPubkey: pubkey ? pubkey.slice(1, 33) : undefined,
         network,
       });
       break;
