@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { getAddressFromAccountOrAddress } from 'aptos';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
@@ -293,11 +294,12 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxNear;
+    const accountAddress = await this.getAccountAddress();
 
     const nativeTx = deserializeTransaction(encodedTx);
     const decodedTx: IDecodedTx = {
       txid: '',
-      owner: await this.getAccountAddress(),
+      owner: accountAddress,
       signer: nativeTx.signerId,
       nonce: parseFloat(nativeTx.nonce.toString()),
       actions: await this._nativeTxActionToEncodedTxAction(nativeTx),

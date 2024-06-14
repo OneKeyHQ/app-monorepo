@@ -31,6 +31,7 @@ import {
   getWatchingAccountUUID,
 } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import ServiceBase from '../ServiceBase';
 
@@ -491,7 +492,9 @@ class ServiceCloudBackup extends ServiceBase {
   }) {
     const { serviceAccount, servicePassword, serviceAddressBook, simpleDb } =
       this.backgroundApi;
-    await servicePassword.promptPasswordVerify();
+    await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+    });
 
     let privateData: IPrivateBackupData;
     try {

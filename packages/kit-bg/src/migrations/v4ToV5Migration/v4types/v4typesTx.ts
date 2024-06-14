@@ -1,4 +1,23 @@
+import type { IEncodedTxAda } from '@onekeyhq/core/src/chains/ada/types';
+import type { IEncodedTxAlgo } from '@onekeyhq/core/src/chains/algo/types';
+import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
+import type { IEncodedTxCfx } from '@onekeyhq/core/src/chains/cfx/types';
+import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
+import type { IEncodedTxCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
+import type { IEncodedTxDnx } from '@onekeyhq/core/src/chains/dnx/types';
+import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
+import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import type { IEncodedTxFil } from '@onekeyhq/core/src/chains/fil/types';
+import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
+import type { IEncodedTxNear } from '@onekeyhq/core/src/chains/near/types';
+import type { IEncodedTxNexa } from '@onekeyhq/core/src/chains/nexa/types';
+import type { IEncodedTxNostr } from '@onekeyhq/core/src/chains/nostr/types';
+import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
+import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
+import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
+import type { IEncodedTxXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { IEmojiTypes } from '@onekeyhq/shared/src/utils/emojiUtils';
+import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
 
 import type { IV4FeeInfoUnit } from './v4typesFee';
 import type { IV4Token } from './v4typesToken';
@@ -253,7 +272,7 @@ export type IV4DecodedTx = {
   // | IDecodedTxExtraXmr
   // | null;
 
-  encodedTx?: unknown; // TODO IEncodedTx;
+  encodedTx?: IV4EncodedTx;
   // used for speed up double check if encodedTx modified by some bugs
   encodedTxEncrypted?: string;
   payload?: unknown;
@@ -265,3 +284,97 @@ export type IV4AvatarInfo = {
   emoji?: IEmojiTypes | 'img';
   bgColor?: string;
 };
+
+export type IV4BtcUTXO = {
+  txid: string;
+  vout: number;
+  value: string;
+  address: string;
+  path: string;
+  forceSelect?: boolean;
+  confirmations?: number;
+};
+
+export type IV4CoinSelectUTXO = {
+  txId: string; // TODO txId or txid?
+  vout: number;
+  value: number;
+  address: string;
+  path: string;
+  forceSelect?: boolean;
+};
+
+export type IV4InputToSign = {
+  index: number;
+  publicKey: string;
+  address: string;
+  sighashTypes?: number[];
+};
+
+// EncodedTx ----------------------------------------------
+
+// same as V5
+export type IV4EncodedTxAda = IEncodedTxAda;
+export type IV4EncodedTxAlgo = IEncodedTxAlgo;
+export type IV4EncodedTxAptos = IEncodedTxAptos;
+export type IV4EncodedTxCfx = IEncodedTxCfx;
+export type IV4EncodedTxCkb = IEncodedTxCkb;
+export type IV4EncodedTxCosmos = IEncodedTxCosmos;
+export type IV4EncodedTxDnx = IEncodedTxDnx;
+export type IV4EncodedTxDot = IEncodedTxDot;
+export type IV4EncodedTxEvm = IEncodedTxEvm;
+export type IV4EncodedTxFil = IEncodedTxFil;
+export type IV4EncodedTxKaspa = IEncodedTxKaspa;
+export type IV4EncodedTxLightning = IEncodedTxLightning;
+export type IV4EncodedTxNear = IEncodedTxNear;
+export type IV4EncodedTxNexa = IEncodedTxNexa;
+export type IV4EncodedTxNostor = IEncodedTxNostr;
+export type IV4EncodedTxSol = IEncodedTxSol;
+export type IV4EncodedTxSui = IEncodedTxSui;
+export type IV4EncodedTxTron = IEncodedTxTron;
+export type IV4EncodedTxXrp = IEncodedTxXrp;
+
+// not same as V5
+export type IV4EncodedTxBtc = {
+  inputs: IV4BtcUTXO[];
+  outputs: {
+    address: string;
+    value: string;
+    payload?: { isCharge?: boolean; bip44Path?: string; opReturn?: string };
+  }[];
+  feeRate: string;
+  totalFee: string;
+  totalFeeInNative: string;
+  inputsForCoinSelect: IV4CoinSelectUTXO[];
+  outputsForCoinSelect: {
+    address: string;
+    value?: number;
+    isMax?: boolean;
+    script?: string;
+  }[];
+  psbtHex?: string;
+  inputsToSign?: IV4InputToSign[];
+  isInscribeTransfer?: boolean;
+};
+
+export type IV4EncodedTx =
+  | IV4EncodedTxAda
+  | IV4EncodedTxAlgo
+  | IV4EncodedTxAptos
+  | IV4EncodedTxCfx
+  | IV4EncodedTxCkb
+  | IV4EncodedTxCosmos
+  | IV4EncodedTxDnx
+  | IV4EncodedTxDot
+  | IV4EncodedTxEvm
+  | IV4EncodedTxFil
+  | IV4EncodedTxKaspa
+  | IV4EncodedTxLightning
+  | IV4EncodedTxNear
+  | IV4EncodedTxNexa
+  | IV4EncodedTxNostor
+  | IV4EncodedTxSol
+  | IV4EncodedTxSui
+  | IV4EncodedTxTron
+  | IV4EncodedTxXrp
+  | IV4EncodedTxBtc;

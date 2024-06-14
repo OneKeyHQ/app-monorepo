@@ -64,7 +64,6 @@ class ServiceV4Migration extends ServiceBase {
     const simpleDbAccountHistory =
       await v4dbHubs.v4simpleDb.history.getAccountHistory({
         accountId: 'hd-1--1',
-        networkId: 'evm--1',
       });
     const dbWallets = await v4dbHubs.v4localDb.getAllRecords({
       name: EV4LocalDBStoreNames.Wallet,
@@ -322,10 +321,15 @@ class ServiceV4Migration extends ServiceBase {
     }));
 
     // **** migrate address book
+    const v5password = this.migrationPayload?.password;
+    if (v5password) {
+      await this.migrationAddressBook.convertV4ContactsToV5(v5password);
+    }
+
     // TODO
 
     // **** migrate history
-    // TODO
+    await this.migrationHistory.migrateLocalPendingTxs();
 
     // ----------------------------------------------
     this.migrationPayload = undefined;

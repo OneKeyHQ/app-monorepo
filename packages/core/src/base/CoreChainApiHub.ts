@@ -74,7 +74,7 @@ export class CoreChainApiHub {
 
   neurai = new CoreChainNeurai();
 
-  dnx = new CoreChainDnx();
+  dynex = new CoreChainDnx();
 
   ckb = new CoreChainCkb();
 }

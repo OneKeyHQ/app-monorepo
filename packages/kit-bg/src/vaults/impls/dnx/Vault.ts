@@ -37,7 +37,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 
-import type { IDBWalletType } from '../../../dbs/local/types';
+import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
@@ -55,7 +55,7 @@ import type {
 const DEFAULT_TX_FEE = 1000000;
 
 export default class Vault extends VaultBase {
-  override coreApi = coreChainApi.dnx.hd;
+  override coreApi = coreChainApi.dynex.hd;
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
@@ -219,10 +219,10 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDnx;
-    const accountAddress = await this.getAccountAddress();
+    const account = await this.getAccount();
     const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
       networkId: this.networkId,
-      accountAddress,
+      accountAddress: account.address,
     });
 
     const transfer: IDecodedTxTransferInfo = {
@@ -245,13 +245,14 @@ export default class Vault extends VaultBase {
 
     const decodedTx: IDecodedTx = {
       txid: '',
-      owner: accountAddress,
-      signer: encodedTx.from || accountAddress,
+      owner: account.address,
+      signer: encodedTx.from || account.address,
       nonce: 0,
       actions: [action],
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
+      xpub: (account as IDBUtxoAccount).xpub,
       encodedTx,
       extraInfo: null,
     };

@@ -100,7 +100,6 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
-  signOnlyFullTxRequired: true,
   hasFrozenBalance: true,
 };
 
