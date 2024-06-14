@@ -28,12 +28,12 @@ import {
 import { CoreSDKLoader } from '../hardware/instance';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
-import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import { generateUUID } from './miscUtils';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*

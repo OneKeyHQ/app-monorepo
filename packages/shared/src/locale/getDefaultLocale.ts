@@ -1,4 +1,4 @@
-import { ETranslations, LOCALES_OPTION } from '.';
+import { LOCALES_OPTION } from '.';
 
 import { locale as LocalizationLocale } from 'expo-localization';
 import { isFunction } from 'lodash';
@@ -7,6 +7,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { LOCALES } from './localeJsonMap';
 
+import type { ETranslations } from '.';
 import type { ILocaleJSONSymbol, ILocaleSymbol } from './type';
 
 const getDefaultLocaleFunc = () => {
