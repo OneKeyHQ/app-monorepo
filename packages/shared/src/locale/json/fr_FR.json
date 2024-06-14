@@ -1327,7 +1327,7 @@
   "v4_migration.backup_primary_action": "Je les ai soutenus",
   "v4_migration.backup_private_key_reveal_alert": "Cliquez pour voir la clé privée, assurez-vous que personne ne regarde votre écran",
   "v4_migration.backup_recovery_phrase_reveal_alert": "Cliquez pour voir la phrase de récupération, assurez-vous que personne ne regarde votre écran",
-  "v4_migration.backup_title": "Sécurisez vos portefeuilles",
+  "v4_migration.backup_title": "Sauvegardez vos données",
   "v4_migration.completed_desc": "Vous êtes prêt à explorer nos nouvelles fonctionnalités et améliorations",
   "v4_migration.completed_title": "Migration terminée",
   "v4_migration.welcome_message": "OneKey 5.0 est là !",

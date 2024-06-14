@@ -1327,7 +1327,7 @@
   "v4_migration.backup_primary_action": "قمت بدعمهم",
   "v4_migration.backup_private_key_reveal_alert": "انقر لعرض المفتاح الخاص، تأكد من أن لا أحد يراقب شاشتك",
   "v4_migration.backup_recovery_phrase_reveal_alert": "انقر لعرض عبارة الاستعادة، تأكد من أنه لا أحد يراقب شاشتك",
-  "v4_migration.backup_title": "أحمي محافظك",
+  "v4_migration.backup_title": "احفظ بياناتك",
   "v4_migration.completed_desc": "أنت جاهز الآن لاستكشاف ميزاتنا الجديدة والتحسينات",
   "v4_migration.completed_title": "تم الانتقال",
   "v4_migration.welcome_message": "OneKey 5.0 هنا!",

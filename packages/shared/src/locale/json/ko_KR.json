@@ -1327,7 +1327,7 @@
   "v4_migration.backup_primary_action": "나는 그들을 지원했습니다",
   "v4_migration.backup_private_key_reveal_alert": "개인 키를 보려면 클릭하십시오, 화면을 보는 사람이 없는지 확인하십시오",
   "v4_migration.backup_recovery_phrase_reveal_alert": "복구 구문을 보려면 클릭하십시오, 화면을 보는 사람이 없는지 확인하십시오",
-  "v4_migration.backup_title": "지갑을 안전하게 보호하세요",
+  "v4_migration.backup_title": "데이터를 백업하세요",
   "v4_migration.completed_desc": "당신은 이제 우리의 새로운 기능과 개선 사항을 탐색할 준비가 되었습니다",
   "v4_migration.completed_title": "마이그레이션이 완료되었습니다",
   "v4_migration.welcome_message": "OneKey 5.0이 출시되었습니다!",

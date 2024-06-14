@@ -1327,7 +1327,7 @@
   "v4_migration.backup_primary_action": "আমি তাদের সমর্থন করেছিলাম",
   "v4_migration.backup_private_key_reveal_alert": "ব্যক্তিগত কী দেখতে ক্লিক করুন, নিশ্চিত করুন যে কেউ আপনার স্ক্রিন দেখছে না",
   "v4_migration.backup_recovery_phrase_reveal_alert": "রিকভারি ফ্রেজ দেখতে ক্লিক করুন, নিশ্চিত করুন যে কেউ আপনার স্ক্রিন দেখছে না",
-  "v4_migration.backup_title": "আপনার মানিব্যাগগুলি নিরাপদ করুন",
+  "v4_migration.backup_title": "আপনার ডাটা ব্যাকআপ করুন",
   "v4_migration.completed_desc": "আপনি আমাদের নতুন বৈশিষ্ট্য এবং উন্নতিগুলি অন্বেষণ করার জন্য সম্পূর্ণরূপে প্রস্তুত",
   "v4_migration.completed_title": "মাইগ্রেশন সম্পন্ন হয়েছে",
   "v4_migration.welcome_message": "OneKey 5.0 এখন এখানে!",

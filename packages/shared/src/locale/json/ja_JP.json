@@ -1327,7 +1327,7 @@
   "v4_migration.backup_primary_action": "私は彼らをバックアップしました",
   "v4_migration.backup_private_key_reveal_alert": "プライベートキーを表示するにはクリックしてください。誰もあなたの画面を見ていないことを確認してください",
   "v4_migration.backup_recovery_phrase_reveal_alert": "リカバリーフレーズを表示するにはクリックし、誰もあなたの画面を見ていないことを確認してください",
-  "v4_migration.backup_title": "あなたのウォレットを保護してください",
+  "v4_migration.backup_title": "あなたのデータをバックアップしてください",
   "v4_migration.completed_desc": "新機能と改善点を探索する準備が整いました",
   "v4_migration.completed_title": "移行が完了しました",
   "v4_migration.welcome_message": "OneKey 5.0が登場しました！",

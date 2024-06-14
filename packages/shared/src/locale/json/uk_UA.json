@@ -1327,7 +1327,7 @@
   "v4_migration.backup_primary_action": "Я їх підтримав",
   "v4_migration.backup_private_key_reveal_alert": "Натисніть, щоб переглянути приватний ключ, переконайтеся, що ніхто не дивиться на ваш екран",
   "v4_migration.backup_recovery_phrase_reveal_alert": "Натисніть, щоб переглянути фразу відновлення, переконайтеся, що ніхто не дивиться на ваш екран",
-  "v4_migration.backup_title": "Захистіть свої гаманці",
+  "v4_migration.backup_title": "Створіть резервну копію своїх даних",
   "v4_migration.completed_desc": "Ви готові вивчати наші нові функції та поліпшення",
   "v4_migration.completed_title": "Міграцію завершено",
   "v4_migration.welcome_message": "OneKey 5.0 вже тут!",

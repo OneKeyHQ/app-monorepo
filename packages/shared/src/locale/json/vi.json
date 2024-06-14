@@ -1327,7 +1327,7 @@
   "v4_migration.backup_primary_action": "Tôi đã sao lưu cho họ",
   "v4_migration.backup_private_key_reveal_alert": "Nhấp để xem khóa riêng tư, hãy đảm bảo không ai đang nhìn vào màn hình của bạn",
   "v4_migration.backup_recovery_phrase_reveal_alert": "Nhấp để xem cụm từ khôi phục, hãy đảm bảo không ai đang nhìn vào màn hình của bạn",
-  "v4_migration.backup_title": "Bảo vệ ví của bạn",
+  "v4_migration.backup_title": "Sao lưu dữ liệu của bạn",
   "v4_migration.completed_desc": "Bạn đã sẵn sàng để khám phá các tính năng mới và cải tiến của chúng tôi",
   "v4_migration.completed_title": "Đã hoàn tất việc di chuyển",
   "v4_migration.welcome_message": "OneKey 5.0 đã ra mắt!",

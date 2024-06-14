@@ -13,6 +13,7 @@ import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/Dapp
 import { isLightningAddress } from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/lnurl';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -131,7 +132,7 @@ function LnurlPayRequestModal() {
         if (!isValidInvoice) {
           Toast.error({
             title: intl.formatMessage({
-              id: 'msg__invalid_lightning_payment_request',
+              id: ETranslations.dapp_connect_msg_invalid_lightning_payment_request,
             }),
           });
         }
@@ -198,7 +199,9 @@ function LnurlPayRequestModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
-            title={intl.formatMessage({ id: 'title__lnurl_pay' })}
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_lnurl_pay_request,
+            })}
             subtitleShown={false}
             origin={origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
@@ -223,7 +226,9 @@ function LnurlPayRequestModal() {
         </Page.Body>
         <Page.Footer>
           <DAppRequestFooter
-            confirmText="Continue"
+            confirmText={intl.formatMessage({
+              id: ETranslations.global_continue,
+            })}
             continueOperate={continueOperate}
             setContinueOperate={(checked) => {
               setContinueOperate(!!checked);

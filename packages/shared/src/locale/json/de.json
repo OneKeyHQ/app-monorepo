@@ -1327,7 +1327,7 @@
   "v4_migration.backup_primary_action": "Ich habe sie gesichert",
   "v4_migration.backup_private_key_reveal_alert": "Klicken Sie, um den privaten Schlüssel anzuzeigen, stellen Sie sicher, dass niemand Ihren Bildschirm sieht",
   "v4_migration.backup_recovery_phrase_reveal_alert": "Klicken Sie, um den Wiederherstellungscode anzuzeigen, stellen Sie sicher, dass niemand Ihren Bildschirm sieht",
-  "v4_migration.backup_title": "Sichern Sie Ihre Geldbörsen",
+  "v4_migration.backup_title": "Sichern Sie Ihre Daten",
   "v4_migration.completed_desc": "Sie sind bereit, unsere neuen Funktionen und Verbesserungen zu erkunden",
   "v4_migration.completed_title": "Migration abgeschlossen",
   "v4_migration.welcome_message": "OneKey 5.0 ist da!",
