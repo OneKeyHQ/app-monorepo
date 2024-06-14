@@ -61,6 +61,7 @@ import type { KeyringBase } from './KeyringBase';
 import type {
   IDBAccount,
   IDBExternalAccount,
+  IDBUtxoAccount,
   IDBWalletType,
 } from '../../dbs/local/types';
 import type {
@@ -314,8 +315,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       throw new Error('buildHistoryTx txid not found');
     }
     const address = await this.getAccountAddress();
+    const xpub = await this.getAccountXpub();
     decodedTx.txid = txid || decodedTx.txid;
     decodedTx.owner = address;
+    decodedTx.xpub = xpub;
     if (isSigner) {
       decodedTx.signer = address;
     }
@@ -324,7 +327,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     const historyId = accountUtils.buildLocalHistoryId({
       networkId: this.networkId,
       txid,
-      accountId: this.accountId,
+      accountAddress: address,
+      xpub,
     });
     const historyTx: IAccountHistoryTx = {
       id: historyId,
@@ -341,7 +345,15 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async buildOnChainHistoryTx(
     params: IBuildHistoryTxParams,
   ): Promise<IAccountHistoryTx | null> {
-    const { accountId, networkId, onChainHistoryTx, tokens, nfts } = params;
+    const {
+      accountId,
+      networkId,
+      onChainHistoryTx,
+      tokens,
+      nfts,
+      accountAddress,
+      xpub,
+    } = params;
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     try {
@@ -354,7 +366,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,
 
-        owner: onChainHistoryTx.from,
+        owner: accountAddress,
         signer: onChainHistoryTx.from,
 
         nonce: onChainHistoryTx.nonce,
@@ -364,6 +376,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         networkId,
         accountId,
+        xpub,
 
         totalFeeInNative: onChainHistoryTx.gasFee,
 
@@ -709,6 +722,6 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getAccountXpub(): Promise<string | undefined> {
-    return undefined;
+    return ((await this.getAccount()) as IDBUtxoAccount).xpub;
   }
 }

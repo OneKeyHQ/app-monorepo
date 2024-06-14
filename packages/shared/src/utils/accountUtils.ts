@@ -337,11 +337,12 @@ function buildLocalTokenId({
 
 function buildLocalHistoryId(params: {
   networkId: string;
+  accountAddress: string;
   txid: string;
-  accountId: string;
+  xpub?: string;
 }) {
-  const { networkId, txid, accountId } = params;
-  const historyId = `${networkId}_${txid}_${accountId}`;
+  const { networkId, txid, accountAddress, xpub } = params;
+  const historyId = `${networkId}_${txid}_${xpub ?? accountAddress}`;
   return historyId;
 }
 

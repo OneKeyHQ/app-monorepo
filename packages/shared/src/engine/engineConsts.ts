@@ -93,7 +93,7 @@ const COINTYPE_LIGHTNING_TESTNET = '81297820149140';
 const IMPL_NOSTR = 'nostr';
 const COINTYPE_NOSTR = '1237';
 
-const IMPL_DNX = 'dnx';
+const IMPL_DNX = 'dynex';
 const COINTYPE_DNX = '29538';
 
 const IMPL_CKB = 'nervos';
