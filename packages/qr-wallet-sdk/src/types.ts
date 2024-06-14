@@ -8,6 +8,8 @@ import { URType as EAirGapURType } from '@keystonehq/keystone-sdk';
 
 import type {
   Account,
+  BtcSignRequestProps,
+  BtcSignature,
   EthSignRequestProps,
   EthSignature,
   MultiAccounts,
@@ -19,11 +21,14 @@ export type IAirGapAccount = Account;
 export type IAirGapMultiAccounts = MultiAccounts;
 
 export type IAirGapSignatureEvm = EthSignature;
-export type IAirGapSignature = IAirGapSignatureEvm;
+export type IAirGapSignatureBtc = BtcSignature;
+export type IAirGapSignature = IAirGapSignatureEvm | IAirGapSignatureBtc;
 
 export type IAirGapGenerateSignRequestParamsEvm = EthSignRequestProps;
+export type IAirGapGenerateSignRequestParamsBtc = BtcSignRequestProps;
 export type IAirGapGenerateSignRequestParams =
-  IAirGapGenerateSignRequestParamsEvm;
+  | IAirGapGenerateSignRequestParamsEvm
+  | IAirGapGenerateSignRequestParamsBtc;
 
 export {
   AirGapCryptoHDKeyEvm,

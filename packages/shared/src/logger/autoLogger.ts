@@ -7,7 +7,7 @@ let prevErrorStack: string | undefined;
 const autoLogger = {
   error: (error: Error, ...messages: unknown[]) => {
     if (process.env.NODE_ENV !== 'production') {
-      if (error.stack !== prevErrorStack) {
+      if (error && error?.stack !== prevErrorStack) {
         setTimeout(() => {
           /*
           how to mute auto error log:

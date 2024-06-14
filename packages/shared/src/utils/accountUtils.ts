@@ -30,9 +30,10 @@ import { CoreSDKLoader } from '../hardware/instance';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import networkUtils from './networkUtils';
 
+import type { SearchDevice } from '@onekeyfe/hd-core';
 import type { IOneKeyDeviceFeatures } from '../../types/device';
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import type { SearchDevice } from '@onekeyfe/hd-core';
+import { generateUUID } from './miscUtils';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
@@ -610,6 +611,10 @@ function formatUtxoPath(path: string): string {
   return newPath;
 }
 
+function buildDeviceDbId() {
+  return generateUUID();
+}
+
 async function buildDeviceName({
   device,
   features,
@@ -686,6 +691,7 @@ export default {
   buildLnToBtcPath,
   buildLightningAccountId,
   buildDeviceName,
+  buildDeviceDbId,
   getWalletConnectMergedNetwork,
   formatUtxoPath,
   buildPathFromTemplate,

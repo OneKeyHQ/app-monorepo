@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
-import { isNil, max, uniq, uniqBy } from 'lodash';
+import { isNil, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
 
 import type { IBip39RevealableSeed } from '@onekeyhq/core/src/secret';
@@ -61,6 +61,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { RealmSchemaWallet } from './realm/schemas/RealmSchemaWallet';
 import type {
   IDBAccount,
@@ -91,7 +92,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
@@ -603,6 +603,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       wallet.airGapAccountsInfo = JSON.parse(wallet.airGapAccountsInfoRaw);
     }
 
+    // wallet.xfp = 'aaaaaaaa'; // mock qr wallet xfp
     return wallet;
   }
 
@@ -1040,8 +1041,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingDevice = await this.getDeviceByQuery({
       featuresDeviceId: rawDeviceId,
     });
-    // TODO deviceId is connectId
-    const dbDeviceId = existingDevice?.id || generateUUID();
+    const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
 
     let passphraseState = '';
     let xfpHash = '';
@@ -1277,7 +1277,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       rawDeviceId,
       uuid: deviceUUID,
     });
-    const dbDeviceId = existingDevice?.id || generateUUID();
+    const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
 
     const dbWalletId = accountUtils.buildHwWalletId({
       dbDeviceId,
