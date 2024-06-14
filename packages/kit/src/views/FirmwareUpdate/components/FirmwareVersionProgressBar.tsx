@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { Badge, Icon, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function FirmwareVersionProgressBar({
   fromVersion = '',
@@ -10,7 +11,9 @@ export function FirmwareVersionProgressBar({
   toVersion?: string;
 }) {
   const intl = useIntl();
-  const unknownMessage = intl.formatMessage({ id: 'global.unknown' });
+  const unknownMessage = intl.formatMessage({
+    id: ETranslations.global_unknown,
+  });
   return (
     <XStack space="$2.5" alignItems="center">
       <Badge badgeType="default" badgeSize="lg">
