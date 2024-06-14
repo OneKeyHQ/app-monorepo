@@ -105,3 +105,17 @@ export type IV4ReduxSettingsState = {
     fixBtcPubKey?: string;
   };
 };
+
+export type IV4ReduxContact = {
+  id: number;
+  createAt: number;
+  name: string;
+  address: string;
+  networkId: string;
+  badge: string;
+};
+
+export type IV4ReduxContactsState = {
+  uuid: number;
+  contacts: Record<string, IV4ReduxContact>;
+};

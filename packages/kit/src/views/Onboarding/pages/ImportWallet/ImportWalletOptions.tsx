@@ -1,5 +1,3 @@
-import { useCallback, useState } from 'react';
-
 import { useIntl } from 'react-intl';
 import { InteractionManager, Keyboard } from 'react-native';
 
@@ -14,7 +12,6 @@ import {
   SectionList,
   SizableText,
   Stack,
-  Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
@@ -25,6 +22,9 @@ import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { useV4MigrationActions } from '../../hooks/useV4MigrationActions';
 
 type IOptionItem = IPropsWithTestId<{
   title?: string;
@@ -70,31 +70,8 @@ export function ImportWalletOptions() {
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
   const backupEntryStatus = useBackupEntryStatus();
-  const [migrateLoading, setMigrateLoading] = useState(false);
-  const { serviceV4Migration } = backgroundApiProxy;
 
-  const handleMigrateFromV4 = useCallback(async () => {
-    try {
-      setMigrateLoading(true);
-
-      const shouldMigrate = await serviceV4Migration.checkShouldMigrateV4();
-      if (shouldMigrate) {
-        const { shouldBackup } = await serviceV4Migration.prepareMigration();
-        if (shouldBackup) {
-          Toast.message({ title: 'Show backup Modal......' });
-        }
-        await serviceV4Migration.startV4MigrationFlow();
-        Dialog.show({
-          showCancelButton: false,
-          onConfirmText: 'OK',
-          title: 'Migration Complete',
-          description: 'Your V4 data have been migrated successfully.',
-        });
-      }
-    } finally {
-      setMigrateLoading(false);
-    }
-  }, [serviceV4Migration]);
+  const v4MigrationActions = useV4MigrationActions();
 
   const handleConnectHardwareWalletPress = async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
@@ -233,9 +210,13 @@ export function ImportWalletOptions() {
             id: ETranslations.onboarding_migrate_from_v4,
           }),
           icon: 'StorageOutline',
-          onPress: handleMigrateFromV4,
+          // onPress: handleMigrateFromV4,
+          onPress: async () => {
+            navigation.popStack();
+            await timerUtils.wait(100);
+            v4MigrationActions.navigateToV4MigrationPage();
+          },
           testID: 'connect-hardware-wallet',
-          isLoading: migrateLoading,
         },
       ],
     },

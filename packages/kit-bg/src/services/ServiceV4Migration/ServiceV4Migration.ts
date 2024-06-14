@@ -1,26 +1,28 @@
+/* eslint-disable @typescript-eslint/no-restricted-imports */
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
 import v4dbHubs from '../../migrations/v4ToV5Migration/v4dbHubs';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EV4LocalDBStoreNames } from '../../migrations/v4ToV5Migration/v4local/v4localDBStoreNames';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4MigrationForAccount';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
+import { v4migrationAtom } from '../../states/jotai/atoms/v4migration';
 import ServiceBase from '../ServiceBase';
 
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import type { IV4MigrationPayload } from '../../migrations/v4ToV5Migration/types';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import type { IDBAccount, IDBWallet } from '../../dbs/local/types';
+import type {
+  IV4MigrationBackupSectionData,
+  IV4MigrationBackupSectionDataItem,
+  IV4MigrationPayload,
+} from '../../migrations/v4ToV5Migration/types';
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
 
 @backgroundClass()
@@ -103,6 +105,7 @@ class ServiceV4Migration extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async checkShouldMigrateV4() {
+    // persist migration status to global atom
     return true;
   }
 
@@ -126,6 +129,15 @@ class ServiceV4Migration extends ServiceBase {
       await this.migrationAccount.buildV4WalletsForBackup({
         v4wallets: wallets,
       });
+    let totalWalletsAndAccounts = 0;
+    for (const wallet of wallets) {
+      if (!wallet.isExternal) {
+        if (wallet.isHD || wallet.isHw) {
+          totalWalletsAndAccounts += 1;
+        }
+        totalWalletsAndAccounts += wallet?.wallet?.accounts?.length || 0;
+      }
+    }
     this.migrationPayload = {
       password: passwordRes.password,
       v4password: '',
@@ -133,13 +145,84 @@ class ServiceV4Migration extends ServiceBase {
       shouldBackup: walletsForBackup.length > 0,
       wallets,
       walletsForBackup,
+      totalWalletsAndAccounts,
     };
+    await v4migrationAtom.set((v) => ({
+      progress: 0,
+      backedUpMark: {},
+    }));
     return this.migrationPayload;
   }
 
   @backgroundMethod()
-  async getV4WalletsForBackup() {
-    return this.migrationPayload?.walletsForBackup;
+  async buildV4WalletsForBackupSectionData() {
+    const wallets = this.migrationPayload?.walletsForBackup || [];
+
+    const hdWalletSectionData: IV4MigrationBackupSectionDataItem = {
+      title: 'Wallets',
+      data: [
+        // { hdWallet: undefined }
+      ],
+    };
+
+    const importedAccountsSectionData: IV4MigrationBackupSectionDataItem = {
+      title: 'Private key',
+      data: [
+        // { importedAccount: undefined }
+      ],
+    };
+
+    for (const w of wallets) {
+      if (w.isHD) {
+        hdWalletSectionData.data.push({
+          hdWallet: w.wallet,
+          backupId: `v4-hd-backup:${w.wallet.id}`,
+          title: w.wallet.name || '--',
+          subTitle: `${w?.wallet?.accounts?.length || 0} accounts`,
+        });
+      }
+      if (w.isImported) {
+        if (w.wallet.accounts.length) {
+          for (const accountId of w.wallet.accounts) {
+            try {
+              const account = await v4dbHubs.v4localDb.getRecordById({
+                name: EV4LocalDBStoreNames.Account,
+                id: accountId,
+              });
+              const networkId = v4CoinTypeToNetworkId[account?.coinType];
+              const network =
+                await this.backgroundApi.serviceNetwork.getNetworkSafe({
+                  networkId,
+                });
+              importedAccountsSectionData.data.push({
+                importedAccount: account,
+                network,
+                backupId: `v4-imported-backup:${account.id}`,
+                title: account.name || '--',
+                subTitle: accountUtils.shortenAddress({
+                  // TODO regenerate address of certain network
+                  address: account.address || account.pub || '--',
+                }),
+              });
+            } catch (error) {
+              //
+            }
+          }
+        }
+      }
+    }
+
+    const sectionData: IV4MigrationBackupSectionData = [];
+
+    if (hdWalletSectionData.data.length) {
+      sectionData.push(hdWalletSectionData);
+    }
+
+    if (importedAccountsSectionData.data.length) {
+      sectionData.push(importedAccountsSectionData);
+    }
+
+    return sectionData;
   }
 
   @backgroundMethod()
@@ -166,32 +249,84 @@ class ServiceV4Migration extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async startV4MigrationFlow() {
+    const maxProgress = {
+      account: 90,
+      addressBook: 92,
+      history: 95,
+    };
+    await v4migrationAtom.set((v) => ({
+      ...v,
+      progress: 0,
+    }));
     const wallets = this.migrationPayload?.wallets || [];
+
     // **** migrate accounts
+    const totalWalletsAndAccounts =
+      this.migrationPayload?.totalWalletsAndAccounts || 0;
+    let actualWalletsAndAccountsMigrated = 0;
+    const increaseProgressOfAccount = () => {
+      actualWalletsAndAccountsMigrated += 1;
+      const progress = Math.min(
+        Math.floor(
+          (actualWalletsAndAccountsMigrated / totalWalletsAndAccounts) * 100,
+        ),
+        100,
+      );
+      void v4migrationAtom.set((v) => ({
+        ...v,
+        progress: Math.floor((progress * maxProgress.account) / 100),
+      }));
+    };
+    const onWalletMigrated = (v5wallet?: IDBWallet) => {
+      increaseProgressOfAccount();
+    };
+    const onAccountMigrated = (v5account?: IDBAccount) => {
+      increaseProgressOfAccount();
+    };
     for (const wallet of wallets) {
       if (wallet.isHw) {
         await this.migrationAccount.migrateHwWallet({
           v4wallet: wallet.wallet,
+          onWalletMigrated,
+          onAccountMigrated,
         });
       }
       if (wallet.isHD) {
         await this.migrationAccount.migrateHdWallet({
           v4wallet: wallet.wallet,
+          onWalletMigrated,
+          onAccountMigrated,
         });
       }
       if (wallet.isImported) {
         await this.migrationAccount.migrateImportedAccounts({
           v4wallet: wallet.wallet,
+          onWalletMigrated,
+          onAccountMigrated,
         });
       }
       if (wallet.isWatching) {
         await this.migrationAccount.migrateWatchingAccounts({
           v4wallet: wallet.wallet,
+          onWalletMigrated,
+          onAccountMigrated,
         });
       }
     }
 
+    // await timerUtils.wait(1000);
+
+    await v4migrationAtom.set((v) => ({
+      ...v,
+      progress: maxProgress.account,
+    }));
+
     // **** migrate address book
+    const v5password = this.migrationPayload?.password;
+    if (v5password) {
+      await this.migrationAddressBook.convertV4ContactsToV5(v5password);
+    }
+
     // TODO
 
     // **** migrate history
@@ -201,6 +336,16 @@ class ServiceV4Migration extends ServiceBase {
     this.migrationPayload = undefined;
     // TODO skip backup within flow
     void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
+
+    await v4migrationAtom.set((v) => ({
+      ...v,
+      progress: 100,
+    }));
+
+    return {
+      totalWalletsAndAccounts,
+      actualWalletsAndAccountsMigrated,
+    };
   }
 }
 

@@ -18,6 +18,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -36,8 +37,6 @@ import {
 } from '../../hooks/useWebTabs';
 import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
-
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
@@ -135,8 +134,8 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     if (disabledAddedNewTab) {
       Toast.message({
         title: intl.formatMessage(
-          { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
-          { 0: '20' },
+          { id: ETranslations.explore_toast_tab_limit_reached },
+          { number: '20' },
         ),
       });
       return;

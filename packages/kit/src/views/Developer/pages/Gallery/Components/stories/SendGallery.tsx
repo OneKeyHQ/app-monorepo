@@ -200,7 +200,7 @@ const SendGallery = () => (
               <Button
                 onPress={async () => {
                   const r =
-                    await backgroundApiProxy.serviceV4Migration.getV4WalletsForBackup();
+                    await backgroundApiProxy.serviceV4Migration.buildV4WalletsForBackupSectionData();
                   console.log(r);
                 }}
               >

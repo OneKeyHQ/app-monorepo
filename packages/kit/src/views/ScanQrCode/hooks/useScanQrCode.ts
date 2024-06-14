@@ -27,7 +27,7 @@ export default function useScanQrCode() {
     ({
       autoHandleResult = false,
       handlers,
-      accountId,
+      account,
       qrWalletScene = false,
       showProTutorial = false,
     }: IQRCodeHandlerParseOutsideOptions) =>
@@ -44,7 +44,7 @@ export default function useScanQrCode() {
                 const parseValue = await parseQRCode.parse(value, {
                   autoHandleResult,
                   handlers,
-                  accountId,
+                  account,
                 });
                 if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
                   const animationValue = parseValue.data as IAnimationValue;
@@ -60,7 +60,7 @@ export default function useScanQrCode() {
                 resolve(parseValue);
                 return {};
               }
-              reject(new Error('cancel'));
+              reject();
               return {};
             },
           },
