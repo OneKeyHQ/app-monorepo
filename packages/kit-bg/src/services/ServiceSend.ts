@@ -313,12 +313,12 @@ class ServiceSend extends ServiceBase {
 
     const maxPendingNonce =
       await this.backgroundApi.simpleDb.localHistory.getMaxPendingNonce({
-        accountId,
+        accountAddress,
         networkId,
       });
     const pendingNonceList =
       await this.backgroundApi.simpleDb.localHistory.getPendingNonceList({
-        accountId,
+        accountAddress,
         networkId,
       });
     let nextNonce = Math.max(

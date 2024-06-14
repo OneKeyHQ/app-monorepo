@@ -117,6 +117,11 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async clearLocalTokens() {
+    return this.backgroundApi.simpleDb.localTokens.clearTokens();
+  }
+
+  @backgroundMethod()
   public async getNativeTokenAddress({ networkId }: { networkId: string }) {
     const vaultSettings = await getVaultSettings({ networkId });
     let tokenAddress = vaultSettings.networkInfo[networkId]?.nativeTokenAddress;
