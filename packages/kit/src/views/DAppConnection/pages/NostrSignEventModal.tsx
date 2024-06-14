@@ -115,26 +115,53 @@ function NostrSignEventModal() {
     );
   }, [intl, signType, event]);
 
-  const subtitle = useMemo(() => {
+  const title = useMemo(() => {
     if (signType === ENostrSignType.encrypt) {
       return intl.formatMessage({
-        id: 'msg__nostr_allow_website_to_encrypt_data',
+        id: ETranslations.dapp_connect_encrypted_request,
       });
     }
     if (signType === ENostrSignType.decrypt) {
       return intl.formatMessage({
-        id: 'msg__nostr_allow_website_to_decrypt_data',
+        id: ETranslations.dapp_connect_decrypted_request,
       });
+    }
+    return intl.formatMessage({
+      id: ETranslations.dapp_connect_signature_request,
+    });
+  }, [intl, signType]);
+
+  const subtitle = useMemo(() => {
+    if (signType === ENostrSignType.encrypt) {
+      return intl.formatMessage(
+        {
+          id: ETranslations.dapp_connect_allow_to_access_your_chain_encrypted_message,
+        },
+        {
+          chain: 'Nostr',
+        },
+      );
+    }
+    if (signType === ENostrSignType.decrypt) {
+      return intl.formatMessage(
+        {
+          id: ETranslations.dapp_connect_allow_to_access_your_chain_decrypted_message,
+        },
+        {
+          chain: 'Nostr',
+        },
+      );
     }
     return intl.formatMessage(
       {
-        id: 'msg__allow_sign_event',
+        id: ETranslations.dapp_connect_allow_to_access_your_chain_message_signature,
       },
       {
-        kind: eventKindText,
+        chain:
+          signType === ENostrSignType.signSchnorr ? 'Nostr Schnorr' : 'Nostr',
       },
     );
-  }, [intl, signType, eventKindText]);
+  }, [intl, signType]);
 
   const onSubmit = useCallback(
     async (close: () => void) => {
@@ -281,9 +308,7 @@ function NostrSignEventModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
-            title={intl.formatMessage({
-              id: ETranslations.dapp_connect_initiate_message_signature_request,
-            })}
+            title={title}
             subtitle={subtitle}
             origin={$sourceInfo?.origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}

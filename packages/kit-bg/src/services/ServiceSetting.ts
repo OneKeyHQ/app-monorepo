@@ -18,8 +18,8 @@ import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { LOCALES } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
-  getLocaleMessages,
   getDefaultLocale,
+  getLocaleMessages,
 } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
