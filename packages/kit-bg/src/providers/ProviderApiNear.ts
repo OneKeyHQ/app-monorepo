@@ -175,13 +175,13 @@ class ProviderApiNear extends ProviderApiBase {
       const tx = transactions[i];
 
       const result =
-        (await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
           accountId: accountId ?? '',
           networkId: networkId ?? '',
           request,
           encodedTx: tx,
-        })) as string;
-      transactionHashes.push(result);
+        });
+      transactionHashes.push(result.txid);
     }
     return { transactionHashes };
   }
