@@ -211,6 +211,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
         // description="$40"
       >
         <Input
+          editable={!amountReadOnly}
           readonly={amountReadOnly}
           placeholder={intl.formatMessage({
             id: ETranslations.dapp_connect_enter_amount,

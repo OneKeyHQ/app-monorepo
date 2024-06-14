@@ -110,8 +110,7 @@ function NostrSignEventModal() {
     if (i18nSupportEventKinds.includes(Number(event?.kind))) {
       return intl.formatMessage({
         id: ETranslations[
-          // @ts-expect-error
-          `dapp_connect.nostr_event_kind_${event?.kind ?? 'unknown'}`
+          `dapp_connect_nostr_event_kind_${event?.kind ?? 'unknown'}`
         ],
       });
     }
@@ -334,7 +333,9 @@ function NostrSignEventModal() {
             </YStack>
             {signType === ENostrSignType.signEvent ? (
               <Checkbox
-                label={ETranslations.dapp_connect_do_not_ask_again}
+                label={intl.formatMessage({
+                  id: ETranslations.dapp_connect_do_not_ask_again,
+                })}
                 value={autoSign}
                 onChange={(checked) => setAutoSign(!!checked)}
               />
