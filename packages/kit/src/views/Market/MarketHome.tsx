@@ -15,6 +15,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -84,6 +85,7 @@ function MarketHome() {
           data={tabConfig}
           headerProps={{
             contentContainerStyle: { paddingRight: '$5' },
+            showHorizontalScrollButton: !gtMd && platformEnv.isRuntimeBrowser,
             renderItem: (item, index, titleStyle) =>
               index === 0 && !gtMd ? (
                 <AnimatedIcon
