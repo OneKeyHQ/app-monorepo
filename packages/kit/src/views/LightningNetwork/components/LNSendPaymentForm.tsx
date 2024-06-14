@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Form, Input, TextArea } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -78,7 +79,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
         value: minAmount,
         message: intl.formatMessage(
           {
-            id: 'form__field_too_small',
+            id: ETranslations.dapp_connect_amount_should_be_at_least,
           },
           {
             0: minAmount,
@@ -90,7 +91,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
             value: max,
             message: intl.formatMessage(
               {
-                id: 'form__field_too_large',
+                id: ETranslations.dapp_connect_amount_should_not_exceed,
               },
               {
                 0: max,
@@ -101,7 +102,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
       pattern: {
         value: /^[0-9]*$/,
         message: intl.formatMessage({
-          id: 'form__field_only_integer',
+          id: ETranslations.send_field_only_integer,
         }),
       },
       validate: (value: number) => {
@@ -110,7 +111,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
         const valueBN = new BigNumber(value);
         if (!valueBN.isInteger()) {
           return intl.formatMessage({
-            id: 'form__field_only_integer',
+            id: ETranslations.send_field_only_integer,
           });
         }
 
@@ -120,7 +121,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
         ) {
           return intl.formatMessage(
             {
-              id: 'msg__the_sending_amount_cannot_exceed_int_sats',
+              id: ETranslations.dapp_connect_amount_should_not_exceed,
             },
             {
               0: invoiceConfig?.maxSendAmount,
@@ -137,7 +138,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
     }
     if (minAmount > 0 && maxAmount > 0) {
       return intl.formatMessage(
-        { id: 'form__between_int_and_int_sats' },
+        { id: ETranslations.dapp_connect_sats_between },
         {
           min: minAmount,
           max:
@@ -177,7 +178,9 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
             useFormReturn.setValue(name, content);
             return (
               <Form.Field
-                label={intl.formatMessage({ id: 'form__payment_description' })}
+                label={intl.formatMessage({
+                  id: ETranslations.global_description,
+                })}
                 name={name}
                 key={content}
               >
@@ -199,7 +202,7 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
       {renderMetadataText}
       <Form.Field
         label={intl.formatMessage({
-          id: 'content__amount',
+          id: ETranslations.dapp_connect_amount,
         })}
         name="amount"
         rules={amountRules}
@@ -208,12 +211,15 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
         // description="$40"
       >
         <Input
+          editable={!amountReadOnly}
           readonly={amountReadOnly}
-          placeholder={intl.formatMessage({ id: 'form__enter_amount' })}
+          placeholder={intl.formatMessage({
+            id: ETranslations.dapp_connect_enter_amount,
+          })}
           flex={1}
           addOns={[
             {
-              label: intl.formatMessage({ id: 'form__sats__units' }),
+              label: intl.formatMessage({ id: ETranslations.global_sats }),
             },
           ]}
         />
@@ -221,14 +227,18 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
       {Number(commentAllowedLength) > 0 ? (
         <Form.Field
           label={intl.formatMessage({
-            id: descriptionLabelId ?? 'form__description__optional',
+            id:
+              descriptionLabelId ??
+              ETranslations.dapp_connect_description_optional,
           })}
           name="comment"
           rules={{
             maxLength: {
               value: Number(commentAllowedLength),
               message: intl.formatMessage(
-                { id: 'msg_description_can_be_up_to_int_characters' },
+                {
+                  id: ETranslations.dapp_connect_msg_invalid_lightning_payment_request,
+                },
                 { 0: commentAllowedLength },
               ),
             },

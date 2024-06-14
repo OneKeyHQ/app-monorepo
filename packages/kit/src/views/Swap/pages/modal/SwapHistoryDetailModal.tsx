@@ -8,13 +8,13 @@ import { useIntl } from 'react-intl';
 import {
   Divider,
   IconButton,
-  Image,
   NumberSizeableText,
   Page,
   SizableText,
   Stack,
   XStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -77,7 +77,7 @@ const SwapHistoryDetailModal = () => {
       .toFixed(0);
     return `${usedTimeMinusRes} min`;
   }, [txHistory.date]);
-
+  const { md } = useMedia();
   const renderSwapAssetsChange = useCallback(() => {
     const fromAsset = {
       name: txHistory.baseInfo.fromToken.name ?? '',
@@ -127,11 +127,25 @@ const SwapHistoryDetailModal = () => {
     const { status } = txHistory;
     const { key, color } = getSwapHistoryStatusTextProps(status);
     return (
-      <SizableText size={16} color={color}>
-        {intl.formatMessage({ id: key })}
-      </SizableText>
+      <Stack
+        flexDirection={md ? 'row' : 'column'}
+        {...(md
+          ? {
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }
+          : { alignItems: 'flex-start', space: '$2' })}
+      >
+        <SizableText size={16} color={color}>
+          {intl.formatMessage({ id: key })}
+        </SizableText>
+        <SwapTxHistoryViewInBrowser
+          item={txHistory}
+          onViewInBrowser={onViewInBrowser}
+        />
+      </Stack>
     );
-  }, [intl, txHistory]);
+  }, [intl, md, onViewInBrowser, txHistory]);
 
   const renderSwapDate = useCallback(() => {
     const { created } = txHistory.date;
@@ -316,7 +330,7 @@ const SwapHistoryDetailModal = () => {
               />
             ) : null}
           </InfoItemGroup>
-          <XStack justifyContent="space-between" py="$4" mx="$5">
+          {/* <XStack justifyContent="space-between" py="$4" mx="$5">
             <Image
               resizeMode="contain"
               w={100}
@@ -327,14 +341,13 @@ const SwapHistoryDetailModal = () => {
               item={txHistory}
               onViewInBrowser={onViewInBrowser}
             />
-          </XStack>
+          </XStack> */}
         </Stack>
       </>
     );
   }, [
     durationTime,
     intl,
-    onViewInBrowser,
     renderCanCopyText,
     renderNetworkFee,
     renderRate,

@@ -10,6 +10,7 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -146,7 +147,9 @@ function LnurlWithdrawModal() {
         <Page.Header headerShown={false} />
         <Page.Body>
           <DAppRequestLayout
-            title={intl.formatMessage({ id: 'title__lnurl_withdraw' })}
+            title={intl.formatMessage({
+              id: ETranslations.dapp_connect_lnurl_withdraw_request,
+            })}
             subtitleShown={false}
             origin={origin ?? ''}
             urlSecurityInfo={urlSecurityInfo}
@@ -164,14 +167,15 @@ function LnurlWithdrawModal() {
               amountReadOnly={amountMin === amountMax}
               minimumAmount={amountMin}
               maximumAmount={amountMax}
-              descriptionLabelId="form__withdraw_description"
               memo={lnurlDetails.defaultDescription}
             />
           </DAppRequestLayout>
         </Page.Body>
         <Page.Footer>
           <DAppRequestFooter
-            confirmText="Continue"
+            confirmText={intl.formatMessage({
+              id: ETranslations.global_withdraw,
+            })}
             continueOperate={continueOperate}
             setContinueOperate={(checked) => {
               setContinueOperate(!!checked);
