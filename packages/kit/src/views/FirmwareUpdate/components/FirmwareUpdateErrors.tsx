@@ -187,9 +187,11 @@ export function useFirmwareUpdateErrors({
   result: ICheckAllFirmwareReleaseResult | undefined;
   lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
 }) {
-  console.error('useFirmwareUpdateErrors', error);
-  const defaultRetryText = 'Retry';
   const intl = useIntl();
+  console.error('useFirmwareUpdateErrors', error);
+  const defaultRetryText = intl.formatMessage({
+    id: ETranslations.global_retry,
+  });
   return useMemo<{
     content: React.ReactNode;
     detail?: React.ReactNode;
@@ -290,7 +292,7 @@ export function useFirmwareUpdateErrors({
       content: null,
       retryText: defaultRetryText,
     };
-  }, [intl, error, lastFirmwareTipMessage, onRetry, result]);
+  }, [intl, error, lastFirmwareTipMessage, defaultRetryText, onRetry, result]);
 }
 
 function WorkflowErrors({
@@ -302,6 +304,7 @@ function WorkflowErrors({
   error: IOneKeyError;
   result: ICheckAllFirmwareReleaseResult | undefined;
 }) {
+  const intl = useIntl();
   const { onRetryHandler, content, retryText } = useFirmwareUpdateErrors({
     error,
     onRetry,
@@ -312,7 +315,9 @@ function WorkflowErrors({
     <>
       <FirmwareUpdatePageFooter
         onConfirm={onRetryHandler}
-        onConfirmText={retryText || 'Retry'}
+        onConfirmText={
+          retryText || intl.formatMessage({ id: ETranslations.global_retry })
+        }
       />
       {content}
     </>
@@ -328,6 +333,7 @@ function InstallingErrors({
   result: ICheckAllFirmwareReleaseResult | undefined;
   lastFirmwareTipMessage: EFirmwareUpdateTipMessages | undefined;
 }) {
+  const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
   const onRetry = useCallback(async () => {
@@ -361,7 +367,9 @@ function InstallingErrors({
     <>
       <FirmwareUpdatePageFooter
         onConfirm={onRetryHandler}
-        onConfirmText={retryText || 'Retry'}
+        onConfirmText={
+          retryText || intl.formatMessage({ id: ETranslations.global_retry })
+        }
       />
       {content}
       {detail}

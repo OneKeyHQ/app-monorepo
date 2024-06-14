@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Empty, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
 function BlockAccessView({
@@ -39,7 +40,9 @@ function BlockAccessView({
           title={title}
           description={description}
           buttonProps={{
-            children: intl.formatMessage({ id: 'form__close_tab' }),
+            children: intl.formatMessage({
+              id: ETranslations.explore_close_tab,
+            }),
             onPress: onCloseTab,
           }}
         />

@@ -222,8 +222,8 @@ function MobileTabListModal() {
     if (disabledAddedNewTab) {
       Toast.message({
         title: intl.formatMessage(
-          { id: 'msg__tab_has_reached_the_maximum_limit_of_str' },
-          { 0: '20' },
+          { id: ETranslations.explore_toast_tab_limit_reached },
+          { number: '20' },
         ),
       });
       return;
