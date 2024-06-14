@@ -55,7 +55,7 @@ import type {
 const DEFAULT_TX_FEE = 1000000;
 
 export default class Vault extends VaultBase {
-  override coreApi = coreChainApi.dnx.hd;
+  override coreApi = coreChainApi.dynex.hd;
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,

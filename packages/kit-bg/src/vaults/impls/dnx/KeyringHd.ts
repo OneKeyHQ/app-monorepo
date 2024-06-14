@@ -8,7 +8,7 @@ import type { IDBAccount } from '../../../dbs/local/types';
 import type { IGetPrivateKeysResult } from '../../types';
 
 export class KeyringHd extends KeyringHdBase {
-  override coreApi = coreChainApi.dnx.hd;
+  override coreApi = coreChainApi.dynex.hd;
 
   override async getPrivateKeys(): Promise<IGetPrivateKeysResult> {
     throw new NotImplemented('Method not implemented');

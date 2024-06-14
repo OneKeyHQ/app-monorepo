@@ -66,7 +66,7 @@ export const NftListItemStatus = ({
                     >
                       {amount}
                     </NumberSizeableText>
-                    <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+                    <SizableText size="$bodyLgMedium"> {symbol}</SizableText>
                   </SizableText>
                 ),
               },
