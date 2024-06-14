@@ -478,7 +478,8 @@ export class FirmwareUpdateLimitOneDevice extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FirmwareUpdateLimitOneDevice',
-        defaultKey: 'modal__only_one_device_can_be_connected_desc',
+        defaultKey:
+          ETranslations.hardware_only_one_device_can_be_connected_desc,
       }),
     );
   }
@@ -506,7 +507,8 @@ export class NewFirmwareUnRelease extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NewFirmwareUnRelease',
-        defaultKey: 'msg__str_not_supported_by_hardware_wallets',
+        defaultKey:
+          ETranslations.hardware_str_not_supported_by_hardware_wallets,
       }),
     );
   }
@@ -522,7 +524,7 @@ export class NewFirmwareForceUpdate extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NewFirmwareForceUpdate',
-        defaultKey: 'msg__need_force_upgrade_firmware',
+        defaultKey: ETranslations.hardware_need_force_upgrade_firmware,
       }),
     );
   }
@@ -536,7 +538,7 @@ export class DeviceNotSame extends OneKeyHardwareError {
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotSame',
         defaultKey:
-          'msg__device_information_is_inconsistent_it_may_caused_by_device_reset',
+          ETranslations.hardware_device_information_is_inconsistent_it_may_caused_by_device_reset,
       }),
     );
   }
@@ -550,7 +552,7 @@ export class DeviceNotFound extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'DeviceNotFound',
-        defaultKey: 'msg__hardware_device_not_find_error',
+        defaultKey: ETranslations.hardware_device_not_find_error,
         defaultAutoToast: false, // do not auto toast for DeviceNotFound, it's very common for silence call getFeatures
       }),
     );
@@ -595,7 +597,7 @@ export class NetworkError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NetworkError',
-        defaultKey: 'title__no_connection_desc',
+        defaultKey: ETranslations.hardware_no_connection_desc,
       }),
     );
   }
@@ -610,7 +612,7 @@ export class NotSupportPassphraseError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NotSupportPassphraseError',
-        defaultKey: 'msg__not_support_passphrase_need_upgrade',
+        defaultKey: ETranslations.hardware_not_support_passphrase_need_upgrade,
       }),
     );
   }
@@ -628,7 +630,7 @@ export class FileAlreadyExistError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'FileAlreadyExistError',
-        defaultKey: 'msg__file_already_exists',
+        defaultKey: ETranslations.hardware_file_already_exists,
       }),
     );
   }
@@ -641,7 +643,7 @@ export class IncompleteFileError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'IncompleteFileError',
-        defaultKey: 'msg__incomplete_file',
+        defaultKey: ETranslations.hardware_incomplete_file,
       }),
     );
   }
@@ -654,7 +656,8 @@ export class NotInSigningModeError extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NotInSigningModeError',
-        defaultKey: 'msg__transaction_signing_error_not_in_signing_mode',
+        defaultKey:
+          ETranslations.hardware_transaction_signing_error_not_in_signing_mode,
       }),
     );
   }

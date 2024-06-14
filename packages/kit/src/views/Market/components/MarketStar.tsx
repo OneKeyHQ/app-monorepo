@@ -3,19 +3,24 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 
 import type { IIconButtonProps, IStackProps } from '@onekeyhq/components';
-import { IconButton } from '@onekeyhq/components';
+import { IconButton, useMedia } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { useWatchListAction } from './wachListHooks';
 
 function BasicMarketStar({
   coingeckoId,
   size,
+  tabIndex,
   ...props
 }: {
+  tabIndex?: number;
+  size?: IIconButtonProps['size'];
   coingeckoId: string;
-} & IStackProps & {
-    size?: IIconButtonProps['size'];
-  }) {
+} & IStackProps) {
   const actions = useWatchListAction();
 
   const [checked, setIsChecked] = useState(() =>
@@ -23,6 +28,32 @@ function BasicMarketStar({
   );
 
   const isFocused = useIsFocused();
+
+  const { gtMd } = useMedia();
+
+  const onSwitchMarketHomeTabCallback = useCallback(
+    ({ tabIndex: currentTabIndex }: { tabIndex: number }) => {
+      if (currentTabIndex === tabIndex) {
+        setIsChecked(actions.isInWatchList(coingeckoId));
+      }
+    },
+    [actions, coingeckoId, tabIndex],
+  );
+
+  useEffect(() => {
+    if (gtMd && tabIndex) {
+      appEventBus.on(
+        EAppEventBusNames.SwitchMarketHomeTab,
+        onSwitchMarketHomeTabCallback,
+      );
+      return () => {
+        appEventBus.off(
+          EAppEventBusNames.SwitchMarketHomeTab,
+          onSwitchMarketHomeTabCallback,
+        );
+      };
+    }
+  }, [gtMd, onSwitchMarketHomeTabCallback, tabIndex]);
 
   useEffect(() => {
     if (isFocused) {
