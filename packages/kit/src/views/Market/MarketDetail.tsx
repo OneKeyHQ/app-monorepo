@@ -198,8 +198,8 @@ function MarketDetail({
               if (await ExpoSharing.isAvailableAsync()) {
                 // https://docs.expo.dev/versions/latest/sdk/sharing/
                 await ExpoSharing.shareAsync(url);
+                return;
               }
-              return;
             }
             if (platformEnv.isNativeAndroid) {
               await Share.share({
