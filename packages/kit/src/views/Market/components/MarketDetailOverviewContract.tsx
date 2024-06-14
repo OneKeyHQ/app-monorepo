@@ -18,7 +18,11 @@ export function MarketDetailOverviewContract({
   const intl = useIntl();
   const keys = useMemo(
     () =>
-      detailPlatforms ? Object.keys(detailPlatforms).filter((i) => !!i) : [],
+      detailPlatforms
+        ? Object.keys(detailPlatforms).filter(
+            (key) => !!key && !detailPlatforms[key].hideContractAddress,
+          )
+        : [],
     [detailPlatforms],
   );
   const isShowAllInDefault = keys.length <= MAX_SHOW_NUMBER;
@@ -35,21 +39,19 @@ export function MarketDetailOverviewContract({
       <SizableText color="$textSubdued" size="$bodySm">
         {intl.formatMessage({ id: ETranslations.global_contract })}
       </SizableText>
-      {showKeys
-        .filter((tokenName) => !detailPlatforms[tokenName].hideContractAddress)
-        .map((tokenName) => {
-          const platform = detailPlatforms[tokenName];
-          return (
-            <MarketTokenAddress
-              key={tokenName}
-              tokenNameSize="$bodyMd"
-              tokenNameColor="$textSubdued"
-              addressSize="$bodyMdMedium"
-              networkId={platform.onekeyNetworkId}
-              address={platform.contract_address}
-            />
-          );
-        })}
+      {showKeys.map((tokenName) => {
+        const platform = detailPlatforms[tokenName];
+        return (
+          <MarketTokenAddress
+            key={tokenName}
+            tokenNameSize="$bodyMd"
+            tokenNameColor="$textSubdued"
+            addressSize="$bodyMdMedium"
+            networkId={platform.onekeyNetworkId}
+            address={platform.contract_address}
+          />
+        );
+      })}
       {isShowAllInDefault ? null : (
         <Button
           size="medium"
