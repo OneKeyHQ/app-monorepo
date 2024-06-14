@@ -46,7 +46,7 @@ const StakingActivityIndicator = ({
       ) : (
         <IconButton
           variant="tertiary"
-          size="small"
+          size="medium"
           icon="ClockTimeHistoryOutline"
           onPress={onPress}
         />

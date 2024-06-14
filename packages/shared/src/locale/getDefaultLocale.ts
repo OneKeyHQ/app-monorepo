@@ -19,17 +19,16 @@ const getDefaultLocaleFunc = () => {
       return locale as ILocaleSymbol;
     }
   }
+  const code = current.split('-')[0];
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];
-    const code = current.split('-')[0];
-    if (code === current) {
+    if (code === locale) {
       return locale as ILocaleSymbol;
     }
   }
   for (let i = 0; i < locales.length; i += 1) {
     const locale = locales[i];
-    const code = current.split('-')[0];
-    if (locale.startsWith(code)) {
+    if (locale.startsWith(`${code}-`)) {
       return locale as ILocaleSymbol;
     }
   }

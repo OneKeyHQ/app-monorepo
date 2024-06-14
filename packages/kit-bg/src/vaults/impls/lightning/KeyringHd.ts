@@ -249,6 +249,14 @@ export class KeyringHd extends KeyringHdBase {
               [`${btcPath}/0/0`]: {
                 address: accountAddress,
                 relPath: '0/0',
+                fullPath: `${btcPath}/0/0`,
+              },
+            },
+            addressToPath: {
+              [accountAddress]: {
+                address: accountAddress,
+                relPath: '0/0',
+                fullPath: `${btcPath}/0/0`,
               },
             },
           },

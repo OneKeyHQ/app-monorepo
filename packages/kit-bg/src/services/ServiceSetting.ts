@@ -128,9 +128,11 @@ class ServiceSetting extends ServiceBase {
   public async clearCacheOnApp(values: IClearCacheOnAppState) {
     if (values.tokenAndNFT) {
       // clear token and nft
+      await this.backgroundApi.simpleDb.localTokens.clearRawData();
     }
     if (values.transactionHistory) {
       // clear transaction history
+      await this.backgroundApi.simpleDb.localHistory.clearRawData();
     }
     if (values.swapHistory) {
       // clear swap history
@@ -236,7 +238,7 @@ class ServiceSetting extends ServiceBase {
         defaultNetworkId: getNetworkIdsMap().tbtc,
       });
     }
-    return {
+    const data = {
       enabledNum: config.map((o) => o.num),
       availableNetworksMap: config.reduce((result, item) => {
         result[item.num] = {
@@ -247,6 +249,7 @@ class ServiceSetting extends ServiceBase {
       }, {} as IAccountSelectorAvailableNetworksMap),
       items: config,
     };
+    return data;
   }
 
   @backgroundMethod()

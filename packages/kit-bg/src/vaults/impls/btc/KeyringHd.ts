@@ -4,8 +4,6 @@ import {
   checkBtcAddressIsUsed,
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { buildPsbt } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import { type ISignedTxPro } from '@onekeyhq/core/src/types';
 
