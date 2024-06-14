@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, max } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -31,6 +31,7 @@ import {
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IOneKeyRpcError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
@@ -213,7 +214,7 @@ function TxFeeContainer(props: IProps) {
           };
         }
 
-        if (useFeeInTx) {
+        if (useFeeInTx && network) {
           const {
             gas,
             gasLimit,
@@ -229,8 +230,14 @@ function TxFeeContainer(props: IProps) {
           ) {
             customFeeInfo.gasEIP1559 = {
               ...customFeeInfo.gasEIP1559,
-              maxFeePerGas,
-              maxPriorityFeePerGas,
+              maxFeePerGas: chainValueUtils.convertChainValueToGwei({
+                value: maxFeePerGas,
+                network,
+              }),
+              maxPriorityFeePerGas: chainValueUtils.convertChainValueToGwei({
+                value: maxPriorityFeePerGas,
+                network,
+              }),
               gasLimit: limit ?? customFeeInfo.gasEIP1559?.gasLimit,
               gasLimitForDisplay:
                 limit ?? customFeeInfo.gasEIP1559?.gasLimitForDisplay,
@@ -238,7 +245,10 @@ function TxFeeContainer(props: IProps) {
           } else if (gasPrice && customFeeInfo.gas) {
             customFeeInfo.gas = {
               ...customFeeInfo.gas,
-              gasPrice,
+              gasPrice: chainValueUtils.convertChainValueToGwei({
+                value: gasPrice,
+                network,
+              }),
               gasLimit: limit ?? customFeeInfo.gas?.gasLimit,
               gasLimitForDisplay:
                 limit ?? customFeeInfo.gas?.gasLimitForDisplay,
@@ -288,12 +298,13 @@ function TxFeeContainer(props: IProps) {
     txFee,
     vaultSettings?.editFeeEnabled,
     intl,
+    useFeeInTx,
+    sendSelectedFee.presetIndex,
     customFee?.gas,
     customFee?.gasEIP1559,
     customFee?.feeUTXO,
-    useFeeInTx,
-    sendSelectedFee.presetIndex,
     unsignedTxs,
+    network,
     updateSendSelectedFee,
   ]);
 
