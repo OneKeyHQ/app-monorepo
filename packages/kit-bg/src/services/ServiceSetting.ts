@@ -18,8 +18,8 @@ import type { ETranslations, ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { LOCALES } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
-  getLocaleMessages,
   getDefaultLocale,
+  getLocaleMessages,
 } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -236,7 +236,7 @@ class ServiceSetting extends ServiceBase {
         defaultNetworkId: getNetworkIdsMap().tbtc,
       });
     }
-    return {
+    const data = {
       enabledNum: config.map((o) => o.num),
       availableNetworksMap: config.reduce((result, item) => {
         result[item.num] = {
@@ -247,6 +247,7 @@ class ServiceSetting extends ServiceBase {
       }, {} as IAccountSelectorAvailableNetworksMap),
       items: config,
     };
+    return data;
   }
 
   @backgroundMethod()
