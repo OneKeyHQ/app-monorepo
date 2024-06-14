@@ -10,15 +10,16 @@ export function showMessage({ title, duration }: IToastMessageOptions) {
   toast('', {
     duration,
     disableShadow: true,
-    customToast: () => {
+    customToast: ({ width }) => {
       const windowWidth = Dimensions.get('window').width;
+      console.log(width);
       console.log('windowWidth', windowWidth);
       return (
         <XStack
           alignItems="center"
           justifyContent="center"
           alignSelf="center"
-          width={windowWidth - GAP * 2}
+          width={(width || windowWidth) - GAP * 2}
           left={GAP}
         >
           <View
