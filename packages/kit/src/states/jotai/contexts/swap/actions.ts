@@ -6,7 +6,6 @@ import { debounce } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { inAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -682,9 +681,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           : get(swapSelectToTokenAtom());
       const accountAddress = swapAddressInfo.address;
       const accountNetworkId = swapAddressInfo.networkId;
-      const accountXpub = (
-        swapAddressInfo.accountInfo?.account as IDBUtxoAccount
-      )?.xpub;
+      const accountId = swapAddressInfo.accountInfo?.account?.id;
       let balanceDisplay;
       if (
         token &&
@@ -715,7 +712,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
                 networkId: token.networkId,
                 accountAddress,
-                xpub: accountXpub,
+                accountId,
                 contractAddress: token.contractAddress,
               });
             if (detailInfo?.[0]) {
