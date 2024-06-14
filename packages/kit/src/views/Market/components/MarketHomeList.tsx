@@ -145,7 +145,7 @@ type ITableColumnConfig = Record<
   (item: IMarketToken) => ReactElement | string
 >;
 
-const useBuildTableRowConfig = (showMoreAction = false) => {
+const useBuildTableRowConfig = (showMoreAction = false, tabIndex = 0) => {
   // const navigation = useAppNavigation();
   const colors = useThemeValue(
     ['textSuccess', 'textCritical'],
@@ -271,7 +271,12 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
       ),
       'actions': (item) => (
         <XStack>
-          <MarketStar coingeckoId={item.coingeckoId} width={44} mx={0} />
+          <MarketStar
+            coingeckoId={item.coingeckoId}
+            width={44}
+            mx={0}
+            tabIndex={tabIndex}
+          />
           {showMoreAction ? (
             <MarketMore coingeckoId={item.coingeckoId} width={44} />
           ) : null}
@@ -279,7 +284,7 @@ const useBuildTableRowConfig = (showMoreAction = false) => {
       ),
     };
     return tableRowConfig;
-  }, [colors, showMoreAction]);
+  }, [colors, showMoreAction, tabIndex]);
 };
 
 function TableRow({
@@ -668,7 +673,7 @@ function BasicMarketHomeList({
     },
   );
 
-  const tableRowConfig = useBuildTableRowConfig(showMoreAction);
+  const tableRowConfig = useBuildTableRowConfig(showMoreAction, tabIndex);
 
   const toDetailPage = useCallback(
     (item: IMarketToken) => {
