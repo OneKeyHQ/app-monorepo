@@ -96,7 +96,10 @@ function NostrSignEventModal() {
       return sigHash;
     }
     return (
-      event?.content ?? `(${intl.formatMessage({ id: 'msg__no_content' })})`
+      event?.content ??
+      `(${intl.formatMessage({
+        id: ETranslations.dapp_connect_msg_no_content,
+      })})`
     );
   }, [signType, event, plaintext, ciphertext, sigHash, intl]);
 
@@ -106,11 +109,14 @@ function NostrSignEventModal() {
     }
     if (i18nSupportEventKinds.includes(Number(event?.kind))) {
       return intl.formatMessage({
-        id: `msg__nostr_event_kind_${event?.kind ?? 'unknown'}`,
-      } as any);
+        id: ETranslations[
+          // @ts-expect-error
+          `dapp_connect.nostr_event_kind_${event?.kind ?? 'unknown'}`
+        ],
+      });
     }
     return intl.formatMessage(
-      { id: 'msg__nostr_event_kind_unknown' },
+      { id: ETranslations.dapp_connect_nostr_event_kind_unknown },
       { kind: event?.kind },
     );
   }, [intl, signType, event]);
@@ -291,7 +297,10 @@ function NostrSignEventModal() {
       return (
         <YStack space="$2">
           <SizableText>
-            {intl.formatMessage({ id: 'form__nostr_plaintext' })}:
+            {intl.formatMessage({
+              id: ETranslations.dapp_connect_nostr_plaintext,
+            })}
+            :
           </SizableText>
           <TextArea disabled editable={false} numberOfLines={2}>
             {savedPlaintext}
@@ -325,7 +334,7 @@ function NostrSignEventModal() {
             </YStack>
             {signType === ENostrSignType.signEvent ? (
               <Checkbox
-                label="记住我的选择，不再提示"
+                label={ETranslations.dapp_connect_do_not_ask_again}
                 value={autoSign}
                 onChange={(checked) => setAutoSign(!!checked)}
               />

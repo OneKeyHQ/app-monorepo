@@ -132,7 +132,7 @@ function LnurlPayRequestModal() {
         if (!isValidInvoice) {
           Toast.error({
             title: intl.formatMessage({
-              id: 'msg__invalid_lightning_payment_request',
+              id: ETranslations.dapp_connect_msg_invalid_lightning_payment_request,
             }),
           });
         }

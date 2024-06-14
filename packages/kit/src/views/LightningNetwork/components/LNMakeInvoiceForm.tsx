@@ -175,7 +175,9 @@ function LNMakeInvoiceForm(props: IMakeInvoiceFormProps) {
           maxLength: {
             value: 40,
             message: intl.formatMessage(
-              { id: 'msg_description_can_be_up_to_int_characters' },
+              {
+                id: ETranslations.dapp_connect_msg_invalid_lightning_payment_request,
+              },
               { 0: '40' },
             ),
           },
