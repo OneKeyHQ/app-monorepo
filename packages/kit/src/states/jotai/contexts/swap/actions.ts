@@ -438,7 +438,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         alertsRes = [
           ...alertsRes,
           {
-            message: 'No connected wallet.',
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.swap_page_button_no_connected_wallet,
+            }),
             alertLevel: ESwapAlertLevel.ERROR,
           },
         ];

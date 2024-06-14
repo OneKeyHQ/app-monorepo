@@ -175,6 +175,19 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
+
+      if (!fromToken || !toToken) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_select_token,
+        });
+        infoRes.disable = true;
+      }
+      if (!fromTokenAmount) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_enter_amount,
+        });
+        infoRes.disable = true;
+      }
     }
     return infoRes;
   }, [
