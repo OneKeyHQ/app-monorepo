@@ -28,6 +28,7 @@ import {
 import { CoreSDKLoader } from '../hardware/instance';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
 import type { IOneKeyDeviceFeatures } from '../../types/device';
@@ -337,11 +338,12 @@ function buildLocalTokenId({
 
 function buildLocalHistoryId(params: {
   networkId: string;
+  accountAddress: string;
   txid: string;
-  accountId: string;
+  xpub?: string;
 }) {
-  const { networkId, txid, accountId } = params;
-  const historyId = `${networkId}_${txid}_${accountId}`;
+  const { networkId, txid, accountAddress, xpub } = params;
+  const historyId = `${networkId}_${txid}_${xpub ?? accountAddress}`;
   return historyId;
 }
 
@@ -610,6 +612,10 @@ function formatUtxoPath(path: string): string {
   return newPath;
 }
 
+function buildDeviceDbId() {
+  return generateUUID();
+}
+
 async function buildDeviceName({
   device,
   features,
@@ -686,6 +692,7 @@ export default {
   buildLnToBtcPath,
   buildLightningAccountId,
   buildDeviceName,
+  buildDeviceDbId,
   getWalletConnectMergedNetwork,
   formatUtxoPath,
   buildPathFromTemplate,

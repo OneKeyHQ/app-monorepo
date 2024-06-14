@@ -157,7 +157,7 @@ const PasswordVerify = ({
           autoFocus
           selectTextOnFocus
           size="large"
-          disabled={status.value === EPasswordVerifyStatus.VERIFYING}
+          editable={status.value !== EPasswordVerifyStatus.VERIFYING}
           placeholder={intl.formatMessage({
             id: ETranslations.auth_enter_your_password,
           })}

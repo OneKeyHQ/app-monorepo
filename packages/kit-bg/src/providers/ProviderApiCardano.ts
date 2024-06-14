@@ -193,7 +193,7 @@ class ProviderApiCardano extends ProviderApiBase {
         networkId: networkId ?? '',
         signOnly: true,
       });
-    return result;
+    return result.rawTx;
   }
 
   @providerApiMethod()

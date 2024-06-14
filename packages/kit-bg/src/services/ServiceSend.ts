@@ -182,9 +182,12 @@ class ServiceSend extends ServiceBase {
 
     const devSetting =
       await this.backgroundApi.serviceDevSetting.getDevSetting();
+    const alwaysSignOnlySendTxInDev =
+      devSetting?.settings?.alwaysSignOnlySendTx;
+
     // skip external account send, as rawTx is empty
     if (
-      !devSetting?.settings?.alwaysSignOnlySendTx &&
+      !alwaysSignOnlySendTxInDev &&
       !signOnly &&
       !accountUtils.isExternalAccount({
         accountId,
@@ -310,12 +313,12 @@ class ServiceSend extends ServiceBase {
 
     const maxPendingNonce =
       await this.backgroundApi.simpleDb.localHistory.getMaxPendingNonce({
-        accountId,
+        accountAddress,
         networkId,
       });
     const pendingNonceList =
       await this.backgroundApi.simpleDb.localHistory.getPendingNonceList({
-        accountId,
+        accountAddress,
         networkId,
       });
     let nextNonce = Math.max(
