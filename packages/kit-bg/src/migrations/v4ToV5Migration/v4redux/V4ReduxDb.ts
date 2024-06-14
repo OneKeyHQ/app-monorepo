@@ -2,13 +2,19 @@ import { isPlainObject, isString } from 'lodash';
 
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
-import type { IV4ReduxSettingsState } from '../v4types/v4typesRedux';
+import type {
+  IV4ReduxContactsState,
+  IV4ReduxSettingsState,
+} from '../v4types/v4typesRedux';
 
 type IV4SimpleDbRawData = {
   settings: string;
+  contacts: string;
 };
+
 export type IV4SimpleDbData = {
   settings: IV4ReduxSettingsState | undefined;
+  contacts: IV4ReduxContactsState | undefined;
 };
 
 export class V4ReduxDb {
@@ -57,6 +63,7 @@ export class V4ReduxDb {
   parseReduxData(data: IV4SimpleDbRawData): IV4SimpleDbData {
     return {
       settings: this.parseReduxField(data.settings),
+      contacts: this.parseReduxField(data.contacts),
     };
   }
 }
