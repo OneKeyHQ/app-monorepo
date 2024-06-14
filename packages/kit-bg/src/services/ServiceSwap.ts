@@ -16,6 +16,8 @@ import type {
   IFetchQuotesParams,
   IFetchResponse,
   IFetchSwapTxHistoryStatusResponse,
+  IFetchTokenDetailParams,
+  IFetchTokenListParams,
   IFetchTokensParams,
   ISwapNetwork,
   ISwapNetworkBase,
@@ -105,20 +107,39 @@ export default class ServiceSwap extends ServiceBase {
     limit = 50,
     accountAddress,
     accountNetworkId,
-    accountXpub,
+    accountId,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
     await this.cancelFetchTokenList();
-    const params = {
+    const params: IFetchTokenListParams = {
       protocol: EProtocolOfExchange.SWAP,
       networkId,
       keywords,
       limit,
       accountAddress,
       accountNetworkId,
-      accountXpub,
     };
     this._tokenListAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
+    if (accountId && accountAddress && networkId) {
+      params.accountXpub =
+        await this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        });
+
+      const inscriptionProtection =
+        await this.backgroundApi.serviceSetting.getInscriptionProtection();
+      const checkInscriptionProtectionEnabled =
+        await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+          {
+            networkId,
+            accountId,
+          },
+        );
+      const withCheckInscription =
+        checkInscriptionProtectionEnabled && inscriptionProtection;
+      params.withCheckInscription = withCheckInscription;
+    }
     try {
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
         '/swap/v1/tokens',
@@ -149,22 +170,39 @@ export default class ServiceSwap extends ServiceBase {
   async fetchSwapTokenDetails({
     networkId,
     accountAddress,
-    xpub,
+    accountId,
     contractAddress,
   }: {
     networkId: string;
     accountAddress?: string;
-    xpub?: string;
+    accountId?: string;
     contractAddress: string;
   }): Promise<ISwapToken[] | undefined> {
-    const params = {
+    const params: IFetchTokenDetailParams = {
       protocol: EProtocolOfExchange.SWAP,
       networkId,
       accountAddress,
-      xpub,
       contractAddress,
     };
     const client = await this.getClient(EServiceEndpointEnum.Swap);
+    if (accountId && accountAddress && networkId) {
+      params.xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
+        accountId,
+        networkId,
+      });
+      const inscriptionProtection =
+        await this.backgroundApi.serviceSetting.getInscriptionProtection();
+      const checkInscriptionProtectionEnabled =
+        await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+          {
+            networkId,
+            accountId,
+          },
+        );
+      const withCheckInscription =
+        checkInscriptionProtectionEnabled && inscriptionProtection;
+      params.withCheckInscription = withCheckInscription;
+    }
     const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
       '/swap/v1/token/detail',
       { params },
