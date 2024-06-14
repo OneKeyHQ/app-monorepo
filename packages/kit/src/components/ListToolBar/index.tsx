@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import type { ISearchBarProps } from '@onekeyhq/components';
 import {
   SearchBar,
@@ -6,6 +8,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps = {
   searchProps?: ISearchBarProps & { searchResultCount?: number };
@@ -13,6 +16,7 @@ type IProps = {
 };
 function ListToolToolBar({ searchProps, headerRight }: IProps) {
   const media = useMedia();
+  const intl = useIntl();
 
   if (!searchProps && !headerRight) return null;
 
@@ -21,7 +25,9 @@ function ListToolToolBar({ searchProps, headerRight }: IProps) {
       <XStack alignItems="center" justifyContent="space-between">
         {searchProps ? (
           <SearchBar
-            placeholder="Search..."
+            placeholder={`${intl.formatMessage({
+              id: ETranslations.global_search,
+            })}...`}
             containerProps={{
               flex: 1,
             }}

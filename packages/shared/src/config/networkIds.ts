@@ -49,6 +49,7 @@ export type INetworkShortCode =
   | 'lightning'
   | 'ltc'
   | 'trx'
+  | 'neurai'
   | 'sepolia';
 
 const checkErrors: string[] = [];

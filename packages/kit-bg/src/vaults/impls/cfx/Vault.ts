@@ -3,10 +3,13 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
+import { pubkeyToCfxAddress } from '@onekeyhq/core/src/chains/cfx/sdkCfx';
 import type { IEncodedTxCfx } from '@onekeyhq/core/src/chains/cfx/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import { uncompressPublicKey } from '@onekeyhq/core/src/secret';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import numberUtils, {
@@ -120,11 +123,23 @@ export default class Vault extends VaultBase {
   ): Promise<INetworkAccountAddressDetail> {
     const { networkId } = params;
     const account = params.account as IDBVariantAccount;
+    const networkInfo = await this.getNetworkInfo();
+    const chainId = await this.getNetworkChainId();
 
-    const address = account.addresses[networkId];
+    let cfxAddress = account.addresses[networkId];
+
+    if (account.pub) {
+      const compressedPublicKey = bufferUtils.toBuffer(account.pub);
+      const uncompressedPublicKey = uncompressPublicKey(
+        networkInfo.curve,
+        compressedPublicKey,
+      );
+      cfxAddress = await pubkeyToCfxAddress(uncompressedPublicKey, chainId);
+    }
 
     const { normalizedAddress, displayAddress, isValid } =
-      await this.validateAddress(address);
+      await this.validateAddress(cfxAddress);
+
     return {
       networkId,
       normalizedAddress,

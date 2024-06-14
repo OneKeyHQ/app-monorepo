@@ -289,6 +289,7 @@ export default class Vault extends VaultBase {
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
+      xpub: (account as IDBUtxoAccount).xpub,
       extraInfo: null,
       payload: {
         type: EOnChainHistoryTxType.Send,

@@ -58,4 +58,9 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ILocalTokens> 
       }
     }
   }
+
+  @backgroundMethod()
+  async clearTokens() {
+    await this.setRawData({ data: {} });
+  }
 }

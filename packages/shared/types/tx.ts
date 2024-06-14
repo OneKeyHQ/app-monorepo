@@ -86,6 +86,7 @@ export type IDecodedTx = {
 
   networkId: string;
   accountId: string;
+  xpub?: string;
 
   feeInfo?: IFeeInfoUnit;
   totalFeeInNative?: string;

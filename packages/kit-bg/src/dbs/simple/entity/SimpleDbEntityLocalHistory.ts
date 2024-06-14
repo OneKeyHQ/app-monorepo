@@ -1,6 +1,7 @@
 import { isEmpty, isNil, uniqBy } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -112,16 +113,24 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
   @backgroundMethod()
   public async getAccountLocalHistoryPendingTxs(params: {
-    accountId: string;
     networkId: string;
+    accountAddress: string;
+    xpub?: string;
     tokenIdOnNetwork?: string;
   }) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountAddress, xpub, networkId, tokenIdOnNetwork } = params;
+
+    if (!accountAddress && !xpub) {
+      throw new OneKeyInternalError('accountAddress or xpub is required');
+    }
+
     const pendingTxs = (await this.getRawData())?.pendingTxs || [];
+
     let accountPendingTxs = this._getAccountLocalHistoryTxs({
       txs: pendingTxs,
-      accountId,
       networkId,
+      xpub,
+      accountAddress,
     });
 
     accountPendingTxs = this._arrangeLocalTxs({
@@ -134,15 +143,22 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
   @backgroundMethod()
   public async getAccountLocalHistoryConfirmedTxs(params: {
-    accountId: string;
     networkId: string;
+    accountAddress: string;
+    xpub?: string;
     tokenIdOnNetwork?: string;
   }) {
-    const { accountId, networkId, tokenIdOnNetwork } = params;
+    const { accountAddress, xpub, networkId, tokenIdOnNetwork } = params;
+
+    if (!accountAddress && !xpub) {
+      throw new OneKeyInternalError('accountAddress or xpub is required');
+    }
+
     const confirmedTxs = (await this.getRawData())?.confirmedTxs || [];
     let accountConfirmedTxs = this._getAccountLocalHistoryTxs({
       txs: confirmedTxs,
-      accountId,
+      accountAddress,
+      xpub,
       networkId,
     });
 
@@ -156,12 +172,14 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
   @backgroundMethod()
   async getPendingNonceList(props: {
-    accountId: string;
     networkId: string;
+    accountAddress: string;
+    xpub?: string;
   }): Promise<number[]> {
-    const { accountId, networkId } = props;
+    const { accountAddress, xpub, networkId } = props;
     const pendingTxs = await this.getAccountLocalHistoryPendingTxs({
-      accountId,
+      accountAddress,
+      xpub,
       networkId,
     });
     const nonceList = pendingTxs.map((tx) => tx.decodedTx.nonce);
@@ -170,8 +188,9 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
 
   @backgroundMethod()
   async getMaxPendingNonce(props: {
-    accountId: string;
     networkId: string;
+    accountAddress: string;
+    xpub?: string;
   }): Promise<number | null> {
     const nonceList = await this.getPendingNonceList(props);
     if (nonceList.length) {
@@ -184,15 +203,33 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     return null;
   }
 
+  @backgroundMethod()
+  async clearLocalHistory() {
+    return this.setRawData({
+      pendingTxs: [],
+      confirmedTxs: [],
+    });
+  }
+
   _getAccountLocalHistoryTxs(params: {
-    accountId: string;
     networkId: string;
+    accountAddress: string;
+    xpub?: string;
     txs: IAccountHistoryTx[];
   }) {
-    const { accountId, networkId, txs } = params;
+    const { accountAddress, xpub, networkId, txs } = params;
+
+    if (xpub) {
+      return txs.filter(
+        (tx) =>
+          tx.decodedTx.xpub?.toLowerCase() === xpub.toLowerCase() &&
+          tx.decodedTx.networkId === networkId,
+      );
+    }
+
     return txs.filter(
       (tx) =>
-        tx.decodedTx.accountId === accountId &&
+        tx.decodedTx.owner.toLowerCase() === accountAddress.toLowerCase() &&
         tx.decodedTx.networkId === networkId,
     );
   }

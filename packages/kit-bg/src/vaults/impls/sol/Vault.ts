@@ -648,11 +648,11 @@ export default class Vault extends VaultBase {
       signature = null;
     }
 
-    const owner = await this.getAccountAddress();
+    const accountAddress = await this.getAccountAddress();
     const decodedTx: IDecodedTx = {
       txid: signature ? bs58.encode(signature) : '',
-      owner,
-      signer: (nativeTx as Transaction).feePayer?.toString() || owner,
+      owner: accountAddress,
+      signer: (nativeTx as Transaction).feePayer?.toString() || accountAddress,
       nonce: 0,
       actions,
       status: EDecodedTxStatus.Pending,

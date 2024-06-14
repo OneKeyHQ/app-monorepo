@@ -46,7 +46,7 @@ import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 
-import type { IDBWalletType } from '../../../dbs/local/types';
+import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionParams,
@@ -218,6 +218,7 @@ export default class Vault extends VaultBase {
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
+      xpub: (account as IDBUtxoAccount).xpub,
       extraInfo: null,
       payload: {
         type: EOnChainHistoryTxType.Send,
