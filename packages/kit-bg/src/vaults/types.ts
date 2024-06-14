@@ -132,7 +132,6 @@ export type IVaultSettings = {
 
   minTransferAmount?: string;
   utxoDustAmount?: string;
-  signOnlyFullTxRequired?: boolean;
 
   accountType: EDBAccountType;
   accountDeriveInfo: IAccountDeriveInfoMap;
