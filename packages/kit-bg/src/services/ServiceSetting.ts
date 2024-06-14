@@ -128,9 +128,11 @@ class ServiceSetting extends ServiceBase {
   public async clearCacheOnApp(values: IClearCacheOnAppState) {
     if (values.tokenAndNFT) {
       // clear token and nft
+      await this.backgroundApi.simpleDb.localTokens.clearRawData();
     }
     if (values.transactionHistory) {
       // clear transaction history
+      await this.backgroundApi.simpleDb.localHistory.clearRawData();
     }
     if (values.swapHistory) {
       // clear swap history
